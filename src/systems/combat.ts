@@ -1,21 +1,36 @@
 import { ItemStats, Enemy, LootDrop } from '../types';
 
 export interface CombatResult {
-  victory: boolean;
+  victory: boolean; // mutable — can be overridden if player dies from HP loss
   playerDamage: number;
   drops: { materialId: string; quantity: number }[];
 }
 
 export function resolveCombat(playerStats: ItemStats, enemy: Enemy): CombatResult {
-  const playerPower = playerStats.attack + playerStats.defense + playerStats.health;
-  const enemyPower = enemy.stats.attack + enemy.stats.defense + enemy.stats.health;
+  const rounds = 3 + Math.floor(Math.random() * 3);
+  let playerHP = playerStats.health;
+  let enemyHP = enemy.stats.health;
+  let totalPlayerDamage = 0;
 
-  const playerDamage = Math.max(0, enemy.stats.attack - playerStats.defense * 0.5);
-  const victory = playerPower > enemyPower * 0.7;
+  for (let i = 0; i < rounds && playerHP > 0 && enemyHP > 0; i++) {
+    const playerHit = Math.max(1, playerStats.attack - enemy.stats.defense * 0.4 + Math.floor(Math.random() * 6) - 3);
+    enemyHP -= playerHit;
 
+    if (enemyHP > 0) {
+      const enemyHit = Math.max(1, enemy.stats.attack - playerStats.defense * 0.4 + Math.floor(Math.random() * 6) - 3);
+      playerHP -= enemyHit;
+      totalPlayerDamage += enemyHit;
+    }
+  }
+
+  const victory = enemyHP <= 0;
+  const luckBonus = Math.random() * 100 < playerStats.luck;
   const drops = victory ? rollLoot(enemy.lootTable) : [];
+  if (victory && luckBonus && drops.length > 0) {
+    drops[0].quantity += 1;
+  }
 
-  return { victory, playerDamage, drops };
+  return { victory, playerDamage: totalPlayerDamage, drops };
 }
 
 export function rollLoot(lootTable: LootDrop[]): { materialId: string; quantity: number }[] {

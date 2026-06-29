@@ -1,4 +1,5 @@
 import { Inventory } from './inventory';
+import { MazeFloor, Dir } from '../systems/maze';
 
 export interface MetaProgress {
   metaCurrency: number;
@@ -24,10 +25,15 @@ export class GameState {
 }
 
 export interface RunState {
-  dungeonMap: DungeonNode[];
-  currentNodeId: string;
+  maze: MazeFloor;
+  playerX: number;
+  playerY: number;
+  facing: Dir;
   runInventory: Inventory;
   isActive: boolean;
+  playerHP: number;
+  playerMaxHP: number;
+  depth: number;
 }
 
 export interface DungeonNode {

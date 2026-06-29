@@ -1,7 +1,7 @@
 import './style.css';
 import { GameState } from './state/game-state';
 import { Market } from './systems/market';
-import { RunManager, NodeOutcome } from './systems/run-manager';
+import { RunManager, NodeOutcome, MoveAction } from './systems/run-manager';
 import { ItemRenderer } from './renderer/item-renderer';
 import { craft } from './systems/crafting';
 import { saveGame, loadGame } from './state/persistence';
@@ -10,7 +10,7 @@ import { Item } from './types';
 import { createLayout } from './ui/panels';
 import { HUD } from './ui/hud';
 import { InventoryView } from './ui/inventory-view';
-import { DungeonMapView } from './ui/dungeon-map-view';
+import { DungeonGridView } from './ui/dungeon-grid-view';
 import { MarketView } from './ui/market-view';
 import { CraftingView } from './ui/crafting-view';
 import { MetaView } from './ui/meta-view';
@@ -27,7 +27,11 @@ const app = document.getElementById('app')!;
 const panels = createLayout(app);
 
 // --- Views ---
-const hud = new HUD(panels.rightPanel);
+// Panels are hidden by default and toggled with keybinds (I / P).
+// NOTE: do NOT use display:none — removing a grid item shifts the remaining
+// items into the wrong tracks (center collapses into the 0px track). Collapse
+// the grid track via the class instead; panel content is clipped by overflow.
+app.classList.add('panels-collapsed-left', 'panels-collapsed-right');
 
 // Left panel: tabs for inventory and crafting
 const leftTabs = document.createElement('div');
@@ -56,16 +60,18 @@ leftTabs.addEventListener('click', (e) => {
 const inventoryView = new InventoryView(inventoryContainer);
 const craftingView = new CraftingView(craftingContainer);
 
-// Right panel: HUD + market
+// Right panel: Status / personal (HUD)
 const hudContainer = document.createElement('div');
 hudContainer.id = 'hud-container';
 panels.rightPanel.appendChild(hudContainer);
 
+const hudView = new HUD(hudContainer);
+
+// Market: shown as an end-of-dungeon merchant event overlay in the center panel.
 const marketContainer = document.createElement('div');
 marketContainer.id = 'market-container';
-panels.rightPanel.appendChild(marketContainer);
-
-const hudView = new HUD(hudContainer);
+marketContainer.style.display = 'none';
+panels.centerPanel.appendChild(marketContainer);
 const marketView = new MarketView(marketContainer);
 
 // Center panel: dungeon map / viewport / idle / meta
@@ -73,7 +79,7 @@ const dungeonContainer = document.createElement('div');
 dungeonContainer.id = 'dungeon-container';
 panels.centerPanel.appendChild(dungeonContainer);
 
-const dungeonMapView = new DungeonMapView(dungeonContainer);
+const dungeonMapView = new DungeonGridView(dungeonContainer);
 
 const metaContainer = document.createElement('div');
 metaContainer.id = 'meta-container';
@@ -90,7 +96,7 @@ panels.centerPanel.appendChild(outcomeToast);
 // Idle view
 const idleView = document.createElement('div');
 idleView.id = 'idle-view';
-idleView.innerHTML = '<button id="btn-start-run" class="btn-primary">Start Dungeon Run</button>';
+idleView.innerHTML = '<div style="text-align:center"><button id="btn-start-run" class="btn-primary">Start Dungeon Run</button><p style="margin-top:16px;color:#888;font-size:19px">Press <b>I</b> for Inventory &amp; Crafting · <b>P</b> for Status</p></div>';
 panels.centerPanel.appendChild(idleView);
 
 // Extract button
@@ -171,7 +177,45 @@ function showMetaView(): void {
 function hideMetaView(): void {
   showingMeta = false;
   metaContainer.style.display = 'none';
+  if (state.runState && !state.runState.isActive) {
+    state.runState = null;
+  }
+  saveGame(state);
   updateCenterView();
+}
+
+// --- Market Event (end-of-dungeon merchant) ---
+let showingMarket = false;
+
+function showMarketEvent(): void {
+  showingMarket = true;
+  dungeonContainer.style.display = 'none';
+  idleView.style.display = 'none';
+  extractBtn.style.display = 'none';
+  marketContainer.style.display = 'flex';
+  renderMarketEvent();
+}
+
+function renderMarketEvent(): void {
+  marketView.update(market, state, handleBuyMaterial, handleSellMaterial);
+  // Append a banner + continue button into the market overlay.
+  const banner = document.createElement('div');
+  banner.className = 'market-event-banner';
+  banner.textContent = 'A wandering merchant waits at the dungeon exit. Trade your haul before returning.';
+  marketContainer.insertBefore(banner, marketContainer.firstChild);
+
+  const cont = document.createElement('button');
+  cont.className = 'btn-continue';
+  cont.textContent = 'Leave the merchant →';
+  cont.addEventListener('click', hideMarketEvent);
+  marketContainer.appendChild(cont);
+}
+
+function hideMarketEvent(): void {
+  showingMarket = false;
+  marketContainer.style.display = 'none';
+  showMetaView();
+  updateUI();
 }
 
 backBtn.addEventListener('click', hideItemViewport);
@@ -182,20 +226,23 @@ function handleStartRun(): void {
   updateUI();
 }
 
-function handleMoveToNode(nodeId: string): void {
-  const outcome = runManager.moveToNode(state, nodeId);
-  showOutcome(outcome);
+function handleMove(action: MoveAction): void {
+  const outcome = runManager.move(state, action);
+  if (outcome.type !== 'none') showOutcome(outcome);
 
-  // Check if run ended due to death or boss victory
+  // Run ends on death or boss victory (auto-extract sets isActive false).
   const isRunEnded = !state.runState?.isActive;
   if (isRunEnded) {
     saveGame(state);
-    // Delay meta view to let outcome toast display first
+    // Survived a boss win = reached the merchant; death = no merchant.
+    const survived = outcome.type === 'boss' && outcome.result.victory;
     setTimeout(() => {
-      showMetaView();
+      if (survived) showMarketEvent();
+      else showMetaView();
       updateUI();
     }, 500);
   } else {
+    saveGame(state);
     updateUI();
   }
 }
@@ -203,7 +250,8 @@ function handleMoveToNode(nodeId: string): void {
 function handleExtract(): void {
   runManager.extractRun(state);
   saveGame(state);
-  showMetaView();
+  // Extracting alive = you reach the dungeon-exit merchant.
+  showMarketEvent();
   updateUI();
 }
 
@@ -212,7 +260,7 @@ function handleBuyMaterial(materialId: string): void {
   if (result && state.gold >= result.cost) {
     state.gold -= result.cost;
     state.stash.addMaterial(materialId, 1);
-    updateUI();
+    refreshAfterTrade();
   }
 }
 
@@ -222,8 +270,14 @@ function handleSellMaterial(materialId: string): void {
     const revenue = market.sellMaterial(materialId, 1);
     state.stash.removeMaterial(materialId, 1);
     state.gold += revenue;
-    updateUI();
+    refreshAfterTrade();
   }
+}
+
+function refreshAfterTrade(): void {
+  saveGame(state);
+  updateUI();
+  if (showingMarket) renderMarketEvent();
 }
 
 function handleCraft(recipe: typeof RECIPES[number]): void {
@@ -246,16 +300,27 @@ function showOutcome(outcome: NodeOutcome): void {
       text = 'Treasure! Found: ' + outcome.materials.map(m => `${m.materialId} x${m.quantity}`).join(', ');
       break;
     case 'combat':
-      text = outcome.result.victory ? 'Victory!' : 'Defeated! Run lost.';
+      text = outcome.result.victory
+        ? `Victory! (-${outcome.result.playerDamage} HP)`
+        : `Defeated! Lost 25% gold. Run over.`;
       break;
     case 'boss':
-      text = outcome.result.victory ? `Boss defeated! +${outcome.metaReward} meta` : 'Boss defeated you! Run lost.';
+      text = outcome.result.victory
+        ? `Boss defeated! Run won! +${outcome.metaReward} meta — loot extracted.`
+        : `Boss crushed you! Lost 25% gold.`;
+      break;
+    case 'descend':
+      text = `Descended to depth ${outcome.depth}. The dungeon deepens...`;
+      break;
+    case 'none':
       break;
     case 'shop':
-      text = 'A shop appears. (Use market panel)';
+      text = 'A merchant cache! The real market awaits at the dungeon exit.';
       break;
     case 'trap':
-      text = `Trap! Took ${outcome.damage} damage.`;
+      text = state.runState?.isActive === false
+        ? `Trap! ${outcome.damage} damage — you died! Lost 25% gold.`
+        : `Trap! Took ${outcome.damage} HP damage.`;
       break;
     case 'event':
       text = outcome.text;
@@ -270,13 +335,14 @@ function showOutcome(outcome: NodeOutcome): void {
 function updateCenterView(): void {
   if (viewingItem) return;
   if (showingMeta) return;
+  if (showingMarket) return;
 
   if (state.runState?.isActive) {
     dungeonContainer.style.display = '';
     idleView.style.display = 'none';
     extractBtn.style.display = 'block';
     dungeonMapView.show();
-    dungeonMapView.update(state.runState, handleMoveToNode);
+    dungeonMapView.update(state.runState, handleMove);
   } else {
     dungeonContainer.style.display = 'none';
     idleView.style.display = 'flex';
@@ -289,7 +355,6 @@ function updateUI(): void {
   hudView.update(state);
   inventoryView.update(state, handleSelectItem);
   craftingView.update(state, RECIPES, handleCraft);
-  marketView.update(market, state, handleBuyMaterial, handleSellMaterial);
   updateCenterView();
 }
 
@@ -297,10 +362,33 @@ function updateUI(): void {
 idleView.querySelector('#btn-start-run')!.addEventListener('click', handleStartRun);
 extractBtn.addEventListener('click', handleExtract);
 
+// --- Panel Toggles (keybinds) ---
+function togglePanel(collapsedClass: string): void {
+  const collapsed = app.classList.toggle(collapsedClass); // true when class now present
+  if (!collapsed) updateUI(); // panel just opened -> refresh its contents
+}
+
+window.addEventListener('keydown', (e) => {
+  // Ignore if typing in an input.
+  if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
+  switch (e.key) {
+    case 'i':
+    case 'I':
+      e.preventDefault();
+      togglePanel('panels-collapsed-left');
+      break;
+    case 'p':
+    case 'P':
+      e.preventDefault();
+      togglePanel('panels-collapsed-right');
+      break;
+  }
+});
+
 // --- Game Loop ---
+// Market prices drift over time so each merchant visit differs.
 setInterval(() => {
   market.tick();
-  updateUI();
 }, 5000);
 
 // --- Save/Load ---

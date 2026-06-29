@@ -1,12 +1,31 @@
+/* VT323 loaded via <link> in index.html. Renders small per-glyph -> sizes bumped well up. */
+:root { --font-mono: 'VT323', 'Courier New', monospace; }
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: monospace; background: #1a1a2e; color: #eee; height: 100vh; overflow: hidden; }
+body {
+  font-family: var(--font-mono);
+  font-size: 24px;
+  letter-spacing: 0.3px;
+  background: #1a1a2e;
+  color: #eee;
+  height: 100vh;
+  overflow: hidden;
+}
 #app { display: grid; grid-template-columns: 250px 1fr 300px; grid-template-rows: 1fr; height: 100vh; }
+/* Panels are toggled with I / P; collapse their grid track when hidden. */
+#app.panels-collapsed-left { grid-template-columns: 0 1fr 300px; }
+#app.panels-collapsed-right { grid-template-columns: 250px 1fr 0; }
+#app.panels-collapsed-left.panels-collapsed-right { grid-template-columns: 0 1fr 0; }
+/* When a side track collapses to 0, clip its panel so content can't spill. */
+#app.panels-collapsed-left #left-panel,
+#app.panels-collapsed-right #right-panel { overflow: hidden; padding: 0; border: none; }
 
 .panel {
   padding: 10px;
   overflow-y: auto;
   border-right: 1px solid #333;
   position: relative;
+  min-width: 0; /* allow 0px grid track to actually collapse */
 }
 .panel:last-child { border-right: none; }
 
@@ -19,31 +38,62 @@ body { font-family: monospace; background: #1a1a2e; color: #eee; height: 100vh; 
   border: 1px solid #444;
   color: #aaa;
   cursor: pointer;
-  font-family: monospace;
-  font-size: 12px;
+  font-family: var(--font-mono);
+  font-size: 24px;
 }
 .tab.active { background: #333; color: #fff; border-color: #666; }
 
 /* HUD */
 .hud { margin-bottom: 12px; }
-.hud h3 { margin-bottom: 6px; color: #aaa; font-size: 13px; text-transform: uppercase; }
-.hud-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 13px; }
+.hud h3 { margin-bottom: 6px; color: #aaa; font-size: 25px; text-transform: uppercase; }
+.hud-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 25px; }
 .gold-value { color: #ffd700; }
 
 /* Inventory */
-.inventory-view h3, .crafting-view h3, .market-view h3 { margin-bottom: 6px; color: #aaa; font-size: 13px; text-transform: uppercase; }
+.inventory-view h3, .crafting-view h3, .market-view h3 { margin-bottom: 6px; color: #aaa; font-size: 25px; text-transform: uppercase; }
 .inv-section { margin-bottom: 10px; }
-.inv-section h4 { font-size: 12px; color: #888; margin-bottom: 4px; }
+.inv-section h4 { font-size: 24px; color: #888; margin-bottom: 4px; }
 .inv-list { list-style: none; }
-.inv-list li { padding: 3px 4px; font-size: 12px; border-bottom: 1px solid #222; }
+.inv-list li { padding: 3px 4px; font-size: 24px; border-bottom: 1px solid #222; }
 .inv-list li:hover { background: #252540; }
-.inv-empty { color: #555; font-size: 12px; font-style: italic; }
-.item-type { color: #666; font-size: 11px; }
+.inv-empty { color: #555; font-size: 24px; font-style: italic; }
+.item-type { color: #666; font-size: 23px; }
 
 /* Dungeon Map */
-.dungeon-map { width: 100%; }
-.dungeon-svg { display: block; margin: 0 auto; }
-.map-legend { text-align: center; font-size: 11px; color: #666; padding: 6px 0; }
+.dungeon-map { width: 100%; height: 100%; flex: 1; }
+.dungeon-3d { width: 100%; height: 100%; flex: 1; }
+.dungeon-grid { width: 100%; height: 100%; flex: 1; }
+
+/* Market event overlay (end-of-dungeon merchant) */
+#market-container {
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  flex: 1;
+  width: 100%;
+  overflow-y: auto;
+  padding: 24px;
+  gap: 12px;
+}
+#market-container .market-view {
+  background: #252540;
+  border: 2px solid #6a5a3a;
+  border-radius: 4px;
+  padding: 20px;
+  max-width: 560px;
+  width: 100%;
+}
+.market-event-banner {
+  background: #3a2a1a;
+  border: 1px solid #6a5a3a;
+  border-radius: 4px;
+  padding: 12px 16px;
+  max-width: 560px;
+  width: 100%;
+  font-size: 25px;
+  color: #e8c890;
+  text-align: center;
+}
 
 /* Market */
 .market-list { list-style: none; }
@@ -52,24 +102,24 @@ body { font-family: monospace; background: #1a1a2e; color: #eee; height: 100vh; 
   align-items: center;
   gap: 6px;
   padding: 4px 0;
-  font-size: 12px;
+  font-size: 24px;
   border-bottom: 1px solid #222;
   flex-wrap: wrap;
 }
 .market-price { color: #ffd700; min-width: 60px; }
-.market-owned { color: #888; font-size: 11px; }
-.market-event { background: #3a2a1a; padding: 4px 8px; margin-bottom: 8px; border: 1px solid #664; font-size: 12px; }
+.market-owned { color: #888; font-size: 23px; }
+.market-event { background: #3a2a1a; padding: 4px 8px; margin-bottom: 8px; border: 1px solid #664; font-size: 24px; }
 
 /* Crafting */
 .recipe-list { list-style: none; }
 .recipe-item { padding: 6px 0; border-bottom: 1px solid #222; }
-.recipe-name { font-size: 13px; margin-bottom: 3px; }
-.recipe-ingredients { font-size: 11px; margin-bottom: 4px; }
+.recipe-name { font-size: 25px; margin-bottom: 3px; }
+.recipe-ingredients { font-size: 23px; margin-bottom: 4px; }
 
 /* Buttons */
 button {
-  font-family: monospace;
-  font-size: 11px;
+  font-family: var(--font-mono);
+  font-size: 23px;
   padding: 3px 8px;
   cursor: pointer;
   border: 1px solid #555;
@@ -81,7 +131,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 
 .btn-primary {
   padding: 10px 24px;
-  font-size: 14px;
+  font-size: 28px;
   background: #2a5a3a;
   border-color: #4a9a5a;
   color: #fff;
@@ -90,7 +140,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 
 .btn-secondary {
   padding: 6px 16px;
-  font-size: 12px;
+  font-size: 24px;
   background: #3a3a5a;
   border-color: #5a5a8a;
 }
@@ -99,8 +149,10 @@ button:disabled { opacity: 0.4; cursor: default; }
 #center-panel {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   position: relative;
+  overflow: hidden;
+  padding: 0;
 }
 #idle-view {
   display: flex;
@@ -127,7 +179,7 @@ button:disabled { opacity: 0.4; cursor: default; }
   background: #333;
   border: 1px solid #555;
   padding: 8px 16px;
-  font-size: 13px;
+  font-size: 25px;
   z-index: 20;
   white-space: nowrap;
 }
@@ -170,7 +222,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 .meta-wrapper h2 {
   margin-bottom: 16px;
   color: #ffd700;
-  font-size: 18px;
+  font-size: 34px;
   text-align: center;
   text-transform: uppercase;
 }
@@ -188,13 +240,13 @@ button:disabled { opacity: 0.4; cursor: default; }
 
 .meta-currency-display span:first-child {
   color: #aaa;
-  font-size: 12px;
+  font-size: 24px;
 }
 
 .meta-currency-value {
   color: #ffd700;
   font-weight: bold;
-  font-size: 14px;
+  font-size: 28px;
 }
 
 .upgrades-grid {
@@ -220,12 +272,12 @@ button:disabled { opacity: 0.4; cursor: default; }
 
 .upgrade-header h4 {
   margin: 0;
-  font-size: 13px;
+  font-size: 25px;
   color: #fff;
 }
 
 .upgrade-level {
-  font-size: 11px;
+  font-size: 23px;
   color: #888;
   background: #0a0a1a;
   padding: 2px 6px;
@@ -234,7 +286,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 
 .upgrade-description {
   margin: 0 0 8px 0;
-  font-size: 12px;
+  font-size: 24px;
   color: #aaa;
   line-height: 1.4;
 }
@@ -247,7 +299,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 }
 
 .upgrade-cost {
-  font-size: 12px;
+  font-size: 24px;
   color: #ffd700;
   font-weight: bold;
 }
@@ -255,7 +307,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 .btn-buy-upgrade {
   flex: 1;
   padding: 4px 8px;
-  font-size: 11px;
+  font-size: 23px;
   background: #2a5a3a;
   border-color: #4a9a5a;
   color: #fff;
@@ -275,7 +327,7 @@ button:disabled { opacity: 0.4; cursor: default; }
   display: block;
   width: 100%;
   padding: 10px 16px;
-  font-size: 13px;
+  font-size: 25px;
   background: #2a5a3a;
   border-color: #4a9a5a;
   color: #fff;

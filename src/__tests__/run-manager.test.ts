@@ -1,167 +1,196 @@
 import { describe, it, expect } from 'vitest';
-import { RunManager } from '../systems/run-manager';
+import { RunManager, NodeOutcome } from '../systems/run-manager';
 import { GameState, NodeType } from '../state/game-state';
+import { Dir, TileKind, isWalkable, MazeFloor } from '../systems/maze';
 
-describe('RunManager', () => {
-  it('startRun creates active run state', () => {
+/**
+ * Find an encounter tile of the given type, place the player on a walkable
+ * orthogonal neighbor facing it, then move forward onto it. Returns the
+ * outcome, or null if no such tile exists in this random maze.
+ */
+function stepOntoEncounter(
+  rm: RunManager,
+  state: GameState,
+  type: NodeType
+): NodeOutcome | null {
+  const maze = state.runState!.maze;
+  const target = findEncounter(maze, type);
+  if (!target) return null;
+  if (!placeFacing(state, maze, target.x, target.y)) return null;
+  return rm.move(state, 'forward');
+}
+
+function findEncounter(maze: MazeFloor, type: NodeType): { x: number; y: number } | null {
+  for (let y = 0; y < maze.height; y++) {
+    for (let x = 0; x < maze.width; x++) {
+      const t = maze.tiles[y * maze.width + x];
+      if (t.kind === TileKind.Encounter && t.encounter === type && !t.visited) {
+        return { x, y };
+      }
+    }
+  }
+  return null;
+}
+
+function findTile(maze: MazeFloor, kind: TileKind): { x: number; y: number } | null {
+  for (let y = 0; y < maze.height; y++) {
+    for (let x = 0; x < maze.width; x++) {
+      if (maze.tiles[y * maze.width + x].kind === kind) return { x, y };
+    }
+  }
+  return null;
+}
+
+/** Place player on a walkable neighbor of (tx,ty) facing it. */
+function placeFacing(state: GameState, maze: MazeFloor, tx: number, ty: number): boolean {
+  const neighbors: { x: number; y: number; dir: Dir }[] = [
+    { x: tx, y: ty + 1, dir: Dir.North }, // stand south, face north
+    { x: tx, y: ty - 1, dir: Dir.South },
+    { x: tx - 1, y: ty, dir: Dir.East },
+    { x: tx + 1, y: ty, dir: Dir.West },
+  ];
+  for (const n of neighbors) {
+    if (isWalkable(maze, n.x, n.y)) {
+      state.runState!.playerX = n.x;
+      state.runState!.playerY = n.y;
+      state.runState!.facing = n.dir;
+      return true;
+    }
+  }
+  return false;
+}
+
+describe('RunManager (maze)', () => {
+  it('startRun creates active run state on a maze', () => {
     const state = new GameState();
     const rm = new RunManager();
     rm.startRun(state);
     expect(state.runState).not.toBeNull();
     expect(state.runState!.isActive).toBe(true);
+    expect(state.runState!.maze.tiles.length).toBeGreaterThan(0);
   });
 
-  it('startRun initializes with Start node as current', () => {
+  it('player starts on a walkable tile', () => {
     const state = new GameState();
     const rm = new RunManager();
     rm.startRun(state);
-    const startNode = state.runState!.dungeonMap.find(n => n.type === NodeType.Start);
-    expect(startNode).toBeDefined();
-    expect(state.runState!.currentNodeId).toBe(startNode!.id);
+    const r = state.runState!;
+    expect(isWalkable(r.maze, r.playerX, r.playerY)).toBe(true);
   });
 
-  it('moveToNode on treasure gives loot', () => {
+  it('turning changes facing but not position', () => {
     const state = new GameState();
     const rm = new RunManager();
     rm.startRun(state);
-    const treasureNode = state.runState!.dungeonMap.find(n => n.type === NodeType.Treasure);
-    if (treasureNode) {
-      // Connect start to treasure for test
-      const start = state.runState!.dungeonMap.find(n => n.type === NodeType.Start)!;
-      start.connections = [treasureNode.id];
-      const outcome = rm.moveToNode(state, treasureNode.id);
+    const r = state.runState!;
+    const { playerX, playerY, facing } = r;
+    rm.move(state, 'turnRight');
+    expect(r.facing).toBe(((facing + 1) % 4) as Dir);
+    expect(r.playerX).toBe(playerX);
+    expect(r.playerY).toBe(playerY);
+  });
+
+  it('moving into a wall does not change position', () => {
+    const state = new GameState();
+    const rm = new RunManager();
+    rm.startRun(state);
+    const r = state.runState!;
+    // Box player in a position and aim at a wall by scanning.
+    // Force a wall ahead: find any floor tile with a wall neighbor.
+    for (let y = 1; y < r.maze.height - 1; y++) {
+      for (let x = 1; x < r.maze.width - 1; x++) {
+        if (!isWalkable(r.maze, x, y)) continue;
+        if (!isWalkable(r.maze, x, y - 1)) {
+          r.playerX = x;
+          r.playerY = y;
+          r.facing = Dir.North;
+          rm.move(state, 'forward');
+          expect(r.playerX).toBe(x);
+          expect(r.playerY).toBe(y);
+          return;
+        }
+      }
+    }
+  });
+
+  it('stepping onto treasure gives loot', () => {
+    const state = new GameState();
+    const rm = new RunManager();
+    rm.startRun(state);
+    const outcome = stepOntoEncounter(rm, state, NodeType.Treasure);
+    if (outcome) {
       expect(outcome.type).toBe('loot');
       expect(outcome.type === 'loot' && outcome.materials.length).toBeGreaterThan(0);
     }
   });
 
-  it('moveToNode marks node as completed', () => {
+  it('stepping onto shop returns shop outcome', () => {
     const state = new GameState();
     const rm = new RunManager();
     rm.startRun(state);
-    const treasureNode = state.runState!.dungeonMap.find(n => n.type === NodeType.Treasure);
-    if (treasureNode) {
-      const start = state.runState!.dungeonMap.find(n => n.type === NodeType.Start)!;
-      start.connections = [treasureNode.id];
-      rm.moveToNode(state, treasureNode.id);
-      expect(treasureNode.completed).toBe(true);
-    }
+    const outcome = stepOntoEncounter(rm, state, NodeType.Shop);
+    if (outcome) expect(outcome.type).toBe('shop');
   });
 
-  it('moveToNode updates currentNodeId', () => {
+  it('stepping onto trap deals HP damage', () => {
     const state = new GameState();
     const rm = new RunManager();
     rm.startRun(state);
-    const treasureNode = state.runState!.dungeonMap.find(n => n.type === NodeType.Treasure);
-    if (treasureNode) {
-      const start = state.runState!.dungeonMap.find(n => n.type === NodeType.Start)!;
-      start.connections = [treasureNode.id];
-      rm.moveToNode(state, treasureNode.id);
-      expect(state.runState!.currentNodeId).toBe(treasureNode.id);
+    const hpBefore = state.runState!.playerHP;
+    const outcome = stepOntoEncounter(rm, state, NodeType.Trap);
+    if (outcome && outcome.type === 'trap') {
+      expect(outcome.damage).toBeGreaterThan(0);
+      expect(state.runState!.playerHP).toBeLessThan(hpBefore);
     }
   });
 
-  it('moveToNode on combat returns combat outcome', () => {
+  it('stepping onto combat returns combat outcome', () => {
     const state = new GameState();
-    state.stash.addMaterial('iron', 100); // Give player strong stats
+    state.stash.addMaterial('iron', 100);
     const rm = new RunManager();
     rm.startRun(state);
-    const combatNode = state.runState!.dungeonMap.find(n => n.type === NodeType.Combat);
-    if (combatNode) {
-      const start = state.runState!.dungeonMap.find(n => n.type === NodeType.Start)!;
-      start.connections = [combatNode.id];
-      const outcome = rm.moveToNode(state, combatNode.id);
-      expect(outcome.type).toBe('combat');
-      expect(outcome.type === 'combat' && 'result' in outcome).toBe(true);
+    const outcome = stepOntoEncounter(rm, state, NodeType.Combat);
+    if (outcome && outcome.type === 'combat') {
+      expect('result' in outcome).toBe(true);
     }
   });
 
-  it('moveToNode on shop returns shop outcome', () => {
+  it('encounter tile is marked visited after resolving', () => {
     const state = new GameState();
     const rm = new RunManager();
     rm.startRun(state);
-    const shopNode = state.runState!.dungeonMap.find(n => n.type === NodeType.Shop);
-    if (shopNode) {
-      const start = state.runState!.dungeonMap.find(n => n.type === NodeType.Start)!;
-      start.connections = [shopNode.id];
-      const outcome = rm.moveToNode(state, shopNode.id);
-      expect(outcome.type).toBe('shop');
+    const maze = state.runState!.maze;
+    const target = findEncounter(maze, NodeType.Treasure);
+    if (target && placeFacing(state, maze, target.x, target.y)) {
+      rm.move(state, 'forward');
+      expect(maze.tiles[target.y * maze.width + target.x].visited).toBe(true);
     }
   });
 
-  it('moveToNode on trap returns trap outcome with damage', () => {
+  it('stepping onto stairs descends to next depth', () => {
     const state = new GameState();
     const rm = new RunManager();
     rm.startRun(state);
-    const trapNode = state.runState!.dungeonMap.find(n => n.type === NodeType.Trap);
-    if (trapNode) {
-      const start = state.runState!.dungeonMap.find(n => n.type === NodeType.Start)!;
-      start.connections = [trapNode.id];
-      const outcome = rm.moveToNode(state, trapNode.id);
-      expect(outcome.type).toBe('trap');
-      expect(outcome.type === 'trap' && outcome.damage).toBeGreaterThan(0);
+    const maze = state.runState!.maze;
+    const stairs = findTile(maze, TileKind.Stairs);
+    if (stairs && placeFacing(state, maze, stairs.x, stairs.y)) {
+      const outcome = rm.move(state, 'forward');
+      expect(outcome.type).toBe('descend');
+      expect(state.runState!.depth).toBe(2);
     }
   });
 
-  it('moveToNode on event returns event outcome', () => {
-    const state = new GameState();
-    const rm = new RunManager();
-    rm.startRun(state);
-    const eventNode = state.runState!.dungeonMap.find(n => n.type === NodeType.Event);
-    if (eventNode) {
-      const start = state.runState!.dungeonMap.find(n => n.type === NodeType.Start)!;
-      start.connections = [eventNode.id];
-      const outcome = rm.moveToNode(state, eventNode.id);
-      expect(outcome.type).toBe('event');
-      expect(outcome.type === 'event' && outcome.text).toBeDefined();
-    }
-  });
-
-  it('moveToNode on boss returns boss outcome with metaReward', () => {
-    const state = new GameState();
-    state.stash.addMaterial('iron', 100); // Give player strong stats
-    const rm = new RunManager();
-    rm.startRun(state);
-    const bossNode = state.runState!.dungeonMap.find(n => n.type === NodeType.Boss);
-    if (bossNode) {
-      const start = state.runState!.dungeonMap.find(n => n.type === NodeType.Start)!;
-      start.connections = [bossNode.id];
-      const outcome = rm.moveToNode(state, bossNode.id);
-      expect(outcome.type).toBe('boss');
-      expect(outcome.type === 'boss' && 'result' in outcome).toBe(true);
-      expect(outcome.type === 'boss' && 'metaReward' in outcome).toBe(true);
-    }
-  });
-
-  it('extractRun transfers materials to stash', () => {
+  it('extractRun transfers materials to stash and ends run', () => {
     const state = new GameState();
     const rm = new RunManager();
     rm.startRun(state);
     state.runState!.runInventory.addMaterial('iron', 5);
     rm.extractRun(state);
     expect(state.stash.getMaterialCount('iron')).toBe(5);
-    expect(state.runState).toBeNull();
+    expect(state.runState!.isActive).toBe(false);
   });
 
-  it('extractRun transfers items to stash', () => {
-    const state = new GameState();
-    const rm = new RunManager();
-    rm.startRun(state);
-    const testItem = {
-      id: 'test-item',
-      name: 'Test Item',
-      baseType: 'Blade' as any,
-      materials: [],
-      rarity: 'Common' as any,
-      stats: { attack: 1, defense: 0, health: 0, luck: 0 },
-    };
-    state.runState!.runInventory.addItem(testItem);
-    rm.extractRun(state);
-    expect(state.stash.items.length).toBe(1);
-    expect(state.runState).toBeNull();
-  });
-
-  it('abandonRun loses inventory', () => {
+  it('abandonRun discards run inventory', () => {
     const state = new GameState();
     const rm = new RunManager();
     rm.startRun(state);
@@ -171,38 +200,15 @@ describe('RunManager', () => {
     expect(state.runState).toBeNull();
   });
 
-  it('combat loss abandons run', () => {
+  it('death from trap costs 25% of stash gold', () => {
     const state = new GameState();
+    state.gold = 100;
     const rm = new RunManager();
     rm.startRun(state);
-    state.runState!.runInventory.addMaterial('iron', 5);
-    // Give player very weak stats
-    const combatNode = state.runState!.dungeonMap.find(n => n.type === NodeType.Combat);
-    if (combatNode) {
-      const start = state.runState!.dungeonMap.find(n => n.type === NodeType.Start)!;
-      start.connections = [combatNode.id];
-      rm.moveToNode(state, combatNode.id);
-      // After loss, run state may be null (abandoned)
-      if (!state.runState) {
-        expect(state.stash.getMaterialCount('iron')).toBe(0);
-      }
-    }
-  });
-
-  it('boss victory rewards meta currency', () => {
-    const state = new GameState();
-    state.stash.addMaterial('iron', 100); // Give player strong stats
-    const initialMeta = state.meta.metaCurrency;
-    const rm = new RunManager();
-    rm.startRun(state);
-    const bossNode = state.runState!.dungeonMap.find(n => n.type === NodeType.Boss);
-    if (bossNode) {
-      const start = state.runState!.dungeonMap.find(n => n.type === NodeType.Start)!;
-      start.connections = [bossNode.id];
-      const outcome = rm.moveToNode(state, bossNode.id);
-      if (outcome.type === 'boss' && outcome.result.victory) {
-        expect(state.meta.metaCurrency).toBeGreaterThan(initialMeta);
-      }
+    state.runState!.playerHP = 1; // one trap kills
+    const outcome = stepOntoEncounter(rm, state, NodeType.Trap);
+    if (outcome && outcome.type === 'trap' && !state.runState!.isActive) {
+      expect(state.gold).toBe(75);
     }
   });
 });
