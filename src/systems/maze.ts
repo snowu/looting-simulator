@@ -40,6 +40,8 @@ export interface Tile {
   visited: boolean;
   /** Player has seen this tile (for minimap fog). */
   seen: boolean;
+  /** A wooden door occupies this (otherwise walkable) tile. Blocks until opened. */
+  door?: { open: boolean };
 }
 
 export interface MazeFloor {
@@ -58,7 +60,15 @@ export function tileAt(maze: MazeFloor, x: number, y: number): Tile | null {
 
 export function isWalkable(maze: MazeFloor, x: number, y: number): boolean {
   const t = tileAt(maze, x, y);
-  return !!t && t.kind !== TileKind.Wall;
+  if (!t || t.kind === TileKind.Wall) return false;
+  if (t.door && !t.door.open) return false; // closed door blocks
+  return true;
+}
+
+/** A tile that currently has a CLOSED door (the thing E opens). */
+export function isClosedDoor(maze: MazeFloor, x: number, y: number): boolean {
+  const t = tileAt(maze, x, y);
+  return !!t && !!t.door && !t.door.open;
 }
 
 interface Room {
@@ -169,6 +179,70 @@ export function generateMaze(depth: number, isBossFloor = false): MazeFloor {
     } else {
       tile.kind = TileKind.Encounter;
       tile.encounter = ENCOUNTER_TYPES[Math.floor(Math.random() * ENCOUNTER_TYPES.length)];
+    }
+  }
+
+  // --- Place wooden doors in room walls -------------------------------------
+  // A door belongs IN the wall ring of a room: a single perimeter cell where a
+  // 1-wide corridor pierces the wall to enter the room. We turn that wall cell
+  // into a floor tile carrying a door, so it fits the wall exactly.
+  const inRoom = (x: number, y: number): Room | null =>
+    rooms.find((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h) ?? null;
+
+  const isPath = (x: number, y: number): boolean => {
+    const k = getKind(x, y);
+    return k === TileKind.Floor || k === TileKind.Encounter || k === TileKind.Stairs;
+  };
+
+  for (const r of rooms) {
+    const doorsForRoom: number[] = [];
+    // Walk the wall ring one tile outside the room rectangle.
+    const ring: [number, number, 'v' | 'h'][] = [];
+    for (let x = r.x; x < r.x + r.w; x++) {
+      ring.push([x, r.y - 1, 'v']);       // top wall, corridor enters vertically
+      ring.push([x, r.y + r.h, 'v']);     // bottom wall
+    }
+    for (let y = r.y; y < r.y + r.h; y++) {
+      ring.push([r.x - 1, y, 'h']);       // left wall, corridor enters horizontally
+      ring.push([r.x + r.w, y, 'h']);     // right wall
+    }
+
+    for (const [x, y, axis] of ring) {
+      if (x <= 0 || y <= 0 || x >= width - 1 || y >= height - 1) continue;
+      const idx = y * width + x;
+      const tile = tiles[idx];
+      // The entrance is a carved corridor cell (plain Floor) sitting in the
+      // room's wall ring. Never put a door on encounter/stairs/start tiles.
+      if (tile.kind !== TileKind.Floor) continue;
+      if (tile.door) continue;
+      if (x === startX && y === startY) continue;
+
+      // The corridor must pierce the wall: room interior on the inner side,
+      // a 1-wide corridor on the outer side, flanked by walls along the wall.
+      let inner: [number, number], outer: [number, number], flankA: [number, number], flankB: [number, number];
+      if (axis === 'v') {
+        const innerY = (y === r.y - 1) ? y + 1 : y - 1;
+        const outerY = (y === r.y - 1) ? y - 1 : y + 1;
+        inner = [x, innerY]; outer = [x, outerY];
+        flankA = [x - 1, y]; flankB = [x + 1, y];
+      } else {
+        const innerX = (x === r.x - 1) ? x + 1 : x - 1;
+        const outerX = (x === r.x - 1) ? x - 1 : x + 1;
+        inner = [innerX, y]; outer = [outerX, y];
+        flankA = [x, y - 1]; flankB = [x, y + 1];
+      }
+
+      const roomInside = !!inRoom(inner[0], inner[1]);
+      const corridorOutside = isPath(outer[0], outer[1]);
+      const flanked = getKind(flankA[0], flankA[1]) === TileKind.Wall &&
+                      getKind(flankB[0], flankB[1]) === TileKind.Wall;
+      if (!roomInside || !corridorOutside || !flanked) continue;
+
+      // One door per room.
+      if (doorsForRoom.length >= 1) continue;
+
+      tile.door = { open: false }; // door sits in the existing wall-gap entrance
+      doorsForRoom.push(idx);
     }
   }
 

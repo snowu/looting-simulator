@@ -7,6 +7,7 @@ import {
   turnRight,
   turnAround,
   isWalkable,
+  isClosedDoor,
   tileAt,
   TileKind,
   MazeFloor,
@@ -84,6 +85,30 @@ describe('generateMaze', () => {
     expect(tileAt(m, -1, 0)).toBeNull();
     expect(tileAt(m, m.width, 0)).toBeNull();
   });
+
+  it('closed doors block isWalkable until opened', () => {
+    // Find any maze that produced a door (most do). Try a few seeds.
+    let found = false;
+    for (let attempt = 0; attempt < 20 && !found; attempt++) {
+      const m = generateMaze(1);
+      for (let y = 0; y < m.height && !found; y++) {
+        for (let x = 0; x < m.width && !found; x++) {
+          const t = m.tiles[y * m.width + x];
+          if (t.door) {
+            found = true;
+            // Door tile is a floor kind but blocked while closed.
+            expect(t.kind).not.toBe(TileKind.Wall);
+            expect(isClosedDoor(m, x, y)).toBe(true);
+            expect(isWalkable(m, x, y)).toBe(false);
+            t.door.open = true;
+            expect(isWalkable(m, x, y)).toBe(true);
+            expect(isClosedDoor(m, x, y)).toBe(false);
+          }
+        }
+      }
+    }
+    expect(found).toBe(true);
+  });
 });
 
 function floodFill(m: MazeFloor): number {
@@ -93,7 +118,10 @@ function floodFill(m: MazeFloor): number {
     const [x, y] = stack.pop()!;
     const idx = y * m.width + x;
     if (seen.has(idx)) continue;
-    if (!isWalkable(m, x, y)) continue;
+    // Doors are passable (player opens them), so flood by tile kind, not the
+    // closed-door-aware isWalkable.
+    const tile = m.tiles[idx];
+    if (!tile || tile.kind === TileKind.Wall) continue;
     seen.add(idx);
     stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
   }

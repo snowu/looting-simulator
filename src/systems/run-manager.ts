@@ -11,6 +11,7 @@ import {
   turnLeft,
   turnRight,
   isWalkable,
+  isClosedDoor,
   tileAt,
   TileKind,
 } from './maze';
@@ -25,13 +26,15 @@ export type NodeOutcome =
   | { type: 'trap'; damage: number }
   | { type: 'event'; text: string }
   | { type: 'descend'; depth: number }
+  | { type: 'door'; opened: boolean }
   | { type: 'boss'; result: CombatResult; metaReward: number };
 
 export type MoveAction =
   | 'forward'
   | 'back'
   | 'turnLeft'
-  | 'turnRight';
+  | 'turnRight'
+  | 'interact';
 
 export class RunManager {
   startRun(state: GameState): void {
@@ -65,6 +68,18 @@ export class RunManager {
     if (action === 'turnRight') {
       run.facing = turnRight(run.facing);
       this.markSeen(run);
+      return { type: 'none' };
+    }
+
+    if (action === 'interact') {
+      // Open a closed door directly ahead. Never moves the player.
+      const { dx, dy } = DIR_DELTA[run.facing];
+      const fx = run.playerX + dx;
+      const fy = run.playerY + dy;
+      if (isClosedDoor(run.maze, fx, fy)) {
+        tileAt(run.maze, fx, fy)!.door!.open = true;
+        return { type: 'door', opened: true };
+      }
       return { type: 'none' };
     }
 

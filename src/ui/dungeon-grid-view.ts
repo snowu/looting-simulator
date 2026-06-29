@@ -71,6 +71,16 @@ export class DungeonGridView {
 
     this.keyHandler = (e) => this.handleKey(e);
     window.addEventListener('keydown', this.keyHandler);
+
+    // Prevent listener pileup across Vite HMR reloads (which would multiply
+    // each keypress into 2+ turns).
+    if (import.meta.hot) {
+      import.meta.hot.dispose(() => {
+        window.removeEventListener('keydown', this.keyHandler);
+        cancelAnimationFrame(this.animId);
+        this.ro.disconnect();
+      });
+    }
   }
 
   /** Bind state + move callback. Called whenever the run updates. */
@@ -139,6 +149,115 @@ export class DungeonGridView {
     return !t || t.kind === TileKind.Wall;
   }
 
+  /** World coords of the cell `forward`/`side` from the player, given facing. */
+  private cellCoord(px: number, py: number, facing: Dir, forward: number, side: number): { x: number; y: number } {
+    const fwd = DIR_DELTA[facing];
+    const rgt = DIR_DELTA[turnRight(facing)];
+    return { x: px + fwd.dx * forward + rgt.dx * side, y: py + fwd.dy * forward + rgt.dy * side };
+  }
+
+  /** Stable per-tile flag: is this wall ruined (cracks)? Brick is the base for all. */
+  private isRuined(x: number, y: number): boolean {
+    const h = ((x * 73856093) ^ (y * 19349663)) >>> 0;
+    return h % 100 < 28; // ~28% ruined; rest are clean brick
+  }
+
+  /**
+   * Overlay brick texture onto a wall quad (the base look for EVERY wall), plus
+   * cracks/crumble for ruined tiles. `corners` = near-top, far-top, far-bottom,
+   * near-bottom. Clipped to the quad.
+   */
+  private drawWallTexture(
+    ctx: CanvasRenderingContext2D,
+    corners: [number, number][],
+    x: number,
+    y: number,
+    z: number
+  ): void {
+    const ruined = this.isRuined(x, y);
+
+    const t = Math.min(1, z / VIEW_DEPTH);
+    const detail = 1 - t * 0.7; // fade detail with distance
+    if (detail <= 0.12) return;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(corners[0][0], corners[0][1]);
+    for (let i = 1; i < 4; i++) ctx.lineTo(corners[i][0], corners[i][1]);
+    ctx.closePath();
+    ctx.clip();
+
+    const [nt, ft, fb, nb] = corners;
+    // Helper: point along top edge (a) and bottom edge (b) at fraction u (0=near,1=far).
+    const top = (u: number): [number, number] => [nt[0] + (ft[0] - nt[0]) * u, nt[1] + (ft[1] - nt[1]) * u];
+    const bot = (u: number): [number, number] => [nb[0] + (fb[0] - nb[0]) * u, nb[1] + (fb[1] - nb[1]) * u];
+
+    {
+      // BRICK base — horizontal courses (include r=0 so the TOP row has a joint)
+      // + staggered vertical joints. Drawn on every wall.
+      ctx.strokeStyle = `rgba(0,0,0,${0.35 * detail})`;
+      ctx.lineWidth = 1;
+      const courses = 6;
+      for (let r = 0; r < courses; r++) {
+        const v = r / courses;
+        const a: [number, number] = [nt[0] + (nb[0] - nt[0]) * v, nt[1] + (nb[1] - nt[1]) * v];
+        const b: [number, number] = [ft[0] + (fb[0] - ft[0]) * v, ft[1] + (fb[1] - ft[1]) * v];
+        if (r > 0) {
+          ctx.beginPath();
+          ctx.moveTo(a[0], a[1]);
+          ctx.lineTo(b[0], b[1]);
+          ctx.stroke();
+        }
+        // vertical joints for the course BELOW this line, staggered per row
+        const cols = 5;
+        for (let c = 0; c < cols; c++) {
+          const u = (c + (r % 2 ? 0.5 : 0)) / cols;
+          if (u <= 0.02 || u >= 0.98) continue;
+          const pT = [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u];
+          const vNext = (r + 1) / courses;
+          const a2: [number, number] = [nt[0] + (nb[0] - nt[0]) * vNext, nt[1] + (nb[1] - nt[1]) * vNext];
+          const b2: [number, number] = [ft[0] + (fb[0] - ft[0]) * vNext, ft[1] + (fb[1] - ft[1]) * vNext];
+          const pB = [a2[0] + (b2[0] - a2[0]) * u, a2[1] + (b2[1] - a2[1]) * u];
+          ctx.beginPath();
+          ctx.moveTo(pT[0], pT[1]);
+          ctx.lineTo(pB[0], pB[1]);
+          ctx.stroke();
+        }
+      }
+    }
+
+    if (ruined) {
+      // RUINED: irregular cracks + a few missing-stone dark patches over brick.
+      const seed = ((x * 12345) ^ (y * 6789)) >>> 0;
+      const rnd = (n: number) => ((Math.sin(seed * 9.13 + n * 2.7) * 43758.5) % 1 + 1) % 1;
+      ctx.strokeStyle = `rgba(0,0,0,${0.5 * detail})`;
+      ctx.lineWidth = 1.5;
+      for (let k = 0; k < 3; k++) {
+        const u0 = rnd(k), u1 = u0 + (rnd(k + 9) - 0.5) * 0.3;
+        const p0 = top(Math.max(0, Math.min(1, u0)));
+        const mid = bot(Math.max(0, Math.min(1, (u0 + u1) / 2)));
+        const p1 = bot(Math.max(0, Math.min(1, u1)));
+        ctx.beginPath();
+        ctx.moveTo(p0[0], p0[1]);
+        ctx.lineTo(mid[0] + (rnd(k + 3) - 0.5) * 20, mid[1]);
+        ctx.lineTo(p1[0], p1[1]);
+        ctx.stroke();
+      }
+      // dark crumbled patches
+      ctx.fillStyle = `rgba(0,0,0,${0.4 * detail})`;
+      for (let k = 0; k < 2; k++) {
+        const u = rnd(k + 20);
+        const a = top(u), b = bot(u);
+        const py2 = a[1] + (b[1] - a[1]) * (0.3 + rnd(k + 30) * 0.5);
+        const px2 = a[0] + (b[0] - a[0]) * (0.3 + rnd(k + 31) * 0.4);
+        ctx.beginPath();
+        ctx.ellipse(px2, py2, 6 * detail, 8 * detail, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+
   private wallShade(z: number, side: 'front' | 'left' | 'right'): string {
     const t = Math.min(1, z / VIEW_DEPTH);
     let v = PAL.wallNear - (PAL.wallNear - PAL.wallFar) * t;
@@ -187,11 +306,18 @@ export class DungeonGridView {
 
     // Painter's algorithm: draw the farthest visible cell first, then nearer
     // cells over it. Each cell z occupies the depth band [z, z+1].
-    // We render up to the first wall directly ahead (you can't see past it).
+    // We render up to the first wall OR closed door ahead (can't see past it).
     let maxVisible = VIEW_DEPTH;
+    let frontDoorZ = -1;
     for (let z = 0; z <= VIEW_DEPTH; z++) {
-      if (this.isWall(this.cellAhead(maze, px, py, facing, z, 0))) {
-        maxVisible = z; // wall cell itself is the last drawn
+      const c = this.cellAhead(maze, px, py, facing, z, 0);
+      if (this.isWall(c)) {
+        maxVisible = z;
+        break;
+      }
+      if (c && c.door && !c.door.open) {
+        maxVisible = z; // closed door blocks the view at this depth
+        frontDoorZ = z;
         break;
       }
     }
@@ -207,6 +333,14 @@ export class DungeonGridView {
         // face at the near plane edge so it reads as a wall straight ahead).
         ctx.fillStyle = this.wallShade(z, 'front');
         ctx.fillRect(near.left, near.top, near.right - near.left, near.bottom - near.top);
+        {
+          const c = this.cellCoord(px, py, facing, z, 0);
+          this.drawWallTexture(
+            ctx,
+            [[near.left, near.top], [near.right, near.top], [near.right, near.bottom], [near.left, near.bottom]],
+            c.x, c.y, z
+          );
+        }
         this.outline(ctx, near.left, near.top, near.right, near.bottom, z);
         continue;
       }
@@ -235,9 +369,10 @@ export class DungeonGridView {
       const leftCell = this.cellAhead(maze, px, py, facing, z, -1);
       const rightCell = this.cellAhead(maze, px, py, facing, z, 1);
 
-      // LEFT side.
-      if (this.isWall(leftCell)) {
-        // Solid side wall: lit trapezoid receding near->far.
+      // LEFT side: always a solid wall (you only move forward/back, so side
+      // openings are never walked into). A true 1-tile doorway gets an arch
+      // overlay; wide room-edges just stay wall so doors stay rare.
+      {
         ctx.fillStyle = this.wallShade(z, 'left');
         ctx.beginPath();
         ctx.moveTo(near.left, near.top);
@@ -246,18 +381,24 @@ export class DungeonGridView {
         ctx.lineTo(near.left, near.bottom);
         ctx.closePath();
         ctx.fill();
+        const c = this.cellCoord(px, py, facing, z, -1);
+        this.drawWallTexture(
+          ctx,
+          [[near.left, near.top], [far.left, far.top], [far.left, far.bottom], [near.left, near.bottom]],
+          c.x, c.y, z
+        );
         ctx.strokeStyle = 'rgba(0,0,0,0.4)';
         ctx.lineWidth = 1;
         ctx.stroke();
+        if (leftCell?.door) {
+          if (leftCell.door.open) this.drawSidePortal(ctx, near, far, 'left', leftCell, z);
+          else this.drawWoodenDoorSide(ctx, near, far, 'left', z);
+        }
         this.maybeTorch(ctx, near, far, 'left', z);
-      } else {
-        // Open passage on the left: draw a recessed doorway so the gap reads as
-        // a side corridor with a visible back wall, not a black hole.
-        this.drawSidePortal(ctx, near, far, 'left', leftCell, z);
       }
 
-      // RIGHT side.
-      if (this.isWall(rightCell)) {
+      // RIGHT side (same rule as left).
+      {
         ctx.fillStyle = this.wallShade(z, 'right');
         ctx.beginPath();
         ctx.moveTo(near.right, near.top);
@@ -266,12 +407,25 @@ export class DungeonGridView {
         ctx.lineTo(near.right, near.bottom);
         ctx.closePath();
         ctx.fill();
+        const c = this.cellCoord(px, py, facing, z, 1);
+        this.drawWallTexture(
+          ctx,
+          [[near.right, near.top], [far.right, far.top], [far.right, far.bottom], [near.right, near.bottom]],
+          c.x, c.y, z
+        );
         ctx.strokeStyle = 'rgba(0,0,0,0.4)';
         ctx.lineWidth = 1;
         ctx.stroke();
+        if (rightCell?.door) {
+          if (rightCell.door.open) this.drawSidePortal(ctx, near, far, 'right', rightCell, z);
+          else this.drawWoodenDoorSide(ctx, near, far, 'right', z);
+        }
         this.maybeTorch(ctx, near, far, 'right', z);
-      } else {
-        this.drawSidePortal(ctx, near, far, 'right', rightCell, z);
+      }
+
+      // Closed door directly ahead: a wooden door fills the passage at this band.
+      if (z === frontDoorZ) {
+        this.drawWoodenDoorFront(ctx, near);
       }
 
       // Sprite sitting on this floor cell (centered in the band).
@@ -463,19 +617,18 @@ export class DungeonGridView {
     const lerpTop = (x: number) => near.top + ((x - nx) / (fx - nx)) * (far.top - near.top);
     const lerpBot = (x: number) => near.bottom + ((x - nx) / (fx - nx)) * (far.bottom - near.bottom);
 
-    // Door jambs span the middle of the wall band in depth.
-    const dnx = nx + (fx - nx) * 0.18;
-    const dfx = nx + (fx - nx) * 0.74;
+    // Door jambs span most of the wall band in depth (bigger, wider door).
+    const dnx = nx + (fx - nx) * 0.08;
+    const dfx = nx + (fx - nx) * 0.9;
     const nFloor = lerpBot(dnx); // door foot on near jamb = wall floor line
     const fFloor = lerpBot(dfx);
     const nCeil = lerpTop(dnx);
     const fCeil = lerpTop(dfx);
-    // Springline (where the arch starts) ~55% up from floor; door height stops
-    // short of the ceiling so the arch reads as a doorway, not a full opening.
-    const nSpring = nFloor + (nCeil - nFloor) * 0.42;
-    const fSpring = fFloor + (fCeil - fFloor) * 0.42;
-    const nApex = nFloor + (nCeil - nFloor) * 0.66;
-    const fApex = fFloor + (fCeil - fFloor) * 0.66;
+    // Tall door: springline ~62% up, arch apex near the ceiling.
+    const nSpring = nFloor + (nCeil - nFloor) * 0.62;
+    const fSpring = fFloor + (fCeil - fFloor) * 0.62;
+    const nApex = nFloor + (nCeil - nFloor) * 0.92;
+    const fApex = fFloor + (fCeil - fFloor) * 0.92;
     const midApexX = (dnx + dfx) / 2;
     const midApexY = (nApex + fApex) / 2;
 
@@ -511,6 +664,104 @@ export class DungeonGridView {
     ctx.fill();
 
     void sideCell;
+  }
+
+  /** Draw a closed wooden door inside an axis-aligned arched opening rect. */
+  private drawWoodenDoorRect(
+    ctx: CanvasRenderingContext2D,
+    left: number, right: number, top: number, bottom: number
+  ): void {
+    const wDoor = right - left;
+    const archTop = top + (bottom - top) * 0.18; // springline of the arch
+    ctx.save();
+    // Door silhouette (arched): straight jambs up to springline, arc over top.
+    ctx.beginPath();
+    ctx.moveTo(left, bottom);
+    ctx.lineTo(left, archTop);
+    ctx.quadraticCurveTo(left, top, (left + right) / 2, top);
+    ctx.quadraticCurveTo(right, top, right, archTop);
+    ctx.lineTo(right, bottom);
+    ctx.closePath();
+    ctx.clip();
+
+    // Wood base.
+    ctx.fillStyle = '#5a3a1c';
+    ctx.fillRect(left, top, wDoor, bottom - top);
+
+    // Vertical planks.
+    const planks = 4;
+    for (let i = 0; i < planks; i++) {
+      const x = left + (wDoor * i) / planks;
+      ctx.fillStyle = i % 2 ? '#623f1f' : '#553719';
+      ctx.fillRect(x, top, wDoor / planks, bottom - top);
+      ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x, top);
+      ctx.lineTo(x, bottom);
+      ctx.stroke();
+    }
+
+    // Iron bands (horizontal).
+    ctx.fillStyle = '#2a2a30';
+    const bandH = (bottom - top) * 0.06;
+    for (const fy of [0.28, 0.72]) {
+      ctx.fillRect(left, top + (bottom - top) * fy, wDoor, bandH);
+    }
+
+    // Iron ring handle.
+    ctx.strokeStyle = '#1a1a1f';
+    ctx.lineWidth = Math.max(2, wDoor * 0.04);
+    ctx.beginPath();
+    ctx.arc(right - wDoor * 0.2, (top + bottom) / 2, wDoor * 0.08, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
+    // Frame outline.
+    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(left, bottom);
+    ctx.lineTo(left, archTop);
+    ctx.quadraticCurveTo(left, top, (left + right) / 2, top);
+    ctx.quadraticCurveTo(right, top, right, archTop);
+    ctx.lineTo(right, bottom);
+    ctx.stroke();
+  }
+
+  /** Closed wooden door blocking the corridor straight ahead (front plane). */
+  private drawWoodenDoorFront(
+    ctx: CanvasRenderingContext2D,
+    near: { left: number; right: number; top: number; bottom: number }
+  ): void {
+    const cx = (near.left + near.right) / 2;
+    const halfW = (near.right - near.left) * 0.34;
+    const top = near.top + (near.bottom - near.top) * 0.1;
+    this.drawWoodenDoorRect(ctx, cx - halfW, cx + halfW, top, near.bottom);
+  }
+
+  /** Closed wooden door set into a side wall (uses the side trapezoid). */
+  private drawWoodenDoorSide(
+    ctx: CanvasRenderingContext2D,
+    near: { left: number; right: number; top: number; bottom: number },
+    far: { left: number; right: number; top: number; bottom: number },
+    side: 'left' | 'right',
+    z: number
+  ): void {
+    const nx = side === 'left' ? near.left : near.right;
+    const fx = side === 'left' ? far.left : far.right;
+    const lerpTop = (x: number) => near.top + ((x - nx) / (fx - nx)) * (far.top - near.top);
+    const lerpBot = (x: number) => near.bottom + ((x - nx) / (fx - nx)) * (far.bottom - near.bottom);
+    const dnx = nx + (fx - nx) * 0.12;
+    const dfx = nx + (fx - nx) * 0.88;
+    const left = Math.min(dnx, dfx);
+    const right = Math.max(dnx, dfx);
+    const midX = (dnx + dfx) / 2;
+    // Vertical extent from the wall's ceiling/floor at the door's mid-depth.
+    const top = lerpTop(midX) + (lerpBot(midX) - lerpTop(midX)) * 0.08;
+    const bottom = lerpBot(midX);
+    this.drawWoodenDoorRect(ctx, left, right, top, bottom);
+    void z;
   }
 
   private outline(ctx: CanvasRenderingContext2D, l: number, t: number, r: number, b: number, z: number): void {
@@ -588,6 +839,7 @@ export class DungeonGridView {
         if (!t.seen) continue;
         let c = '#444';
         if (t.kind === TileKind.Wall) c = '#222';
+        else if (t.door && !t.door.open) c = '#8a5a2a'; // closed door
         else if (t.kind === TileKind.Encounter && !t.visited) c = '#aa7722';
         else if (t.kind === TileKind.Stairs) c = '#22aaaa';
         else c = '#556';
@@ -639,12 +891,13 @@ export class DungeonGridView {
     ctx.fillStyle = '#555';
     ctx.font = '16px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('W/S move · A/D turn', w / 2, h - 10);
+    ctx.fillText('W/S move · A/D turn · E open door', w / 2, h - 10);
   }
 
   // --- Input --------------------------------------------------------------
 
   private handleKey(e: KeyboardEvent): void {
+    if (e.repeat) return; // ignore auto-repeat while a key is held
     if (!this.visible || !this.run || !this.run.isActive || !this.onMove) return;
     let action: MoveAction | null = null;
     switch (e.key) {
@@ -667,6 +920,10 @@ export class DungeonGridView {
       case 'D':
       case 'ArrowRight':
         action = 'turnRight';
+        break;
+      case 'e':
+      case 'E':
+        action = 'interact';
         break;
       default:
         return;

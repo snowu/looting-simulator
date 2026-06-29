@@ -312,6 +312,9 @@ function showOutcome(outcome: NodeOutcome): void {
     case 'descend':
       text = `Descended to depth ${outcome.depth}. The dungeon deepens...`;
       break;
+    case 'door':
+      text = 'You heave the wooden door open.';
+      break;
     case 'none':
       break;
     case 'shop':
