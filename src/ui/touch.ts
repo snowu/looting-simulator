@@ -1,4 +1,5 @@
 import { artImg, h } from './dom';
+import { isStandalone } from './fullscreen';
 
 export type TouchMove = 'forward' | 'back' | 'left' | 'right' | 'turnLeft' | 'turnRight';
 
@@ -9,6 +10,7 @@ export interface TouchHandlers {
   block(on: boolean): void;
   interact(): void;
   open(mode: 'inventory' | 'map' | 'help'): void;
+  fullscreen(): void;
 }
 
 export function isTouchDevice(): boolean {
@@ -68,6 +70,8 @@ export class TouchControls {
 
     const tap = (label: string, fn: () => void) => {
       const b = h('button', { class: 'tbtn small', text: label });
+      // Suppress the compatibility mouse events so they can't land on whatever we open.
+      b.addEventListener('pointerdown', (e) => e.preventDefault());
       b.addEventListener('pointerup', (e) => {
         e.preventDefault();
         fn();
@@ -75,14 +79,7 @@ export class TouchControls {
       return b;
     };
     const menu = h('div', { class: 'tmenu' }, tap('Pack', () => hd.open('inventory')), tap('Map', () => hd.open('map')), tap('☰', () => hd.open('help')));
-    if (document.documentElement.requestFullscreen) {
-      menu.append(
-        tap('⛶', () => {
-          if (document.fullscreenElement) void document.exitFullscreen();
-          else void document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => undefined);
-        }),
-      );
-    }
+    if (!isStandalone()) menu.append(tap('⛶', () => hd.fullscreen()));
 
     this.root.append(pad, actions, menu);
     parent.append(this.root);

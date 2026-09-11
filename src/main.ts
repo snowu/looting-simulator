@@ -14,6 +14,7 @@ import { Town } from './ui/town';
 import { summaryScreen, titleScreen } from './ui/screens';
 import { h, setTouchMode } from './ui/dom';
 import { TouchControls, TouchMove, isTouchDevice } from './ui/touch';
+import { FULLSCREEN_HELP, fullscreenSupported, isFullscreen, isStandalone, toggleFullscreen } from './ui/fullscreen';
 import { audio } from './audio/sfx';
 
 type Mode = 'title' | 'town' | 'dungeon' | 'summary';
@@ -50,7 +51,14 @@ const touch = new TouchControls(app, {
   block: (on) => world?.setBlock(on),
   interact: () => world?.interact(),
   open: (m) => world && overlays.toggle(m, world),
+  fullscreen: () => goFullscreen(),
 });
+
+function goFullscreen(): void {
+  void toggleFullscreen().then((r) => {
+    if (r === 'unsupported') toast(FULLSCREEN_HELP);
+  });
+}
 // Hybrid devices: switch to touch controls the first time a finger lands.
 window.addEventListener('touchstart', () => {
   if (touchMode) return;
@@ -68,6 +76,7 @@ const town = new Town(screen, {
   state: () => state,
   save: () => saveGame(state),
   descend: () => enterDungeon(),
+  fullscreen: () => goFullscreen(),
   newGame: () => {
     clearSave();
     state = newGame(createRng(randomSeed()));
@@ -82,11 +91,13 @@ function toast(text: string, color = '#e8dcc4'): void {
   const el = h('div', {
     text,
     style: `position:absolute;left:50%;top:${14 + toastLayer.childElementCount * 30}px;transform:translateX(-50%);color:${color};` +
-      'font-size:22px;text-shadow:0 2px 0 #000,0 0 8px #000;background:#0e0c10dd;padding:2px 12px;border:1px solid #2a2430;white-space:nowrap;transition:opacity .5s',
+      'font-size:clamp(15px,2.4vw,22px);text-shadow:0 2px 0 #000,0 0 8px #000;background:#0e0c10ee;padding:2px 12px;border:1px solid #2a2430;' +
+      'max-width:92vw;width:max-content;text-align:center;z-index:9;transition:opacity .5s',
   });
   toastLayer.append(el);
-  setTimeout(() => (el.style.opacity = '0'), 2200);
-  setTimeout(() => el.remove(), 2800);
+  const life = Math.max(2200, text.length * 55);
+  setTimeout(() => (el.style.opacity = '0'), life);
+  setTimeout(() => el.remove(), life + 600);
 }
 
 // --- Modes ---------------------------------------------------------------------
@@ -105,8 +116,10 @@ function enterTitle(): void {
   screen.replaceChildren(titleScreen(!!loadGame(), () => {
     audio.unlock();
     audio.play('ui');
+    // On phones and tablets, starting the game is the gesture that takes us fullscreen.
+    if (touchMode && fullscreenSupported() && !isStandalone() && !isFullscreen()) void toggleFullscreen();
     enterTown();
-  }));
+  }, goFullscreen));
 }
 
 function enterTown(): void {

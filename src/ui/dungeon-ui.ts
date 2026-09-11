@@ -131,8 +131,10 @@ export class DungeonOverlays {
         break;
     }
     const wrap = h('div', { class: 'modal-wrap' }, body);
-    wrap.addEventListener('mousedown', (e) => {
-      if (e.target === wrap) this.close();
+    const openedAt = performance.now();
+    wrap.addEventListener('pointerdown', (e) => {
+      // A tap that opened the panel can arrive late as a mouse event; ignore it.
+      if (e.target === wrap && performance.now() - openedAt > 350) this.close();
     });
     wrap.addEventListener('contextmenu', (e) => e.preventDefault());
     this.root.replaceChildren(wrap);
