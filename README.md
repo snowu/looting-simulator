@@ -12,8 +12,8 @@ A first-person, grid-step dungeon crawler in the spirit of **King's Field** and 
 | Key | Action |
 |-----|--------|
 | W / S | Step forward / back |
-| A / D | Strafe |
-| Q / E, ← / → | Turn |
+| A / D, ← / → | Turn |
+| Q / E | Strafe |
 | Space / left click | Attack |
 | Shift / right click (hold) | Block |
 | F | Interact: doors, chests, loot, shrines, marked walls, stairs |
@@ -21,6 +21,8 @@ A first-person, grid-step dungeon crawler in the spirit of **King's Field** and 
 | I / Tab | Pack & gear |
 | M | Map |
 | Esc | Pause & help |
+
+On phones and tablets: press and drag anywhere on the view — up/down walks, left/right turns, and holding keeps going like a held key. A quick tap (or the big button) swings at enemies, urns and empty air, or loots/opens/prays when you face something. Hold the shield to block. The corner button toggles fullscreen and locks landscape where the browser allows.
 
 ## Development
 

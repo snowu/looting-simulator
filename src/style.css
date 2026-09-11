@@ -335,27 +335,48 @@ table.market .num { text-align: right; font-variant-numeric: tabular-nums; }
 }
 .tbtn.on { background: #4a3a1ce6; border-color: var(--gold); color: #fff; }
 .tbtn.small { font-size: 18px; padding: 5px 10px; border-radius: 8px; min-width: 52px; }
-.dpad {
+/* Floating stick: the zone catches the thumb, the base recentres under it. */
+.stick-zone { position: absolute; inset: 0; touch-action: none; }
+/* HUD bits that stay tappable above the drag zone. */
+body.touch #hud .quick, body.touch #hud .prompt { z-index: 3; }
+.stick-base {
   position: absolute;
-  left: max(12px, env(safe-area-inset-left));
-  bottom: max(12px, env(safe-area-inset-bottom));
-  display: grid;
-  grid-template-columns: repeat(3, 60px);
-  grid-template-rows: repeat(3, 60px);
-  gap: 6px;
+  width: 104px;
+  height: 104px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 2px solid #4a4250aa;
+  background: radial-gradient(circle, #16121b55, #16121bcc);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s;
 }
-.dpad .turn { font-size: 28px; color: var(--gold); font-family: system-ui, 'Segoe UI Symbol', sans-serif; }
-.dpad .hub { border-radius: 50%; background: #0008; margin: 12px; }
+.stick-zone.on .stick-base { opacity: 1; }
+.stick-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 46px;
+  height: 46px;
+  margin: -23px 0 0 -23px;
+  border-radius: 50%;
+  background: #3a3240;
+  border: 2px solid #6a6070;
+  box-shadow: 0 2px 6px #0008;
+}
+.stick-zone.on .stick-knob { border-color: var(--gold); background: #4a3a1c; }
 .actions {
   position: absolute;
   right: max(12px, env(safe-area-inset-right));
   bottom: max(12px, env(safe-area-inset-bottom));
-  width: 210px;
-  height: 176px;
+  width: 196px;
+  height: 100px;
 }
-.tbtn.atk { position: absolute; right: 0; bottom: 0; width: 96px; height: 96px; border-radius: 50%; font-size: 42px; border-color: #8a5a2a; }
-.tbtn.blk { position: absolute; right: 106px; bottom: 6px; width: 84px; height: 66px; font-size: 22px; }
-.tbtn.use { position: absolute; right: 12px; bottom: 108px; width: 76px; height: 60px; font-size: 22px; color: var(--gold); }
+.tbtn.atk { position: absolute; right: 0; bottom: 0; width: 96px; height: 96px; border-radius: 50%; font-size: 22px; border-color: #8a5a2a; }
+.tbtn.atk.interact { border-color: var(--gold); color: var(--gold); background: #2a2010dd; }
+.tbtn.atk .act-label { font-family: var(--font-title); letter-spacing: 1px; }
+.tbtn.blk { position: absolute; right: 106px; bottom: 6px; width: 76px; height: 64px; }
+.tbtn.blk img { width: 36px; height: 36px; }
 .tmenu {
   position: absolute;
   right: max(12px, env(safe-area-inset-right));
@@ -420,14 +441,13 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
 
   body.touch .tbtn { font-size: 20px; border-radius: 8px; border-width: 1px; }
   body.touch .tbtn.small { font-size: 13px; padding: 2px 7px; min-width: 36px; border-radius: 6px; }
-  body.touch .dpad { grid-template-columns: repeat(3, 42px); grid-template-rows: repeat(3, 42px); gap: 3px; left: max(8px, env(safe-area-inset-left)); bottom: max(8px, env(safe-area-inset-bottom)); }
-  body.touch .dpad .turn { font-size: 20px; }
-  body.touch .dpad .hub { margin: 9px; }
-  body.touch .actions { width: 142px; height: 118px; right: max(8px, env(safe-area-inset-right)); bottom: max(8px, env(safe-area-inset-bottom)); }
-  body.touch .tbtn.atk { width: 62px; height: 62px; }
-  body.touch .tbtn.atk img { width: 38px; height: 38px; }
-  body.touch .tbtn.blk { right: 68px; bottom: 2px; width: 56px; height: 42px; font-size: 15px; }
-  body.touch .tbtn.use { right: 4px; bottom: 68px; width: 54px; height: 40px; font-size: 15px; }
+  body.touch .stick-base { width: 86px; height: 86px; }
+  body.touch .stick-knob { width: 38px; height: 38px; margin: -19px 0 0 -19px; }
+  body.touch .actions { width: 136px; height: 70px; right: max(8px, env(safe-area-inset-right)); bottom: max(8px, env(safe-area-inset-bottom)); }
+  body.touch .tbtn.atk { width: 66px; height: 66px; font-size: 17px; }
+  body.touch .tbtn.atk img { width: 40px; height: 40px; }
+  body.touch .tbtn.blk { right: 72px; bottom: 4px; width: 54px; height: 46px; }
+  body.touch .tbtn.blk img { width: 28px; height: 28px; }
 
   body.touch #hud .status { font-size: 13px; line-height: 1.1; }
   body.touch #hud .status .depth { font-size: 18px; }

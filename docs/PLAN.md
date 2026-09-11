@@ -65,8 +65,8 @@ where the real game is what you do with the loot: trade it, craft with it, fill 
 | Key | Action |
 |-----|--------|
 | W / S | Step forward / back |
-| A / D | Strafe left / right |
-| Q / E, ← / → | Turn |
+| A / D, ← / → | Turn |
+| Q / E | Strafe left / right |
 | Space / Left click | Attack (damage scales with stamina) |
 | Shift / Right click (hold) | Block (needs a shield or weapon) |
 | F | Interact: door, chest, loot, stairs, push wall |

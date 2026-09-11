@@ -110,6 +110,22 @@ describe('World', () => {
     expect(w.player.hp).toBeLessThan(hp);
   });
 
+  it('the one-button action swings at enemies, urns and air, and loots otherwise', () => {
+    const w = arena(10);
+    expect(w.contextAction().kind).toBe('attack');
+    const t = w.frontTile();
+    w.floor.pickups.push({ id: 'tp', x: t.x, y: t.y, items: [makeMaterial('silver', 1)], gold: 0 });
+    expect(w.contextAction()).toEqual({ kind: 'interact', label: 'Loot' });
+    spawn(w, 'rat', 1);
+    expect(w.contextAction().kind).toBe('attack');
+    w.floor.enemies = [];
+    w.floor.pickups = [];
+    w.floor.props.push({ id: 'tu', kind: 'urn', x: t.x, y: t.y, used: false, tier: 'urn', blocking: true });
+    expect(w.contextAction().kind).toBe('attack');
+    w.floor.props = [{ id: 'tc', kind: 'chest', x: t.x, y: t.y, used: false, tier: 'chest', blocking: true }];
+    expect(w.contextAction()).toEqual({ kind: 'interact', label: 'Open' });
+  });
+
   it('walking into the down stairs moves you a floor deeper', () => {
     const state = newGame(createRng(7));
     startRun(state, 7);

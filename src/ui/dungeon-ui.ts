@@ -6,7 +6,7 @@ import { itemName } from '../systems/items';
 import { equipFrom, unequipTo, defaultSlot } from '../systems/equip';
 import { World } from '../world/world';
 import { drawMap } from './automap';
-import { btn, h, hideTooltip, itemSlot, itemTooltip, rarityColor } from './dom';
+import { btn, h, hideTooltip, isTouchMode, itemSlot, itemTooltip, rarityColor } from './dom';
 import { audio } from '../audio/sfx';
 
 export type OverlayMode = 'inventory' | 'loot' | 'map' | 'help';
@@ -271,10 +271,19 @@ export class DungeonOverlays {
   }
 
   private help(): HTMLElement {
-    const rows: [string, string][] = [
+    const touchRows: [string, string][] = [
+      ['Drag ↑ ↓', 'Walk forward / back — hold to keep walking'],
+      ['Drag ← →', 'Turn — hold to keep turning'],
+      ['Tap view', 'Swing — or Loot / Open / Pray / Descend when facing something'],
+      ['Main button', 'Same as a tap; hold to keep swinging'],
+      ['Shield', 'Hold to block (shields block far more)'],
+      ['Quick slots', 'Tap to drink / read'],
+      ['Pack · Map', 'Gear, backpack and the automap'],
+    ];
+    const rows: [string, string][] = isTouchMode() ? touchRows : [
       ['W / S', 'Step forward / back'],
-      ['A / D', 'Strafe left / right'],
-      ['Q / E  ← →', 'Turn'],
+      ['A / D  ← →', 'Turn'],
+      ['Q / E', 'Strafe left / right'],
       ['Space / LMB', 'Swing — hits harder with stamina above half'],
       ['Shift / RMB', 'Hold to block (shields block far more)'],
       ['F', 'Open, search, loot, pray, push marked walls'],

@@ -13,8 +13,9 @@ export function titleScreen(hasSave: boolean, onStart: () => void): HTMLElement 
       btn(hasSave ? 'Return to Hollowmere' : 'Arrive in Hollowmere', onStart, 'primary big'),      h(
         'div',
         { class: 'help', style: 'margin-top:22px' },
-        h('div', {}, h('kbd', { text: 'WASD' }), 'move & strafe'),
-        h('div', {}, h('kbd', { text: 'Q / E' }), 'turn'),
+        h('div', {}, h('kbd', { text: 'W / S' }), 'step'),
+        h('div', {}, h('kbd', { text: 'A / D' }), 'turn'),
+        h('div', {}, h('kbd', { text: 'Q / E' }), 'strafe'),
         h('div', {}, h('kbd', { text: 'Space' }), 'attack'),
         h('div', {}, h('kbd', { text: 'Shift' }), 'block'),
         h('div', {}, h('kbd', { text: 'F' }), 'interact'),

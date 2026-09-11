@@ -86,8 +86,24 @@ export interface PlayerAnim {
 
 const STEP_TIME = 0.24;
 const TURN_TIME = 0.17;
+/** Pause between repeated turns while a turn is held, so you can stop where you want. */
+const TURN_REPEAT = 0.16;
 const STAMINA_REGEN = 34;
 const STAMINA_DELAY = 0.5;
+
+/** Compact button label for an interaction hint. */
+export function shortLabel(hint: string): string {
+  if (hint === 'Search') return 'Loot';
+  if (hint.startsWith('Descend')) return 'Descend';
+  if (hint.startsWith('Climb')) return 'Climb';
+  if (hint.startsWith('Leave')) return 'Leave';
+  if (hint.startsWith('Push')) return 'Push';
+  if (hint.startsWith('Pray')) return 'Pray';
+  if (hint.startsWith('Step through')) return 'Enter';
+  if (hint.startsWith('Unlock')) return 'Unlock';
+  if (hint.startsWith('Open')) return 'Open';
+  return hint;
+}
 
 export const BLESSINGS: Record<string, { name: string; text: string }> = {
   fortune: { name: 'Fortune', text: '+30% loot find this run.' },
@@ -107,6 +123,7 @@ export class World {
   private queued: Action | null = null;
   private projN = 0;
   private pathCache = new Map<string, { t: number; next: [number, number] | null }>();
+  private turnReadyAt = 0;
   time = 0;
 
   constructor(state: GameState) {
@@ -219,6 +236,7 @@ export class World {
       a.turnT = Math.min(1, a.turnT + dt / TURN_TIME);
       const e = 1 - Math.pow(1 - a.turnT, 2);
       a.yaw = a.yawFrom + (a.yawTo - a.yawFrom) * e;
+      if (a.turnT >= 1) this.turnReadyAt = this.time + TURN_REPEAT;
     }
 
     // Block raise/lower.
@@ -270,7 +288,11 @@ export class World {
   }
 
   private heldMove(): Action | null {
-    for (const a of ['forward', 'back', 'left', 'right', 'turnLeft', 'turnRight'] as Action[]) if (this.held.has(a)) return a;
+    for (const a of ['forward', 'back', 'left', 'right', 'turnLeft', 'turnRight'] as Action[]) {
+      if (!this.held.has(a)) continue;
+      if ((a === 'turnLeft' || a === 'turnRight') && this.time < this.turnReadyAt) continue;
+      return a;
+    }
     return null;
   }
 
@@ -578,6 +600,22 @@ export class World {
     if (s) return s.down ? `Descend to depth ${this.run.depth + 1}` : this.run.depth === 1 ? 'Leave the dungeon' : `Climb to depth ${this.run.depth - 1}`;
     if (this.pickupNear()) return 'Search';
     return null;
+  }
+
+  /**
+   * One-button play (touch): swing at enemies, breakables and empty air;
+   * otherwise do whatever [F] would (loot, open, pray, push, take the stairs).
+   */
+  contextAction(): { kind: 'attack' | 'interact'; label: string } {
+    const f = this.floor;
+    for (let d = 1; d <= this.derived.swing.reach; d++) {
+      const t = this.frontTile(d);
+      if (enemyAt(f, t.x, t.y)) return { kind: 'attack', label: '' };
+      if (blocksSight(f, t.x, t.y)) break;
+    }
+    const hint = this.interactionHint();
+    if (!hint || hint.startsWith('Smash') || hint === 'Close door') return { kind: 'attack', label: '' };
+    return { kind: 'interact', label: shortLabel(hint) };
   }
 
   pickupNear(): Pickup | undefined {

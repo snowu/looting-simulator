@@ -41,15 +41,31 @@ const hud = new Hud(app, { interact: () => world?.interact(), quick: (i) => worl
 let touchMode = isTouchDevice();
 let touchAttack = false;
 setTouchMode(touchMode);
+let stickDir: TouchMove | null = null;
 const touch = new TouchControls(app, {
-  press: (a) => world?.press(a),
-  release: (a) => world?.release(a),
-  attack: (on) => {
-    touchAttack = on;
-    if (on) world?.attack();
+  move: (d) => {
+    if (stickDir) world?.release(stickDir);
+    stickDir = d;
+    if (d) world?.press(d);
+  },
+  tap: () => {
+    if (!world) return;
+    if (world.contextAction().kind === 'interact') world.interact();
+    else world.attack();
+  },
+  action: (on) => {
+    if (!on) {
+      touchAttack = false;
+      return;
+    }
+    if (!world) return;
+    if (world.contextAction().kind === 'interact') world.interact();
+    else {
+      touchAttack = true;
+      world.attack();
+    }
   },
   block: (on) => world?.setBlock(on),
-  interact: () => world?.interact(),
   open: (m) => world && overlays.toggle(m, world),
 });
 // Hybrid devices: switch to touch controls the first time a finger lands.
@@ -100,6 +116,7 @@ function show(m: Mode): void {
   hud.visible = m === 'dungeon';
   touch.visible = m === 'dungeon' && touchMode;
   touchAttack = false;
+  stickDir = null;
   canvas.style.visibility = m === 'dungeon' ? 'visible' : 'hidden';
   town.visible = m === 'town';
   if (m !== 'dungeon') overlays.close();
@@ -143,7 +160,12 @@ function enterDungeon(): void {
   startAmbient();
   hud.message(`Depth ${world.run.depth} — ${biomeForDepth(world.run.depth).name}. The torch gutters.`, '#d8c8a8');
   if (state.lifetime.runs <= 1) {
-    hud.message(`${touchMode ? 'Tap ☰' : 'Press Esc'} for controls. Find loot, then get it back up the stairs.`, '#a0a090');
+    hud.message(
+      touchMode
+        ? 'Drag up/down to walk, left/right to turn. Tap to swing or loot. Get the loot back up the stairs.'
+        : 'Press Esc for controls. Find loot, then get it back up the stairs.',
+      '#a0a090',
+    );
   }
 }
 
@@ -208,6 +230,7 @@ function frame(now: number): void {
   if (mode === 'dungeon' && world) {
     const paused = overlays.isOpen;
     touch.visible = touchMode && !paused && !ending;
+    if (touchMode) touch.setAction(world.contextAction());
     // Holding the touch attack button keeps swinging.
     if (touchAttack && !paused) world.attack();
     if (!paused) world.update(dt);
@@ -238,8 +261,9 @@ function frame(now: number): void {
 
 // --- Input -----------------------------------------------------------------------
 const MOVES: Record<string, Parameters<World['press']>[0]> = {
-  w: 'forward', arrowup: 'forward', s: 'back', arrowdown: 'back', a: 'left', d: 'right',
-  q: 'turnLeft', arrowleft: 'turnLeft', e: 'turnRight', arrowright: 'turnRight',
+  w: 'forward', arrowup: 'forward', s: 'back', arrowdown: 'back',
+  a: 'turnLeft', arrowleft: 'turnLeft', d: 'turnRight', arrowright: 'turnRight',
+  q: 'left', e: 'right',
 };
 
 window.addEventListener('keydown', (e) => {
@@ -296,34 +320,13 @@ window.addEventListener('keyup', (e) => {
   if (k === 'shift') world.setBlock(false);
 });
 
-// Mouse: LMB attack, RMB block. Touch on the view: swipe to turn/step, tap to attack.
-let swipe: { x: number; y: number; id: number } | null = null;
+// Mouse: LMB attack, RMB block. (Touch goes through the drag zone in TouchControls.)
 canvas.addEventListener('pointerdown', (e) => {
   audio.unlock();
-  if (!world || overlays.isOpen) return;
-  if (e.pointerType === 'mouse') {
-    if (e.button === 0) world.attack();
-    if (e.button === 2) world.setBlock(true);
-    return;
-  }
-  swipe = { x: e.clientX, y: e.clientY, id: e.pointerId };
+  if (!world || overlays.isOpen || e.pointerType !== 'mouse') return;
+  if (e.button === 0) world.attack();
+  if (e.button === 2) world.setBlock(true);
 });
-canvas.addEventListener('pointerup', (e) => {
-  if (e.pointerType === 'mouse' || !swipe || swipe.id !== e.pointerId || !world) return;
-  const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y;
-  swipe = null;
-  const T = 36;
-  let a: TouchMove | null = null;
-  if (Math.abs(dx) > Math.abs(dy)) a = dx > T ? 'turnRight' : dx < -T ? 'turnLeft' : null;
-  else a = dy < -T ? 'forward' : dy > T ? 'back' : null;
-  if (a) {
-    world.press(a);
-    world.release(a);
-  } else {
-    world.attack();
-  }
-});
-canvas.addEventListener('pointercancel', () => (swipe = null));
 window.addEventListener('pointerdown', () => audio.unlock());
 window.addEventListener('mouseup', (e) => {
   if (world && e.button === 2) world.setBlock(false);
