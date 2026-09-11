@@ -114,8 +114,8 @@ export const MATERIALS: MaterialDef[] = [
   },
   {
     id: 'emerald', name: 'Emerald', category: 'gem', tier: 3, rarity: Rarity.Rare, value: 110,
-    icon: 'ic_gem', ramp: ['#04301a', '#0a6030', '#10a050', '#70f0a0'], mods: { regen: 2 },
-    catalystAffix: 'mending', description: 'Catalyst: grants of Mending (+Regen).',
+    icon: 'ic_gem', ramp: ['#04301a', '#0a6030', '#10a050', '#70f0a0'], mods: { find: 8 },
+    catalystAffix: 'plunder', description: 'Catalyst: grants of Plunder (+Loot Find).',
   },
   {
     id: 'frost_shard', name: 'Frost Shard', category: 'gem', tier: 3, rarity: Rarity.Rare, value: 96,

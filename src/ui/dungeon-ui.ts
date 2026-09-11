@@ -46,13 +46,13 @@ export function statSheet(world: { derived: World['derived'] }): HTMLElement {
     ['Speed', `${s.speed}%`],
     ['Loot find', `${d.find}%`],
   ];
-  for (const k of ['regen', 'leech', 'fire', 'frost', 'shadow', 'holy'] as const) if (s[k]) rows.push([STAT_LABELS[k], String(s[k])]);
+  for (const k of ['leech', 'fire', 'frost', 'shadow', 'holy'] as const) if (s[k]) rows.push([STAT_LABELS[k], String(s[k])]);
   return h('div', { class: 'statsheet' }, ...rows.map(([k, v]) => h('div', {}, h('span', { class: 'dim', text: k }), h('b', { text: v }))));
 }
 
 /** Inventory, loot, map and help panels during a run. All of them pause the world. */
 export class DungeonOverlays {
-  readonly root = h('div', { class: 'layer' });
+  readonly root = h('div', { class: 'layer overlays' });
   mode: OverlayMode | null = null;
   private pickupId = '';
   private world: World | null = null;

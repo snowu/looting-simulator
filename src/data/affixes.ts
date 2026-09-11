@@ -24,7 +24,6 @@ export const AFFIXES: AffixDef[] = [
   { id: 'fox', name: 'of the Fox', kind: 'suffix', stat: 'luck', min: 2, max: 5, perLevel: 0.4, slots: ALL, weight: 6, minIlvl: 1 },
   { id: 'swiftness', name: 'of Swiftness', kind: 'suffix', stat: 'speed', min: 4, max: 8, perLevel: 0.6, slots: [...WEAPON, 'hands', ...JEWEL], weight: 6, minIlvl: 1 },
   { id: 'leeching', name: 'of the Leech', kind: 'suffix', stat: 'leech', min: 2, max: 4, perLevel: 0.3, slots: [...WEAPON, ...JEWEL], weight: 4, minIlvl: 3 },
-  { id: 'mending', name: 'of Mending', kind: 'suffix', stat: 'regen', min: 1, max: 2, perLevel: 0.3, slots: ALL, weight: 5, minIlvl: 2 },
   { id: 'plunder', name: 'of Plunder', kind: 'suffix', stat: 'find', min: 6, max: 12, perLevel: 1.2, slots: ALL, weight: 5, minIlvl: 1 },
   { id: 'wall', name: 'of the Wall', kind: 'suffix', stat: 'block', min: 5, max: 10, perLevel: 0.6, slots: ['offhand'], weight: 6, minIlvl: 1 },
   { id: 'endurance', name: 'of Endurance', kind: 'suffix', stat: 'stamina', min: 8, max: 14, perLevel: 1.5, slots: ALL, weight: 5, minIlvl: 2 },

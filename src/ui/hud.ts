@@ -45,8 +45,10 @@ export class Hud {
   private statusKey = '';
   private time = 0;
 
-  constructor(parent: HTMLElement) {
+  constructor(parent: HTMLElement, private actions: { interact: () => void; quick: (i: number) => void }) {
     this.recallWrap.append(this.recallBar);
+    // Tappable on touch screens.
+    this.prompt.addEventListener('click', () => this.actions.interact());
     const bars = h(
       'div',
       { class: 'bars' },
@@ -113,7 +115,7 @@ export class Hud {
 
     const biome = biomeForDepth(world.run.depth);
     const keyNames = world.run.keys.map((k) => world.floor.keys.find((kd) => kd.id === k)?.name ?? 'Key');
-    const bless = world.run.blessing ? BLESSINGS[world.run.blessing].name : '';
+    const bless = world.run.blessing ? BLESSINGS[world.run.blessing]?.name ?? '' : '';
     const statusKey = `${world.run.depth}|${world.run.gold}|${keyNames.join()}|${bless}|${world.freeSlots}`;
     if (statusKey !== this.statusKey) {
       this.statusKey = statusKey;
@@ -141,6 +143,7 @@ export class Hud {
         ...[0, 1, 2, 3].map((i) => {
           const ref = seen[i];
           const slot = h('div', { class: `slot${ref ? '' : ' empty'}`, style: '--sz:44px', title: ref ? consumable(ref).name : '' });
+          if (ref) slot.addEventListener('click', () => this.actions.quick(i));
           if (ref) {
             const ic = itemIcon({ uid: '', kind: 'consumable', ref, qty: 1 });
             slot.append(artImg(ic.icon, ic.ramp, 36), h('span', { class: 'qty', text: String(counts.get(ref)) }));

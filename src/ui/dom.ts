@@ -58,8 +58,64 @@ export function rarityColor(item: Item): string {
   return RARITY_COLORS[itemRarity(item)];
 }
 
+// ---------------------------------------------------------------------------
+// Touch: first tap shows the tooltip, second tap acts; long-press = right-click.
+// ---------------------------------------------------------------------------
+
+let touchMode = false;
+let armed: HTMLElement | null = null;
+
+export function setTouchMode(on: boolean): void {
+  touchMode = on;
+  document.body.classList.toggle('touch', on);
+}
+
+export function isTouchMode(): boolean {
+  return touchMode;
+}
+
+document.addEventListener(
+  'pointerdown',
+  (e) => {
+    if (!touchMode) return;
+    if (!(e.target as Element | null)?.closest?.('.slot')) {
+      armed = null;
+      hideTooltip();
+    }
+  },
+  true,
+);
+
+function tooltipNear(el: HTMLElement, html: string): void {
+  const r = el.getBoundingClientRect();
+  showTooltip(html, r.right - 10, r.top - 10);
+}
+
+function addLongPress(el: HTMLElement): void {
+  let timer = 0;
+  let sx = 0, sy = 0;
+  const cancel = () => clearTimeout(timer);
+  el.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'touch') return;
+    sx = e.clientX;
+    sy = e.clientY;
+    timer = window.setTimeout(() => {
+      el.dataset.longpress = '1';
+      el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: sx, clientY: sy }));
+    }, 520);
+  });
+  el.addEventListener('pointermove', (e) => {
+    if (Math.hypot(e.clientX - sx, e.clientY - sy) > 10) cancel();
+  });
+  el.addEventListener('pointerup', cancel);
+  el.addEventListener('pointercancel', cancel);
+}
+
 /** An inventory slot: icon, quantity badge, rarity-tinted frame. */
-export function itemSlot(item: Item | null, opts: { size?: number; onclick?: (e: MouseEvent) => void; tip?: () => string; placeholder?: string; selected?: boolean } = {}): HTMLElement {
+export function itemSlot(
+  item: Item | null,
+  opts: { size?: number; onclick?: (e: MouseEvent) => void; tip?: () => string; placeholder?: string; selected?: boolean; instant?: boolean } = {},
+): HTMLElement {
   const size = opts.size ?? 40;
   const el = h('div', { class: `slot${item ? '' : ' empty'}${opts.selected ? ' selected' : ''}`, style: `--sz:${size}px` });
   if (item) {
@@ -71,9 +127,25 @@ export function itemSlot(item: Item | null, opts: { size?: number; onclick?: (e:
   } else if (opts.placeholder) {
     el.append(h('span', { class: 'ph', text: opts.placeholder }));
   }
-  if (opts.onclick) el.addEventListener('click', opts.onclick);
-  if (opts.tip) bindTooltip(el, opts.tip);
-  else if (item) bindTooltip(el, () => itemTooltip(item));
+  const tipFn = opts.tip ?? (item ? () => itemTooltip(item) : undefined);
+  el.addEventListener('click', (e) => {
+    if (el.dataset.longpress) {
+      delete el.dataset.longpress;
+      return;
+    }
+    if (touchMode && tipFn && !(opts.instant && opts.onclick)) {
+      if (armed !== el || !opts.onclick) {
+        armed = el;
+        tooltipNear(el, tipFn());
+        return;
+      }
+      armed = null;
+      hideTooltip();
+    }
+    opts.onclick?.(e);
+  });
+  if (item) addLongPress(el);
+  if (tipFn) bindTooltip(el, tipFn);
   return el;
 }
 
@@ -92,7 +164,7 @@ function tip(): HTMLElement {
 
 export function showTooltip(html: string, x: number, y: number): void {
   const t = tip();
-  t.innerHTML = html;
+  t.innerHTML = touchMode ? html.replace(/Right-click/g, 'Long-press').replace(/Click/g, 'Tap again') : html;
   t.style.display = 'block';
   moveTooltip(x, y);
 }
@@ -111,9 +183,10 @@ export function hideTooltip(): void {
 }
 
 export function bindTooltip(el: HTMLElement, content: () => string): void {
-  el.addEventListener('mouseenter', (e) => showTooltip(content(), e.clientX, e.clientY));
-  el.addEventListener('mousemove', (e) => moveTooltip(e.clientX, e.clientY));
-  el.addEventListener('mouseleave', hideTooltip);
+  // Hover tooltips are mouse-only; touch uses tap-to-arm in itemSlot.
+  el.addEventListener('pointerenter', (e) => e.pointerType === 'mouse' && showTooltip(content(), e.clientX, e.clientY));
+  el.addEventListener('pointermove', (e) => e.pointerType === 'mouse' && moveTooltip(e.clientX, e.clientY));
+  el.addEventListener('pointerleave', (e) => e.pointerType === 'mouse' && hideTooltip());
 }
 
 // ---------------------------------------------------------------------------

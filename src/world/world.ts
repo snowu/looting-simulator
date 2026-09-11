@@ -92,7 +92,7 @@ const STAMINA_DELAY = 0.5;
 export const BLESSINGS: Record<string, { name: string; text: string }> = {
   fortune: { name: 'Fortune', text: '+30% loot find this run.' },
   fury: { name: 'Fury', text: '+25% damage this run.' },
-  vigor: { name: 'Vigor', text: 'Health regenerates quickly this run.' },
+  ward: { name: 'Warding', text: '+5 defense this run.' },
 };
 
 export class World {
@@ -107,7 +107,6 @@ export class World {
   private queued: Action | null = null;
   private projN = 0;
   private pathCache = new Map<string, { t: number; next: [number, number] | null }>();
-  private regenAcc = 0;
   time = 0;
 
   constructor(state: GameState) {
@@ -137,7 +136,7 @@ export class World {
     this.derived = derivePlayer(this.state.equipment, this.state.meta);
     if (this.run.blessing === 'fury') this.derived.attack = Math.round(this.derived.attack * 1.25);
     if (this.run.blessing === 'fortune') this.derived.find += 30;
-    if (this.run.blessing === 'vigor') this.derived.stats.regen += 6;
+    if (this.run.blessing === 'ward') this.derived.stats.defense += 5;
     this.player.hp = Math.min(this.player.hp, this.derived.maxHp);
     this.player.stamina = Math.min(this.player.stamina, this.derived.maxStamina);
   }
@@ -246,19 +245,11 @@ export class World {
       }
     }
 
-    // Stamina & health regen.
+    // Stamina recovers; health never does on its own (potions, shrines, leech only).
     a.sinceStamina += dt;
     if (a.sinceStamina > STAMINA_DELAY && a.attack === 'idle') {
       const rate = a.blockRaise > 0.5 ? STAMINA_REGEN * 0.3 : STAMINA_REGEN;
       this.player.stamina = Math.min(this.derived.maxStamina, this.player.stamina + rate * dt);
-    }
-    if (this.derived.stats.regen > 0) {
-      this.regenAcc += (this.derived.stats.regen / 10) * dt;
-      if (this.regenAcc >= 1) {
-        const n = Math.floor(this.regenAcc);
-        this.regenAcc -= n;
-        this.player.hp = Math.min(this.derived.maxHp, this.player.hp + n);
-      }
     }
 
     // Recall channel.

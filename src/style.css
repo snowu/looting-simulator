@@ -27,12 +27,17 @@ body {
   line-height: 1.15;
   overflow: hidden;
   user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
 }
+button, .slot { touch-action: manipulation; }
 img.px, canvas, .px { image-rendering: pixelated; }
 button { font-family: inherit; }
 
 #app { position: fixed; inset: 0; }
-#view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+#view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
 .layer { position: absolute; inset: 0; pointer-events: none; }
 .layer > * { pointer-events: auto; }
 [hidden] { display: none !important; }
@@ -228,7 +233,8 @@ h3 { font-size: 26px; color: var(--ink); margin-bottom: 6px; }
 .news .rumour { color: var(--violet); }
 
 .panes { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 14px; }
-@media (max-width: 900px) { .panes { grid-template-columns: 1fr; } .inv { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .panes { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .inv { grid-template-columns: 1fr; } }
 .pane { padding: 4px 8px 8px; min-width: 0; }
 
 table.market { width: 100%; border-collapse: collapse; font-size: 19px; }
@@ -278,4 +284,111 @@ table.market .num { text-align: right; font-variant-numeric: tabular-nums; }
 .help kbd { font-family: inherit; color: var(--gold); display: inline-block; min-width: 88px; }
 
 .dim-overlay { position: absolute; inset: 0; background: #000; pointer-events: none; transition: opacity 0.4s; }
+
+/* ------------------------------------------------------------------------ */
+/* Touch (phones & tablets)                                                  */
+/* ------------------------------------------------------------------------ */
+.town {
+  padding-left: max(clamp(12px, 3vw, 40px), env(safe-area-inset-left));
+  padding-right: max(clamp(12px, 3vw, 40px), env(safe-area-inset-right));
+  overscroll-behavior: contain;
+  touch-action: pan-x pan-y;
+}
+.touch-ui { z-index: 2; }
+.overlays { z-index: 5; }
+.tbtn.atk img { width: 56px; height: 56px; }
+.touch-ui > * { touch-action: none; }
+.tbtn {
+  font-family: var(--font-body);
+  font-size: 30px;
+  color: #f0e4c8;
+  background: #16121bcc;
+  border: 2px solid #4a4250;
+  border-radius: 12px;
+  box-shadow: inset 0 1px 0 #ffffff14, 0 2px 6px #0008;
+  display: grid;
+  place-items: center;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.tbtn.on { background: #4a3a1ce6; border-color: var(--gold); color: #fff; }
+.tbtn.small { font-size: 18px; padding: 5px 10px; border-radius: 8px; min-width: 52px; }
+.dpad {
+  position: absolute;
+  left: max(12px, env(safe-area-inset-left));
+  bottom: max(12px, env(safe-area-inset-bottom));
+  display: grid;
+  grid-template-columns: repeat(3, 60px);
+  grid-template-rows: repeat(3, 60px);
+  gap: 6px;
+}
+.dpad .turn { font-size: 28px; color: var(--gold); font-family: system-ui, 'Segoe UI Symbol', sans-serif; }
+.dpad .hub { border-radius: 50%; background: #0008; margin: 12px; }
+.actions {
+  position: absolute;
+  right: max(12px, env(safe-area-inset-right));
+  bottom: max(12px, env(safe-area-inset-bottom));
+  width: 210px;
+  height: 176px;
+}
+.tbtn.atk { position: absolute; right: 0; bottom: 0; width: 96px; height: 96px; border-radius: 50%; font-size: 42px; border-color: #8a5a2a; }
+.tbtn.blk { position: absolute; right: 106px; bottom: 6px; width: 84px; height: 66px; font-size: 22px; }
+.tbtn.use { position: absolute; right: 12px; bottom: 108px; width: 76px; height: 60px; font-size: 22px; color: var(--gold); }
+.tmenu {
+  position: absolute;
+  right: max(12px, env(safe-area-inset-right));
+  top: 132px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+body.touch .hint-keys { display: none; }
+body.touch #hud .status { left: max(14px, env(safe-area-inset-left)); top: max(10px, env(safe-area-inset-top)); font-size: 17px; }
+body.touch #hud .status .depth { font-size: 24px; }
+body.touch #hud .minimap { right: max(12px, env(safe-area-inset-right)); width: 112px; height: 112px; }
+body.touch #hud .bars { left: 50%; transform: translateX(-50%); bottom: calc(max(12px, env(safe-area-inset-bottom)) + 54px); width: min(34vw, 280px); }
+body.touch #hud .bar-label { font-size: 15px; }
+body.touch #hud .quick { right: auto; left: 50%; transform: translateX(-50%); bottom: max(8px, env(safe-area-inset-bottom)); }
+body.touch #hud .quick .key { display: none; }
+body.touch #hud .prompt {
+  bottom: calc(max(12px, env(safe-area-inset-bottom)) + 142px);
+  pointer-events: auto;
+  cursor: pointer;
+  background: #0e0c10d9;
+  border: 2px solid var(--gold);
+  padding: 4px 14px;
+  font-size: 22px;
+}
+body.touch #hud .prompt kbd { display: none; }
+body.touch #hud .log { left: 50%; transform: translateX(-50%); bottom: auto; top: 96px; width: min(56vw, 460px); text-align: center; }
+body.touch #hud .log div { font-size: 17px; }
+body.touch #hud .target { top: 48px; }
+body.touch .modal .btn { padding: 6px 14px; }
+body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
+
+/* Small screens */
+@media (max-width: 700px) {
+  h1 { font-size: 40px; }
+  h2 { font-size: 28px; }
+  .tab { font-size: 21px; padding: 2px 8px; }
+  .purse { font-size: 18px; gap: 10px; }
+  .btn.big { font-size: 22px; padding: 6px 16px 8px; }
+  .col-stock { display: none; }
+  .inv { min-width: 0; }
+}
+@media (max-width: 500px) {
+  .col-trend { display: none; }
+  table.market { font-size: 17px; }
+  .help { columns: 1; }
+  .summary .big-num { font-size: 30px; }
+}
+@media (max-height: 460px) {
+  .tbtn.atk { width: 84px; height: 84px; }
+  .dpad { grid-template-columns: repeat(3, 52px); grid-template-rows: repeat(3, 52px); }
+  .tmenu { top: 118px; flex-direction: row; right: auto; left: 50%; transform: translateX(-50%); top: max(8px, env(safe-area-inset-top)); }
+  body.touch #hud .compass { top: 46px; font-size: 24px; }
+  body.touch #hud .target { top: 76px; }
+  body.touch #hud .log { top: 110px; }
+}
 .pause-note { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); font-family: var(--font-title); font-size: 48px; color: var(--gold); text-shadow: 0 3px 0 #000; pointer-events: none; }

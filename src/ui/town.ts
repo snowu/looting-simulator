@@ -178,7 +178,7 @@ export class Town {
         const trend = trendPercent(c.history);
         const ev = eventMultiplier(m, { materialId: mat.id });
         const trendEl = h('span', { class: trend > 2 ? 'up' : trend < -2 ? 'down' : 'dim', text: trend > 2 ? '▲' : trend < -2 ? '▼' : '–' });
-        const trendCell = h('td', {}, h('div', { class: 'row', style: 'gap:4px' }, trendEl, insider ? h('span', { class: 'small', text: `${trend > 0 ? '+' : ''}${trend}%` }) : null, insider ? sparkline(c.history, 70, 18, ev > 1 ? '#e8b84a' : ev < 1 ? '#d0443a' : '#8a7f6e') : null));
+        const trendCell = h('td', { class: 'col-trend' }, h('div', { class: 'row', style: 'gap:4px' }, trendEl, insider ? h('span', { class: 'small', text: `${trend > 0 ? '+' : ''}${trend}%` }) : null, insider ? sparkline(c.history, 70, 18, ev > 1 ? '#e8b84a' : ev < 1 ? '#d0443a' : '#8a7f6e') : null));
         const icon = itemSlot({ uid: mat.id, kind: 'material', ref: mat.id, qty: 1 }, { size: 32, tip: () => itemTooltip({ uid: '', kind: 'material', ref: mat.id, qty: Math.max(1, owned) }, { price: { label: 'Sells for', value: sell } }) });
         rows.push(
           h(
@@ -190,7 +190,7 @@ export class Town {
             h('td', { class: 'num dim', text: `${buy}` }),
             trendCell,
             h('td', { class: 'num', text: owned ? String(owned) : '·' }),
-            h('td', { class: 'num dim small', text: c.stock ? `${c.stock} in stock` : 'sold out' }),
+            h('td', { class: 'num dim small col-stock', text: c.stock ? `${c.stock} in stock` : 'sold out' }),
             h(
               'td',
               {},
@@ -214,7 +214,7 @@ export class Town {
       h(
         'table',
         { class: 'market' },
-        h('thead', {}, h('tr', {}, h('th', {}), h('th', { text: 'Commodity' }), h('th', { class: 'num', text: 'Sell' }), h('th', { class: 'num', text: 'Buy' }), h('th', { text: insider ? 'Trend (30d)' : 'Trend' }), h('th', { class: 'num', text: 'Owned' }), h('th', {}), h('th', {}))),
+        h('thead', {}, h('tr', {}, h('th', {}), h('th', { text: 'Commodity' }), h('th', { class: 'num', text: 'Sell' }), h('th', { class: 'num', text: 'Buy' }), h('th', { class: 'col-trend', text: insider ? 'Trend (30d)' : 'Trend' }), h('th', { class: 'num', text: 'Owned' }), h('th', {}), h('th', {}))),
         h('tbody', {}, ...rows),
       ),
     );
@@ -424,6 +424,7 @@ export class Town {
         if (owned === 0 && def.tier > 2) continue;
         const el = itemSlot({ uid: def.id, kind: 'material', ref: def.id, qty: owned }, {
           size: 38,
+          instant: true,
           selected: this.forgeMats[i] === def.id,
           tip: () => itemTooltip({ uid: '', kind: 'material', ref: def.id, qty: Math.max(1, owned) }, { hint: owned >= slot.qty ? 'Click to use' : `Need ${slot.qty}` }),
           onclick: () => {

@@ -41,8 +41,11 @@ export function playerHitsEnemy(rng: Rng, p: PlayerDerived, power: number, e: En
   return { damage: Math.max(dmg > 0 ? 1 : 0, Math.round(dmg)), crit, effective };
 }
 
+/** Global tuning knob for how hard monsters hit. */
+export const ENEMY_DAMAGE_MULT = 1.15;
+
 export function enemyHitsPlayer(rng: Rng, attack: number, type: DamageType, p: PlayerDerived): number {
   // Elemental hits ignore half of armour.
   const def = type === 'slash' || type === 'pierce' || type === 'blunt' ? p.stats.defense : p.stats.defense * 0.5;
-  return Math.max(1, Math.round(mitigate(attack, def, 25) * rng.float(0.85, 1.15)));
+  return Math.max(1, Math.round(mitigate(attack * ENEMY_DAMAGE_MULT, def, 25) * rng.float(0.85, 1.15)));
 }
