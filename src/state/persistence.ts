@@ -1,38 +1,32 @@
-import { GameState } from './game-state';
-import { Inventory } from './inventory';
+import { GameState, SAVE_VERSION } from './game-state';
 
-const SAVE_KEY = 'looting-simulator-save';
+const SAVE_KEY = 'looting-simulator-save-v2';
 
+/** Game state is plain data, so a save is just JSON. */
 export function saveGame(state: GameState): void {
-  const data = JSON.stringify(state, (_key, value) => {
-    if (value instanceof Map) return { __type: 'Map', entries: [...value] };
-    return value;
-  });
-  localStorage.setItem(SAVE_KEY, data);
-}
-
-function hydrateInventory(raw: Record<string, unknown>): Inventory {
-  const inv = new Inventory();
-  if (Array.isArray(raw.items)) {
-    for (const item of raw.items) inv.addItem(item);
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+  } catch {
+    // Storage full or blocked: the game keeps running, it just won't persist.
   }
-  if (raw.materials instanceof Map) {
-    for (const [id, qty] of raw.materials) inv.addMaterial(id, qty as number);
-  }
-  return inv;
 }
 
 export function loadGame(): GameState | null {
-  const raw = localStorage.getItem(SAVE_KEY);
-  if (!raw) return null;
-  const parsed = JSON.parse(raw, (_key, value) => {
-    if (value?.__type === 'Map') return new Map(value.entries);
-    return value;
-  });
-  const state = new GameState();
-  state.stash = hydrateInventory(parsed.stash ?? {});
-  state.gold = parsed.gold ?? 100;
-  state.meta = parsed.meta ?? state.meta;
-  state.runState = null;
-  return state;
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as GameState;
+    if (parsed.version !== SAVE_VERSION) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function clearSave(): void {
+  try {
+    localStorage.removeItem(SAVE_KEY);
+  } catch {
+    // ignore
+  }
 }

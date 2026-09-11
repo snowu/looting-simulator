@@ -1,0 +1,1116 @@
+import { Rng, createRng, hashString } from '../core/rng';
+import { Dir, DIR_NAMES, DIRS, DX, DY, dirOf, turnAround, turnLeft, turnRight } from '../core/dir';
+import { DamageType, EnemyDef, Item } from '../types';
+import { GameState, RunState } from '../state/game-state';
+import { addItem, canFit, findItem, removeItem, roomFor } from '../state/inventory';
+import {
+  EnemyState,
+  Floor,
+  FLOOR,
+  Pickup,
+  Prop,
+  blocksMove,
+  blocksSight,
+  doorAt,
+  enemyAt,
+  generateFloor,
+  propAt,
+  secretAt,
+  stairsAt,
+  stairsFront,
+} from '../systems/dungeon';
+import { enemyDef } from '../data/enemies';
+import { consumable, itemBase } from '../data/items';
+import { biomeForDepth, FINAL_DEPTH } from '../data/biomes';
+import { PlayerDerived, derivePlayer } from '../systems/player';
+import { enemyHitsPlayer, playerHitsEnemy, staminaPower } from '../systems/combat';
+import { identify, itemName, rollContainerLoot, rollEnemyLoot } from '../systems/items';
+import { recordDepth, recordKill } from '../systems/contracts';
+import { metaLevel } from '../systems/meta';
+import { Rarity } from '../types';
+import type { SfxName } from '../audio/sfx';
+
+// ---------------------------------------------------------------------------
+// Events the world emits for the renderer / UI / audio to react to.
+// ---------------------------------------------------------------------------
+
+export type WorldEvent =
+  | { type: 'msg'; text: string; color?: string }
+  | { type: 'sfx'; name: SfxName; x?: number; y?: number }
+  | { type: 'hurt'; amount: number; blocked: boolean }
+  | { type: 'float'; x: number; y: number; text: string; color: string }
+  | { type: 'shake'; amount: number }
+  | { type: 'loot'; pickupId: string }
+  | { type: 'floor' }
+  | { type: 'end'; outcome: 'dead' | 'extracted' }
+  | { type: 'secret'; x: number; y: number };
+
+export interface Projectile {
+  id: number;
+  x: number;
+  y: number;
+  dx: number;
+  dy: number;
+  speed: number;
+  damage: number;
+  type: DamageType;
+  sprite: string;
+  light?: string;
+  tileX: number;
+  tileY: number;
+  source: string;
+}
+
+type Move = 'forward' | 'back' | 'left' | 'right';
+type Action = Move | 'turnLeft' | 'turnRight';
+
+export interface PlayerAnim {
+  fromX: number;
+  fromY: number;
+  moveT: number;
+  moveDur: number;
+  yaw: number;
+  yawFrom: number;
+  yawTo: number;
+  turnT: number;
+  attack: 'idle' | 'windup' | 'recover';
+  attackT: number;
+  attackDur: number;
+  attackPower: number;
+  blockRaise: number;
+  steps: number;
+  sinceStamina: number;
+  recall: number | null;
+  transition: { t: number; dir: 'down' | 'up'; done: boolean } | null;
+}
+
+const STEP_TIME = 0.24;
+const TURN_TIME = 0.17;
+const STAMINA_REGEN = 34;
+const STAMINA_DELAY = 0.5;
+
+export const BLESSINGS: Record<string, { name: string; text: string }> = {
+  fortune: { name: 'Fortune', text: '+30% loot find this run.' },
+  fury: { name: 'Fury', text: '+25% damage this run.' },
+  vigor: { name: 'Vigor', text: 'Health regenerates quickly this run.' },
+};
+
+export class World {
+  readonly state: GameState;
+  readonly run: RunState;
+  rng: Rng;
+  derived!: PlayerDerived;
+  projectiles: Projectile[] = [];
+  events: WorldEvent[] = [];
+  anim: PlayerAnim;
+  held = new Set<Action | 'block'>();
+  private queued: Action | null = null;
+  private projN = 0;
+  private pathCache = new Map<string, { t: number; next: [number, number] | null }>();
+  private regenAcc = 0;
+  time = 0;
+
+  constructor(state: GameState) {
+    this.state = state;
+    this.run = state.run!;
+    this.rng = createRng(this.run.rngState);
+    this.refreshDerived();
+    const yaw = this.run.player.facing * (Math.PI / 2);
+    this.anim = {
+      fromX: this.run.player.x, fromY: this.run.player.y, moveT: 1, moveDur: STEP_TIME,
+      yaw, yawFrom: yaw, yawTo: yaw, turnT: 1,
+      attack: 'idle', attackT: 0, attackDur: 0, attackPower: 1, blockRaise: 0, steps: 0,
+      sinceStamina: 10, recall: null, transition: null,
+    };
+    this.reveal();
+  }
+
+  get floor(): Floor {
+    return this.run.floors[this.run.depth - 1]!;
+  }
+
+  get player() {
+    return this.run.player;
+  }
+
+  refreshDerived(): void {
+    this.derived = derivePlayer(this.state.equipment, this.state.meta);
+    if (this.run.blessing === 'fury') this.derived.attack = Math.round(this.derived.attack * 1.25);
+    if (this.run.blessing === 'fortune') this.derived.find += 30;
+    if (this.run.blessing === 'vigor') this.derived.stats.regen += 6;
+    this.player.hp = Math.min(this.player.hp, this.derived.maxHp);
+    this.player.stamina = Math.min(this.player.stamina, this.derived.maxStamina);
+  }
+
+  private emit(e: WorldEvent): void {
+    this.events.push(e);
+  }
+
+  private msg(text: string, color?: string): void {
+    this.emit({ type: 'msg', text, color });
+  }
+
+  private sfx(name: SfxName, x?: number, y?: number): void {
+    this.emit({ type: 'sfx', name, x, y });
+  }
+
+  drainEvents(): WorldEvent[] {
+    const e = this.events;
+    this.events = [];
+    return e;
+  }
+
+  // -------------------------------------------------------------------------
+  // Input
+  // -------------------------------------------------------------------------
+
+  press(a: Action): void {
+    this.held.add(a);
+    this.queued = a;
+  }
+
+  release(a: Action | 'block'): void {
+    this.held.delete(a);
+  }
+
+  setBlock(on: boolean): void {
+    if (on) this.held.add('block');
+    else this.held.delete('block');
+  }
+
+  get busy(): boolean {
+    return this.run.outcome !== 'active' || !!this.anim.transition;
+  }
+
+  get moving(): boolean {
+    return this.anim.moveT < 1 || this.anim.turnT < 1;
+  }
+
+  frontTile(dist = 1): { x: number; y: number } {
+    return { x: this.player.x + DX[this.player.facing] * dist, y: this.player.y + DY[this.player.facing] * dist };
+  }
+
+  // -------------------------------------------------------------------------
+  // Main update
+  // -------------------------------------------------------------------------
+
+  update(dt: number): void {
+    dt = Math.min(dt, 0.05);
+    this.time += dt;
+    if (this.run.outcome !== 'active') return;
+    this.run.stats.time += dt;
+    const a = this.anim;
+
+    if (a.transition) {
+      a.transition.t += dt;
+      if (!a.transition.done && a.transition.t >= 0.45) {
+        a.transition.done = true;
+        this.changeFloor(a.transition.dir);
+      }
+      if (a.transition.t >= 0.9) a.transition = null;
+      return;
+    }
+
+    // Interpolation.
+    if (a.moveT < 1) {
+      a.moveT = Math.min(1, a.moveT + dt / a.moveDur);
+      if (a.moveT >= 1) this.arrive();
+    }
+    if (a.turnT < 1) {
+      a.turnT = Math.min(1, a.turnT + dt / TURN_TIME);
+      const e = 1 - Math.pow(1 - a.turnT, 2);
+      a.yaw = a.yawFrom + (a.yawTo - a.yawFrom) * e;
+    }
+
+    // Block raise/lower.
+    const wantBlock = this.held.has('block') && a.attack === 'idle';
+    a.blockRaise = Math.max(0, Math.min(1, a.blockRaise + (wantBlock ? dt : -dt) / 0.12));
+
+    // Next movement, from the queue or held keys.
+    if (!this.moving && a.transition === null) {
+      const next = this.queued ?? this.heldMove();
+      this.queued = null;
+      if (next) this.doAction(next);
+    }
+
+    // Attack timeline.
+    if (a.attack !== 'idle') {
+      a.attackT += dt;
+      if (a.attack === 'windup' && a.attackT >= a.attackDur) {
+        this.resolvePlayerAttack();
+        a.attack = 'recover';
+        a.attackT = 0;
+        a.attackDur = this.derived.swing.recovery;
+      } else if (a.attack === 'recover' && a.attackT >= a.attackDur) {
+        a.attack = 'idle';
+      }
+    }
+
+    // Stamina & health regen.
+    a.sinceStamina += dt;
+    if (a.sinceStamina > STAMINA_DELAY && a.attack === 'idle') {
+      const rate = a.blockRaise > 0.5 ? STAMINA_REGEN * 0.3 : STAMINA_REGEN;
+      this.player.stamina = Math.min(this.derived.maxStamina, this.player.stamina + rate * dt);
+    }
+    if (this.derived.stats.regen > 0) {
+      this.regenAcc += (this.derived.stats.regen / 10) * dt;
+      if (this.regenAcc >= 1) {
+        const n = Math.floor(this.regenAcc);
+        this.regenAcc -= n;
+        this.player.hp = Math.min(this.derived.maxHp, this.player.hp + n);
+      }
+    }
+
+    // Recall channel.
+    if (a.recall !== null) {
+      a.recall -= dt;
+      if (a.recall <= 0) {
+        a.recall = null;
+        this.sfx('recall');
+        this.msg('The scroll carries you home.', '#9ac0ff');
+        this.finish('extracted');
+        return;
+      }
+    }
+
+    this.updateEnemies(dt);
+    this.updateProjectiles(dt);
+    this.run.rngState = this.rng.state;
+  }
+
+  private heldMove(): Action | null {
+    for (const a of ['forward', 'back', 'left', 'right', 'turnLeft', 'turnRight'] as Action[]) if (this.held.has(a)) return a;
+    return null;
+  }
+
+  private doAction(act: Action): void {
+    const p = this.player;
+    if (act === 'turnLeft' || act === 'turnRight') {
+      p.facing = act === 'turnLeft' ? turnLeft(p.facing) : turnRight(p.facing);
+      this.anim.yawFrom = this.anim.yaw;
+      this.anim.yawTo = this.anim.yaw + (act === 'turnLeft' ? -Math.PI / 2 : Math.PI / 2);
+      this.anim.turnT = 0;
+      this.reveal();
+      return;
+    }
+    const dir: Dir =
+      act === 'forward' ? p.facing : act === 'back' ? turnAround(p.facing) : act === 'left' ? turnLeft(p.facing) : turnRight(p.facing);
+    const nx = p.x + DX[dir];
+    const ny = p.y + DY[dir];
+    if (blocksMove(this.floor, nx, ny) || enemyAt(this.floor, nx, ny)) {
+      // Bump: tell the player why a door didn't budge.
+      const d = doorAt(this.floor, nx, ny);
+      if (d && !d.open && act === 'forward') this.interact();
+      return;
+    }
+    if (this.anim.recall !== null) {
+      this.anim.recall = null;
+      this.msg('The recall fizzles as you move.', '#888');
+    }
+    this.anim.fromX = p.x;
+    this.anim.fromY = p.y;
+    p.x = nx;
+    p.y = ny;
+    this.anim.moveT = 0;
+    const encumbered = this.derived.stats.speed < -12;
+    this.anim.moveDur = STEP_TIME * (act === 'back' ? 1.25 : 1) * (encumbered ? 1.2 : 1);
+  }
+
+  /** Called when a step completes. */
+  private arrive(): void {
+    const p = this.player;
+    this.anim.steps++;
+    this.sfx('step');
+    this.reveal();
+    const f = this.floor;
+    const s = stairsAt(f, p.x, p.y);
+    if (s) {
+      if (!s.down && this.run.depth === 1) {
+        this.msg('You climb back into the daylight.', '#e8d8a0');
+        this.finish('extracted');
+        return;
+      }
+      this.anim.transition = { t: 0, dir: s.down ? 'down' : 'up', done: false };
+      this.sfx('stairs');
+      return;
+    }
+    // Auto-collect coin and keys; mention anything else lying here.
+    const pk = f.pickups.find((q) => q.x === p.x && q.y === p.y);
+    if (pk) {
+      this.collectLoose(pk);
+      if (pk.items.length) this.msg(`Something lies here. [F] to search.`, '#c8b890');
+    }
+  }
+
+  private collectLoose(pk: Pickup): void {
+    if (pk.gold > 0) {
+      this.run.gold += pk.gold;
+      this.run.stats.goldFound += pk.gold;
+      this.emit({ type: 'float', x: pk.x, y: pk.y, text: `+${pk.gold}g`, color: '#ffd24a' });
+      this.msg(`Picked up ${pk.gold} gold.`, '#ffd24a');
+      this.sfx('gold');
+      pk.gold = 0;
+    }
+    if (pk.keyId) {
+      const key = this.floor.keys.find((k) => k.id === pk.keyId);
+      this.run.keys.push(pk.keyId);
+      this.msg(`Found the ${key?.name ?? 'key'}.`, '#ffe08a');
+      this.sfx('unlock');
+      pk.keyId = undefined;
+    }
+    this.prunePickups();
+  }
+
+  private prunePickups(): void {
+    this.floor.pickups = this.floor.pickups.filter((q) => q.items.length > 0 || q.gold > 0 || q.keyId);
+  }
+
+  // -------------------------------------------------------------------------
+  // Floors
+  // -------------------------------------------------------------------------
+
+  private changeFloor(dir: 'down' | 'up'): void {
+    const run = this.run;
+    run.depth += dir === 'down' ? 1 : -1;
+    if (!run.floors[run.depth - 1]) run.floors[run.depth - 1] = generateFloor(run.seed, run.depth);
+    const f = this.floor;
+    const arrive = f.stairs.find((s) => s.down === (dir === 'up'))!;
+    const spot = stairsFront(arrive);
+    this.player.x = spot.x;
+    this.player.y = spot.y;
+    this.player.facing = spot.facing;
+    const yaw = spot.facing * (Math.PI / 2);
+    Object.assign(this.anim, { fromX: spot.x, fromY: spot.y, moveT: 1, yaw, yawFrom: yaw, yawTo: yaw, turnT: 1 });
+    this.projectiles = [];
+    this.pathCache.clear();
+    if (dir === 'down' && run.depth > run.stats.deepest) {
+      run.stats.deepest = run.depth;
+      recordDepth(this.state.contracts, run.depth);
+    }
+    this.reveal();
+    const biome = biomeForDepth(run.depth);
+    this.msg(`Depth ${run.depth} — ${biome.name}`, '#d8c8a8');
+    if (run.depth === FINAL_DEPTH && dir === 'down') this.msg('The air is thick with ash. Something waits below the throne.', '#c080ff');
+    this.emit({ type: 'floor' });
+  }
+
+  /** Debug/playtest hook: jump a floor without walking to the stairs. */
+  changeFloorForTest(dir: 'down' | 'up'): void {
+    this.changeFloor(dir);
+  }
+
+  private finish(outcome: 'dead' | 'extracted'): void {
+    if (this.run.outcome !== 'active') return;
+    this.run.outcome = outcome;
+    this.emit({ type: 'end', outcome });
+  }
+
+  /** Mark tiles near and in view as explored (automap fog). */
+  private reveal(): void {
+    const f = this.floor;
+    const { x, y } = this.player;
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+      const tx = x + dx, ty = y + dy;
+      if (tx < 0 || ty < 0 || tx >= f.width || ty >= f.height) continue;
+      if (Math.abs(dx) + Math.abs(dy) <= 3 && this.los(x, y, tx, ty, true)) f.explored[ty * f.width + tx] = 1;
+    }
+    // Straight ahead down the corridor.
+    for (let d = 1; d <= 8; d++) {
+      const t = this.frontTile(d);
+      if (t.x < 0 || t.y < 0 || t.x >= f.width || t.y >= f.height) break;
+      f.explored[t.y * f.width + t.x] = 1;
+      for (const side of [turnLeft(this.player.facing), turnRight(this.player.facing)]) {
+        const sx = t.x + DX[side], sy = t.y + DY[side];
+        if (sx >= 0 && sy >= 0 && sx < f.width && sy < f.height) f.explored[sy * f.width + sx] = 1;
+      }
+      if (blocksSight(f, t.x, t.y)) break;
+    }
+  }
+
+  /** Grid line of sight (Bresenham). `inclusive` lets the target itself be opaque. */
+  los(x0: number, y0: number, x1: number, y1: number, inclusive = false): boolean {
+    const f = this.floor;
+    let dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0);
+    const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+    let err = dx + dy;
+    let x = x0, y = y0;
+    for (;;) {
+      if (x === x1 && y === y1) return true;
+      if (!(x === x0 && y === y0) && blocksSight(f, x, y)) return false;
+      const e2 = 2 * err;
+      if (e2 >= dy) {
+        err += dy;
+        x += sx;
+      }
+      if (e2 <= dx) {
+        err += dx;
+        y += sy;
+      }
+      if (inclusive && x === x1 && y === y1) return true;
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Player actions
+  // -------------------------------------------------------------------------
+
+  attack(): void {
+    const a = this.anim;
+    if (this.busy || a.attack !== 'idle') return;
+    const cost = this.derived.swing.staminaCost;
+    a.attackPower = staminaPower(this.player.stamina, this.derived.maxStamina);
+    this.player.stamina = Math.max(0, this.player.stamina - cost);
+    a.sinceStamina = 0;
+    a.attack = 'windup';
+    a.attackT = 0;
+    a.attackDur = this.derived.swing.windup;
+    a.blockRaise = 0;
+    if (a.recall !== null) {
+      a.recall = null;
+      this.msg('The recall fizzles.', '#888');
+    }
+  }
+
+  private resolvePlayerAttack(): void {
+    const f = this.floor;
+    this.sfx('swing');
+    for (let d = 1; d <= this.derived.swing.reach; d++) {
+      const t = this.frontTile(d);
+      const e = enemyAt(f, t.x, t.y);
+      if (e) {
+        this.hitEnemy(e);
+        return;
+      }
+      const p = propAt(f, t.x, t.y);
+      if (p && d === 1 && (p.kind === 'urn' || p.kind === 'barrel') && !p.used) {
+        this.breakProp(p);
+        return;
+      }
+      if (blocksSight(f, t.x, t.y)) break;
+    }
+    this.sfx('miss');
+  }
+
+  private hitEnemy(e: EnemyState): void {
+    const def = enemyDef(e.def);
+    const hit = playerHitsEnemy(this.rng, this.derived, this.anim.attackPower, def);
+    e.hp -= hit.damage;
+    e.hurtT = 0.3;
+    e.alert = 8;
+    e.lastSeenX = this.player.x;
+    e.lastSeenY = this.player.y;
+    const color = hit.crit ? '#ffe040' : hit.effective === 'weak' ? '#ff9a40' : hit.effective === 'resist' ? '#9a9aa8' : '#ffffff';
+    this.emit({ type: 'float', x: e.x, y: e.y, text: hit.crit ? `${hit.damage}!` : `${hit.damage}`, color });
+    this.sfx(hit.crit ? 'crit' : 'hit', e.x, e.y);
+    if (hit.effective === 'resist' && this.rng.chance(0.3)) this.msg(`The ${def.name} shrugs off your ${this.derived.damageType} blows.`, '#9a9aa8');
+    if (hit.effective === 'weak' && this.rng.chance(0.3)) this.msg(`The ${def.name} reels!`, '#ff9a40');
+    if (this.derived.stats.leech > 0) {
+      const heal = Math.max(1, Math.round((hit.damage * this.derived.stats.leech) / 100));
+      this.player.hp = Math.min(this.derived.maxHp, this.player.hp + heal);
+    }
+    // Lighter foes are staggered out of their wind-up.
+    if (e.ai === 'windup' && def.hp < 40 && def.behavior !== 'boss') {
+      e.ai = 'recover';
+      e.timer = 0.5;
+    }
+    if (e.hp <= 0) this.killEnemy(e);
+  }
+
+  private killEnemy(e: EnemyState): void {
+    const def = enemyDef(e.def);
+    e.hp = 0;
+    e.ai = 'dead';
+    e.deadT = 0;
+    this.run.stats.kills++;
+    recordKill(this.state.contracts, def.id);
+    this.sfx('enemyDie', e.x, e.y);
+    const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
+    const loot = rollEnemyLoot(this.rng, def, this.run.depth, this.derived.find, idBelow);
+    this.dropLoot(e.x, e.y, loot.items, loot.gold);
+    if (def.behavior === 'boss') {
+      this.run.stats.bossKilled = true;
+      this.msg('The Ashen King crumbles to cinders. A portal tears open.', '#c080ff');
+      this.floor.props.push({ id: `portal${this.time}`, kind: 'portal', x: e.x, y: e.y, used: false, tier: 'none', blocking: false });
+    } else {
+      this.msg(`${def.name} slain.`, '#c8c0b0');
+    }
+  }
+
+  private dropLoot(x: number, y: number, items: Item[], gold: number): Pickup | null {
+    if (!items.length && gold <= 0) return null;
+    const f = this.floor;
+    let pk = f.pickups.find((p) => p.x === x && p.y === y);
+    if (!pk) {
+      pk = { id: `d${Math.floor(this.time * 1000)}_${x}_${y}`, x, y, items: [], gold: 0 };
+      f.pickups.push(pk);
+    }
+    pk.items.push(...items);
+    pk.gold += gold;
+    // Standing on it already? Grab the coin.
+    if (x === this.player.x && y === this.player.y) this.collectLoose(pk);
+    return pk;
+  }
+
+  private propRng(p: Prop): Rng {
+    return createRng(hashString(`${this.floor.seed}:${p.id}`));
+  }
+
+  private breakProp(p: Prop): void {
+    p.used = true;
+    this.sfx('break', p.x, p.y);
+    const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
+    const loot = rollContainerLoot(this.propRng(p), this.run.depth, this.derived.find, 'urn', idBelow);
+    this.dropLoot(p.x, p.y, loot.items, loot.gold);
+  }
+
+  /** What [F] would do right now, for the prompt. */
+  interactionHint(): string | null {
+    if (this.busy) return null;
+    const f = this.floor;
+    const t = this.frontTile();
+    const door = doorAt(f, t.x, t.y);
+    if (door) {
+      if (door.open) return enemyAt(f, t.x, t.y) ? null : 'Close door';
+      if (door.locked) return this.run.keys.includes(door.keyId!) ? 'Unlock door' : 'Locked';
+      return 'Open door';
+    }
+    if (secretAt(f, t.x, t.y)) return 'Push the marked wall';
+    const p = propAt(f, t.x, t.y);
+    if (p && !p.used) {
+      if (p.kind === 'chest') return 'Open chest';
+      if (p.kind === 'shrine') return 'Pray at the shrine';
+      if (p.kind === 'urn' || p.kind === 'barrel') return `Smash ${p.kind}`;
+    }
+    const portal = f.props.find((q) => q.kind === 'portal' && ((q.x === t.x && q.y === t.y) || (q.x === this.player.x && q.y === this.player.y)));
+    if (portal) return 'Step through the portal';
+    const s = stairsAt(f, t.x, t.y);
+    if (s) return s.down ? `Descend to depth ${this.run.depth + 1}` : this.run.depth === 1 ? 'Leave the dungeon' : `Climb to depth ${this.run.depth - 1}`;
+    if (this.pickupNear()) return 'Search';
+    return null;
+  }
+
+  pickupNear(): Pickup | undefined {
+    const f = this.floor;
+    const t = this.frontTile();
+    return (
+      f.pickups.find((p) => p.x === this.player.x && p.y === this.player.y && p.items.length) ??
+      f.pickups.find((p) => p.x === t.x && p.y === t.y && p.items.length && !blocksSight(f, t.x, t.y))
+    );
+  }
+
+  interact(): void {
+    if (this.busy || this.moving) return;
+    const f = this.floor;
+    const t = this.frontTile();
+
+    const door = doorAt(f, t.x, t.y);
+    if (door) {
+      if (door.open) {
+        if (enemyAt(f, t.x, t.y)) return;
+        door.open = false;
+        this.sfx('door', t.x, t.y);
+        return;
+      }
+      if (door.locked) {
+        const key = f.keys.find((k) => k.id === door.keyId);
+        if (!this.run.keys.includes(door.keyId!)) {
+          this.msg(`Locked. It needs the ${key?.name ?? 'right key'}.`, '#c8a060');
+          this.sfx('locked', t.x, t.y);
+          return;
+        }
+        this.run.keys = this.run.keys.filter((k) => k !== door.keyId);
+        door.locked = false;
+        this.msg(`The ${key?.name ?? 'key'} turns. The vault opens.`, '#ffe08a');
+        this.sfx('unlock', t.x, t.y);
+      }
+      door.open = true;
+      this.sfx('door', t.x, t.y);
+      this.reveal();
+      return;
+    }
+
+    const secret = secretAt(f, t.x, t.y);
+    if (secret) {
+      secret.found = true;
+      f.tiles[t.y * f.width + t.x] = FLOOR;
+      this.sfx('secret', t.x, t.y);
+      this.msg('The marked stones grind aside. A hidden room!', '#e8d8a0');
+      this.emit({ type: 'secret', x: t.x, y: t.y });
+      this.reveal();
+      return;
+    }
+
+    const p = propAt(f, t.x, t.y);
+    if (p && !p.used) {
+      if (p.kind === 'urn' || p.kind === 'barrel') {
+        this.breakProp(p);
+        return;
+      }
+      if (p.kind === 'chest') {
+        p.used = true;
+        this.sfx('chest', p.x, p.y);
+        const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
+        const tier = p.tier === 'none' ? 'chest' : p.tier;
+        const loot = rollContainerLoot(this.propRng(p), this.run.depth, this.derived.find, tier, idBelow);
+        const pk = this.dropLoot(p.x, p.y, loot.items, 0);
+        if (loot.gold) {
+          this.run.gold += loot.gold;
+          this.run.stats.goldFound += loot.gold;
+          this.emit({ type: 'float', x: p.x, y: p.y, text: `+${loot.gold}g`, color: '#ffd24a' });
+          this.sfx('gold');
+        }
+        if (pk) this.emit({ type: 'loot', pickupId: pk.id });
+        else this.msg('The chest is empty.', '#888');
+        return;
+      }
+      if (p.kind === 'shrine') {
+        p.used = true;
+        this.pray();
+        return;
+      }
+    }
+
+    const portal = f.props.find((q) => q.kind === 'portal' && ((q.x === t.x && q.y === t.y) || (q.x === this.player.x && q.y === this.player.y)));
+    if (portal) {
+      this.sfx('recall');
+      this.finish('extracted');
+      return;
+    }
+
+    const s = stairsAt(f, t.x, t.y);
+    if (s) {
+      this.press('forward');
+      return;
+    }
+
+    const pk = this.pickupNear();
+    if (pk) this.emit({ type: 'loot', pickupId: pk.id });
+  }
+
+  private pray(): void {
+    this.sfx('magic');
+    const roll = this.rng.next();
+    if (roll < 0.15) {
+      const dmg = Math.round(this.derived.maxHp * 0.25);
+      this.player.hp = Math.max(1, this.player.hp - dmg);
+      this.msg('The shrine is cold and cruel. You feel drained.', '#ff7070');
+      this.emit({ type: 'hurt', amount: dmg, blocked: false });
+      return;
+    }
+    this.player.hp = this.derived.maxHp;
+    this.player.stamina = this.derived.maxStamina;
+    if (!this.run.blessing) {
+      const id = this.rng.pick(Object.keys(BLESSINGS));
+      this.run.blessing = id;
+      this.refreshDerived();
+      this.msg(`Blessing of ${BLESSINGS[id].name}: ${BLESSINGS[id].text}`, '#a0c8ff');
+    } else {
+      this.msg('Warm light washes over you. You are restored.', '#a0c8ff');
+    }
+  }
+
+  /** Move items from a pickup into the backpack. Returns how many stacks moved. */
+  take(pickupId: string, uid?: string): number {
+    const pk = this.floor.pickups.find((p) => p.id === pickupId);
+    if (!pk) return 0;
+    let moved = 0;
+    for (const it of [...pk.items]) {
+      if (uid && it.uid !== uid) continue;
+      const before = it.qty;
+      const left = addItem(this.run.backpack, it);
+      if (left < before) moved++;
+      if (left === 0) pk.items = pk.items.filter((i) => i !== it);
+      else it.qty = left;
+    }
+    if (moved) {
+      this.run.stats.itemsFound += moved;
+      this.sfx('pickup');
+    } else if (pk.items.length) {
+      this.msg('Your pack is full.', '#ff9070');
+    }
+    this.prunePickups();
+    return moved;
+  }
+
+  canTake(item: Item): boolean {
+    return canFit(this.run.backpack, item) || roomFor(this.run.backpack, item) > 0;
+  }
+
+  drop(uid: string): void {
+    const it = removeItem(this.run.backpack, uid);
+    if (!it) return;
+    this.dropLoot(this.player.x, this.player.y, [it], 0);
+    this.sfx('ui');
+  }
+
+  use(uid: string): void {
+    const it = findItem(this.run.backpack, uid);
+    if (!it) return;
+    if (it.kind === 'blueprint') {
+      this.msg('Study it back in town at the forge.', '#9ab0d8');
+      return;
+    }
+    if (it.kind !== 'consumable') return;
+    const def = consumable(it.ref);
+    const e = def.effect;
+    switch (e.type) {
+      case 'heal':
+        if (this.player.hp >= this.derived.maxHp) {
+          this.msg('You are already at full health.', '#888');
+          return;
+        }
+        this.player.hp = Math.min(this.derived.maxHp, this.player.hp + Math.round(this.derived.maxHp * e.fraction));
+        this.sfx('drink');
+        break;
+      case 'stamina':
+        this.player.stamina = this.derived.maxStamina;
+        this.sfx('drink');
+        break;
+      case 'identify': {
+        const target = this.run.backpack.items.find((i) => i.kind === 'equipment' && i.identified === false);
+        if (!target) {
+          this.msg('Nothing in your pack needs identifying.', '#888');
+          return;
+        }
+        identify(target);
+        this.msg(`It is: ${itemName(target)}.`, '#c8b8ff');
+        this.sfx('magic');
+        break;
+      }
+      case 'recall':
+        if (this.anim.recall !== null) return;
+        this.anim.recall = e.seconds;
+        this.msg('You read the scroll. Stand still...', '#9ac0ff');
+        this.sfx('magic');
+        break;
+    }
+    it.qty -= 1;
+    if (it.qty <= 0) removeItem(this.run.backpack, uid);
+  }
+
+  /** Quick-slot use: nth distinct consumable in the pack. */
+  quickUse(slot: number): void {
+    const seen: string[] = [];
+    for (const it of this.run.backpack.items) {
+      if (it.kind !== 'consumable' || seen.includes(it.ref)) continue;
+      seen.push(it.ref);
+      if (seen.length - 1 === slot) {
+        this.use(it.uid);
+        return;
+      }
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Enemies
+  // -------------------------------------------------------------------------
+
+  private occupied(x: number, y: number, self: EnemyState): boolean {
+    if (x === this.player.x && y === this.player.y) return true;
+    return this.floor.enemies.some((o) => o !== self && o.ai !== 'dead' && o.x === x && o.y === y);
+  }
+
+  private canStep(e: EnemyState, x: number, y: number): boolean {
+    return !blocksMove(this.floor, x, y) && !this.occupied(x, y, e) && !stairsAt(this.floor, x, y);
+  }
+
+  private stepEnemy(e: EnemyState, x: number, y: number): void {
+    const d = dirOf(x - e.x, y - e.y);
+    if (d !== null) e.facing = d;
+    e.fromX = e.x;
+    e.fromY = e.y;
+    e.x = x;
+    e.y = y;
+    e.moveT = 0;
+  }
+
+  /** BFS toward a target; returns the first step, cached briefly. */
+  private pathStep(e: EnemyState, tx: number, ty: number): [number, number] | null {
+    const key = e.id;
+    const hit = this.pathCache.get(key);
+    if (hit && this.time - hit.t < 0.35 && hit.next && this.canStep(e, hit.next[0], hit.next[1])) return hit.next;
+    const f = this.floor;
+    const W = f.width;
+    const prev = new Map<number, number>();
+    const start = e.y * W + e.x;
+    const goal = ty * W + tx;
+    const q = [start];
+    prev.set(start, -1);
+    let found = false;
+    for (let h = 0; h < q.length && q.length < 1500; h++) {
+      const i = q[h];
+      if (i === goal) {
+        found = true;
+        break;
+      }
+      const x = i % W, y = (i / W) | 0;
+      for (const d of DIRS) {
+        const nx = x + DX[d], ny = y + DY[d];
+        const n = ny * W + nx;
+        if (prev.has(n)) continue;
+        if (n !== goal && (blocksMove(f, nx, ny) || this.occupied(nx, ny, e))) continue;
+        if (Math.abs(nx - e.x) + Math.abs(ny - e.y) > 18) continue;
+        prev.set(n, i);
+        q.push(n);
+      }
+    }
+    let next: [number, number] | null = null;
+    if (found) {
+      let i = goal;
+      while (prev.get(i) !== start && prev.get(i) !== -1 && prev.get(i) !== undefined) i = prev.get(i)!;
+      if (i !== goal || prev.get(goal) === start) next = [i % W, (i / W) | 0];
+      if (next && next[0] === tx && next[1] === ty) next = null;
+    }
+    this.pathCache.set(key, { t: this.time, next });
+    return next;
+  }
+
+  private updateEnemies(dt: number): void {
+    const f = this.floor;
+    const p = this.player;
+    for (const e of f.enemies) {
+      if (e.ai === 'dead') {
+        e.deadT += dt;
+        continue;
+      }
+      const def = enemyDef(e.def);
+      e.hurtT = Math.max(0, e.hurtT - dt);
+      e.attackCd -= dt;
+      if (e.moveT < 1) {
+        e.moveT = Math.min(1, e.moveT + dt / def.step);
+        if (e.moveT < 1) continue;
+      }
+      const dist = Math.abs(e.x - p.x) + Math.abs(e.y - p.y);
+      const sees = dist <= def.sight && this.los(e.x, e.y, p.x, p.y);
+      if (sees) {
+        if (e.alert <= 0 && (e.ai === 'idle' || e.ai === 'wander')) {
+          this.sfx('alert', e.x, e.y);
+          e.attackCd = Math.max(e.attackCd, 0.3);
+        }
+        e.alert = 6;
+        // A wind-up commits to the tile it aimed at — that's what makes it dodgeable.
+        if (e.ai !== 'windup') {
+          e.lastSeenX = p.x;
+          e.lastSeenY = p.y;
+        }
+      } else {
+        e.alert -= dt;
+      }
+
+      switch (e.ai) {
+        case 'windup':
+          e.timer -= dt;
+          if (e.timer <= 0) this.enemyStrike(e, def);
+          continue;
+        case 'recover':
+          e.timer -= dt;
+          if (e.timer <= 0) e.ai = e.alert > 0 ? 'chase' : 'idle';
+          continue;
+        case 'flee': {
+          if (dist > 7 || !sees) {
+            e.ai = 'idle';
+            continue;
+          }
+          const away = DIRS.map((d) => [e.x + DX[d], e.y + DY[d]] as [number, number])
+            .filter(([x, y]) => this.canStep(e, x, y))
+            .sort((a, b) => Math.abs(b[0] - p.x) + Math.abs(b[1] - p.y) - (Math.abs(a[0] - p.x) + Math.abs(a[1] - p.y)))[0];
+          if (away) this.stepEnemy(e, away[0], away[1]);
+          continue;
+        }
+      }
+
+      if (def.behavior === 'skittish' && e.hp < e.maxHp * 0.35 && sees && this.rng.chance(0.02)) {
+        e.ai = 'flee';
+        this.msg(`The ${def.name} tries to flee!`, '#c8c0b0');
+        continue;
+      }
+
+      if (e.alert > 0) {
+        e.ai = 'chase';
+        const aligned = (e.x === p.x || e.y === p.y) && sees;
+        const ranged = !!def.projectile && (def.behavior === 'ranged' || def.behavior === 'boss');
+        if (dist === 1 && e.attackCd <= 0 && (def.behavior !== 'ranged')) {
+          this.beginWindup(e, def, p.x, p.y);
+          continue;
+        }
+        if (ranged && aligned && dist >= 2 && dist <= (def.range ?? 4) + 2 && e.attackCd <= 0) {
+          this.beginWindup(e, def, p.x, p.y);
+          continue;
+        }
+        if (def.behavior === 'ranged' && dist <= 1) {
+          // Back off to shooting range.
+          const back = DIRS.map((d) => [e.x + DX[d], e.y + DY[d]] as [number, number]).find(
+            ([x, y]) => this.canStep(e, x, y) && Math.abs(x - p.x) + Math.abs(y - p.y) > dist,
+          );
+          if (back) this.stepEnemy(e, back[0], back[1]);
+          else if (e.attackCd <= 0) this.beginWindup(e, def, p.x, p.y);
+          continue;
+        }
+        if (def.behavior === 'ranged' && sees && dist <= (def.range ?? 4)) {
+          // Sidestep to line up a shot.
+          const line = DIRS.map((d) => [e.x + DX[d], e.y + DY[d]] as [number, number]).find(
+            ([x, y]) => this.canStep(e, x, y) && (x === p.x || y === p.y) && this.los(x, y, p.x, p.y),
+          );
+          if (line) this.stepEnemy(e, line[0], line[1]);
+          continue;
+        }
+        const tx = sees ? p.x : e.lastSeenX;
+        const ty = sees ? p.y : e.lastSeenY;
+        const next = this.pathStep(e, tx, ty);
+        if (next) this.stepEnemy(e, next[0], next[1]);
+        else if (!sees && e.x === e.lastSeenX && e.y === e.lastSeenY) e.alert = 0;
+        continue;
+      }
+
+      // Idle wandering near home.
+      e.ai = 'wander';
+      e.timer -= dt;
+      if (e.timer <= 0) {
+        e.timer = this.rng.float(1.2, 3.2);
+        const opts = DIRS.map((d) => [e.x + DX[d], e.y + DY[d]] as [number, number]).filter(
+          ([x, y]) => this.canStep(e, x, y) && Math.abs(x - e.homeX) + Math.abs(y - e.homeY) <= 3,
+        );
+        if (opts.length && this.rng.chance(0.6)) {
+          const [x, y] = this.rng.pick(opts);
+          this.stepEnemy(e, x, y);
+        }
+      }
+    }
+  }
+
+  private beginWindup(e: EnemyState, def: EnemyDef, tx: number, ty: number): void {
+    const d = dirOf(Math.sign(tx - e.x), Math.sign(ty - e.y));
+    if (d !== null) e.facing = d;
+    e.ai = 'windup';
+    e.timer = def.windup;
+    e.lastSeenX = tx;
+    e.lastSeenY = ty;
+  }
+
+  private enemyStrike(e: EnemyState, def: EnemyDef): void {
+    e.ai = 'recover';
+    e.timer = def.recovery;
+    e.attackCd = def.recovery + 0.2;
+    const p = this.player;
+    const dist = Math.abs(e.x - p.x) + Math.abs(e.y - p.y);
+    const useRanged = !!def.projectile && (def.behavior === 'ranged' || (def.behavior === 'boss' && dist >= 2));
+    if (useRanged) {
+      const dx = Math.sign(e.lastSeenX - e.x), dy = Math.sign(e.lastSeenY - e.y);
+      if (dx !== 0 && dy !== 0) return;
+      const pr = def.projectile!;
+      const shots = def.behavior === 'boss' ? [0, -1, 1] : [0];
+      for (const off of shots) {
+        const ox = dy !== 0 ? off : 0, oy = dx !== 0 ? off : 0;
+        if (off !== 0 && blocksSight(this.floor, e.x + ox, e.y + oy)) continue;
+        this.projectiles.push({
+          id: this.projN++, x: e.x + ox + 0.5, y: e.y + oy + 0.5, dx, dy, speed: pr.speed,
+          damage: Math.round(def.attack * e.power), type: pr.damageType, sprite: pr.sprite, light: pr.light,
+          tileX: e.x + ox, tileY: e.y + oy, source: def.name,
+        });
+      }
+      this.sfx(pr.sprite === 'proj_arrow' ? 'shoot' : 'magic', e.x, e.y);
+      return;
+    }
+    // Melee lands only if you're still in the tile it aimed at.
+    this.sfx('swing', e.x, e.y);
+    if (p.x === e.lastSeenX && p.y === e.lastSeenY && dist === 1) {
+      this.damagePlayer(Math.round(def.attack * e.power), def.damageType, e.x, e.y, def.name);
+    } else {
+      this.sfx('miss', e.x, e.y);
+    }
+  }
+
+  private damagePlayer(attack: number, type: DamageType, fromX: number, fromY: number, source: string): void {
+    const p = this.player;
+    let dmg = enemyHitsPlayer(this.rng, attack, type, this.derived);
+    const front = this.frontTile();
+    const facingSource =
+      (fromX === front.x && fromY === front.y) ||
+      (Math.sign(fromX - p.x) === DX[p.facing] && Math.sign(fromY - p.y) === DY[p.facing] && (fromX === p.x || fromY === p.y));
+    let blocked = false;
+    if (this.anim.blockRaise > 0.6 && facingSource) {
+      const absorbed = dmg * this.derived.block;
+      const cost = absorbed * 1.3;
+      if (p.stamina >= cost) {
+        p.stamina -= cost;
+        dmg = Math.round(dmg - absorbed);
+        blocked = true;
+      } else {
+        const frac = p.stamina / cost;
+        p.stamina = 0;
+        dmg = Math.round(dmg - absorbed * frac);
+        this.anim.blockRaise = 0;
+        this.msg('Your guard breaks!', '#ff9070');
+      }
+      this.anim.sinceStamina = 0;
+      this.sfx('block');
+    }
+    if (this.anim.recall !== null) {
+      this.anim.recall = null;
+      this.msg('The recall is broken by the blow.', '#888');
+    }
+    p.hp -= dmg;
+    this.emit({ type: 'hurt', amount: dmg, blocked });
+    this.emit({ type: 'shake', amount: blocked ? 0.3 : Math.min(1, dmg / 20) });
+    if (dmg > 0 && !blocked) this.sfx('hurt');
+    if (p.hp <= 0) {
+      p.hp = 0;
+      this.run.killedBy = source;
+      this.sfx('death');
+      this.msg(`You were slain by ${source.startsWith('The ') ? source : 'a ' + source}.`, '#ff5050');
+      this.finish('dead');
+    }
+  }
+
+  private updateProjectiles(dt: number): void {
+    const f = this.floor;
+    const p = this.player;
+    for (const pr of this.projectiles) {
+      pr.x += pr.dx * pr.speed * dt;
+      pr.y += pr.dy * pr.speed * dt;
+      const tx = Math.floor(pr.x), ty = Math.floor(pr.y);
+      if (tx === pr.tileX && ty === pr.tileY) continue;
+      pr.tileX = tx;
+      pr.tileY = ty;
+      if (blocksSight(f, tx, ty)) {
+        pr.speed = 0;
+        this.sfx('break', tx, ty);
+        continue;
+      }
+      if (tx === p.x && ty === p.y) {
+        pr.speed = 0;
+        this.damagePlayer(pr.damage, pr.type, tx - pr.dx, ty - pr.dy, pr.source);
+      }
+    }
+    this.projectiles = this.projectiles.filter((pr) => pr.speed > 0);
+  }
+
+  facingName(): string {
+    return DIR_NAMES[this.player.facing];
+  }
+
+  /** Living enemies the player can currently see (for the map). */
+  visibleEnemies(): Set<string> {
+    const out = new Set<string>();
+    const p = this.player;
+    for (const e of this.floor.enemies) {
+      if (e.ai === 'dead') continue;
+      if (Math.abs(e.x - p.x) + Math.abs(e.y - p.y) <= 8 && this.los(p.x, p.y, e.x, e.y)) out.add(e.id);
+    }
+    return out;
+  }
+
+  /** Remaining free backpack slots (for the HUD). */
+  get freeSlots(): number {
+    return this.run.backpack.capacity - this.run.backpack.items.length;
+  }
+
+  /** Base item info for the viewmodel. */
+  weaponArt(): { id: string; materialId?: string } {
+    const w = this.state.equipment.weapon;
+    if (!w) return { id: 'vm_fist' };
+    const cls = itemBase(w.ref).weaponClass;
+    const id = cls === 'axe' ? 'vm_axe' : cls === 'blunt' ? 'vm_blunt' : cls === 'spear' ? 'vm_spear' : 'vm_blade';
+    return { id, materialId: w.materialId };
+  }
+}

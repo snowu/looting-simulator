@@ -1,0 +1,758 @@
+import { Rng, createRng, hashString } from '../core/rng';
+import { Dir, DIRS, DX, DY, turnAround, turnLeft, turnRight } from '../core/dir';
+import { biomeForDepth, FINAL_DEPTH } from '../data/biomes';
+import { BOSS_ID, ENEMIES, enemyDef } from '../data/enemies';
+import { EnemyDef, Item } from '../types';
+import { ContainerTier, makeMaterial, materialForDepth } from './items';
+
+// ---------------------------------------------------------------------------
+// Floor model (plain data — serialised straight into the save)
+// ---------------------------------------------------------------------------
+
+export const WALL = 0;
+export const FLOOR = 1;
+export const PILLAR = 2;
+
+export type RoomRole = 'start' | 'end' | 'normal' | 'treasure' | 'vault' | 'secret' | 'shrine' | 'throne';
+
+export interface Room {
+  id: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  role: RoomRole;
+}
+
+export interface Door {
+  x: number;
+  y: number;
+  /** Passage runs north–south, so the door leaf spans east–west. */
+  ns: boolean;
+  open: boolean;
+  locked: boolean;
+  keyId?: string;
+  iron: boolean;
+}
+
+export interface Secret {
+  x: number;
+  y: number;
+  found: boolean;
+}
+
+export interface Stairs {
+  x: number;
+  y: number;
+  /** Direction you face when stepping into the stairs. */
+  dir: Dir;
+  down: boolean;
+}
+
+export interface Torch {
+  x: number;
+  y: number;
+  /** The wall the sconce is mounted on, seen from tile (x,y). */
+  side: Dir;
+}
+
+export type PropKind = 'chest' | 'urn' | 'barrel' | 'bones' | 'shrine' | 'fungus' | 'portal';
+
+export interface Prop {
+  id: string;
+  kind: PropKind;
+  x: number;
+  y: number;
+  /** Chest opened / urn broken / shrine used. */
+  used: boolean;
+  tier: ContainerTier | 'none';
+  blocking: boolean;
+}
+
+export interface Pickup {
+  id: string;
+  x: number;
+  y: number;
+  items: Item[];
+  gold: number;
+  keyId?: string;
+}
+
+export interface KeyDef {
+  id: string;
+  name: string;
+}
+
+export type EnemyAI = 'idle' | 'wander' | 'chase' | 'windup' | 'recover' | 'flee' | 'dead';
+
+export interface EnemyState {
+  id: string;
+  def: string;
+  x: number;
+  y: number;
+  fromX: number;
+  fromY: number;
+  /** Step progress 0..1 (1 = standing on x,y). */
+  moveT: number;
+  facing: Dir;
+  hp: number;
+  maxHp: number;
+  ai: EnemyAI;
+  timer: number;
+  /** Seconds of remaining pursuit after losing sight. */
+  alert: number;
+  lastSeenX: number;
+  lastSeenY: number;
+  homeX: number;
+  homeY: number;
+  hurtT: number;
+  deadT: number;
+  attackCd: number;
+  /** Depth scaling baked in at spawn. */
+  power: number;
+}
+
+export interface Floor {
+  depth: number;
+  seed: number;
+  biome: string;
+  width: number;
+  height: number;
+  tiles: number[];
+  explored: number[];
+  rooms: Room[];
+  doors: Door[];
+  secrets: Secret[];
+  stairs: Stairs[];
+  torches: Torch[];
+  props: Prop[];
+  pickups: Pickup[];
+  enemies: EnemyState[];
+  keys: KeyDef[];
+}
+
+// ---------------------------------------------------------------------------
+// Queries
+// ---------------------------------------------------------------------------
+
+export function inBounds(f: Floor, x: number, y: number): boolean {
+  return x >= 0 && y >= 0 && x < f.width && y < f.height;
+}
+
+export function tileAt(f: Floor, x: number, y: number): number {
+  return inBounds(f, x, y) ? f.tiles[y * f.width + x] : WALL;
+}
+
+export function doorAt(f: Floor, x: number, y: number): Door | undefined {
+  return f.doors.find((d) => d.x === x && d.y === y);
+}
+
+export function secretAt(f: Floor, x: number, y: number): Secret | undefined {
+  return f.secrets.find((s) => s.x === x && s.y === y && !s.found);
+}
+
+export function stairsAt(f: Floor, x: number, y: number): Stairs | undefined {
+  return f.stairs.find((s) => s.x === x && s.y === y);
+}
+
+export function propAt(f: Floor, x: number, y: number): Prop | undefined {
+  return f.props.find((p) => p.x === x && p.y === y && p.kind !== 'fungus' && p.kind !== 'bones');
+}
+
+export function enemyAt(f: Floor, x: number, y: number): EnemyState | undefined {
+  return f.enemies.find((e) => e.ai !== 'dead' && e.x === x && e.y === y);
+}
+
+/** Blocks sight: walls, pillars, closed doors. */
+export function blocksSight(f: Floor, x: number, y: number): boolean {
+  const t = tileAt(f, x, y);
+  if (t !== FLOOR) return true;
+  const d = doorAt(f, x, y);
+  return !!d && !d.open;
+}
+
+/** Blocks movement for anyone (ignores creatures). */
+export function blocksMove(f: Floor, x: number, y: number): boolean {
+  if (blocksSight(f, x, y)) return true;
+  const p = propAt(f, x, y);
+  return !!p && p.blocking && !(p.kind === 'urn' || p.kind === 'barrel' ? p.used : false);
+}
+
+/** The tile in front of a staircase — where you stand when you arrive. */
+export function stairsFront(s: Stairs): { x: number; y: number; facing: Dir } {
+  return { x: s.x - DX[s.dir], y: s.y - DY[s.dir], facing: turnAround(s.dir) };
+}
+
+// ---------------------------------------------------------------------------
+// Generation
+// ---------------------------------------------------------------------------
+
+export function createEnemy(def: EnemyDef, x: number, y: number, facing: Dir, id: string, depth: number): EnemyState {
+  const power = 1 + Math.max(0, depth - def.minDepth) * 0.12;
+  const hp = Math.round(def.hp * power);
+  return {
+    id, def: def.id, x, y, fromX: x, fromY: y, moveT: 1, facing, hp, maxHp: hp, ai: 'idle', timer: 0, alert: 0,
+    lastSeenX: -1, lastSeenY: -1, homeX: x, homeY: y, hurtT: 0, deadT: 0, attackCd: 0, power,
+  };
+}
+
+const KEY_NAMES: Record<string, string> = { crypt: 'Bone Key', mines: 'Rusted Key', caverns: 'Crystal Key', throne: 'Ashen Key' };
+
+export function generateFloor(runSeed: number, depth: number): Floor {
+  const seed = hashString(`floor:${runSeed}:${depth}`);
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const f = tryGenerate(seed, depth, createRng((seed + Math.imul(attempt + 1, 0x9e3779b1)) >>> 0));
+    if (f) return f;
+  }
+  throw new Error(`dungeon generation failed for depth ${depth}`);
+}
+
+class MinHeap {
+  private k: number[] = [];
+  private v: number[] = [];
+  get size(): number {
+    return this.k.length;
+  }
+  push(key: number, val: number): void {
+    const k = this.k, v = this.v;
+    let i = k.length;
+    k.push(key);
+    v.push(val);
+    while (i > 0) {
+      const p = (i - 1) >> 1;
+      if (k[p] <= k[i]) break;
+      [k[p], k[i]] = [k[i], k[p]];
+      [v[p], v[i]] = [v[i], v[p]];
+      i = p;
+    }
+  }
+  pop(): [number, number] {
+    const k = this.k, v = this.v;
+    const top: [number, number] = [k[0], v[0]];
+    const lk = k.pop()!, lv = v.pop()!;
+    if (k.length) {
+      k[0] = lk;
+      v[0] = lv;
+      let i = 0;
+      for (;;) {
+        const l = 2 * i + 1, r = l + 1;
+        let m = i;
+        if (l < k.length && k[l] < k[m]) m = l;
+        if (r < k.length && k[r] < k[m]) m = r;
+        if (m === i) break;
+        [k[m], k[i]] = [k[i], k[m]];
+        [v[m], v[i]] = [v[i], v[m]];
+        i = m;
+      }
+    }
+    return top;
+  }
+}
+
+interface Entrance {
+  x: number;
+  y: number;
+  /** Outward direction from the room. */
+  dir: Dir;
+  doorable: boolean;
+}
+
+function tryGenerate(seed: number, depth: number, rng: Rng): Floor | null {
+  const biome = biomeForDepth(depth);
+  const isBoss = depth >= FINAL_DEPTH;
+  const W = 31 + 4 * Math.min(depth - 1, 4);
+  const H = W;
+  const N = W * H;
+  const tiles: number[] = new Array(N).fill(WALL);
+  const roomOf: number[] = new Array(N).fill(-1);
+  const ring: number[] = new Array(N).fill(0);
+  const reserved: boolean[] = new Array(N).fill(false);
+  const blocked: boolean[] = new Array(N).fill(false);
+  const idx = (x: number, y: number) => y * W + x;
+  const inner = (x: number, y: number) => x >= 1 && y >= 1 && x < W - 1 && y < H - 1;
+  const rooms: Room[] = [];
+
+  const fits = (x: number, y: number, w: number, h: number) =>
+    x >= 2 && y >= 2 && x + w <= W - 2 && y + h <= H - 2 &&
+    !rooms.some((r) => x - 2 < r.x + r.w && x + w + 2 > r.x && y - 2 < r.y + r.h && y + h + 2 > r.y);
+
+  const addRoom = (x: number, y: number, w: number, h: number, role: RoomRole): Room => {
+    const r: Room = { id: rooms.length, x, y, w, h, role };
+    rooms.push(r);
+    for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) {
+      tiles[idx(xx, yy)] = FLOOR;
+      roomOf[idx(xx, yy)] = r.id;
+    }
+    return r;
+  };
+
+  // --- Rooms ---------------------------------------------------------------
+  let throne: Room | null = null;
+  if (isBoss) {
+    for (let a = 0; a < 200 && !throne; a++) {
+      const x = rng.int(2, W - 2 - 9), y = rng.int(2, H - 2 - 11);
+      if (fits(x, y, 9, 11)) throne = addRoom(x, y, 9, 11, 'throne');
+    }
+    if (!throne) return null;
+  }
+  const target = isBoss ? 8 : 9 + Math.min(depth, 5);
+  for (let a = 0; a < 900 && rooms.length < target; a++) {
+    const big = rng.chance(0.18);
+    const w = big ? rng.int(6, 9) : rng.int(3, 6);
+    const h = big ? rng.int(5, 8) : rng.int(3, 5);
+    const x = rng.int(2, W - 2 - w);
+    const y = rng.int(2, H - 2 - h);
+    if (fits(x, y, w, h)) addRoom(x, y, w, h, 'normal');
+  }
+  if (rooms.length < 6) return null;
+
+  for (const r of rooms) {
+    for (let y = r.y - 1; y <= r.y + r.h; y++) for (let x = r.x - 1; x <= r.x + r.w; x++) {
+      if (roomOf[idx(x, y)] === -1) ring[idx(x, y)]++;
+    }
+  }
+
+  // --- Room graph: MST plus a few loops -----------------------------------
+  const cx = (r: Room) => r.x + (r.w >> 1);
+  const cy = (r: Room) => r.y + (r.h >> 1);
+  const rdist = (a: Room, b: Room) => Math.abs(cx(a) - cx(b)) + Math.abs(cy(a) - cy(b));
+  const edges: [number, number][] = [];
+  const hasEdge = (a: number, b: number) => edges.some(([p, q]) => (p === a && q === b) || (p === b && q === a));
+  {
+    const inTree = new Set<number>([0]);
+    while (inTree.size < rooms.length) {
+      let best: [number, number] | null = null;
+      let bestD = Infinity;
+      for (const i of inTree) for (const r of rooms) {
+        if (inTree.has(r.id)) continue;
+        // Keep the throne a dead end: it may only join once.
+        if (throne && (r.id === throne.id || i === throne.id) && edges.some(([p, q]) => p === throne!.id || q === throne!.id)) continue;
+        const d = rdist(rooms[i], r);
+        if (d < bestD) {
+          bestD = d;
+          best = [i, r.id];
+        }
+      }
+      if (!best) return null;
+      edges.push(best);
+      inTree.add(best[1]);
+    }
+    for (const r of rooms) {
+      if (r === throne) continue;
+      const near = rooms.filter((o) => o !== r && o !== throne).sort((a, b) => rdist(r, a) - rdist(r, b)).slice(0, 3);
+      for (const o of near) if (!hasEdge(r.id, o.id) && rng.chance(0.2)) edges.push([r.id, o.id]);
+    }
+  }
+
+  // --- Corridors (Dijkstra through rock, preferring existing tunnels) ------
+  const noise = Array.from({ length: N }, () => rng.next() * 2.5);
+  const carve = (a: Room, b: Room): boolean => {
+    const s = idx(cx(a), cy(a));
+    const t = idx(cx(b), cy(b));
+    const cost = new Float64Array(N).fill(Infinity);
+    const prev = new Int32Array(N).fill(-1);
+    const heap = new MinHeap();
+    cost[s] = 0;
+    heap.push(0, s);
+    while (heap.size) {
+      const [c, i] = heap.pop();
+      if (c > cost[i]) continue;
+      if (i === t) break;
+      const x = i % W, y = (i / W) | 0;
+      for (const d of DIRS) {
+        const nx = x + DX[d], ny = y + DY[d];
+        if (!inner(nx, ny)) continue;
+        const n = idx(nx, ny);
+        const rid = roomOf[n];
+        let step: number;
+        if (rid === a.id || rid === b.id) step = 1;
+        else if (rid >= 0) step = 70;
+        else if (tiles[n] === FLOOR) step = 1.3;
+        else step = 3 + noise[n] + ring[n] * 9;
+        const nc = c + step;
+        if (nc < cost[n]) {
+          cost[n] = nc;
+          prev[n] = i;
+          heap.push(nc, n);
+        }
+      }
+    }
+    if (prev[t] < 0) return false;
+    for (let i = t; i !== s && i >= 0; i = prev[i]) if (tiles[i] === WALL) tiles[i] = FLOOR;
+    return true;
+  };
+  for (const [a, b] of edges) if (!carve(rooms[a], rooms[b])) return null;
+
+  // --- Entrances --------------------------------------------------------------
+  const entrancesOf = (r: Room): Entrance[] => {
+    const out: Entrance[] = [];
+    const test = (x: number, y: number, dir: Dir) => {
+      const i = idx(x, y);
+      if (tiles[i] !== FLOOR || roomOf[i] !== -1) return;
+      const l = turnLeft(dir), rt = turnRight(dir);
+      const flanks = tiles[idx(x + DX[l], y + DY[l])] === WALL && tiles[idx(x + DX[rt], y + DY[rt])] === WALL;
+      const outer = tiles[idx(x + DX[dir], y + DY[dir])] === FLOOR;
+      out.push({ x, y, dir, doorable: flanks && outer });
+    };
+    for (let x = r.x; x < r.x + r.w; x++) {
+      test(x, r.y - 1, Dir.N);
+      test(x, r.y + r.h, Dir.S);
+    }
+    for (let y = r.y; y < r.y + r.h; y++) {
+      test(r.x - 1, y, Dir.W);
+      test(r.x + r.w, y, Dir.E);
+    }
+    return out;
+  };
+  const entrances = rooms.map(entrancesOf);
+
+  // --- Roles -------------------------------------------------------------------
+  const bfs = (sx: number, sy: number): Int32Array => {
+    const dist = new Int32Array(N).fill(-1);
+    const q = [idx(sx, sy)];
+    dist[q[0]] = 0;
+    for (let h = 0; h < q.length; h++) {
+      const i = q[h];
+      const x = i % W, y = (i / W) | 0;
+      for (const d of DIRS) {
+        const n = idx(x + DX[d], y + DY[d]);
+        if (tiles[n] !== FLOOR || dist[n] >= 0) continue;
+        dist[n] = dist[i] + 1;
+        q.push(n);
+      }
+    }
+    return dist;
+  };
+
+  let start: Room;
+  let end: Room;
+  if (throne) {
+    const d = bfs(cx(throne), cy(throne));
+    start = rooms.filter((r) => r !== throne).sort((a, b) => d[idx(cx(b), cy(b))] - d[idx(cx(a), cy(a))])[0];
+    end = throne;
+  } else {
+    start = rng.pick(rooms);
+    const d = bfs(cx(start), cy(start));
+    end = rooms.filter((r) => r !== start).sort((a, b) => d[idx(cx(b), cy(b))] - d[idx(cx(a), cy(a))])[0];
+  }
+  start.role = 'start';
+  if (end.role !== 'throne') end.role = 'end';
+
+  const leaves = rooms.filter((r) => r.role === 'normal' && entrances[r.id].length === 1 && entrances[r.id][0].doorable);
+  rng.shuffle(leaves);
+  const vault = leaves.shift() ?? null;
+  if (vault) vault.role = 'vault';
+  for (const r of leaves.slice(0, 2)) r.role = 'treasure';
+  if (rng.chance(0.45)) {
+    const cand = rooms.filter((r) => r.role === 'normal');
+    if (cand.length) rng.pick(cand).role = 'shrine';
+  }
+
+  // --- Doors -------------------------------------------------------------------
+  const doors: Door[] = [];
+  const keys: KeyDef[] = [];
+  const iron = biome.door === 'door_iron';
+  for (const r of rooms) {
+    for (const e of entrances[r.id]) {
+      if (!e.doorable || doors.some((d) => d.x === e.x && d.y === e.y)) continue;
+      const ns = e.dir === Dir.N || e.dir === Dir.S;
+      if (r === vault) {
+        const key: KeyDef = { id: `key_${depth}_${keys.length}`, name: KEY_NAMES[biome.id] ?? 'Iron Key' };
+        keys.push(key);
+        doors.push({ x: e.x, y: e.y, ns, open: false, locked: true, keyId: key.id, iron: true });
+      } else if (r === throne) {
+        doors.push({ x: e.x, y: e.y, ns, open: false, locked: false, iron: true });
+      } else if (rng.chance(0.45)) {
+        doors.push({ x: e.x, y: e.y, ns, open: false, locked: false, iron });
+      }
+      reserved[idx(e.x, e.y)] = true;
+    }
+  }
+
+  // --- Secret room behind a pushable wall ---------------------------------
+  const secrets: Secret[] = [];
+  if (rng.chance(0.5 + depth * 0.06)) {
+    const hosts = rooms.filter((r) => r.role === 'normal' || r.role === 'treasure' || r.role === 'start');
+    for (let a = 0; a < 300 && secrets.length === 0 && hosts.length; a++) {
+      const r = rng.pick(hosts);
+      const d = rng.pick(DIRS);
+      // Edge tile of the room on side d.
+      const fx = d === Dir.W ? r.x : d === Dir.E ? r.x + r.w - 1 : rng.int(r.x, r.x + r.w - 1);
+      const fy = d === Dir.N ? r.y : d === Dir.S ? r.y + r.h - 1 : rng.int(r.y, r.y + r.h - 1);
+      const sx = fx + DX[d], sy = fy + DY[d];
+      const ccx = fx + DX[d] * 3, ccy = fy + DY[d] * 3;
+      let ok = tiles[idx(sx, sy)] === WALL && !reserved[idx(sx, sy)];
+      for (let yy = ccy - 2; ok && yy <= ccy + 2; yy++) for (let xx = ccx - 2; ok && xx <= ccx + 2; xx++) {
+        if (!inner(xx, yy) || tiles[idx(xx, yy)] !== WALL || roomOf[idx(xx, yy)] !== -1 || reserved[idx(xx, yy)]) ok = false;
+      }
+      if (!ok) continue;
+      const sr = addRoom(ccx - 1, ccy - 1, 3, 3, 'secret');
+      void sr;
+      secrets.push({ x: sx, y: sy, found: false });
+      reserved[idx(sx, sy)] = true;
+    }
+  }
+
+  // --- Stairs in wall alcoves ------------------------------------------------
+  const stairs: Stairs[] = [];
+  const carveAlcove = (r: Room, down: boolean): Stairs | null => {
+    const cands: Stairs[] = [];
+    for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
+      for (const d of DIRS) {
+        const wx = x + DX[d], wy = y + DY[d];
+        const wi = idx(wx, wy);
+        if (roomOf[wi] !== -1 || tiles[wi] !== WALL || reserved[wi]) continue;
+        const bx = wx + DX[d], by = wy + DY[d];
+        if (!inner(bx, by)) continue;
+        const l = turnLeft(d), rt = turnRight(d);
+        if (tiles[idx(bx, by)] !== WALL || tiles[idx(wx + DX[l], wy + DY[l])] !== WALL || tiles[idx(wx + DX[rt], wy + DY[rt])] !== WALL) continue;
+        // Don't put stairs right beside an entrance.
+        if (reserved[idx(x, y)]) continue;
+        cands.push({ x: wx, y: wy, dir: d, down });
+      }
+    }
+    if (!cands.length) return null;
+    const s = rng.pick(cands);
+    tiles[idx(s.x, s.y)] = FLOOR;
+    reserved[idx(s.x, s.y)] = true;
+    const front = stairsFront(s);
+    reserved[idx(front.x, front.y)] = true;
+    return s;
+  };
+  const up = carveAlcove(start, false);
+  if (!up) return null;
+  stairs.push(up);
+  if (!isBoss) {
+    const down = carveAlcove(end, true);
+    if (!down) return null;
+    stairs.push(down);
+  }
+  const spawn = stairsFront(up);
+
+  // --- Connectivity helper ---------------------------------------------------
+  const secretIdx = new Set(secrets.map((s) => idx(s.x, s.y)));
+  const connected = (): boolean => {
+    const seen = new Uint8Array(N);
+    const q = [idx(spawn.x, spawn.y)];
+    seen[q[0]] = 1;
+    let count = 1;
+    for (let h = 0; h < q.length; h++) {
+      const i = q[h];
+      const x = i % W, y = (i / W) | 0;
+      for (const d of DIRS) {
+        const n = idx(x + DX[d], y + DY[d]);
+        if (seen[n]) continue;
+        const pass = (tiles[n] === FLOOR && !blocked[n]) || secretIdx.has(n);
+        if (!pass) continue;
+        seen[n] = 1;
+        if (tiles[n] === FLOOR) count++;
+        q.push(n);
+      }
+    }
+    let total = 0;
+    for (let i = 0; i < N; i++) if (tiles[i] === FLOOR && !blocked[i]) total++;
+    return count === total;
+  };
+  if (!connected()) return null;
+
+  // --- Pillars in big halls ------------------------------------------------
+  for (const r of rooms) {
+    if (r.w < 6 || r.h < 5 || r.role === 'start') continue;
+    const spots: [number, number][] = [
+      [r.x + 1, r.y + 1], [r.x + r.w - 2, r.y + 1], [r.x + 1, r.y + r.h - 2], [r.x + r.w - 2, r.y + r.h - 2],
+    ];
+    if (r.w >= 8) spots.push([r.x + (r.w >> 1), r.y + 1], [r.x + (r.w >> 1), r.y + r.h - 2]);
+    for (const [x, y] of spots) {
+      const i = idx(x, y);
+      if (reserved[i] || DIRS.some((d) => reserved[idx(x + DX[d], y + DY[d])])) continue;
+      tiles[i] = PILLAR;
+      if (!connected()) tiles[i] = FLOOR;
+      else reserved[i] = true;
+    }
+  }
+
+  // --- Props -------------------------------------------------------------------
+  const props: Prop[] = [];
+  let propN = 0;
+  const nearReserved = (x: number, y: number) => reserved[idx(x, y)] || DIRS.some((d) => reserved[idx(x + DX[d], y + DY[d])]);
+  const edgeTiles = (r: Room): [number, number][] => {
+    const out: [number, number][] = [];
+    for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
+      if (tiles[idx(x, y)] !== FLOOR || blocked[idx(x, y)] || nearReserved(x, y)) continue;
+      const onEdge = x === r.x || y === r.y || x === r.x + r.w - 1 || y === r.y + r.h - 1;
+      if (onEdge) out.push([x, y]);
+    }
+    return rng.shuffle(out);
+  };
+  const place = (kind: PropKind, x: number, y: number, tier: Prop['tier'], blocking: boolean): boolean => {
+    const i = idx(x, y);
+    if (tiles[i] !== FLOOR || blocked[i]) return false;
+    if (blocking) {
+      blocked[i] = true;
+      if (!connected()) {
+        blocked[i] = false;
+        return false;
+      }
+    }
+    if (!blocking) blocked[i] = kind !== 'bones' && kind !== 'fungus';
+    props.push({ id: `p${propN++}`, kind, x, y, used: false, tier, blocking });
+    return true;
+  };
+  const vessel: PropKind = biome.id === 'mines' || biome.id === 'caverns' ? 'barrel' : 'urn';
+  for (const r of rooms) {
+    const spots = edgeTiles(r);
+    const take = () => spots.pop();
+    const put = (kind: PropKind, tier: Prop['tier'], blocking: boolean) => {
+      for (let s = take(); s; s = take()) if (place(kind, s[0], s[1], tier, blocking)) return;
+    };
+    switch (r.role) {
+      case 'start':
+        if (rng.chance(0.5)) put(vessel, 'urn', true);
+        break;
+      case 'normal':
+      case 'end':
+        if (rng.chance(0.35)) put('chest', 'chest', true);
+        for (let n = rng.int(0, 3); n > 0; n--) put(vessel, 'urn', true);
+        if (rng.chance(0.5)) put('bones', 'none', false);
+        break;
+      case 'treasure':
+        put('chest', 'chest', true);
+        if (rng.chance(0.3)) put('chest', 'chest', true);
+        for (let n = rng.int(2, 4); n > 0; n--) put(vessel, 'urn', true);
+        break;
+      case 'vault':
+        put('chest', 'vault', true);
+        put('chest', 'vault', true);
+        put('bones', 'none', false);
+        break;
+      case 'secret':
+        put('chest', 'secret', true);
+        break;
+      case 'shrine': {
+        const sx = cx(r), sy = cy(r);
+        if (!nearReserved(sx, sy)) place('shrine', sx, sy, 'none', true);
+        for (let n = rng.int(0, 2); n > 0; n--) put(vessel, 'urn', true);
+        break;
+      }
+      case 'throne':
+        for (let n = 4; n > 0; n--) put(vessel, 'urn', true);
+        put('bones', 'none', false);
+        put('bones', 'none', false);
+        break;
+    }
+  }
+  if (biome.glow) {
+    for (let i = 0; i < N; i++) {
+      if (tiles[i] === FLOOR && !blocked[i] && !reserved[i] && rng.chance(biome.glow.density)) {
+        props.push({ id: `p${propN++}`, kind: 'fungus', x: i % W, y: (i / W) | 0, used: false, tier: 'none', blocking: false });
+      }
+    }
+  }
+
+  // --- Torches -----------------------------------------------------------------
+  const torches: Torch[] = [];
+  const addTorch = (x: number, y: number, side: Dir) => torches.push({ x, y, side });
+  const torchSpots: Torch[] = [];
+  for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+    if (tiles[idx(x, y)] !== FLOOR || stairs.some((s) => s.x === x && s.y === y)) continue;
+    const inRoom = roomOf[idx(x, y)] >= 0;
+    for (const d of DIRS) {
+      const wi = idx(x + DX[d], y + DY[d]);
+      if (tiles[wi] !== WALL || secretIdx.has(wi)) continue;
+      if (inRoom || rng.chance(0.25)) torchSpots.push({ x, y, side: d });
+    }
+  }
+  rng.shuffle(torchSpots);
+  // Always light the arrival point.
+  {
+    const near = torchSpots.filter((t) => Math.abs(t.x - spawn.x) + Math.abs(t.y - spawn.y) <= 2);
+    if (near.length) addTorch(near[0].x, near[0].y, near[0].side);
+  }
+  for (const t of torchSpots) {
+    if (torches.some((o) => Math.abs(o.x - t.x) + Math.abs(o.y - t.y) < 5)) continue;
+    const inRoom = roomOf[idx(t.x, t.y)] >= 0;
+    if (rng.chance(inRoom ? biome.torchDensity * 5 : biome.torchDensity * 2)) addTorch(t.x, t.y, t.side);
+  }
+
+  // --- Enemies -----------------------------------------------------------------
+  const distFromSpawn = bfs(spawn.x, spawn.y);
+  const occupied = new Set<number>();
+  const free = (x: number, y: number) => {
+    const i = idx(x, y);
+    return tiles[i] === FLOOR && !blocked[i] && !reserved[i] && !occupied.has(i) && !doors.some((d) => d.x === x && d.y === y);
+  };
+  const enemies: EnemyState[] = [];
+  let enemyN = 0;
+  const spawnEnemy = (def: EnemyDef, x: number, y: number) => {
+    occupied.add(idx(x, y));
+    enemies.push(createEnemy(def, x, y, rng.pick(DIRS), `e${enemyN++}`, depth));
+  };
+  const pool = ENEMIES.filter((e) => e.weight > 0 && e.minDepth <= depth && depth <= e.maxDepth);
+  const roomTiles = (r: Room) => {
+    const out: [number, number][] = [];
+    for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
+      if (free(x, y) && distFromSpawn[idx(x, y)] >= 7) out.push([x, y]);
+    }
+    return rng.shuffle(out);
+  };
+  if (throne) {
+    const bx = cx(throne), by = throne.y + 2;
+    spawnEnemy(enemyDef(BOSS_ID), bx, by);
+    const guard = enemyDef('hollow_knight');
+    if (free(bx - 2, by + 3)) spawnEnemy(guard, bx - 2, by + 3);
+    if (free(bx + 2, by + 3)) spawnEnemy(guard, bx + 2, by + 3);
+  }
+  const wanted = 4 + depth * 2 + Math.floor(rooms.length / 3);
+  const hostRooms = rooms.filter((r) => r.role !== 'start' && r.role !== 'secret' && r.role !== 'throne');
+  for (let guard = 0; enemies.length < wanted + (throne ? 3 : 0) && guard < 200; guard++) {
+    const def = rng.weighted(pool.map((e) => [e, e.weight] as const));
+    const group = def.id === 'rat' || def.id === 'spider' ? rng.int(1, 3) : rng.int(1, 2);
+    if (rng.chance(0.15)) {
+      // A wanderer in the tunnels.
+      const x = rng.int(1, W - 2), y = rng.int(1, H - 2);
+      if (roomOf[idx(x, y)] === -1 && free(x, y) && distFromSpawn[idx(x, y)] >= 8) spawnEnemy(def, x, y);
+      continue;
+    }
+    const r = rng.weighted(hostRooms.map((h) => [h, h.w * h.h] as const));
+    const spots = roomTiles(r);
+    for (let g = 0; g < group && spots.length; g++) {
+      const [x, y] = spots.pop()!;
+      spawnEnemy(def, x, y);
+    }
+  }
+
+  // --- Loose loot and keys -----------------------------------------------------
+  const pickups: Pickup[] = [];
+  let pickN = 0;
+  const looseSpots = () => {
+    const out: [number, number][] = [];
+    for (let i = 0; i < N; i++) {
+      const x = i % W, y = (i / W) | 0;
+      if (roomOf[i] >= 0 && rooms[roomOf[i]].role !== 'vault' && free(x, y) && !pickups.some((p) => p.x === x && p.y === y)) out.push([x, y]);
+    }
+    return out;
+  };
+  {
+    const spots = rng.shuffle(looseSpots());
+    for (let n = 3 + depth; n > 0 && spots.length; n--) {
+      const [x, y] = spots.pop()!;
+      if (rng.chance(0.55)) {
+        pickups.push({ id: `k${pickN++}`, x, y, items: [], gold: rng.int(3, 8) * depth });
+      } else {
+        const m = materialForDepth(rng, depth, ['metal', 'wood', 'hide', 'cloth', 'bone']);
+        pickups.push({ id: `k${pickN++}`, x, y, items: [makeMaterial(m.id, rng.int(1, 2))], gold: 0 });
+      }
+    }
+    for (const key of keys) {
+      const far = rng.shuffle(looseSpots().filter(([x, y]) => distFromSpawn[idx(x, y)] >= 6 && roomOf[idx(x, y)] >= 0 && rooms[roomOf[idx(x, y)]].role !== 'vault'));
+      const spot = far[0] ?? looseSpots()[0];
+      if (!spot) return null;
+      pickups.push({ id: `k${pickN++}`, x: spot[0], y: spot[1], items: [], gold: 0, keyId: key.id });
+    }
+  }
+
+  return {
+    depth, seed, biome: biome.id, width: W, height: H, tiles, explored: new Array(N).fill(0),
+    rooms, doors, secrets, stairs, torches, props, pickups, enemies, keys,
+  };
+}

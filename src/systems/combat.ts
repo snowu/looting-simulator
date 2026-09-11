@@ -1,45 +1,48 @@
-import { ItemStats, Enemy, LootDrop } from '../types';
+import { Rng } from '../core/rng';
+import { DamageType, ELEMENTS, EnemyDef } from '../types';
+import { PlayerDerived } from './player';
 
-export interface CombatResult {
-  victory: boolean; // mutable — can be overridden if player dies from HP loss
-  playerDamage: number;
-  drops: { materialId: string; quantity: number }[];
+/**
+ * Physical mitigation: defense shaves a proportion off, never below 20%.
+ * `k` sets how much defense it takes to halve a hit.
+ */
+export function mitigate(attack: number, defense: number, k: number): number {
+  return attack * Math.max(0.2, 1 - defense / (defense + k));
 }
 
-export function resolveCombat(playerStats: ItemStats, enemy: Enemy): CombatResult {
-  const rounds = 3 + Math.floor(Math.random() * 3);
-  let playerHP = playerStats.health;
-  let enemyHP = enemy.stats.health;
-  let totalPlayerDamage = 0;
-
-  for (let i = 0; i < rounds && playerHP > 0 && enemyHP > 0; i++) {
-    const playerHit = Math.max(1, playerStats.attack - enemy.stats.defense * 0.4 + Math.floor(Math.random() * 6) - 3);
-    enemyHP -= playerHit;
-
-    if (enemyHP > 0) {
-      const enemyHit = Math.max(1, enemy.stats.attack - playerStats.defense * 0.4 + Math.floor(Math.random() * 6) - 3);
-      playerHP -= enemyHit;
-      totalPlayerDamage += enemyHit;
-    }
-  }
-
-  const victory = enemyHP <= 0;
-  const luckBonus = Math.random() * 100 < playerStats.luck;
-  const drops = victory ? rollLoot(enemy.lootTable) : [];
-  if (victory && luckBonus && drops.length > 0) {
-    drops[0].quantity += 1;
-  }
-
-  return { victory, playerDamage: totalPlayerDamage, drops };
+/** Damage multiplier for staminas at swing time: full power above half a bar. */
+export function staminaPower(stamina: number, maxStamina: number): number {
+  const f = Math.max(0, Math.min(1, stamina / (maxStamina * 0.5)));
+  return 0.4 + 0.6 * f;
 }
 
-export function rollLoot(lootTable: LootDrop[]): { materialId: string; quantity: number }[] {
-  const drops: { materialId: string; quantity: number }[] = [];
-  for (const drop of lootTable) {
-    if (Math.random() <= drop.chance) {
-      const quantity = drop.minQty + Math.floor(Math.random() * (drop.maxQty - drop.minQty + 1));
-      drops.push({ materialId: drop.materialId, quantity });
-    }
+export interface PlayerHit {
+  damage: number;
+  crit: boolean;
+  /** Per-type breakdown, for resist feedback. */
+  effective: 'weak' | 'resist' | 'normal' | 'immune';
+}
+
+export function playerHitsEnemy(rng: Rng, p: PlayerDerived, power: number, e: EnemyDef): PlayerHit {
+  const physMult = e.resist[p.damageType] ?? 1;
+  let dmg = mitigate(p.attack, e.defense, 15) * physMult;
+  let bestMult = physMult;
+  for (const el of ELEMENTS) {
+    const v = p.stats[el];
+    if (v <= 0) continue;
+    const m = e.resist[el] ?? 1;
+    dmg += v * m;
+    bestMult = Math.max(bestMult, m);
   }
-  return drops;
+  dmg *= power * rng.float(0.9, 1.1);
+  const crit = rng.chance(Math.min(0.6, p.stats.luck / 100));
+  if (crit) dmg *= 1.6;
+  const effective = physMult === 0 && bestMult === 0 ? 'immune' : bestMult >= 1.4 ? 'weak' : physMult <= 0.7 && bestMult < 1 ? 'resist' : 'normal';
+  return { damage: Math.max(dmg > 0 ? 1 : 0, Math.round(dmg)), crit, effective };
+}
+
+export function enemyHitsPlayer(rng: Rng, attack: number, type: DamageType, p: PlayerDerived): number {
+  // Elemental hits ignore half of armour.
+  const def = type === 'slash' || type === 'pierce' || type === 'blunt' ? p.stats.defense : p.stats.defense * 0.5;
+  return Math.max(1, Math.round(mitigate(attack, def, 25) * rng.float(0.85, 1.15)));
 }

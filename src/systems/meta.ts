@@ -2,44 +2,46 @@ export interface MetaUpgrade {
   id: string;
   name: string;
   description: string;
-  cost: number;
-  maxLevel: number;
+  /** Renown cost of each level, in order. */
+  costs: number[];
 }
 
 export const META_UPGRADES: MetaUpgrade[] = [
-  {
-    id: 'starting_gold',
-    name: 'Deeper Pockets',
-    description: '+50 starting gold per level',
-    cost: 5,
-    maxLevel: 5,
-  },
-  {
-    id: 'loot_luck',
-    name: 'Fortune Favor',
-    description: '+10% loot drop chance per level',
-    cost: 10,
-    maxLevel: 3,
-  },
-  {
-    id: 'market_intel',
-    name: 'Market Insider',
-    description: 'See price trends',
-    cost: 15,
-    maxLevel: 1,
-  },
-  {
-    id: 'recipe_slots',
-    name: 'Expanded Mind',
-    description: '+2 recipe slots per level',
-    cost: 8,
-    maxLevel: 3,
-  },
-  {
-    id: 'starting_gear',
-    name: 'Heirloom',
-    description: 'Start runs with basic gear',
-    cost: 20,
-    maxLevel: 3,
-  },
+  { id: 'pack_mule', name: 'Pack Mule', description: '+4 backpack slots per level.', costs: [4, 8, 14] },
+  { id: 'toughness', name: 'Toughness', description: '+12 max health per level.', costs: [3, 6, 10, 15, 22] },
+  { id: 'endurance', name: 'Second Wind', description: '+15 max stamina per level.', costs: [3, 7, 12] },
+  { id: 'soul_pouch', name: 'Soul Pouch', description: 'On death, keep 3 backpack slots and 20% of carried gold per level.', costs: [5, 10, 16] },
+  { id: 'haggler', name: 'Silver Tongue', description: 'Merchants pay 4% more and charge 4% less per level.', costs: [4, 8, 13, 20] },
+  { id: 'insider', name: 'Market Insider', description: 'L1: price history and trends. L2: hear rumours of tomorrow\'s market event.', costs: [5, 12] },
+  { id: 'master_smith', name: 'Master Smith', description: '+6% crafted quality per level. L3: crafted gear rolls an extra affix.', costs: [4, 9, 15] },
+  { id: 'appraiser', name: 'Appraiser\'s Eye', description: 'L1: identifying costs 40% less. L2: Rare and lower drops come identified.', costs: [5, 12] },
+  { id: 'treasure_sense', name: 'Treasure Sense', description: '+12% loot find per level.', costs: [5, 10, 16] },
+  { id: 'supply_crate', name: 'Supply Crate', description: 'Start each run with +1 Healing Draught per level.', costs: [3, 6, 10] },
 ];
+
+export type MetaLevels = Record<string, number>;
+
+export function metaLevel(levels: MetaLevels, id: string): number {
+  return levels[id] ?? 0;
+}
+
+export function nextCost(u: MetaUpgrade, levels: MetaLevels): number | null {
+  const lvl = metaLevel(levels, u.id);
+  return lvl < u.costs.length ? u.costs[lvl] : null;
+}
+
+export const BASE_BACKPACK = 16;
+
+export function backpackCapacity(levels: MetaLevels): number {
+  return BASE_BACKPACK + 4 * metaLevel(levels, 'pack_mule');
+}
+
+export function haggleLevel(levels: MetaLevels): number {
+  return metaLevel(levels, 'haggler');
+}
+
+/** Renown awarded when a run ends. */
+export function renownForRun(depthReached: number, extracted: boolean, bossKilled: boolean): number {
+  if (!extracted) return Math.max(0, depthReached - 1);
+  return 2 + depthReached * 2 + (bossKilled ? 25 : 0);
+}
