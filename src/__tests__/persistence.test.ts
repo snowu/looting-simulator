@@ -1,0 +1,94 @@
+import { describe, expect, it } from 'vitest';
+import { parseSave } from '../state/persistence';
+import { SAVE_REVISION, migrateSave } from '../state/migrations';
+import { SAVE_VERSION, newGame } from '../state/game-state';
+import { createRng } from '../core/rng';
+import { GameState } from '../state/game-state';
+
+/**
+ * A real save captured from the build of 2026-09-12, before revisions existed.
+ * It stands in for a save sitting in a player's browser: if a change to the
+ * schema breaks this, it breaks theirs.
+ */
+import legacySave from './fixtures/save-legacy.json';
+const LEGACY = JSON.stringify(legacySave);
+
+describe('loading an old save', () => {
+  it('accepts a save written before revisions existed', () => {
+    const s = parseSave(LEGACY);
+    expect(s).not.toBeNull();
+    expect(s!.revision).toBe(SAVE_REVISION);
+  });
+
+  it('keeps the town progress intact', () => {
+    const s = parseSave(LEGACY)!;
+    expect(s.gold).toBe(840);
+    expect(s.renown).toBe(31);
+    expect(s.meta).toEqual({ pack: 2, tough: 3, smith: 1, appraiser: 1 });
+    expect(s.lifetime.kills).toBe(137);
+    expect(s.lifetime.bestDepth).toBe(5);
+    expect(s.stash.items.length).toBeGreaterThan(0);
+    expect(s.knownRecipes.length).toBeGreaterThan(0);
+    expect(s.equipment.weapon).toBeTruthy();
+  });
+
+  it('keeps a run in progress resumable', () => {
+    const s = parseSave(LEGACY)!;
+    const run = s.run!;
+    expect(run.depth).toBe(2);
+    expect(run.outcome).toBe('active');
+    expect(run.gold).toBe(210);
+    expect(run.player.hp).toBe(54);
+    expect(run.backpack.items.length).toBe(3);
+    expect(run.floors.length).toBe(2);
+    for (const f of run.floors) {
+      expect(f).toBeTruthy();
+      expect(f!.tiles.length).toBe(f!.width * f!.height);
+      expect(f!.rooms.length).toBeGreaterThan(0);
+      expect(f!.stairs.length).toBeGreaterThan(0);
+      expect(Array.isArray(f!.props)).toBe(true);
+      expect(Array.isArray(f!.enemies)).toBe(true);
+    }
+  });
+
+  it('refuses a save from an older format family', () => {
+    const old = JSON.parse(LEGACY);
+    old.version = SAVE_VERSION - 1;
+    expect(parseSave(JSON.stringify(old))).toBeNull();
+  });
+
+  it('leaves a save from a newer build alone', () => {
+    const future = JSON.parse(LEGACY) as GameState & { revision: number };
+    future.revision = SAVE_REVISION + 5;
+    const s = parseSave(JSON.stringify(future))!;
+    expect(s.revision).toBe(SAVE_REVISION + 5);
+  });
+
+  it('survives a save missing whole sections', () => {
+    const gutted = JSON.parse(LEGACY);
+    delete gutted.meta;
+    delete gutted.knownRecipes;
+    delete gutted.lifetime;
+    delete gutted.lastRun;
+    delete gutted.run.keys;
+    const s = parseSave(JSON.stringify(gutted))!;
+    expect(s).not.toBeNull();
+    expect(s.meta).toEqual({});
+    expect(s.knownRecipes).toEqual([]);
+    expect(s.lifetime.runs).toBe(0);
+    expect(s.run!.keys).toEqual([]);
+  });
+
+  it('is idempotent — migrating twice changes nothing', () => {
+    const once = parseSave(LEGACY)!;
+    const twice = migrateSave(JSON.parse(JSON.stringify(once)));
+    expect(twice).toEqual(once);
+  });
+
+  it('round-trips a fresh game', () => {
+    const fresh = newGame(createRng(1));
+    const back = parseSave(JSON.stringify(fresh))!;
+    expect(back.revision).toBe(SAVE_REVISION);
+    expect(back.gold).toBe(fresh.gold);
+  });
+});

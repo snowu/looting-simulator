@@ -9,6 +9,7 @@ import { MetaLevels } from '../systems/meta';
 import { Floor } from '../systems/dungeon';
 import { makeConsumable, makeEquipment, makeMaterial } from '../systems/items';
 import { STARTER_RECIPES } from '../data/recipes';
+import { SAVE_REVISION } from './migrations';
 
 export const SAVE_VERSION = 2;
 
@@ -72,6 +73,8 @@ export interface Lifetime {
 
 export interface GameState {
   version: number;
+  /** Additive schema revision within `version` — see state/migrations.ts. */
+  revision?: number;
   gold: number;
   renown: number;
   stash: Container;
@@ -100,6 +103,7 @@ export function newGame(rng: Rng): GameState {
 
   return {
     version: SAVE_VERSION,
+    revision: SAVE_REVISION,
     gold: 120,
     renown: 0,
     stash,

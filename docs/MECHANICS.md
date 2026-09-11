@@ -434,7 +434,22 @@ One or two run at a time, announced the day before as a rumour.
 
 ## 15. Saving
 
-*File: `src/state/persistence.ts`* — one JSON blob in `localStorage` under `looting-simulator-save-v2`, written on every town action, on floor changes, every 15 seconds in a run, when the app goes to the background, and on close. A run in progress is saved too, so you can resume it. Loading strips affixes that no longer exist and blessings that were removed, so old saves survive rule changes.
+*Files: `src/state/persistence.ts`, `src/state/migrations.ts`* — one JSON blob in `localStorage` under `looting-simulator-save-v2`, written on every town action, on floor changes, every 15 seconds in a run, when the app goes to the background, and on close. A run in progress is saved too, so you can resume it. Loading strips affixes that no longer exist and blessings that were removed, so old saves survive rule changes.
+
+### Changing the schema without eating someone's save
+
+Two numbers, and they are not interchangeable:
+
+| Number | Where | Meaning |
+|---|---|---|
+| `SAVE_VERSION` | `game-state.ts` | The format *family*. A save whose version doesn't match is **refused and the player starts over.** Only move it for a change that genuinely cannot be read. |
+| `SAVE_REVISION` | `migrations.ts` | Additive schema steps inside a family. Mismatches are migrated forward, never discarded. |
+
+**Adding a field — a new stat on an item, a new array on a floor, a new upgrade — is additive.** Make it optional in the type, add a step to `MIGRATIONS` that backfills it, bump `SAVE_REVISION`, and leave `SAVE_VERSION` alone. `MIGRATIONS[i]` takes a save at revision `i` to `i + 1`; saves written before revisions existed have no `revision` and run through every step. Steps must be idempotent, must tolerate a half-built state, and must not throw — someone is mid-run.
+
+A save written by a *newer* build than the one loading it is left as it is rather than migrated backwards.
+
+`src/__tests__/persistence.test.ts` runs a real save captured from the build of 2026-09-12 through the loader on every test run. If a schema change breaks that fixture, it would have broken a player's save; fix the migration, don't update the fixture.
 
 ---
 
