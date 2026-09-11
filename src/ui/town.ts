@@ -19,7 +19,8 @@ import {
 import { MAX_ACCEPTED, contractTitle, gearCandidates, isComplete } from '../systems/contracts';
 import { buildCrafted, craft, materialsForSlot, selectionError } from '../systems/crafting';
 import { identify, identifyCost, itemName, itemStats, makeConsumable, salvage } from '../systems/items';
-import { addItem, countOf, removeItem, removeOf, sortContainer } from '../state/inventory';
+import { Container, addItem, canFit, countOf, freeSlots, removeItem, removeOf, roomFor, sortContainer, takeQty } from '../state/inventory';
+import { syncLoadout } from '../systems/run';
 import { derivePlayer } from '../systems/player';
 import { defaultSlot, equipFrom, unequipTo } from '../systems/equip';
 import { createRng, randomSeed } from '../core/rng';
@@ -53,6 +54,8 @@ export class Town {
   private forgeRecipe = 'r_short_sword';
   private forgeMats: (string | null)[] = [];
   private stashFilter: 'all' | 'gear' | 'materials' | 'other' = 'all';
+  /** What a click on a stash item does: wear it, or pack it for the delve. */
+  private stashAction: 'equip' | 'pack' = 'equip';
   private confirmReset = false;
   private scrollMemo = 0;
 
@@ -102,7 +105,11 @@ export class Town {
         h('span', { class: 'violet-t', text: `✦ ${s.renown} renown` }),
         h('span', { class: 'dim', text: `pack ${backpackCapacity(s.meta)} slots` }),
       ),
-      btn(running ? 'Return to the Depths' : 'Descend', () => this.ctx.descend(), 'primary big'),
+      btn(
+        s.run?.portal ? 'Step back through the portal' : running ? 'Return to the Depths' : 'Descend',
+        () => this.ctx.descend(),
+        'primary big',
+      ),
     );
     const tabBar = h(
       'div',
@@ -551,6 +558,89 @@ export class Town {
   // Stash
   // ---------------------------------------------------------------------------
 
+  /**
+   * The pack you are filling: the live backpack if a run is open (you came
+   * home through a portal), otherwise the loadout that becomes it on descent.
+   */
+  private get pack(): { c: Container; live: boolean } {
+    const s = this.s;
+    const live = !!s.run && s.run.outcome === 'active';
+    return { c: live ? s.run!.backpack : syncLoadout(s), live };
+  }
+
+  /** Stash → pack, as much of the stack as there is room for. */
+  private toPack(uid: string): void {
+    const s = this.s;
+    const { c } = this.pack;
+    const it = s.stash.items.find((i) => i.uid === uid);
+    if (!it) return;
+    const room = roomFor(c, it);
+    if (room <= 0) {
+      this.ctx.toast('Your pack is full.', '#ff9070');
+      return;
+    }
+    const moved = takeQty(s.stash, uid, Math.min(it.qty, room));
+    if (!moved) return;
+    const left = addItem(c, moved);
+    if (left > 0) addItem(s.stash, { ...moved, qty: left });
+    this.commit('pickup');
+  }
+
+  /** Pack → stash. The stash is unlimited, so this always works. */
+  private toStash(uid: string): void {
+    const { c } = this.pack;
+    const it = removeItem(c, uid);
+    if (!it) return;
+    addItem(this.s.stash, it);
+    this.commit('ui');
+  }
+
+  private packPane(): HTMLElement {
+    const s = this.s;
+    const { c, live } = this.pack;
+    const grid = h('div', { class: 'grid-slots' });
+    for (const it of c.items) {
+      grid.append(
+        itemSlot(it, {
+          size: 44,
+          tip: () => itemTooltip(it, { hint: 'Click to put it back in the stash' }),
+          onclick: () => this.toStash(it.uid),
+        }),
+      );
+    }
+    const potions = () => {
+      for (const it of [...s.stash.items]) {
+        if (it.kind !== 'consumable') continue;
+        if (freeSlots(this.pack.c) <= 0 && !canFit(this.pack.c, it)) continue;
+        this.toPack(it.uid);
+      }
+    };
+    return h(
+      'div',
+      { class: 'pane frame' },
+      h(
+        'div',
+        { class: 'row' },
+        h('h3', { text: `Pack (${c.items.length}/${c.capacity})` }),
+        h(
+          'div',
+          { class: 'row right' },
+          btn('Take potions', potions, 'small', !s.stash.items.some((i) => i.kind === 'consumable')),
+          btn('Stow all', () => {
+            for (const it of [...c.items]) this.toStash(it.uid);
+          }, 'small', !c.items.length),
+        ),
+      ),
+      c.items.length ? grid : h('p', { class: 'dim', text: 'Empty. Pack potions and scrolls before you go down.' }),
+      h('p', {
+        class: 'dim small',
+        text: live
+          ? 'This is the pack on your back right now. Everything in it is lost if you die.'
+          : 'This goes down with you. Everything in it is lost if you die — equipped gear always comes back.',
+      }),
+    );
+  }
+
   private stash(): HTMLElement {
     const s = this.s;
     const eq = s.equipment;
@@ -562,31 +652,60 @@ export class Town {
     const shown = s.stash.items.filter((i) =>
       this.stashFilter === 'all' ? true : this.stashFilter === 'gear' ? i.kind === 'equipment' : this.stashFilter === 'materials' ? i.kind === 'material' : i.kind === 'consumable' || i.kind === 'blueprint',
     );
+    const packing = this.stashAction === 'pack';
     const grid = h('div', { class: 'grid-slots' });
     for (const it of shown) {
       const slot = defaultSlot(it, eq);
+      // Only gear can be worn, so a click on anything else always packs it.
+      const wears = !packing && it.kind === 'equipment';
       grid.append(
         itemSlot(it, {
           size: 44,
-          tip: () => itemTooltip(it, { compare: slot ? eq[slot] : null, hint: it.kind === 'equipment' ? 'Click to equip' : undefined }),
+          tip: () => itemTooltip(it, { compare: slot ? eq[slot] : null, hint: wears ? 'Click to equip' : 'Click to move it into your pack' }),
           onclick: () => {
-            if (it.kind !== 'equipment') return;
-            equipFrom(eq, s.stash, it.uid);
-            this.commit();
+            if (wears) {
+              equipFrom(eq, s.stash, it.uid);
+              this.commit();
+            } else {
+              this.toPack(it.uid);
+            }
           },
         }),
       );
     }
+    const modes: [typeof this.stashAction, string][] = [['equip', 'Equip'], ['pack', 'Pack']];
     return h(
       'div',
       { class: 'panes' },
       h(
         'div',
         { class: 'pane frame' },
-        h('div', { class: 'row' }, h('h3', { text: `Stash (${s.stash.items.length})` }), h('div', { class: 'row right' }, ...filters.map(([f, l]) => btn(l, () => { this.stashFilter = f; this.commit(); }, `small${this.stashFilter === f ? ' primary' : ''}`)), btn('Sort', () => { sortContainer(s.stash); this.commit(); }, 'small'))),
+        h(
+          'div',
+          { class: 'row' },
+          h('h3', { text: `Stash (${s.stash.items.length})` }),
+          h(
+            'div',
+            { class: 'row right' },
+            ...filters.map(([f, l]) => btn(l, () => { this.stashFilter = f; this.commit(); }, `small${this.stashFilter === f ? ' primary' : ''}`)),
+            btn('Sort', () => { sortContainer(s.stash); this.commit(); }, 'small'),
+          ),
+        ),
+        h(
+          'div',
+          { class: 'row' },
+          h('span', { class: 'dim small', text: 'Clicking gear:' }),
+          ...modes.map(([m, l]) => btn(l, () => { this.stashAction = m; this.commit(); }, `small${this.stashAction === m ? ' primary' : ''}`)),
+          h('span', { class: 'dim small', text: 'everything else always packs' }),
+        ),
         shown.length ? grid : h('p', { class: 'dim', text: 'Empty.' }),
       ),
-      h('div', { class: 'pane frame' }, h('h3', { text: 'Equipped' }), doll, statSheet({ derived: derivePlayer(eq, s.meta) }), h('p', { class: 'dim small', text: 'Your equipped gear comes back even if you die. Your backpack does not.' })),
+      h(
+        'div',
+        { class: 'pane-col' },
+        this.packPane(),
+        h('div', { class: 'pane frame' }, h('h3', { text: 'Equipped' }), doll, statSheet({ derived: derivePlayer(eq, s.meta) }), h('p', { class: 'dim small', text: 'Your equipped gear comes back even if you die. Your backpack does not.' })),
+      ),
     );
   }
 

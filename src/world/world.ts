@@ -47,7 +47,8 @@ export type WorldEvent =
   | { type: 'floor' }
   | { type: 'end'; outcome: 'dead' | 'extracted' }
   | { type: 'secret'; x: number; y: number }
-  | { type: 'trap'; x: number; y: number; kind: Trap['kind'] };
+  | { type: 'trap'; x: number; y: number; kind: Trap['kind'] }
+  | { type: 'town' };
 
 export interface Projectile {
   id: number;
@@ -104,6 +105,7 @@ export function shortLabel(hint: string): string {
   if (hint.startsWith('Push')) return 'Push';
   if (hint.startsWith('Disarm')) return 'Disarm';
   if (hint.startsWith('Pray')) return 'Pray';
+  if (hint === 'Step through to Hollowmere') return 'Town';
   if (hint.startsWith('Step through')) return 'Enter';
   if (hint.startsWith('Unlock')) return 'Unlock';
   if (hint.startsWith('Open')) return 'Open';
@@ -332,15 +334,13 @@ export class World {
       this.player.stamina = Math.min(this.derived.maxStamina, this.player.stamina + rate * dt);
     }
 
-    // Recall channel.
+    // Recall channel: it tears open a portal rather than yanking you home, so
+    // the trip to town and back costs one scroll instead of the whole run.
     if (a.recall !== null) {
       a.recall -= dt;
       if (a.recall <= 0) {
         a.recall = null;
-        this.sfx('recall');
-        this.msg('The scroll carries you home.', '#9ac0ff');
-        this.finish('extracted');
-        return;
+        this.openTownPortal();
       }
     }
 
@@ -679,14 +679,34 @@ export class World {
     this.sfx('enemyDie', e.x, e.y);
     const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
     const loot = rollEnemyLoot(this.rng, def, this.run.depth, this.derived.find, idBelow);
-    this.dropLoot(e.x, e.y, loot.items, loot.gold);
     if (def.behavior === 'boss') {
+      // The portal opens where the king fell, so his hoard goes beside it —
+      // dropped on the same tile it would be unreachable behind the portal.
+      const spot = this.freeTileNear(e.x, e.y, true);
+      this.dropLoot(spot.x, spot.y, loot.items, loot.gold);
       this.run.stats.bossKilled = true;
       this.msg('The Ashen King crumbles to cinders. A portal tears open.', '#c080ff');
       this.floor.props.push({ id: `portal${this.time}`, kind: 'portal', x: e.x, y: e.y, used: false, tier: 'none', blocking: false });
     } else {
+      this.dropLoot(e.x, e.y, loot.items, loot.gold);
       this.msg(`${def.name} slain.`, '#c8c0b0');
     }
+  }
+
+  /**
+   * A walkable tile at or next to (x, y). `avoidCentre` skips the tile itself,
+   * for when something is about to be put there that would cover a loot pile.
+   */
+  private freeTileNear(x: number, y: number, avoidCentre = false): { x: number; y: number } {
+    const f = this.floor;
+    const ok = (tx: number, ty: number) =>
+      !blocksMove(f, tx, ty) && !f.props.some((p) => (p.kind === 'portal' || p.kind === 'town_portal') && p.x === tx && p.y === ty);
+    if (!avoidCentre && ok(x, y)) return { x, y };
+    for (const d of DIRS) {
+      const tx = x + DX[d], ty = y + DY[d];
+      if (ok(tx, ty)) return { x: tx, y: ty };
+    }
+    return { x, y };
   }
 
   private dropLoot(x: number, y: number, items: Item[], gold: number): Pickup | null {
@@ -736,8 +756,11 @@ export class World {
       if (p.kind === 'shrine') return 'Pray at the shrine';
       if (p.kind === 'urn' || p.kind === 'barrel') return `Smash ${p.kind}`;
     }
-    const portal = f.props.find((q) => q.kind === 'portal' && ((q.x === t.x && q.y === t.y) || (q.x === this.player.x && q.y === this.player.y)));
-    if (portal) return 'Step through the portal';
+    // A pile sharing the portal's tile wins the prompt, so loot that ended up
+    // under a portal (as boss drops used to) can still be picked up.
+    const portal = this.portalHere();
+    if (portal) return this.pickupNear() ? 'Search' : 'Step through the portal';
+    if (this.townPortalHere()) return this.pickupNear() ? 'Search' : 'Step through to Hollowmere';
     const s = stairsAt(f, t.x, t.y);
     if (s) return s.down ? `Descend to depth ${this.run.depth + 1}` : this.run.depth === 1 ? 'Leave the dungeon' : `Climb to depth ${this.run.depth - 1}`;
     if (this.pickupNear()) return 'Search';
@@ -758,6 +781,58 @@ export class World {
     const hint = this.interactionHint();
     if (!hint || hint.startsWith('Smash') || hint === 'Close door') return { kind: 'attack', label: '' };
     return { kind: 'interact', label: shortLabel(hint) };
+  }
+
+  /**
+   * Tear open a town portal on a free tile next to you (or under you if there
+   * is nowhere else). Only one is ever open: reading a second scroll moves it.
+   */
+  private openTownPortal(): void {
+    // In front of you where there is room, so you can see what you opened.
+    const front = this.frontTile();
+    const clear = (t: { x: number; y: number }) => !blocksMove(this.floor, t.x, t.y) && !propAt(this.floor, t.x, t.y);
+    const spot = clear(front) ? front : this.freeTileNear(this.player.x, this.player.y, true);
+    this.closeTownPortal();
+    this.floor.props.push({
+      id: `town_portal_${Math.round(this.time * 1000)}`,
+      kind: 'town_portal',
+      x: spot.x,
+      y: spot.y,
+      used: false,
+      tier: 'none',
+      blocking: false,
+    });
+    this.run.portal = { depth: this.run.depth, x: spot.x, y: spot.y };
+    this.sfx('recall');
+    this.msg('A portal tears open. It holds until you step back through.', '#9ac0ff');
+    this.emit({ type: 'shake', amount: 0.25 });
+  }
+
+  /** Collapse the open portal wherever it is. Safe to call with none open. */
+  closeTownPortal(): void {
+    const open = this.run.portal;
+    if (!open) return;
+    const floor = this.run.floors[open.depth - 1];
+    if (floor) floor.props = floor.props.filter((p) => p.kind !== 'town_portal');
+    this.run.portal = null;
+  }
+
+  /** The town portal, if you are standing on it or facing it. */
+  private townPortalHere(): Prop | undefined {
+    const f = this.floor;
+    const t = this.frontTile();
+    return f.props.find(
+      (q) => q.kind === 'town_portal' && ((q.x === t.x && q.y === t.y) || (q.x === this.player.x && q.y === this.player.y)),
+    );
+  }
+
+  /** The boss's exit portal, if you are standing on it or facing it. */
+  private portalHere(): Prop | undefined {
+    const f = this.floor;
+    const t = this.frontTile();
+    return f.props.find(
+      (q) => q.kind === 'portal' && ((q.x === t.x && q.y === t.y) || (q.x === this.player.x && q.y === this.player.y)),
+    );
   }
 
   pickupNear(): Pickup | undefined {
@@ -847,10 +922,18 @@ export class World {
       }
     }
 
-    const portal = f.props.find((q) => q.kind === 'portal' && ((q.x === t.x && q.y === t.y) || (q.x === this.player.x && q.y === this.player.y)));
-    if (portal) {
+    const portal = this.portalHere();
+    const town = this.townPortalHere();
+    if (portal || town) {
+      const loose = this.pickupNear();
+      if (loose) {
+        this.emit({ type: 'loot', pickupId: loose.id });
+        return;
+      }
       this.sfx('recall');
-      this.finish('extracted');
+      // The boss's portal is the way out; a town portal keeps the run alive.
+      if (portal) this.finish('extracted');
+      else this.emit({ type: 'town' });
       return;
     }
 
@@ -975,7 +1058,10 @@ export class World {
       case 'recall':
         if (this.anim.recall !== null) return;
         this.anim.recall = e.seconds;
-        this.msg('You read the scroll. Stand still...', '#9ac0ff');
+        this.msg(
+          this.run.portal ? 'You read the scroll. The old portal will collapse...' : 'You read the scroll. Stand still...',
+          '#9ac0ff',
+        );
         this.sfx('magic');
         break;
     }

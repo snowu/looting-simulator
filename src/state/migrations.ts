@@ -1,5 +1,7 @@
 import { GameState } from './game-state';
 import { Floor } from '../systems/dungeon';
+import { createContainer } from './inventory';
+import { BASE_BACKPACK } from '../systems/meta';
 
 /**
  * Additive save migrations.
@@ -16,7 +18,7 @@ import { Floor } from '../systems/dungeon';
  */
 
 /** Bump this (and push a migration) whenever a field is added to the save. */
-export const SAVE_REVISION = 2;
+export const SAVE_REVISION = 3;
 
 type AnyState = GameState & Record<string, unknown>;
 
@@ -40,6 +42,13 @@ const MIGRATIONS: ((s: AnyState) => void)[] = [
   // none — regenerating it would move the walls under a player mid-run.
   (s) => {
     for (const f of s.run?.floors ?? []) if (f) f.traps ??= [];
+  },
+  // 2 → 3: a town-side loadout to pack before a delve, and the open town
+  // portal a Scroll of Recall leaves behind. Older runs have neither.
+  (s) => {
+    s.loadout ??= createContainer(BASE_BACKPACK);
+    s.loadout.items ??= [];
+    if (s.run) s.run.portal ??= null;
   },
 ];
 

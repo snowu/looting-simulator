@@ -3,7 +3,7 @@ import { createRng, randomSeed } from './core/rng';
 import { DX, DY, turnRight } from './core/dir';
 import { GameState, newGame } from './state/game-state';
 import { clearSave, loadGame, saveGame } from './state/persistence';
-import { startRun, endRun } from './systems/run';
+import { startRun, endRun, bankCarriedGold } from './systems/run';
 import { biomeForDepth } from './data/biomes';
 import { World, WorldEvent } from './world/world';
 import { DungeonRenderer } from './render/dungeon-renderer';
@@ -179,7 +179,15 @@ function startAmbient(): void {
 function enterDungeon(): void {
   audio.unlock();
   if (!state.run || state.run.outcome !== 'active') startRun(state);
+  const portal = state.run!.portal;
+  if (portal) {
+    // Back out the way you came, onto the portal's own tile, and it collapses.
+    state.run!.depth = portal.depth;
+    state.run!.player.x = portal.x;
+    state.run!.player.y = portal.y;
+  }
   world = new World(state);
+  if (portal) world.closeTownPortal();
   renderer.deathFade = 0;
   ending = null;
   hud.clearLog();
@@ -189,6 +197,7 @@ function enterDungeon(): void {
   saveGame(state);
   startAmbient();
   hud.message(`Depth ${world.run.depth} — ${biomeForDepth(world.run.depth).name}. The torch gutters.`, '#d8c8a8');
+  if (portal) hud.message('The portal closes behind you.', '#9ac0ff');
   if (state.lifetime.runs <= 1) {
     hud.message(
       touchMode
@@ -197,6 +206,17 @@ function enterDungeon(): void {
       '#a0a090',
     );
   }
+}
+
+/** Through a town portal: the run stays open and the portal stays put. */
+function returnToTown(): void {
+  const banked = bankCarriedGold(state);
+  saveGame(state);
+  world = null;
+  audio.stopAmbient();
+  town.tab = 'stash';
+  enterTown();
+  toast(banked > 0 ? `Home through the portal. ${banked} gold banked.` : 'Home through the portal.', '#9ac0ff');
 }
 
 function finishRun(outcome: 'dead' | 'extracted'): void {
@@ -248,6 +268,11 @@ function handle(ev: WorldEvent): void {
       saveGame(state);
       break;
     case 'secret':
+      break;
+    case 'town':
+      returnToTown();
+      break;
+    case 'trap':
       break;
   }
 }

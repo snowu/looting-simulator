@@ -198,6 +198,7 @@ export class DungeonRenderer {
     for (const pr of floor.props) {
       if (pr.kind === 'fungus') lights.push({ x: tileX(pr.x), y: 0.4, z: tileZ(pr.y), r: 3, color: new THREE.Color('#40e0c0'), intensity: 0.7 });
       if (pr.kind === 'portal') lights.push({ x: tileX(pr.x), y: 1.2, z: tileZ(pr.y), r: 7, color: new THREE.Color('#b070ff'), intensity: 1.3 * flick(5) });
+      if (pr.kind === 'town_portal') lights.push({ x: tileX(pr.x), y: 1.2, z: tileZ(pr.y), r: 6, color: new THREE.Color('#70b0ff'), intensity: 1.1 * flick(4) });
       if (pr.kind === 'shrine' && !pr.used) lights.push({ x: tileX(pr.x), y: 1.3, z: tileZ(pr.y), r: 4, color: new THREE.Color('#8ab0ff'), intensity: 0.9 });
     }
     for (const tr of floor.traps ?? []) {
@@ -285,6 +286,11 @@ export class DungeonRenderer {
         case 'portal': {
           const pulse = 1.8 + Math.sin(this.time * 4) * 0.15;
           this.place(s, 'proj_shadow', wx, 0.2, wz, pulse);
+          break;
+        }
+        case 'town_portal': {
+          const pulse = 2.1 + Math.sin(this.time * 3) * 0.1;
+          this.place(s, 'town_portal', wx, 0, wz, pulse);
           break;
         }
       }

@@ -56,6 +56,10 @@ describe('loading an old save', () => {
     // Floors generated before traps existed get none rather than being
     // regenerated, which would move the walls under a player mid-run.
     for (const f of s.run!.floors) expect(f!.traps).toEqual([]);
+    // The town-side pack and the town portal both arrived after this save.
+    expect(s.loadout.items).toEqual([]);
+    expect(s.loadout.capacity).toBeGreaterThan(0);
+    expect(s.run!.portal).toBeNull();
   });
 
   it('refuses a save from an older format family', () => {

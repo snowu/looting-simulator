@@ -12,7 +12,7 @@ One run is one **day**.
 
 1. **Town (Hollowmere).** Sell, buy, craft, take contracts, spend renown, equip.
 2. **Descend.** Six floors, each generated from the run seed and kept for the whole run, so you can walk back up.
-3. **Come home** by the stairs you came down (floor 1's up-stairs is the exit), by a Scroll of Recall, or through the portal left by the boss.
+3. **Come home** by the stairs you came down (floor 1's up-stairs is the exit) or through the portal left by the boss. A **Scroll of Recall** instead opens a two-way town portal, which does *not* end the day.
 4. **Day advances**: market prices move, events tick, contracts age, the board is topped up, the merchant restocks.
 
 Dying ends the day too, but you lose the backpack.
@@ -111,7 +111,7 @@ Depth 6 is the bottom (`FINAL_DEPTH = 6`); there are no stairs down, only the wa
 
 **The fight.** 420 HP, 24 attack, 12 defense. It swings when adjacent and fires a **three-bolt shadow volley** when you line up at range 2+. It is immune to shadow, resists pierce (×0.8), takes ×1.5 from holy, and **can never be staggered** out of its wind-up — the only answer is to step out of the tile it aims at or block.
 
-**On its death** it drops a guaranteed **Legendary and an Epic item plus a blueprint**, star iron, shadow essence, a jewelled skull, 50% a dragon scale and 150–300 gold — and a **portal** opens on its tile that takes you straight home. Killing it is worth **+25 renown** on top of the usual extraction reward (so 39 for a depth-6 extraction).
+**On its death** it drops a guaranteed **Legendary and an Epic item plus a blueprint**, star iron, shadow essence, a jewelled skull, 50% a dragon scale and 150–300 gold — dropped on a tile *beside* the king, because a **portal** opens on the tile he fell on and would otherwise bury the hoard. Killing it is worth **+25 renown** on top of the usual extraction reward (so 39 for a depth-6 extraction).
 
 There is nothing below. Each new run rolls a fresh seed, so depth 6 can be farmed.
 
@@ -179,12 +179,25 @@ Every kill also has a 6% chance of a Healing Draught and `1.2% × depth` of a bl
 | Urn / barrel | Smash by attacking or interacting; small loot |
 | Shrine | **15%**: cruel — lose 25% of current health. Otherwise: full health and stamina, plus a blessing for the rest of the run if you have none |
 | Stairs | Walk into the alcove. Floor 1's up-stairs leaves the dungeon |
-| Portal | Appears when the boss dies; steps you home |
+| Portal | Appears when the boss dies; steps you home and ends the run |
+| Town portal | Opened by a Scroll of Recall; steps you to Hollowmere with the run still going |
 | Loot pile | Coins and keys are picked up automatically; items open the loot window |
 
 **Blessings** (one per run): Fortune (+30% loot find), Fury (+25% damage), Warding (+5 defense).
 
-**Scroll of Recall:** 5 seconds of standing still, then home with everything. Moving, attacking or being hit cancels it.
+**Scroll of Recall:** 5 seconds of standing still, then a **town portal** tears open on the tile in front of you. Moving, attacking or being hit cancels the reading.
+
+### The town portal
+
+Diablo's, in short: a two-way door that costs one scroll for the round trip.
+
+- Stepping through puts you in **Hollowmere with the run still open** — the day does not advance, the market does not move, contracts do not age, and the dungeon is exactly as you left it.
+- The coin you were carrying is **banked into your purse** on arrival, so you can spend what you found. It is no longer at risk if the rest of the delve goes badly.
+- In town the Descend button becomes **Step back through the portal**. It drops you on the portal's own tile, at the depth you left from, and the portal **closes behind you**.
+- **One at a time.** Reading a second scroll collapses the first portal and opens a new one where you stand.
+- The portal is part of the save, so closing the browser in the middle of a portal trip and coming back still works.
+
+*Note that this is strictly better than the old behaviour, where a Recall ended the run: the scroll now buys a shopping trip rather than an exit.*
 
 ---
 
@@ -450,6 +463,8 @@ One or two run at a time, announced the day before as a rumour.
 *Files: `src/state/inventory.ts`, `src/systems/run.ts`*
 
 - **Backpack:** 16 slots (+4 per Pack Mule). Materials stack 20 per slot, consumables 5–10, gear 1.
+- **Packing before a delve:** the *Stash & Gear* tab has a **Pack** panel beside the stash. Anything you put in it goes down with you as your backpack. Clicking a stash item moves it into the pack; gear equips instead unless you flip the **Equip / Pack** switch. **Take potions** fills the pack with every consumable that fits. When a run is already open (you came home through a town portal) the panel is your actual backpack, so you can stash your haul and restock before going back.
+- Anything packed that no longer fits when you descend — the pack shrank, or the Supply Crate took the slot — goes back to the stash rather than vanishing.
 - **Stash:** unlimited, in town, and materials merge into single stacks.
 - **Extracting** banks the whole backpack and the gold you carried.
 - **Dying** loses the backpack and your carried gold. Soul Pouch saves the first `3 × level` slots and `20% × level` of the gold. **Equipped gear is always kept.**

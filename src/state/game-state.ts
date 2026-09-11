@@ -10,6 +10,7 @@ import { Floor } from '../systems/dungeon';
 import { makeConsumable, makeEquipment, makeMaterial } from '../systems/items';
 import { STARTER_RECIPES } from '../data/recipes';
 import { SAVE_REVISION } from './migrations';
+import { BASE_BACKPACK } from '../systems/meta';
 
 export const SAVE_VERSION = 2;
 
@@ -32,6 +33,13 @@ export interface RunStats {
 
 export type RunOutcome = 'active' | 'dead' | 'extracted';
 
+/** An open town portal: where in the dungeon it drops you back. */
+export interface PortalState {
+  depth: number;
+  x: number;
+  y: number;
+}
+
 export interface RunState {
   seed: number;
   rngState: number;
@@ -44,6 +52,8 @@ export interface RunState {
   keys: string[];
   /** Shrine blessing active for the rest of the run. */
   blessing: string | null;
+  /** Open town portal, if a Scroll of Recall has been read. One at a time. */
+  portal: PortalState | null;
   stats: RunStats;
   outcome: RunOutcome;
   killedBy?: string;
@@ -83,6 +93,8 @@ export interface GameState {
   market: MarketState;
   contracts: Contract[];
   meta: MetaLevels;
+  /** Packed in town for the next delve; becomes the backpack when you descend. */
+  loadout: Container;
   run: RunState | null;
   lifetime: Lifetime;
   lastRun: RunSummary | null;
@@ -112,6 +124,7 @@ export function newGame(rng: Rng): GameState {
     market: createMarket(rng),
     contracts: refreshContracts([], rng, 1),
     meta: {},
+    loadout: createContainer(BASE_BACKPACK),
     run: null,
     lifetime: { runs: 0, deaths: 0, extractions: 0, bestDepth: 0, goldEarned: 0, kills: 0 },
     lastRun: null,

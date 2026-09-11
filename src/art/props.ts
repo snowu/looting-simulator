@@ -544,6 +544,33 @@ const TRAP_SPENT = rows(`
 
 const TRAP_PAL = { p: '#0a0806', q: '#3a3228', r: '#4a4034', s: '#6a5c46' };
 
+
+// An upright oval rift — the town portal a Scroll of Recall leaves behind.
+// Taller than it is wide, and inset from the canvas edges, so standing next
+// to one still leaves you a view of the corridor past it.
+const TOWN_PORTAL = sym(rows(`
+  ........
+  ......cb
+  .....cba
+  ....cbaa
+  ...cbaaw
+  ...cbaaw
+  ..cbaaww
+  ..cbaaww
+  ..cbaaww
+  ..cbaaww
+  ..cbaaww
+  ..cbaaww
+  ..cbaaww
+  ..cbaaww
+  ...cbaaw
+  ...cbaaw
+  ....cbaa
+  .....cba
+  ......cb
+  ........
+`));
+
 export const PROPS: ArtDef[] = [
   { id: 'chest', palette: CHEST_PAL, rows: CHEST },
   { id: 'chest_open', palette: CHEST_PAL, rows: CHEST_OPEN },
@@ -559,6 +586,7 @@ export const PROPS: ArtDef[] = [
   { id: 'trap_spikes', palette: { p: '#0a0806', k: '#2e2820', w: '#8a8272', W: '#c8c0aa' }, rows: TRAP_SPIKES },
   { id: 'trap_alarm', palette: { c: '#6a4a8afa', d: '#c890fffa' }, rows: TRAP_WARD },
   { id: 'trap_spent', palette: TRAP_PAL, rows: TRAP_SPENT },
+  { id: 'town_portal', palette: { c: '#102848fa', b: '#2060b0fa', a: '#60b0fffa', w: '#d8f0fffa' }, rows: TOWN_PORTAL },
   { id: 'sconce', palette: { k: '#0c0c0e', i: '#3a3a42', j: '#5a5a64', h: '#3a2410', g: '#1a0e06' }, rows: SCONCE },
   { id: 'flame_0', palette: FLAME_PAL, rows: FLAME_0 },
   { id: 'flame_1', palette: FLAME_PAL, rows: FLAME_1 },

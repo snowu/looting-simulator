@@ -56,7 +56,7 @@ export interface Torch {
   side: Dir;
 }
 
-export type PropKind = 'chest' | 'urn' | 'barrel' | 'bones' | 'shrine' | 'fungus' | 'portal';
+export type PropKind = 'chest' | 'urn' | 'barrel' | 'bones' | 'shrine' | 'fungus' | 'portal' | 'town_portal';
 
 export interface Prop {
   id: string;

@@ -1,13 +1,38 @@
 import { createRng, randomSeed } from '../core/rng';
 import { Item } from '../types';
 import { GameState, RunState, RunSummary } from '../state/game-state';
-import { addItem, createContainer } from '../state/inventory';
+import { Container, addItem, createContainer } from '../state/inventory';
 import { generateFloor, stairsFront } from './dungeon';
 import { backpackCapacity, metaLevel, renownForRun } from './meta';
 import { derivePlayer } from './player';
 import { makeConsumable } from './items';
 import { advanceDay } from './market';
 import { recordDepth, refreshContracts } from './contracts';
+
+/**
+ * Keep the town-side pack at the current backpack size. Called whenever the
+ * town is drawn, so buying Pack Mule widens it straight away.
+ */
+export function syncLoadout(state: GameState): Container {
+  state.loadout ??= createContainer(backpackCapacity(state.meta));
+  state.loadout.capacity = backpackCapacity(state.meta);
+  return state.loadout;
+}
+
+/**
+ * Deposit the coin you are carrying into the town purse. Called when a town
+ * portal brings you home mid-run: you are standing in Hollowmere, so the gold
+ * is spendable and no longer at risk if the rest of the delve goes badly.
+ */
+export function bankCarriedGold(state: GameState): number {
+  const run = state.run;
+  if (!run || run.gold <= 0) return 0;
+  const banked = run.gold;
+  run.gold = 0;
+  state.gold += banked;
+  state.lifetime.goldEarned += banked;
+  return banked;
+}
 
 export function startRun(state: GameState, seed = randomSeed()): RunState {
   const floor = generateFloor(seed, 1);
@@ -17,6 +42,13 @@ export function startRun(state: GameState, seed = randomSeed()): RunState {
   const backpack = createContainer(backpackCapacity(state.meta));
   const crate = metaLevel(state.meta, 'supply_crate');
   if (crate > 0) addItem(backpack, makeConsumable('healing_draught', crate));
+  // Everything packed in town comes with you. Anything that no longer fits
+  // (the pack shrank, or the crate filled a slot) goes back to the stash.
+  for (const it of syncLoadout(state).items) {
+    const left = addItem(backpack, it);
+    if (left > 0) addItem(state.stash, { ...it, qty: left });
+  }
+  state.loadout.items = [];
   const run: RunState = {
     seed,
     rngState: createRng(seed ^ 0x5bd1e995).state,
@@ -27,6 +59,7 @@ export function startRun(state: GameState, seed = randomSeed()): RunState {
     gold: 0,
     keys: [],
     blessing: null,
+    portal: null,
     stats: { kills: 0, goldFound: 0, itemsFound: 0, deepest: 1, time: 0, bossKilled: false },
     outcome: 'active',
   };
