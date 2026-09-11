@@ -294,6 +294,28 @@ table.market .num { text-align: right; font-variant-numeric: tabular-nums; }
   overscroll-behavior: contain;
   touch-action: pan-x pan-y;
 }
+/* Fullscreen toggle: pinned to the corner of every screen, above panels. */
+#fs-btn {
+  position: fixed;
+  top: max(8px, env(safe-area-inset-top));
+  right: max(8px, env(safe-area-inset-right));
+  z-index: 50;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: #e8dcc4;
+  background: #16121bd9;
+  border: 1px solid #4a4250;
+  border-radius: 6px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+#fs-btn svg { width: 18px; height: 18px; display: block; }
+#fs-btn:hover, #fs-btn:active { color: var(--gold); border-color: var(--gold); }
+.town-head { padding-right: 44px; }
+.minimap { top: 54px; }
 .touch-ui { z-index: 2; }
 .overlays { z-index: 5; }
 .tbtn.atk img { width: 56px; height: 56px; }
@@ -337,7 +359,7 @@ table.market .num { text-align: right; font-variant-numeric: tabular-nums; }
 .tmenu {
   position: absolute;
   right: max(12px, env(safe-area-inset-right));
-  top: 132px;
+  top: 176px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -410,7 +432,10 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
   body.touch #hud .status { font-size: 13px; line-height: 1.1; }
   body.touch #hud .status .depth { font-size: 18px; }
   body.touch #hud .status .coin { margin-top: 1px; }
-  body.touch #hud .minimap { width: 76px; height: 76px; top: max(8px, env(safe-area-inset-top)); }
+  body.touch #hud .minimap { width: 76px; height: 76px; top: calc(max(8px, env(safe-area-inset-top)) + 40px); }
+  #fs-btn { width: 30px; height: 30px; }
+  #fs-btn svg { width: 16px; height: 16px; }
+  .town-head { padding-right: 38px; }
   body.touch #hud .compass { font-size: 18px; gap: 8px; }
   body.touch #hud .compass .side { font-size: 13px; }
   body.touch #hud .bars { width: min(28vw, 190px); gap: 1px; bottom: calc(max(6px, env(safe-area-inset-bottom)) + 38px); }
@@ -478,7 +503,7 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
 
 /* Portrait phones: menu column under the minimap. */
 @media (max-width: 560px) and (min-height: 501px) {
-  body.touch .tmenu { top: 92px; gap: 4px; }
+  body.touch .tmenu { top: 132px; gap: 4px; }
   body.touch #hud .log { top: 70px; width: 60vw; }
   body.touch #hud .compass { top: 8px; }
   body.touch #hud .target { top: 36px; }

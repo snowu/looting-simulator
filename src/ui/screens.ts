@@ -1,8 +1,7 @@
 import { RunSummary } from '../state/game-state';
-import { gold, h, itemSlot, btn, isTouchMode } from './dom';
-import { isStandalone } from './fullscreen';
+import { gold, h, itemSlot, btn } from './dom';
 
-export function titleScreen(hasSave: boolean, onStart: () => void, onFullscreen: () => void): HTMLElement {
+export function titleScreen(hasSave: boolean, onStart: () => void): HTMLElement {
   return h(
     'div',
     { class: 'title-screen' },
@@ -11,9 +10,7 @@ export function titleScreen(hasSave: boolean, onStart: () => void, onFullscreen:
       { class: 'frame', style: 'padding:18px 36px 24px' },
       h('h1', { text: 'Looting Simulator' }),
       h('div', { class: 'tag', text: 'Go down. Bring it back. Sell it high.' }),
-      btn(hasSave ? 'Return to Hollowmere' : 'Arrive in Hollowmere', onStart, 'primary big'),
-      isTouchMode() && !isStandalone() ? h('div', { style: 'margin-top:10px' }, btn('⛶ Fullscreen', onFullscreen, 'small')) : null,
-      h(
+      btn(hasSave ? 'Return to Hollowmere' : 'Arrive in Hollowmere', onStart, 'primary big'),      h(
         'div',
         { class: 'help', style: 'margin-top:22px' },
         h('div', {}, h('kbd', { text: 'WASD' }), 'move & strafe'),

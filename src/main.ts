@@ -14,7 +14,7 @@ import { Town } from './ui/town';
 import { summaryScreen, titleScreen } from './ui/screens';
 import { h, setTouchMode } from './ui/dom';
 import { TouchControls, TouchMove, isTouchDevice } from './ui/touch';
-import { FULLSCREEN_HELP, fullscreenSupported, isFullscreen, isStandalone, toggleFullscreen } from './ui/fullscreen';
+import { FULLSCREEN_HELP, fullscreenSupported, isFullscreen, isStandalone, mountFullscreenButton, toggleFullscreen } from './ui/fullscreen';
 import { audio } from './audio/sfx';
 
 type Mode = 'title' | 'town' | 'dungeon' | 'summary';
@@ -51,14 +51,7 @@ const touch = new TouchControls(app, {
   block: (on) => world?.setBlock(on),
   interact: () => world?.interact(),
   open: (m) => world && overlays.toggle(m, world),
-  fullscreen: () => goFullscreen(),
 });
-
-function goFullscreen(): void {
-  void toggleFullscreen().then((r) => {
-    if (r === 'unsupported') toast(FULLSCREEN_HELP);
-  });
-}
 // Hybrid devices: switch to touch controls the first time a finger lands.
 window.addEventListener('touchstart', () => {
   if (touchMode) return;
@@ -71,12 +64,13 @@ const screen = h('div', { class: 'layer' });
 app.append(screen);
 const overlays = new DungeonOverlays(app, (t, c) => hud.message(t, c));
 app.append(toastLayer);
+// Always-available fullscreen toggle, pinned above every screen and panel.
+mountFullscreenButton(app, () => toast(FULLSCREEN_HELP));
 
 const town = new Town(screen, {
   state: () => state,
   save: () => saveGame(state),
   descend: () => enterDungeon(),
-  fullscreen: () => goFullscreen(),
   newGame: () => {
     clearSave();
     state = newGame(createRng(randomSeed()));
@@ -119,7 +113,7 @@ function enterTitle(): void {
     // On phones and tablets, starting the game is the gesture that takes us fullscreen.
     if (touchMode && fullscreenSupported() && !isStandalone() && !isFullscreen()) void toggleFullscreen();
     enterTown();
-  }, goFullscreen));
+  }));
 }
 
 function enterTown(): void {

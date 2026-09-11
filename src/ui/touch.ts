@@ -1,5 +1,4 @@
 import { artImg, h } from './dom';
-import { isStandalone } from './fullscreen';
 
 export type TouchMove = 'forward' | 'back' | 'left' | 'right' | 'turnLeft' | 'turnRight';
 
@@ -10,7 +9,6 @@ export interface TouchHandlers {
   block(on: boolean): void;
   interact(): void;
   open(mode: 'inventory' | 'map' | 'help'): void;
-  fullscreen(): void;
 }
 
 export function isTouchDevice(): boolean {
@@ -79,7 +77,6 @@ export class TouchControls {
       return b;
     };
     const menu = h('div', { class: 'tmenu' }, tap('Pack', () => hd.open('inventory')), tap('Map', () => hd.open('map')), tap('☰', () => hd.open('help')));
-    if (!isStandalone()) menu.append(tap('⛶', () => hd.fullscreen()));
 
     this.root.append(pad, actions, menu);
     parent.append(this.root);

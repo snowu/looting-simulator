@@ -23,8 +23,7 @@ import { addItem, countOf, removeItem, removeOf, sortContainer } from '../state/
 import { derivePlayer } from '../systems/player';
 import { defaultSlot, equipFrom, unequipTo } from '../systems/equip';
 import { createRng, randomSeed } from '../core/rng';
-import { artImg, btn, gold, h, hideTooltip, isTouchMode, itemSlot, itemTooltip, rarityColor, sparkline, statLines } from './dom';
-import { isStandalone } from './fullscreen';
+import { artImg, btn, gold, h, hideTooltip, itemSlot, itemTooltip, rarityColor, sparkline, statLines } from './dom';
 import { paperDoll, statSheet } from './dungeon-ui';
 import { audio } from '../audio/sfx';
 
@@ -36,7 +35,6 @@ export interface TownCtx {
   descend: () => void;
   newGame: () => void;
   toast: (text: string, color?: string) => void;
-  fullscreen: () => void;
 }
 
 const CATS: { id: MaterialCategory; name: string }[] = [
@@ -104,7 +102,6 @@ export class Town {
         h('span', { class: 'violet-t', text: `✦ ${s.renown} renown` }),
         h('span', { class: 'dim', text: `pack ${backpackCapacity(s.meta)} slots` }),
       ),
-      isTouchMode() && !isStandalone() ? btn('⛶', () => this.ctx.fullscreen(), 'small', false) : null,
       btn(running ? 'Return to the Depths' : 'Descend', () => this.ctx.descend(), 'primary big'),
     );
     const tabBar = h(
