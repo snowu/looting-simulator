@@ -7,6 +7,8 @@ A first-person, grid-step dungeon crawler in the spirit of **King's Field** and 
 - **The loot:** base, material, rarity and affixes. Uncommon-and-up drops arrive unidentified. Everything in your pack is lost if you die. Equipped gear is kept.
 - **The town:** one run is one day. Commodity prices mean-revert with noise, dumping stock slips the price, and events move whole categories. The forge lets you pick the material for each recipe slot, with gem catalysts adding properties. The guild posts delivery, gear, slay and delve contracts. Renown buys permanent upgrades.
 
+**Full mechanics reference:** [docs/MECHANICS.md](docs/MECHANICS.md) — every system, table and number.
+
 ## Controls
 
 | Key | Action |
