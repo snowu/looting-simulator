@@ -15,6 +15,8 @@ import { summaryScreen, titleScreen } from './ui/screens';
 import { h, setTouchMode } from './ui/dom';
 import { TouchControls, TouchMove, isTouchDevice } from './ui/touch';
 import { FULLSCREEN_HELP, fullscreenSupported, isFullscreen, isStandalone, mountFullscreenButton, toggleFullscreen } from './ui/fullscreen';
+import { BUILD_ID, newerBuild, reloadToLatest } from './ui/update';
+import { btn } from './ui/dom';
 import { audio } from './audio/sfx';
 
 type Mode = 'title' | 'town' | 'dungeon' | 'summary';
@@ -83,6 +85,33 @@ app.append(toastLayer);
 // Always-available fullscreen toggle, pinned above every screen and panel.
 mountFullscreenButton(app, () => toast(FULLSCREEN_HELP));
 
+// --- Updates (installed apps have no reload button) ----------------------------
+let pendingUpdate: string | null = null;
+const updateBanner = h('div', { class: 'update-banner frame gold' });
+updateBanner.hidden = true;
+app.append(updateBanner);
+
+function renderUpdateBanner(): void {
+  // Never interrupt a run; the banner waits for town or the title screen.
+  updateBanner.hidden = !pendingUpdate || mode === 'dungeon';
+  if (!pendingUpdate) return;
+  const id = pendingUpdate;
+  updateBanner.replaceChildren(
+    h('span', { text: 'A new version is out.' }),
+    btn('Update now', () => {
+      saveGame(state);
+      void reloadToLatest(id);
+    }, 'small primary'),
+  );
+}
+
+async function checkForUpdate(): Promise<void> {
+  const id = await newerBuild();
+  if (!id || id === pendingUpdate) return;
+  pendingUpdate = id;
+  renderUpdateBanner();
+}
+
 const town = new Town(screen, {
   state: () => state,
   save: () => saveGame(state),
@@ -120,6 +149,7 @@ function show(m: Mode): void {
   canvas.style.visibility = m === 'dungeon' ? 'visible' : 'hidden';
   town.visible = m === 'town';
   if (m !== 'dungeon') overlays.close();
+  renderUpdateBanner();
 }
 
 function enterTitle(): void {
@@ -130,7 +160,7 @@ function enterTitle(): void {
     // On phones and tablets, starting the game is the gesture that takes us fullscreen.
     if (touchMode && fullscreenSupported() && !isStandalone() && !isFullscreen()) void toggleFullscreen();
     enterTown();
-  }));
+  }, BUILD_ID));
 }
 
 function enterTown(): void {
@@ -336,6 +366,30 @@ window.addEventListener('blur', () => world?.held.clear());
 window.addEventListener('resize', () => renderer.resize());
 window.addEventListener('beforeunload', () => saveGame(state));
 
+// Backgrounded (app switcher, lock screen, other tab): silence audio, save,
+// and pause a run so you don't come back mid-fight. Resume sound on return.
+function goBackground(): void {
+  saveGame(state);
+  audio.suspend();
+  world?.held.clear();
+  world?.setBlock(false);
+  touchAttack = false;
+  stickDir = null;
+  if (mode === 'dungeon' && world && !overlays.isOpen && !ending) overlays.open('help', world);
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) goBackground();
+  else {
+    audio.resume();
+    void checkForUpdate();
+  }
+});
+window.addEventListener('pagehide', goBackground);
+setInterval(() => {
+  if (!document.hidden) void checkForUpdate();
+}, 10 * 60 * 1000);
+void checkForUpdate();
+
 // --- Boot ------------------------------------------------------------------------
 void loadArtOverrides().then((n) => {
   if (n) console.info(`Loaded ${n} hand-drawn art override(s).`);
@@ -356,6 +410,7 @@ if (import.meta.env.DEV) {
     get state() { return state; },
     get world() { return world; },
     get mode() { return mode; },
+    get audioState() { return audio.state; },
     enterDungeon,
     enterTown,
   };

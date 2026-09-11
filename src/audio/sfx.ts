@@ -42,6 +42,19 @@ class AudioEngine {
     for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
   }
 
+  /** Silence everything (sound effects and ambience) while the app is in the background. */
+  suspend(): void {
+    if (this.ctx && this.ctx.state === 'running') void this.ctx.suspend();
+  }
+
+  resume(): void {
+    if (this.ctx && this.ctx.state === 'suspended') void this.ctx.resume();
+  }
+
+  get state(): string {
+    return this.ctx?.state ?? 'none';
+  }
+
   setVolume(v: number): void {
     this.volume = v;
     if (this.master) this.master.gain.value = this.muted ? 0 : v;

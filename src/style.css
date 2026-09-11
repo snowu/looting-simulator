@@ -315,6 +315,19 @@ table.market .num { text-align: right; font-variant-numeric: tabular-nums; }
 #fs-btn svg { width: 18px; height: 18px; display: block; }
 #fs-btn:hover, #fs-btn:active { color: var(--gold); border-color: var(--gold); }
 .town-head { padding-right: 44px; }
+.update-banner {
+  position: fixed;
+  left: 50%;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 2px 8px;
+  white-space: nowrap;
+  box-shadow: 0 4px 18px #000c;
+}
 .minimap { top: 54px; }
 .touch-ui { z-index: 2; }
 .overlays { z-index: 5; }
