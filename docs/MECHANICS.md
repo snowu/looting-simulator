@@ -96,6 +96,24 @@ Every generated floor is checked: all walkable tiles reachable, keys reachable w
 
 ---
 
+### Depth 6 — The Ashen Throne (the boss floor)
+
+Depth 6 is the bottom (`FINAL_DEPTH = 6`); there are no stairs down, only the way you came. It is generated differently from the floors above:
+
+- A **9×11 throne room** is placed first, and the rest of the floor (8 rooms instead of `9 + depth`) is fitted around it.
+- The throne room is forced to be a **dead end**: it gets exactly one connection, no loop links, and its entrance is an **iron door**.
+- You arrive in the room **farthest from the throne**, so there's a floor to cross before the fight.
+- **The Ashen King** waits two tiles inside, flanked by **two Hollow Knights**. The floor also carries 3 more wanderers than the usual `4 + 2 × depth + rooms/3`.
+- Only the deep roster spawns here: **Ghouls, Frost Wisps, Hollow Knights, Flame Wraiths**. Skeletons stop at depth 4, archers and spiders at 5.
+- Vaults, secret rooms (86% chance at this depth) and shrines still generate as normal. The key here is the **Ashen Key**.
+- The biome has the densest torches of the game, iron doors and obsidian walls whose mortar glows.
+
+**The fight.** 420 HP, 24 attack, 12 defense. It swings when adjacent and fires a **three-bolt shadow volley** when you line up at range 2+. It is immune to shadow, resists pierce (×0.8), takes ×1.5 from holy, and **can never be staggered** out of its wind-up — the only answer is to step out of the tile it aims at or block.
+
+**On its death** it drops a guaranteed **Legendary and an Epic item plus a blueprint**, star iron, shadow essence, a jewelled skull, 50% a dragon scale and 150–300 gold — and a **portal** opens on its tile that takes you straight home. Killing it is worth **+25 renown** on top of the usual extraction reward (so 39 for a depth-6 extraction).
+
+There is nothing below. Each new run rolls a fresh seed, so depth 6 can be farmed.
+
 ## 5. Monsters
 
 *File: `src/data/enemies.ts`*
