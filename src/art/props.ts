@@ -461,6 +461,89 @@ const ARROW = rows(`
   ................
 `);
 
+
+// --- Traps ------------------------------------------------------------------
+// Floor decals, drawn flat on the tile, so they read as part of the stonework
+// until you are close enough to see the seam.
+
+const TRAP_PLATE = rows(`
+  ................
+  ...pppppppppp...
+  ..pqqqqqqqqqqp..
+  ..pqrrrrrrrrqp..
+  ..pqrssssssrqp..
+  ..pqrsqqqqsrqp..
+  ..pqrsq..qsrqp..
+  ..pqrsq..qsrqp..
+  ..pqrsq..qsrqp..
+  ..pqrsq..qsrqp..
+  ..pqrsqqqqsrqp..
+  ..pqrssssssrqp..
+  ..pqrrrrrrrrqp..
+  ..pqqqqqqqqqqp..
+  ...pppppppppp...
+  ................
+`);
+
+const TRAP_SPIKES = rows(`
+  ................
+  ...pppppppppp...
+  ..pkkkkkkkkkkp..
+  ..pkwkkwkkwkkp..
+  ..pkWkkWkkWkkp..
+  ..pkkkkkkkkkkp..
+  ..pkwkkwkkwkkp..
+  ..pkWkkWkkWkkp..
+  ..pkkkkkkkkkkp..
+  ..pkwkkwkkwkkp..
+  ..pkWkkWkkWkkp..
+  ..pkkkkkkkkkkp..
+  ..pkwkkwkkwkkp..
+  ..pkkkkkkkkkkp..
+  ...pppppppppp...
+  ................
+`);
+
+const TRAP_WARD = rows(`
+  ................
+  .....cccccc.....
+  ...cc......cc...
+  ..c...dddd...c..
+  .c...d....d...c.
+  .c..d..dd..d..c.
+  .c..d.d..d.d..c.
+  .c..d.d..d.d..c.
+  .c..d..dd..d..c.
+  .c...d....d...c.
+  ..c...dddd...c..
+  ...cc......cc...
+  .....cccccc.....
+  ................
+  ................
+  ................
+`);
+
+const TRAP_SPENT = rows(`
+  ................
+  ...pppppppppp...
+  ..pqqqqqqqqqqp..
+  ..pq........qp..
+  ..pq........qp..
+  ..pq........qp..
+  ..pq........qp..
+  ..pq........qp..
+  ..pq........qp..
+  ..pq........qp..
+  ..pq........qp..
+  ..pq........qp..
+  ..pq........qp..
+  ..pqqqqqqqqqqp..
+  ...pppppppppp...
+  ................
+`);
+
+const TRAP_PAL = { p: '#0a0806', q: '#3a3228', r: '#4a4034', s: '#6a5c46' };
+
 export const PROPS: ArtDef[] = [
   { id: 'chest', palette: CHEST_PAL, rows: CHEST },
   { id: 'chest_open', palette: CHEST_PAL, rows: CHEST_OPEN },
@@ -472,6 +555,10 @@ export const PROPS: ArtDef[] = [
   { id: 'shrine', palette: SHRINE_PAL, rows: SHRINE },
   { id: 'shrine_used', palette: SHRINE_PAL, rows: stamp(SHRINE, SHRINE_OFF) },
   { id: 'fungus', palette: { k: '#0a1614', s: '#b8c8c0', c: '#28b0a0fa', d: '#90fff0fa' }, rows: FUNGUS },
+  { id: 'trap_dart', palette: TRAP_PAL, rows: TRAP_PLATE },
+  { id: 'trap_spikes', palette: { p: '#0a0806', k: '#2e2820', w: '#8a8272', W: '#c8c0aa' }, rows: TRAP_SPIKES },
+  { id: 'trap_alarm', palette: { c: '#6a4a8afa', d: '#c890fffa' }, rows: TRAP_WARD },
+  { id: 'trap_spent', palette: TRAP_PAL, rows: TRAP_SPENT },
   { id: 'sconce', palette: { k: '#0c0c0e', i: '#3a3a42', j: '#5a5a64', h: '#3a2410', g: '#1a0e06' }, rows: SCONCE },
   { id: 'flame_0', palette: FLAME_PAL, rows: FLAME_0 },
   { id: 'flame_1', palette: FLAME_PAL, rows: FLAME_1 },

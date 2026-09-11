@@ -69,6 +69,26 @@ export interface Prop {
   blocking: boolean;
 }
 
+/**
+ * Floor hazards. Every trap is hidden until you spot the seam in the flagstones
+ * from the tile in front of it, which makes walking into one a question of
+ * paying attention rather than of luck.
+ */
+export type TrapKind = 'dart' | 'spikes' | 'alarm';
+
+export interface Trap {
+  id: string;
+  kind: TrapKind;
+  x: number;
+  y: number;
+  /** Can still fire. Cleared by triggering it or disarming it. */
+  armed: boolean;
+  /** Spotted (or set off) — only then is it drawn and mapped. */
+  found: boolean;
+  /** For darts: the wall the shooter is set into, so the bolt flies out of it. */
+  dir: Dir;
+}
+
 export interface Pickup {
   id: string;
   x: number;
@@ -129,6 +149,7 @@ export interface Floor {
   pickups: Pickup[];
   enemies: EnemyState[];
   keys: KeyDef[];
+  traps: Trap[];
 }
 
 // ---------------------------------------------------------------------------
@@ -153,6 +174,10 @@ export function secretAt(f: Floor, x: number, y: number): Secret | undefined {
 
 export function stairsAt(f: Floor, x: number, y: number): Stairs | undefined {
   return f.stairs.find((s) => s.x === x && s.y === y);
+}
+
+export function trapAt(f: Floor, x: number, y: number): Trap | undefined {
+  return f.traps?.find((t) => t.x === x && t.y === y);
 }
 
 export function propAt(f: Floor, x: number, y: number): Prop | undefined {
@@ -751,8 +776,73 @@ function tryGenerate(seed: number, depth: number, rng: Rng): Floor | null {
     }
   }
 
+  // --- Traps -------------------------------------------------------------------
+  // Corridors get the bulk of them, so a floor is more dangerous to hurry
+  // through than to read. Chokepoints in front of treasure are seeded first:
+  // the reward for greed should be the one you can see coming.
+  const traps: Trap[] = [];
+  {
+    let trapN = 0;
+    const taken = new Set<number>();
+    const usable = (x: number, y: number): boolean => {
+      const i = idx(x, y);
+      if (tiles[i] !== FLOOR || blocked[i] || reserved[i] || taken.has(i)) return false;
+      if (doors.some((d) => d.x === x && d.y === y) || stairs.some((st) => st.x === x && st.y === y)) return false;
+      if (pickups.some((p) => p.x === x && p.y === y)) return false;
+      // Never on the arrival tile or right on top of it — no ambush on spawn.
+      if (Math.abs(x - spawn.x) + Math.abs(y - spawn.y) <= 3) return false;
+      return true;
+    };
+    const wallDir = (x: number, y: number): Dir | null => {
+      const opts = DIRS.filter((d) => tiles[idx(x + DX[d], y + DY[d])] === WALL);
+      return opts.length ? rng.pick(opts) : null;
+    };
+    const add = (kind: TrapKind, x: number, y: number): boolean => {
+      if (!usable(x, y)) return false;
+      // A dart needs a wall to fire from; spikes and wards don't care.
+      const d = kind === 'dart' ? wallDir(x, y) : (rng.pick(DIRS) as Dir);
+      if (d === null) return false;
+      taken.add(idx(x, y));
+      traps.push({ id: `t${trapN++}`, kind, x, y, armed: true, found: false, dir: d });
+      return true;
+    };
+    const pickKind = (): TrapKind => {
+      const roll = rng.next();
+      if (roll < 0.45) return 'dart';
+      if (roll < 0.8) return 'spikes';
+      return 'alarm';
+    };
+
+    // Guard the ways into the rooms worth robbing.
+    for (const r of rooms) {
+      if (r.role !== 'treasure' && r.role !== 'vault' && r.role !== 'secret') continue;
+      if (!rng.chance(0.7)) continue;
+      const inside: [number, number][] = [];
+      for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) inside.push([x, y]);
+      for (const [x, y] of rng.shuffle(inside)) if (add(rng.chance(0.6) ? 'spikes' : 'dart', x, y)) break;
+    }
+
+    // Then scatter the rest, corridors first.
+    const corridor: [number, number][] = [];
+    const roomTile: [number, number][] = [];
+    for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+      if (!usable(x, y)) continue;
+      (roomOf[idx(x, y)] >= 0 ? roomTile : corridor).push([x, y]);
+    }
+    rng.shuffle(corridor);
+    rng.shuffle(roomTile);
+    const target = 2 + Math.round(depth * 1.5);
+    for (let n = traps.length; n < target; ) {
+      const spot = (rng.chance(0.7) ? corridor.pop() : roomTile.pop()) ?? corridor.pop() ?? roomTile.pop();
+      if (!spot) break;
+      // Keep them apart: a corridor of back-to-back plates is a wall, not a trap.
+      if (traps.some((t) => Math.abs(t.x - spot[0]) + Math.abs(t.y - spot[1]) < 4)) continue;
+      if (add(pickKind(), spot[0], spot[1])) n++;
+    }
+  }
+
   return {
     depth, seed, biome: biome.id, width: W, height: H, tiles, explored: new Array(N).fill(0),
-    rooms, doors, secrets, stairs, torches, props, pickups, enemies, keys,
+    rooms, doors, secrets, stairs, torches, props, pickups, enemies, keys, traps,
   };
 }

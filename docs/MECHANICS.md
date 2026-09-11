@@ -80,6 +80,7 @@ Floors are generated from `hash(runSeed, depth)`, so the same seed always gives 
 | Props | Normal rooms: 35% a chest, 0–3 urns/barrels, 50% bones. Treasure rooms: a chest (+30% a second) and 2–4 urns. Vault: two vault chests |
 | Enemies | `4 + 2 × depth + rooms/3`, never within 7 tiles of the arrival point; 15% spawn wandering in corridors instead of rooms |
 | Loose loot | `3 + depth` piles: 55% coins (`3–8 × depth`), otherwise a material stack |
+| Traps | `2 + 1.5 × depth`, 70% in corridors, at least 4 tiles apart, never within 3 of the arrival tile; 70% of treasure/vault/secret rooms also get one inside |
 
 Every generated floor is checked: all walkable tiles reachable, keys reachable without their own vault, stairs present. Failed layouts are regenerated (up to 40 attempts).
 
@@ -184,6 +185,30 @@ Every kill also has a 6% chance of a Healing Draught and `1.2% × depth` of a bl
 **Blessings** (one per run): Fortune (+30% loot find), Fury (+25% damage), Warding (+5 defense).
 
 **Scroll of Recall:** 5 seconds of standing still, then home with everything. Moving, attacking or being hit cancels it.
+
+---
+
+## 6a. Traps
+
+*Files: `src/systems/dungeon.ts` (placement), `src/world/world.ts` (`TRAPS`, spotting, springing)*
+
+Every trap starts **hidden and armed**. You spot one by looking at it: the tile directly ahead, the tile two ahead down a clear line, and the four tiles beside you are checked on every step and every turn. Spotting is not a dice roll — it is whether you were looking. A held W down a corridor gives you one step of warning, which is the whole point.
+
+A spotted trap is drawn as a floor decal, stays marked on the automap (orange armed, grey spent) and can be disarmed with **[F]** from the tile in front.
+
+| Trap | Damage | Type | On top of that |
+|---|---|---|---|
+| Dart trap | `5 + 3 × depth` | pierce | Fires from a pinhole in an adjacent wall |
+| Spike pit | `9 + 5 × depth` | pierce | The heavy one: 39 at depth 6, before armour |
+| Alarm ward | none | — | Every monster within 12 tiles gets 10s of alert pointed at the ward |
+
+Damage goes through the normal mitigation, so armour and Warding help; **blocking does not**, since a trap is under you rather than in front of you. Each trap fires once and is then spent.
+
+**Disarming always works** — the skill was noticing it, not fiddling with it. It yields salvage 60% of the time (25% for wards): iron or timber from a dart, iron or copper from spikes, bone or linen from a ward. That is what makes clearing one worth the detour instead of walking around it.
+
+**Monsters set them off too**, taking 80% of the listed damage with no mitigation. Backing over a spike pit you have already found and letting a Hollow Knight follow you across it is a legitimate tactic.
+
+Placement weights: 45% dart, 35% spikes, 20% ward. Treasure, vault and secret rooms are seeded first and prefer spikes, so greed is what gets guarded.
 
 ---
 
@@ -474,6 +499,7 @@ A save written by a *newer* build than the one loading it is left as it is rathe
 | Damage formulas, difficulty multiplier | `src/systems/combat.ts` |
 | Movement, stamina, AI, interaction | `src/world/world.ts` |
 | Layout generation, room and prop density | `src/systems/dungeon.ts` |
+| Trap damage, salvage, spotting range | `src/world/world.ts` (`TRAPS`) |
 | Drop tables and rarity odds | `src/systems/items.ts` |
 | Price model and events | `src/systems/market.ts` |
 | Contracts | `src/systems/contracts.ts` |

@@ -117,6 +117,17 @@ export class DungeonRenderer {
     s.mat.uniforms.uTint.value.set(0, 0, 0, 0);
   }
 
+  /** Lay a sprite flat on the floor as a decal, one tile wide. */
+  private placeFlat(s: SpriteObj, art: string, x: number, z: number, size = 1): void {
+    const tex = artTexture(art);
+    if (s.mat.uniforms.map.value !== tex) s.mat.uniforms.map.value = tex;
+    s.mesh.scale.set(size, size, 1);
+    // A hair above the floor so it doesn't z-fight with the tile.
+    s.mesh.position.set(x, 0.012, z);
+    s.mesh.rotation.set(-Math.PI / 2, 0, 0);
+    s.mat.uniforms.uTint.value.set(0, 0, 0, 0);
+  }
+
   onHurt(amount: number, blocked: boolean): void {
     if (blocked) this.flash.set(0.7, 0.75, 0.9, 0.25);
     else this.flash.set(0.8, 0.05, 0.02, Math.min(0.55, 0.2 + amount / 40));
@@ -189,6 +200,10 @@ export class DungeonRenderer {
       if (pr.kind === 'portal') lights.push({ x: tileX(pr.x), y: 1.2, z: tileZ(pr.y), r: 7, color: new THREE.Color('#b070ff'), intensity: 1.3 * flick(5) });
       if (pr.kind === 'shrine' && !pr.used) lights.push({ x: tileX(pr.x), y: 1.3, z: tileZ(pr.y), r: 4, color: new THREE.Color('#8ab0ff'), intensity: 0.9 });
     }
+    for (const tr of floor.traps ?? []) {
+      if (tr.kind !== 'alarm' || !tr.found || !tr.armed) continue;
+      lights.push({ x: tileX(tr.x), y: 0.2, z: tileZ(tr.y), r: 2.5, color: new THREE.Color('#a070ff'), intensity: 0.5 * flick(7) });
+    }
     for (const en of floor.enemies) {
       const def = enemyDef(en.def);
       if (def.glow && en.ai !== 'dead') lights.push({ x: tileX(en.x), y: 1.2, z: tileZ(en.y), r: 4.5, color: new THREE.Color(def.glow), intensity: 0.9 });
@@ -233,6 +248,15 @@ export class DungeonRenderer {
       if (en.hurtT > 0) s.mat.uniforms.uTint.value.set(1, 0.95, 0.9, Math.min(0.8, en.hurtT * 3));
       else if (en.ai === 'windup') s.mat.uniforms.uTint.value.set(1, 0.2, 0.1, 0.12 + 0.12 * Math.sin(this.time * 30));
       if (en.ai === 'dead') s.mat.uniforms.uTint.value.set(0, 0, 0, Math.min(1, en.deadT * 1.2));
+    }
+
+    for (const tr of floor.traps ?? []) {
+      if (!tr.found || !near(tr.x, tr.y)) continue;
+      const s = this.sprite(`t:${tr.id}`);
+      const art = !tr.armed ? (tr.kind === 'alarm' ? 'trap_alarm' : 'trap_spent') : `trap_${tr.kind}`;
+      this.placeFlat(s, art, tileX(tr.x), tileZ(tr.y), 0.92);
+      // A sprung ward is dead stone; an armed one still has a glow to it.
+      s.mat.uniforms.uTint.value.set(0, 0, 0, tr.armed ? 0 : 0.45);
     }
 
     for (const pr of floor.props) {

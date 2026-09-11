@@ -29,6 +29,8 @@ const C = {
   enemy: '#ff4a3a',
   player: '#ffe070',
   secret: '#c8a0ff',
+  trap: '#ff8a3a',
+  trapSpent: '#4a4038',
 };
 
 export function drawMap(canvas: HTMLCanvasElement, f: Floor, px: number, py: number, facing: Dir, view: MapView, time = 0): void {
@@ -82,6 +84,8 @@ export function drawMap(canvas: HTMLCanvasElement, f: Floor, px: number, py: num
   for (const p of f.props) if (p.kind === 'chest' && seen(p.x, p.y)) dot(p.x, p.y, p.used ? C.floorDim : C.chest, 0.6);
   for (const p of f.props) if (p.kind === 'portal') dot(p.x, p.y, C.secret, 0.9);
   for (const p of f.pickups) if (seen(p.x, p.y)) dot(p.x, p.y, p.keyId ? C.locked : C.loot, 0.4);
+  // A trap you have found stays marked, armed or not, so you can plan around it.
+  for (const t of f.traps ?? []) if (t.found && seen(t.x, t.y)) dot(t.x, t.y, t.armed ? C.trap : C.trapSpent, t.armed ? 0.55 : 0.3);
   if (view.visibleEnemies) {
     for (const e of f.enemies) {
       if (e.ai === 'dead' || !view.visibleEnemies.has(e.id)) continue;

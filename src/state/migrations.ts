@@ -16,7 +16,7 @@ import { Floor } from '../systems/dungeon';
  */
 
 /** Bump this (and push a migration) whenever a field is added to the save. */
-export const SAVE_REVISION = 1;
+export const SAVE_REVISION = 2;
 
 type AnyState = GameState & Record<string, unknown>;
 
@@ -36,6 +36,11 @@ const MIGRATIONS: ((s: AnyState) => void)[] = [
       for (const f of s.run.floors) if (f) normalizeFloor(f);
     }
   },
+  // 1 → 2: floors grew traps. A floor generated before they existed simply has
+  // none — regenerating it would move the walls under a player mid-run.
+  (s) => {
+    for (const f of s.run?.floors ?? []) if (f) f.traps ??= [];
+  },
 ];
 
 /** Every array a Floor is expected to have, so old floors don't crash lookups. */
@@ -49,6 +54,7 @@ function normalizeFloor(f: Floor): void {
   f.pickups ??= [];
   f.enemies ??= [];
   f.keys ??= [];
+  f.traps ??= [];
 }
 
 /**

@@ -18,13 +18,16 @@ import {
   secretAt,
   stairsAt,
   stairsFront,
+  Trap,
+  TrapKind,
+  trapAt,
 } from '../systems/dungeon';
 import { enemyDef } from '../data/enemies';
 import { consumable, itemBase } from '../data/items';
 import { biomeForDepth, FINAL_DEPTH } from '../data/biomes';
 import { PlayerDerived, derivePlayer } from '../systems/player';
 import { enemyHitsPlayer, playerHitsEnemy, staminaPower } from '../systems/combat';
-import { identify, itemName, rollContainerLoot, rollEnemyLoot } from '../systems/items';
+import { identify, itemName, makeMaterial, rollContainerLoot, rollEnemyLoot } from '../systems/items';
 import { recordDepth, recordKill } from '../systems/contracts';
 import { metaLevel } from '../systems/meta';
 import { Rarity } from '../types';
@@ -43,7 +46,8 @@ export type WorldEvent =
   | { type: 'loot'; pickupId: string }
   | { type: 'floor' }
   | { type: 'end'; outcome: 'dead' | 'extracted' }
-  | { type: 'secret'; x: number; y: number };
+  | { type: 'secret'; x: number; y: number }
+  | { type: 'trap'; x: number; y: number; kind: Trap['kind'] };
 
 export interface Projectile {
   id: number;
@@ -98,12 +102,70 @@ export function shortLabel(hint: string): string {
   if (hint.startsWith('Climb')) return 'Climb';
   if (hint.startsWith('Leave')) return 'Leave';
   if (hint.startsWith('Push')) return 'Push';
+  if (hint.startsWith('Disarm')) return 'Disarm';
   if (hint.startsWith('Pray')) return 'Pray';
   if (hint.startsWith('Step through')) return 'Enter';
   if (hint.startsWith('Unlock')) return 'Unlock';
   if (hint.startsWith('Open')) return 'Open';
   return hint;
 }
+
+/**
+ * The hazard table. Damage is `base + perDepth × depth` before your armour,
+ * so a dart is a toll and a spike pit is a real threat if you are already hurt.
+ */
+export const TRAPS: Record<
+  TrapKind,
+  {
+    name: string;
+    base: number;
+    perDepth: number;
+    damageType: DamageType;
+    source: string;
+    article: string;
+    sfx: SfxName;
+    spotted: string;
+    hit: string;
+    disarmed: string;
+  }
+> = {
+  dart: {
+    name: 'Dart trap',
+    base: 5,
+    perDepth: 3,
+    damageType: 'pierce',
+    source: 'a dart trap',
+    article: 'a dart trap',
+    sfx: 'shoot',
+    spotted: 'A pinhole in the wall, and a plate underfoot.',
+    hit: 'A dart snaps out of the wall!',
+    disarmed: 'You jam the dart mechanism.',
+  },
+  spikes: {
+    name: 'Spike pit',
+    base: 9,
+    perDepth: 5,
+    damageType: 'pierce',
+    source: 'a spike pit',
+    article: 'a spike pit',
+    sfx: 'break',
+    spotted: 'The flagstones here sit loose over a gap.',
+    hit: 'The floor gives way onto spikes!',
+    disarmed: 'You wedge the spike plate shut.',
+  },
+  alarm: {
+    name: 'Alarm ward',
+    base: 0,
+    perDepth: 0,
+    damageType: 'shadow',
+    source: 'an alarm ward',
+    article: 'an alarm ward',
+    sfx: 'alert',
+    spotted: 'A ward is scratched into the stone here.',
+    hit: 'A ward shrieks!',
+    disarmed: 'You scuff the ward out.',
+  },
+};
 
 export const BLESSINGS: Record<string, { name: string; text: string }> = {
   fortune: { name: 'Fortune', text: '+30% loot find this run.' },
@@ -336,6 +398,11 @@ export class World {
     this.sfx('step');
     this.reveal();
     const f = this.floor;
+    const trap = trapAt(f, p.x, p.y);
+    if (trap && trap.armed) {
+      this.springTrap(trap, null);
+      if (this.run.outcome !== 'active') return;
+    }
     const s = stairsAt(f, p.x, p.y);
     if (s) {
       if (!s.down && this.run.depth === 1) {
@@ -418,6 +485,78 @@ export class World {
     this.emit({ type: 'end', outcome });
   }
 
+  /**
+   * Notice the seam in the flagstones on the tile in front of you. Only the
+   * tile you are about to step onto and the ones beside you, so a corridor
+   * taken at a run is a corridor taken blind.
+   */
+  private spotTraps(): void {
+    const f = this.floor;
+    if (!f.traps?.length) return;
+    const p = this.player;
+    const look: { x: number; y: number }[] = [this.frontTile(1), this.frontTile(2)];
+    for (const d of DIRS) look.push({ x: p.x + DX[d], y: p.y + DY[d] });
+    for (const t of look) {
+      const trap = trapAt(f, t.x, t.y);
+      if (!trap || trap.found || !trap.armed) continue;
+      if (!this.los(p.x, p.y, t.x, t.y)) continue;
+      // The far tile is only readable if you are facing straight down it.
+      if (Math.abs(t.x - p.x) + Math.abs(t.y - p.y) > 1 && blocksSight(f, t.x, t.y)) continue;
+      trap.found = true;
+      this.msg(`${TRAPS[trap.kind].spotted}`, '#e0c060');
+      this.sfx('ui');
+    }
+  }
+
+  /**
+   * Set a trap off. `victim` is the monster that stood on it, or null for you —
+   * monsters blunder into them too, which is the whole reason to back through
+   * one you have already found.
+   */
+  private springTrap(trap: Trap, victim: EnemyState | null): void {
+    const def = TRAPS[trap.kind];
+    trap.armed = false;
+    trap.found = true;
+    const depth = this.run.depth;
+    this.emit({ type: 'trap', x: trap.x, y: trap.y, kind: trap.kind });
+    this.sfx(def.sfx, trap.x, trap.y);
+
+    if (trap.kind === 'alarm') {
+      // No damage — it just tells the floor exactly where you are.
+      let woken = 0;
+      for (const e of this.floor.enemies) {
+        if (e.ai === 'dead') continue;
+        if (Math.abs(e.x - trap.x) + Math.abs(e.y - trap.y) > 12) continue;
+        e.alert = Math.max(e.alert, 10);
+        e.lastSeenX = trap.x;
+        e.lastSeenY = trap.y;
+        woken++;
+      }
+      if (!victim) {
+        this.msg(woken ? 'A ward shrieks. Something heard that.' : 'A ward shrieks into an empty floor.', '#ff9070');
+        this.emit({ type: 'shake', amount: 0.2 });
+      }
+      return;
+    }
+
+    const damage = Math.round(def.base + def.perDepth * depth);
+    if (victim) {
+      // Monsters take the hit raw; they have no armour model for hazards.
+      const dealt = Math.max(1, Math.round(damage * 0.8));
+      victim.hp -= dealt;
+      victim.hurtT = 0.3;
+      const vdef = enemyDef(victim.def);
+      this.emit({ type: 'float', x: victim.x, y: victim.y, text: `${dealt}`, color: '#ffb060' });
+      if (victim.hp <= 0) {
+        this.msg(`The ${vdef.name} blunders into ${def.article}.`, '#e0c060');
+        this.killEnemy(victim);
+      }
+      return;
+    }
+    this.msg(def.hit, '#ff7070');
+    this.damagePlayer(damage, def.damageType, trap.x, trap.y, def.source);
+  }
+
   /** Mark tiles near and in view as explored (automap fog). */
   private reveal(): void {
     const f = this.floor;
@@ -438,6 +577,7 @@ export class World {
       }
       if (blocksSight(f, t.x, t.y)) break;
     }
+    this.spotTraps();
   }
 
   /** Grid line of sight (Bresenham). `inclusive` lets the target itself be opaque. */
@@ -588,6 +728,8 @@ export class World {
       return 'Open door';
     }
     if (secretAt(f, t.x, t.y)) return 'Push the marked wall';
+    const trap = trapAt(f, t.x, t.y);
+    if (trap && trap.armed && trap.found) return `Disarm ${TRAPS[trap.kind].name.toLowerCase()}`;
     const p = propAt(f, t.x, t.y);
     if (p && !p.used) {
       if (p.kind === 'chest') return 'Open chest';
@@ -658,6 +800,12 @@ export class World {
       return;
     }
 
+    const trap = trapAt(f, t.x, t.y);
+    if (trap && trap.armed && trap.found) {
+      this.disarm(trap);
+      return;
+    }
+
     const secret = secretAt(f, t.x, t.y);
     if (secret) {
       secret.found = true;
@@ -714,6 +862,24 @@ export class World {
 
     const pk = this.pickupNear();
     if (pk) this.emit({ type: 'loot', pickupId: pk.id });
+  }
+
+  /**
+   * Disarming always works — the skill was noticing it, not fiddling with it.
+   * The salvage is what makes clearing one worth the detour instead of just
+   * stepping around it.
+   */
+  private disarm(trap: Trap): void {
+    trap.armed = false;
+    const def = TRAPS[trap.kind];
+    this.sfx('craft', trap.x, trap.y);
+    this.msg(def.disarmed, '#a8d8a0');
+    const salvage = trap.kind === 'alarm' ? 0.25 : 0.6;
+    if (this.rng.chance(salvage)) {
+      const pool = trap.kind === 'dart' ? ['iron', 'timber'] : trap.kind === 'spikes' ? ['iron', 'copper'] : ['bone', 'linen'];
+      const id = this.rng.pick(pool);
+      this.dropLoot(trap.x, trap.y, [makeMaterial(id, 1)], 0);
+    }
   }
 
   private pray(): void {
@@ -851,6 +1017,10 @@ export class World {
     e.x = x;
     e.y = y;
     e.moveT = 0;
+    // Monsters blunder into traps too, which is what makes retreating over one
+    // you already found worth doing.
+    const trap = trapAt(this.floor, x, y);
+    if (trap && trap.armed) this.springTrap(trap, e);
   }
 
   /** BFS toward a target; returns the first step, cached briefly. */

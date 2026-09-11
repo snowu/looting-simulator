@@ -51,6 +51,13 @@ describe('loading an old save', () => {
     }
   });
 
+  it('backfills fields added after the save was written', () => {
+    const s = parseSave(LEGACY)!;
+    // Floors generated before traps existed get none rather than being
+    // regenerated, which would move the walls under a player mid-run.
+    for (const f of s.run!.floors) expect(f!.traps).toEqual([]);
+  });
+
   it('refuses a save from an older format family', () => {
     const old = JSON.parse(LEGACY);
     old.version = SAVE_VERSION - 1;
