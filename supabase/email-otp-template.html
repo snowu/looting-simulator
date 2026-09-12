@@ -1,0 +1,28 @@
+<!--
+  Supabase dashboard -> Authentication -> Emails -> Templates. Paste this as the
+  message body of BOTH of these, and save each:
+
+    Confirm signup   sent the first time an address signs in, because
+                     signInWithOtp passes shouldCreateUser: true
+    Magic Link       sent every time after that account exists
+
+  Putting it in both means the code arrives whichever one Supabase picks for a
+  given attempt. The other templates on that screen belong to flows this game
+  never uses: invites, password resets, email changes, reauthentication.
+
+  {{ .Token }} is the six-digit code. It only appears if the template asks for
+  it, which is why the stock template produces mail with no code in it. The
+  dashboard's preview pane always renders it literally — there is no auth event
+  behind a preview, so it substitutes nothing. Only a real send fills it in.
+
+  The link is deliberately left out. The game signs in by typed code and sets
+  detectSessionInUrl: false, and GitHub Pages has no route for a callback to
+  land on, so a link here would be a dead end for whoever clicked it.
+-->
+<h2>Your sign-in code</h2>
+
+<p>Enter this in Looting Simulator to continue your delve on this device:</p>
+
+<p style="font-size: 32px; letter-spacing: 8px; font-weight: bold; font-family: monospace;">{{ .Token }}</p>
+
+<p>If you didn't ask to sign in, you can ignore this email.</p>
