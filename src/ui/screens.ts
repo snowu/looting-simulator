@@ -1,7 +1,7 @@
 import { RunSummary } from '../state/game-state';
 import { gold, h, itemSlot, btn } from './dom';
 
-export function titleScreen(hasSave: boolean, onStart: () => void, build = ''): HTMLElement {
+export function titleScreen(hasSave: boolean, onStart: () => void, build = '', account?: HTMLElement): HTMLElement {
   return h(
     'div',
     { class: 'title-screen' },
@@ -22,6 +22,7 @@ export function titleScreen(hasSave: boolean, onStart: () => void, build = ''): 
         h('div', {}, h('kbd', { text: 'I · M' }), 'pack · map'),
       ),
       h('p', { class: 'dim small', style: 'margin-top:14px', text: 'Sound on. Best with headphones and the lights off.' }),
+      account ?? null,
       build ? h('p', { class: 'faint small', text: `build ${build}` }) : null,
     ),
   );

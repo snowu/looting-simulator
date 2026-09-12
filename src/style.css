@@ -550,3 +550,24 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
   body.touch #hud .target { top: 36px; }
 }
 .pause-note { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); font-family: var(--font-title); font-size: 48px; color: var(--gold); text-shadow: 0 3px 0 #000; pointer-events: none; }
+
+/* Account and cloud saves. Every state here is optional to the game: a player
+   who never signs in sees only the one button, and offline play is unaffected. */
+.account { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 18px; }
+.account .row { gap: 6px; width: 100%; }
+.field {
+  font-family: inherit;
+  font-size: 20px;
+  color: var(--ink);
+  background: var(--panel-2);
+  border: 1px solid var(--faint);
+  padding: 5px 8px;
+  flex: 1;
+  min-width: 0;
+  /* The body suppresses selection for the game; text fields need it back. */
+  user-select: text;
+  -webkit-user-select: text;
+}
+.field::placeholder { color: var(--faint); }
+.field:focus { outline: none; border-color: var(--gold); }
+.field.code { flex: 0 0 auto; width: 130px; letter-spacing: 5px; text-align: center; }

@@ -12,6 +12,7 @@ import { Hud } from './ui/hud';
 import { DungeonOverlays } from './ui/dungeon-ui';
 import { Town } from './ui/town';
 import { summaryScreen, titleScreen } from './ui/screens';
+import { AccountPanel } from './ui/account';
 import { h, setTouchMode } from './ui/dom';
 import { TouchControls, TouchMove, isTouchDevice } from './ui/touch';
 import { FULLSCREEN_HELP, fullscreenSupported, isFullscreen, isStandalone, mountFullscreenButton, toggleFullscreen } from './ui/fullscreen';
@@ -152,6 +153,14 @@ function show(m: Mode): void {
   renderUpdateBanner();
 }
 
+// One panel for the life of the page: it holds the auth subscription and the
+// stage of a half-finished sign-in, neither of which should be thrown away
+// every time the title screen is rebuilt.
+const account = new AccountPanel({
+  onSignedIn: () => account.setNote('Signed in on this device.'),
+  onSignedOut: () => account.setNote(''),
+});
+
 function enterTitle(): void {
   show('title');
   screen.replaceChildren(titleScreen(!!loadGame(), () => {
@@ -160,7 +169,7 @@ function enterTitle(): void {
     // On phones and tablets, starting the game is the gesture that takes us fullscreen.
     if (touchMode && fullscreenSupported() && !isStandalone() && !isFullscreen()) void toggleFullscreen();
     enterTown();
-  }, BUILD_ID));
+  }, BUILD_ID, account.el));
 }
 
 function enterTown(): void {
