@@ -358,17 +358,22 @@ effect does nothing until you know what you are holding.
 An affix may never roll on a stat a relic deliberately spends, so a Bright Error
 cannot roll back the Block it gives up.
 
+Every rule states its real figures. A description that says "a little further"
+is worth nothing to the person deciding what to wear, so
+`src/__tests__/uniques.test.ts` locks each quoted number to the constant it came
+from — a tuning change that turns a rule into a lie fails the suite.
+
 | Relic | Base | Effect |
 |---|---|---|
-| An Entirely Ordinary Sword | Star-Iron Long Sword | Never dulls — outside the durability system entirely |
-| The Implication | Moonsilver Dagger | +25% damage per banked parry, to 3. One unblocked hit clears it |
-| Champion of the Sun | Silver Mace | +70% damage to the undead |
-| Riggs' Answer | Moonsilver Kite Shield | A parried melee blow is dealt back in full, at its own damage type |
-| Bergholt's Bright Error | Gold Buckler | +4 light radius; Block driven to near nothing |
-| Eulogy Plate | Star-Iron Plate | Best armour in the game; **all** healing at half |
-| Charlie Work | Silver Band | Reads the floor 2 tiles further for traps |
-| Kitten Mittens | Shadow-Silk Gloves | Monsters see you 2 tiles later |
-| Fight Milk | *Legendary draught* | Drunk: +70% stamina regen, −20 max stamina, for the rest of the delve |
+| An Entirely Ordinary Sword | Star-Iron Long Sword | +8 Attack; 0 durability lost per blow, ever, so no repair bill |
+| The Implication | Moonsilver Dagger | +25% damage per banked parry, stacking to 3 (+75%). An unblocked hit drops it to 0; a blocked one keeps it |
+| Champion of the Sun | Silver Mace | +70% damage to the undead, nothing against the living |
+| Riggs' Answer | Moonsilver Kite Shield | A parried melee blow deals 100% of the attacker's damage back, at its own type, on top of the stun and doubled damage |
+| Bergholt's Bright Error | Gold Buckler | +4 light radius (9.5 → 13.5); −42 Block %, absorbing 7–15% where a plain gold buckler takes 45% |
+| Eulogy Plate | Star-Iron Plate | +14 Defense, +20 Health; **all** healing at exactly 50% |
+| Charlie Work | Silver Band | +2 tiles of trap-reading: 4 ahead instead of 2 |
+| Kitten Mittens | Shadow-Silk Gloves | −2 tiles off every creature's sight; a skeleton's 7 becomes 5 |
+| Fight Milk | *Legendary draught* | Drunk: stamina regen 34/s → 57.8/s, −20 max stamina, rest of the delve |
 
 **Depth.** Legendary only becomes available at depth 6 (`rarityAvailableAtDepth`),
 so relics are a bottom-of-the-dungeon thing by construction. Each also carries

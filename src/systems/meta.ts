@@ -17,7 +17,7 @@ export const META_UPGRADES: MetaUpgrade[] = [
   { id: 'appraiser', name: 'Appraiser\'s Eye', description: 'L1: identifying costs 40% less. L2: Rare and lower drops come identified.', costs: [5, 12] },
   { id: 'treasure_sense', name: 'Treasure Sense', description: '+12% loot find per level.', costs: [5, 10, 16] },
   { id: 'supply_crate', name: 'Supply Crate', description: 'Start each run with +1 Healing Draught per level.', costs: [3, 6, 10] },
-  { id: 'lantern', name: 'Lantern Wick', description: 'Your lamp reaches a little further into the dark each level. L1: you also read the floor for traps a tile sooner.', costs: [3, 7, 12] },
+  { id: 'lantern', name: 'Lantern Wick', description: '+1 light radius per level, 9.5 to 12.5 at L3, against fog that starts at 4. L1 also reads the floor for traps 3 tiles ahead instead of 2.', costs: [3, 7, 12] },
 ];
 
 export type MetaLevels = Record<string, number>;

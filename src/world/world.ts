@@ -243,7 +243,7 @@ export const CURSES: Record<string, { name: string; text: string }> = {
 export const TONICS: Record<string, { name: string; text: string; apply: (d: PlayerDerived) => void }> = {
   fight_milk: {
     name: 'Fight Milk',
-    text: 'Wind back 70% faster, and a good deal less of it.',
+    text: 'Stamina recovery 34/s → 57.8/s, maximum stamina −20.',
     apply: (d) => {
       d.traits.staminaRegen *= 1.7;
       d.maxStamina = Math.max(30, d.maxStamina - 20);

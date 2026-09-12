@@ -26,6 +26,7 @@ import {
   wearItem,
 } from '../systems/items';
 import { Item, Rarity } from '../types';
+import { BASE_LIGHT_RADIUS } from '../systems/meta';
 import { addItem } from '../state/inventory';
 import { makeConsumable } from '../systems/items';
 
@@ -345,6 +346,104 @@ describe('the effects', () => {
       return w.player.stamina;
     };
     expect(bar(true)).toBeGreaterThan(bar(false));
+  });
+});
+
+/**
+ * The rules quote real figures, which is the whole point of them — a
+ * description that says "a little further" is worth nothing. These lock each
+ * quoted number to the constant it came from, so a tuning change that makes a
+ * rule a lie fails here instead of in front of a player.
+ */
+describe('every number a rule quotes is true', () => {
+  const rule = (id: string) => findUnique(id)!.rule;
+
+  it('An Entirely Ordinary Sword: +8 Attack, 0 durability', () => {
+    expect(rule('ordinary_sword')).toContain('+8 Attack');
+    expect(findUnique('ordinary_sword')!.stats!.attack).toBe(8);
+    const sword = makeUnique(findUnique('ordinary_sword')!, createRng(1), 6, true);
+    expect(durability(sword).max).toBe(0);
+  });
+
+  it('The Implication: +25% a stack to 3, +75% at the top', () => {
+    expect(rule('implication')).toContain('+25%');
+    expect(rule('implication')).toContain('+75%');
+    const eq = emptyEquipment();
+    eq.weapon = makeUnique(findUnique('implication')!, createRng(1), 6, true);
+    const t = derivePlayer(eq, {}).traits;
+    expect(t.parryFeed).toBe(0.25);
+    expect(t.parryFeedMax).toBe(3);
+    expect(t.parryFeed * t.parryFeedMax).toBeCloseTo(0.75);
+  });
+
+  it('Champion of the Sun: +70%', () => {
+    expect(rule('champion_of_the_sun')).toContain('+70%');
+    expect(findUnique('champion_of_the_sun')!.power).toBeCloseTo(1.7);
+  });
+
+  it("Riggs' Answer: 100% back", () => {
+    expect(rule('riggs_answer')).toContain('100%');
+    expect(findUnique('riggs_answer')!.power).toBe(1);
+  });
+
+  it("Bergholt's Bright Error: +4 radius off 9.5, and 7-15% against a plain 45%", () => {
+    const r = rule('bright_error');
+    expect(r).toContain('+4 light radius');
+    expect(r).toContain('9.5');
+    expect(r).toContain('13.5');
+    expect(r).toContain('7-15%');
+    expect(r).toContain('45%');
+    expect(BASE_LIGHT_RADIUS).toBe(9.5);
+    expect(findUnique('bright_error')!.power).toBe(4);
+    expect(BASE_LIGHT_RADIUS + findUnique('bright_error')!.power).toBe(13.5);
+    // The measured spread across every roll it can come out as.
+    const blocks: number[] = [];
+    for (let seed = 1; seed <= 200; seed++) {
+      const eq = emptyEquipment();
+      eq.offhand = makeUnique(findUnique('bright_error')!, createRng(seed), 6, true);
+      blocks.push(derivePlayer(eq, {}).block);
+    }
+    expect(Math.min(...blocks)).toBeGreaterThanOrEqual(0.07);
+    expect(Math.max(...blocks)).toBeLessThanOrEqual(0.15);
+    const plain = emptyEquipment();
+    plain.offhand = makeEquipment({ baseId: 'buckler', materialId: 'gold', rarity: Rarity.Common, ilvl: 6, quality: 1 });
+    expect(derivePlayer(plain, {}).block).toBeCloseTo(0.45);
+  });
+
+  it('Eulogy Plate: +14 Defense, +20 Health, healing at 50%', () => {
+    const def = findUnique('eulogy_plate')!;
+    expect(rule('eulogy_plate')).toContain('+14 Defense');
+    expect(rule('eulogy_plate')).toContain('+20 Health');
+    expect(rule('eulogy_plate')).toContain('50%');
+    expect(def.stats!.defense).toBe(14);
+    expect(def.stats!.health).toBe(20);
+    expect(def.power).toBe(0.5);
+  });
+
+  it('Charlie Work: 2 tiles becomes 4', () => {
+    expect(rule('charlie_work')).toContain('4 tiles ahead');
+    expect(findUnique('charlie_work')!.power).toBe(2);
+  });
+
+  it('Kitten Mittens: 2 tiles off a skeleton that sees 7', () => {
+    expect(rule('kitten_mittens')).toContain('7 tiles');
+    expect(rule('kitten_mittens')).toContain('at 5');
+    expect(enemyDef('skeleton').sight).toBe(7);
+    expect(findUnique('kitten_mittens')!.power).toBe(2);
+  });
+
+  it('Fight Milk: 34/s becomes 57.8/s, and -20 stamina', () => {
+    const r = rule('fight_milk');
+    expect(r).toContain('34/s');
+    expect(r).toContain('57.8/s');
+    expect(r).toContain('20 maximum stamina');
+    const w = arena(6);
+    const before = w.derived.maxStamina;
+    const bottle = makeConsumable('fight_milk');
+    addItem(w.run.backpack, bottle);
+    w.use(bottle.uid);
+    expect(w.derived.traits.staminaRegen * 34).toBeCloseTo(57.8);
+    expect(before - w.derived.maxStamina).toBe(20);
   });
 });
 
