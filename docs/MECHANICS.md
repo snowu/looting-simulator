@@ -10,12 +10,14 @@ Last synced with the build of 2026-09-12.
 
 One run is one **day**.
 
-1. **Town (Hollowmere).** Sell, buy, craft, take contracts, spend renown, equip.
+1. **Town (Bleakmere).** Sell, buy, craft, take contracts, spend renown, equip.
 2. **Descend.** Six floors, each generated from the run seed and kept for the whole run, so you can walk back up.
 3. **Come home** by the stairs you came down (floor 1's up-stairs is the exit) or through the portal left by the boss. A **Scroll of Recall** instead opens a two-way town portal, which does *not* end the day.
 4. **Day advances**: market prices move, events tick, contracts age, the board is topped up, the merchant restocks.
 
 Dying ends the day too, but you lose the backpack.
+
+**A delve that never went below depth 1 does not count.** No renown, and **the day does not turn** — you come back to the same prices and the same board. You start standing on floor 1's up-stairs, so without that rule an about-turn and one step was both a free 4 renown and a free button for rerolling the market. Your haul still banks; it just was not a delve.
 
 *Files: `src/systems/run.ts`, `src/main.ts`*
 
@@ -80,6 +82,8 @@ A volley (the boss fires three) only loses one bolt to a parry: a parry spends t
 See the README table. In short: W/S step, A/D turn, Q/E strafe, Space attack, Shift block, F interact, 1–4 consumables, I pack, M map, Esc pause. On touch: drag anywhere to walk and turn, tap or press the big button for the context action, hold the shield to block.
 
 **The one-button action** (tap the view, or the big button) swings at anything in reach and otherwise does whatever **[F]** would. One exception: a loot pile **underfoot never steals the swing while something is alive within 2 tiles**, or within 4 and hunting you. Killing the first of two monsters drops loot on your tile, and without that rule every tap became the loot window instead of a hit on the second one. Doors, stairs and portals still win over the swing, because running is a legitimate answer to a fight. **[F]** is unaffected — looting on the keyboard is always deliberate.
+
+Every completed step and accepted attack has an independent **0.6%** chance to add **“Rock and Stone!”** to the log. This uses a flavor-only random stream and cannot change combat, loot or dungeon generation.
 
 ---
 
@@ -206,7 +210,7 @@ Every kill also has a 6% chance of a Healing Draught and `1.2% × depth` of a bl
 | Shrine | One of three flavours — see below. The prompt names it before you touch it |
 | Stairs | Walk into the alcove. Floor 1's up-stairs leaves the dungeon |
 | Portal | Appears when the boss dies; steps you home and ends the run |
-| Town portal | Opened by a Scroll of Recall; steps you to Hollowmere with the run still going |
+| Town portal | Opened by a Scroll of Recall; steps you to Bleakmere with the run still going |
 | Loot pile | Coins and keys are picked up automatically; items open the loot window |
 
 ### Shrines
@@ -238,13 +242,12 @@ A curse lasts until a **font** washes it off or the run ends, which is what make
 
 Diablo's, in short: a two-way door that costs one scroll for the round trip.
 
-- Stepping through puts you in **Hollowmere with the run still open** — the day does not advance, the market does not move, contracts do not age, and the dungeon is exactly as you left it.
+- Stepping through puts you in **Bleakmere with the run still open** — the day does not advance, the market does not move, contracts do not age, and the dungeon is exactly as you left it.
 - The coin you were carrying is **banked into your purse** on arrival, so you can spend what you found. It is no longer at risk if the rest of the delve goes badly.
 - In town the Descend button becomes **Step back through the portal**. It drops you on the portal's own tile, at the depth you left from, and the portal **closes behind you**.
 - **One at a time.** Reading a second scroll collapses the first portal and opens a new one where you stand.
 - The portal is part of the save, so closing the browser in the middle of a portal trip and coming back still works.
 
-*Note that this is strictly better than the old behaviour, where a Recall ended the run: the scroll now buys a shopping trip rather than an exit.*
 
 ---
 
@@ -388,6 +391,7 @@ Each newly generated chest has a deterministic **12% chance to be a mimic**. It 
 | Short Sword | weapon | 7 atk | +4 atk | 0.18 / 0.36 / 15 / 1 | 28 | 1 |
 | Long Sword | weapon | 10 atk | +5.5 atk | 0.26 / 0.48 / 21 / 1 | 55 | 2 |
 | War Axe | weapon | 12 atk | +6.5 atk | 0.34 / 0.60 / 26 / 1 | 60 | 2 |
+| Mining Pick | weapon | 10 atk, 2 crit | +5.5 atk | 0.30 / 0.52 / 22 / 1 | 48 | 1 |
 | Mace | weapon | 9 atk | +5 atk | 0.26 / 0.50 / 20 / 1 | 45 | 1 |
 | Spear | weapon | 8 atk | +4.5 atk | 0.24 / 0.50 / 19 / **2** | 46 | 2 |
 | Club | weapon (wood/bone) | 6 atk | +3 atk | 0.22 / 0.44 / 16 / 1 | 10 | 1 |
@@ -441,7 +445,7 @@ At most 2 prefixes and 2 suffixes, never two affixes on the same stat.
 | Greater Healing | Restore 75% health | Rare | 70 | 5 |
 | Stamina Tonic | Refill stamina | Common | 16 | 5 |
 | Scroll of Identify | Identify one item in the pack | Uncommon | 30 | 10 |
-| Scroll of Recall | 5s channel, then home | Rare | 95 | 5 |
+| Scroll of Recall | 5s channel, then a two-way town portal | Rare | 95 | 5 |
 
 ---
 
@@ -520,7 +524,7 @@ One or two run at a time, announced the day before as a rumour.
 
 *File: `src/systems/meta.ts`*
 
-**Renown earned:** coming home gives `2 + 2 × deepest depth`, plus 25 for killing the boss — **unless you never went below depth 1, which pays nothing**. You start standing on floor 1's up-stairs, so without that rule a single step back into them banked 4 renown for no risk, and the whole upgrade tree could be farmed by tapping forward and back. Dying gives `depth − 1`.
+**Renown earned:** coming home gives `2 + 2 × deepest depth`, plus 25 for killing the boss — **unless you never went below depth 1, which pays nothing and does not turn the day either** (see section 1). Dying gives `depth − 1`.
 
 | Upgrade | Effect per level | Costs |
 |---|---|---|
@@ -601,5 +605,10 @@ A save written by a *newer* build than the one loading it is left as it is rathe
 | Price model and events | `src/systems/market.ts` |
 | Contracts | `src/systems/contracts.ts` |
 | Upgrades and renown | `src/systems/meta.ts` |
+| Shrine flavours, blessings and curses | `src/world/world.ts` (`BLESSINGS`, `CURSES`), `src/systems/dungeon.ts` (`shrineKindFor`) |
+| Mimic odds | `src/systems/dungeon.ts` (`chestIsMimic`) |
+| Light radius and lantern levels | `src/systems/meta.ts` |
 
 **Keep this file updated** whenever those change: the tables above are meant to be the single reference for balance discussions.
+
+Work that is designed but not built lives in [NEXT.md](NEXT.md); the account-sync brief is in [SUPABASE_SYNC.md](SUPABASE_SYNC.md).

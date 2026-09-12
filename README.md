@@ -4,14 +4,14 @@ A first-person, grid-step dungeon crawler in the spirit of **King's Field** and 
 
 - **The dungeon:** six persistent floors across four biomes (Ossuary, Deep Mines, Glowing Warrens, Ashen Throne). There are locked vaults with keys, secret rooms behind chalk-marked walls, shrines in three colours that each want something different, traps of your own greed, chests that may bite back, and the Ashen King at the bottom.
 - **The combat:** simple and real time. Enemies lean in and flash before they strike, so you step out of the tile or raise your shield. Raise it *just* as the blow lands and you parry instead: no damage, melee attackers reel and take double, and arrows fly back into whatever is behind them. Swings land harder with stamina above half. Damage types matter: bring a mace to the skeletons.
-- **The loot:** base, material, rarity and affixes. Uncommon-and-up drops arrive unidentified. Watch a chest's lid seam for two pale points: a mimic keeps the hoard, then sprouts legs and makes you fight for it. Everything in your pack is lost if you die. Equipped gear is kept.
+- **The loot:** base, material, rarity and affixes, from daggers and mining picks to star-iron plate. Uncommon-and-up drops arrive unidentified. Watch a chest's lid seam for two pale points: a mimic keeps the hoard, then sprouts legs and makes you fight for it. Everything in your pack is lost if you die. Equipped gear is kept.
 - **Coming back:** a Scroll of Recall opens a two-way town portal. Step through to sell, stash and restock with the run still running, then step back where you left off. It closes behind you, so one scroll is one round trip.
 - **Wear:** your weapon dulls on every blow that lands, your shield on every one you take on it, your armour when one gets through. Parrying costs the shield nothing. Broken gear keeps a quarter of its worth until the smith sees it, so a deep run means carrying a spare or going home to mend.
 - **The town:** one run is one day. Commodity prices mean-revert with noise, dumping stock slips the price, and events move whole categories. The forge lets you pick the material for each recipe slot, with gem catalysts adding properties. The guild posts delivery, gear, slay and delve contracts. Renown buys permanent upgrades.
 
 **Full mechanics reference:** [docs/MECHANICS.md](docs/MECHANICS.md) — every system, table and number.
 
-**Planned account sync:** [docs/SUPABASE_SYNC.md](docs/SUPABASE_SYNC.md) — passwordless login, local-first cloud saves, database policy and rollout plan.
+**Designed, not built:** [docs/NEXT.md](docs/NEXT.md) — bespoke legendaries and the balance pass, both parked until the current systems have been played properly. [docs/SUPABASE_SYNC.md](docs/SUPABASE_SYNC.md) covers passwordless login and local-first cloud saves.
 
 ## Controls
 

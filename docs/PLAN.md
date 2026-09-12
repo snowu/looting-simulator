@@ -56,11 +56,23 @@ where the real game is what you do with the loot: trade it, craft with it, fill 
 
 - [x] Traps: dart plates, spike pits and alarm wards, spotted by looking rather than by a roll.
 - [x] Mimic chests: deterministic chance, a subtle visual tell, and the original hoard on death.
+- [x] Mining picks as piercing weapons, with dedicated icon and first-person art.
 - [x] Shrines in three readable flavours — font, idol, offering stone — plus run-long curses.
 - [x] Durability & repairs: weapons, shields and armour wear where they are used; the forge mends.
-- [ ] Legendary uniques with bespoke effects instead of named random rolls.
-- [ ] Balance pass from real play: enemy damage curve by depth, loot find, market volatility.
 - [ ] More hand-drawn art: enemy walk frames, a town backdrop, per-weapon viewmodels for dagger/club.
+
+### Parked pending playtest — designed in [NEXT.md](NEXT.md)
+
+Eight systems landed in quick succession and none of them has been felt out in a
+real session. Both of these are decided and written up, and both are waiting on
+play rather than on design:
+
+- [ ] **Legendary uniques** with bespoke effects instead of named random rolls.
+- [ ] **Balance pass**, which needs a headless playtest harness before it needs
+      any numbers changed. Uniques will move the loot curve, so they come first.
+
+Also parked: [SUPABASE_SYNC.md](SUPABASE_SYNC.md), optional accounts and
+cross-device saves.
 
 Anything that adds a field to the save goes through `src/state/migrations.ts` — see
 the schema section of MECHANICS.md. Bumping `SAVE_VERSION` deletes every player's
@@ -74,8 +86,8 @@ game, so it is never the answer to "I added a field".
 | A / D, ← / → | Turn |
 | Q / E | Strafe left / right |
 | Space / Left click | Attack (damage scales with stamina) |
-| Shift / Right click (hold) | Block (needs a shield or weapon) |
-| F | Interact: door, chest, loot, stairs, push wall |
+| Shift / Right click (hold) | Block — raise it as the blow lands to parry |
+| F | Interact: door, chest, loot, shrine, marked wall, trap, stairs |
 | 1–4 | Quick slots |
 | I / Tab | Inventory & equipment |
 | M | Automap |
