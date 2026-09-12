@@ -49,7 +49,7 @@ export type WorldEvent =
   | { type: 'floor' }
   | { type: 'end'; outcome: 'dead' | 'extracted' }
   | { type: 'secret'; x: number; y: number }
-  | { type: 'trap'; x: number; y: number; kind: Trap['kind'] }
+  | { type: 'trap'; id: string; x: number; y: number; kind: Trap['kind'] }
   | { type: 'town' };
 
 export interface Projectile {
@@ -624,7 +624,7 @@ export class World {
     trap.armed = false;
     trap.found = true;
     const depth = this.run.depth;
-    this.emit({ type: 'trap', x: trap.x, y: trap.y, kind: trap.kind });
+    this.emit({ type: 'trap', id: trap.id, x: trap.x, y: trap.y, kind: trap.kind });
     this.sfx(def.sfx, trap.x, trap.y);
 
     if (trap.kind === 'alarm') {

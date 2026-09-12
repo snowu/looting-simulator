@@ -65,6 +65,7 @@ export class DungeonRenderer {
   private shake = 0;
   private flash = new THREE.Vector4();
   private time = 0;
+  private trapTriggeredAt = new Map<string, number>();
   private lowW = 320;
   deathFade = 0;
 
@@ -145,6 +146,11 @@ export class DungeonRenderer {
     this.shake = Math.max(this.shake, amount);
   }
 
+  /** Let a sprung mechanism kick once, then leave its spent decal in place. */
+  onTrap(id: string): void {
+    this.trapTriggeredAt.set(id, this.time);
+  }
+
   /** World (tile coords + height) → canvas pixels, or null when behind the camera. */
   project(tx: number, ty: number, height: number): { x: number; y: number } | null {
     TMP.set(tileX(tx), height, tileZ(ty)).project(this.camera);
@@ -163,6 +169,7 @@ export class DungeonRenderer {
       }
       this.level = buildLevel(floor, this.shared);
       this.levelFloor = floor;
+      this.trapTriggeredAt.clear();
       this.scene.add(this.level.root);
       this.shared.uFogColor.value.set(biome.fog);
       this.shared.uAmbient.value.set(biome.ambient);
@@ -271,11 +278,14 @@ export class DungeonRenderer {
     for (const tr of floor.traps ?? []) {
       if (!tr.found || !near(tr.x, tr.y)) continue;
       const s = this.sprite(`t:${tr.id}`);
-      const art = !tr.armed ? (tr.kind === 'alarm' ? 'trap_alarm' : 'trap_spent') : `trap_${tr.kind}`;
-      this.placeFlat(s, art, tileX(tr.x), tileZ(tr.y), 0.92);
-      // Armed: left as it is drawn, so seeing it is on you. Sprung: darkened
-      // down to dead stone, but still there to be walked back and looked at.
-      s.mat.uniforms.uTint.value.set(0, 0, 0, tr.armed ? 0 : 0.45);
+      const art = tr.armed ? `trap_${tr.kind}` : `trap_${tr.kind}_spent`;
+      const triggeredAt = this.trapTriggeredAt.get(tr.id);
+      const elapsed = triggeredAt === undefined ? Infinity : this.time - triggeredAt;
+      const settle = elapsed < 0.8 ? Math.sin((elapsed / 0.8) * Math.PI) : 0;
+      this.placeFlat(s, art, tileX(tr.x), tileZ(tr.y), 0.96 + settle * 0.12);
+      // A brief warm kick reads as the mechanism collapsing. Afterwards the
+      // cold wreckage remains at full value instead of fading into the floor.
+      if (!tr.armed && settle > 0) s.mat.uniforms.uTint.value.set(1, 0.72, 0.3, settle * 0.3);
     }
 
     for (const pr of floor.props) {

@@ -74,6 +74,8 @@ describe('traps', () => {
     expect(w.player.hp).toBeLessThan(hp);
     expect(trap.armed).toBe(false);
     expect(trap.found).toBe(true);
+    expect(w.floor.traps).toContain(trap);
+    expect(w.events).toContainEqual({ type: 'trap', id: trap.id, x: trap.x, y: trap.y, kind: trap.kind });
   });
 
   it('only fires once', () => {

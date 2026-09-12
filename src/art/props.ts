@@ -600,6 +600,40 @@ const TRAP_SPENT = rows(`
   ................
 `);
 
+// Sprung mechanisms stay readable as wreckage. Each keeps the same cold-iron
+// frame but leaves a different failure pattern in its centre.
+const TRAP_DART_SPENT = stamp(TRAP_SPENT, rows(`
+  s......s
+  .s....s.
+  ..s..s..
+  ...ss...
+  ...rr...
+  ..r..r..
+  .r....r.
+  r......r
+`), 4, 4);
+
+const TRAP_SPIKES_SPENT = stamp(TRAP_SPENT, rows(`
+  k..k..k.
+  w..w..w.
+  k..k..k.
+  ........
+  .k..k...
+  .w..w...
+  .k..k...
+`), 4, 4);
+
+const TRAP_ALARM_SPENT = stamp(TRAP_SPENT, rows(`
+  ..r..r..
+  .r....r.
+  r..rr..r
+  ...rr...
+  ...rr...
+  r......r
+  .r....r.
+  ..r..r..
+`), 4, 4);
+
 // Cold iron against warm stone: the plates read by hue and value rather than by
 // glowing, so spotting one is a matter of looking at the floor, not of the game
 // pointing at it.
@@ -655,7 +689,9 @@ export const PROPS: ArtDef[] = [
   { id: 'trap_dart', palette: TRAP_PAL, rows: TRAP_PLATE },
   { id: 'trap_spikes', palette: { p: '#08070a', k: '#14121a', w: '#8e8878', W: '#dcd4be' }, rows: TRAP_SPIKES },
   { id: 'trap_alarm', palette: { c: '#6a4a8afa', d: '#c890fffa' }, rows: TRAP_WARD },
-  { id: 'trap_spent', palette: TRAP_PAL, rows: TRAP_SPENT },
+  { id: 'trap_dart_spent', palette: TRAP_PAL, rows: TRAP_DART_SPENT },
+  { id: 'trap_spikes_spent', palette: { ...TRAP_PAL, k: '#101014', w: '#aaa4b0' }, rows: TRAP_SPIKES_SPENT },
+  { id: 'trap_alarm_spent', palette: TRAP_PAL, rows: TRAP_ALARM_SPENT },
   { id: 'town_portal', palette: { c: '#102848fa', b: '#2060b0fa', a: '#60b0fffa', w: '#d8f0fffa' }, rows: TOWN_PORTAL },
   { id: 'sconce', palette: { k: '#0c0c0e', i: '#3a3a42', j: '#5a5a64', h: '#3a2410', g: '#1a0e06' }, rows: SCONCE },
   { id: 'flame_0', palette: FLAME_PAL, rows: FLAME_0 },

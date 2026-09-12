@@ -257,7 +257,7 @@ Diablo's, in short: a two-way door that costs one scroll for the round trip.
 
 Every trap starts **hidden and armed**. You spot one by looking at it: the tiles ahead down a clear line (**two**, or **three** with Lantern Wick) and the four tiles beside you are checked on every step and every turn. Spotting is not a dice roll — it is whether you were looking. A held W down a corridor gives you one step of warning, which is the whole point.
 
-A spotted trap is drawn as a floor decal — cold iron against warm stone, so it reads by hue and value if you are looking at the floor, without glowing or being labelled. It stays marked on the automap (orange armed, grey spent) and can be disarmed with **[F]** from the tile in front.
+A spotted trap is drawn as a floor decal — cold iron against warm stone, so it reads by hue and value if you are looking at the floor, without glowing or being labelled. It stays marked on the automap (orange armed, grey spent) and can be disarmed with **[F]** from the tile in front. When sprung, the mechanism gives one short settling pulse and remains permanently visible at full value as distinct wreckage: a crossed dart plate, collapsed spikes, or a broken ward. It never fades out.
 
 **Nothing shouts at you.** Springing one plays its sound, shakes the frame and names it in the log ("The floor gives way onto spikes!") — the same weight as taking any other hit. A first careless run down a corridor should cost you; what the game owes you is the means to do better next time, which is: the plate is genuinely visible, the log tells you what hit you, the sprung trap stays on the floor and the map to be looked at, and the disarm prompt appears when you face one.
 

@@ -273,6 +273,7 @@ function handle(ev: WorldEvent): void {
       returnToTown();
       break;
     case 'trap':
+      renderer?.onTrap(ev.id);
       break;
   }
 }
