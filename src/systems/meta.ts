@@ -59,8 +59,16 @@ export function haggleLevel(levels: MetaLevels): number {
   return metaLevel(levels, 'haggler');
 }
 
-/** Renown awarded when a run ends. */
+/**
+ * Renown awarded when a run ends.
+ *
+ * Nothing is paid for a delve that never left the entrance hall: you start on
+ * floor 1's up-stairs, so a single step back into them used to bank 4 renown
+ * for no risk at all, which made the whole upgrade tree farmable by tapping
+ * forward and back. Renown is for going down.
+ */
 export function renownForRun(depthReached: number, extracted: boolean, bossKilled: boolean): number {
   if (!extracted) return Math.max(0, depthReached - 1);
+  if (depthReached <= 1) return 0;
   return 2 + depthReached * 2 + (bossKilled ? 25 : 0);
 }

@@ -520,6 +520,15 @@ export class World {
   }
 
   /**
+   * How many tiles down a clear line you read the floor. A better lamp buys one
+   * more tile of warning — one extra step to stop in, which at a walk is the
+   * difference between reading the floor and finding it the hard way.
+   */
+  private get lookAhead(): number {
+    return 2 + (metaLevel(this.state.meta, 'lantern') > 0 ? 1 : 0);
+  }
+
+  /**
    * Notice the seam in the flagstones on the tile in front of you. Only the
    * tile you are about to step onto and the ones beside you, so a corridor
    * taken at a run is a corridor taken blind.
@@ -528,12 +537,8 @@ export class World {
     const f = this.floor;
     if (!f.traps?.length) return;
     const p = this.player;
-    // A better lamp buys one more tile of warning down the corridor — one extra
-    // step to stop in, which at a walk is the difference between reading the
-    // floor and finding it the hard way.
-    const ahead = 2 + (metaLevel(this.state.meta, 'lantern') > 0 ? 1 : 0);
     const look: { x: number; y: number }[] = [];
-    for (let d = 1; d <= ahead; d++) look.push(this.frontTile(d));
+    for (let d = 1; d <= this.lookAhead; d++) look.push(this.frontTile(d));
     for (const d of DIRS) look.push({ x: p.x + DX[d], y: p.y + DY[d] });
     for (const t of look) {
       const trap = trapAt(f, t.x, t.y);
@@ -852,7 +857,24 @@ export class World {
     }
     const hint = this.interactionHint();
     if (!hint || hint.startsWith('Smash') || hint === 'Close door') return { kind: 'attack', label: '' };
+    // A pile underfoot must never steal the swing: killing the first of two
+    // monsters drops loot on your tile, and on touch that turned every tap
+    // into the loot window instead of a hit on the second one. Doors, stairs
+    // and portals still win, since running is a legitimate answer to a fight.
+    if (hint === 'Search' && this.threatNear()) return { kind: 'attack', label: '' };
     return { kind: 'interact', label: shortLabel(hint) };
+  }
+
+  /** Something alive and interested, close enough that you are still in a fight. */
+  private threatNear(): boolean {
+    const p = this.player;
+    for (const e of this.floor.enemies) {
+      if (e.ai === 'dead') continue;
+      const dist = Math.abs(e.x - p.x) + Math.abs(e.y - p.y);
+      if (dist <= 2) return true;
+      if (dist <= 4 && e.alert > 0 && this.los(p.x, p.y, e.x, e.y)) return true;
+    }
+    return false;
   }
 
   /**

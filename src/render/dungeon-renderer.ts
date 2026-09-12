@@ -207,6 +207,8 @@ export class DungeonRenderer {
       if (pr.kind === 'shrine' && !pr.used) lights.push({ x: tileX(pr.x), y: 1.3, z: tileZ(pr.y), r: 4, color: new THREE.Color('#8ab0ff'), intensity: 0.9 });
     }
     for (const tr of floor.traps ?? []) {
+      // Only the ward glows, because a ward is magic. A dart plate and a spike
+      // pit are ironmongery in a dark floor: your lamp has to find them.
       if (tr.kind !== 'alarm' || !tr.found || !tr.armed) continue;
       lights.push({ x: tileX(tr.x), y: 0.2, z: tileZ(tr.y), r: 2.5, color: new THREE.Color('#a070ff'), intensity: 0.5 * flick(7) });
     }
@@ -261,7 +263,8 @@ export class DungeonRenderer {
       const s = this.sprite(`t:${tr.id}`);
       const art = !tr.armed ? (tr.kind === 'alarm' ? 'trap_alarm' : 'trap_spent') : `trap_${tr.kind}`;
       this.placeFlat(s, art, tileX(tr.x), tileZ(tr.y), 0.92);
-      // A sprung ward is dead stone; an armed one still has a glow to it.
+      // Armed: left as it is drawn, so seeing it is on you. Sprung: darkened
+      // down to dead stone, but still there to be walked back and looked at.
       s.mat.uniforms.uTint.value.set(0, 0, 0, tr.armed ? 0 : 0.45);
     }
 

@@ -542,7 +542,10 @@ const TRAP_SPENT = rows(`
   ................
 `);
 
-const TRAP_PAL = { p: '#0a0806', q: '#3a3228', r: '#4a4034', s: '#6a5c46' };
+// Cold iron against warm stone: the plates read by hue and value rather than by
+// glowing, so spotting one is a matter of looking at the floor, not of the game
+// pointing at it.
+const TRAP_PAL = { p: '#08080a', q: '#44444e', r: '#6a6a76', s: '#9694a2' };
 
 
 // An upright oval rift — the town portal a Scroll of Recall leaves behind.
@@ -583,7 +586,7 @@ export const PROPS: ArtDef[] = [
   { id: 'shrine_used', palette: SHRINE_PAL, rows: stamp(SHRINE, SHRINE_OFF) },
   { id: 'fungus', palette: { k: '#0a1614', s: '#b8c8c0', c: '#28b0a0fa', d: '#90fff0fa' }, rows: FUNGUS },
   { id: 'trap_dart', palette: TRAP_PAL, rows: TRAP_PLATE },
-  { id: 'trap_spikes', palette: { p: '#0a0806', k: '#2e2820', w: '#8a8272', W: '#c8c0aa' }, rows: TRAP_SPIKES },
+  { id: 'trap_spikes', palette: { p: '#08070a', k: '#14121a', w: '#8e8878', W: '#dcd4be' }, rows: TRAP_SPIKES },
   { id: 'trap_alarm', palette: { c: '#6a4a8afa', d: '#c890fffa' }, rows: TRAP_WARD },
   { id: 'trap_spent', palette: TRAP_PAL, rows: TRAP_SPENT },
   { id: 'town_portal', palette: { c: '#102848fa', b: '#2060b0fa', a: '#60b0fffa', w: '#d8f0fffa' }, rows: TOWN_PORTAL },

@@ -155,7 +155,9 @@ describe('World', () => {
     expect(w.run.outcome).toBe('extracted');
     const day = state.market.day;
     const summary = endRun(state, 'extracted');
-    expect(summary.renown).toBeGreaterThan(0);
+    // Your haul banks, but turning round at the entrance earns no renown —
+    // otherwise a single step in and out farms the whole upgrade tree.
+    expect(summary.renown).toBe(0);
     expect(state.stash.items.some((i) => i.ref === 'silver')).toBe(true);
     expect(state.market.day).toBe(day + 1);
     expect(state.run).toBeNull();

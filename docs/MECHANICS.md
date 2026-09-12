@@ -79,6 +79,8 @@ A volley (the boss fires three) only loses one bolt to a parry: a parry spends t
 
 See the README table. In short: W/S step, A/D turn, Q/E strafe, Space attack, Shift block, F interact, 1–4 consumables, I pack, M map, Esc pause. On touch: drag anywhere to walk and turn, tap or press the big button for the context action, hold the shield to block.
 
+**The one-button action** (tap the view, or the big button) swings at anything in reach and otherwise does whatever **[F]** would. One exception: a loot pile **underfoot never steals the swing while something is alive within 2 tiles**, or within 4 and hunting you. Killing the first of two monsters drops loot on your tile, and without that rule every tap became the loot window instead of a hit on the second one. Doors, stairs and portals still win over the swing, because running is a legitimate answer to a fight. **[F]** is unaffected — looting on the keyboard is always deliberate.
+
 ---
 
 ## 4. The dungeon
@@ -229,7 +231,9 @@ Diablo's, in short: a two-way door that costs one scroll for the round trip.
 
 Every trap starts **hidden and armed**. You spot one by looking at it: the tiles ahead down a clear line (**two**, or **three** with Lantern Wick) and the four tiles beside you are checked on every step and every turn. Spotting is not a dice roll — it is whether you were looking. A held W down a corridor gives you one step of warning, which is the whole point.
 
-A spotted trap is drawn as a floor decal, stays marked on the automap (orange armed, grey spent) and can be disarmed with **[F]** from the tile in front.
+A spotted trap is drawn as a floor decal — cold iron against warm stone, so it reads by hue and value if you are looking at the floor, without glowing or being labelled. It stays marked on the automap (orange armed, grey spent) and can be disarmed with **[F]** from the tile in front.
+
+**Nothing shouts at you.** Springing one plays its sound, shakes the frame and names it in the log ("The floor gives way onto spikes!") — the same weight as taking any other hit. A first careless run down a corridor should cost you; what the game owes you is the means to do better next time, which is: the plate is genuinely visible, the log tells you what hit you, the sprung trap stays on the floor and the map to be looked at, and the disarm prompt appears when you face one.
 
 | Trap | Damage | Type | On top of that |
 |---|---|---|---|
@@ -463,7 +467,7 @@ One or two run at a time, announced the day before as a rumour.
 
 *File: `src/systems/meta.ts`*
 
-**Renown earned:** coming home gives `2 + 2 × deepest depth`, plus 25 for killing the boss. Dying gives `depth − 1`.
+**Renown earned:** coming home gives `2 + 2 × deepest depth`, plus 25 for killing the boss — **unless you never went below depth 1, which pays nothing**. You start standing on floor 1's up-stairs, so without that rule a single step back into them banked 4 renown for no risk, and the whole upgrade tree could be farmed by tapping forward and back. Dying gives `depth − 1`.
 
 | Upgrade | Effect per level | Costs |
 |---|---|---|
