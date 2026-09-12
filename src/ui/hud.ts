@@ -7,7 +7,7 @@ import { itemIcon } from '../systems/items';
 import { DungeonRenderer } from '../render/dungeon-renderer';
 import { BLESSINGS, CURSES, World } from '../world/world';
 import { drawMap } from './automap';
-import { artImg, h } from './dom';
+import { artImg, esc, h } from './dom';
 
 interface Float {
   el: HTMLElement;
@@ -114,7 +114,10 @@ export class Hud {
     this.compass.innerHTML = `<span class="side">${DIR_NAMES[turnLeft(p.facing)][0]}</span>${f}<span class="side">${DIR_NAMES[turnRight(p.facing)][0]}</span>`;
 
     const biome = biomeForDepth(world.run.depth);
-    const keyNames = world.run.keys.map((k) => world.floor.keys.find((kd) => kd.id === k)?.name ?? 'Key');
+    // Key names are generated, but they live in the save file, so they are the
+    // one string here that a hand-edited save controls. Everything else in this
+    // panel comes from the data tables in code.
+    const keyNames = world.run.keys.map((k) => esc(world.floor.keys.find((kd) => kd.id === k)?.name ?? 'Key'));
     const bless = world.run.blessing ? BLESSINGS[world.run.blessing]?.name ?? '' : '';
     const curse = world.run.curse ? CURSES[world.run.curse]?.name ?? '' : '';
     const statusKey = `${world.run.depth}|${world.run.gold}|${keyNames.join()}|${bless}|${curse}|${world.freeSlots}`;
