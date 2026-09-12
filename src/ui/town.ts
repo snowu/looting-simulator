@@ -104,6 +104,7 @@ export class Town {
   private stashAction: 'equip' | 'pack' = 'equip';
   private confirmReset = false;
   private scrollMemo = 0;
+  private recipeScrollMemo = 0;
 
   constructor(parent: HTMLElement, private ctx: TownCtx) {
     parent.append(this.root);
@@ -130,6 +131,8 @@ export class Town {
   render(): void {
     hideTooltip();
     this.scrollMemo = this.root.scrollTop;
+    const currentRecipes = this.root.querySelector<HTMLElement>('.recipes');
+    if (currentRecipes) this.recipeScrollMemo = currentRecipes.scrollTop;
     const s = this.s;
     const running = !!s.run && s.run.outcome === 'active';
     const readyContracts = s.contracts.filter((c) => c.accepted && isComplete(c, s.stash)).length;
@@ -185,6 +188,8 @@ export class Town {
     }
     this.root.replaceChildren(head, this.news(), tabBar, body);
     this.root.scrollTop = this.scrollMemo;
+    const nextRecipes = this.root.querySelector<HTMLElement>('.recipes');
+    if (nextRecipes) nextRecipes.scrollTop = this.recipeScrollMemo;
   }
 
   private news(): HTMLElement {
@@ -444,7 +449,11 @@ export class Town {
       if (group) group.owned += bp.qty;
       else grouped.set(bp.ref, { sample: bp, owned: bp.qty });
     }
-    const bps = [...grouped.values()];
+    const bps = [...grouped.values()].sort((a, b) => {
+      const aCapped = recipeRank(s.recipeRanks, a.sample.ref) >= MAX_RECIPE_RANK;
+      const bCapped = recipeRank(s.recipeRanks, b.sample.ref) >= MAX_RECIPE_RANK;
+      return Number(aCapped) - Number(bCapped) || itemName(a.sample).localeCompare(itemName(b.sample));
+    });
     const learn = bps.length
       ? h(
           'div',
@@ -458,6 +467,8 @@ export class Town {
               const capped = rank >= MAX_RECIPE_RANK;
               const cost = blueprintCostForNextRank(rank);
               const enough = owned >= cost;
+              const status = capped ? `Rank 5 · ${owned} spare` : rank === 0 ? `Locked · ${owned}/${cost} owned` : `Rank ${rank} · ${owned}/${cost} owned`;
+              const action = capped ? 'Capped' : rank === 0 ? `Learn · ${cost} BP` : `Upgrade · ${cost} BP`;
               return h(
                 'div',
                 { class: 'ware blueprint-ware' },
@@ -466,9 +477,9 @@ export class Town {
                   'div',
                   { class: 'blueprint-details grow' },
                   h('b', { text: itemBase(recipe(bp.ref).baseId).name }),
-                  h('span', { class: 'dim small', text: capped ? `${owned} owned · mastery capped` : `Rank ${rank || 'locked'} · ${owned}/${cost} blueprints` }),
+                  h('span', { class: 'dim small', text: status }),
                 ),
-                btn(capped ? 'Rank 5' : rank === 0 ? 'Learn Rank 1' : `Master Rank ${rank + 1}`, () => {
+                btn(action, () => {
                   const next = studyBlueprint(bp, s.stash, s.recipeRanks);
                   if (!next) return;
                   this.forgeRecipe = bp.ref;
