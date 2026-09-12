@@ -365,8 +365,11 @@ is the same effect with every number in it. **Hold Shift** on a keyboard, or
 **tap the tooltip** on a touchscreen, and the tooltip swaps register — durability
 changes from `Condition 62%` to `Condition 74 / 120`, and item level, quality and
 base value appear. Neither register is the real one; some decisions want the
-sentence and some want the figure. The codex shows both at once, because it is a
-reference screen and should never make you hold a key.
+sentence and some want the figure. **The codex reads the same way** — plain words
+by default, numbers on Shift, with a *Numbers* button standing in for Shift on a
+touchscreen. The swap is done in CSS off a `detail-mode` class on `<body>`, so a
+screen that is already open changes register without being rebuilt and never
+loses its scroll position or its selection.
 
 Every figure in `detail` is locked to the constant it came from by
 `src/__tests__/uniques.test.ts` — a tuning change that turns a rule into a lie

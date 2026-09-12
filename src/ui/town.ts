@@ -29,7 +29,7 @@ import { syncLoadout } from '../systems/run';
 import { derivePlayer } from '../systems/player';
 import { defaultSlot, equipFrom, unequipTo } from '../systems/equip';
 import { createRng, hashString, randomSeed } from '../core/rng';
-import { artImg, btn, gold, h, hideTooltip, itemSlot, itemTooltip, rarityColor, sparkline, statLines } from './dom';
+import { artImg, bothRegisters, btn, gold, h, hideTooltip, isTouchMode, itemSlot, itemTooltip, rarityColor, sparkline, statLines, toggleDetailed } from './dom';
 import { artUrl } from '../render/art-cache';
 import { paperDoll, statSheet } from './dungeon-ui';
 import { audio } from '../audio/sfx';
@@ -964,6 +964,20 @@ export class Town {
     return makeUnique(def, createRng(hashString(`codex:${def.id}`)), def.minDepth, true);
   }
 
+  /**
+   * How to see the numbers. A keyboard holds Shift; a touchscreen has no Shift,
+   * so it gets a button that latches the same global flag.
+   */
+  private detailSwitch(): HTMLElement {
+    if (!isTouchMode()) {
+      return h('div', { class: 'tt-detail-hint' },
+        h('span', { class: 'detail-hide', text: 'Hold Shift for exact numbers' }),
+        h('span', { class: 'detail-only', text: 'Release Shift for plain words' }));
+    }
+    return h('div', { class: 'row', style: 'margin-top:6px' },
+      btn('Numbers', () => { toggleDetailed(); audio.play('ui'); }, 'small'));
+  }
+
   private relicDetail(def: UniqueDef): HTMLElement {
     const s = this.s;
     const seen = (s.lifetime.uniquesSeen ??= []);
@@ -1004,11 +1018,12 @@ export class Town {
             h('p', { class: 'small dim', text: def.kind === 'tonic'
               ? `Legendary draught · drunk in the dark · found from depth ${def.minDepth}`
               : `${material(def.materialId!).name} ${itemBase(def.baseId).name} · ${itemBase(def.baseId).slot} · found from depth ${def.minDepth}` }),
-            h('div', { class: 'tt-unique', text: def.rule }),
+            // Plain words by default here too. The codex is a reference, but
+            // it is read far more often than it is consulted, and an item that
+            // leads with its arithmetic stops reading like an object.
+            bothRegisters(def.rule, def.detail, 'tt-unique'),
             h('div', { class: 'tt-flavour', text: def.flavour }),
-            // The codex is the reference, not the dungeon: it never makes you
-            // hold a key to see the numbers.
-            h('div', { class: 'tt-detail', text: def.detail }),
+            this.detailSwitch(),
             h('div', { style: 'margin-top:6px', html: statLines(itemStats(item)).join('') }),
             h('p', { class: 'small dim', style: 'margin-top:6px', text: def.kind === 'tonic'
               ? `Worth about ${gold(itemValue(item))}. No merchant stocks it and no forge makes it.`

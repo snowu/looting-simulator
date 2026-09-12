@@ -176,11 +176,30 @@ export function isDetailed(): boolean {
   return detailed;
 }
 
-function setDetailed(on: boolean): void {
+export function setDetailed(on: boolean): void {
   if (detailed === on) return;
   detailed = on;
-  // Re-render in place: the reader is looking at it right now.
+  // A body class lets any screen that is already on-screen swap register with
+  // no re-render at all — see .detail-only / .detail-hide in style.css. The
+  // tooltip is rebuilt instead, because its content is a string, not a tree.
+  document.body.classList.toggle('detail-mode', on);
   if (liveTip && tipEl && tipEl.style.display === 'block') renderTip(liveTip());
+}
+
+/** For the touchscreen affordance on screens that are not tooltips. */
+export function toggleDetailed(): void {
+  setDetailed(!detailed);
+}
+
+/**
+ * Both registers of a piece of text, rendered together, with CSS deciding which
+ * one is visible. Screens use this so Shift costs nothing to honour.
+ */
+export function bothRegisters(plain: string, numbers: string, cls = ''): HTMLElement {
+  return h('div', {},
+    h('div', { class: `${cls} detail-hide`.trim(), text: plain }),
+    h('div', { class: `${cls} detail-only`.trim(), text: numbers }),
+  );
 }
 
 document.addEventListener('keydown', (e) => {
