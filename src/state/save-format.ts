@@ -98,3 +98,16 @@ export function describeSave(state: GameState): SaveSummary {
   const place = run && run.outcome === 'active' ? `Depth ${run.depth}, mid-delve` : 'In town';
   return { day: state.market?.day ?? 1, place, gold: state.gold ?? 0, runs: state.lifetime?.runs ?? 0 };
 }
+
+/**
+ * Hash of what a save contains, ignoring which playthrough it claims to be.
+ *
+ * Identity answers "is this the same game?"; this answers "has anything
+ * actually happened since?". They have to be asked separately, because a row
+ * written before ids existed gets one assigned on the way in, and comparing
+ * that against a local save would report a difference that is purely the id.
+ */
+export function progressHash(state: GameState): string {
+  const { saveId: _saveId, ...rest } = state;
+  return contentHash(JSON.stringify(rest));
+}

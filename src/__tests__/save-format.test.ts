@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { contentHash, isFutureSave, parseSave, serializeSave } from '../state/save-format';
+import { contentHash, isFutureSave, parseSave, progressHash, serializeSave } from '../state/save-format';
 import { SAVE_REVISION } from '../state/migrations';
 import { newGame } from '../state/game-state';
 import { createRng } from '../core/rng';
@@ -77,5 +77,25 @@ describe('content hash', () => {
     const a = 'x'.repeat(5000) + 'a';
     const b = 'x'.repeat(5000) + 'b';
     expect(contentHash(a)).not.toBe(contentHash(b));
+  });
+});
+
+describe('progress hash', () => {
+  it('ignores which playthrough a save claims to be', () => {
+    // A cloud row written before ids existed has one assigned on the way in.
+    // If that counted as a difference, the card would report two versions of a
+    // save that is byte-for-byte the same game.
+    const a = parseSave(LEGACY)!;
+    const b = parseSave(LEGACY)!;
+    a.saveId = 'one';
+    b.saveId = 'another';
+    expect(progressHash(a)).toBe(progressHash(b));
+  });
+
+  it('still notices actual progress', () => {
+    const a = parseSave(LEGACY)!;
+    const b = parseSave(LEGACY)!;
+    b.gold += 1;
+    expect(progressHash(a)).not.toBe(progressHash(b));
   });
 });

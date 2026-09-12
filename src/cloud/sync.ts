@@ -135,7 +135,12 @@ export class CloudSync {
         this.set('synced');
         return { kind: 'none' };
       }
-      const ok = await this.push();
+      // Forced: begin() has already decided this save belongs in the cloud, so
+      // it must not wait on the dirty flag. Nothing has necessarily marked the
+      // snapshot since sign-in — for someone who has been playing offline and
+      // only now signed in, nothing ever will — and an unforced push here
+      // returns silently, which looks exactly like sync doing nothing at all.
+      const ok = await this.push(true);
       return ok ? { kind: 'uploaded' } : { kind: 'none' };
     }
 
@@ -170,12 +175,24 @@ export class CloudSync {
     const mine = this.deps.state().saveId;
     if (mine) {
       for (const found of all.values()) {
-        if (found.kind === 'save' && found.save.state.saveId === mine) return found.save;
+        if (found.kind === 'save' && found.save.saveId === mine) return found.save;
       }
     }
+
     const here = all.get(this.deps.slot());
     if (here?.kind === 'incompatible') return 'incompatible';
-    if (here?.kind === 'save' && !here.save.state.saveId) return here.save;
+
+    // A row written before ids existed can only be matched by position, and
+    // only where this device files this playthrough: nothing else put it there.
+    // Adopting the local id makes the two comparable, and the next upload
+    // writes it to the row so this never has to be guessed again.
+    if (here?.kind === 'save' && here.save.saveId === null) {
+      if (mine) {
+        here.save.state.saveId = mine;
+        here.save.raw = serializeSave(here.save.state);
+      }
+      return here.save;
+    }
     return null;
   }
 

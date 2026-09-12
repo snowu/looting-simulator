@@ -14,6 +14,12 @@ import { supabase } from './supabase';
 
 export interface CloudSave {
   slot: Slot;
+  /**
+   * The playthrough's identity, straight from the column. This is the
+   * authority — not `state.saveId`, which a migration will happily invent for a
+   * save that has never had one. Null on rows written before ids existed.
+   */
+  saveId: string | null;
   state: GameState;
   generation: number;
   updatedAt: string;
@@ -34,6 +40,7 @@ export type UploadResult =
 
 interface Row {
   slot: Slot;
+  save_id: string | null;
   state: unknown;
   format_version: number;
   schema_revision: number;
@@ -75,7 +82,7 @@ export async function fetchCloudSlots(): Promise<Map<Slot, CloudFetch>> {
   return out;
 }
 
-const COLUMNS = 'slot, state, format_version, schema_revision, generation, device_id, updated_at';
+const COLUMNS = 'slot, save_id, state, format_version, schema_revision, generation, device_id, updated_at';
 
 function readRow(data: Row): CloudFetch {
   const incompatible = {
@@ -89,13 +96,22 @@ function readRow(data: Row): CloudFetch {
 
   // The column is jsonb, so it arrives parsed; back to text to go through the
   // one reader every save uses, reviver and all.
-  const raw = JSON.stringify(data.state);
-  const state = parseSave(raw);
+  const state = parseSave(JSON.stringify(data.state));
   if (!state) return incompatible;
+
+  // Keep the identity the row carries. Without this the migration that
+  // backfills ids invents a fresh one on every download, so the same cloud save
+  // would look like a different playthrough on each device and to itself.
+  if (data.save_id) state.saveId = data.save_id;
+
+  // Serialize the way this build writes saves, so the hash is comparable with a
+  // local one. The jsonb round trip is not: Postgres normalizes key order, so
+  // comparing against it reports a difference between identical saves.
+  const raw = serializeSave(state);
 
   return {
     kind: 'save',
-    save: { slot: data.slot, state, generation: data.generation, updatedAt: data.updated_at, device: data.device_id, raw },
+    save: { slot: data.slot, saveId: data.save_id ?? null, state, generation: data.generation, updatedAt: data.updated_at, device: data.device_id, raw },
   };
 }
 

@@ -1,6 +1,6 @@
 import { GameState } from '../state/game-state';
 import { Slot } from '../state/persistence';
-import { contentHash, describeSave, serializeSave } from '../state/save-format';
+import { describeSave, progressHash } from '../state/save-format';
 import { CloudSave } from '../cloud/cloud-save';
 import { btn, h } from './dom';
 
@@ -61,6 +61,6 @@ function card(v: SlotView, onPlay: (slot: Slot) => void): HTMLElement {
 function note(v: SlotView): HTMLElement | null {
   if (!v.cloud) return null;
   if (!v.local) return h('div', { class: 'blue-t small', text: 'From the cloud' });
-  const same = contentHash(serializeSave(v.local)) === contentHash(v.cloud.raw);
+  const same = progressHash(v.local) === progressHash(v.cloud.state);
   return same ? null : h('div', { class: 'gold-t small', text: 'Two versions — you choose' });
 }
