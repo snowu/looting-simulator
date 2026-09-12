@@ -18,18 +18,18 @@ export const MATERIALS: MaterialDef[] = [
     description: 'Bright and cold. The dead do not like it.',
   },
   {
-    id: 'gold', name: 'Gold Nugget', category: 'metal', tier: 2, rarity: Rarity.Rare, value: 75,
+    id: 'gold', name: 'Gold Nugget', category: 'metal', tier: 3, rarity: Rarity.Rare, value: 75,
     icon: 'ic_ingot', ramp: ['#5a3a08', '#a0700c', '#e0b020', '#fff08a'], mods: { luck: 3, find: 6 },
     description: 'Too soft for war. Rings and pendants sing with it.',
   },
   {
     id: 'moonsilver', name: 'Moonsilver', category: 'metal', tier: 4, rarity: Rarity.Epic, value: 190,
-    icon: 'ic_ingot', ramp: ['#2c3450', '#5a70a0', '#9cb4e0', '#e8f0ff'], mods: { frost: 3, luck: 2 },
+    icon: 'ic_ingot', ramp: ['#2c3450', '#5a70a0', '#9cb4e0', '#e8f0ff'], mods: { frost: 6, luck: 4 },
     description: 'Silver that remembers moonlight. Always cold to the touch.',
   },
   {
     id: 'star_iron', name: 'Star Iron', category: 'metal', tier: 5, rarity: Rarity.Legendary, value: 460,
-    icon: 'ic_ingot', ramp: ['#140c20', '#3a2458', '#6a4a9a', '#c0a0ff'], mods: { shadow: 4, attack: 2 },
+    icon: 'ic_ingot', ramp: ['#140c20', '#3a2458', '#6a4a9a', '#c0a0ff'], mods: { shadow: 10, attack: 6, luck: 5 },
     description: 'Fell from the sky and kept falling, into the deep places.',
   },
 
@@ -63,12 +63,12 @@ export const MATERIALS: MaterialDef[] = [
   },
   {
     id: 'wyrm_leather', name: 'Wyrm Leather', category: 'hide', tier: 4, rarity: Rarity.Epic, value: 170,
-    icon: 'ic_hide', ramp: ['#0c2414', '#1c4a2a', '#2e7a44', '#6ac080'], mods: { health: 10, defense: 1 },
+    icon: 'ic_hide', ramp: ['#0c2414', '#1c4a2a', '#2e7a44', '#6ac080'], mods: { health: 18, defense: 3 },
     description: 'From the pale cave-wyrms. Heals its own scratches.',
   },
   {
     id: 'dragon_scale', name: 'Dragon Scale', category: 'hide', tier: 5, rarity: Rarity.Legendary, value: 520,
-    icon: 'ic_scale', ramp: ['#3a0808', '#7a1410', '#c0301c', '#ff8a4a'], mods: { fire: 5, health: 15 },
+    icon: 'ic_scale', ramp: ['#3a0808', '#7a1410', '#c0301c', '#ff8a4a'], mods: { fire: 10, health: 30, defense: 4 },
     description: 'Still warm. It will never cool.',
   },
 
@@ -85,7 +85,7 @@ export const MATERIALS: MaterialDef[] = [
   },
   {
     id: 'shadow_silk', name: 'Shadow Silk', category: 'cloth', tier: 4, rarity: Rarity.Epic, value: 155,
-    icon: 'ic_cloth', ramp: ['#0a0612', '#241838', '#44305e', '#7a5aa0'], mods: { shadow: 3, luck: 2 },
+    icon: 'ic_cloth', ramp: ['#0a0612', '#241838', '#44305e', '#7a5aa0'], mods: { shadow: 7, luck: 4, speed: 4 },
     description: 'Woven from the dark between torches.',
   },
 
@@ -121,6 +121,11 @@ export const MATERIALS: MaterialDef[] = [
     id: 'frost_shard', name: 'Frost Shard', category: 'gem', tier: 3, rarity: Rarity.Rare, value: 96,
     icon: 'ic_shard', ramp: ['#1a3a6a', '#3a70c0', '#80b8f0', '#e8f8ff'], mods: { frost: 3 },
     catalystAffix: 'rimed', description: 'Catalyst: grants Rimed (+Frost damage).',
+  },
+  {
+    id: 'sunstone', name: 'Sunstone', category: 'gem', tier: 3, rarity: Rarity.Rare, value: 104,
+    icon: 'ic_gem', ramp: ['#4a2c08', '#9a6418', '#e8b840', '#fff2a0'], mods: { holy: 3 },
+    catalystAffix: 'blessed', description: 'Catalyst: grants Blessed (+Holy damage).',
   },
   {
     id: 'flame_shard', name: 'Flame Shard', category: 'gem', tier: 4, rarity: Rarity.Epic, value: 205,
@@ -183,4 +188,9 @@ export function secondaryMaterialMods(def: MaterialDef): Partial<Stats> {
     case 'bone': return { attack: def.tier + 1 };
     default: return {};
   }
+}
+
+/** Extra strength on the guaranteed affix from scarce catalyst tiers. */
+export function catalystAffixBonus(def: MaterialDef): number {
+  return def.category === 'gem' ? [0, 0, 0, 2, 5][def.tier] ?? 0 : 0;
 }

@@ -12,7 +12,7 @@ import {
 import { MATERIALS, material } from '../data/materials';
 import { generateContract, isComplete, contractTitle, refreshContracts } from '../systems/contracts';
 import { addItem, countOf, createContainer } from '../state/inventory';
-import { makeBlueprint, makeEquipment, makeMaterial } from '../systems/items';
+import { itemStats, makeBlueprint, makeEquipment, makeMaterial } from '../systems/items';
 import { buildCrafted, craft, materialsForSlot, selectionError, studyBlueprint } from '../systems/crafting';
 import { recipe } from '../data/recipes';
 import { Rarity, RARITY_ORDER } from '../types';
@@ -51,8 +51,22 @@ describe('market', () => {
     expect(m.commodities.silver.price).toBeGreaterThan(0);
     expect(quote).toBeLessThan(unit * 10);
     const before = m.commodities.silver.price;
+    const stock = m.commodities.silver.stock;
     expect(sellCommodity(m, 'silver', 10, 0)).toBe(quote);
     expect(m.commodities.silver.price).toBeLessThan(before);
+    expect(m.commodities.silver.stock).toBe(stock + 10);
+  });
+
+  it('keeps player-sold stock even when that material has not naturally unlocked', () => {
+    const rng = createRng(33);
+    const m = createMarket(rng);
+    expect(m.commodities.gold.stock).toBe(0);
+    sellCommodity(m, 'gold', 3, 0);
+    expect(m.commodities.gold.stock).toBe(3);
+    advanceDay(m, rng, 1);
+    expect(m.commodities.gold.stock).toBe(3);
+    expect(buyCommodity(m, 'gold', 1, 0, 10_000)?.qty).toBe(1);
+    expect(m.commodities.gold.stock).toBe(2);
   });
 
   it('buying consumes stock and costs gold', () => {
@@ -70,7 +84,7 @@ describe('market', () => {
     const m = createMarket(rng);
     expect(m.commodities.gold.stock).toBe(0);
     expect(m.commodities.moonsilver.stock).toBe(0);
-    advanceDay(m, rng, 2);
+    advanceDay(m, rng, 3);
     expect(m.commodities.gold.stock).toBeGreaterThan(0);
     expect(m.commodities.moonsilver.stock).toBe(0);
     advanceDay(m, rng, 5);
@@ -131,6 +145,18 @@ describe('crafting', () => {
     const jade = buildCrafted({ recipeId: 'r_short_sword', materials: ['iron', 'yew', 'jade'] }, 0);
     expect(jade.affixes!.map((a) => a.id)).toContain('vital');
     expect(RARITY_ORDER[jade.rarity!]).toBe(RARITY_ORDER[plain.rarity!] + 1);
+  });
+
+  it('supports a guaranteed holy catalyst', () => {
+    const item = buildCrafted({ recipeId: 'r_short_sword', materials: ['iron', 'yew', 'sunstone'] }, 0);
+    expect(item.affixes!.map((a) => a.id)).toContain('blessed');
+    expect(itemStats(item).holy).toBeGreaterThan(0);
+  });
+
+  it('makes epic catalysts materially stronger than lower tiers', () => {
+    const frost = buildCrafted({ recipeId: 'r_short_sword', materials: ['iron', 'yew', 'frost_shard'] }, 0);
+    const flame = buildCrafted({ recipeId: 'r_short_sword', materials: ['iron', 'yew', 'flame_shard'] }, 0);
+    expect(flame.affixes![0].value).toBeGreaterThan(frost.affixes![0].value);
   });
 
   it('fills crafted items with the affixes promised by their rarity', () => {

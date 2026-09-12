@@ -1,6 +1,6 @@
-import { EquipSlot, EQUIP_SLOTS, Item, RARITY_COLORS, STAT_KEYS, STAT_LABELS, Stats, slotOf } from '../types';
+import { ELEMENTS, EquipSlot, EQUIP_SLOTS, Item, RARITY_COLORS, STAT_KEYS, STAT_LABELS, Stats, slotOf } from '../types';
 import { consumable, itemBase } from '../data/items';
-import { material, secondaryMaterialMods } from '../data/materials';
+import { material } from '../data/materials';
 import { affix } from '../data/affixes';
 import { masteryBonus, recipe } from '../data/recipes';
 import { durability, isIdentified, itemCraftRank, itemIcon, itemName, itemRarity, itemStats, itemValue } from '../systems/items';
@@ -208,7 +208,7 @@ export function statLines(s: Stats, compare?: Stats): string[] {
       const d = v - c;
       if (d) diff = ` <span class="${d > 0 ? 'up' : 'down'}">(${d > 0 ? '+' : ''}${d})</span>`;
     }
-    out.push(`<div class="stat">${v >= 0 ? '+' : ''}${v} ${STAT_LABELS[k]}${diff}</div>`);
+    out.push(`<div class="stat${ELEMENTS.includes(k as (typeof ELEMENTS)[number]) ? ` element-${k}` : ''}">${v >= 0 ? '+' : ''}${v} ${STAT_LABELS[k]}${diff}</div>`);
   }
   return out;
 }
@@ -217,6 +217,7 @@ export interface TipOpts {
   compare?: Item | null;
   price?: { label: string; value: number };
   hint?: string;
+  forgeEffect?: string;
 }
 
 export function itemTooltip(item: Item, opts: TipOpts = {}): string {
@@ -243,7 +244,10 @@ export function itemTooltip(item: Item, opts: TipOpts = {}): string {
       lines.push(...statLines(itemStats(item), opts.compare ? itemStats(opts.compare) : undefined));
       if (d.broken) lines.push(`<div class="tt-warn">Worn out — a quarter of its worth until the smith sees it.</div>`);
       if (!isIdentified(item)) lines.push(`<div class="tt-warn">Unidentified — ${item.affixes?.length ?? 0} hidden propert${item.affixes?.length === 1 ? 'y' : 'ies'}</div>`);
-      else for (const a of item.affixes ?? []) lines.push(`<div class="tt-affix">${affix(a.id).name}</div>`);
+      else for (const a of item.affixes ?? []) {
+        const def = affix(a.id);
+        lines.push(`<div class="tt-affix ${elementClass(STAT_LABELS[def.stat])}">${esc(def.name)}: +${a.value} ${STAT_LABELS[def.stat]}</div>`);
+      }
       if (opts.compare) lines.push(`<div class="tt-dim">Compared with: ${esc(itemName(opts.compare))}</div>`);
       break;
     }
@@ -251,10 +255,15 @@ export function itemTooltip(item: Item, opts: TipOpts = {}): string {
       const m = material(item.ref);
       lines.push(`<div class="tt-sub">${m.rarity} ${m.category} · tier ${m.tier}</div>`);
       lines.push(`<div class="tt-desc">${esc(m.description)}</div>`);
-      const mods = statLines({ ...emptyish(), ...m.mods } as Stats);
-      if (mods.length && m.category !== 'valuable') lines.push(`<div class="tt-dim">As primary material:</div>`, ...mods);
-      const secondary = statLines({ ...emptyish(), ...secondaryMaterialMods(m) } as Stats);
-      if (secondary.length) lines.push(`<div class="tt-dim">As secondary material:</div>`, ...secondary);
+      if (opts.forgeEffect) {
+        const [name, tier, ...effects] = opts.forgeEffect.split(' · ');
+        const effectLines = effects.flatMap((effect) => effect.split(', '));
+        lines.push(
+          `<div class="tt-forge"><span>${esc([name, tier].filter(Boolean).join(' · '))}</span>` +
+            effectLines.map((effect) => `<span class="tt-forge-effect ${elementClass(effect)}">${esc(effect)}</span>`).join('') +
+          `</div>`,
+        );
+      }
       break;
     }
     case 'consumable': {
@@ -275,10 +284,10 @@ export function itemTooltip(item: Item, opts: TipOpts = {}): string {
   return lines.join('');
 }
 
-function emptyish(): Partial<Stats> {
-  const s: Partial<Stats> = {};
-  for (const k of STAT_KEYS) s[k] = 0;
-  return s;
+function elementClass(text: string): string {
+  const lower = text.toLowerCase();
+  const element = ELEMENTS.find((candidate) => lower.includes(candidate));
+  return element ? `element-${element}` : '';
 }
 
 /** Equipment slot an item would go into (ring → first free ring slot). */

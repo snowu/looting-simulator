@@ -4,6 +4,7 @@ import { createContainer } from './inventory';
 import { BASE_BACKPACK } from '../systems/meta';
 import { newId } from '../core/id';
 import { STARTER_RECIPES } from '../data/recipes';
+import { MATERIALS } from '../data/materials';
 
 /**
  * Additive save migrations.
@@ -20,7 +21,7 @@ import { STARTER_RECIPES } from '../data/recipes';
  */
 
 /** Bump this (and push a migration) whenever a field is added to the save. */
-export const SAVE_REVISION = 9;
+export const SAVE_REVISION = 10;
 
 type AnyState = GameState & Record<string, unknown>;
 
@@ -91,6 +92,21 @@ const MIGRATIONS: ((s: AnyState) => void)[] = [
     for (const id of [...STARTER_RECIPES, ...known]) ranks[id] = 1;
     s.recipeRanks = ranks;
     delete s.knownRecipes;
+  },
+  // 9 → 10: market state is persisted, so a newly added material needs a
+  // commodity row before town can render it. It starts unavailable and enters
+  // ordinary restocking once the player reaches its progression depth.
+  (s) => {
+    if (!s.market) return;
+    s.market.commodities ??= {};
+    for (const material of MATERIALS) {
+      s.market.commodities[material.id] ??= {
+        price: material.value,
+        supply: 0,
+        stock: 0,
+        history: [material.value],
+      };
+    }
   },
 ];
 

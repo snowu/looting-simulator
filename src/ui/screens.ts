@@ -7,7 +7,7 @@ export function titleScreen(slots: HTMLElement, build = '', account?: HTMLElemen
     { class: 'title-screen' },
     h(
       'div',
-      { class: 'frame', style: 'padding:18px 36px 24px' },
+      { class: 'frame title-panel' },
       h('h1', { text: 'Looting Simulator' }),
       h('div', { class: 'tag', text: 'Go down. Bring it back. Sell it high.' }),
       slots,

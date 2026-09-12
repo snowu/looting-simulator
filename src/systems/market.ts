@@ -157,7 +157,7 @@ export function advanceDay(m: MarketState, rng: Rng, bestDepth = 1, ranks: Recip
     c.history.push(c.price);
     if (c.history.length > HISTORY_DAYS) c.history.shift();
     const target = materialAvailableAtDepth(mat, bestDepth) ? STOCK_TARGET[mat.rarity] : 0;
-    c.stock = Math.min(target, c.stock + Math.ceil(target * rng.float(0.3, 0.7)));
+    if (c.stock < target) c.stock = Math.min(target, c.stock + Math.ceil(target * rng.float(0.3, 0.7)));
   }
 
   for (const cat of ['weapon', 'armor', 'jewelry'] as ItemCategory[]) {
@@ -223,6 +223,7 @@ export function sellCommodity(m: MarketState, id: string, qty: number, haggle: n
     gold += commoditySellPrice(m, id, haggle);
     c.price = Math.max(1, c.price * (1 - impact(id)));
     c.supply += 1;
+    c.stock += 1;
   }
   c.price = Math.max(1, Math.round(c.price));
   return gold;

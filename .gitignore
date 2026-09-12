@@ -4,3 +4,4 @@ docs/superpowers/
 node_modules/
 dist/
 .env
+scripts/

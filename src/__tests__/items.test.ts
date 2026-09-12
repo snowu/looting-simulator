@@ -91,7 +91,7 @@ describe('items', () => {
   it('makes rare materials scarcer than same-tier common materials', () => {
     const counts: Record<string, number> = {};
     for (let seed = 0; seed < 1000; seed++) {
-      const id = materialForDepth(createRng(seed), 2, ['metal']).id;
+      const id = materialForDepth(createRng(seed), 3, ['metal']).id;
       counts[id] = (counts[id] ?? 0) + 1;
     }
     expect(counts.gold).toBeLessThan(counts.iron / 4);
@@ -127,7 +127,7 @@ describe('items', () => {
     const spec = { baseId: 'long_sword', materialId: 'gold', rarity: Rarity.Rare, ilvl: 6, quality: 1, affixes: [{ id: 'vital', value: 10 }], crafted: true } as const;
     const rank1 = makeEquipment({ ...spec, craftRank: 1 });
     const rank5 = makeEquipment({ ...spec, craftRank: 5 });
-    expect(itemStats(rank5).attack).toBe(Math.round(15.5 * 1.4));
+    expect(itemStats(rank5).attack).toBe(Math.round(21 * 1.4));
     expect(itemStats(rank5).luck).toBe(itemStats(rank1).luck);
     expect(itemStats(rank5).find).toBe(itemStats(rank1).find);
     expect(itemStats(rank5).health).toBe(itemStats(rank1).health);
@@ -147,8 +147,9 @@ describe('items', () => {
     expect(make('rat_hide').health).toBe(3);
     expect(make('timber').speed).toBe(2);
     expect(make('leather').health).toBe(5);
-    expect(make('dragon_scale').health).toBe(26);
-    expect(make('dragon_scale').fire).toBe(5);
+    expect(make('dragon_scale').health).toBe(41);
+    expect(make('dragon_scale').fire).toBe(10);
+    expect(make('dragon_scale').defense).toBe(4);
   });
 
   it('the boss always drops a legendary', () => {

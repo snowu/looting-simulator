@@ -118,7 +118,8 @@ h3 { font-size: 26px; color: var(--ink); margin-bottom: 6px; }
   position: fixed;
   display: none;
   z-index: 100;
-  max-width: 320px;
+  width: max-content;
+  max-width: min(380px, calc(100vw - 12px));
   pointer-events: none;
   font-size: 18px;
   padding: 2px 4px;
@@ -127,6 +128,13 @@ h3 { font-size: 26px; color: var(--ink); margin-bottom: 6px; }
 .tt-sub { color: var(--dim); margin-bottom: 4px; }
 .tt-dim { color: var(--dim); font-size: 16px; }
 .tt-desc { color: #c8bca4; font-style: italic; margin: 3px 0; }
+.tt-forge { color: #d9cdaf; margin: 5px 0; line-height: 1.2; white-space: normal; overflow-wrap: normal; }
+.tt-forge > span { display: block; }
+.tt-forge-effect { color: #e0e8f8; margin-top: 2px; }
+.element-fire { color: #ff8a3d; }
+.element-frost { color: #78caff; }
+.element-shadow { color: #c080ff; }
+.element-holy { color: #ffe28a; }
 .tt-affix { color: var(--blue); }
 .tt-warn { color: var(--violet); margin-top: 3px; }
 .repair-row { border-bottom: 1px solid #1a161e; padding: 3px 0; }
@@ -255,14 +263,25 @@ table.market .num { text-align: right; font-variant-numeric: tabular-nums; }
 
 .wares { display: flex; flex-wrap: wrap; gap: 6px; }
 .ware { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 70px; font-size: 16px; }
+.blueprint-wares { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.blueprint-ware { width: auto; flex-direction: row; text-align: left; padding: 5px; background: #17131b; border: 1px solid #2a2430; }
+.blueprint-details { display: flex; flex-direction: column; min-width: 0; }
+.blueprint-ware button { flex: none; }
 
 .recipes { display: flex; flex-direction: column; gap: 3px; max-height: 60vh; overflow: auto; }
 .recipe { display: flex; gap: 8px; align-items: center; padding: 3px 6px; cursor: pointer; background: #17131b; border: 1px solid #0006; }
 .recipe:hover { background: #221c28; }
 .recipe.on { background: #2e2616; border-color: var(--gold); }
 .recipe.locked { opacity: 0.45; }
-.forge-slot { display: flex; gap: 8px; align-items: center; margin: 4px 0; flex-wrap: wrap; }
-.forge-slot .lbl { width: 90px; color: var(--dim); }
+.forge-slot { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 5px 10px; align-items: start; margin: 10px 0; }
+.forge-slot .lbl { color: var(--text); display: flex; flex-direction: column; align-items: flex-start; line-height: 1.05; }
+.forge-slot .lbl small { color: var(--dim); font-size: 13px; }
+.forge-choice { min-width: 0; }
+.forge-role { margin: 2px 0; padding: 1px 5px; border: 1px solid #54485e; color: #bdb0c8; font-family: var(--font-body); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+.forge-role.primary { border-color: #967334; color: #e6c875; }
+.forge-role.secondary { border-color: #526779; color: #9fc2da; }
+.forge-role.catalyst { border-color: #744e86; color: #d39be8; }
+.role-note { color: var(--dim); font-size: 13px; margin-top: 3px; }
 .mat-pick { display: flex; flex-wrap: wrap; gap: 4px; }
 .mat-pick .slot { --sz: 38px; }
 .mat-pick .slot.cant { opacity: 0.25; }
@@ -285,7 +304,8 @@ table.market .num { text-align: right; font-variant-numeric: tabular-nums; }
 .summary .items { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; margin: 8px 0; }
 .summary .big-num { font-family: var(--font-title); font-size: 40px; }
 
-.title-screen { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; }
+.title-screen { position: absolute; inset: 0; display: flex; overflow: auto; padding: 18px; text-align: center; }
+.title-panel { width: min(900px, 100%); margin: auto; padding: 18px 36px 24px; }
 .title-screen .tag { color: var(--dim); font-size: 24px; margin: 6px 0 24px; }
 .help { font-size: 19px; text-align: left; columns: 2; column-gap: 30px; }
 .help div { break-inside: avoid; }
@@ -503,7 +523,7 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
   .loot-list { max-height: 55vh; }
   .help { font-size: 14px; }
   .help kbd { min-width: 92px; padding-right: 6px; }
-  .tooltip { font-size: 14px; max-width: 240px; border-width: 8px; }
+  .tooltip { font-size: 14px; max-width: min(300px, calc(100vw - 12px)); border-width: 8px; }
   .tt-name { font-size: 17px; }
   .tt-dim { font-size: 13px; }
 
@@ -522,9 +542,14 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
   .cat-row td { font-size: 17px; padding-top: 4px; }
   .ware { width: 50px; font-size: 13px; }
   .ware .slot { --sz: 38px !important; }
+  .blueprint-wares { grid-template-columns: 1fr; }
+  .blueprint-ware { width: auto; }
   .recipe { padding: 1px 4px; font-size: 14px; }
   .mat-pick .slot { --sz: 32px !important; }
-  .forge-slot .lbl { width: 70px; font-size: 13px; }
+  .forge-slot { grid-template-columns: 78px minmax(0, 1fr); gap: 4px 7px; }
+  .forge-slot .lbl { font-size: 13px; }
+  .forge-role { font-size: 9px; padding: 1px 3px; }
+  .role-note { font-size: 11px; }
   .preview .slot { --sz: 44px !important; }
   .contracts, .upgrades { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px; }
   .contract .what { font-size: 17px; }
@@ -585,4 +610,13 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
 .slot-card .slot-name { color: var(--gold); font-family: var(--font-title); font-size: 22px; }
 .slot-card .grow { flex: 1; }
 .slot-card .btn { width: 100%; }
-@media (max-width: 560px) { .slots { flex-direction: column; } .slot-card { min-height: 0; } }
+@media (max-width: 560px) {
+  .title-screen { padding: max(42px, env(safe-area-inset-top)) 8px max(10px, env(safe-area-inset-bottom)); }
+  .title-panel { width: min(100%, 420px); padding: 12px 14px 16px; }
+  .title-screen .tag { margin-bottom: 8px; }
+  .title-screen .help { display: none; }
+  .title-screen .account { margin-top: 10px; }
+  .slots { flex-direction: column; gap: 7px; margin: 10px 0 4px; }
+  .slot-card { flex: none; min-height: 106px; padding: 7px 9px; }
+  .slot-card .slot-name { font-size: 19px; }
+}

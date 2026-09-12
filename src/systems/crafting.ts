@@ -1,6 +1,6 @@
 import { createRng, Rng } from '../core/rng';
 import { Item, MaterialDef, RecipeDef, RecipeRanks, RecipeSlot, rarityFromOrder } from '../types';
-import { MATERIALS, material } from '../data/materials';
+import { MATERIALS, catalystAffixBonus, material } from '../data/materials';
 import { itemBase } from '../data/items';
 import { MAX_RECIPE_RANK, blueprintCostForNextRank, recipe, recipeRank } from '../data/recipes';
 import { Container, countOf, removeOf } from '../state/inventory';
@@ -65,7 +65,8 @@ export function buildCrafted(sel: CraftSelection, smithLevel: number, rng?: Rng,
 
   const affixes = [];
   if (catalyst?.catalystAffix) {
-    affixes.push({ id: catalyst.catalystAffix, value: rng ? rollAffixValue(rng, catalyst.catalystAffix, ilvl) : medianAffix(catalyst.catalystAffix, ilvl) });
+    const value = rng ? rollAffixValue(rng, catalyst.catalystAffix, ilvl) : medianAffix(catalyst.catalystAffix, ilvl);
+    affixes.push({ id: catalyst.catalystAffix, value: value + catalystAffixBonus(catalyst) });
   }
   const affixCount = Math.min(4, rarityOrder + (smithLevel >= 3 ? 1 : 0));
   const affixRng = rng ?? createRng(0x534d4954);

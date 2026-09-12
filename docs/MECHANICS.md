@@ -349,32 +349,33 @@ Vault rooms contain one premium chest. Special chests roll at the current depth 
 
 ## 8. Materials and commodities
 
-*File: `src/data/materials.ts`* — 29 tradeable goods. Tier drives crafted stats; value is the market's fair price.
+*File: `src/data/materials.ts`* — 30 tradeable goods. Tier drives crafted stats; value is the market's fair price.
 
 | Material | Category | Tier | Rarity | Value | Bonus as primary / catalyst |
 |---|---|---|---|---|---|
 | Copper Ore | metal | 1 | Common | 8 | — |
 | Iron Ore | metal | 2 | Common | 15 | — |
 | Silver Ingot | metal | 3 | Uncommon | 42 | +3 Holy |
-| Gold Nugget | metal | 2 | Rare | 75 | +3 Crit, +6 Find |
-| Moonsilver | metal | 4 | Epic | 190 | +3 Frost, +2 Crit |
-| Star Iron | metal | 5 | Legendary | 460 | +4 Shadow, +2 Attack |
+| Gold Nugget | metal | 3 | Rare | 75 | +3 Crit, +6 Find |
+| Moonsilver | metal | 4 | Epic | 190 | +6 Frost, +4 Crit |
+| Star Iron | metal | 5 | Legendary | 460 | +10 Shadow, +6 Attack, +5 Crit |
 | Timber Plank | wood | 1 | Common | 5 | — |
 | Yew Stave | wood | 2 | Uncommon | 22 | +3 Speed |
 | Ironwood | wood | 3 | Rare | 64 | +2 Attack, +1 Defense |
 | Rat Hide | hide | 1 | Common | 4 | — |
 | Leather | hide | 2 | Common | 13 | — |
-| Wyrm Leather | hide | 4 | Epic | 170 | +10 Health, +1 Defense |
-| Dragon Scale | hide | 5 | Legendary | 520 | +5 Fire, +15 Health |
+| Wyrm Leather | hide | 4 | Epic | 170 | +18 Health, +3 Defense |
+| Dragon Scale | hide | 5 | Legendary | 520 | +10 Fire, +30 Health, +4 Defense |
 | Linen | cloth | 1 | Common | 6 | — |
 | Spider Silk | cloth | 3 | Uncommon | 36 | +4 Speed |
-| Shadow Silk | cloth | 4 | Epic | 155 | +3 Shadow, +2 Crit |
+| Shadow Silk | cloth | 4 | Epic | 155 | +7 Shadow, +4 Crit, +4 Speed |
 | Bone | bone | 1 | Common | 3 | — |
 | Jade | gem | 2 | Uncommon | 46 | catalyst → Vital (+Health) |
 | Crystal Shard | gem | 2 | Uncommon | 40 | catalyst → Tireless (+Stamina) |
 | Moonstone | gem | 3 | Rare | 92 | catalyst → Lucky (+Crit) |
 | Emerald | gem | 3 | Rare | 110 | catalyst → of Plunder (+Loot Find) |
 | Frost Shard | gem | 3 | Rare | 96 | catalyst → Rimed (+Frost) |
+| Sunstone | gem | 3 | Rare | 104 | catalyst → Blessed (+Holy) |
 | Flame Shard | gem | 4 | Epic | 205 | catalyst → Blazing (+Fire) |
 | Shadow Essence | gem | 4 | Epic | 230 | catalyst → of the Leech (+Leech) |
 | Bone Idol | valuable | 1 | Common | 26 | sell only |
@@ -462,6 +463,7 @@ Every recipe has **material slots** — the first is the primary (it sets tier, 
 - **Rarity** from the primary tier: tiers 1–2 → Common, 3 → Uncommon, 4 → Rare, 5 → Epic. A catalyst lifts it one step.
 - **Item level** = `primary tier × 2 + catalyst tier`.
 - **Affixes** are filled to match the item's rarity; a catalyst reserves one of those slots for its chosen affix (see the materials table).
+- **Catalyst strength:** Tier 3 catalysts add +2 and Tier 4 catalysts add +5 to their guaranteed affix roll, making scarce gems meaningfully stronger than Jade and Crystal.
 - **Quality** = `0.92–1.12 + 6% per Master Smith level`. Master Smith 3 adds an extra random affix, raising rarity when possible.
 - **Recipe mastery:** the first blueprint unlocks a recipe at Rank 1. Advancing to Ranks 2, 3, 4, and 5 costs 2, 3, 4, and 5 duplicate blueprints respectively. Ranks 1–5 grant `0% / 8% / 16% / 26% / 40%` positive core stats and maximum durability.
 - A craft records the recipe rank used to make it. Later mastery does not retroactively improve existing equipment, and old crafted gear without a recorded rank counts as Rank 1.

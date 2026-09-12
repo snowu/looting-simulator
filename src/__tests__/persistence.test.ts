@@ -68,6 +68,17 @@ describe('loading an old save', () => {
     for (const f of s.run!.floors) {
       for (const p of f!.props) if (p.kind === 'shrine') expect(['font', 'idol', 'coffer']).toContain(p.shrine);
     }
+    expect(s.market.commodities.sunstone).toEqual({ price: 104, supply: 0, stock: 0, history: [104] });
+  });
+
+  it('adds new commodities to a recent save without resetting its market', () => {
+    const recent = newGame(createRng(9));
+    recent.revision = 9;
+    const iron = { ...recent.market.commodities.iron, history: [...recent.market.commodities.iron.history] };
+    delete recent.market.commodities.sunstone;
+    const loaded = parseSave(JSON.stringify(recent))!;
+    expect(loaded.market.commodities.sunstone).toEqual({ price: 104, supply: 0, stock: 0, history: [104] });
+    expect(loaded.market.commodities.iron).toEqual(iron);
   });
 
   it('treats a summary written before the rule as a day that turned', () => {

@@ -1,7 +1,8 @@
 import { GameState } from '../state/game-state';
-import { EQUIP_SLOTS, Item, MaterialCategory, RARITY_COLORS } from '../types';
-import { MATERIALS, material } from '../data/materials';
+import { EQUIP_SLOTS, Item, MaterialCategory, RARITY_COLORS, STAT_KEYS, STAT_LABELS, Stats } from '../types';
+import { MATERIALS, catalystAffixBonus, material, secondaryMaterialMods } from '../data/materials';
 import { CONSUMABLES, itemBase } from '../data/items';
+import { affix } from '../data/affixes';
 import { MAX_RECIPE_RANK, RECIPES, blueprintCostForNextRank, masteryBonus, recipe, recipeRank } from '../data/recipes';
 import { META_UPGRADES, backpackCapacity, haggleLevel, metaLevel, nextCost } from '../systems/meta';
 import {
@@ -54,6 +55,44 @@ const CATS: { id: MaterialCategory; name: string }[] = [
   { id: 'wood', name: 'Wood' },
   { id: 'bone', name: 'Bone' },
 ];
+
+type ForgeMaterialRole = 'primary' | 'secondary' | 'catalyst';
+
+function forgeMaterialNote(id: string | null, role: ForgeMaterialRole, baseId: string, smith: number, rank: number, primaryId?: string | null): string {
+  if (!id) return role === 'catalyst' ? 'None · no guaranteed affix · rarity unchanged' : `No ${role} material selected`;
+  const def = material(id);
+  if (role === 'catalyst') {
+    const affixDef = def.catalystAffix ? affix(def.catalystAffix) : null;
+    const primaryTier = primaryId ? material(primaryId).tier : 1;
+    const ilvl = primaryTier * 2 + def.tier;
+    const value = affixDef ? Math.max(1, Math.round((affixDef.min + affixDef.max + 1) / 2 + affixDef.perLevel * ilvl)) + catalystAffixBonus(def) : 0;
+    const effect = affixDef ? `${affixDef.name}: +${value}\u00a0${STAT_LABELS[affixDef.stat]} · +1 rarity` : '+1 rarity';
+    return `${def.name} · Tier ${def.tier} · ${effect}`;
+  }
+  if (role === 'primary') {
+    const base = itemBase(baseId);
+    const quality = 1.02 + smith * 0.06;
+    const core: Partial<Stats> = {};
+    for (const key of STAT_KEYS) {
+      let value = ((base.base[key] ?? 0) + (base.perTier[key] ?? 0) * (def.tier - 1)) * quality;
+      if (value > 0) value *= 1 + masteryBonus(rank);
+      value += def.mods[key] ?? 0;
+      if (value) core[key] = Math.round(value);
+    }
+    return `${def.name} · Tier ${def.tier} · ${formatForgeStats(core) || 'no stat contribution'}`;
+  }
+  const combined: Partial<Stats> = {};
+  const structural = secondaryMaterialMods(def);
+  for (const key of STAT_KEYS) combined[key] = (structural[key] ?? 0) + (def.mods[key] ?? 0);
+  return `${def.name} · Tier ${def.tier} · ${formatForgeStats(combined) || 'no stat contribution'}`;
+}
+
+function formatForgeStats(stats: Partial<Stats>): string {
+  return STAT_KEYS.flatMap((key) => {
+    const value = stats[key] ?? 0;
+    return value ? [`${value > 0 ? '+' : ''}${value}\u00a0${STAT_LABELS[key].replaceAll(' ', '\u00a0')}`] : [];
+  }).join(', ');
+}
 
 export class Town {
   readonly root = h('div', { class: 'town' });
@@ -413,7 +452,7 @@ export class Town {
           h('h3', { text: 'Blueprints' }),
           h(
             'div',
-            { class: 'wares' },
+            { class: 'wares blueprint-wares' },
             ...bps.map(({ sample: bp, owned }) => {
               const rank = recipeRank(s.recipeRanks, bp.ref);
               const capped = rank >= MAX_RECIPE_RANK;
@@ -421,9 +460,14 @@ export class Town {
               const enough = owned >= cost;
               return h(
                 'div',
-                { class: 'ware' },
+                { class: 'ware blueprint-ware' },
                 itemSlot({ ...bp, qty: owned }, { size: 44 }),
-                h('span', { class: 'grow dim small', text: capped ? `${owned} owned · mastery capped` : `${owned} owned · ${cost} required` }),
+                h(
+                  'div',
+                  { class: 'blueprint-details grow' },
+                  h('b', { text: itemBase(recipe(bp.ref).baseId).name }),
+                  h('span', { class: 'dim small', text: capped ? `${owned} owned · mastery capped` : `Rank ${rank || 'locked'} · ${owned}/${cost} blueprints` }),
+                ),
                 btn(capped ? 'Rank 5' : rank === 0 ? 'Learn Rank 1' : `Master Rank ${rank + 1}`, () => {
                   const next = studyBlueprint(bp, s.stash, s.recipeRanks);
                   if (!next) return;
@@ -443,7 +487,11 @@ export class Town {
     // Selected recipe.
     const r = recipe(this.forgeRecipe);
     const rank = recipeRank(s.recipeRanks, r.id);
+    const sel = { recipeId: r.id, materials: this.forgeMats };
+    const selectedPreview = this.forgeMats[0] ? buildCrafted(sel, smith, undefined, rank) : null;
     const slotRows = r.slots.map((slot, i) => {
+      const role: ForgeMaterialRole = i === 0 ? 'primary' : slot.categories.length === 1 && slot.categories[0] === 'gem' ? 'catalyst' : 'secondary';
+      const roleName = role[0].toUpperCase() + role.slice(1);
       const picker = h('div', { class: 'mat-pick' });
       if (slot.optional) {
         picker.append(itemSlot(null, { size: 38, placeholder: 'none', onclick: () => { this.forgeMats[i] = null; this.commit(); }, selected: this.forgeMats[i] === null }));
@@ -454,7 +502,13 @@ export class Town {
           size: 38,
           instant: true,
           selected: this.forgeMats[i] === def.id,
-          tip: () => itemTooltip({ uid: '', kind: 'material', ref: def.id, qty: Math.max(1, owned) }, { hint: owned >= slot.qty ? 'Click to use' : `Need ${slot.qty}` }),
+          tip: () => itemTooltip(
+            { uid: '', kind: 'material', ref: def.id, qty: Math.max(1, owned) },
+            {
+              forgeEffect: forgeMaterialNote(def.id, role, r.baseId, smith, rank, this.forgeMats[0]),
+              hint: owned >= slot.qty ? `Use ${slot.qty} ${def.name}` : `Need ${slot.qty}; you own ${owned}`,
+            },
+          ),
           onclick: () => {
             this.forgeMats[i] = def.id;
             this.commit();
@@ -463,14 +517,18 @@ export class Town {
         if (owned < slot.qty) el.classList.add('cant');
         picker.append(el);
       }
-      return h('div', { class: 'forge-slot' }, h('span', { class: 'lbl', text: `${slot.label} ×${slot.qty}${slot.optional ? '?' : ''}` }), picker);
+      return h(
+        'div',
+        { class: 'forge-slot' },
+        h('div', { class: 'lbl' }, h('span', { text: slot.label }), h('b', { class: `forge-role ${role}`, text: roleName }), h('small', { text: `×${slot.qty}${slot.optional ? ' optional' : ''}` })),
+        h('div', { class: 'forge-choice' }, picker, h('div', { class: 'role-note', text: forgeMaterialNote(this.forgeMats[i], role, r.baseId, smith, rank, this.forgeMats[0]) })),
+      );
     });
 
-    const sel = { recipeId: r.id, materials: this.forgeMats };
     const err = selectionError(sel, s.stash);
     let preview: HTMLElement | null = null;
-    if (this.forgeMats[0]) {
-      const item = buildCrafted(sel, smith, undefined, rank);
+    if (selectedPreview) {
+      const item = selectedPreview;
       const cmpSlot = defaultSlot(item, s.equipment);
       const cmp = cmpSlot ? s.equipment[cmpSlot] : null;
       preview = h(
@@ -507,7 +565,7 @@ export class Town {
         'div',
         { class: 'pane frame' },
         h('h3', { text: `Forge: ${itemBase(r.baseId).name} · Rank ${rank}` }),
-        h('p', { class: 'dim small', text: `Recipe mastery adds ${Math.round(masteryBonus(rank) * 100)}% core stats and durability. Material decides tier; catalysts guide an affix; Master Smith improves quality.` }),
+        h('p', { class: 'dim small', text: `Rank ${rank} mastery: +${Math.round(masteryBonus(rank) * 100)}% core stats and durability. Hover a material to see exactly what it contributes in that slot.` }),
         ...slotRows,
         preview,
         h('div', { class: 'row' }, btn('Forge it', () => {
