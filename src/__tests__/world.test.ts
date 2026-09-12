@@ -7,7 +7,8 @@ import { World } from '../world/world';
 import { FLOOR, createEnemy, stairsFront } from '../systems/dungeon';
 import { enemyDef } from '../data/enemies';
 import { addItem } from '../state/inventory';
-import { makeMaterial } from '../systems/items';
+import { makeEquipment, makeMaterial } from '../systems/items';
+import { Rarity } from '../types';
 
 function tick(w: World, seconds: number): void {
   for (let t = 0; t < seconds; t += 1 / 60) w.update(1 / 60);
@@ -126,7 +127,7 @@ describe('World', () => {
     expect(w.contextAction()).toEqual({ kind: 'interact', label: 'Open' });
   });
 
-  it('rolls the Rock and Stone bark on attacks and completed steps', () => {
+  it('only rolls the Rock and Stone bark when swinging a mining pick', () => {
     const w = arena(11);
     let rolls = 0;
     (w as unknown as { flavorRng: { chance(p: number): boolean } }).flavorRng = {
@@ -137,14 +138,17 @@ describe('World', () => {
     };
     w.events = [];
 
+    w.attack(); // Starter sword does not qualify.
+    tick(w, 0.7);
+    w.state.equipment.weapon = makeEquipment({ baseId: 'mining_pick', materialId: 'iron', rarity: Rarity.Common, ilvl: 1 });
     w.attack();
     tick(w, 0.7);
     w.press('forward');
     w.release('forward');
     tick(w, 0.6);
 
-    expect(rolls).toBe(2);
-    expect(w.events.filter((e) => e.type === 'msg' && e.text === 'Rock and Stone!')).toHaveLength(2);
+    expect(rolls).toBe(1);
+    expect(w.events.filter((e) => e.type === 'msg' && e.text === 'Rock and Stone!')).toHaveLength(1);
   });
 
   it('walking into the down stairs moves you a floor deeper', () => {

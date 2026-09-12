@@ -491,7 +491,6 @@ export class World {
     const p = this.player;
     this.anim.steps++;
     this.sfx('step');
-    this.rockAndStone();
     this.reveal();
     const f = this.floor;
     const trap = trapAt(f, p.x, p.y);
@@ -763,7 +762,10 @@ export class World {
 
   /** A separate flavor stream must never move combat, loot or dungeon RNG. */
   private rockAndStone(): void {
-    if (this.flavorRng.chance(0.006)) this.msg('Rock and Stone!', '#d8b878');
+    const weapon = this.state.equipment.weapon;
+    if (weapon && itemBase(weapon.ref).weaponClass === 'pick' && this.flavorRng.chance(0.01)) {
+      this.msg('Rock and Stone!', '#d8b878');
+    }
   }
 
   private resolvePlayerAttack(): void {

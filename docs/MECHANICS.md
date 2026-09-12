@@ -83,7 +83,7 @@ See the README table. In short: W/S step, A/D turn, Q/E strafe, Space attack, Sh
 
 **The one-button action** (tap the view, or the big button) swings at anything in reach and otherwise does whatever **[F]** would. One exception: a loot pile **underfoot never steals the swing while something is alive within 2 tiles**, or within 4 and hunting you. Killing the first of two monsters drops loot on your tile, and without that rule every tap became the loot window instead of a hit on the second one. Doors, stairs and portals still win over the swing, because running is a legitimate answer to a fight. **[F]** is unaffected — looting on the keyboard is always deliberate.
 
-Every completed step and accepted attack has an independent **0.6%** chance to add **“Rock and Stone!”** to the log. This uses a flavor-only random stream and cannot change combat, loot or dungeon generation.
+Every accepted attack with a Mining Pick has a **1%** chance to add **“Rock and Stone!”** to the log. This uses a flavor-only random stream and cannot change combat, loot or dungeon generation.
 
 ---
 
