@@ -24,6 +24,7 @@ A first-person, grid-step dungeon crawler in the spirit of **King's Field** and 
 | Shift / right click (hold) | Block — time the raise to parry |
 | F | Interact: doors, chests, loot, shrines, marked walls, stairs |
 | 1–4 | Quick-use consumables |
+| Shift (hold) | On any item: swap its description for exact numbers. On a phone, tap the tooltip |
 | I / Tab | Pack & gear |
 | M | Map |
 | Esc | Pause & help |

@@ -87,6 +87,10 @@ describe('unique definitions', () => {
   it('every relic is a real base in a material that base accepts', () => {
     for (const u of UNIQUES) {
       expect(u.rule.length, `${u.id} rule`).toBeGreaterThan(0);
+      expect(u.detail.length, `${u.id} detail`).toBeGreaterThan(0);
+      expect(u.detail, `${u.id} registers differ`).not.toBe(u.rule);
+      // The plain words are the ones a reader meets first: keep them short.
+      expect(u.rule.length, `${u.id} rule stays terse`).toBeLessThan(130);
       expect(u.flavour.length, `${u.id} flavour`).toBeGreaterThan(0);
       if (u.kind === 'tonic') {
         const c = consumable(u.baseId);
@@ -361,7 +365,7 @@ describe('the effects', () => {
  * rule a lie fails here instead of in front of a player.
  */
 describe('every number a rule quotes is true', () => {
-  const rule = (id: string) => findUnique(id)!.rule;
+  const rule = (id: string) => findUnique(id)!.detail;
 
   it('An Entirely Ordinary Sword: +8 Attack, 0 durability', () => {
     expect(rule('ordinary_sword')).toContain('+8 Attack');
@@ -419,7 +423,7 @@ describe('every number a rule quotes is true', () => {
     const def = findUnique('eulogy_plate')!;
     expect(rule('eulogy_plate')).toContain('+14 Defense');
     expect(rule('eulogy_plate')).toContain('+20 Health');
-    expect(rule('eulogy_plate')).toContain('50%');
+    expect(rule('eulogy_plate')).toContain('x0.5');
     expect(def.stats!.defense).toBe(14);
     expect(def.stats!.health).toBe(20);
     expect(def.power).toBe(0.5);
@@ -441,7 +445,7 @@ describe('every number a rule quotes is true', () => {
     const r = rule('fight_milk');
     expect(r).toContain('34/s');
     expect(r).toContain('57.8/s');
-    expect(r).toContain('20 maximum stamina');
+    expect(r).toContain('-20 maximum stamina');
     const w = arena(6);
     const before = w.derived.maxStamina;
     const bottle = makeConsumable('fight_milk');

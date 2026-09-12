@@ -358,10 +358,19 @@ effect does nothing until you know what you are holding.
 An affix may never roll on a stat a relic deliberately spends, so a Bright Error
 cannot roll back the Block it gives up.
 
-Every rule states its real figures. A description that says "a little further"
-is worth nothing to the person deciding what to wear, so
-`src/__tests__/uniques.test.ts` locks each quoted number to the constant it came
-from — a tuning change that turns a rule into a lie fails the suite.
+**Two registers, and a key to switch between them.** Every relic says what it
+does twice: `rule` is plain words, which is what a tooltip shows by default and
+what makes it feel like an object rather than a row in a spreadsheet; `detail`
+is the same effect with every number in it. **Hold Shift** on a keyboard, or
+**tap the tooltip** on a touchscreen, and the tooltip swaps register — durability
+changes from `Condition 62%` to `Condition 74 / 120`, and item level, quality and
+base value appear. Neither register is the real one; some decisions want the
+sentence and some want the figure. The codex shows both at once, because it is a
+reference screen and should never make you hold a key.
+
+Every figure in `detail` is locked to the constant it came from by
+`src/__tests__/uniques.test.ts` — a tuning change that turns a rule into a lie
+fails the suite rather than reaching a player.
 
 | Relic | Base | Effect |
 |---|---|---|

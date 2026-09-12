@@ -1006,6 +1006,9 @@ export class Town {
               : `${material(def.materialId!).name} ${itemBase(def.baseId).name} · ${itemBase(def.baseId).slot} · found from depth ${def.minDepth}` }),
             h('div', { class: 'tt-unique', text: def.rule }),
             h('div', { class: 'tt-flavour', text: def.flavour }),
+            // The codex is the reference, not the dungeon: it never makes you
+            // hold a key to see the numbers.
+            h('div', { class: 'tt-detail', text: def.detail }),
             h('div', { style: 'margin-top:6px', html: statLines(itemStats(item)).join('') }),
             h('p', { class: 'small dim', style: 'margin-top:6px', text: def.kind === 'tonic'
               ? `Worth about ${gold(itemValue(item))}. No merchant stocks it and no forge makes it.`

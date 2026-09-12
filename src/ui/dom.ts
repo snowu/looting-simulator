@@ -78,7 +78,10 @@ document.addEventListener(
   'pointerdown',
   (e) => {
     if (!touchMode) return;
-    if (!(e.target as Element | null)?.closest?.('.slot')) {
+    const el = e.target as Element | null;
+    // The tooltip is the detail switch under a finger, so a tap on it is not a
+    // tap away from the item — dismissing here would eat the toggle.
+    if (!el?.closest?.('.slot') && !el?.closest?.('.tooltip')) {
       armed = null;
       hideTooltip();
     }
@@ -86,9 +89,10 @@ document.addEventListener(
   true,
 );
 
-function tooltipNear(el: HTMLElement, html: string): void {
+function tooltipNear(el: HTMLElement, content: () => string): void {
   const r = el.getBoundingClientRect();
-  showTooltip(html, r.right - 10, r.top - 10);
+  liveTip = content;
+  showTooltip(content(), r.right - 10, r.top - 10);
 }
 
 function addLongPress(el: HTMLElement): void {
@@ -136,7 +140,7 @@ export function itemSlot(
     if (touchMode && tipFn && !(opts.instant && opts.onclick)) {
       if (armed !== el || !opts.onclick) {
         armed = el;
-        tooltipNear(el, tipFn());
+        tooltipNear(el, tipFn);
         return;
       }
       armed = null;
@@ -153,18 +157,63 @@ export function itemSlot(
 // Tooltip
 // ---------------------------------------------------------------------------
 
+/**
+ * Detail mode.
+ *
+ * An item says what it does in plain words, because that is what makes it
+ * feel like an object in a dungeon rather than a row in a spreadsheet. Hold
+ * Shift — or tap the tooltip, on a screen with no Shift — and it says the same
+ * thing in numbers. Neither register is the "real" one; some decisions want
+ * the sentence and some want the figure.
+ *
+ * The flag lives here rather than in each screen so one keypress re-renders
+ * whatever tooltip happens to be open, without anything else having to know.
+ */
+let detailed = false;
+let liveTip: (() => string) | null = null;
+
+export function isDetailed(): boolean {
+  return detailed;
+}
+
+function setDetailed(on: boolean): void {
+  if (detailed === on) return;
+  detailed = on;
+  // Re-render in place: the reader is looking at it right now.
+  if (liveTip && tipEl && tipEl.style.display === 'block') renderTip(liveTip());
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Shift') setDetailed(true);
+});
+document.addEventListener('keyup', (e) => {
+  if (e.key === 'Shift') setDetailed(false);
+});
+// Shift held while the window loses focus would otherwise stick on forever.
+window.addEventListener('blur', () => setDetailed(false));
+
 let tipEl: HTMLElement | null = null;
 function tip(): HTMLElement {
   if (!tipEl) {
     tipEl = h('div', { class: 'tooltip frame' });
+    // Under a finger there is no Shift, so the tooltip itself is the switch.
+    tipEl.addEventListener('click', (e) => {
+      e.stopPropagation();
+      setDetailed(!detailed);
+    });
     document.body.append(tipEl);
   }
   return tipEl;
 }
 
-export function showTooltip(html: string, x: number, y: number): void {
+function renderTip(html: string): void {
   const t = tip();
   t.innerHTML = touchMode ? html.replace(/Right-click/g, 'Long-press').replace(/Click/g, 'Tap again') : html;
+}
+
+export function showTooltip(html: string, x: number, y: number): void {
+  const t = tip();
+  renderTip(html);
   t.style.display = 'block';
   moveTooltip(x, y);
 }
@@ -184,7 +233,11 @@ export function hideTooltip(): void {
 
 export function bindTooltip(el: HTMLElement, content: () => string): void {
   // Hover tooltips are mouse-only; touch uses tap-to-arm in itemSlot.
-  el.addEventListener('pointerenter', (e) => e.pointerType === 'mouse' && showTooltip(content(), e.clientX, e.clientY));
+  el.addEventListener('pointerenter', (e) => {
+    if (e.pointerType !== 'mouse') return;
+    liveTip = content;
+    showTooltip(content(), e.clientX, e.clientY);
+  });
   el.addEventListener('pointermove', (e) => e.pointerType === 'mouse' && moveTooltip(e.clientX, e.clientY));
   el.addEventListener('pointerleave', (e) => e.pointerType === 'mouse' && hideTooltip());
 }
@@ -211,6 +264,12 @@ export function statLines(s: Stats, compare?: Stats): string[] {
     out.push(`<div class="stat${ELEMENTS.includes(k as (typeof ELEMENTS)[number]) ? ` element-${k}` : ''}">${v >= 0 ? '+' : ''}${v} ${STAT_LABELS[k]}${diff}</div>`);
   }
   return out;
+}
+
+/** Whether this item has anything extra to say when the reader asks for numbers. */
+function hasDetail(item: Item): boolean {
+  if (uniqueOf(item) && isIdentified(item)) return true;
+  return item.kind === 'equipment' && durability(item).wears;
 }
 
 export interface TipOpts {
@@ -240,15 +299,16 @@ export function itemTooltip(item: Item, opts: TipOpts = {}): string {
       // The effect comes before the numbers: it is the reason to want the thing.
       const unique = uniqueOf(item);
       if (unique && isIdentified(item)) {
-        lines.push(`<div class="tt-unique">${esc(unique.rule)}</div>`);
+        lines.push(`<div class="tt-unique">${esc(detailed ? unique.detail : unique.rule)}</div>`);
         lines.push(`<div class="tt-flavour">${esc(unique.flavour)}</div>`);
       }
       const d = durability(item);
       if (d.wears) {
         const pct = Math.round(d.frac * 100);
         const tone = d.broken ? '#ff7070' : d.frac <= 0.25 ? '#e8c060' : '#8a8f9a';
+        const label = d.broken ? 'Broken' : detailed ? `Condition ${d.cur} / ${d.max}` : `Condition ${pct}%`;
         lines.push(
-          `<div class="tt-dur"><span style="color:${tone}">${d.broken ? 'Broken' : `Condition ${pct}%`}</span>` +
+          `<div class="tt-dur"><span style="color:${tone}">${label}</span>` +
             `<i class="dur-bar"><b style="width:${pct}%;background:${tone}"></b></i></div>`,
         );
       }
@@ -260,6 +320,7 @@ export function itemTooltip(item: Item, opts: TipOpts = {}): string {
         const def = affix(a.id);
         lines.push(`<div class="tt-affix ${elementClass(STAT_LABELS[def.stat])}">${esc(def.name)}: +${a.value} ${STAT_LABELS[def.stat]}</div>`);
       }
+      if (detailed) lines.push(`<div class="tt-dim">Item level ${item.ilvl ?? 0} · quality ${((item.quality ?? 1) * 100).toFixed(0)}% · base value ${itemValue(item)}g</div>`);
       if (opts.compare) lines.push(`<div class="tt-dim">Compared with: ${esc(itemName(opts.compare))}</div>`);
       break;
     }
@@ -280,7 +341,14 @@ export function itemTooltip(item: Item, opts: TipOpts = {}): string {
     }
     case 'consumable': {
       const c = consumable(item.ref);
-      lines.push(`<div class="tt-sub">${c.rarity} consumable</div><div class="tt-desc">${esc(c.description)}</div>`);
+      const relic = uniqueOf(item);
+      lines.push(`<div class="tt-sub">${c.rarity} consumable</div>`);
+      if (relic) {
+        lines.push(`<div class="tt-unique">${esc(detailed ? relic.detail : relic.rule)}</div>`);
+        lines.push(`<div class="tt-flavour">${esc(relic.flavour)}</div>`);
+      } else {
+        lines.push(`<div class="tt-desc">${esc(c.description)}</div>`);
+      }
       break;
     }
     case 'blueprint': {
@@ -293,6 +361,12 @@ export function itemTooltip(item: Item, opts: TipOpts = {}): string {
   if (opts.price) lines.push(`<div class="tt-price">${opts.price.label}: <b>${gold(opts.price.value)}</b></div>`);
   else lines.push(`<div class="tt-dim">Worth about ${gold(itemValue(item) * item.qty)}</div>`);
   if (opts.hint) lines.push(`<div class="tt-hint">${opts.hint}</div>`);
+  // Only worth prompting where there is a second register to switch to.
+  if (hasDetail(item)) {
+    lines.push(`<div class="tt-detail-hint">${detailed
+      ? (touchMode ? 'Tap again for plain words' : 'Release Shift for plain words')
+      : (touchMode ? 'Tap this box for exact numbers' : 'Hold Shift for exact numbers')}</div>`);
+  }
   return lines.join('');
 }
 

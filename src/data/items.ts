@@ -138,7 +138,7 @@ export const CONSUMABLES: ConsumableDef[] = [
     // The only Legendary you can drink. Deliberately not stocked by any
     // merchant and not craftable: it turns up in the dark or not at all.
     id: 'fight_milk', name: 'Fight Milk', icon: 'ic_potion', ramp: ['#2a2410', '#6a6030', '#c8c088', '#f8f4d8'],
-    description: "Crow's egg, goat milk, and something the distiller declined to name. For the rest of the delve: stamina recovers 70% faster (34/s → 57.8/s), maximum stamina −20. A second bottle does nothing.",
+    description: "Drunk, and it lasts the delve. You come back quicker and you have less to come back with.",
     effect: { type: 'tonic', tonicId: 'fight_milk' },
     rarity: Rarity.Legendary, value: 420, stack: 2,
   },
