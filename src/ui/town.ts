@@ -1,5 +1,5 @@
 import { GameState } from '../state/game-state';
-import { EQUIP_SLOTS, Item, MaterialCategory, RARITY_COLORS, STAT_KEYS, STAT_LABELS, Stats } from '../types';
+import { EQUIP_SLOTS, Item, MaterialCategory, Rarity, RARITY_COLORS, STAT_KEYS, STAT_LABELS, Stats } from '../types';
 import { MATERIALS, catalystAffixBonus, material, secondaryMaterialMods } from '../data/materials';
 import { CONSUMABLES, itemBase } from '../data/items';
 import { affix } from '../data/affixes';
@@ -19,14 +19,16 @@ import {
 } from '../systems/market';
 import { MAX_ACCEPTED, contractTitle, gearCandidates, isComplete } from '../systems/contracts';
 import { BESTIARY_ORDER, bestiaryEntry, bestiaryProgress, isKnown, isSeen } from '../systems/bestiary';
+import { RELIC_ORDER, findRelic, forgetRelic, isFound, relicProgress } from '../systems/relics';
+import { UniqueDef } from '../data/uniques';
 import { ELEMENTS } from '../types';
 import { buildCrafted, craft, materialsForSlot, selectionError, studyBlueprint } from '../systems/crafting';
-import { durability, identify, identifyCost, itemName, itemStats, makeConsumable, repairCost, repairItem, salvage } from '../systems/items';
+import { durability, identify, identifyCost, itemIcon, itemName, itemStats, itemValue, makeConsumable, makeUnique, repairCost, repairItem, salvage } from '../systems/items';
 import { Container, addItem, canFit, countOf, freeSlots, removeItem, removeOf, roomFor, sortContainer, takeQty } from '../state/inventory';
 import { syncLoadout } from '../systems/run';
 import { derivePlayer } from '../systems/player';
 import { defaultSlot, equipFrom, unequipTo } from '../systems/equip';
-import { createRng, randomSeed } from '../core/rng';
+import { createRng, hashString, randomSeed } from '../core/rng';
 import { artImg, btn, gold, h, hideTooltip, itemSlot, itemTooltip, rarityColor, sparkline, statLines } from './dom';
 import { artUrl } from '../render/art-cache';
 import { paperDoll, statSheet } from './dungeon-ui';
@@ -100,7 +102,9 @@ function formatForgeStats(stats: Partial<Stats>): string {
 export class Town {
   readonly root = h('div', { class: 'town' });
   tab: TownTab = 'market';
-  /** Codex: which creature is open, and the animation bench's settings. */
+  /** Codex: which half is showing, which creature is open, and the bench. */
+  private codex: 'creatures' | 'relics' = 'creatures';
+  private relic: string | null = null;
   private beast: string | null = null;
   private beastFrame: 'idle' | 'atk' | 'play' = 'play';
   private beastTint: 'none' | 'hurt' | 'windup' | 'dead' = 'none';
@@ -887,6 +891,117 @@ export class Town {
    * sprites can be checked without hunting one down on a floor.
    */
   private bestiary(): HTMLElement {
+    const toggle = h('div', { class: 'row', style: 'margin-bottom:8px' },
+      ...([['creatures', 'Creatures'], ['relics', 'Relics']] as const).map(([id, label]) =>
+        btn(label, () => { this.codex = id; this.commit(); }, `small${this.codex === id ? ' primary' : ''}`)));
+    return h('div', {}, toggle, this.codex === 'relics' ? this.relics() : this.creatures());
+  }
+
+  /**
+   * The relic half of the codex: the bespoke legendaries, what each one does,
+   * and which of them this playthrough has actually turned up. An unfound relic
+   * is a shape and a depth — enough to know something is missing, not enough to
+   * know what. The dev bench below reveals one so a new icon and a new effect
+   * can be read without going and finding it first.
+   */
+  private relics(): HTMLElement {
+    const s = this.s;
+    const seen = s.lifetime.uniquesSeen;
+    const p = relicProgress(seen);
+    const grid = h('div', { class: 'beast-grid' });
+    for (const def of RELIC_ORDER) {
+      const found = isFound(seen, def.id);
+      const art = itemIcon(this.relicItem(def));
+      grid.append(
+        h(
+          'div',
+          {
+            class: `beast${found ? '' : ' locked'}${this.relic === def.id ? ' on' : ''}`,
+            onclick: () => {
+              this.relic = this.relic === def.id ? null : def.id;
+              this.commit();
+            },
+          },
+          h('div', { class: 'beast-art' }, artImg(art.icon, art.ramp, 48)),
+          h('span', { class: 'beast-name', text: found ? def.name : '???' }),
+          h('span', { class: 'dim small', text: found ? (def.kind === 'tonic' ? 'Draught' : itemBase(def.baseId).name) : `depth ${def.minDepth}+` }),
+        ),
+      );
+    }
+    const open = this.relic ? RELIC_ORDER.find((d) => d.id === this.relic) ?? null : null;
+    return h(
+      'div',
+      { class: 'panes beast-panes' },
+      h(
+        'div',
+        { class: 'col' },
+        h('div', { class: 'row' },
+          h('h3', { class: 'grow', text: 'Relics' }),
+          h('span', { class: 'dim small', text: `${p.found} of ${p.total} found` })),
+        h('p', { class: 'dim small', style: 'margin-bottom:6px', text: 'There are no Legendaries but these. The Ashen King always gives up one you have never held, until there are none left to give.' }),
+        grid,
+      ),
+      open ? this.relicDetail(open) : h('div', { class: 'pane frame beast-detail' },
+        h('p', { class: 'dim', text: 'Choose a relic to study it.' })),
+    );
+  }
+
+  /**
+   * A representative roll of one relic, for display only. Seeded off the id so
+   * the codex shows the same numbers every time it is opened, and never spends
+   * a draw from the run's own stream.
+   */
+  private relicItem(def: UniqueDef): Item {
+    if (def.kind === 'tonic') return makeConsumable(def.baseId);
+    return makeUnique(def, createRng(hashString(`codex:${def.id}`)), def.minDepth, true);
+  }
+
+  private relicDetail(def: UniqueDef): HTMLElement {
+    const s = this.s;
+    const seen = (s.lifetime.uniquesSeen ??= []);
+    const found = isFound(seen, def.id);
+    const item = this.relicItem(def);
+    const art = itemIcon(item);
+    const stage = h('div', { class: found ? 'beast-stage' : 'beast-stage locked' }, artImg(art.icon, art.ramp, 128));
+
+    // The same dev-only door the animation bench uses, for the same reason:
+    // checking a new relic's art and its effect should not need a lucky drop.
+    const bench = !import.meta.env.DEV ? null : h(
+      'div',
+      { class: 'beast-bench' },
+      h('div', { class: 'row beast-row' },
+        h('span', { class: 'dim small grow', text: 'Relic bench · dev build only' }),
+        btn(found ? 'Relock' : 'Unlock', () => {
+          if (found) forgetRelic(seen, def.id);
+          else findRelic(seen, def.id);
+          this.commit();
+        }, 'small')),
+      h('div', { class: 'dim small', text: `id ${def.id} · icon ${art.icon} · effect ${def.effect} · power ${def.power}` }),
+    );
+
+    return h(
+      'div',
+      { class: 'pane frame beast-detail' },
+      h('h3', { style: `color:${RARITY_COLORS[Rarity.Legendary]}`, text: found ? def.name : '???' }),
+      stage,
+      found
+        ? h('div', {},
+            h('p', { class: 'small dim', text: def.kind === 'tonic'
+              ? `Legendary draught · drunk in the dark · found from depth ${def.minDepth}`
+              : `${material(def.materialId!).name} ${itemBase(def.baseId).name} · ${itemBase(def.baseId).slot} · found from depth ${def.minDepth}` }),
+            h('div', { class: 'tt-unique', text: def.rule }),
+            h('div', { class: 'tt-flavour', text: def.flavour }),
+            h('div', { style: 'margin-top:6px', html: statLines(itemStats(item)).join('') }),
+            h('p', { class: 'small dim', style: 'margin-top:6px', text: def.kind === 'tonic'
+              ? `Worth about ${gold(itemValue(item))}. No merchant stocks it and no forge makes it.`
+              : `A fair example rolls at about ${gold(itemValue(item))}. Every one of them differs — two ordinary affixes ride on top of the effect.` }),
+          )
+        : h('p', { class: 'dim', text: 'Something of this shape is down there. You have not held it.' }),
+      bench,
+    );
+  }
+
+  private creatures(): HTMLElement {
     const s = this.s;
     const p = bestiaryProgress(s.bestiary);
     const grid = h('div', { class: 'beast-grid' });
@@ -907,7 +1022,7 @@ export class Town {
           h('span', { class: 'beast-name', text: known || seen ? def.name : '???' }),
           h('span', {
             class: 'dim small',
-            text: known ? `depth ${def.minDepth}–${def.maxDepth}` : seen ? 'notes needed' : 'unrecorded',
+            text: known ? (def.minDepth === def.maxDepth ? `depth ${def.minDepth}` : `depth ${def.minDepth}–${def.maxDepth}`) : seen ? 'notes needed' : 'unrecorded',
           }),
         ),
       );
@@ -1005,7 +1120,7 @@ export class Town {
             h('p', { class: 'tt-desc', text: def.description }),
             tally,
             h('p', { class: 'small', text: `${def.hp} HP · ${def.attack} attack · ${def.defense} defense · deals ${def.damageType} · ${def.behavior}` }),
-            h('p', { class: 'small dim', text: `Found on depths ${def.minDepth}–${def.maxDepth}.` }),
+            h('p', { class: 'small dim', text: def.minDepth === def.maxDepth ? `Found on depth ${def.minDepth}.` : `Found on depths ${def.minDepth}–${def.maxDepth}.` }),
             resists.length
               ? h('div', { class: 'beast-resists' }, ...resists.map(([t, v]) =>
                   h('span', { class: `beast-resist ${v > 1 ? 'weak' : 'strong'}`, text: `${t} ×${v}` })))

@@ -29,7 +29,7 @@ import { consumable, itemBase } from '../data/items';
 import { biomeForDepth, FINAL_DEPTH } from '../data/biomes';
 import { PlayerDerived, derivePlayer } from '../systems/player';
 import { enemyHitsPlayer, playerHitsEnemy, staminaPower } from '../systems/combat';
-import { durability, identify, itemName, makeMaterial, rollContainerLoot, rollEnemyLoot, wearItem } from '../systems/items';
+import { durability, identify, itemName, makeMaterial, rollContainerLoot, rollEnemyLoot, uniqueOf, wearItem } from '../systems/items';
 import { recordDepth, recordKill } from '../systems/contracts';
 import {
   loreName,
@@ -106,6 +106,8 @@ export interface PlayerAnim {
   /** Seconds of shield-bash stun: no moving, swinging or guarding. */
   stunT: number;
   steps: number;
+  /** Parries banked by a blade that feeds on them. Never saved: a fight's state. */
+  parryStacks: number;
   sinceStamina: number;
   /** Throttles the winded cue so a held attack button can't spam it. */
   windedCd: number;
@@ -130,6 +132,7 @@ const PARRY_WINDOW = 0.22;
 const PARRY_COOLDOWN = 0.75;
 /** How long a parried melee attacker is left open, and how much harder it takes hits. */
 const PARRY_STUN = 1;
+
 const PARRY_VULN_MULT = 2;
 
 /**
@@ -138,7 +141,6 @@ const PARRY_VULN_MULT = 2;
  * circle behind, or let the bearer start a swing, and the count goes stale.
  */
 const BLOCK_EXPIRY = 2.5;
-
 /** Compact button label for an interaction hint. */
 export function shortLabel(hint: string): string {
   if (hint === 'Search') return 'Loot';
@@ -232,6 +234,23 @@ export const CURSES: Record<string, { name: string; text: string }> = {
   hunted: { name: 'Hunted', text: 'Monsters see you two tiles further this run.' },
 };
 
+/**
+ * Delve-long draughts. A tonic is the one Legendary you can drink: found in the
+ * dark, never stocked, and it lasts until the run ends rather than until a
+ * timer does. Applied in refreshDerived alongside blessings and curses, and
+ * held in its own list so drinking one never costs you a shrine's favour.
+ */
+export const TONICS: Record<string, { name: string; text: string; apply: (d: PlayerDerived) => void }> = {
+  fight_milk: {
+    name: 'Fight Milk',
+    text: 'Wind back 70% faster, and a good deal less of it.',
+    apply: (d) => {
+      d.traits.staminaRegen *= 1.7;
+      d.maxStamina = Math.max(30, d.maxStamina - 20);
+    },
+  },
+};
+
 /** What [F] says at each shrine, so you know what you are touching. */
 export const SHRINE_PROMPT: Record<ShrineKind, (cost: number) => string> = {
   font: () => 'Drink at the font',
@@ -265,7 +284,7 @@ export class World {
     this.anim = {
       fromX: this.run.player.x, fromY: this.run.player.y, moveT: 1, moveDur: STEP_TIME,
       yaw, yawFrom: yaw, yawTo: yaw, turnT: 1,
-      attack: 'idle', attackT: 0, attackDur: 0, attackPower: 1, blockRaise: 0, blockT: Infinity, parryArmed: false, parryCd: 0, stunT: 0, steps: 0,
+      attack: 'idle', attackT: 0, attackDur: 0, attackPower: 1, blockRaise: 0, blockT: Infinity, parryArmed: false, parryCd: 0, stunT: 0, steps: 0, parryStacks: 0,
       sinceStamina: 10, windedCd: 0, recall: null, transition: null,
     };
     this.reveal();
@@ -287,8 +306,20 @@ export class World {
     if (this.run.curse === 'frailty') this.derived.maxHp = Math.max(1, Math.round(this.derived.maxHp * 0.85));
     if (this.run.curse === 'leaden') this.derived.stats.speed -= 12;
     if (this.run.curse === 'dulled') this.derived.attack = Math.max(1, Math.round(this.derived.attack * 0.8));
+    for (const id of this.run.tonics ?? []) TONICS[id]?.apply(this.derived);
     this.player.hp = Math.min(this.player.hp, this.derived.maxHp);
     this.player.stamina = Math.min(this.player.stamina, this.derived.maxStamina);
+  }
+
+  /**
+   * Every drop of healing in the game goes through here, which is what lets one
+   * suit of armour halve all of it at once. Returns what was actually restored.
+   */
+  private heal(amount: number): number {
+    const scaled = Math.round(amount * this.derived.traits.healing);
+    const healed = Math.min(Math.max(0, scaled), this.derived.maxHp - this.player.hp);
+    this.player.hp += healed;
+    return healed;
   }
 
   /**
@@ -321,7 +352,7 @@ export class World {
 
   /** Extra tiles of sight the floor has on you, from the Hunted curse. */
   private get sightPenalty(): number {
-    return this.run.curse === 'hunted' ? 2 : 0;
+    return (this.run.curse === 'hunted' ? 2 : 0) - this.derived.traits.unseen;
   }
 
   private emit(e: WorldEvent): void {
@@ -449,7 +480,7 @@ export class World {
     a.windedCd = Math.max(0, a.windedCd - dt);
     a.sinceStamina += dt;
     if (a.sinceStamina > STAMINA_DELAY && a.attack === 'idle') {
-      const rate = a.blockRaise > 0.5 ? STAMINA_REGEN * 0.3 : STAMINA_REGEN;
+      const rate = (a.blockRaise > 0.5 ? STAMINA_REGEN * 0.3 : STAMINA_REGEN) * this.derived.traits.staminaRegen;
       this.player.stamina = Math.min(this.derived.maxStamina, this.player.stamina + rate * dt);
     }
 
@@ -610,7 +641,7 @@ export class World {
    * difference between reading the floor and finding it the hard way.
    */
   private get lookAhead(): number {
-    return 2 + (metaLevel(this.state.meta, 'lantern') > 0 ? 1 : 0);
+    return 2 + (metaLevel(this.state.meta, 'lantern') > 0 ? 1 : 0) + this.derived.traits.trapSense;
   }
 
   /**
@@ -908,6 +939,9 @@ export class World {
     // Everything you land while the parry opening lasts hits twice as hard.
     const exposed = !!e.vuln && e.vuln > 0;
     if (exposed) hit.damage = Math.round(hit.damage * PARRY_VULN_MULT);
+    // Banked parries ride on the next blows and only the next blows.
+    const fed = this.anim.parryStacks * this.derived.traits.parryFeed;
+    if (fed > 0) hit.damage = Math.round(hit.damage * (1 + fed));
     e.hp -= hit.damage;
     const life = this.state.lifetime;
     if (hit.damage > (life.bestHit ?? 0)) life.bestHit = hit.damage;
@@ -922,8 +956,7 @@ export class World {
     if (hit.effective === 'resist' && this.rng.chance(0.3)) this.msg(`The ${def.name} shrugs off your ${this.derived.damageType} blows.`, '#9a9aa8');
     if (hit.effective === 'weak' && this.rng.chance(0.3)) this.msg(`The ${def.name} reels!`, '#ff9a40');
     if (this.derived.stats.leech > 0) {
-      const heal = Math.max(1, Math.round((hit.damage * this.derived.stats.leech) / 100));
-      this.player.hp = Math.min(this.derived.maxHp, this.player.hp + heal);
+      this.heal(Math.max(1, Math.round((hit.damage * this.derived.stats.leech) / 100)));
     }
     // Lighter foes are staggered out of their wind-up.
     if (e.ai === 'windup' && def.hp < 40 && def.behavior !== 'boss') {
@@ -944,8 +977,8 @@ export class World {
     this.sfx('enemyDie', e.x, e.y);
     const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
     const loot = e.mimicTier && e.mimicPropId
-      ? rollContainerLoot(createRng(hashString(`${this.floor.seed}:${e.mimicPropId}`)), this.run.depth, this.derived.find, e.mimicTier, idBelow, this.state.recipeRanks)
-      : rollEnemyLoot(this.rng, def, this.run.depth, this.derived.find, idBelow, this.state.recipeRanks, this.state.bestiary);
+      ? rollContainerLoot(createRng(hashString(`${this.floor.seed}:${e.mimicPropId}`)), this.run.depth, this.derived.find, e.mimicTier, idBelow, this.state.recipeRanks, this.seenUniques)
+      : rollEnemyLoot(this.rng, def, this.run.depth, this.derived.find, idBelow, this.state.recipeRanks, this.state.bestiary, this.seenUniques);
     if (def.behavior === 'boss') {
       // The portal opens where the king fell, so his hoard goes beside it —
       // dropped on the same tile it would be unreachable behind the portal.
@@ -976,8 +1009,27 @@ export class World {
     return { x, y };
   }
 
+  /** Bespoke legendaries this playthrough has turned up, oldest first. */
+  private get seenUniques(): string[] {
+    return (this.state.lifetime.uniquesSeen ??= []);
+  }
+
+  /**
+   * Note any unique that has just entered the world. Recorded when it drops
+   * rather than when it is picked up: the King's promise is about what he hands
+   * over, and dying on the way out does not un-find it.
+   */
+  private recordUniques(items: Item[]): void {
+    const seen = this.seenUniques;
+    for (const it of items) {
+      const u = uniqueOf(it);
+      if (u && !seen.includes(u.id)) seen.push(u.id);
+    }
+  }
+
   private dropLoot(x: number, y: number, items: Item[], gold: number): Pickup | null {
     if (!items.length && gold <= 0) return null;
+    this.recordUniques(items);
     const f = this.floor;
     let pk = f.pickups.find((p) => p.x === x && p.y === y);
     if (!pk) {
@@ -999,7 +1051,7 @@ export class World {
     p.used = true;
     this.sfx('break', p.x, p.y);
     const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
-    const loot = rollContainerLoot(this.propRng(p), this.run.depth, this.derived.find, 'urn', idBelow, this.state.recipeRanks);
+    const loot = rollContainerLoot(this.propRng(p), this.run.depth, this.derived.find, 'urn', idBelow, this.state.recipeRanks, this.seenUniques);
     this.dropLoot(p.x, p.y, loot.items, loot.gold);
   }
 
@@ -1204,7 +1256,7 @@ export class World {
         p.used = true;
         this.sfx('chest', p.x, p.y);
         const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
-        const loot = rollContainerLoot(this.propRng(p), this.run.depth, this.derived.find, tier, idBelow, this.state.recipeRanks);
+        const loot = rollContainerLoot(this.propRng(p), this.run.depth, this.derived.find, tier, idBelow, this.state.recipeRanks, this.seenUniques);
         const pk = this.dropLoot(p.x, p.y, loot.items, 0);
         if (loot.gold) {
           this.run.gold += loot.gold;
@@ -1396,13 +1448,29 @@ export class World {
           this.msg('You are already at full health.', '#888');
           return;
         }
-        this.player.hp = Math.min(this.derived.maxHp, this.player.hp + Math.round(this.derived.maxHp * e.fraction));
+        this.heal(Math.round(this.derived.maxHp * e.fraction));
         this.sfx('drink');
         break;
       case 'stamina':
         this.player.stamina = this.derived.maxStamina;
         this.sfx('drink');
         break;
+      case 'tonic': {
+        const tonic = TONICS[e.tonicId];
+        if (!tonic) return;
+        const tonics = (this.run.tonics ??= []);
+        // Two of the same draught is two of the same draught. It is already in
+        // you; drinking another would only cost you the bottle.
+        if (tonics.includes(e.tonicId)) {
+          this.msg(`You already reek of ${tonic.name}.`, '#888');
+          return;
+        }
+        tonics.push(e.tonicId);
+        this.refreshDerived();
+        this.sfx('drink');
+        this.msg(`${tonic.name}, for the rest of the delve. ${tonic.text}`, '#e8b84a');
+        break;
+      }
       case 'identify': {
         const target = this.run.backpack.items.find((i) => i.kind === 'equipment' && i.identified === false);
         if (!target) {
@@ -1682,6 +1750,11 @@ export class World {
     // A parry denies the hit outright and leaves the attacker open.
     if (this.parries(fromX, fromY)) {
       this.parryFlourish(fromX, fromY);
+      const traits = this.derived.traits;
+      if (traits.parryFeedMax > 0 && this.anim.parryStacks < traits.parryFeedMax) {
+        this.anim.parryStacks++;
+        this.msg(`The blade drinks it in. ${this.anim.parryStacks} of ${traits.parryFeedMax}.`, '#ffe8a0');
+      }
       if (attacker) {
         const def = enemyDef(attacker.def);
         attacker.ai = 'recover';
@@ -1690,6 +1763,8 @@ export class World {
         attacker.attackCd = Math.max(attacker.attackCd, PARRY_STUN + 0.2);
         attacker.vuln = PARRY_STUN;
         this.msg(`You turn the ${def.name}'s blow aside. It reels — strike now!`, '#ffe8a0');
+        // A shield that answers: the blow it threw, thrown back.
+        if (traits.parryReflect > 0) this.reflectOntoAttacker(attacker, Math.round(attack * traits.parryReflect), type);
       } else {
         this.msg('You turn the blow aside.', '#ffe8a0');
       }
@@ -1723,6 +1798,12 @@ export class World {
       this.msg('The recall is broken by the blow.', '#888');
     }
     if (dmg > 0 && !blocked) this.wearArmour();
+    // An unblocked hit empties whatever the blade had banked. Blocking keeps it:
+    // the point of the thing is that you have to keep meeting the swing.
+    if (dmg > 0 && !blocked && this.anim.parryStacks > 0) {
+      this.anim.parryStacks = 0;
+      if (this.derived.traits.parryFeedMax > 0) this.msg('The blade goes cold.', '#9a9aa8');
+    }
     p.hp -= dmg;
     if (dmg > (this.state.lifetime.worstHit ?? 0)) this.state.lifetime.worstHit = dmg;
     if (sourceId) recordDamageTaken(this.state.bestiary, sourceId, dmg);
@@ -1792,6 +1873,25 @@ export class World {
     pr.tileX = this.player.x;
     pr.tileY = this.player.y;
     this.msg('You knock the bolt back the way it came.', '#ffe8a0');
+  }
+
+  /**
+   * A parried melee blow dealt back to whoever threw it. Its own damage and its
+   * own damage type, so a creature that shrugs off fire still shrugs it off
+   * coming back — the shield returns the blow, it does not translate it.
+   */
+  private reflectOntoAttacker(e: EnemyState, attack: number, type: DamageType): void {
+    const def = enemyDef(e.def);
+    const mult = def.resist[type] ?? 1;
+    const damage = Math.max(mult > 0 ? 1 : 0, Math.round(attack * mult));
+    if (damage <= 0) return;
+    e.hp -= damage;
+    e.hurtT = 0.3;
+    recordDamageDealt(this.state.bestiary, def.id, damage);
+    this.emit({ type: 'float', x: e.x, y: e.y, text: `${damage}!`, color: '#ffe8a0' });
+    this.sfx('hit', e.x, e.y);
+    this.msg(`The shield answers for you.`, '#ffe8a0');
+    if (e.hp <= 0) this.killEnemy(e);
   }
 
   /** A reflected bolt landing on a monster: its own damage, its own element. */

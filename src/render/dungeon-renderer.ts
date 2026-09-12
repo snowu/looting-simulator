@@ -207,7 +207,10 @@ export class DungeonRenderer {
     const meta = world.state.meta;
     lights.push({
       x: this.camera.position.x, y: EYE + 0.2, z: this.camera.position.z,
-      r: lightRadius(meta), color: handLight, intensity: lightIntensity(meta) * flick(0),
+      // A lamp you are carrying counts on top of the one the Warden sold you.
+      r: lightRadius(meta) + world.derived.traits.light,
+      color: handLight,
+      intensity: lightIntensity(meta) * flick(0),
     });
     for (const t of floor.torches) {
       const wx = tileX(t.x) + DX[t.side] * (TILE / 2 - 0.3);

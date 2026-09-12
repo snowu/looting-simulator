@@ -63,11 +63,12 @@ where the real game is what you do with the loot: trade it, craft with it, fill 
 
 ### Parked pending playtest — designed in [NEXT.md](NEXT.md)
 
-Eight systems landed in quick succession and none of them has been felt out in a
-real session. Both of these are decided and written up, and both are waiting on
-play rather than on design:
+The balance pass is still waiting on play rather than on design — and the relics
+have now moved the loot curve, which is exactly the thing it was waiting for:
 
-- [ ] **Legendary uniques** with bespoke effects instead of named random rolls.
+- [x] **Legendary uniques** with bespoke effects instead of named random rolls.
+      Nine relics, drawn from WoW's naming shape, Risk of Rain 2's lunar trades,
+      Discworld, It's Always Sunny and Community's D&D episodes. See MECHANICS.md.
 - [ ] **Balance pass**, which needs a headless playtest harness before it needs
       any numbers changed. Uniques will move the loot curve, so they come first.
 

@@ -27,7 +27,27 @@ Both pieces inherit the same rules the rest of the project runs on:
 
 ---
 
-# 1. Bespoke legendaries
+# 1. Bespoke legendaries — **BUILT 2026-09-12**
+
+Nine relics landed, with the naming and trade conventions drawn from WoW,
+Risk of Rain 2, Discworld, It's Always Sunny and Community. The section below is
+kept as written for the reasoning; **MECHANICS.md is now the reference for what
+actually shipped.** What changed against the plan as written:
+
+- **Fight Milk is a draught, not an amulet.** The one Legendary you drink,
+  delve-long, in its own `run.tonics` list so it never costs a shrine blessing.
+- **The cursed armour is Eulogy Plate**, and its cost is halved healing from
+  every source rather than a run curse — no new save field, and it bites hardest
+  exactly when you are relying on potions.
+- **Crafting them: no.** Found-only, as the open question leaned.
+- **They wear normally**, except An Entirely Ordinary Sword, which is outside the
+  durability system by design.
+- Two bugs the tests caught and the design did not: a relic could roll an affix
+  that refunded its own downside, and the King's guarantee lapsed at a depth
+  below every relic's `minDepth`. Both fixed.
+
+Still open: the drop rates and the effect magnitudes are all untested against
+real play. They belong to the balance pass below.
 
 ## The problem
 
@@ -171,8 +191,10 @@ Current values, with the suspicion attached:
   six-floor delve. Deliberately tight. Verify it is *tight* and not *punitive*.
 - `repairCost = value × 0.3 × missing` — is the gold sink big enough to matter
   against market profits, or is it a rounding error by depth 4?
-- Legendary weight `(0.15 + 0.3 × depth) × f` — will need revisiting the moment
-  uniques exist, since the drop becomes much more significant.
+- Legendary weight `(0.15 + 0.3 × depth) × f` — now that relics exist this is the
+  knob that decides how often anyone sees one outside a King kill.
+- Fight Milk at `0.8%`/`3%` × depthFactor, and whether +70% regen for −20 max
+  stamina is a real decision or an obvious yes.
 - Trap density `2 + 1.5 × depth`, and spike damage at depth 6 (39 before armour).
 - Idol odds 60/40 and the four curse magnitudes.
 - Renown `2 + 2 × depth` against upgrade costs totalling well over 100.

@@ -343,6 +343,54 @@ The pool is `slotBase × (0.8 + 0.2 × material tier)`, so better metal lasts lo
 
 A 6-floor delve runs 150–350 landed blows, so a weapon that starts the run at full will not always finish it. That is what the pack loadout and the town portal are for: carry a spare, or go home and mend.
 
+### Relics: the bespoke legendaries
+
+*Files: `src/data/uniques.ts`, `src/systems/relics.ts`*
+
+**There are no Legendaries but these.** A Legendary roll no longer produces a
+Rare with four affixes and a generated name — it is diverted into one of nine
+hand-authored relics, each a fixed base in a fixed material with one effect that
+hooks a system the game already runs. A relic still takes **two** ordinary
+affixes for texture (never four), rolls quality 1.08–1.26, and arrives
+**unidentified** like any Rare+ drop: the name lands at the appraiser, and the
+effect does nothing until you know what you are holding.
+
+An affix may never roll on a stat a relic deliberately spends, so a Bright Error
+cannot roll back the Block it gives up.
+
+| Relic | Base | Effect |
+|---|---|---|
+| An Entirely Ordinary Sword | Star-Iron Long Sword | Never dulls — outside the durability system entirely |
+| The Implication | Moonsilver Dagger | +25% damage per banked parry, to 3. One unblocked hit clears it |
+| Champion of the Sun | Silver Mace | +70% damage to the undead |
+| Riggs' Answer | Moonsilver Kite Shield | A parried melee blow is dealt back in full, at its own damage type |
+| Bergholt's Bright Error | Gold Buckler | +4 light radius; Block driven to near nothing |
+| Eulogy Plate | Star-Iron Plate | Best armour in the game; **all** healing at half |
+| Charlie Work | Silver Band | Reads the floor 2 tiles further for traps |
+| Kitten Mittens | Shadow-Silk Gloves | Monsters see you 2 tiles later |
+| Fight Milk | *Legendary draught* | Drunk: +70% stamina regen, −20 max stamina, for the rest of the delve |
+
+**Depth.** Legendary only becomes available at depth 6 (`rarityAvailableAtDepth`),
+so relics are a bottom-of-the-dungeon thing by construction. Each also carries
+its own `minDepth`.
+
+**The King's promise.** The Ashen King's guaranteed Legendary is always one this
+playthrough has **never held**, until the whole set has dropped; after that it is
+any of them. Elsewhere an unseen relic is weighted ×6 against one you have. The
+record is `lifetime.uniquesSeen`, written when the relic hits the floor rather
+than when it is picked up.
+
+**Fight Milk** is the one Legendary you drink. It is never stocked by a merchant
+and never craftable: `0.8% × depthFactor` in a chest, `3% × depthFactor` in a
+vault or secret chest, where `depthFactor` runs 0 at depth 1 to 1 at depth 5.
+Delve-long draughts live in `run.tonics`, deliberately separate from `blessing`
+so finding one never costs you a shrine's favour, and drinking a second bottle of
+something already in you does nothing and keeps the bottle.
+
+**The codex** (Bestiary → Relics) lists all nine, locked to a silhouette until
+found. Under `vite dev` each has an Unlock/Relock bench, the same as the creature
+animation bench, so a new icon and a new effect can be read without a lucky drop.
+
 ### Containers
 
 Each newly generated chest has a deterministic **12% chance to be a mimic**. It looks almost right: two pale points interrupt the lid seam, visible to someone who has learned to check without announcing the trick to a first-time player. Opening one makes it split into a maw and unfold eight wooden legs, with a brief moment to react before this unusually tough, fast monster attacks. Killing it releases the same tier of hoard the chest would have contained, including vault and secret-chest rewards.
@@ -350,8 +398,8 @@ Each newly generated chest has a deterministic **12% chance to be a mimic**. It 
 | Source | Contents |
 |---|---|
 | Urn / barrel | 55% a material (1–2), 35% gold `2 – (6 + 3×depth)`, 6% potion, 5% valuable |
-| Chest | `8–20 × depth` gold, 1–3 material stacks, 40% gear, 20% potion, 18% valuable, 12% gem, 10% identify scroll, 8% blueprint |
-| Vault / secret chest | `30–60 × depth` gold, an Uncommon+ item (Rare+ from depth 3; 25% a second Uncommon+), a valuable, a gem, 35%/70% blueprint, 35% a good consumable |
+| Chest | `8–20 × depth` gold, 1–3 material stacks, 40% gear, 20% potion, 18% valuable, 12% gem, 10% identify scroll, 8% blueprint, 0.8%×depth Fight Milk |
+| Vault / secret chest | `30–60 × depth` gold, an Uncommon+ item (Rare+ from depth 3; 25% a second Uncommon+), a valuable, a gem, 35%/70% blueprint, 35% a good consumable, 3%×depth Fight Milk |
 
 Vault rooms contain one premium chest. Special chests roll at the current depth rather than advancing every reward table by one floor.
 
@@ -647,7 +695,7 @@ A save written by a *newer* build than the one loading it is left as it is rathe
 
 ## 16. Presentation
 
-- **Renderer** (`src/render/`): Three.js at 240p with vertex snapping, affine texture warping, per-pixel torch lighting, distance fog and a 15-bit dither pass, upscaled with nearest sampling. You carry a whiter light than the wall torches so colours read true up close: **9.5 units of radius**, +1 per Lantern Wick level, against fog that runs from 4 to 18 — so even a full lantern leaves the corridor fading to black well before the end. Sprites are billboards; the weapon is drawn in screen space.
+- **Renderer** (`src/render/`): Three.js at 240p with vertex snapping, affine texture warping, per-pixel torch lighting, distance fog and a 15-bit dither pass, upscaled with nearest sampling. You carry a whiter light than the wall torches so colours read true up close: **9.5 units of radius**, +1 per Lantern Wick level, +4 for Bergholt's Bright Error, against fog that runs from 4 to 18 — so even a full lantern leaves the corridor fading to black well before the end. Sprites are billboards; the weapon is drawn in screen space.
 - **Art** (`src/art/`): every texture, sprite and icon is a palette-indexed character grid. Characters `1`–`4` are a ramp recoloured per material; colours ending in alpha `fa` glow in the dark. PNGs listed in `public/art/manifest.json` override the built-in art.
 - **Audio** (`src/audio/sfx.ts`): all synthesised at runtime — no audio files. Effects are panned by direction and quietened by distance; each biome has its own drone. Everything suspends when the app is in the background.
 
@@ -658,6 +706,8 @@ A save written by a *newer* build than the one loading it is left as it is rathe
 | Want to change | File |
 |---|---|
 | Monster stats, drops, depth ranges | `src/data/enemies.ts` |
+| Relics: names, effects, flavour, depths | `src/data/uniques.ts` |
+| Delve-long draught effects | `TONICS` in `src/world/world.ts` |
 | Materials, tiers, values, catalysts | `src/data/materials.ts` |
 | Weapon/armour bases and swing timings | `src/data/items.ts` |
 | Affix pool and roll sizes | `src/data/affixes.ts` |

@@ -60,6 +60,7 @@ export function startRun(state: GameState, seed = randomSeed()): RunState {
     keys: [],
     blessing: null,
     curse: null,
+    tonics: [],
     portal: null,
     stats: { kills: 0, goldFound: 0, itemsFound: 0, deepest: 1, time: 0, bossKilled: false },
     outcome: 'active',

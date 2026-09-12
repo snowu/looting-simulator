@@ -21,7 +21,7 @@ import { MATERIALS } from '../data/materials';
  */
 
 /** Bump this (and push a migration) whenever a field is added to the save. */
-export const SAVE_REVISION = 12;
+export const SAVE_REVISION = 14;
 
 type AnyState = GameState & Record<string, unknown>;
 
@@ -119,6 +119,18 @@ const MIGRATIONS: ((s: AnyState) => void)[] = [
   // starts with an empty codex and fills it from the next kill onward.
   (s) => {
     s.bestiary ??= {};
+  },
+  // 12 → 13: the record of which bespoke legendaries have dropped. An existing
+  // playthrough has found none of them, which is the honest answer — they did
+  // not exist to find, and it means the next King owes you a new one.
+  (s) => {
+    s.lifetime ??= { runs: 0, deaths: 0, extractions: 0, bestDepth: 0, goldEarned: 0, kills: 0 };
+    s.lifetime.uniquesSeen ??= [];
+  },
+  // 13 → 14: delve-long draughts. A run already in progress has drunk none,
+  // which is the truth — there was nothing to drink.
+  (s) => {
+    if (s.run) s.run.tonics ??= [];
   },
 ];
 

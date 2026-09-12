@@ -56,6 +56,12 @@ export interface RunState {
   blessing: string | null;
   /** Shrine curse active for the rest of the run; a font will lift it. */
   curse: string | null;
+  /**
+   * Legendary draughts drunk this delve, which last until it ends. Kept apart
+   * from `blessing` on purpose: a tonic you found should never cost you the
+   * shrine blessing you prayed for.
+   */
+  tonics: string[];
   /** Open town portal, if a Scroll of Recall has been read. One at a time. */
   portal: PortalState | null;
   stats: RunStats;
@@ -88,6 +94,12 @@ export interface Lifetime {
   /** Hardest single blow you have landed, and the hardest you have taken. */
   bestHit?: number;
   worstHit?: number;
+  /**
+   * Every bespoke legendary this playthrough has turned up, in the order it
+   * found them. The dungeon favours the ones missing from this list, and the
+   * Ashen King will not repeat himself while it is short of the full set.
+   */
+  uniquesSeen?: string[];
 }
 
 export interface GameState {
@@ -146,7 +158,7 @@ export function newGame(rng: Rng): GameState {
     meta: {},
     loadout: createContainer(BASE_BACKPACK),
     run: null,
-    lifetime: { runs: 0, deaths: 0, extractions: 0, bestDepth: 0, goldEarned: 0, kills: 0 },
+    lifetime: { runs: 0, deaths: 0, extractions: 0, bestDepth: 0, goldEarned: 0, kills: 0, uniquesSeen: [] },
     lastRun: null,
   };
 }

@@ -136,6 +136,9 @@ h3 { font-size: 26px; color: var(--ink); margin-bottom: 6px; }
 .element-shadow { color: #c080ff; }
 .element-holy { color: #ffe28a; }
 .tt-affix { color: var(--blue); }
+/* A unique's rule reads as the reason to want it, so it gets the gold. */
+.tt-unique { color: var(--gold); margin: 4px 0 2px; white-space: normal; overflow-wrap: normal; line-height: 1.25; }
+.tt-flavour { color: #9a8f78; font-style: italic; margin-bottom: 3px; white-space: normal; overflow-wrap: normal; line-height: 1.25; }
 .tt-warn { color: var(--violet); margin-top: 3px; }
 .repair-row { border-bottom: 1px solid #1a161e; padding: 3px 0; }
 .repair-row:last-child { border-bottom: 0; }

@@ -20,7 +20,7 @@ import {
 import { ITEM_BASES, CONSUMABLES, itemBase, consumable } from '../data/items';
 import { MATERIALS, findMaterial, material, secondaryMaterialMods } from '../data/materials';
 import { AFFIXES, affix } from '../data/affixes';
-import { UNIQUES, UniqueDef, UniqueEffectId, findUnique } from '../data/uniques';
+import { GEAR_UNIQUES, UniqueDef, UniqueEffectId, findUnique, tonicUnique } from '../data/uniques';
 import { MAX_RECIPE_RANK, RECIPES, blueprintDropWeight, masteryBonus, recipe, recipeRank } from '../data/recipes';
 import { BestiaryState, isKnown, loreName } from './bestiary';
 
@@ -94,7 +94,11 @@ export function makeEquipment(spec: EquipmentSpec): Item {
 
 /** The bespoke legendary this item is, or null for everything else. */
 export function uniqueOf(item: Item | null | undefined): UniqueDef | null {
-  if (!item || item.kind !== 'equipment') return null;
+  if (!item) return null;
+  // A tonic is a relic you drink: it is identified by which consumable it is,
+  // not by a uniqueId, since every bottle of Fight Milk is the same bottle.
+  if (item.kind === 'consumable') return tonicUnique(item.ref) ?? null;
+  if (item.kind !== 'equipment') return null;
   return findUnique(item.uniqueId) ?? null;
 }
 
@@ -105,20 +109,28 @@ export function hasUniqueEffect(item: Item | null | undefined, effect: UniqueEff
 
 /** Build one, at the quality and item level the depth it dropped at implies. */
 export function makeUnique(def: UniqueDef, rng: Rng, depth: number, identified = false): Item {
+  if (def.kind !== 'gear' || !def.materialId) throw new Error(`${def.id} is a tonic, not gear`);
   const ilvl = Math.max(def.minDepth, depth) * 2 + rng.int(0, 2);
   const base = itemBase(def.baseId);
   return makeEquipment({
     baseId: def.baseId,
-    materialId: def.materialId,
+    materialId: def.materialId!,
     uniqueId: def.id,
     rarity: Rarity.Legendary,
     ilvl,
     // Two ordinary affixes rather than a Legendary's four: the effect is the
     // point, and the rolls are only there so two of the same one still differ.
-    affixes: rollAffixes(rng, base.slot, ilvl, UNIQUE_AFFIXES),
+    // Nothing is allowed to roll on a stat the relic deliberately spends — a
+    // Fight Milk that rolled +Stamina would have no downside left at all.
+    affixes: rollAffixes(rng, base.slot, ilvl, UNIQUE_AFFIXES, [], spentStats(def)),
     identified,
     quality: Math.round(rng.float(1.08, 1.26) * 100) / 100,
   });
+}
+
+/** The stats a relic pays with, which its affixes may not then refund. */
+function spentStats(def: UniqueDef): string[] {
+  return STAT_KEYS.filter((k) => (def.stats?.[k] ?? 0) < 0);
 }
 
 /** How many ordinary affixes a unique carries on top of its effect. */
@@ -134,7 +146,11 @@ const UNSEEN_UNIQUE_BONUS = 6;
  * that his drop is always new until there is nothing new left.
  */
 export function pickUnique(rng: Rng, depth: number, seen: string[] = [], onlyUnseen = false): UniqueDef | null {
-  const eligible = UNIQUES.filter((u) => u.minDepth <= depth);
+  const atDepth = GEAR_UNIQUES.filter((u) => u.minDepth <= depth);
+  // An ordinary roll respects depth and simply stays a plain Legendary when
+  // nothing is deep enough yet. A guaranteed drop does not get to lapse: the
+  // King owes you a relic wherever he is standing when he falls.
+  const eligible = atDepth.length ? atDepth : onlyUnseen ? GEAR_UNIQUES : [];
   if (!eligible.length) return null;
   const unseen = eligible.filter((u) => !seen.includes(u.id));
   if (onlyUnseen) return unseen.length ? rng.pick(unseen) : rng.pick(eligible);
@@ -415,9 +431,16 @@ export function rarityAvailableAtDepth(rarity: Rarity, depth: number): boolean {
   return depth >= [1, 1, 2, 4, 6][RARITY_ORDER[rarity]];
 }
 
-export function rollAffixes(rng: Rng, slot: Slot, ilvl: number, count: number, exclude: string[] = []): AffixRoll[] {
+export function rollAffixes(
+  rng: Rng,
+  slot: Slot,
+  ilvl: number,
+  count: number,
+  exclude: string[] = [],
+  excludeStats: string[] = [],
+): AffixRoll[] {
   const out: AffixRoll[] = [];
-  const usedStats = new Set<string>();
+  const usedStats = new Set<string>(excludeStats);
   let prefixes = 0;
   let suffixes = 0;
   for (const id of exclude) {
@@ -470,12 +493,18 @@ function materialRarityWeight(material: MaterialDef): number {
   return 0.35 ** RARITY_ORDER[material.rarity];
 }
 
-export function rollEquipment(
-  rng: Rng,
-  depth: number,
-  find: number,
-  opts: { rarity?: Rarity; minRarity?: Rarity; baseId?: string; identifyBelow?: Rarity } = {},
-): Item {
+export interface RollEquipmentOpts {
+  rarity?: Rarity;
+  minRarity?: Rarity;
+  baseId?: string;
+  identifyBelow?: Rarity;
+  /** Uniques already found in this playthrough, so the dungeon can favour new ones. */
+  seenUniques?: string[];
+  /** Force the Legendary roll to a unique you have not held. The boss's promise. */
+  guaranteeNewUnique?: boolean;
+}
+
+export function rollEquipment(rng: Rng, depth: number, find: number, opts: RollEquipmentOpts = {}): Item {
   const base: ItemBaseDef = opts.baseId
     ? itemBase(opts.baseId)
     : rng.weighted(ITEM_BASES.filter((b) => b.minDepth <= depth).map((b) => [b, b.weight] as const));
@@ -485,6 +514,14 @@ export function rollEquipment(
   const order = RARITY_ORDER[rarity];
   const ilvl = depth * 2 + rng.int(0, 2);
   const autoId = RARITY_ORDER[opts.identifyBelow ?? Rarity.Uncommon];
+  // A Legendary is not a Rare with two more affixes any more: it *becomes* one
+  // of the authored uniques. The base and material are already drawn above, so
+  // diverting here costs no extra RNG draws and cannot reshuffle a floor that
+  // exists. A caller that asked for a specific base still gets that base.
+  if (rarity === Rarity.Legendary && !opts.baseId) {
+    const def = pickUnique(rng, depth, opts.seenUniques ?? [], opts.guaranteeNewUnique);
+    if (def) return makeUnique(def, rng, depth, order < autoId);
+  }
   return makeEquipment({
     baseId: base.id,
     materialId: mat.id,
@@ -551,6 +588,7 @@ export function rollEnemyLoot(
   identifyBelow?: Rarity,
   ranks: RecipeRanks = {},
   bestiary?: BestiaryState,
+  seenUniques: string[] = [],
 ): LootRoll {
   const items: Item[] = [];
   if (!isKnown(bestiary, def.id) && (def.behavior === 'boss' || rng.chance(LORE_CHANCE))) {
@@ -563,11 +601,13 @@ export function rollEnemyLoot(
   }
   const gold = rng.int(def.gold[0], def.gold[1]);
   if (def.behavior === 'boss') {
-    items.push(rollEquipment(rng, depth, find, { rarity: Rarity.Legendary }));
+    // The one guaranteed Legendary in the game, and it is always one you have
+    // not held. Killing the King should be progression, not a lottery ticket.
+    items.push(rollEquipment(rng, depth, find, { rarity: Rarity.Legendary, seenUniques, guaranteeNewUnique: true }));
     items.push(rollEquipment(rng, depth, find, { minRarity: Rarity.Epic }));
     items.push(rollBlueprint(rng, depth, ranks, blueprints));
   } else if (rng.chance(Math.min(0.95, def.itemChance * (1 + find / 100)))) {
-    items.push(rollEquipment(rng, depth, find, { identifyBelow }));
+    items.push(rollEquipment(rng, depth, find, { identifyBelow, seenUniques }));
   }
   if (rng.chance(0.06)) items.push(makeConsumable('healing_draught'));
   if (rng.chance(0.012 * depth)) items.push(rollBlueprint(rng, depth, ranks, blueprints));
@@ -576,7 +616,27 @@ export function rollEnemyLoot(
 
 export type ContainerTier = 'urn' | 'chest' | 'vault' | 'secret';
 
-export function rollContainerLoot(rng: Rng, depth: number, find: number, tier: ContainerTier, identifyBelow?: Rarity, ranks: RecipeRanks = {}): LootRoll {
+/**
+ * The only Legendary you can drink, and the odds of finding one. Kept genuinely
+ * low: a run-long buff you can rely on is not a buff, it is a stat. Deeper
+ * floors are likelier, and no merchant ever stocks it.
+ */
+const FIGHT_MILK_CHANCE = { chest: 0.008, vault: 0.03 };
+
+/** Scales a find with depth: nothing at the top, full odds at the bottom. */
+function depthFactor(depth: number): number {
+  return Math.max(0, Math.min(1, (depth - 1) / 4));
+}
+
+export function rollContainerLoot(
+  rng: Rng,
+  depth: number,
+  find: number,
+  tier: ContainerTier,
+  identifyBelow?: Rarity,
+  ranks: RecipeRanks = {},
+  seenUniques: string[] = [],
+): LootRoll {
   const items: Item[] = [];
   let gold = 0;
   const cats: MaterialCategory[] = ['metal', 'wood', 'hide', 'cloth', 'bone'];
@@ -590,22 +650,24 @@ export function rollContainerLoot(rng: Rng, depth: number, find: number, tier: C
     case 'chest':
       gold += rng.int(8, 20) * depth;
       for (let i = rng.int(1, 3); i > 0; i--) items.push(makeMaterial(materialForDepth(rng, depth, cats).id, rng.int(1, 3)));
-      if (rng.chance(0.4 * (1 + find / 100))) items.push(rollEquipment(rng, depth, find, { identifyBelow }));
+      if (rng.chance(0.4 * (1 + find / 100))) items.push(rollEquipment(rng, depth, find, { identifyBelow, seenUniques }));
       if (rng.chance(0.2)) items.push(makeConsumable(rng.pick(['healing_draught', 'stamina_tonic'])));
       if (rng.chance(0.1)) items.push(makeConsumable('scroll_identify'));
       if (rng.chance(0.18)) items.push(makeMaterial(rollValuable(rng, depth).id, 1));
       if (rng.chance(0.12)) items.push(makeMaterial(rollGem(rng, depth).id, 1));
       if (rng.chance(0.08)) items.push(rollBlueprint(rng, depth, ranks));
+      if (rng.chance(FIGHT_MILK_CHANCE.chest * depthFactor(depth))) items.push(makeConsumable('fight_milk'));
       break;
     case 'vault':
     case 'secret':
       gold += rng.int(30, 60) * depth;
-      items.push(rollEquipment(rng, depth, find, { minRarity: depth >= 3 ? Rarity.Rare : Rarity.Uncommon, identifyBelow }));
-      if (rng.chance(0.25)) items.push(rollEquipment(rng, depth, find, { minRarity: Rarity.Uncommon, identifyBelow }));
+      items.push(rollEquipment(rng, depth, find, { minRarity: depth >= 3 ? Rarity.Rare : Rarity.Uncommon, identifyBelow, seenUniques }));
+      if (rng.chance(0.25)) items.push(rollEquipment(rng, depth, find, { minRarity: Rarity.Uncommon, identifyBelow, seenUniques }));
       items.push(makeMaterial(rollValuable(rng, depth).id, rng.int(1, 2)));
       items.push(makeMaterial(rollGem(rng, depth).id, 1));
       if (rng.chance(tier === 'secret' ? 0.7 : 0.35)) items.push(rollBlueprint(rng, depth, ranks));
       if (rng.chance(0.35)) items.push(makeConsumable(rng.pick(['greater_healing', 'scroll_recall', 'scroll_identify'])));
+      if (rng.chance(FIGHT_MILK_CHANCE.vault * depthFactor(depth))) items.push(makeConsumable('fight_milk'));
       break;
   }
   return { items, gold };

@@ -34,6 +34,8 @@ export function playerHitsEnemy(rng: Rng, p: PlayerDerived, power: number, e: En
     dmg += v * m;
     bestMult = Math.max(bestMult, m);
   }
+  // A weapon sworn against the dead only cares whether the thing is dead.
+  if (e.undead) dmg *= p.traits.undeadBane;
   dmg *= power * rng.float(0.9, 1.1);
   const crit = rng.chance(Math.min(0.6, p.stats.luck / 100));
   if (crit) dmg *= p.swing.critMult ?? DEFAULT_CRIT_MULT;

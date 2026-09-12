@@ -135,6 +135,14 @@ export const CONSUMABLES: ConsumableDef[] = [
     rarity: Rarity.Uncommon, value: 30, stack: 10,
   },
   {
+    // The only Legendary you can drink. Deliberately not stocked by any
+    // merchant and not craftable: it turns up in the dark or not at all.
+    id: 'fight_milk', name: 'Fight Milk', icon: 'ic_potion', ramp: ['#2a2410', '#6a6030', '#c8c088', '#f8f4d8'],
+    description: "Crow's egg, goat milk, and something the distiller declined to name. For the rest of the delve your wind comes back 70% faster — though there is a good deal less of it to come back to.",
+    effect: { type: 'tonic', tonicId: 'fight_milk' },
+    rarity: Rarity.Legendary, value: 420, stack: 2,
+  },
+  {
     id: 'scroll_recall', name: 'Scroll of Recall', icon: 'ic_scroll', ramp: ['#1a2a4a', '#34508a', '#6a90d0', '#d0e4ff'],
     description: 'After 5 seconds of stillness, carries you and your pack back to town.',
     effect: { type: 'recall', seconds: 5 }, rarity: Rarity.Rare, value: 95, stack: 5,
