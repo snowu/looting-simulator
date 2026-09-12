@@ -21,7 +21,7 @@ export function syncLoadout(state: GameState): Container {
 
 /**
  * Deposit the coin you are carrying into the town purse. Called when a town
- * portal brings you home mid-run: you are standing in Hollowmere, so the gold
+ * portal brings you home mid-run: you are standing in Bleakmere, so the gold
  * is spendable and no longer at risk if the rest of the delve goes badly.
  */
 export function bankCarriedGold(state: GameState): number {

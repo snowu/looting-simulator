@@ -13,6 +13,8 @@ export const RECIPES: RecipeDef[] = [
     slots: [{ label: 'Blade', categories: ['metal'], qty: 5 }, { label: 'Grip', categories: GRIP, qty: 2 }, GEM] },
   { id: 'r_war_axe', baseId: 'war_axe', starter: false, value: 150,
     slots: [{ label: 'Head', categories: ['metal'], qty: 4 }, { label: 'Haft', categories: ['wood'], qty: 2 }, GEM] },
+  { id: 'r_mining_pick', baseId: 'mining_pick', starter: false, value: 115,
+    slots: [{ label: 'Head', categories: ['metal'], qty: 3 }, { label: 'Haft', categories: ['wood'], qty: 2 }, GEM] },
   { id: 'r_mace', baseId: 'mace', starter: false, value: 110,
     slots: [{ label: 'Head', categories: ['metal'], qty: 4 }, { label: 'Haft', categories: ['wood', 'bone'], qty: 1 }, GEM] },
   { id: 'r_spear', baseId: 'spear', starter: false, value: 120,

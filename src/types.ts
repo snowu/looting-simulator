@@ -132,7 +132,7 @@ export function slotOf(e: EquipSlot): Slot {
   return e === 'ring1' || e === 'ring2' ? 'ring' : e;
 }
 
-export type WeaponClass = 'blade' | 'dagger' | 'axe' | 'blunt' | 'spear';
+export type WeaponClass = 'blade' | 'dagger' | 'axe' | 'blunt' | 'spear' | 'pick';
 
 export interface SwingProfile {
   /** Seconds from button press to the hit landing. */

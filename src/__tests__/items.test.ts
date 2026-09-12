@@ -7,6 +7,7 @@ import {
   itemValue,
   makeEquipment,
   makeMaterial,
+  maxDurability,
   rollEnemyLoot,
   rollEquipment,
   salvage,
@@ -14,6 +15,8 @@ import {
 import { addItem, canFit, countOf, createContainer, removeOf, takeQty } from '../state/inventory';
 import { Rarity, RARITY_ORDER } from '../types';
 import { enemyDef, BOSS_ID } from '../data/enemies';
+import { itemBase } from '../data/items';
+import { recipe } from '../data/recipes';
 import { derivePlayer, emptyEquipment } from '../systems/player';
 
 describe('items', () => {
@@ -29,6 +32,16 @@ describe('items', () => {
     expect(itemStats(star).attack).toBeGreaterThan(itemStats(copper).attack * 2);
     expect(itemStats(star).shadow).toBeGreaterThan(0);
     expect(itemValue(star)).toBeGreaterThan(itemValue(copper));
+  });
+
+  it('the mining pick is a craftable piercing weapon', () => {
+    const base = itemBase('mining_pick');
+    const pick = makeEquipment({ baseId: base.id, materialId: 'iron', rarity: Rarity.Common, ilvl: 1 });
+    expect(base.weaponClass).toBe('pick');
+    expect(base.damageType).toBe('pierce');
+    expect(itemStats(pick).attack).toBeGreaterThan(0);
+    expect(maxDurability(pick)).toBeGreaterThan(0);
+    expect(recipe('r_mining_pick').baseId).toBe(base.id);
   });
 
   it('hides affixes until identified', () => {

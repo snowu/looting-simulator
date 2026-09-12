@@ -129,7 +129,7 @@ export function shortLabel(hint: string): string {
   if (hint.startsWith('Pray')) return 'Pray';
   if (hint.startsWith('Drink')) return 'Drink';
   if (hint.startsWith('Offer')) return 'Offer';
-  if (hint === 'Step through to Hollowmere') return 'Town';
+  if (hint === 'Step through to Bleakmere') return 'Town';
   if (hint.startsWith('Step through')) return 'Enter';
   if (hint.startsWith('Unlock')) return 'Unlock';
   if (hint.startsWith('Open')) return 'Open';
@@ -222,6 +222,7 @@ export class World {
   readonly state: GameState;
   readonly run: RunState;
   rng: Rng;
+  private flavorRng: Rng;
   derived!: PlayerDerived;
   projectiles: Projectile[] = [];
   events: WorldEvent[] = [];
@@ -237,6 +238,7 @@ export class World {
     this.state = state;
     this.run = state.run!;
     this.rng = createRng(this.run.rngState);
+    this.flavorRng = createRng(hashString(`flavor:${this.run.seed}:${this.run.rngState}`));
     this.refreshDerived();
     const yaw = this.run.player.facing * (Math.PI / 2);
     this.anim = {
@@ -489,6 +491,7 @@ export class World {
     const p = this.player;
     this.anim.steps++;
     this.sfx('step');
+    this.rockAndStone();
     this.reveal();
     const f = this.floor;
     const trap = trapAt(f, p.x, p.y);
@@ -751,10 +754,16 @@ export class World {
     a.attackT = 0;
     a.attackDur = this.derived.swing.windup;
     a.blockRaise = 0;
+    this.rockAndStone();
     if (a.recall !== null) {
       a.recall = null;
       this.msg('The recall fizzles.', '#888');
     }
+  }
+
+  /** A separate flavor stream must never move combat, loot or dungeon RNG. */
+  private rockAndStone(): void {
+    if (this.flavorRng.chance(0.006)) this.msg('Rock and Stone!', '#d8b878');
   }
 
   private resolvePlayerAttack(): void {
@@ -899,7 +908,7 @@ export class World {
     // under a portal (as boss drops used to) can still be picked up.
     const portal = this.portalHere();
     if (portal) return this.pickupNear() ? 'Search' : 'Step through the portal';
-    if (this.townPortalHere()) return this.pickupNear() ? 'Search' : 'Step through to Hollowmere';
+    if (this.townPortalHere()) return this.pickupNear() ? 'Search' : 'Step through to Bleakmere';
     const s = stairsAt(f, t.x, t.y);
     if (s) return s.down ? `Descend to depth ${this.run.depth + 1}` : this.run.depth === 1 ? 'Leave the dungeon' : `Climb to depth ${this.run.depth - 1}`;
     if (this.pickupNear()) return 'Search';
@@ -1687,7 +1696,7 @@ export class World {
     const w = this.state.equipment.weapon;
     if (!w) return { id: 'vm_fist' };
     const cls = itemBase(w.ref).weaponClass;
-    const id = cls === 'axe' ? 'vm_axe' : cls === 'blunt' ? 'vm_blunt' : cls === 'spear' ? 'vm_spear' : 'vm_blade';
+    const id = cls === 'axe' ? 'vm_axe' : cls === 'pick' ? 'vm_pick' : cls === 'blunt' ? 'vm_blunt' : cls === 'spear' ? 'vm_spear' : 'vm_blade';
     return { id, materialId: w.materialId };
   }
 }

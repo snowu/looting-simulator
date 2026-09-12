@@ -10,7 +10,7 @@ export function titleScreen(hasSave: boolean, onStart: () => void, build = ''): 
       { class: 'frame', style: 'padding:18px 36px 24px' },
       h('h1', { text: 'Looting Simulator' }),
       h('div', { class: 'tag', text: 'Go down. Bring it back. Sell it high.' }),
-      btn(hasSave ? 'Return to Hollowmere' : 'Arrive in Hollowmere', onStart, 'primary big'),      h(
+      btn(hasSave ? 'Return to Bleakmere' : 'Arrive in Bleakmere', onStart, 'primary big'),      h(
         'div',
         { class: 'help', style: 'margin-top:22px' },
         h('div', {}, h('kbd', { text: 'W / S' }), 'step'),
@@ -63,7 +63,7 @@ export function summaryScreen(sum: RunSummary, onContinue: () => void): HTMLElem
         style: 'margin:10px 0',
         text: sum.dayTurned
           ? 'A new day dawns. Prices have moved and the guild has posted new work.'
-          : 'Still the same day in Hollowmere: the same prices, the same work on the board. Renown and a turn of the day are for those who actually go down.',
+          : 'Still the same day in Bleakmere: the same prices, the same work on the board. Renown and a turn of the day are for those who actually go down.',
       }),
       btn('Back to town', onContinue, 'primary big'),
     ),

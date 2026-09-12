@@ -97,7 +97,7 @@ export class Town {
     const head = h(
       'div',
       { class: 'town-head' },
-      h('div', {}, h('h1', { text: 'Hollowmere' }), h('div', { class: 'dim', text: `Day ${s.market.day} · the market town above the old crypt` })),
+      h('div', {}, h('h1', { text: 'Bleakmere' }), h('div', { class: 'dim', text: `Day ${s.market.day} · the market town above the old crypt` })),
       h(
         'div',
         { class: 'purse grow' },

@@ -56,6 +56,18 @@ const AXE = [
   ...HAND,
 ];
 
+const PICK = [
+  '..kkkkkkkkkkkkkkkkkkkk..',
+  '.k44444433332222111111k.',
+  '..kk4444333322221111kk..',
+  '....kk4433222211kk......',
+  '......kk332211kk........',
+  '........kk21kk..........',
+  '..........kkkk..........',
+  ...HAFT(19),
+  ...HAND,
+];
+
 const MACE = [
   '...........k.k..........',
   '........k.k444k.k.......',
@@ -123,6 +135,7 @@ const PAL = {
 export const VIEWMODELS: ArtDef[] = [
   { id: 'vm_blade', palette: PAL, rows: BLADE },
   { id: 'vm_axe', palette: PAL, rows: AXE },
+  { id: 'vm_pick', palette: PAL, rows: PICK },
   { id: 'vm_blunt', palette: PAL, rows: MACE },
   { id: 'vm_spear', palette: PAL, rows: SPEAR },
   { id: 'vm_fist', palette: PAL, rows: FIST },

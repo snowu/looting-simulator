@@ -104,7 +104,7 @@ describe('the town portal', () => {
     openPortal(w);
     const p = w.floor.props.find((q) => q.kind === 'town_portal')!;
     Object.assign(w.player, { x: p.x, y: p.y });
-    expect(w.interactionHint()).toBe('Step through to Hollowmere');
+    expect(w.interactionHint()).toBe('Step through to Bleakmere');
   });
 
   it('collapses when you come back through, and only once', () => {

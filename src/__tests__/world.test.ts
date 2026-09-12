@@ -126,6 +126,27 @@ describe('World', () => {
     expect(w.contextAction()).toEqual({ kind: 'interact', label: 'Open' });
   });
 
+  it('rolls the Rock and Stone bark on attacks and completed steps', () => {
+    const w = arena(11);
+    let rolls = 0;
+    (w as unknown as { flavorRng: { chance(p: number): boolean } }).flavorRng = {
+      chance: () => {
+        rolls++;
+        return true;
+      },
+    };
+    w.events = [];
+
+    w.attack();
+    tick(w, 0.7);
+    w.press('forward');
+    w.release('forward');
+    tick(w, 0.6);
+
+    expect(rolls).toBe(2);
+    expect(w.events.filter((e) => e.type === 'msg' && e.text === 'Rock and Stone!')).toHaveLength(2);
+  });
+
   it('walking into the down stairs moves you a floor deeper', () => {
     const state = newGame(createRng(7));
     startRun(state, 7);

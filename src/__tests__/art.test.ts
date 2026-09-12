@@ -31,7 +31,7 @@ describe('pixel art', () => {
       needed.add(`${e.sprite}_atk`);
       if (e.projectile) needed.add(e.projectile.sprite);
     }
-    for (const id of ['vm_blade', 'vm_axe', 'vm_blunt', 'vm_spear', 'vm_fist', 'vm_shield']) needed.add(id);
+    for (const id of ['vm_blade', 'vm_axe', 'vm_pick', 'vm_blunt', 'vm_spear', 'vm_fist', 'vm_shield']) needed.add(id);
     for (const id of needed) expect(getArt(id), id).toBeDefined();
   });
 });
