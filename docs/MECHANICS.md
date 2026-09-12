@@ -381,9 +381,20 @@ its own `minDepth`.
 
 **The King's promise.** The Ashen King's guaranteed Legendary is always one this
 playthrough has **never held**, until the whole set has dropped; after that it is
-any of them. Elsewhere an unseen relic is weighted ×6 against one you have. The
-record is `lifetime.uniquesSeen`, written when the relic hits the floor rather
-than when it is picked up.
+any of them. Elsewhere an unseen relic is weighted ×6 against one you have.
+
+**Two records, because holding is not knowing.**
+
+| | Field | Written when | Drives |
+|---|---|---|---|
+| Held | `lifetime.uniquesSeen` | it enters your **pack** | the King's "never held" promise |
+| Named | `lifetime.uniquesKnown` | it is **identified** | the codex entry |
+
+A relic left on the floor or lost with the run was never held. A relic in your
+pack that the appraiser has not seen shows in the codex as *unappraised* — a
+shape you are carrying and nothing more. The name is supposed to land at the
+appraiser, and a codex that opened on pickup would hand you the identification
+for free.
 
 **Fight Milk** is the one Legendary you drink. It is never stocked by a merchant
 and never craftable: `0.8% × depthFactor` in a chest, `3% × depthFactor` in a

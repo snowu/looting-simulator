@@ -29,7 +29,8 @@ import { consumable, itemBase } from '../data/items';
 import { biomeForDepth, FINAL_DEPTH } from '../data/biomes';
 import { PlayerDerived, derivePlayer } from '../systems/player';
 import { enemyHitsPlayer, playerHitsEnemy, staminaPower } from '../systems/combat';
-import { durability, identify, itemName, makeMaterial, rollContainerLoot, rollEnemyLoot, uniqueOf, wearItem } from '../systems/items';
+import { durability, identify, isIdentified, itemName, makeMaterial, rollContainerLoot, rollEnemyLoot, uniqueOf, wearItem } from '../systems/items';
+import { nameRelic } from '../systems/relics';
 import { recordDepth, recordKill } from '../systems/contracts';
 import {
   loreName,
@@ -1085,22 +1086,32 @@ export class World {
     return (this.state.lifetime.uniquesSeen ??= []);
   }
 
+  /** Relics this playthrough has identified, which is what opens a codex entry. */
+  private get knownUniques(): string[] {
+    return (this.state.lifetime.uniquesKnown ??= []);
+  }
+
   /**
-   * Note any unique that has just entered the world. Recorded when it drops
-   * rather than when it is picked up: the King's promise is about what he hands
-   * over, and dying on the way out does not un-find it.
+   * Note a relic that has just come into your hands. Recorded on pickup rather
+   * than on drop: leaving it on the floor or dying on the way out means you
+   * never held it, and the King's promise reads this list.
+   *
+   * Naming it is a second step that waits for identification, so the codex
+   * never tells you what the unappraised lump in your pack is.
    */
-  private recordUniques(items: Item[]): void {
+  private recordUnique(item: Item): void {
+    const u = uniqueOf(item);
+    if (!u) return;
     const seen = this.seenUniques;
-    for (const it of items) {
-      const u = uniqueOf(it);
-      if (u && !seen.includes(u.id)) seen.push(u.id);
+    if (!seen.includes(u.id)) seen.push(u.id);
+    if (!isIdentified(item)) return;
+    if (nameRelic(this.knownUniques, u.id)) {
+      this.msg(`${u.name}. The codex has a page for it now.`, '#e8b84a');
     }
   }
 
   private dropLoot(x: number, y: number, items: Item[], gold: number): Pickup | null {
     if (!items.length && gold <= 0) return null;
-    this.recordUniques(items);
     const f = this.floor;
     let pk = f.pickups.find((p) => p.x === x && p.y === y);
     if (!pk) {
@@ -1478,7 +1489,10 @@ export class World {
       }
       const before = it.qty;
       const left = addItem(this.run.backpack, it);
-      if (left < before) moved++;
+      if (left < before) {
+        moved++;
+        this.recordUnique(it);
+      }
       if (left === 0) pk.items = pk.items.filter((i) => i !== it);
       else it.qty = left;
     }
@@ -1549,6 +1563,7 @@ export class World {
           return;
         }
         identify(target);
+        this.recordUnique(target);
         this.msg(`It is: ${itemName(target)}.`, '#c8b8ff');
         this.sfx('magic');
         break;

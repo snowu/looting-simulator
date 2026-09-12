@@ -158,14 +158,19 @@ describe('the Ashen King always gives up a new one', () => {
     expect(loot.items.some((i) => uniqueOf(i))).toBe(true);
   });
 
-  it('records what dropped, so the next King owes a different one', () => {
+  it('does not count a relic left lying on the floor', () => {
     const w = arena(9);
     const e = spawn(w, BOSS_ID, 1);
     e.hp = 1;
     w.player.stamina = w.derived.maxStamina;
     w.attack();
     tick(w, 1.5);
-    expect(w.state.lifetime.uniquesSeen!.length).toBeGreaterThan(0);
+    // It dropped, but nobody picked it up. Dying here should cost you the find.
+    expect(w.state.lifetime.uniquesSeen).toEqual([]);
+    const pk = w.floor.pickups.find((p) => p.items.some((i) => uniqueOf(i)))!;
+    expect(pk, 'the King dropped a relic').toBeTruthy();
+    w.take(pk.id);
+    expect(w.state.lifetime.uniquesSeen!.length).toBe(1);
   });
 });
 
@@ -450,13 +455,43 @@ describe('every number a rule quotes is true', () => {
 describe('the relic codex', () => {
   it('starts empty, records a find, and the bench can take it back', () => {
     const seen: string[] = [];
-    expect(relicProgress(seen).found).toBe(0);
-    expect(relicProgress(seen).total).toBe(RELIC_ORDER.length);
+    expect(relicProgress(seen, []).found).toBe(0);
+    expect(relicProgress(seen, []).total).toBe(RELIC_ORDER.length);
     expect(findRelic(seen, 'fight_milk')).toBe(true);
     expect(findRelic(seen, 'fight_milk')).toBe(false);
     expect(isFound(seen, 'fight_milk')).toBe(true);
     expect(forgetRelic(seen, 'fight_milk')).toBe(true);
     expect(isFound(seen, 'fight_milk')).toBe(false);
+  });
+
+  it('holding a relic is not the same as knowing what it is', () => {
+    const w = arena(11);
+    const relic = makeUnique(findUnique('ordinary_sword')!, createRng(3), 6, false);
+    w.floor.pickups.push({ id: 'p1', x: w.player.x, y: w.player.y, items: [relic], gold: 0 });
+    w.take('p1');
+    // Held, so the King owes you a different one — but the codex stays shut.
+    expect(w.state.lifetime.uniquesSeen).toContain('ordinary_sword');
+    expect(w.state.lifetime.uniquesKnown ?? []).not.toContain('ordinary_sword');
+    expect(relicProgress(w.state.lifetime.uniquesSeen, w.state.lifetime.uniquesKnown)).toMatchObject({ found: 1, named: 0 });
+  });
+
+  it('opens the page the moment it is identified', () => {
+    const w = arena(12);
+    const relic = makeUnique(findUnique('champion_of_the_sun')!, createRng(3), 6, false);
+    w.floor.pickups.push({ id: 'p1', x: w.player.x, y: w.player.y, items: [relic], gold: 0 });
+    w.take('p1');
+    const scroll = makeConsumable('scroll_identify');
+    addItem(w.run.backpack, scroll);
+    w.use(scroll.uid);
+    expect(w.state.lifetime.uniquesKnown).toContain('champion_of_the_sun');
+  });
+
+  it('names a relic that arrives already identified', () => {
+    const w = arena(13);
+    const relic = makeUnique(findUnique('charlie_work')!, createRng(3), 6, true);
+    w.floor.pickups.push({ id: 'p1', x: w.player.x, y: w.player.y, items: [relic], gold: 0 });
+    w.take('p1');
+    expect(w.state.lifetime.uniquesKnown).toContain('charlie_work');
   });
 });
 
@@ -470,8 +505,19 @@ describe('the save', () => {
     (state as { revision?: number }).revision = 12;
     const out = migrateSave(state);
     expect(out.lifetime.uniquesSeen).toEqual([]);
+    expect(out.lifetime.uniquesKnown).toEqual([]);
     expect(out.run!.tonics).toEqual([]);
     expect(out.gold).toBe(999);
     expect(out.revision).toBe(SAVE_REVISION);
+  });
+
+  it('carries an already-legible codex entry across the held/named split', () => {
+    const state = newGame(createRng(1));
+    state.lifetime.uniquesSeen = ['whetless_placeholder', 'charlie_work'];
+    delete (state.lifetime as { uniquesKnown?: string[] }).uniquesKnown;
+    (state as { revision?: number }).revision = 14;
+    const out = migrateSave(state);
+    // Recorded under the old rule and already readable — not taken away.
+    expect(out.lifetime.uniquesKnown).toEqual(['whetless_placeholder', 'charlie_work']);
   });
 });

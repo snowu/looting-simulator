@@ -100,6 +100,12 @@ export interface Lifetime {
    * Ashen King will not repeat himself while it is short of the full set.
    */
   uniquesSeen?: string[];
+  /**
+   * Of those, the ones that have been identified — which is what opens a codex
+   * entry. Separate from `uniquesSeen` so carrying an unappraised relic never
+   * tells you for free what the appraiser is for.
+   */
+  uniquesKnown?: string[];
 }
 
 export interface GameState {
@@ -158,7 +164,7 @@ export function newGame(rng: Rng): GameState {
     meta: {},
     loadout: createContainer(BASE_BACKPACK),
     run: null,
-    lifetime: { runs: 0, deaths: 0, extractions: 0, bestDepth: 0, goldEarned: 0, kills: 0, uniquesSeen: [] },
+    lifetime: { runs: 0, deaths: 0, extractions: 0, bestDepth: 0, goldEarned: 0, kills: 0, uniquesSeen: [], uniquesKnown: [] },
     lastRun: null,
   };
 }

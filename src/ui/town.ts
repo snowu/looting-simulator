@@ -19,11 +19,11 @@ import {
 } from '../systems/market';
 import { MAX_ACCEPTED, contractTitle, gearCandidates, isComplete } from '../systems/contracts';
 import { BESTIARY_ORDER, bestiaryEntry, bestiaryProgress, isKnown, isSeen } from '../systems/bestiary';
-import { RELIC_ORDER, findRelic, forgetRelic, isFound, relicProgress } from '../systems/relics';
+import { RELIC_ORDER, findRelic, forgetRelic, forgetRelicName, isFound, isNamed, nameRelic, relicProgress } from '../systems/relics';
 import { UniqueDef } from '../data/uniques';
 import { ELEMENTS } from '../types';
 import { buildCrafted, craft, materialsForSlot, selectionError, studyBlueprint } from '../systems/crafting';
-import { durability, identify, identifyCost, itemIcon, itemName, itemStats, itemValue, makeConsumable, makeUnique, repairCost, repairItem, salvage } from '../systems/items';
+import { durability, identify, identifyCost, itemIcon, itemName, itemStats, itemValue, makeConsumable, makeUnique, repairCost, repairItem, salvage, uniqueOf } from '../systems/items';
 import { Container, addItem, canFit, countOf, freeSlots, removeItem, removeOf, roomFor, sortContainer, takeQty } from '../state/inventory';
 import { syncLoadout } from '../systems/run';
 import { derivePlayer } from '../systems/player';
@@ -323,6 +323,10 @@ export class Town {
           if (s.gold < idCost) return this.ctx.toast('Not enough gold to identify that.', '#ff9070');
           s.gold -= idCost;
           identify(it);
+          const relic = uniqueOf(it);
+          if (relic && nameRelic((s.lifetime.uniquesKnown ??= []), relic.id)) {
+            this.ctx.toast(`${relic.name}. The codex has a page for it now.`, '#e8b84a');
+          }
           this.ctx.toast(`The appraiser squints: ${itemName(it)}.`, '#c8b8ff');
           this.commit('study');
         });
@@ -907,24 +911,28 @@ export class Town {
   private relics(): HTMLElement {
     const s = this.s;
     const seen = s.lifetime.uniquesSeen;
-    const p = relicProgress(seen);
+    const known = s.lifetime.uniquesKnown;
+    const p = relicProgress(seen, known);
     const grid = h('div', { class: 'beast-grid' });
     for (const def of RELIC_ORDER) {
-      const found = isFound(seen, def.id);
+      const named = isNamed(known, def.id);
+      const held = isFound(seen, def.id);
       const art = itemIcon(this.relicItem(def));
       grid.append(
         h(
           'div',
           {
-            class: `beast${found ? '' : ' locked'}${this.relic === def.id ? ' on' : ''}`,
+            class: `beast${named ? '' : ' locked'}${this.relic === def.id ? ' on' : ''}`,
             onclick: () => {
               this.relic = this.relic === def.id ? null : def.id;
               this.commit();
             },
           },
           h('div', { class: 'beast-art' }, artImg(art.icon, art.ramp, 48)),
-          h('span', { class: 'beast-name', text: found ? def.name : '???' }),
-          h('span', { class: 'dim small', text: found ? (def.kind === 'tonic' ? 'Draught' : itemBase(def.baseId).name) : `depth ${def.minDepth}+` }),
+          h('span', { class: 'beast-name', text: named ? def.name : '???' }),
+          h('span', { class: 'dim small', text: named
+            ? (def.kind === 'tonic' ? 'Draught' : itemBase(def.baseId).name)
+            : held ? 'unappraised' : `depth ${def.minDepth}+` }),
         ),
       );
     }
@@ -937,8 +945,8 @@ export class Town {
         { class: 'col' },
         h('div', { class: 'row' },
           h('h3', { class: 'grow', text: 'Relics' }),
-          h('span', { class: 'dim small', text: `${p.found} of ${p.total} found` })),
-        h('p', { class: 'dim small', style: 'margin-bottom:6px', text: 'There are no Legendaries but these. The Ashen King always gives up one you have never held, until there are none left to give.' }),
+          h('span', { class: 'dim small', text: `${p.named} of ${p.total} named${p.found > p.named ? ` · ${p.found - p.named} carried, unappraised` : ''}` })),
+        h('p', { class: 'dim small', style: 'margin-bottom:6px', text: 'There are no Legendaries but these. A page opens when the appraiser names one — carrying it is not the same as knowing it. The Ashen King always gives up one you have never held, until there are none left to give.' }),
         grid,
       ),
       open ? this.relicDetail(open) : h('div', { class: 'pane frame beast-detail' },
@@ -959,7 +967,9 @@ export class Town {
   private relicDetail(def: UniqueDef): HTMLElement {
     const s = this.s;
     const seen = (s.lifetime.uniquesSeen ??= []);
-    const found = isFound(seen, def.id);
+    const known = (s.lifetime.uniquesKnown ??= []);
+    const found = isNamed(known, def.id);
+    const held = isFound(seen, def.id);
     const item = this.relicItem(def);
     const art = itemIcon(item);
     const stage = h('div', { class: found ? 'beast-stage' : 'beast-stage locked' }, artImg(art.icon, art.ramp, 128));
@@ -972,8 +982,13 @@ export class Town {
       h('div', { class: 'row beast-row' },
         h('span', { class: 'dim small grow', text: 'Relic bench · dev build only' }),
         btn(found ? 'Relock' : 'Unlock', () => {
-          if (found) forgetRelic(seen, def.id);
-          else findRelic(seen, def.id);
+          if (found) {
+            forgetRelic(seen, def.id);
+            forgetRelicName(known, def.id);
+          } else {
+            findRelic(seen, def.id);
+            nameRelic(known, def.id);
+          }
           this.commit();
         }, 'small')),
       h('div', { class: 'dim small', text: `id ${def.id} · icon ${art.icon} · effect ${def.effect} · power ${def.power}` }),
@@ -996,7 +1011,9 @@ export class Town {
               ? `Worth about ${gold(itemValue(item))}. No merchant stocks it and no forge makes it.`
               : `A fair example rolls at about ${gold(itemValue(item))}. Every one of them differs — two ordinary affixes ride on top of the effect.` }),
           )
-        : h('p', { class: 'dim', text: 'Something of this shape is down there. You have not held it.' }),
+        : h('p', { class: 'dim', text: held
+            ? 'You are carrying one. What it is, the appraiser will tell you.'
+            : 'Something of this shape is down there. You have not held it.' }),
       bench,
     );
   }

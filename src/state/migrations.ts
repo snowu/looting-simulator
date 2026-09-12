@@ -21,7 +21,7 @@ import { MATERIALS } from '../data/materials';
  */
 
 /** Bump this (and push a migration) whenever a field is added to the save. */
-export const SAVE_REVISION = 14;
+export const SAVE_REVISION = 15;
 
 type AnyState = GameState & Record<string, unknown>;
 
@@ -131,6 +131,13 @@ const MIGRATIONS: ((s: AnyState) => void)[] = [
   // which is the truth — there was nothing to drink.
   (s) => {
     if (s.run) s.run.tonics ??= [];
+  },
+  // 14 → 15: the codex splits "held" from "identified". Anything already in the
+  // found list was recorded under the old rule and was already legible in the
+  // codex, so it carries across as named rather than being taken away.
+  (s) => {
+    s.lifetime ??= { runs: 0, deaths: 0, extractions: 0, bestDepth: 0, goldEarned: 0, kills: 0 };
+    s.lifetime.uniquesKnown ??= [...(s.lifetime.uniquesSeen ?? [])];
   },
 ];
 
