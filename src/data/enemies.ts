@@ -161,6 +161,7 @@ export const ENEMIES: EnemyDef[] = [
     id: 'hollow_knight', name: 'Hollow Knight', sprite: 'knight', scale: 1.05,
     hp: 80, attack: 16, defense: 9, damageType: 'slash', resist: { holy: 1.6, pierce: 1.25, slash: 0.7, blunt: 1.2, shadow: 0.5 }, undead: true,
     behavior: 'melee', step: 0.65, windup: 0.7, recovery: 1.0, sight: 7,
+    shield: { block: 0.75, stun: 1 },
     minDepth: 5, maxDepth: 6, weight: 1.5,
     loot: [
       { id: 'iron', chance: 0.8, min: 2, max: 3 },
@@ -169,7 +170,7 @@ export const ENEMIES: EnemyDef[] = [
       { id: 'gilded_candelabra', chance: 0.1, min: 1, max: 1 },
     ],
     gold: [10, 40], itemChance: 0.45,
-    description: 'The armour kept walking after the knight stopped.',
+    description: 'The armour kept walking after the knight stopped. Watch the shield, not the sword.',
   },
   {
     id: 'barrow_champion', name: 'Barrow Champion', sprite: 'champion', scale: 1.25,

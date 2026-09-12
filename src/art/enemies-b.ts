@@ -194,6 +194,44 @@ const KNIGHT_PAL = {
   k: '#0a0a0e', a: '#2a2a32', b: '#464652', c: '#6a6a78', d: '#9a9aa8', e: '#ff3830fa', r: '#ff3830fa',
   t: '#5a1616', u: '#3a0c0c', s: '#b0b0bc', j: '#707080', h: '#4a2a10',
 };
+// Steel heater on the left forearm in idle, braced aside for the swing, and
+// swept center for the guard — the same arm bent across, like the lesser
+// shieldbearers.
+const KNIGHT_SHIELD = rows(`
+  ..kkk..
+  .kccck.
+  kccddck
+  kcdjdck
+  kcdsdck
+  kcdjdck
+  kccddck
+  .kccck.
+  ..kkk..
+`);
+const KNIGHT_ERASE_LEFT = rows(`
+  _______
+  _______
+  _______
+  _______
+  _______
+  _______
+  _______
+  _______
+  _______
+  _______
+  _______
+  _______
+`);
+const KNIGHT_BENT_ARM = rows(`
+  .....kk..........
+  .....kcck........
+  ......kcck.......
+  .......kcck......
+  .......kcckk.....
+  ........kcck.....
+  .........kkk.....
+  ..........k......
+`);
 const KNIGHT_BASE = sym(KNIGHT_HALF);
 
 // --- Flame wraith ------------------------------------------------------------------
@@ -339,8 +377,13 @@ export const ENEMY_ART_B: ArtDef[] = [
   { id: 'ember_0', palette: EMBER_PAL, rows: sym(WISP_HALF) },
   { id: 'ember_atk', palette: EMBER_PAL, rows: sym(stamp(WISP_HALF, WISP_MAW, 0, 16)) },
 
-  { id: 'knight_0', palette: KNIGHT_PAL, rows: stamp(KNIGHT_BASE, GREATSWORD_REST, 25, 19) },
-  { id: 'knight_atk', palette: KNIGHT_PAL, rows: stamp(KNIGHT_BASE, GREATSWORD_SWING, 17, 1) },
+  { id: 'knight_0', palette: KNIGHT_PAL, rows: stamp(stamp(KNIGHT_BASE, GREATSWORD_REST, 25, 19), KNIGHT_SHIELD, 1, 18) },
+  { id: 'knight_atk', palette: KNIGHT_PAL, rows: stamp(stamp(KNIGHT_BASE, GREATSWORD_SWING, 17, 1), KNIGHT_SHIELD, 1, 16) },
+  {
+    id: 'knight_block',
+    palette: KNIGHT_PAL,
+    rows: stamp(stamp(stamp(stamp(KNIGHT_BASE, KNIGHT_ERASE_LEFT, 1, 17), KNIGHT_BENT_ARM, 0, 13), KNIGHT_SHIELD, 12, 13), GREATSWORD_REST, 25, 19),
+  },
 
   { id: 'wraith_0', palette: WRAITH_PAL, rows: sym(WRAITH_HALF) },
   { id: 'wraith_atk', palette: WRAITH_PAL, rows: sym(stamp(WRAITH_HALF, WRAITH_CAST, 0, 12)) },

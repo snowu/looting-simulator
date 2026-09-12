@@ -161,7 +161,7 @@ There is nothing below. Each new run rolls a fresh seed, so depth 6 can be farme
 | Ghoul | 3–6 | 48 | 13 | 4 | slash | undead: holy ×2, **slash ×1.35**, fire ×1.3, pierce ×1.3, shadow ×0.5 | melee | 0.65 | 1.00 | 0.75 | 6 |
 | Ember Wisp | 3–5 | 22 | 9 | 1 | fire | **frost ×2**, fire ×0, blunt ×0.7, slash ×0.8, pierce ×0.6 | ranged (fire bolt, speed 5.5, range 4) | 0.70 | 1.45 | 0.42 | 8 |
 | Frost Wisp | 4–6 | 26 | 10 | 1 | frost | **fire ×2**, frost ×0, blunt ×0.7, slash ×0.8, pierce ×0.6 | ranged (frost bolt, speed 5, range 4) | 0.80 | 1.60 | 0.45 | 8 |
-| Hollow Knight | 5–6 | 80 | 16 | 9 | slash | holy ×1.6, **pierce ×1.25**, blunt ×1.2, slash ×0.7, shadow ×0.5 | melee | 0.70 | 1.00 | 0.65 | 7 |
+| Hollow Knight | 5–6 | 80 | 16 | 9 | slash | holy ×1.6, **pierce ×1.25**, blunt ×1.2, slash ×0.7, shadow ×0.5 | melee, shield (blocks 75%) | 0.70 | 1.00 | 0.65 | 7 |
 | Barrow Champion | 5–6 | 110 | 18 | 7 | blunt | undead: **blunt ×1.5**, holy ×2, slash ×0.55, pierce ×0.5, shadow ×0.5 | slow melee | 0.85 | 1.20 | 0.80 | 7 |
 | Flame Wraith | 5–6 | 50 | 14 | 2 | fire | **frost ×2**, fire ×0, blunt ×0.7, slash ×0.8, pierce ×0.6 | ranged (fire bolt, speed 5.5, range 4) | 0.75 | 1.40 | 0.50 | 8 |
 | Mimic | any chest | 52 | 14 | 5 | pierce | blunt ×1.25, pierce ×1.1, fire ×1.35 | fast melee; dormant until opened | 0.52 | 0.80 | 0.32 | 8 |

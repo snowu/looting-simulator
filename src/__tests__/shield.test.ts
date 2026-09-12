@@ -5,7 +5,8 @@ import { newGame } from '../state/game-state';
 import { startRun } from '../systems/run';
 import { World } from '../world/world';
 import { EnemyState, FLOOR, createEnemy } from '../systems/dungeon';
-import { enemyDef } from '../data/enemies';
+import { ENEMIES, enemyDef } from '../data/enemies';
+import { getArt } from '../art/registry';
 
 function tick(w: World, seconds: number): void {
   for (let t = 0; t < seconds; t += 1 / 60) w.update(1 / 60);
@@ -203,6 +204,35 @@ describe('the guard rhythm', () => {
     (w as unknown as { beginWindup(e: EnemyState, def: unknown, x: number, y: number): void })
       .beginWindup(e, enemyDef('goblin_shield'), w.player.x, w.player.y);
     expect(e.guard).toBe('down');
+  });
+});
+
+describe('the hollow knight', () => {
+  it('holds the same guard: chips held blows, bashes the raise', () => {
+    const w = arena(41);
+    const e = bearer(w, 'hollow_knight');
+    e.hp = 500;
+    e.guard = 'up';
+    e.guardT = 99;
+    e.attackCd = 99;
+    w.player.stamina = w.derived.maxStamina;
+    w.attack();
+    tick(w, 1.5);
+    expect(500 - e.hp).toBeGreaterThanOrEqual(0);
+    expect(500 - e.hp).toBeLessThan(20); // chipped, not mauled
+    expect(e.blocks).toBe(1);
+  });
+});
+
+describe('shield art', () => {
+  it('every bearer has idle, guard and attack frames registered', () => {
+    for (const def of ENEMIES) {
+      if (!def.shield) continue;
+      for (const frame of ['0', 'block', 'atk']) {
+        expect(getArt(`${def.sprite}_${frame}`), `${def.sprite}_${frame}`).toBeTruthy();
+      }
+    }
+    expect(ENEMIES.some((d) => d.shield)).toBe(true);
   });
 });
 
