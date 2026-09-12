@@ -219,7 +219,7 @@ export const ENEMIES: EnemyDef[] = [
     hp: 420, attack: 24, defense: 12, damageType: 'shadow', resist: { holy: 1.5, shadow: 0, pierce: 0.95 }, undead: true,
     behavior: 'boss', step: 0.8, windup: 0.8, recovery: 1.0, sight: 12, range: 3,
     projectile: { sprite: 'proj_shadow', speed: 4.5, damageType: 'shadow', light: '#b060ff' },
-    minDepth: 99, maxDepth: 99, weight: 0, glow: '#8a40ff',
+    minDepth: 6, maxDepth: 6, weight: 0, glow: '#8a40ff',
     loot: [
       { id: 'star_iron', chance: 1, min: 1, max: 2 },
       { id: 'shadow_essence', chance: 1, min: 1, max: 2 },
