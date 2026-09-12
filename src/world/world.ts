@@ -1,6 +1,6 @@
 import { Rng, createRng, hashString } from '../core/rng';
 import { Dir, DIR_NAMES, DIRS, DX, DY, dirOf, turnAround, turnLeft, turnRight } from '../core/dir';
-import { DamageType, EnemyDef, Item } from '../types';
+import { DamageType, EnemyDef, EquipSlot, Item } from '../types';
 import { GameState, RunState } from '../state/game-state';
 import { addItem, canFit, findItem, removeItem, roomFor } from '../state/inventory';
 import {
@@ -29,7 +29,7 @@ import { consumable, itemBase } from '../data/items';
 import { biomeForDepth, FINAL_DEPTH } from '../data/biomes';
 import { PlayerDerived, derivePlayer } from '../systems/player';
 import { enemyHitsPlayer, playerHitsEnemy, staminaPower } from '../systems/combat';
-import { identify, itemName, makeMaterial, rollContainerLoot, rollEnemyLoot } from '../systems/items';
+import { durability, identify, itemName, makeMaterial, rollContainerLoot, rollEnemyLoot, wearItem } from '../systems/items';
 import { recordDepth, recordKill } from '../systems/contracts';
 import { metaLevel } from '../systems/meta';
 import { Rarity } from '../types';
@@ -266,6 +266,34 @@ export class World {
     if (this.run.curse === 'dulled') this.derived.attack = Math.max(1, Math.round(this.derived.attack * 0.8));
     this.player.hp = Math.min(this.player.hp, this.derived.maxHp);
     this.player.stamina = Math.min(this.player.stamina, this.derived.maxStamina);
+  }
+
+  /**
+   * Wear a piece of equipment and say something only when it crosses a line:
+   * once when it is nearly gone, once when it goes. A message per swing would
+   * be noise, and noise is how a player learns to stop reading the log.
+   */
+  private wear(slot: EquipSlot, amount = 1): void {
+    const it = this.state.equipment[slot];
+    const crossed = wearItem(it, amount);
+    if (crossed === 'none' || !it) return;
+    const name = itemName(it);
+    if (crossed === 'warn') this.msg(`Your ${name} is close to failing.`, '#e8c060');
+    else {
+      this.msg(`Your ${name} breaks!`, '#ff7070');
+      this.sfx('break');
+      this.emit({ type: 'shake', amount: 0.3 });
+    }
+    this.refreshDerived();
+  }
+
+  /** Armour wears where you were actually hit: one worn piece takes the scuff. */
+  private wearArmour(): void {
+    const worn = (['body', 'head', 'hands'] as EquipSlot[]).filter((s) => {
+      const it = this.state.equipment[s];
+      return it && !durability(it).broken;
+    });
+    if (worn.length) this.wear(this.rng.pick(worn));
   }
 
   /** Extra tiles of sight the floor has on you, from the Hunted curse. */
@@ -750,6 +778,7 @@ export class World {
   }
 
   private hitEnemy(e: EnemyState): void {
+    this.wear('weapon');
     const def = enemyDef(e.def);
     const hit = playerHitsEnemy(this.rng, this.derived, this.anim.attackPower, def);
     // Everything you land while the parry opening lasts hits twice as hard.
@@ -1526,6 +1555,9 @@ export class World {
         p.stamina -= cost;
         dmg = Math.round(dmg - absorbed);
         blocked = true;
+        // Blocking grinds the shield down; a parry costs it nothing, which is
+        // one more reason to meet the swing instead of hiding behind it.
+        if (this.derived.hasShield) this.wear('offhand');
       } else {
         const frac = p.stamina / cost;
         p.stamina = 0;
@@ -1540,6 +1572,7 @@ export class World {
       this.anim.recall = null;
       this.msg('The recall is broken by the blow.', '#888');
     }
+    if (dmg > 0 && !blocked) this.wearArmour();
     p.hp -= dmg;
     this.emit({ type: 'hurt', amount: dmg, blocked });
     this.emit({ type: 'shake', amount: blocked ? 0.3 : Math.min(1, dmg / 20) });

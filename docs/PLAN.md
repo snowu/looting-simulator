@@ -57,7 +57,7 @@ where the real game is what you do with the loot: trade it, craft with it, fill 
 - [x] Traps: dart plates, spike pits and alarm wards, spotted by looking rather than by a roll.
 - [x] Mimic chests: deterministic chance, a subtle visual tell, and the original hoard on death.
 - [x] Shrines in three readable flavours — font, idol, offering stone — plus run-long curses.
-- [ ] Durability & repairs (a Shadow Tower staple and another gold sink).
+- [x] Durability & repairs: weapons, shields and armour wear where they are used; the forge mends.
 - [ ] Legendary uniques with bespoke effects instead of named random rolls.
 - [ ] Balance pass from real play: enemy damage curve by depth, loot find, market volatility.
 - [ ] More hand-drawn art: enemy walk frames, a town backdrop, per-weapon viewmodels for dagger/club.

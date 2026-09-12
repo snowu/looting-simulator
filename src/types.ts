@@ -225,6 +225,12 @@ export interface Item {
   /** Multiplier on base stats, ~0.85–1.25. */
   quality?: number;
   crafted?: boolean;
+  /**
+   * Remaining durability. **Absent means undamaged** — that is what lets every
+   * item written before durability existed read as a fresh one without a
+   * migration walking every container on the save.
+   */
+  dur?: number;
 }
 
 // ---------------------------------------------------------------------------

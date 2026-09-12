@@ -154,6 +154,78 @@ export function itemIcon(item: Item): { icon: string; ramp?: [string, string, st
 }
 
 /** Stats an equipment item grants. Affixes only count once identified. */
+/**
+ * Durability.
+ *
+ * Only the gear that actually takes the blows wears out — the weapon you swing,
+ * the shield you raise and the armour you are hit in. Rings and amulets never
+ * degrade, because a ring that needs repairing is book-keeping, not a decision.
+ */
+const DURABILITY_BY_SLOT: Partial<Record<Slot, number>> = {
+  weapon: 110,
+  offhand: 130,
+  body: 150,
+  head: 120,
+  hands: 110,
+};
+
+/** What a piece of gear that is worn out is still worth to you. */
+export const BROKEN_STAT_FRACTION = 0.25;
+
+/** Zero for gear that never wears, so callers can test with one check. */
+export function maxDurability(item: Item): number {
+  if (item.kind !== 'equipment') return 0;
+  const slotMax = DURABILITY_BY_SLOT[itemBase(item.ref).slot];
+  if (!slotMax) return 0;
+  const tier = item.materialId ? findMaterial(item.materialId)?.tier ?? 1 : 1;
+  return Math.round(slotMax * (0.8 + 0.2 * tier));
+}
+
+export interface Durability {
+  cur: number;
+  max: number;
+  /** 0..1, or 1 for gear that does not wear. */
+  frac: number;
+  broken: boolean;
+  /** Whether this item wears at all. */
+  wears: boolean;
+}
+
+export function durability(item: Item): Durability {
+  const max = maxDurability(item);
+  if (max <= 0) return { cur: 0, max: 0, frac: 1, broken: false, wears: false };
+  const cur = Math.max(0, Math.min(max, item.dur ?? max));
+  return { cur, max, frac: cur / max, broken: cur <= 0, wears: true };
+}
+
+/**
+ * Wear an item by `amount`. Returns what crossing happened, so the world can
+ * say something the one time it matters rather than every swing.
+ */
+export function wearItem(item: Item | null, amount = 1): 'none' | 'warn' | 'broke' {
+  if (!item) return 'none';
+  const d = durability(item);
+  if (!d.wears || d.broken) return 'none';
+  const before = d.cur;
+  const after = Math.max(0, before - amount);
+  item.dur = after;
+  if (after <= 0) return 'broke';
+  const warnAt = Math.ceil(d.max * 0.25);
+  return before > warnAt && after <= warnAt ? 'warn' : 'none';
+}
+
+/** Gold to make it whole again. Free for gear that is already fine. */
+export function repairCost(item: Item): number {
+  const d = durability(item);
+  if (!d.wears || d.frac >= 1) return 0;
+  return Math.max(1, Math.ceil(itemValue(item) * 0.3 * (1 - d.frac)));
+}
+
+export function repairItem(item: Item): void {
+  const max = maxDurability(item);
+  if (max > 0) item.dur = max;
+}
+
 export function itemStats(item: Item): Stats {
   const s = emptyStats();
   if (item.kind !== 'equipment') return s;
@@ -171,6 +243,8 @@ export function itemStats(item: Item): Stats {
   if (isIdentified(item)) {
     for (const a of item.affixes ?? []) s[affix(a.id).stat] += a.value;
   }
+  // Broken gear still hangs on you, but it is barely doing its job.
+  if (durability(item).broken) for (const k of STAT_KEYS) s[k] *= BROKEN_STAT_FRACTION;
   for (const k of STAT_KEYS) s[k] = Math.round(s[k]);
   return s;
 }

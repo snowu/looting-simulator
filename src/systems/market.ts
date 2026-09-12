@@ -3,7 +3,7 @@ import { Item, Rarity, RARITY_ORDER } from '../types';
 import { MATERIALS, material } from '../data/materials';
 import { CONSUMABLES } from '../data/items';
 import { RECIPES } from '../data/recipes';
-import { ItemCategory, itemCategory, itemValue, isIdentified, makeBlueprint, rollEquipment } from './items';
+import { ItemCategory, durability, itemCategory, itemValue, isIdentified, makeBlueprint, rollEquipment } from './items';
 
 // ---------------------------------------------------------------------------
 // Events
@@ -260,7 +260,11 @@ export function itemSellPrice(m: MarketState, item: Item, haggle: number): numbe
   const sentiment = cat ? m.sentiment[cat] : 1;
   const idMult = isIdentified(item) ? 1 : 0.45;
   const ratio = item.kind === 'equipment' ? 0.5 : 0.6;
-  return Math.max(1, Math.floor(itemValue(item) * sentiment * idMult * (ratio + 0.04 * haggle)));
+  // A buyer can see the state of it. Repair cost still uses the sound value, so
+  // mending something is never cheaper than letting it rot.
+  const d = durability(item);
+  const wearMult = d.wears ? 0.45 + 0.55 * d.frac : 1;
+  return Math.max(1, Math.floor(itemValue(item) * sentiment * idMult * wearMult * (ratio + 0.04 * haggle)));
 }
 
 export function itemBuyPrice(m: MarketState, item: Item, haggle: number): number {

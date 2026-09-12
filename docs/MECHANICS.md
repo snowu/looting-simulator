@@ -300,6 +300,34 @@ An item is **base × material × rarity × affixes × quality**. Nothing is stor
 
 **Salvage** (at the forge) returns half the recipe's primary material, 50% of the secondary, and `20% × rarity` chance of a gem.
 
+### Durability
+
+Only the gear that takes the blows wears out. **Rings and amulets never degrade** — a ring that needs repairing is book-keeping, not a decision.
+
+| Slot | Pool at tier 1 | At tier 5 |
+|---|---|---|
+| Weapon | 110 | 198 |
+| Offhand | 130 | 234 |
+| Body | 150 | 270 |
+| Head | 120 | 216 |
+| Hands | 110 | 198 |
+
+The pool is `slotBase × (0.8 + 0.2 × material tier)`, so better metal lasts longer as well as hitting harder.
+
+**What costs a point:**
+
+| | |
+|---|---|
+| Weapon | every blow that **lands** on a monster. Swinging at air is free |
+| Offhand | every hit you **absorb** on the shield. A **parry costs nothing** — one more reason to meet the swing instead of hiding behind it |
+| Armour | one worn piece, picked at random, each time a hit **gets through** unblocked |
+
+**Breaking** is not a cliff you fall off blind: gear says so once when it drops under 25% ("close to failing") and once when it goes. Broken gear stays equipped and still gives **25% of its stats** — crippled, not naked.
+
+**Repairs** are at the forge, in the *Repairs* pane: `ceil(value × 0.3 × (1 − condition))` gold per piece, broken gear listed first, with a *Mend all*. Repair cost uses the item's **sound** value, so letting something rot is never the cheaper play. Buyers can see wear, though: worn gear sells for `0.45 + 0.55 × condition` of its price.
+
+A 6-floor delve runs 150–350 landed blows, so a weapon that starts the run at full will not always finish it. That is what the pack loadout and the town portal are for: carry a spare, or go home and mend.
+
 ### Containers
 
 Each newly generated chest has a deterministic **12% chance to be a mimic**. It looks almost right: two pale points interrupt the lid seam, visible to someone who has learned to check without announcing the trick to a first-time player. Opening one makes it split into a maw and unfold eight wooden legs, with a brief moment to react before this unusually tough, fast monster attacks. Killing it releases the same tier of hoard the chest would have contained, including vault and secret-chest rewards.
@@ -562,6 +590,7 @@ A save written by a *newer* build than the one loading it is left as it is rathe
 | Weapon/armour bases and swing timings | `src/data/items.ts` |
 | Affix pool and roll sizes | `src/data/affixes.ts` |
 | Recipes and blueprint prices | `src/data/recipes.ts` |
+| Durability pools, wear and repair cost | `src/systems/items.ts` |
 | Biomes, depth count | `src/data/biomes.ts` |
 | Damage formulas, difficulty multiplier | `src/systems/combat.ts` |
 | Parry window, stun and reflect | `src/world/world.ts` (`PARRY_*`) |

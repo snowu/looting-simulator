@@ -1,5 +1,5 @@
 import { GameState } from '../state/game-state';
-import { MaterialCategory, RARITY_COLORS } from '../types';
+import { EQUIP_SLOTS, Item, MaterialCategory, RARITY_COLORS } from '../types';
 import { MATERIALS, material } from '../data/materials';
 import { CONSUMABLES, itemBase } from '../data/items';
 import { RECIPES, recipe } from '../data/recipes';
@@ -18,7 +18,7 @@ import {
 } from '../systems/market';
 import { MAX_ACCEPTED, contractTitle, gearCandidates, isComplete } from '../systems/contracts';
 import { buildCrafted, craft, materialsForSlot, selectionError } from '../systems/crafting';
-import { identify, identifyCost, itemName, itemStats, makeConsumable, salvage } from '../systems/items';
+import { durability, identify, identifyCost, itemName, itemStats, makeConsumable, repairCost, repairItem, salvage } from '../systems/items';
 import { Container, addItem, canFit, countOf, freeSlots, removeItem, removeOf, roomFor, sortContainer, takeQty } from '../state/inventory';
 import { syncLoadout } from '../systems/run';
 import { derivePlayer } from '../systems/player';
@@ -499,7 +499,64 @@ export class Town {
         }, 'primary', !!err), err ? h('span', { class: 'dim small', text: err }) : null),
         gear.length ? h('div', {}, h('h3', { style: 'margin-top:10px', text: 'Salvage' }), salvageGrid) : null,
       ),
-      h('div', { class: 'col' }, h('div', { class: 'pane frame' }, h('h3', { text: 'Recipes' }), list), learn),
+      h('div', { class: 'col' }, this.repairs(), h('div', { class: 'pane frame' }, h('h3', { text: 'Recipes' }), list), learn),
+    );
+  }
+
+  /**
+   * The repair bench. Everything you are wearing and everything in the stash
+   * that has taken a beating, with what the smith wants for it. Broken gear is
+   * listed first because that is the gear costing you something right now.
+   */
+  private repairs(): HTMLElement {
+    const s = this.s;
+    const worn: { item: Item; where: string }[] = [];
+    for (const slot of EQUIP_SLOTS) {
+      const it = s.equipment[slot];
+      if (it && repairCost(it) > 0) worn.push({ item: it, where: 'worn' });
+    }
+    for (const it of s.stash.items) if (it.kind === 'equipment' && repairCost(it) > 0) worn.push({ item: it, where: 'stash' });
+    worn.sort((a, b) => Number(durability(b.item).broken) - Number(durability(a.item).broken) || repairCost(b.item) - repairCost(a.item));
+
+    const total = worn.reduce((sum, w) => sum + repairCost(w.item), 0);
+    const rows = worn.map(({ item, where }) => {
+      const d = durability(item);
+      const cost = repairCost(item);
+      return h(
+        'div',
+        { class: 'row repair-row' },
+        itemSlot(item, { size: 34, tip: () => itemTooltip(item) }),
+        h('div', { class: 'grow' },
+          h('div', { style: `color:${rarityColor(item)}`, text: itemName(item) }),
+          h('div', { class: 'dim small', text: `${where} · ${d.broken ? 'broken' : `${Math.round(d.frac * 100)}%`}` }),
+        ),
+        btn(`Mend · ${gold(cost)}`, () => {
+          if (s.gold < cost) return;
+          s.gold -= cost;
+          repairItem(item);
+          this.commit('craft');
+        }, 'small', s.gold < cost),
+      );
+    });
+
+    return h(
+      'div',
+      { class: 'pane frame' },
+      h('div', { class: 'row' },
+        h('h3', { text: 'Repairs' }),
+        worn.length
+          ? h('div', { class: 'row right' }, btn(`Mend all · ${gold(total)}`, () => {
+              if (s.gold < total) return;
+              s.gold -= total;
+              for (const w of worn) repairItem(w.item);
+              this.ctx.toast(`Mended ${worn.length} piece${worn.length === 1 ? '' : 's'}.`, '#c8c0b0');
+              this.commit('craft');
+            }, 'small primary', s.gold < total))
+          : null,
+      ),
+      worn.length
+        ? h('div', { class: 'col' }, ...rows)
+        : h('p', { class: 'dim', text: 'Nothing needs the hammer. Weapons wear on every blow that lands, shields on every blow you take on them, armour when one gets through.' }),
     );
   }
 

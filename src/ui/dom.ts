@@ -3,7 +3,7 @@ import { consumable, itemBase } from '../data/items';
 import { material } from '../data/materials';
 import { affix } from '../data/affixes';
 import { recipe } from '../data/recipes';
-import { isIdentified, itemIcon, itemName, itemRarity, itemStats, itemValue } from '../systems/items';
+import { durability, isIdentified, itemIcon, itemName, itemRarity, itemStats, itemValue } from '../systems/items';
 import { artUrl } from '../render/art-cache';
 import type { Ramp } from '../art/raster';
 
@@ -229,7 +229,17 @@ export function itemTooltip(item: Item, opts: TipOpts = {}): string {
       lines.push(`<div class="tt-sub">${itemRarity(item)} ${SLOT_LABEL[base.slot]}${base.damageType ? ` · ${base.damageType}` : ''}${item.crafted ? ' · crafted' : ''}</div>`);
       if (mat) lines.push(`<div class="tt-dim">${mat.name}${item.secondaryId ? ` & ${material(item.secondaryId).name}` : ''} · quality ${Math.round((item.quality ?? 1) * 100)}%</div>`);
       if (base.swing) lines.push(`<div class="tt-dim">Reach ${base.swing.reach} · swing ${(base.swing.windup + base.swing.recovery).toFixed(2)}s · ${base.swing.staminaCost} stamina</div>`);
+      const d = durability(item);
+      if (d.wears) {
+        const pct = Math.round(d.frac * 100);
+        const tone = d.broken ? '#ff7070' : d.frac <= 0.25 ? '#e8c060' : '#8a8f9a';
+        lines.push(
+          `<div class="tt-dur"><span style="color:${tone}">${d.broken ? 'Broken' : `Condition ${pct}%`}</span>` +
+            `<i class="dur-bar"><b style="width:${pct}%;background:${tone}"></b></i></div>`,
+        );
+      }
       lines.push(...statLines(itemStats(item), opts.compare ? itemStats(opts.compare) : undefined));
+      if (d.broken) lines.push(`<div class="tt-warn">Worn out — a quarter of its worth until the smith sees it.</div>`);
       if (!isIdentified(item)) lines.push(`<div class="tt-warn">Unidentified — ${item.affixes?.length ?? 0} hidden propert${item.affixes?.length === 1 ? 'y' : 'ies'}</div>`);
       else for (const a of item.affixes ?? []) lines.push(`<div class="tt-affix">${affix(a.id).name}</div>`);
       if (opts.compare) lines.push(`<div class="tt-dim">Compared with: ${esc(itemName(opts.compare))}</div>`);

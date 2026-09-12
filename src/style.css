@@ -129,6 +129,11 @@ h3 { font-size: 26px; color: var(--ink); margin-bottom: 6px; }
 .tt-desc { color: #c8bca4; font-style: italic; margin: 3px 0; }
 .tt-affix { color: var(--blue); }
 .tt-warn { color: var(--violet); margin-top: 3px; }
+.repair-row { border-bottom: 1px solid #1a161e; padding: 3px 0; }
+.repair-row:last-child { border-bottom: 0; }
+.tt-dur { display: flex; align-items: center; gap: 6px; font-size: 16px; margin: 2px 0; }
+.dur-bar { flex: 1; height: 6px; background: #0a080c; border: 1px solid #2a2430; display: block; }
+.dur-bar > b { display: block; height: 100%; }
 .tt-price { margin-top: 4px; color: var(--gold); }
 .tt-hint { margin-top: 4px; color: #a0c8a0; font-size: 16px; }
 .stat { color: #e0e8f8; }
