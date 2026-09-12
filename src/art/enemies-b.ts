@@ -173,22 +173,44 @@ const GREATSWORD_REST = rows(`
   .ksdk.
   ..kk..
 `);
-// Raised overhead with a real blade behind it: the old swing frame was a
-// one-pixel diagonal that read as an antenna rather than a sword.
-const GREATSWORD_SWING = rows(`
-  ............kss
-  ...........kssd
-  ..........kssdk
-  .........kssdk.
-  ........kssdk..
-  .......kssdk...
-  ......kssdk....
-  .....kssdk.....
-  ....kjjjjk.....
-  ...kkhhkk......
-  ...khhk........
-  ..kjjk.........
-  ..kkk..........
+// Raised overhead as one connected piece: fist gripping the guard, forearm
+// down into the shoulder. The old swing stamped a floating blade while the
+// body's arm still hung at its side.
+const KNIGHT_RAISED = rows(`
+  ......kss
+  .....kssd
+  ....kssdk
+  ...kssdk.
+  ..kssdk..
+  .kssdk...
+  .kssdk...
+  ..kjjjk..
+  ...khhk..
+  ...kcck..
+  ...kcck..
+  ...kcck..
+  ...kcck..
+  ...kcck..
+  ...kcck..
+  ...kcck..
+  ..kkcckk.
+  ..kcccck.
+  ...kkkk..
+`);
+const KNIGHT_ERASE_RIGHT = rows(`
+  _______
+  _______
+  _______
+  _______
+  _______
+  _______
+  _______
+  _______
+  _______
+  _______
+  _______
+  _______
+  _______
 `);
 const KNIGHT_PAL = {
   k: '#0a0a0e', a: '#2a2a32', b: '#464652', c: '#6a6a78', d: '#9a9aa8', e: '#ff3830fa', r: '#ff3830fa',
@@ -223,14 +245,14 @@ const KNIGHT_ERASE_LEFT = rows(`
   _______
 `);
 const KNIGHT_BENT_ARM = rows(`
-  .....kk..........
-  .....kcck........
-  ......kcck.......
-  .......kcck......
-  .......kcckk.....
-  ........kcck.....
-  .........kkk.....
-  ..........k......
+  ....kkkk..........
+  ...kcccck.........
+  ...kccccck........
+  ....kccccck.......
+  .....kccccck......
+  ......kcccckk.....
+  .......kccck......
+  ........kkk.......
 `);
 const KNIGHT_BASE = sym(KNIGHT_HALF);
 
@@ -378,7 +400,7 @@ export const ENEMY_ART_B: ArtDef[] = [
   { id: 'ember_atk', palette: EMBER_PAL, rows: sym(stamp(WISP_HALF, WISP_MAW, 0, 16)) },
 
   { id: 'knight_0', palette: KNIGHT_PAL, rows: stamp(stamp(KNIGHT_BASE, GREATSWORD_REST, 25, 19), KNIGHT_SHIELD, 1, 18) },
-  { id: 'knight_atk', palette: KNIGHT_PAL, rows: stamp(stamp(KNIGHT_BASE, GREATSWORD_SWING, 17, 1), KNIGHT_SHIELD, 1, 16) },
+  { id: 'knight_atk', palette: KNIGHT_PAL, rows: stamp(stamp(stamp(KNIGHT_BASE, KNIGHT_ERASE_RIGHT, 24, 14), KNIGHT_RAISED, 22, 0), KNIGHT_SHIELD, 1, 16) },
   {
     id: 'knight_block',
     palette: KNIGHT_PAL,
