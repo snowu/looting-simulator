@@ -249,74 +249,74 @@ const KING_HALF = rows(`
   ..............kgk.kgk.kg
   ..............kgkkkgkkkg
   ..............kghgggghgj
-  ..............kggggggggg
+  ..............kggjgggkgg
   ..............kkkkkkkkkk
   ..............kwwwwwwwww
   .............kwwwwwwwwww
   .............kwvwwwwwwww
-  .............kwwwkkkkwww
-  .............kwwwkeekwww
+  .............kvvvkkkkwww
+  .............kwwweeekwww
   .............kwwwkkkkwww
   .............kvwwwwwwwwk
   ..............kvwwwwwwwk
   ..............kuwkwkwkwk
   ...............kukwkwkwk
   ...............kkkkkkkkk
-  ..........kkkkkkkkkkkkkg
-  .........kpqqqqqqqqqqkgh
-  ........kpqqrqqqqqqqqkgg
-  .......kpqqrrqqqqqqqqkkg
-  ......kppqqrqqqqqqqqqqkg
-  .....kppqqqqqqqqqqqqqqkg
+  ..........kwwwwwwwwwwwkg
+  .........kvvwwwwwwwqqkgh
+  ........kpqprqqqqqqqpkgg
+  .......kpqprrqqqqqqppkkg
+  ......kppqprqqqqqqqppqkg
+  .....kppqpqrqqqqqqppqqkg
   ....kkpqqqqqqqqqqqqqqqkh
-  ...kwwkpqqqqqqqqqqqqqqkg
-  ...kwvkpqqqqrqqqqqqqqqkg
-  ...kwwkppqqqrqqqqqqqqqkg
+  ...kwwkgpqqqqqqqppqqqqkg
+  ...kwvkgpqprqqqqppqqqqkg
+  ...kwwkgppqprqqqppqqqqkg
   ....kk.kpqqqqqqqqqqqqqkh
-  .......kpqqqqqqqqqqqqqkg
-  .......kpqqqqqqqqqqqqqkg
-  ......kppqqqqqqqqqqqqqkg
-  ......kpqqqqrqqqqqqqqqkh
-  ......kpqqqqrqqqqqqqqqkg
-  .....kppqqqqqqqqqqqqqqkg
-  .....kpqqqqqqqqqqqqqqqkg
-  .....kpqqqqqqqqqqqqqqqkh
-  ....kppqqqqqqrqqqqqqqqkg
-  ....kpqqqqqqqrqqqqqqqqkg
-  ....kpqqqqqqqqqqqqqqqqkg
-  ...kppqqqqqqqqqqqqqqqqkh
-  ...kpqqqqqqqqqqqqqqqqqkg
+  .......kpqpqqqqqqqppqqkg
+  .......kpqpqqqqqqqppqqkg
+  ......kppqpqrqqqqppqqqkg
+  ......kpqpqrqqqqqppqqqkh
+  ......kpqpqrqqqqqppqqqkg
+  .....kppqpqrqqqqppqqqqkg
+  .....kpqpqqqqqqqppqqqqkg
+  .....kpqpqqqqqqqppqqqqkh
+  ....kppqpqqrqqqppqqqqqkg
+  ....kpqpqqqrqqqppqqqqqkg
+  ....kpqpqqqqqqqppqqqqqkg
+  ...kppqpqqqqqqqppqqqqqkh
+  ...kpqpqqqqqqqqppqqqqqkg
   ...kgggggggggggggggggggg
   ...khghghghghghghghghghg
   ...kkkkkkkkkkkkkkkkkkkkk
   ........................
 `);
 const SCEPTER = rows(`
-  ..kk..
-  .kerk.
-  .keek.
-  ..kk..
-  ..gh..
-  ..gh..
-  ..gh..
-  ..gh..
-  ..gh..
-  ..gh..
-  ..gh..
-  ..gh..
-  ..gh..
-  ..gh..
-  ..gh..
-  ..gh..
-  ..gh..
-  ..gh..
-  ..gh..
-  .kwwk.
-  .kwvk.
-  ..gh..
-  ..gh..
-  ..gh..
-  ..kk..
+  ..kkkk..
+  .kreeek.
+  kreeeeek
+  krewemer
+  kreeeeek
+  .kreeek.
+  ..kkkk..
+  .kghhk..
+  .kghhk..
+  .kghhk..
+  .kghhk..
+  .kghhk..
+  .kghhk..
+  .kghhk..
+  .kghhk..
+  .kghhk..
+  .kghhk..
+  .kghhk..
+  .kghhk..
+  .kwwk...
+  .kwvk...
+  .kghhk..
+  .kghhk..
+  .kghhk..
+  ..kkk...
 `);
 const KING_ROAR = rows(`
   kuwmmmmmmk
