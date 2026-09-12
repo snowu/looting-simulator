@@ -70,7 +70,7 @@ describe('the boss hoard', () => {
     // Covers saves where the hoard is already stuck under a portal.
     const w = arena(7);
     const t = w.frontTile(1);
-    w.floor.props.push({ id: 'p_old', kind: 'portal', x: t.x, y: t.y, used: false, tier: 'none', blocking: false });
+    w.floor.props.push({ id: 'p_old', kind: 'portal', x: t.x, y: t.y, used: false, tier: 'none', blocking: false, mimic: false });
     w.floor.pickups.push({ id: 'stuck', x: t.x, y: t.y, items: [makeMaterial('star_iron', 1)], gold: 0 });
     expect(w.interactionHint()).toBe('Search');
   });
@@ -135,7 +135,7 @@ describe('the town portal', () => {
   it('does not open on top of the boss portal', () => {
     const w = arena(16);
     const here = { x: w.player.x, y: w.player.y };
-    w.floor.props.push({ id: 'boss_p', kind: 'portal', x: here.x, y: here.y, used: false, tier: 'none', blocking: false });
+    w.floor.props.push({ id: 'boss_p', kind: 'portal', x: here.x, y: here.y, used: false, tier: 'none', blocking: false, mimic: false });
     openPortal(w);
     const town = w.floor.props.find((p) => p.kind === 'town_portal')!;
     expect(town.x === here.x && town.y === here.y).toBe(false);

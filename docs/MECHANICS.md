@@ -199,7 +199,7 @@ Every kill also has a 6% chance of a Healing Draught and `1.2% × depth` of a bl
 | Door | Opens/closes. Monsters can't open them |
 | Locked door (vault) | Needs that floor's key, which is always findable without it; consumes the key |
 | Chalk-marked wall | Push it aside to open a secret room |
-| Chest | Opens into the loot window; gold goes straight to your purse |
+| Chest | Opens into the loot window; gold goes straight to your purse. 12% are mimics: two pale points in the lid seam are the quiet tell |
 | Urn / barrel | Smash by attacking or interacting; small loot |
 | Shrine | **15%**: cruel — lose 25% of current health. Otherwise: full health and stamina, plus a blessing for the rest of the run if you have none |
 | Stairs | Walk into the alcove. Floor 1's up-stairs leaves the dungeon |
@@ -278,6 +278,8 @@ An item is **base × material × rarity × affixes × quality**. Nothing is stor
 **Salvage** (at the forge) returns half the recipe's primary material, 50% of the secondary, and `20% × rarity` chance of a gem.
 
 ### Containers
+
+Each newly generated chest has a deterministic **12% chance to be a mimic**. It looks almost right: two pale points interrupt the lid seam, visible to someone who has learned to check without announcing the trick to a first-time player. Opening one replaces the chest with a Mimic and gives you a brief moment to react. Killing it releases the same tier of hoard the chest would have contained, including vault and secret-chest rewards.
 
 | Source | Contents |
 |---|---|

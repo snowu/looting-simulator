@@ -52,7 +52,34 @@ const CHEST_OPEN = sym([
 const CHEST_PAL = {
   k: '#120a05', x: '#8a5c30', w: '#6a4222', y: '#44280f', q: '#1e1008',
   i: '#34343c', n: '#8a8a94', g: '#c09030', h: '#f0d070', z: '#00000066',
+  t: '#d8c89a', r: '#9c3028', m: '#8c2840',
 };
+
+// Two pale points in the lid seam are the whole tell. They read as worn nails
+// until you have learned what they really are.
+const CHEST_MIMIC = stamp(CHEST, rows(`
+  t....t
+`), 13, 17);
+
+const MIMIC_FACE = rows(`
+  ....r......r....
+  ................
+  ..tttttttttttt..
+  ...ktktktktkt...
+  ......mmmm......
+  .......mm.......
+`);
+const MIMIC_FACE_ATK = rows(`
+  ...rr........rr...
+  ..................
+  .tttttttttttttttt.
+  ..tktktktktktktk..
+  .....mmmmmmmm.....
+  ....mmmmmmmmmm....
+  .....mmmmmmmm.....
+`);
+const MIMIC_IDLE = stamp(CHEST_OPEN, MIMIC_FACE, 8, 8);
+const MIMIC_ATK = stamp(CHEST_OPEN, MIMIC_FACE_ATK, 7, 7);
 
 const URN = sym(rows(`
   ................
@@ -576,7 +603,10 @@ const TOWN_PORTAL = sym(rows(`
 
 export const PROPS: ArtDef[] = [
   { id: 'chest', palette: CHEST_PAL, rows: CHEST },
+  { id: 'chest_mimic', palette: CHEST_PAL, rows: CHEST_MIMIC },
   { id: 'chest_open', palette: CHEST_PAL, rows: CHEST_OPEN },
+  { id: 'mimic_0', palette: CHEST_PAL, rows: MIMIC_IDLE },
+  { id: 'mimic_atk', palette: CHEST_PAL, rows: MIMIC_ATK },
   { id: 'urn', palette: URN_PAL, rows: URN },
   { id: 'urn_broken', palette: URN_PAL, rows: URN_BROKEN },
   { id: 'barrel', palette: BARREL_PAL, rows: BARREL },

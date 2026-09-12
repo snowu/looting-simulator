@@ -11,6 +11,7 @@ import {
   Prop,
   blocksMove,
   blocksSight,
+  createEnemy,
   doorAt,
   enemyAt,
   generateFloor,
@@ -755,7 +756,9 @@ export class World {
     recordKill(this.state.contracts, def.id);
     this.sfx('enemyDie', e.x, e.y);
     const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
-    const loot = rollEnemyLoot(this.rng, def, this.run.depth, this.derived.find, idBelow);
+    const loot = e.mimicTier && e.mimicPropId
+      ? rollContainerLoot(createRng(hashString(`${this.floor.seed}:${e.mimicPropId}`)), this.run.depth, this.derived.find, e.mimicTier, idBelow)
+      : rollEnemyLoot(this.rng, def, this.run.depth, this.derived.find, idBelow);
     if (def.behavior === 'boss') {
       // The portal opens where the king fell, so his hoard goes beside it —
       // dropped on the same tile it would be unreachable behind the portal.
@@ -763,7 +766,7 @@ export class World {
       this.dropLoot(spot.x, spot.y, loot.items, loot.gold);
       this.run.stats.bossKilled = true;
       this.msg('The Ashen King crumbles to cinders. A portal tears open.', '#c080ff');
-      this.floor.props.push({ id: `portal${this.time}`, kind: 'portal', x: e.x, y: e.y, used: false, tier: 'none', blocking: false });
+      this.floor.props.push({ id: `portal${this.time}`, kind: 'portal', x: e.x, y: e.y, used: false, tier: 'none', blocking: false, mimic: false });
     } else {
       this.dropLoot(e.x, e.y, loot.items, loot.gold);
       this.msg(`${def.name} slain.`, '#c8c0b0');
@@ -895,6 +898,7 @@ export class World {
       used: false,
       tier: 'none',
       blocking: false,
+      mimic: false,
     });
     this.run.portal = { depth: this.run.depth, x: spot.x, y: spot.y };
     this.sfx('recall');
@@ -993,10 +997,26 @@ export class World {
         return;
       }
       if (p.kind === 'chest') {
+        const tier = p.tier === 'none' ? 'chest' : p.tier;
+        if (p.mimic) {
+          f.props = f.props.filter((q) => q !== p);
+          const mimic = createEnemy(enemyDef('mimic'), p.x, p.y, turnAround(this.player.facing), `mimic:${p.id}`, this.run.depth);
+          mimic.ai = 'recover';
+          mimic.timer = 0.65;
+          mimic.alert = 6;
+          mimic.lastSeenX = this.player.x;
+          mimic.lastSeenY = this.player.y;
+          mimic.mimicTier = tier;
+          mimic.mimicPropId = p.id;
+          f.enemies.push(mimic);
+          this.sfx('alert', p.x, p.y);
+          this.emit({ type: 'shake', amount: 0.35 });
+          this.msg('The chest splits into a hungry grin!', '#e8c080');
+          return;
+        }
         p.used = true;
         this.sfx('chest', p.x, p.y);
         const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
-        const tier = p.tier === 'none' ? 'chest' : p.tier;
         const loot = rollContainerLoot(this.propRng(p), this.run.depth, this.derived.find, tier, idBelow);
         const pk = this.dropLoot(p.x, p.y, loot.items, 0);
         if (loot.gold) {

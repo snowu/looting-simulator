@@ -61,6 +61,8 @@ describe('loading an old save', () => {
     expect(s.loadout.capacity).toBeGreaterThan(0);
     expect(s.run!.portal).toBeNull();
     for (const f of s.run!.floors) for (const e of f!.enemies) expect(e.vuln).toBe(0);
+    // Chests already seen in an old run do not change under the player.
+    for (const f of s.run!.floors) for (const p of f!.props) expect(p.mimic).toBe(false);
   });
 
   it('treats a summary written before the rule as a day that turned', () => {

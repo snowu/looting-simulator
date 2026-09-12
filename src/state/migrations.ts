@@ -18,7 +18,7 @@ import { BASE_BACKPACK } from '../systems/meta';
  */
 
 /** Bump this (and push a migration) whenever a field is added to the save. */
-export const SAVE_REVISION = 5;
+export const SAVE_REVISION = 6;
 
 type AnyState = GameState & Record<string, unknown>;
 
@@ -59,6 +59,11 @@ const MIGRATIONS: ((s: AnyState) => void)[] = [
   // run did, so an older summary is a day that turned.
   (s) => {
     if (s.lastRun) s.lastRun.dayTurned ??= true;
+  },
+  // 5 → 6: existing chests stay honest. Only newly generated floors roll
+  // mimics, so loading a save cannot change what the player already saw.
+  (s) => {
+    for (const f of s.run?.floors ?? []) for (const p of f?.props ?? []) p.mimic ??= false;
   },
 ];
 

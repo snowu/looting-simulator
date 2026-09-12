@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Floor, FLOOR, generateFloor, stairsFront } from '../systems/dungeon';
+import { Floor, FLOOR, chestIsMimic, generateFloor, stairsFront } from '../systems/dungeon';
 import { DIRS, DX, DY } from '../core/dir';
 import { FINAL_DEPTH } from '../data/biomes';
 import { BOSS_ID } from '../data/enemies';
@@ -75,6 +75,10 @@ describe('generateFloor', () => {
           spots.add(k);
         }
         expect(f.enemies.length).toBeGreaterThan(3);
+
+        for (const p of f.props) {
+          expect(p.mimic).toBe(p.kind === 'chest' && chestIsMimic(f.seed, p.id));
+        }
 
         if (depth === FINAL_DEPTH) expect(f.enemies.some((e) => e.def === BOSS_ID)).toBe(true);
       });

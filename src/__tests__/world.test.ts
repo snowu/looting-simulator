@@ -120,9 +120,9 @@ describe('World', () => {
     expect(w.contextAction().kind).toBe('attack');
     w.floor.enemies = [];
     w.floor.pickups = [];
-    w.floor.props.push({ id: 'tu', kind: 'urn', x: t.x, y: t.y, used: false, tier: 'urn', blocking: true });
+    w.floor.props.push({ id: 'tu', kind: 'urn', x: t.x, y: t.y, used: false, tier: 'urn', blocking: true, mimic: false });
     expect(w.contextAction().kind).toBe('attack');
-    w.floor.props = [{ id: 'tc', kind: 'chest', x: t.x, y: t.y, used: false, tier: 'chest', blocking: true }];
+    w.floor.props = [{ id: 'tc', kind: 'chest', x: t.x, y: t.y, used: false, tier: 'chest', blocking: true, mimic: false }];
     expect(w.contextAction()).toEqual({ kind: 'interact', label: 'Open' });
   });
 

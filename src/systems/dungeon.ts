@@ -67,6 +67,8 @@ export interface Prop {
   used: boolean;
   tier: ContainerTier | 'none';
   blocking: boolean;
+  /** A chest wearing a convincing wooden shell. */
+  mimic: boolean;
 }
 
 /**
@@ -132,6 +134,9 @@ export interface EnemyState {
   power: number;
   /** Seconds left of the opening a parry tore in its guard. */
   vuln?: number;
+  /** The chest reward this mimic swallowed, released when it dies. */
+  mimicTier?: ContainerTier;
+  mimicPropId?: string;
 }
 
 export interface Floor {
@@ -221,6 +226,11 @@ export function createEnemy(def: EnemyDef, x: number, y: number, facing: Dir, id
     id, def: def.id, x, y, fromX: x, fromY: y, moveT: 1, facing, hp, maxHp: hp, ai: 'idle', timer: 0, alert: 0,
     lastSeenX: -1, lastSeenY: -1, homeX: x, homeY: y, hurtT: 0, deadT: 0, attackCd: 0, power,
   };
+}
+
+/** Mimic rolls use their own stream so adding them never reshuffles a floor. */
+export function chestIsMimic(floorSeed: number, propId: string): boolean {
+  return createRng(hashString(`mimic:${floorSeed}:${propId}`)).chance(0.12);
 }
 
 const KEY_NAMES: Record<string, string> = { crypt: 'Bone Key', mines: 'Rusted Key', caverns: 'Crystal Key', throne: 'Ashen Key' };
@@ -622,7 +632,8 @@ function tryGenerate(seed: number, depth: number, rng: Rng): Floor | null {
       }
     }
     if (!blocking) blocked[i] = kind !== 'bones' && kind !== 'fungus';
-    props.push({ id: `p${propN++}`, kind, x, y, used: false, tier, blocking });
+    const id = `p${propN++}`;
+    props.push({ id, kind, x, y, used: false, tier, blocking, mimic: kind === 'chest' && chestIsMimic(seed, id) });
     return true;
   };
   const vessel: PropKind = biome.id === 'mines' || biome.id === 'caverns' ? 'barrel' : 'urn';
@@ -671,7 +682,7 @@ function tryGenerate(seed: number, depth: number, rng: Rng): Floor | null {
   if (biome.glow) {
     for (let i = 0; i < N; i++) {
       if (tiles[i] === FLOOR && !blocked[i] && !reserved[i] && rng.chance(biome.glow.density)) {
-        props.push({ id: `p${propN++}`, kind: 'fungus', x: i % W, y: (i / W) | 0, used: false, tier: 'none', blocking: false });
+        props.push({ id: `p${propN++}`, kind: 'fungus', x: i % W, y: (i / W) | 0, used: false, tier: 'none', blocking: false, mimic: false });
       }
     }
   }

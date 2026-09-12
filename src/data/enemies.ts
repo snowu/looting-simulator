@@ -116,6 +116,14 @@ export const ENEMIES: EnemyDef[] = [
     description: 'Someone burned down here once. They never stopped.',
   },
   {
+    id: 'mimic', name: 'Mimic', sprite: 'mimic', scale: 0.85,
+    hp: 32, attack: 9, defense: 3, damageType: 'pierce', resist: { blunt: 1.25, fire: 1.35 },
+    behavior: 'melee', step: 0.42, windup: 0.58, recovery: 0.85, sight: 8,
+    minDepth: 1, maxDepth: 6, weight: 0,
+    loot: [], gold: [0, 0], itemChance: 0,
+    description: 'The lock was a tooth. The hinges were not hinges.',
+  },
+  {
     id: 'ashen_king', name: 'The Ashen King', sprite: 'king', scale: 1.4,
     hp: 420, attack: 24, defense: 12, damageType: 'shadow', resist: { holy: 1.5, shadow: 0, pierce: 0.8 }, undead: true,
     behavior: 'boss', step: 0.8, windup: 0.8, recovery: 1.0, sight: 12, range: 3,
