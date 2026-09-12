@@ -303,7 +303,7 @@ export class Town {
           s.gold -= idCost;
           identify(it);
           this.ctx.toast(`The appraiser squints: ${itemName(it)}.`, '#c8b8ff');
-          this.commit('magic');
+          this.commit('study');
         });
       }
       sellList.append(el);
@@ -364,7 +364,7 @@ export class Town {
             if (s.gold < idAllCost) return this.ctx.toast('Not enough gold.', '#ff9070');
             s.gold -= idAllCost;
             unids.forEach(identify);
-            this.commit('magic');
+            this.commit('study');
           }, 'small right', s.gold < idAllCost) : null),
           sellables.length ? sellList : h('p', { class: 'dim', text: 'Nothing but raw materials in the stash.' }),
           h('p', { class: 'dim small', style: 'margin-top:4px', text: `Unidentified gear sells for less than half. Weapons ×${m.sentiment.weapon.toFixed(2)} · armour ×${m.sentiment.armor.toFixed(2)} · jewellery ×${m.sentiment.jewelry.toFixed(2)} today.` }),
@@ -487,7 +487,7 @@ export class Town {
                   this.forgeMats = this.defaultMats(bp.ref);
                   const name = itemBase(recipe(bp.ref).baseId).name;
                   this.ctx.toast(next === 1 ? `Learned to forge the ${name}.` : `${name} mastery reached Rank ${next} for ${cost} blueprints.`, '#9ab0d8');
-                  this.commit('magic');
+                  this.commit('study');
                 }, 'small', capped || !enough),
               );
             }),
@@ -880,7 +880,7 @@ export class Town {
                 s.renown -= cost;
                 s.meta[u.id] = lvl + 1;
                 this.ctx.toast(`${u.name} ${lvl + 1}.`, '#c080ff');
-                this.commit('magic');
+                this.commit('study');
               }, 'small primary', s.renown < cost),
         ),
       );

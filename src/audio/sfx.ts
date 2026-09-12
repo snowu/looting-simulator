@@ -6,7 +6,7 @@
 export type SfxName =
   | 'step' | 'swing' | 'hit' | 'crit' | 'hurt' | 'block' | 'door' | 'locked' | 'unlock'
   | 'pickup' | 'gold' | 'chest' | 'break' | 'death' | 'enemyDie' | 'stairs' | 'shoot'
-  | 'magic' | 'secret' | 'ui' | 'craft' | 'drink' | 'alert' | 'miss' | 'sell' | 'recall' | 'parry';
+  | 'magic' | 'study' | 'secret' | 'ui' | 'craft' | 'drink' | 'alert' | 'miss' | 'sell' | 'recall' | 'parry';
 
 export interface PlayOpts {
   volume?: number;
@@ -223,6 +223,20 @@ class AudioEngine {
       case 'magic':
         this.tone(o, 'sine', 300 * r, 1200 * r, 0.35, 0.25);
         this.tone(o, 'triangle', 450 * r, 1800 * r, 0.35, 0.12, 0.03);
+        break;
+      /*
+       * Learning something at a bench: paper, leather, and a low fifth that
+       * settles. Deliberately not a rising figure — a quick upward sweep is
+       * the arcade power-up formula, and this is a night spent over a book.
+       */
+      case 'study':
+        this.noiseBurst(o, 0.17, 'bandpass', 2500 * r, 850, 0.14, 1.2);
+        this.noiseBurst(o, 0.13, 'bandpass', 1800 * r, 650, 0.1, 1.2, 0.15);
+        this.tone(o, 'sine', 120 * r, 74, 0.26, 0.26, 0.02);
+        // Kept under a second: identifying is something you do item after
+        // item, and a long tail would stack into a drone.
+        this.tone(o, 'sine', 147, 143, 0.85, 0.17, 0.18);
+        this.tone(o, 'sine', 220, 214, 0.7, 0.09, 0.21);
         break;
       case 'secret':
         this.noiseBurst(o, 1.2, 'lowpass', 220, 90, 0.6, 2);
