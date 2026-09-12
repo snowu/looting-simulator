@@ -327,34 +327,34 @@ const SPIDER_PAL = { k: '#0e0a0c', a: '#2a1c22', b: '#44303a', c: '#644a56', r: 
 // Floats, so it sits in the middle of the canvas rather than on the bottom row.
 const BAT_HALF = rows(`
   ................
-  ................
-  ................
   .............k..
-  ............kdk.
-  ............kcd.
-  ...........kcccd
-  ...........kcrcd
-  k..........kcccd
-  kk.........kcwcd
-  kak........kcccd
-  kaak.......kcccc
-  .kaak......kbccc
-  .kabak.....kbbcc
-  ..kabak....kbbbc
-  ..kaabak...kabbb
-  ...kaabak..kaabb
-  ...kaaabak.kaaab
-  ....kaaabakkaaaa
-  ....kaaaabaaaaaa
-  .....kaaaabaaaaa
-  .....kbaaaabaaaa
-  ......kkaaaabaaa
-  ........kaaaabaa
-  .......kkbaaaaba
-  ......kk..kbaaaa
-  ...........kkbaa
-  .............kka
-  ..............kk
+  ............kck.
+  ............kck.
+  ............kcck
+  ..kk........kcck
+  .kaakk......kcck
+  kaaaaakkk....kcc
+  kaaaaaaaakkk.krc
+  kaaaaaaaaaaakkcc
+  kaaaaaaaaaaaaacw
+  .kaaaaaaaaabbbbb
+  .kaaaabbbbbbbabb
+  ..kbkbaaabbababb
+  ...kkaabbaaaaabb
+  .....kbkaaabaabb
+  ......k.kaaaaaka
+  .........kbkaaka
+  ..........k.kk.k
+  ................
+  ................
+  ................
+  ................
+  ................
+  ................
+  ................
+  ................
+  ................
+  ................
   ................
   ................
   ................
@@ -368,7 +368,7 @@ const BAT_LUNGE = rows(`
   ..kkkk..
 `);
 const BAT_PAL = {
-  k: '#0b0809', a: '#3a2831', b: '#584049', c: '#7a5446', d: '#9c7058',
+  k: '#090608', a: '#3e2a30', b: '#63464c', c: '#8a5c46', d: '#ab7458',
   r: '#ff4028fa', w: '#ede4d0', m: '#5a0c16',
 };
 

@@ -32,7 +32,7 @@ export const ENEMIES: EnemyDef[] = [
     description: 'Runs when hurt. Always carrying something that isn\'t theirs.',
   },
   {
-    id: 'bat', name: 'Cave Bat', sprite: 'bat', scale: 0.5, floats: true,
+    id: 'bat', name: 'Cave Bat', sprite: 'bat', scale: 0.45, floats: true,
     hp: 12, attack: 5, defense: 0, damageType: 'pierce',
     // Small, fast and soft: a blade opens it, a club swings through the air it
     // just left. It is the first floor's argument for carrying something quick.
