@@ -528,7 +528,12 @@ export class World {
     const f = this.floor;
     if (!f.traps?.length) return;
     const p = this.player;
-    const look: { x: number; y: number }[] = [this.frontTile(1), this.frontTile(2)];
+    // A better lamp buys one more tile of warning down the corridor — one extra
+    // step to stop in, which at a walk is the difference between reading the
+    // floor and finding it the hard way.
+    const ahead = 2 + (metaLevel(this.state.meta, 'lantern') > 0 ? 1 : 0);
+    const look: { x: number; y: number }[] = [];
+    for (let d = 1; d <= ahead; d++) look.push(this.frontTile(d));
     for (const d of DIRS) look.push({ x: p.x + DX[d], y: p.y + DY[d] });
     for (const t of look) {
       const trap = trapAt(f, t.x, t.y);

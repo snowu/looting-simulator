@@ -6,6 +6,7 @@ import { startRun } from '../systems/run';
 import { World, TRAPS } from '../world/world';
 import { EnemyState, FLOOR, Trap, TrapKind, createEnemy, generateFloor, trapAt } from '../systems/dungeon';
 import { enemyDef } from '../data/enemies';
+import { BASE_LIGHT_RADIUS, lightIntensity, lightRadius } from '../systems/meta';
 
 function tick(w: World, seconds: number): void {
   for (let t = 0; t < seconds; t += 1 / 60) w.update(1 / 60);
@@ -196,5 +197,49 @@ describe('trap generation', () => {
     const a = generateFloor(77, 3).traps;
     const b = generateFloor(77, 3).traps;
     expect(a).toEqual(b);
+  });
+});
+
+describe('the lantern', () => {
+  function plantAhead(w: World, dist: number): Trap {
+    const t = w.frontTile(dist);
+    const trap: Trap = { id: `l${dist}`, kind: 'spikes', x: t.x, y: t.y, armed: true, found: false, dir: 0 };
+    w.floor.traps.push(trap);
+    return trap;
+  }
+  /** Force a look without moving: a turn away and back runs the spot pass. */
+  function look(w: World): void {
+    w.press('turnLeft');
+    w.release('turnLeft');
+    tick(w, 0.4);
+    w.press('turnRight');
+    w.release('turnRight');
+    tick(w, 0.4);
+  }
+
+  it('reads the floor two tiles ahead without one', () => {
+    const w = arena();
+    const near = plantAhead(w, 2);
+    const far = plantAhead(w, 3);
+    look(w);
+    expect(near.found).toBe(true);
+    expect(far.found).toBe(false);
+  });
+
+  it('buys a third tile of warning at level 1', () => {
+    const w = arena();
+    w.state.meta.lantern = 1;
+    const far = plantAhead(w, 3);
+    look(w);
+    expect(far.found).toBe(true);
+  });
+
+  it('throws light further with every level', () => {
+    expect(lightRadius({})).toBe(BASE_LIGHT_RADIUS);
+    expect(lightRadius({ lantern: 1 })).toBeGreaterThan(lightRadius({}));
+    expect(lightRadius({ lantern: 3 })).toBeGreaterThan(lightRadius({ lantern: 1 }));
+    // Still well inside the fog, so the dark stays the point.
+    expect(lightRadius({ lantern: 3 })).toBeLessThan(18);
+    expect(lightIntensity({ lantern: 3 })).toBeGreaterThan(lightIntensity({}));
   });
 });

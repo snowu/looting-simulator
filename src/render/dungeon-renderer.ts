@@ -5,6 +5,7 @@ import { enemyDef } from '../data/enemies';
 import { findMaterial } from '../data/materials';
 import { Floor } from '../systems/dungeon';
 import { itemIcon } from '../systems/items';
+import { lightIntensity, lightRadius } from '../systems/meta';
 import { World } from '../world/world';
 import { artSize, artTexture } from './art-cache';
 import { LevelView, TILE, WALL_H, buildLevel, tileX, tileZ } from './level-mesh';
@@ -189,7 +190,11 @@ export class DungeonRenderer {
     const torchColor = new THREE.Color(biome.torch);
     // The player's own light is whiter than the wall torches so colours read true up close.
     const handLight = new THREE.Color('#ffe6cc');
-    lights.push({ x: this.camera.position.x, y: EYE + 0.2, z: this.camera.position.z, r: 9.5, color: handLight, intensity: 0.95 * flick(0) });
+    const meta = world.state.meta;
+    lights.push({
+      x: this.camera.position.x, y: EYE + 0.2, z: this.camera.position.z,
+      r: lightRadius(meta), color: handLight, intensity: lightIntensity(meta) * flick(0),
+    });
     for (const t of floor.torches) {
       const wx = tileX(t.x) + DX[t.side] * (TILE / 2 - 0.3);
       const wz = tileZ(t.y) + DY[t.side] * (TILE / 2 - 0.3);

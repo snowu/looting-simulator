@@ -227,7 +227,7 @@ Diablo's, in short: a two-way door that costs one scroll for the round trip.
 
 *Files: `src/systems/dungeon.ts` (placement), `src/world/world.ts` (`TRAPS`, spotting, springing)*
 
-Every trap starts **hidden and armed**. You spot one by looking at it: the tile directly ahead, the tile two ahead down a clear line, and the four tiles beside you are checked on every step and every turn. Spotting is not a dice roll — it is whether you were looking. A held W down a corridor gives you one step of warning, which is the whole point.
+Every trap starts **hidden and armed**. You spot one by looking at it: the tiles ahead down a clear line (**two**, or **three** with Lantern Wick) and the four tiles beside you are checked on every step and every turn. Spotting is not a dice roll — it is whether you were looking. A held W down a corridor gives you one step of warning, which is the whole point.
 
 A spotted trap is drawn as a floor decal, stays marked on the automap (orange armed, grey spent) and can be disarmed with **[F]** from the tile in front.
 
@@ -477,6 +477,7 @@ One or two run at a time, announced the day before as a rumour.
 | Appraiser's Eye | L1 identify 40% cheaper; L2 Rare and lower drop identified | 5, 12 |
 | Treasure Sense | +12% loot find | 5, 10, 16 |
 | Supply Crate | Start each run with +1 Healing Draught | 3, 6, 10 |
+| Lantern Wick | +1 unit of light radius (½ a tile). L1 also spots traps 3 tiles ahead instead of 2 | 3, 7, 12 |
 
 ---
 
@@ -517,7 +518,7 @@ A save written by a *newer* build than the one loading it is left as it is rathe
 
 ## 16. Presentation
 
-- **Renderer** (`src/render/`): Three.js at 240p with vertex snapping, affine texture warping, per-pixel torch lighting, distance fog and a 15-bit dither pass, upscaled with nearest sampling. Sprites are billboards; the weapon is drawn in screen space.
+- **Renderer** (`src/render/`): Three.js at 240p with vertex snapping, affine texture warping, per-pixel torch lighting, distance fog and a 15-bit dither pass, upscaled with nearest sampling. You carry a whiter light than the wall torches so colours read true up close: **9.5 units of radius**, +1 per Lantern Wick level, against fog that runs from 4 to 18 — so even a full lantern leaves the corridor fading to black well before the end. Sprites are billboards; the weapon is drawn in screen space.
 - **Art** (`src/art/`): every texture, sprite and icon is a palette-indexed character grid. Characters `1`–`4` are a ramp recoloured per material; colours ending in alpha `fa` glow in the dark. PNGs listed in `public/art/manifest.json` override the built-in art.
 - **Audio** (`src/audio/sfx.ts`): all synthesised at runtime — no audio files. Effects are panned by direction and quietened by distance; each biome has its own drone. Everything suspends when the app is in the background.
 

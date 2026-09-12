@@ -17,6 +17,7 @@ export const META_UPGRADES: MetaUpgrade[] = [
   { id: 'appraiser', name: 'Appraiser\'s Eye', description: 'L1: identifying costs 40% less. L2: Rare and lower drops come identified.', costs: [5, 12] },
   { id: 'treasure_sense', name: 'Treasure Sense', description: '+12% loot find per level.', costs: [5, 10, 16] },
   { id: 'supply_crate', name: 'Supply Crate', description: 'Start each run with +1 Healing Draught per level.', costs: [3, 6, 10] },
+  { id: 'lantern', name: 'Lantern Wick', description: 'Your lamp reaches a little further into the dark each level. L1: you also read the floor for traps a tile sooner.', costs: [3, 7, 12] },
 ];
 
 export type MetaLevels = Record<string, number>;
@@ -31,6 +32,24 @@ export function nextCost(u: MetaUpgrade, levels: MetaLevels): number | null {
 }
 
 export const BASE_BACKPACK = 16;
+
+/**
+ * The light you carry, in world units of radius. Kept deliberately small per
+ * level: darkness is the resource this whole game is built on, and a lantern
+ * you can buy your way out of would flatten every floor below the Ossuary.
+ * Three levels take you from 9.5 to 12.5 — about half a tile each.
+ */
+export const BASE_LIGHT_RADIUS = 9.5;
+const LIGHT_PER_LEVEL = 1;
+
+export function lightRadius(levels: MetaLevels): number {
+  return BASE_LIGHT_RADIUS + LIGHT_PER_LEVEL * metaLevel(levels, 'lantern');
+}
+
+/** A touch more throw as well as reach, so the extra radius doesn't look washed out. */
+export function lightIntensity(levels: MetaLevels): number {
+  return 0.95 + 0.04 * metaLevel(levels, 'lantern');
+}
 
 export function backpackCapacity(levels: MetaLevels): number {
   return BASE_BACKPACK + 4 * metaLevel(levels, 'pack_mule');
