@@ -941,7 +941,7 @@ export class Town {
     // the attack), no motion. The bench comes with the notes.
     const stage = h('div', {
       class: known
-        ? `beast-stage${this.beastBob && def.floats ? ' floats' : ''} tint-${this.beastTint}`
+        ? `beast-stage${this.beastBob && def.floats ? ' beast-floats' : ''} tint-${this.beastTint}`
         : 'beast-stage locked',
     }, img);
 

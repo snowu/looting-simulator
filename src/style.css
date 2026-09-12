@@ -661,7 +661,7 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
   border: 1px solid #0008; overflow: hidden;
 }
 .beast-stage img { transition: none; }
-.beast-stage.floats img { animation: beast-hover 2.4s ease-in-out infinite; }
+.beast-stage.beast-floats img { animation: beast-hover 2.4s ease-in-out infinite; }
 @keyframes beast-hover { 0%, 100% { transform: translateY(-5px); } 50% { transform: translateY(5px); } }
 /* The tints the dungeon renderer applies, reproduced for inspection. */
 .beast-stage.tint-hurt img { filter: drop-shadow(0 0 0 #fff) brightness(1.6) saturate(0.7); }

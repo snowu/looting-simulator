@@ -89,6 +89,22 @@ export const ENEMIES: EnemyDef[] = [
     description: 'Slow. Very, very strong.',
   },
   {
+    id: 'ember_wisp', name: 'Ember Wisp', sprite: 'ember', scale: 0.55, floats: true,
+    hp: 22, attack: 9, defense: 1, damageType: 'fire', resist: { fire: 0, frost: 2, blunt: 0.7, slash: 0.8, pierce: 0.6 },
+    behavior: 'ranged', step: 0.42, windup: 0.7, recovery: 1.45, sight: 8, range: 4,
+    projectile: { sprite: 'proj_fire', speed: 5.5, damageType: 'fire', light: '#ff8030' },
+    // The shallow half of the pair: it introduces elemental damage a floor
+    // before the Frost Wisp, and depth 3 had nothing elemental at all.
+    minDepth: 3, maxDepth: 5, weight: 2, glow: '#ff8a3a',
+    loot: [
+      { id: 'flame_shard', chance: 0.3, min: 1, max: 1 },
+      { id: 'crystal', chance: 0.35, min: 1, max: 2 },
+      { id: 'sunstone', chance: 0.08, min: 1, max: 1 },
+    ],
+    gold: [0, 5], itemChance: 0.08,
+    description: 'A warm light. It would like you to be warmer.',
+  },
+  {
     id: 'frost_wisp', name: 'Frost Wisp', sprite: 'wisp', scale: 0.6, floats: true,
     hp: 26, attack: 10, defense: 1, damageType: 'frost', resist: { frost: 0, fire: 2, blunt: 0.7, slash: 0.8, pierce: 0.6 },
     behavior: 'ranged', step: 0.45, windup: 0.8, recovery: 1.6, sight: 8, range: 4,

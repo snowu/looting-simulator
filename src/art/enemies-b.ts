@@ -113,6 +113,9 @@ const WISP_MAW = rows(`
   ......abbbcdkkkk
 `);
 const WISP_PAL = { a: '#1a3a8afa', b: '#3a70d0fa', c: '#80c0fffa', d: '#e0f4fffa', e: '#fffffffa', k: '#0a1030' };
+// The same light, burning instead of freezing — the trick the archer plays on
+// the skeleton, one palette over the shared rows.
+const EMBER_PAL = { a: '#6a1606fa', b: '#c8490cfa', c: '#ff9a28fa', d: '#ffe6a8fa', e: '#fffff0fa', k: '#2a0a02' };
 
 // --- Hollow knight -------------------------------------------------------------------
 const KNIGHT_HALF = rows(`
@@ -328,6 +331,9 @@ export const ENEMY_ART_B: ArtDef[] = [
 
   { id: 'wisp_0', palette: WISP_PAL, rows: sym(WISP_HALF) },
   { id: 'wisp_atk', palette: WISP_PAL, rows: sym(stamp(WISP_HALF, WISP_MAW, 0, 16)) },
+
+  { id: 'ember_0', palette: EMBER_PAL, rows: sym(WISP_HALF) },
+  { id: 'ember_atk', palette: EMBER_PAL, rows: sym(stamp(WISP_HALF, WISP_MAW, 0, 16)) },
 
   { id: 'knight_0', palette: KNIGHT_PAL, rows: stamp(KNIGHT_BASE, GREATSWORD_REST, 24, 20) },
   { id: 'knight_atk', palette: KNIGHT_PAL, rows: stamp(KNIGHT_BASE, GREATSWORD_SWING, 17, 1) },

@@ -156,6 +156,7 @@ There is nothing below. Each new run rolls a fresh seed, so depth 6 can be farme
 | Skeleton Archer | 2–5 | 18 | 7 | 2 | pierce | as undead | ranged (arrow, speed 7, range 5) | 0.75 | 1.40 | 0.50 | 8 |
 | Cave Spider | 3–5 | 24 | 9 | 2 | pierce | **pierce ×1.35**, slash ×1.3, fire ×1.5 | melee | 0.35 | 0.60 | 0.28 | 5 |
 | Ghoul | 3–6 | 48 | 13 | 4 | slash | undead: holy ×2, **slash ×1.35**, fire ×1.3, pierce ×1.3, shadow ×0.5 | melee | 0.65 | 1.00 | 0.75 | 6 |
+| Ember Wisp | 3–5 | 22 | 9 | 1 | fire | **frost ×2**, fire ×0, blunt ×0.7, slash ×0.8, pierce ×0.6 | ranged (fire bolt, speed 5.5, range 4) | 0.70 | 1.45 | 0.42 | 8 |
 | Frost Wisp | 4–6 | 26 | 10 | 1 | frost | **fire ×2**, frost ×0, blunt ×0.7, slash ×0.8, pierce ×0.6 | ranged (frost bolt, speed 5, range 4) | 0.80 | 1.60 | 0.45 | 8 |
 | Hollow Knight | 5–6 | 80 | 16 | 9 | slash | holy ×1.6, **pierce ×1.25**, blunt ×1.2, slash ×0.7, shadow ×0.5 | melee | 0.70 | 1.00 | 0.65 | 7 |
 | Barrow Champion | 5–6 | 110 | 18 | 7 | blunt | undead: **blunt ×1.5**, holy ×2, slash ×0.55, pierce ×0.5, shadow ×0.5 | slow melee | 0.85 | 1.20 | 0.80 | 7 |
@@ -163,7 +164,7 @@ There is nothing below. Each new run rolls a fresh seed, so depth 6 can be farme
 | Mimic | any chest | 52 | 14 | 5 | pierce | blunt ×1.25, pierce ×1.1, fire ×1.35 | fast melee; dormant until opened | 0.52 | 0.80 | 0.32 | 8 |
 | The Ashen King | 6 (boss) | 420 | 24 | 12 | shadow | holy ×1.5, shadow ×0, pierce ×0.95 | boss: melee + 3-bolt volley | 0.80 | 1.00 | 0.80 | 12 |
 
-Spawn weights: rat/goblin/skeleton/spider 3, bat 2.5, archer/ghoul/wisp 2, knight/champion/wraith 1.5. Every floor holds at least five kinds, and each gives blunt, slash and pierce something it is good against — depth 6 without the Barrow Champion had no bone left to break, which left the club line with nothing to do on the final floor. Mimics never enter the ordinary spawn pool. Monsters deeper than their `minDepth` get `+12% HP per depth` and the same bonus to damage.
+Spawn weights: rat/goblin/skeleton/spider 3, bat 2.5, archer/ghoul/wisps 2, knight/champion/wraith 1.5. The Ember Wisp is the Frost Wisp's shallow counterpart, sharing its sprite rows under a warm palette — it puts the first elemental enemy on depth 3, which had none. Every floor holds at least five kinds, and each gives blunt, slash and pierce something it is good against — depth 6 without the Barrow Champion had no bone left to break, which left the club line with nothing to do on the final floor. Mimics never enter the ordinary spawn pool. Monsters deeper than their `minDepth` get `+12% HP per depth` and the same bonus to damage.
 
 ### Monster drops
 
