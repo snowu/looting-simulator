@@ -1,7 +1,7 @@
 import { RunSummary } from '../state/game-state';
 import { gold, h, itemSlot, btn } from './dom';
 
-export function titleScreen(hasSave: boolean, onStart: () => void, build = '', account?: HTMLElement): HTMLElement {
+export function titleScreen(slots: HTMLElement, build = '', account?: HTMLElement): HTMLElement {
   return h(
     'div',
     { class: 'title-screen' },
@@ -10,7 +10,8 @@ export function titleScreen(hasSave: boolean, onStart: () => void, build = '', a
       { class: 'frame', style: 'padding:18px 36px 24px' },
       h('h1', { text: 'Looting Simulator' }),
       h('div', { class: 'tag', text: 'Go down. Bring it back. Sell it high.' }),
-      btn(hasSave ? 'Return to Bleakmere' : 'Arrive in Bleakmere', onStart, 'primary big'),      h(
+      slots,
+      h(
         'div',
         { class: 'help', style: 'margin-top:22px' },
         h('div', {}, h('kbd', { text: 'W / S' }), 'step'),

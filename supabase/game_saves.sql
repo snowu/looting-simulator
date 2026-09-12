@@ -8,15 +8,42 @@
 -- anything else already in the project; only `auth.users` is shared.
 
 create table if not exists public.game_saves (
-  user_id uuid primary key references auth.users(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  -- One row per playthrough. Slots are independent saves, not a history.
+  slot smallint not null default 1,
   state jsonb not null,
   format_version integer not null,
   schema_revision integer not null,
   generation bigint not null default 1,
   device_id text not null,
   content_hash text not null,
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  primary key (user_id, slot)
 );
+
+-- Installs from before slots existed: give the existing row slot 1 and move the
+-- key onto (user_id, slot). The save itself is never touched.
+do $$
+begin
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'game_saves' and column_name = 'slot'
+  ) then
+    alter table public.game_saves add column slot smallint not null default 1;
+    alter table public.game_saves drop constraint game_saves_pkey;
+    alter table public.game_saves add primary key (user_id, slot);
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'game_saves_slot_range' and conrelid = 'public.game_saves'::regclass
+  ) then
+    alter table public.game_saves
+      add constraint game_saves_slot_range check (slot between 1 and 3);
+  end if;
+end $$;
 
 -- A real save is tens of kilobytes; a deep run with many floors is a few hundred.
 -- The cap is far above any honest save and exists so a tampered or buggy client
@@ -77,6 +104,7 @@ with check (auth.uid() = user_id);
  * plpgsql resolving them to the OUT parameters.
  */
 create or replace function public.save_game(
+  p_slot smallint,
   p_expected_generation bigint,
   p_state jsonb,
   p_format_version integer,
@@ -99,7 +127,7 @@ begin
     raise exception 'not authenticated' using errcode = '28000';
   end if;
 
-  select * into v_current from public.game_saves where user_id = v_uid;
+  select * into v_current from public.game_saves where user_id = v_uid and slot = p_slot;
 
   -- No row yet. Only an upload that expects to find none may create one; an
   -- upload naming a generation has lost a row it thought existed.
@@ -108,8 +136,8 @@ begin
       return query select 'conflict'::text, null::bigint, null::timestamptz;
       return;
     end if;
-    insert into public.game_saves (user_id, state, format_version, schema_revision, generation, device_id, content_hash)
-    values (v_uid, p_state, p_format_version, p_schema_revision, 1, p_device_id, p_content_hash)
+    insert into public.game_saves (user_id, slot, state, format_version, schema_revision, generation, device_id, content_hash)
+    values (v_uid, p_slot, p_state, p_format_version, p_schema_revision, 1, p_device_id, p_content_hash)
     returning game_saves.generation, game_saves.updated_at into v_gen, v_at;
     return query select 'ok'::text, v_gen, v_at;
     return;
@@ -142,18 +170,48 @@ begin
       device_id = p_device_id,
       content_hash = p_content_hash,
       updated_at = now()
-  where user_id = v_uid and generation = p_expected_generation
+  where user_id = v_uid and slot = p_slot and generation = p_expected_generation
   returning game_saves.generation, game_saves.updated_at into v_gen, v_at;
 
   -- Lost a race between the read above and the update.
   if v_gen is null then
-    select generation, updated_at into v_gen, v_at from public.game_saves where user_id = v_uid;
+    select generation, updated_at into v_gen, v_at from public.game_saves where user_id = v_uid and slot = p_slot;
     return query select 'conflict'::text, v_gen, v_at;
     return;
   end if;
 
   return query select 'ok'::text, v_gen, v_at;
 end;
+$$;
+
+revoke all on function public.save_game(smallint, bigint, jsonb, integer, integer, text, text) from public, anon;
+grant execute on function public.save_game(smallint, bigint, jsonb, integer, integer, text, text) to authenticated;
+
+/*
+ * The pre-slots signature, kept as a shim onto slot 1.
+ *
+ * This is a phone game installed as a PWA: a client that has not picked up the
+ * new build yet is still out there calling the old six-argument form, and
+ * dropping it would turn every one of their uploads into an error until they
+ * happened to update. Slot 1 is where a save from before slots existed already
+ * lives, so delegating there is both compatible and correct. It can be dropped
+ * once no old clients remain.
+ */
+create or replace function public.save_game(
+  p_expected_generation bigint,
+  p_state jsonb,
+  p_format_version integer,
+  p_schema_revision integer,
+  p_device_id text,
+  p_content_hash text
+)
+returns table (result_status text, result_generation bigint, result_updated_at timestamptz)
+language sql
+security invoker
+set search_path = public, pg_temp
+as $$
+  select * from public.save_game(1::smallint, p_expected_generation, p_state,
+                                 p_format_version, p_schema_revision, p_device_id, p_content_hash);
 $$;
 
 revoke all on function public.save_game(bigint, jsonb, integer, integer, text, text) from public, anon;

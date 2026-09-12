@@ -1,4 +1,5 @@
 import { GameState, SAVE_VERSION } from '../state/game-state';
+import { Slot } from '../state/persistence';
 import { SAVE_REVISION } from '../state/migrations';
 import { contentHash, isFutureSave, parseSave, serializeSave } from '../state/save-format';
 import { deviceId } from './device';
@@ -12,6 +13,7 @@ import { supabase } from './supabase';
  */
 
 export interface CloudSave {
+  slot: Slot;
   state: GameState;
   generation: number;
   updatedAt: string;
@@ -31,6 +33,7 @@ export type UploadResult =
   | { status: 'conflict' | 'stale_client'; generation: number | null; updatedAt: string | null };
 
 interface Row {
+  slot: Slot;
   state: unknown;
   format_version: number;
   schema_revision: number;
@@ -47,14 +50,37 @@ interface Row {
  * migrations. A row written by a newer build is reported rather than installed
  * — this build cannot promise to maintain fields it has never heard of.
  */
-export async function fetchCloudSave(): Promise<CloudFetch> {
+export async function fetchCloudSave(slot: Slot): Promise<CloudFetch> {
   const { data, error } = await (await supabase())
     .from('game_saves')
-    .select('state, format_version, schema_revision, generation, device_id, updated_at')
+    .select(COLUMNS)
+    .eq('slot', slot)
     .maybeSingle<Row>();
   if (error) throw error;
   if (!data) return { kind: 'none' };
+  return readRow(data);
+}
 
+/**
+ * Every slot this player has in the cloud, for the title screen's picker. A
+ * device that has never played still has to be able to see what is up there.
+ */
+export async function fetchCloudSlots(): Promise<Map<Slot, CloudSave>> {
+  const { data, error } = await (await supabase()).from('game_saves').select(COLUMNS);
+  if (error) throw error;
+  const out = new Map<Slot, CloudSave>();
+  for (const row of (data ?? []) as Row[]) {
+    const found = readRow(row);
+    // Slots this build cannot read are simply not offered; the picker shows
+    // them as unavailable rather than pretending they are empty.
+    if (found.kind === 'save') out.set(found.save.slot, found.save);
+  }
+  return out;
+}
+
+const COLUMNS = 'slot, state, format_version, schema_revision, generation, device_id, updated_at';
+
+function readRow(data: Row): CloudFetch {
   const incompatible = {
     kind: 'incompatible' as const,
     generation: data.generation,
@@ -72,7 +98,7 @@ export async function fetchCloudSave(): Promise<CloudFetch> {
 
   return {
     kind: 'save',
-    save: { state, generation: data.generation, updatedAt: data.updated_at, device: data.device_id, raw },
+    save: { slot: data.slot, state, generation: data.generation, updatedAt: data.updated_at, device: data.device_id, raw },
   };
 }
 
@@ -84,7 +110,7 @@ export async function fetchCloudSave(): Promise<CloudFetch> {
  * conflict rather than overwriting: whichever save is right is the player's
  * call, and they are the only one who can make it.
  */
-export async function uploadSave(state: GameState, expectedGeneration: number | null): Promise<UploadResult> {
+export async function uploadSave(slot: Slot, state: GameState, expectedGeneration: number | null): Promise<UploadResult> {
   // A save from a newer build must not be written back under this build's
   // revision. The server enforces this too; refusing here saves a round trip
   // and gives the UI something specific to say.
@@ -92,6 +118,7 @@ export async function uploadSave(state: GameState, expectedGeneration: number | 
 
   const raw = serializeSave(state);
   const { data, error } = await (await supabase()).rpc('save_game', {
+    p_slot: slot,
     p_expected_generation: expectedGeneration,
     p_state: JSON.parse(raw),
     p_format_version: state.version,

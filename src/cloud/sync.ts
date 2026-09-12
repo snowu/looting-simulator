@@ -1,4 +1,5 @@
 import { GameState } from '../state/game-state';
+import { Slot } from '../state/persistence';
 import { contentHash, serializeSave } from '../state/save-format';
 import { CloudSave, fetchCloudSave, uploadSave } from './cloud-save';
 
@@ -52,9 +53,13 @@ export type Reconciliation =
 export interface SyncDeps {
   /** The live state. Read at upload time so a delayed upload sends the truth. */
   state: () => GameState;
+  /** The slot being played. Each one is a separate row with its own history. */
+  slot: () => Slot;
   /** Whether anything was loaded from localStorage when the page booted. */
   hasLocalSave: () => boolean;
   onStatus: (status: SyncStatus, text: string) => void;
+  /** A conflict turned up mid-play; the owner should ask when it is safe to. */
+  onConflict?: () => void;
 }
 
 export class CloudSync {
@@ -64,6 +69,16 @@ export class CloudSync {
   private timer: ReturnType<typeof setTimeout> | null = null;
   private busy = false;
   private active = false;
+  /**
+   * An unresolved conflict bars every upload.
+   *
+   * Without this, the debounce is a silent resolver: the player is still
+   * looking at the chooser while a timer armed before the conflict was known
+   * fires, uploads this device's save at the generation `begin()` just learned,
+   * and destroys the other device's progress. The question would answer itself,
+   * always in favour of whoever was holding the phone.
+   */
+  private blocked = false;
   private _status: SyncStatus = 'off';
 
   constructor(private deps: SyncDeps) {
@@ -94,7 +109,7 @@ export class CloudSync {
     this.set('syncing');
     let found;
     try {
-      found = await fetchCloudSave();
+      found = await fetchCloudSave(this.deps.slot());
     } catch {
       this.set('saved-local');
       return { kind: 'none' };
@@ -135,27 +150,45 @@ export class CloudSync {
       return { kind: 'take-cloud', save };
     }
 
+    this.blocked = true;
     this.set('conflict');
     return { kind: 'choose', save };
   }
 
   /** The player chose this device. Their snapshot replaces the cloud row. */
   async keepLocal(): Promise<void> {
+    this.blocked = false;
     this.dirty = true;
     await this.push(true);
   }
 
   /** The player chose the cloud save; the caller has installed it. */
   adopt(save: CloudSave): void {
+    this.blocked = false;
     this.generation = save.generation;
     this.lastHash = contentHash(save.raw);
     this.dirty = false;
     this.set('synced');
   }
 
+  /**
+   * Point the coordinator at a different slot. Generation and hash describe one
+   * row, so carrying them across would have this device claim it was replacing
+   * a generation belonging to another playthrough.
+   */
+  switchSlot(): void {
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = null;
+    this.blocked = false;
+    this.dirty = false;
+    this.generation = null;
+    this.lastHash = null;
+  }
+
   /** Sign-out, or a switch to another account. */
   reset(): void {
     this.active = false;
+    this.blocked = false;
     this.dirty = false;
     this.generation = null;
     this.lastHash = null;
@@ -195,6 +228,8 @@ export class CloudSync {
    */
   private async push(force = false): Promise<boolean> {
     if (this.busy || (!this.dirty && !force)) return false;
+    // A conflict the player has not answered yet outranks any pending upload.
+    if (this.blocked && !force) return false;
     if (!navigator.onLine) {
       this.set('saved-local');
       return false;
@@ -214,7 +249,7 @@ export class CloudSync {
     this.busy = true;
     this.set('syncing');
     try {
-      const res = await uploadSave(state, this.generation);
+      const res = await uploadSave(this.deps.slot(), state, this.generation);
       if (res.status === 'ok' || res.status === 'unchanged') {
         this.generation = res.generation;
         this.lastHash = hash;
@@ -229,7 +264,9 @@ export class CloudSync {
       // Conflict: another device moved on. The save is safe here; resolving is
       // a question for town or the title screen, never mid-delve.
       this.generation = res.generation;
+      this.blocked = true;
       this.set('conflict');
+      this.deps.onConflict?.();
       return false;
     } catch {
       // Offline, asleep, or the project is down. The local save already landed.

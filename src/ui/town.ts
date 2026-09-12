@@ -36,6 +36,13 @@ export interface TownCtx {
   descend: () => void;
   newGame: () => void;
   toast: (text: string, color?: string) => void;
+  /**
+   * The account and sync block. It lives on the title screen too, and an
+   * element is only ever in one place, so rendering town moves it here — which
+   * is what we want: whoever is signed in and whether the save has reached the
+   * cloud should be legible while playing, not only before starting.
+   */
+  account?: () => HTMLElement | null;
 }
 
 const CATS: { id: MaterialCategory; name: string }[] = [
@@ -110,6 +117,7 @@ export class Town {
         () => this.ctx.descend(),
         'primary big',
       ),
+      this.ctx.account?.() ?? null,
     );
     const tabBar = h(
       'div',

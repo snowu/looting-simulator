@@ -2,7 +2,7 @@ import './style.css';
 import { createRng, randomSeed } from './core/rng';
 import { DX, DY, turnRight } from './core/dir';
 import { GameState, newGame } from './state/game-state';
-import { clearSave, loadGame, saveGame } from './state/persistence';
+import { SLOTS, Slot, clearSave, lastSlot, loadGame, saveGame, setLastSlot } from './state/persistence';
 import { startRun, endRun, bankCarriedGold } from './systems/run';
 import { biomeForDepth } from './data/biomes';
 import { World, WorldEvent } from './world/world';
@@ -14,8 +14,9 @@ import { Town } from './ui/town';
 import { summaryScreen, titleScreen } from './ui/screens';
 import { AccountPanel } from './ui/account';
 import { saveChooser } from './ui/save-chooser';
+import { SlotView, slotPicker } from './ui/slots';
 import { CloudSync } from './cloud/sync';
-import { CloudSave } from './cloud/cloud-save';
+import { CloudSave, fetchCloudSave, fetchCloudSlots } from './cloud/cloud-save';
 import { h, setTouchMode } from './ui/dom';
 import { TouchControls, TouchMove, isTouchDevice } from './ui/touch';
 import { FULLSCREEN_HELP, fullscreenSupported, isFullscreen, isStandalone, mountFullscreenButton, toggleFullscreen } from './ui/fullscreen';
@@ -28,11 +29,17 @@ type Mode = 'title' | 'town' | 'dungeon' | 'summary';
 const AMBIENT: Record<string, [number, number]> = { crypt: [55, 0.3], mines: [49, 0.5], caverns: [62, 0.75], throne: [41, 0.4] };
 
 // --- State ---------------------------------------------------------------------
-const loaded = loadGame();
-// Whether this browser already held progress decides, later, whether a cloud
-// save is a question for the player or simply the only save there is.
+// The playthrough in front of the player. Each slot is a separate game with
+// its own local key and its own cloud row.
+let slot: Slot = lastSlot();
+const loaded = loadGame(slot);
+// Whether this browser already held progress for this slot decides, later,
+// whether a cloud save is a question for the player or simply the only save
+// there is.
 let hadLocalSave = loaded !== null;
 let state: GameState = loaded ?? newGame(createRng(randomSeed()));
+let signedIn = false;
+let cloudSlots = new Map<Slot, CloudSave>();
 let world: World | null = null;
 let mode: Mode = 'title';
 let saveTimer = 0;
@@ -124,8 +131,10 @@ const town = new Town(screen, {
   state: () => state,
   save: () => commit(),
   descend: () => enterDungeon(),
+  // Deferred: the panel is created below, after the town it renders into.
+  account: () => account.el,
   newGame: () => {
-    clearSave();
+    clearSave(slot);
     state = newGame(createRng(randomSeed()));
     hadLocalSave = true;
     commit();
@@ -144,7 +153,7 @@ const town = new Town(screen, {
  * forgotten, and a cloud failure can never stop a local save from landing.
  */
 function commit(): void {
-  saveGame(state);
+  saveGame(state, slot);
   hadLocalSave = true;
   sync.touch();
 }
@@ -177,27 +186,65 @@ function show(m: Mode): void {
 
 const sync = new CloudSync({
   state: () => state,
+  slot: () => slot,
   hasLocalSave: () => hadLocalSave,
   onStatus: (_status, text) => account.setNote(text),
+  onConflict: () => void raiseConflict(),
 });
 
 // One panel for the life of the page: it holds the auth subscription and the
 // stage of a half-finished sign-in, neither of which should be thrown away
 // every time the title screen is rebuilt.
 const account = new AccountPanel({
-  onSignedIn: () => void reconcile(),
+  onSignedIn: () => void afterSignIn(),
   onSignedOut: () => {
+    signedIn = false;
+    cloudSlots = new Map();
     sync.reset();
     dismissChooser();
     pendingChoice = null;
+    if (mode === 'title') enterTitle();
   },
 });
 
+/**
+ * A session arrived. Learn what is in each slot so the title can show it, then
+ * settle the slot actually being played.
+ */
+async function afterSignIn(): Promise<void> {
+  signedIn = true;
+  try {
+    cloudSlots = await fetchCloudSlots();
+  } catch {
+    cloudSlots = new Map();
+  }
+  if (mode === 'title') enterTitle();
+  else await reconcile();
+}
+
 /** A cloud save waiting for the player to choose, once it is safe to ask. */
 let pendingChoice: CloudSave | null = null;
+
+/**
+ * A conflict found while playing rather than at sign-in. Uploads are already
+ * barred at this point, so the only thing missing is the other candidate.
+ */
+async function raiseConflict(): Promise<void> {
+  if (pendingChoice) return;
+  try {
+    const found = await fetchCloudSave(slot);
+    if (found.kind === 'save') {
+      pendingChoice = found.save;
+      askAboutSaves();
+    }
+  } catch {
+    // Offline. The conflict is still blocking uploads and will resurface.
+  }
+}
 let chooserEl: HTMLElement | null = null;
 
 async function reconcile(): Promise<void> {
+  if (!signedIn) return;
   const result = await sync.begin();
   if (result.kind === 'take-cloud') installCloud(result.save);
   else if (result.kind === 'choose') {
@@ -243,9 +290,12 @@ function dismissChooser(): void {
 /** Adopt the cloud snapshot as the game being played. Never during a run. */
 function installCloud(save: CloudSave): void {
   if (world) return;
+  slot = save.slot;
+  setLastSlot(slot);
   state = save.state;
   hadLocalSave = true;
-  saveGame(state);
+  saveGame(state, slot);
+  cloudSlots.set(save.slot, save);
   sync.adopt(save);
   if (mode === 'town') {
     town.tab = 'stash';
@@ -256,16 +306,42 @@ function installCloud(save: CloudSave): void {
   toast('Cloud save loaded.', '#9ac0ff');
 }
 
+function slotViews(): SlotView[] {
+  return SLOTS.map((n) => ({ slot: n, local: loadGame(n), cloud: cloudSlots.get(n) ?? null }));
+}
+
 function enterTitle(): void {
   show('title');
-  screen.replaceChildren(titleScreen(!!loadGame(), () => {
-    audio.unlock();
-    audio.play('ui');
-    // On phones and tablets, starting the game is the gesture that takes us fullscreen.
-    if (touchMode && fullscreenSupported() && !isStandalone() && !isFullscreen()) void toggleFullscreen();
-    enterTown();
-  }, BUILD_ID, account.el));
+  screen.replaceChildren(titleScreen(slotPicker(slotViews(), enterSlot), BUILD_ID, account.el));
   askAboutSaves();
+}
+
+/**
+ * Open a playthrough. Everything that describes one game — the state, whether
+ * this device had it, and the cloud generation the coordinator is replacing —
+ * belongs to the slot, so all of it is swapped here and nowhere else.
+ */
+function enterSlot(n: Slot): void {
+  audio.unlock();
+  audio.play('ui');
+  // On phones and tablets, starting the game is the gesture that takes us fullscreen.
+  if (touchMode && fullscreenSupported() && !isStandalone() && !isFullscreen()) void toggleFullscreen();
+
+  slot = n;
+  setLastSlot(n);
+  sync.switchSlot();
+  dismissChooser();
+  pendingChoice = null;
+
+  const existing = loadGame(n);
+  hadLocalSave = existing !== null;
+  state = existing ?? newGame(createRng(randomSeed()));
+  // A slot that only exists in the cloud is settled by reconcile() below, which
+  // is why nothing is written here for an empty one until then.
+  if (existing) commit();
+
+  enterTown();
+  void reconcile();
 }
 
 function enterTown(): void {
@@ -499,7 +575,7 @@ window.addEventListener('mouseup', (e) => {
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 window.addEventListener('blur', () => world?.held.clear());
 window.addEventListener('resize', () => renderer.resize());
-window.addEventListener('beforeunload', () => saveGame(state));
+window.addEventListener('beforeunload', () => saveGame(state, slot));
 
 // Backgrounded (app switcher, lock screen, other tab): silence audio, save,
 // and pause a run so you don't come back mid-fight. Resume sound on return.
