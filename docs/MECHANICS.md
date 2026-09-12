@@ -203,13 +203,34 @@ Every kill also has a 6% chance of a Healing Draught and `1.2% × depth` of a bl
 | Chalk-marked wall | Push it aside to open a secret room |
 | Chest | Opens into the loot window; gold goes straight to your purse. 12% are mimics: two pale points in the lid seam are the quiet tell |
 | Urn / barrel | Smash by attacking or interacting; small loot |
-| Shrine | **15%**: cruel — lose 25% of current health. Otherwise: full health and stamina, plus a blessing for the rest of the run if you have none |
+| Shrine | One of three flavours — see below. The prompt names it before you touch it |
 | Stairs | Walk into the alcove. Floor 1's up-stairs leaves the dungeon |
 | Portal | Appears when the boss dies; steps you home and ends the run |
 | Town portal | Opened by a Scroll of Recall; steps you to Hollowmere with the run still going |
 | Loot pile | Coins and keys are picked up automatically; items open the loot window |
 
+### Shrines
+
+A shrine serves one of three gods, fixed per floor and rolled from its own seed stream. **You can tell which before you pray**: the flame, the orb and the light it throws across the room are a different colour, and the prompt names it. Praying is a decision, not a coin toss. Weights are font 4, idol 4, stone 3.
+
+| | Colour | Prompt | What it does |
+|---|---|---|---|
+| **Font of Mending** | cold blue | *Drink at the font* | Full health and stamina, and **lifts a curse**. Never harms you |
+| **Hollow Idol** | violet | *Pray at the hollow idol* | **60%**: full restore and a blessing. **40%**: a curse for the rest of the run |
+| **Offering Stone** | gold | *Offer N gold at the stone* | Costs `30 + 25 × depth` carried gold for a full restore and a blessing. Too poor? It stays unused — come back with the coin |
+
 **Blessings** (one per run): Fortune (+30% loot find), Fury (+25% damage), Warding (+5 defense).
+
+**Curses** (one per run, independent of your blessing — you can carry both):
+
+| Curse | Effect |
+|---|---|
+| Frailty | −15% maximum health |
+| Leaden Limbs | −12 speed |
+| Dulled Edge | −20% damage |
+| Hunted | monsters see you 2 tiles further |
+
+A curse lasts until a **font** washes it off or the run ends, which is what makes crossing a floor for a blue light worth doing. Once you already hold a blessing an idol has little left to give you and the same 40% to take — so the second idol of a run is usually a worse bet than the first, and leaving it alone is a legitimate play.
 
 **Scroll of Recall:** 5 seconds of standing still, then a **town portal** tears open on the tile in front of you. Moving, attacking or being hit cancels the reading.
 

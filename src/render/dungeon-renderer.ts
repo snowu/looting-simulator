@@ -3,7 +3,7 @@ import { DX, DY, turnRight } from '../core/dir';
 import { biomeForDepth } from '../data/biomes';
 import { enemyDef } from '../data/enemies';
 import { findMaterial } from '../data/materials';
-import { Floor } from '../systems/dungeon';
+import { Floor, ShrineKind } from '../systems/dungeon';
 import { itemIcon } from '../systems/items';
 import { lightIntensity, lightRadius } from '../systems/meta';
 import { World } from '../world/world';
@@ -12,6 +12,13 @@ import { LevelView, TILE, WALL_H, buildLevel, tileX, tileZ } from './level-mesh'
 import { MAX_LIGHTS, PS1Material, PostPass, Shared, createLowResTarget, createShared, ps1Material } from './ps1';
 
 const EYE = 1.32;
+
+/** Shrine glow by flavour — the same hues as their flames. */
+const SHRINE_LIGHT: Record<ShrineKind, string> = {
+  font: '#58c8ff',
+  idol: '#b070ff',
+  coffer: '#ffc45a',
+};
 const LOW_H = 240;
 
 interface SpriteObj {
@@ -204,7 +211,10 @@ export class DungeonRenderer {
       if (pr.kind === 'fungus') lights.push({ x: tileX(pr.x), y: 0.4, z: tileZ(pr.y), r: 3, color: new THREE.Color('#40e0c0'), intensity: 0.7 });
       if (pr.kind === 'portal') lights.push({ x: tileX(pr.x), y: 1.2, z: tileZ(pr.y), r: 7, color: new THREE.Color('#b070ff'), intensity: 1.3 * flick(5) });
       if (pr.kind === 'town_portal') lights.push({ x: tileX(pr.x), y: 1.2, z: tileZ(pr.y), r: 6, color: new THREE.Color('#70b0ff'), intensity: 1.1 * flick(4) });
-      if (pr.kind === 'shrine' && !pr.used) lights.push({ x: tileX(pr.x), y: 1.3, z: tileZ(pr.y), r: 4, color: new THREE.Color('#8ab0ff'), intensity: 0.9 });
+      // The colour it throws is the tell you can read from across a room.
+      if (pr.kind === 'shrine' && !pr.used) {
+        lights.push({ x: tileX(pr.x), y: 1.3, z: tileZ(pr.y), r: 4.5, color: new THREE.Color(SHRINE_LIGHT[pr.shrine ?? 'font']), intensity: 0.95 });
+      }
     }
     for (const tr of floor.traps ?? []) {
       // Only the ward glows, because a ward is magic. A dart plate and a spike
@@ -285,9 +295,11 @@ export class DungeonRenderer {
         case 'bones':
           this.place(s, 'bones', wx, 0, wz, 1.4);
           break;
-        case 'shrine':
-          this.place(s, pr.used ? 'shrine_used' : 'shrine', wx, 0, wz, 1.9);
+        case 'shrine': {
+          const kind = pr.shrine ?? 'font';
+          this.place(s, `shrine_${kind}${pr.used ? '_used' : ''}`, wx, 0, wz, 1.9);
           break;
+        }
         case 'fungus':
           this.place(s, 'fungus', wx + ((pr.x * 7) % 5) * 0.12 - 0.25, 0, wz + ((pr.y * 3) % 5) * 0.12 - 0.25, 0.7);
           break;

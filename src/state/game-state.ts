@@ -52,6 +52,8 @@ export interface RunState {
   keys: string[];
   /** Shrine blessing active for the rest of the run. */
   blessing: string | null;
+  /** Shrine curse active for the rest of the run; a font will lift it. */
+  curse: string | null;
   /** Open town portal, if a Scroll of Recall has been read. One at a time. */
   portal: PortalState | null;
   stats: RunStats;

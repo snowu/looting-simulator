@@ -326,9 +326,27 @@ const SHRINE_OFF = rows(`
   ................................
 `);
 
+// One pedestal, three gods. Only the flame, the orb and the stone's cast change
+// colour — that is the whole tell, and it is the part your eye finds first in a
+// dark room, so you can read a shrine from across it before you commit.
 const SHRINE_PAL = {
   k: '#0e0d10', d: '#6a6874', c: '#54525e', b: '#403e48', a: '#2a2830',
   v: '#a89c80', w: '#e8e0c8', f: '#ffb040fa', y: '#fff0c0fa', o: '#7aa0fffa',
+};
+const SHRINE_FONT_PAL = {
+  ...SHRINE_PAL,
+  d: '#5c6e7a', c: '#48586a', b: '#36424e', a: '#222a34',
+  f: '#40c8f0fa', y: '#c8f8fffa', o: '#60d8fffa',
+};
+const SHRINE_IDOL_PAL = {
+  ...SHRINE_PAL,
+  d: '#6a5c7a', c: '#54486a', b: '#40364e', a: '#2a2234',
+  f: '#a040e0fa', y: '#e8b0fffa', o: '#c070fffa',
+};
+const SHRINE_COFFER_PAL = {
+  ...SHRINE_PAL,
+  d: '#7a6c4a', c: '#60543a', b: '#48402c', a: '#2e2a1c',
+  f: '#ffb040fa', y: '#fff0c0fa', o: '#ffd060fa',
 };
 
 const FUNGUS = rows(`
@@ -627,6 +645,12 @@ export const PROPS: ArtDef[] = [
   { id: 'bones', palette: { k: '#1a150e', w: '#d8ccaa', v: '#9c8f72' }, rows: BONES },
   { id: 'shrine', palette: SHRINE_PAL, rows: SHRINE },
   { id: 'shrine_used', palette: SHRINE_PAL, rows: stamp(SHRINE, SHRINE_OFF) },
+  { id: 'shrine_font', palette: SHRINE_FONT_PAL, rows: SHRINE },
+  { id: 'shrine_font_used', palette: SHRINE_FONT_PAL, rows: stamp(SHRINE, SHRINE_OFF) },
+  { id: 'shrine_idol', palette: SHRINE_IDOL_PAL, rows: SHRINE },
+  { id: 'shrine_idol_used', palette: SHRINE_IDOL_PAL, rows: stamp(SHRINE, SHRINE_OFF) },
+  { id: 'shrine_coffer', palette: SHRINE_COFFER_PAL, rows: SHRINE },
+  { id: 'shrine_coffer_used', palette: SHRINE_COFFER_PAL, rows: stamp(SHRINE, SHRINE_OFF) },
   { id: 'fungus', palette: { k: '#0a1614', s: '#b8c8c0', c: '#28b0a0fa', d: '#90fff0fa' }, rows: FUNGUS },
   { id: 'trap_dart', palette: TRAP_PAL, rows: TRAP_PLATE },
   { id: 'trap_spikes', palette: { p: '#08070a', k: '#14121a', w: '#8e8878', W: '#dcd4be' }, rows: TRAP_SPIKES },

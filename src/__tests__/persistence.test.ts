@@ -63,6 +63,11 @@ describe('loading an old save', () => {
     for (const f of s.run!.floors) for (const e of f!.enemies) expect(e.vuln).toBe(0);
     // Chests already seen in an old run do not change under the player.
     for (const f of s.run!.floors) for (const p of f!.props) expect(p.mimic).toBe(false);
+    // Curses and shrine flavours both arrived after this save was written.
+    expect(s.run!.curse).toBeNull();
+    for (const f of s.run!.floors) {
+      for (const p of f!.props) if (p.kind === 'shrine') expect(['font', 'idol', 'coffer']).toContain(p.shrine);
+    }
   });
 
   it('treats a summary written before the rule as a day that turned', () => {

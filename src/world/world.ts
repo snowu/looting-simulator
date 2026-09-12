@@ -9,6 +9,7 @@ import {
   FLOOR,
   Pickup,
   Prop,
+  ShrineKind,
   blocksMove,
   blocksSight,
   createEnemy,
@@ -126,6 +127,8 @@ export function shortLabel(hint: string): string {
   if (hint.startsWith('Push')) return 'Push';
   if (hint.startsWith('Disarm')) return 'Disarm';
   if (hint.startsWith('Pray')) return 'Pray';
+  if (hint.startsWith('Drink')) return 'Drink';
+  if (hint.startsWith('Offer')) return 'Offer';
   if (hint === 'Step through to Hollowmere') return 'Town';
   if (hint.startsWith('Step through')) return 'Enter';
   if (hint.startsWith('Unlock')) return 'Unlock';
@@ -196,6 +199,25 @@ export const BLESSINGS: Record<string, { name: string; text: string }> = {
   ward: { name: 'Warding', text: '+5 defense this run.' },
 };
 
+/**
+ * The other half of the bargain. A curse lasts the run like a blessing does,
+ * and the two are independent — you can carry both. A Font of Mending lifts
+ * one, which is what makes finding a font worth something once you are cursed.
+ */
+export const CURSES: Record<string, { name: string; text: string }> = {
+  frailty: { name: 'Frailty', text: '−15% maximum health this run.' },
+  leaden: { name: 'Leaden Limbs', text: '−12 speed this run.' },
+  dulled: { name: 'Dulled Edge', text: '−20% damage this run.' },
+  hunted: { name: 'Hunted', text: 'Monsters see you two tiles further this run.' },
+};
+
+/** What [F] says at each shrine, so you know what you are touching. */
+export const SHRINE_PROMPT: Record<ShrineKind, (cost: number) => string> = {
+  font: () => 'Drink at the font',
+  idol: () => 'Pray at the hollow idol',
+  coffer: (cost) => `Offer ${cost} gold at the stone`,
+};
+
 export class World {
   readonly state: GameState;
   readonly run: RunState;
@@ -239,8 +261,16 @@ export class World {
     if (this.run.blessing === 'fury') this.derived.attack = Math.round(this.derived.attack * 1.25);
     if (this.run.blessing === 'fortune') this.derived.find += 30;
     if (this.run.blessing === 'ward') this.derived.stats.defense += 5;
+    if (this.run.curse === 'frailty') this.derived.maxHp = Math.max(1, Math.round(this.derived.maxHp * 0.85));
+    if (this.run.curse === 'leaden') this.derived.stats.speed -= 12;
+    if (this.run.curse === 'dulled') this.derived.attack = Math.max(1, Math.round(this.derived.attack * 0.8));
     this.player.hp = Math.min(this.player.hp, this.derived.maxHp);
     this.player.stamina = Math.min(this.player.stamina, this.derived.maxStamina);
+  }
+
+  /** Extra tiles of sight the floor has on you, from the Hunted curse. */
+  private get sightPenalty(): number {
+    return this.run.curse === 'hunted' ? 2 : 0;
   }
 
   private emit(e: WorldEvent): void {
@@ -833,7 +863,7 @@ export class World {
     const p = propAt(f, t.x, t.y);
     if (p && !p.used) {
       if (p.kind === 'chest') return 'Open chest';
-      if (p.kind === 'shrine') return 'Pray at the shrine';
+      if (p.kind === 'shrine') return SHRINE_PROMPT[p.shrine ?? 'font'](this.offeringCost());
       if (p.kind === 'urn' || p.kind === 'barrel') return `Smash ${p.kind}`;
     }
     // A pile sharing the portal's tile wins the prompt, so loot that ended up
@@ -1031,7 +1061,7 @@ export class World {
       }
       if (p.kind === 'shrine') {
         p.used = true;
-        this.pray();
+        this.pray(p);
         return;
       }
     }
@@ -1079,25 +1109,73 @@ export class World {
     }
   }
 
-  private pray(): void {
-    this.sfx('magic');
-    const roll = this.rng.next();
-    if (roll < 0.15) {
-      const dmg = Math.round(this.derived.maxHp * 0.25);
-      this.player.hp = Math.max(1, this.player.hp - dmg);
-      this.msg('The shrine is cold and cruel. You feel drained.', '#ff7070');
-      this.emit({ type: 'hurt', amount: dmg, blocked: false });
-      return;
-    }
+  /** What an offering stone asks for at this depth. */
+  offeringCost(): number {
+    return 30 + 25 * this.run.depth;
+  }
+
+  private restore(): void {
     this.player.hp = this.derived.maxHp;
     this.player.stamina = this.derived.maxStamina;
-    if (!this.run.blessing) {
-      const id = this.rng.pick(Object.keys(BLESSINGS));
-      this.run.blessing = id;
-      this.refreshDerived();
-      this.msg(`Blessing of ${BLESSINGS[id].name}: ${BLESSINGS[id].text}`, '#a0c8ff');
-    } else {
-      this.msg('Warm light washes over you. You are restored.', '#a0c8ff');
+  }
+
+  private grantBlessing(): boolean {
+    if (this.run.blessing) return false;
+    const id = this.rng.pick(Object.keys(BLESSINGS));
+    this.run.blessing = id;
+    this.refreshDerived();
+    this.msg(`Blessing of ${BLESSINGS[id].name}: ${BLESSINGS[id].text}`, '#a0c8ff');
+    return true;
+  }
+
+  private pray(p: Prop): void {
+    this.sfx('magic');
+    switch (p.shrine ?? 'font') {
+      // The safe one. Restores you outright, and washes off a curse — which is
+      // what makes a font worth crossing a floor for once an idol has marked you.
+      case 'font': {
+        const lifted = this.run.curse;
+        this.run.curse = null;
+        this.refreshDerived();
+        this.restore();
+        if (lifted) this.msg(`The water runs black and clears. ${CURSES[lifted].name} is washed away.`, '#a0c8ff');
+        else this.msg('Cold clean water. You are whole again.', '#a0c8ff');
+        return;
+      }
+
+      // The gamble. Six times in ten it gives; the rest of the time it takes,
+      // and what it takes lasts the rest of the run.
+      case 'idol': {
+        if (this.rng.chance(0.6)) {
+          this.restore();
+          if (!this.grantBlessing()) this.msg('The idol is satisfied. You are restored.', '#a0c8ff');
+          return;
+        }
+        const id = this.rng.pick(Object.keys(CURSES));
+        this.run.curse = id;
+        this.refreshDerived();
+        this.msg(`The idol drinks something out of you. ${CURSES[id].name}: ${CURSES[id].text}`, '#c080ff');
+        this.emit({ type: 'shake', amount: 0.4 });
+        this.sfx('hurt');
+        return;
+      }
+
+      // The honest one: a fixed price for a certain thing.
+      case 'coffer': {
+        const cost = this.offeringCost();
+        if (this.run.gold < cost) {
+          // Not consumed — come back with the coin.
+          p.used = false;
+          this.msg(`The bowl is empty and stays empty. It wants ${cost} gold.`, '#c8a060');
+          this.sfx('locked', p.x, p.y);
+          return;
+        }
+        this.run.gold -= cost;
+        this.restore();
+        if (!this.grantBlessing()) this.msg('The coin vanishes. You are restored.', '#e8c060');
+        this.sfx('gold');
+        return;
+      }
     }
   }
 
@@ -1281,7 +1359,7 @@ export class World {
         if (e.moveT < 1) continue;
       }
       const dist = Math.abs(e.x - p.x) + Math.abs(e.y - p.y);
-      const sees = dist <= def.sight && this.los(e.x, e.y, p.x, p.y);
+      const sees = dist <= def.sight + this.sightPenalty && this.los(e.x, e.y, p.x, p.y);
       if (sees) {
         if (e.alert <= 0 && (e.ai === 'idle' || e.ai === 'wander')) {
           this.sfx('alert', e.x, e.y);

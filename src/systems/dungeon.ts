@@ -69,7 +69,18 @@ export interface Prop {
   blocking: boolean;
   /** A chest wearing a convincing wooden shell. */
   mimic: boolean;
+  /** Which god a shrine serves. Only meaningful on `kind: 'shrine'`. */
+  shrine?: ShrineKind;
 }
+
+/**
+ * Shrines come in three flavours, and each one tells you which it is before you
+ * touch it: the flame and the light it throws are a different colour, and the
+ * prompt names it. Praying is then a decision rather than a coin toss.
+ */
+export type ShrineKind = 'font' | 'idol' | 'coffer';
+
+export const SHRINE_KINDS: ShrineKind[] = ['font', 'idol', 'coffer'];
 
 /**
  * Floor hazards. Every trap is hidden until you spot the seam in the flagstones
@@ -231,6 +242,12 @@ export function createEnemy(def: EnemyDef, x: number, y: number, facing: Dir, id
 /** Mimic rolls use their own stream so adding them never reshuffles a floor. */
 export function chestIsMimic(floorSeed: number, propId: string): boolean {
   return createRng(hashString(`mimic:${floorSeed}:${propId}`)).chance(0.12);
+}
+
+/** Likewise for shrines, so an old save's shrine is the one a new one would be. */
+export function shrineKindFor(floorSeed: number, propId: string): ShrineKind {
+  const rng = createRng(hashString(`shrine:${floorSeed}:${propId}`));
+  return rng.weighted<ShrineKind>([['font', 4], ['idol', 4], ['coffer', 3]]);
 }
 
 const KEY_NAMES: Record<string, string> = { crypt: 'Bone Key', mines: 'Rusted Key', caverns: 'Crystal Key', throne: 'Ashen Key' };
@@ -633,7 +650,11 @@ function tryGenerate(seed: number, depth: number, rng: Rng): Floor | null {
     }
     if (!blocking) blocked[i] = kind !== 'bones' && kind !== 'fungus';
     const id = `p${propN++}`;
-    props.push({ id, kind, x, y, used: false, tier, blocking, mimic: kind === 'chest' && chestIsMimic(seed, id) });
+    props.push({
+      id, kind, x, y, used: false, tier, blocking,
+      mimic: kind === 'chest' && chestIsMimic(seed, id),
+      ...(kind === 'shrine' ? { shrine: shrineKindFor(seed, id) } : {}),
+    });
     return true;
   };
   const vessel: PropKind = biome.id === 'mines' || biome.id === 'caverns' ? 'barrel' : 'urn';

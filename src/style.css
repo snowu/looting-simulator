@@ -160,6 +160,7 @@ h3 { font-size: 26px; color: var(--ink); margin-bottom: 6px; }
 .status .coin { color: var(--gold); margin-top: 4px; }
 .status .keys { color: #ffe08a; }
 .status .bless { color: var(--blue); }
+.status .curse { color: var(--violet); }
 
 .minimap { position: absolute; right: 16px; top: 14px; border: 2px solid #000; box-shadow: 0 0 0 2px #3a3040, 0 4px 12px #000a; border-radius: 50%; pointer-events: none; }
 

@@ -5,7 +5,7 @@ import { consumable } from '../data/items';
 import { EnemyState, blocksSight, enemyAt } from '../systems/dungeon';
 import { itemIcon } from '../systems/items';
 import { DungeonRenderer } from '../render/dungeon-renderer';
-import { BLESSINGS, World } from '../world/world';
+import { BLESSINGS, CURSES, World } from '../world/world';
 import { drawMap } from './automap';
 import { artImg, h } from './dom';
 
@@ -116,14 +116,16 @@ export class Hud {
     const biome = biomeForDepth(world.run.depth);
     const keyNames = world.run.keys.map((k) => world.floor.keys.find((kd) => kd.id === k)?.name ?? 'Key');
     const bless = world.run.blessing ? BLESSINGS[world.run.blessing]?.name ?? '' : '';
-    const statusKey = `${world.run.depth}|${world.run.gold}|${keyNames.join()}|${bless}|${world.freeSlots}`;
+    const curse = world.run.curse ? CURSES[world.run.curse]?.name ?? '' : '';
+    const statusKey = `${world.run.depth}|${world.run.gold}|${keyNames.join()}|${bless}|${curse}|${world.freeSlots}`;
     if (statusKey !== this.statusKey) {
       this.statusKey = statusKey;
       this.status.innerHTML =
         `<div class="depth">Depth ${world.run.depth}</div><div class="biome">${biome.name}</div>` +
         `<div class="coin">${world.run.gold}g carried · pack ${world.run.backpack.items.length}/${world.run.backpack.capacity}</div>` +
         (keyNames.length ? `<div class="keys">${keyNames.join(', ')}</div>` : '') +
-        (bless ? `<div class="bless">Blessing of ${bless}</div>` : '');
+        (bless ? `<div class="bless">Blessing of ${bless}</div>` : '') +
+        (curse ? `<div class="curse">${curse}</div>` : '');
     }
 
     drawMap(this.minimap, world.floor, p.x, p.y, p.facing, { cell: 6, cx: p.x, cy: p.y, radius: 12, visibleEnemies: world.visibleEnemies() }, this.time);

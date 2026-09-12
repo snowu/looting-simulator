@@ -1,5 +1,5 @@
 import { GameState } from './game-state';
-import { Floor } from '../systems/dungeon';
+import { Floor, shrineKindFor } from '../systems/dungeon';
 import { createContainer } from './inventory';
 import { BASE_BACKPACK } from '../systems/meta';
 
@@ -18,7 +18,7 @@ import { BASE_BACKPACK } from '../systems/meta';
  */
 
 /** Bump this (and push a migration) whenever a field is added to the save. */
-export const SAVE_REVISION = 6;
+export const SAVE_REVISION = 7;
 
 type AnyState = GameState & Record<string, unknown>;
 
@@ -64,6 +64,16 @@ const MIGRATIONS: ((s: AnyState) => void)[] = [
   // mimics, so loading a save cannot change what the player already saw.
   (s) => {
     for (const f of s.run?.floors ?? []) for (const p of f?.props ?? []) p.mimic ??= false;
+  },
+  // 6 → 7: shrines gained a flavour and runs gained curses. An existing shrine
+  // takes the flavour a freshly generated one would, so old and new floors
+  // agree, and nothing in progress is retroactively cursed.
+  (s) => {
+    if (s.run) s.run.curse ??= null;
+    for (const f of s.run?.floors ?? []) {
+      if (!f) continue;
+      for (const p of f.props ?? []) if (p.kind === 'shrine') p.shrine ??= shrineKindFor(f.seed, p.id);
+    }
   },
 ];
 
