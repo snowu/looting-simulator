@@ -127,7 +127,7 @@ const KNIGHT_HALF = rows(`
   .........kcbbbbb
   .........kcbbbbb
   .........kckkkkk
-  .........kckeeee
+  .........kckkrkk
   .........kckkkkk
   .........kcbbkkb
   .........kcbbbbb
@@ -191,7 +191,7 @@ const GREATSWORD_SWING = rows(`
   ..kkk..........
 `);
 const KNIGHT_PAL = {
-  k: '#0a0a0e', a: '#2a2a32', b: '#464652', c: '#6a6a78', d: '#9a9aa8', e: '#60c8fffa',
+  k: '#0a0a0e', a: '#2a2a32', b: '#464652', c: '#6a6a78', d: '#9a9aa8', e: '#ff3830fa', r: '#ff3830fa',
   t: '#5a1616', u: '#3a0c0c', s: '#b0b0bc', j: '#707080', h: '#4a2a10',
 };
 const KNIGHT_BASE = sym(KNIGHT_HALF);
