@@ -138,7 +138,7 @@ export class Town {
     const readyContracts = s.contracts.filter((c) => c.accepted && isComplete(c, s.stash)).length;
     const tabs: [TownTab, string, number][] = [
       ['market', 'Market', 0],
-      ['forge', 'Forge', s.stash.items.filter((i) => i.kind === 'blueprint').length],
+      ['forge', 'Forge', s.stash.items.reduce((total, item) => total + (item.kind === 'blueprint' ? item.qty : 0), 0)],
       ['guild', 'Guild', readyContracts],
       ['stash', 'Stash & Gear', 0],
       ['warden', 'Warden', META_UPGRADES.some((u) => (nextCost(u, s.meta) ?? Infinity) <= s.renown) ? 1 : 0],

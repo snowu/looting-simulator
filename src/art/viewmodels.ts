@@ -40,6 +40,26 @@ const BLADE = [
 
 const HAFT = (n: number) => Array.from({ length: n }, () => '...........kwvk.........');
 
+// The pick sits farther across the palm than the shared weapon grip. Keeping
+// its hand narrower stops the long haft from ending in an oversized striped
+// fist when the sprite is enlarged in first person.
+const PICK_GRIP = rows(`
+  ..........kkddddkk......
+  .........kdcccccdbk.....
+  .........kaaaaaaabk.....
+  .........kdcccccbbk.....
+  .........kaaaaaabbk.....
+  ..........kbbbbbbak.....
+  ..........kddddddbak....
+  ..........kaaaaaabbak...
+  ...........kcbbbbbbbak..
+  ...........kcbbbbbbaak..
+  ............kcbbbbaaaak.
+  ............kcbbbaaaaaak
+  .............kcbaaaaaaaa
+  ..............kkaaaaaaaa
+`);
+
 const AXE = [
   '...........kwvk.........',
   '...........kwvk.........',
@@ -57,15 +77,33 @@ const AXE = [
 ];
 
 const PICK = [
-  '..kkkkkkkkkkkkkkkkkkkk..',
-  '.k44444433332222111111k.',
-  '..kk4444333322221111kk..',
-  '....kk4433222211kk......',
-  '......kk332211kk........',
-  '........kk21kk..........',
-  '..........kkkk..........',
-  ...HAFT(19),
-  ...HAND,
+  '..kk....................',
+  '.k44kk........kkkk......',
+  'k44443kkkkkkkk3333kk....',
+  '.kk44333222222222221k...',
+  '...kk4332222kkkk1111k...',
+  '......kk322k..kkkkkk....',
+  '........k21k............',
+  '.........kwvk...........',
+  '.........kwvk...........',
+  '.........kwvk...........',
+  '..........kwvk..........',
+  '..........kwvk..........',
+  '..........kwvk..........',
+  '...........kwvk.........',
+  '...........kwvk.........',
+  '...........kwvk.........',
+  '...........kwvk.........',
+  '............kwvk........',
+  '............kwvk........',
+  '............kwvk........',
+  '............kwvk........',
+  '............kwvk........',
+  '............kwvk........',
+  '............kwvk........',
+  '............kwvk........',
+  '............kwvk........',
+  ...PICK_GRIP,
 ];
 
 const MACE = [

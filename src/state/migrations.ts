@@ -1,6 +1,6 @@
 import { GameState } from './game-state';
 import { Floor, shrineKindFor } from '../systems/dungeon';
-import { createContainer } from './inventory';
+import { addItem, Container, createContainer } from './inventory';
 import { BASE_BACKPACK } from '../systems/meta';
 import { newId } from '../core/id';
 import { STARTER_RECIPES } from '../data/recipes';
@@ -21,7 +21,7 @@ import { MATERIALS } from '../data/materials';
  */
 
 /** Bump this (and push a migration) whenever a field is added to the save. */
-export const SAVE_REVISION = 10;
+export const SAVE_REVISION = 11;
 
 type AnyState = GameState & Record<string, unknown>;
 
@@ -108,7 +108,21 @@ const MIGRATIONS: ((s: AnyState) => void)[] = [
       };
     }
   },
+  // 10 → 11: blueprints stack by recipe. Re-adding persisted containers folds
+  // existing duplicate rows together using the same rules as future pickups.
+  (s) => {
+    restack(s.stash);
+    restack(s.loadout);
+    restack(s.run?.backpack);
+  },
 ];
+
+function restack(container: Container | undefined): void {
+  if (!container || !Array.isArray(container.items)) return;
+  const items = container.items;
+  container.items = [];
+  for (const item of items) addItem(container, item);
+}
 
 /** Every array a Floor is expected to have, so old floors don't crash lookups. */
 function normalizeFloor(f: Floor): void {

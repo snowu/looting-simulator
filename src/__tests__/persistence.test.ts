@@ -4,6 +4,7 @@ import { SAVE_REVISION, migrateSave } from '../state/migrations';
 import { SAVE_VERSION, newGame } from '../state/game-state';
 import { createRng } from '../core/rng';
 import { GameState } from '../state/game-state';
+import { makeBlueprint } from '../systems/items';
 
 /**
  * A real save captured from the build of 2026-09-12, before revisions existed.
@@ -79,6 +80,21 @@ describe('loading an old save', () => {
     const loaded = parseSave(JSON.stringify(recent))!;
     expect(loaded.market.commodities.sunstone).toEqual({ price: 104, supply: 0, stock: 0, history: [104] });
     expect(loaded.market.commodities.iron).toEqual(iron);
+  });
+
+  it('stacks duplicate blueprints already stored in a save', () => {
+    const recent = parseSave(LEGACY)!;
+    recent.revision = 10;
+    for (const container of [recent.stash, recent.loadout, recent.run!.backpack]) {
+      container.items.push(makeBlueprint('r_long_sword'), makeBlueprint('r_long_sword'));
+    }
+
+    const loaded = parseSave(JSON.stringify(recent))!;
+    for (const container of [loaded.stash, loaded.loadout, loaded.run!.backpack]) {
+      const blueprints = container.items.filter((item) => item.kind === 'blueprint' && item.ref === 'r_long_sword');
+      expect(blueprints).toHaveLength(1);
+      expect(blueprints[0].qty).toBe(2);
+    }
   });
 
   it('treats a summary written before the rule as a day that turned', () => {

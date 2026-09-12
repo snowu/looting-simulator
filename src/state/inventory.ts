@@ -19,14 +19,14 @@ export function isUnlimited(c: Container): boolean {
 }
 
 export function stackLimit(item: Item, c?: Container): number {
-  if (item.kind === 'equipment' || item.kind === 'blueprint') return 1;
+  if (item.kind === 'equipment') return 1;
   if (c && isUnlimited(c)) return Infinity;
-  if (item.kind === 'material') return MATERIAL_STACK;
+  if (item.kind === 'material' || item.kind === 'blueprint') return MATERIAL_STACK;
   return consumable(item.ref).stack;
 }
 
 function stacksWith(a: Item, b: Item): boolean {
-  return a.kind === b.kind && a.ref === b.ref && (a.kind === 'material' || a.kind === 'consumable');
+  return a.kind === b.kind && a.ref === b.ref && (a.kind === 'material' || a.kind === 'consumable' || a.kind === 'blueprint');
 }
 
 export function freeSlots(c: Container): number {
