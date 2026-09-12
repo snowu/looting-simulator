@@ -287,6 +287,10 @@ table.market .num { text-align: right; font-variant-numeric: tabular-nums; }
 .recipe:hover { background: #221c28; }
 .recipe.on { background: #2e2616; border-color: var(--gold); }
 .recipe.locked { opacity: 0.45; }
+/* Keep a ladder row on one line: the prerequisite note is the part that must
+   stay readable, so the item name is what gives way on a narrow screen. */
+.recipe > .grow { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recipe > .dim { white-space: nowrap; }
 .forge-slot { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 5px 10px; align-items: start; margin: 10px 0; }
 .forge-slot .lbl { color: var(--text); display: flex; flex-direction: column; align-items: flex-start; line-height: 1.05; }
 .forge-slot .lbl small { color: var(--dim); font-size: 13px; }

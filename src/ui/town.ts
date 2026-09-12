@@ -3,7 +3,7 @@ import { EQUIP_SLOTS, Item, MaterialCategory, RARITY_COLORS, STAT_KEYS, STAT_LAB
 import { MATERIALS, catalystAffixBonus, material, secondaryMaterialMods } from '../data/materials';
 import { CONSUMABLES, itemBase } from '../data/items';
 import { affix } from '../data/affixes';
-import { MAX_RECIPE_RANK, RECIPES, blueprintCostForNextRank, masteryBonus, recipe, recipeRank } from '../data/recipes';
+import { MAX_RECIPE_RANK, RECIPE_LADDER, blueprintCostForNextRank, masteryBonus, recipe, recipeRank } from '../data/recipes';
 import { META_UPGRADES, backpackCapacity, haggleLevel, metaLevel, nextCost } from '../systems/meta';
 import {
   buyCommodity,
@@ -419,10 +419,11 @@ export class Town {
     if (this.forgeMats.length !== recipe(this.forgeRecipe).slots.length) this.forgeMats = this.defaultMats(this.forgeRecipe);
 
     const list = h('div', { class: 'recipes' });
-    for (const r of RECIPES) {
+    for (const r of RECIPE_LADDER) {
       const rank = recipeRank(s.recipeRanks, r.id);
       const known = rank > 0;
       const base = itemBase(r.baseId);
+      const status = known ? `Rank ${rank} · +${Math.round(masteryBonus(rank) * 100)}% core` : 'blueprint needed';
       list.append(
         h(
           'div',
@@ -437,7 +438,7 @@ export class Town {
           },
           artImg(base.icon, undefined, 28),
           h('span', { class: 'grow', text: base.name }),
-          h('span', { class: 'dim small', text: known ? `Rank ${rank} · +${Math.round(masteryBonus(rank) * 100)}% core` : 'blueprint needed' }),
+          h('span', { class: 'dim small', text: status }),
         ),
       );
     }

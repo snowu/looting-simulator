@@ -9,37 +9,37 @@ export const ITEM_BASES: ItemBaseDef[] = [
   },
   {
     id: 'short_sword', name: 'Short Sword', slot: 'weapon', icon: 'ic_short_sword', weaponClass: 'blade', damageType: 'slash',
-    base: { attack: 7 }, perTier: { attack: 4 }, primary: ['metal'],
-    swing: { windup: 0.18, recovery: 0.36, staminaCost: 15, reach: 1 }, value: 28, minDepth: 1, weight: 3,
+    base: { attack: 12 }, perTier: { attack: 4 }, primary: ['metal'],
+    swing: { windup: 0.18, recovery: 0.36, staminaCost: 15, reach: 1 }, value: 28, minDepth: 2, weight: 1.7,
   },
   {
     id: 'long_sword', name: 'Long Sword', slot: 'weapon', icon: 'ic_long_sword', weaponClass: 'blade', damageType: 'slash',
-    base: { attack: 10 }, perTier: { attack: 5.5 }, primary: ['metal'],
-    swing: { windup: 0.26, recovery: 0.48, staminaCost: 21, reach: 1 }, value: 55, minDepth: 2, weight: 2,
+    base: { attack: 21 }, perTier: { attack: 5.5 }, primary: ['metal'],
+    swing: { windup: 0.26, recovery: 0.48, staminaCost: 21, reach: 1 }, value: 55, minDepth: 3, weight: 0.85,
   },
   {
     id: 'war_axe', name: 'War Axe', slot: 'weapon', icon: 'ic_axe', weaponClass: 'axe', damageType: 'slash',
-    base: { attack: 12 }, perTier: { attack: 6.5 }, primary: ['metal'],
-    swing: { windup: 0.34, recovery: 0.6, staminaCost: 26, reach: 1 }, value: 60, minDepth: 2, weight: 2,
+    base: { attack: 26 }, perTier: { attack: 6.5 }, primary: ['metal'],
+    swing: { windup: 0.34, recovery: 0.6, staminaCost: 26, reach: 1 }, value: 60, minDepth: 3, weight: 0.85,
   },
   {
     id: 'mining_pick', name: 'Mining Pick', slot: 'weapon', icon: 'ic_mining_pick', weaponClass: 'pick', damageType: 'pierce',
-    base: { attack: 10, luck: 2 }, perTier: { attack: 5.5 }, primary: ['metal'],
-    swing: { windup: 0.3, recovery: 0.52, staminaCost: 22, reach: 1 }, value: 48, minDepth: 1, weight: 2,
+    base: { attack: 8, luck: 2 }, perTier: { attack: 4 }, primary: ['metal'],
+    swing: { windup: 0.28, recovery: 0.44, staminaCost: 18, reach: 1 }, value: 40, minDepth: 1, weight: 2.4,
   },
   {
     id: 'mace', name: 'Mace', slot: 'weapon', icon: 'ic_mace', weaponClass: 'blunt', damageType: 'blunt',
-    base: { attack: 9 }, perTier: { attack: 5 }, primary: ['metal'],
-    swing: { windup: 0.26, recovery: 0.5, staminaCost: 20, reach: 1 }, value: 45, minDepth: 1, weight: 2,
+    base: { attack: 15 }, perTier: { attack: 5 }, primary: ['metal'],
+    swing: { windup: 0.26, recovery: 0.5, staminaCost: 20, reach: 1 }, value: 45, minDepth: 2, weight: 1.7,
   },
   {
     id: 'spear', name: 'Spear', slot: 'weapon', icon: 'ic_spear', weaponClass: 'spear', damageType: 'pierce',
-    base: { attack: 8 }, perTier: { attack: 4.5 }, primary: ['metal'],
-    swing: { windup: 0.24, recovery: 0.5, staminaCost: 19, reach: 2 }, value: 46, minDepth: 2, weight: 2,
+    base: { attack: 17 }, perTier: { attack: 5 }, primary: ['metal'],
+    swing: { windup: 0.24, recovery: 0.56, staminaCost: 23, reach: 2 }, value: 54, minDepth: 2, weight: 1.3,
   },
   {
     id: 'club', name: 'Club', slot: 'weapon', icon: 'ic_club', weaponClass: 'blunt', damageType: 'blunt',
-    base: { attack: 6 }, perTier: { attack: 3 }, primary: ['wood', 'bone'],
+    base: { attack: 6 }, perTier: { attack: 4 }, primary: ['wood', 'bone'],
     swing: { windup: 0.22, recovery: 0.44, staminaCost: 16, reach: 1 }, value: 10, minDepth: 1, weight: 3,
   },
 
@@ -51,13 +51,13 @@ export const ITEM_BASES: ItemBaseDef[] = [
   },
   {
     id: 'kite_shield', name: 'Kite Shield', slot: 'offhand', icon: 'ic_kite_shield',
-    base: { defense: 2, block: 55 }, perTier: { defense: 1.5, block: 5 }, primary: ['wood', 'metal'],
-    value: 38, minDepth: 2, weight: 2,
+    base: { defense: 4, block: 55 }, perTier: { defense: 1.5, block: 5 }, primary: ['wood', 'metal'],
+    value: 38, minDepth: 2, weight: 1.7,
   },
   {
     id: 'tower_shield', name: 'Tower Shield', slot: 'offhand', icon: 'ic_tower_shield',
-    base: { defense: 4, block: 70, speed: -10 }, perTier: { defense: 2, block: 4 }, primary: ['metal'],
-    value: 60, minDepth: 3, weight: 1,
+    base: { defense: 8, block: 74, speed: -10 }, perTier: { defense: 2, block: 4 }, primary: ['metal'],
+    value: 60, minDepth: 3, weight: 0.85,
   },
 
   // --- Head ---------------------------------------------------------------
@@ -67,11 +67,11 @@ export const ITEM_BASES: ItemBaseDef[] = [
   },
   {
     id: 'helm', name: 'Helm', slot: 'head', icon: 'ic_helm',
-    base: { defense: 3 }, perTier: { defense: 2 }, primary: ['metal'], value: 30, minDepth: 1, weight: 2,
+    base: { defense: 4 }, perTier: { defense: 2 }, primary: ['metal'], value: 30, minDepth: 2, weight: 1.7,
   },
   {
     id: 'great_helm', name: 'Great Helm', slot: 'head', icon: 'ic_great_helm',
-    base: { defense: 5, health: 5 }, perTier: { defense: 2.5 }, primary: ['metal'], value: 55, minDepth: 3, weight: 1,
+    base: { defense: 9, health: 5 }, perTier: { defense: 2.5 }, primary: ['metal'], value: 55, minDepth: 3, weight: 0.85,
   },
 
   // --- Body ---------------------------------------------------------------
@@ -85,11 +85,11 @@ export const ITEM_BASES: ItemBaseDef[] = [
   },
   {
     id: 'hauberk', name: 'Hauberk', slot: 'body', icon: 'ic_hauberk',
-    base: { defense: 6, speed: -5 }, perTier: { defense: 3 }, primary: ['metal'], value: 55, minDepth: 2, weight: 2,
+    base: { defense: 8, speed: -5 }, perTier: { defense: 3 }, primary: ['metal'], value: 55, minDepth: 2, weight: 1.7,
   },
   {
     id: 'plate', name: 'Plate Armor', slot: 'body', icon: 'ic_plate',
-    base: { defense: 10, speed: -10, stamina: -10 }, perTier: { defense: 4 }, primary: ['metal'], value: 92, minDepth: 4, weight: 1,
+    base: { defense: 15, speed: -10, stamina: -10 }, perTier: { defense: 4 }, primary: ['metal'], value: 92, minDepth: 4, weight: 0.5,
   },
 
   // --- Hands --------------------------------------------------------------
@@ -99,7 +99,7 @@ export const ITEM_BASES: ItemBaseDef[] = [
   },
   {
     id: 'gauntlets', name: 'Gauntlets', slot: 'hands', icon: 'ic_gauntlets',
-    base: { defense: 2, attack: 1 }, perTier: { defense: 1.5, attack: 0.5 }, primary: ['metal'], value: 28, minDepth: 2, weight: 2,
+    base: { defense: 4, attack: 1 }, perTier: { defense: 1.5, attack: 0.5 }, primary: ['metal'], value: 28, minDepth: 2, weight: 1.7,
   },
 
   // --- Jewelry ------------------------------------------------------------
@@ -109,7 +109,7 @@ export const ITEM_BASES: ItemBaseDef[] = [
   },
   {
     id: 'pendant', name: 'Pendant', slot: 'amulet', icon: 'ic_amulet',
-    base: { health: 5 }, perTier: { health: 5 }, primary: ['metal'], value: 34, minDepth: 2, weight: 1,
+    base: { health: 5 }, perTier: { health: 5 }, primary: ['metal'], value: 34, minDepth: 2, weight: 1.2,
   },
 ];
 
@@ -140,6 +140,47 @@ export const CONSUMABLES: ConsumableDef[] = [
     effect: { type: 'recall', seconds: 5 }, rarity: Rarity.Rare, value: 95, stack: 5,
   },
 ];
+
+/**
+ * Gear progression lines, each running from the crudest piece to the strongest.
+ * A line is the spine of the loot ladder: a piece is built to beat the one
+ * below it forged from material two tiers better, it starts dropping a depth
+ * later, and its blueprint is markedly scarcer. Singletons are lines of one.
+ */
+export const GEAR_LINES: readonly (readonly string[])[] = [
+  ['dagger', 'short_sword', 'long_sword'],
+  ['club', 'mace', 'war_axe'],
+  ['mining_pick', 'spear'],
+  ['buckler', 'kite_shield', 'tower_shield'],
+  ['cap', 'helm', 'great_helm'],
+  ['robe'],
+  ['jerkin', 'hauberk', 'plate'],
+  ['gloves', 'gauntlets'],
+  ['band'],
+  ['pendant'],
+];
+
+const LINE_POS = new Map<string, { line: number; tier: number }>();
+for (let line = 0; line < GEAR_LINES.length; line++) {
+  GEAR_LINES[line].forEach((id, tier) => LINE_POS.set(id, { line, tier }));
+}
+
+/** How far up its line a base sits: 0 is the entry piece. */
+export function gearTier(baseId: string): number {
+  return LINE_POS.get(baseId)?.tier ?? 0;
+}
+
+/** The weaker piece this one follows, or null at the head of a line. */
+export function gearPredecessor(baseId: string): string | null {
+  const at = LINE_POS.get(baseId);
+  return at && at.tier > 0 ? GEAR_LINES[at.line][at.tier - 1] : null;
+}
+
+/** Sort key placing bases line by line, weakest first within each line. */
+export function gearLadderIndex(baseId: string): number {
+  const at = LINE_POS.get(baseId);
+  return at ? at.line * 100 + at.tier : 9999;
+}
 
 const BASE_BY_ID = new Map(ITEM_BASES.map((b) => [b.id, b]));
 const CONS_BY_ID = new Map(CONSUMABLES.map((c) => [c.id, c]));

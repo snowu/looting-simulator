@@ -1,4 +1,5 @@
 import { MaterialCategory, RecipeDef, RecipeRanks } from '../types';
+import { gearLadderIndex, gearTier } from './items';
 
 const GRIP: MaterialCategory[] = ['wood', 'hide', 'bone'];
 const GEM = { label: 'Catalyst', categories: ['gem'] as MaterialCategory[], qty: 1, optional: true };
@@ -62,6 +63,7 @@ export const RECIPES: RecipeDef[] = [
 ];
 
 const BY_ID = new Map(RECIPES.map((r) => [r.id, r]));
+const BY_BASE = new Map(RECIPES.map((r) => [r.baseId, r]));
 
 export function recipe(id: string): RecipeDef {
   const r = BY_ID.get(id);
@@ -70,6 +72,11 @@ export function recipe(id: string): RecipeDef {
 }
 
 export const STARTER_RECIPES = RECIPES.filter((r) => r.starter).map((r) => r.id);
+
+/** The recipe that forges a given item base. */
+export function recipeForBase(baseId: string): RecipeDef | undefined {
+  return BY_BASE.get(baseId);
+}
 
 export const MAX_RECIPE_RANK = 5;
 const MASTERY_BONUSES = [0, 0, 0.08, 0.16, 0.26, 0.4];
@@ -86,6 +93,16 @@ export function masteryBonus(rank: number): number {
 export function blueprintCostForNextRank(rank: number): number {
   const current = Math.max(0, Math.min(MAX_RECIPE_RANK, Math.floor(rank)));
   return current >= MAX_RECIPE_RANK ? 0 : current + 1;
+}
+
+/** Recipes ordered along the gear ladder: line by line, weakest piece first. */
+export const RECIPE_LADDER: readonly RecipeDef[] = [...RECIPES].sort(
+  (a, b) => gearLadderIndex(a.baseId) - gearLadderIndex(b.baseId),
+);
+
+/** Relative drop frequency: each step up a line is markedly scarcer. */
+export function blueprintDropWeight(r: RecipeDef): number {
+  return 0.4 ** gearTier(r.baseId);
 }
 
 export function starterRecipeRanks(): RecipeRanks {

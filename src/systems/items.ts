@@ -20,7 +20,7 @@ import {
 import { ITEM_BASES, CONSUMABLES, itemBase, consumable } from '../data/items';
 import { MATERIALS, findMaterial, material, secondaryMaterialMods } from '../data/materials';
 import { AFFIXES, affix } from '../data/affixes';
-import { MAX_RECIPE_RANK, RECIPES, masteryBonus, recipe, recipeRank } from '../data/recipes';
+import { MAX_RECIPE_RANK, RECIPES, blueprintDropWeight, masteryBonus, recipe, recipeRank } from '../data/recipes';
 
 // ---------------------------------------------------------------------------
 // Construction
@@ -417,13 +417,26 @@ function rollValuable(rng: Rng, depth: number): MaterialDef {
   return rng.weighted(vals.map((v) => [v, Math.exp(-Math.abs(v.tier - (depth / 1.4 + 0.5)) * 1.2)] as const));
 }
 
+/** A recipe you have never seen is worth this much more than one you are ranking up. */
+const UNKNOWN_BLUEPRINT_BONUS = 3;
+
+/**
+ * Pick a blueprint to drop. Three pressures stack into one weighted draw:
+ * a recipe higher up its gear line is scarcer, a recipe you don't know yet is
+ * favoured, and a maxed one never appears. Nothing is ever locked behind
+ * another recipe — depth alone decides what the dungeon can hand you, and the
+ * ladder only bends the odds.
+ */
 export function rollBlueprint(rng: Rng, depth: number, ranks: RecipeRanks = {}, reserved: Set<string> = new Set()): Item {
   const eligible = RECIPES.filter((r) => itemBase(r.baseId).minDepth <= depth);
   const unreserved = eligible.filter((r) => !reserved.has(r.id));
   const candidates = unreserved.length ? unreserved : eligible;
-  const unknown = candidates.filter((r) => recipeRank(ranks, r.id) === 0);
-  const uncapped = candidates.filter((r) => recipeRank(ranks, r.id) < MAX_RECIPE_RANK);
-  const picked = rng.pick(unknown.length ? unknown : uncapped.length ? uncapped : candidates);
+  const wanted = candidates.filter((r) => recipeRank(ranks, r.id) < MAX_RECIPE_RANK);
+  const pool = wanted.length ? wanted : candidates;
+  const picked = rng.weighted(pool.map((r) => {
+    const unknown = recipeRank(ranks, r.id) === 0;
+    return [r, blueprintDropWeight(r) * (unknown ? UNKNOWN_BLUEPRINT_BONUS : 1)] as const;
+  }));
   reserved.add(picked.id);
   return makeBlueprint(picked.id);
 }

@@ -5,6 +5,7 @@ import {
   itemName,
   itemStats,
   itemValue,
+  makeBlueprint,
   makeEquipment,
   makeMaterial,
   maxDurability,
@@ -18,11 +19,14 @@ import {
   salvage,
 } from '../systems/items';
 import { MATERIALS } from '../data/materials';
+
+const MAX_MATERIAL_TIER = Math.max(...MATERIALS.map((m) => m.tier));
 import { addItem, canFit, countOf, createContainer, removeOf, takeQty } from '../state/inventory';
+import { studyBlueprint } from '../systems/crafting';
 import { Rarity, RARITY_ORDER } from '../types';
 import { enemyDef, BOSS_ID } from '../data/enemies';
-import { itemBase } from '../data/items';
-import { recipe } from '../data/recipes';
+import { GEAR_LINES, gearPredecessor, gearTier, itemBase } from '../data/items';
+import { MAX_RECIPE_RANK, RECIPES, recipe, recipeForBase } from '../data/recipes';
 import { derivePlayer, emptyEquipment } from '../systems/player';
 
 describe('items', () => {
@@ -111,23 +115,112 @@ describe('items', () => {
     }
   });
 
+  const maxed = (depth: number, except: Record<string, number> = {}): Record<string, number> => {
+    const ranks: Record<string, number> = {};
+    for (const r of RECIPES) if (itemBase(r.baseId).minDepth <= depth) ranks[r.id] = MAX_RECIPE_RANK;
+    return { ...ranks, ...except };
+  };
+
   it('prioritizes unknown blueprints, then uncapped mastery', () => {
-    const ranks: Record<string, number> = {
-      r_dagger: 5, r_short_sword: 5, r_mining_pick: 5, r_mace: 5, r_club: 5,
-      r_buckler: 5, r_cap: 5, r_helm: 5, r_robe: 5, r_jerkin: 5, r_gloves: 5, r_band: 5,
+    const unknownDagger = maxed(1);
+    delete unknownDagger.r_dagger;
+    for (let seed = 0; seed < 20; seed++) expect(rollBlueprint(createRng(seed), 1, unknownDagger).ref).toBe('r_dagger');
+    const partialClub = maxed(1, { r_club: 2 });
+    for (let seed = 0; seed < 20; seed++) expect(rollBlueprint(createRng(seed), 1, partialClub).ref).toBe('r_club');
+  });
+
+  it('drops blueprints higher up a line more rarely', () => {
+    // Everything on the dagger line is open and part-ranked, so only the
+    // ladder weighting separates them.
+    const ranks = maxed(3, { r_dagger: 1, r_short_sword: 1, r_long_sword: 1 });
+    const counts: Record<string, number> = { r_dagger: 0, r_short_sword: 0, r_long_sword: 0 };
+    for (let seed = 0; seed < 3000; seed++) {
+      const ref = rollBlueprint(createRng(seed), 3, { ...ranks }).ref;
+      if (ref in counts) counts[ref]++;
+    }
+    expect(counts.r_dagger).toBeGreaterThan(counts.r_short_sword * 1.5);
+    expect(counts.r_short_sword).toBeGreaterThan(counts.r_long_sword * 1.5);
+  });
+
+  it('always has a blueprint to give even with the ladder fully climbed', () => {
+    const ranks = maxed(6);
+    for (let seed = 0; seed < 40; seed++) {
+      expect(rollBlueprint(createRng(seed), 6, { ...ranks }).kind).toBe('blueprint');
+    }
+  });
+
+  it('still studies a blueprint the ladder would no longer hand out', () => {
+    // Saves written before the chain existed can hold a gated blueprint. The
+    // gate governs what drops, never what you already carry.
+    const stash = createContainer(20);
+    addItem(stash, makeBlueprint('r_plate'));
+    const ranks: Record<string, number> = {};
+    expect(studyBlueprint(makeBlueprint('r_plate'), stash, ranks)).toBe(1);
+    expect(ranks.r_plate).toBe(1);
+  });
+
+  it('makes each step up a line beat the step below it at +2 material tiers', () => {
+    // The promise of the ladder: a Long Sword in copper should edge out a
+    // Short Sword in silver. Checked at every tier the two can share.
+    const statOf = (baseId: string, tier: number, key: 'attack' | 'defense') => {
+      const base = itemBase(baseId);
+      return (base.base[key] ?? 0) + (base.perTier[key] ?? 0) * (tier - 1);
     };
-    delete ranks.r_dagger;
-    for (let seed = 0; seed < 20; seed++) expect(rollBlueprint(createRng(seed), 1, ranks).ref).toBe('r_dagger');
-    ranks.r_dagger = 5;
-    ranks.r_short_sword = 2;
-    for (let seed = 0; seed < 20; seed++) expect(rollBlueprint(createRng(seed), 1, ranks).ref).toBe('r_short_sword');
+    for (const line of GEAR_LINES) {
+      for (let i = 1; i < line.length; i++) {
+        const key = itemBase(line[i]).slot === 'weapon' ? 'attack' : 'defense';
+        for (let tier = 1; tier + 2 <= MAX_MATERIAL_TIER; tier++) {
+          const next = statOf(line[i], tier, key);
+          const prev = statOf(line[i - 1], tier + 2, key);
+          expect({ step: line[i], tier, next, under: line[i - 1], prev })
+            .toMatchObject({ next: expect.any(Number) });
+          expect(next).toBeGreaterThan(prev);
+        }
+      }
+    }
+  });
+
+  it('orders every gear line by depth, scarcity and worth', () => {
+    for (const line of GEAR_LINES) {
+      for (let i = 1; i < line.length; i++) {
+        const prev = itemBase(line[i - 1]);
+        const next = itemBase(line[i]);
+        expect(next.minDepth).toBeGreaterThan(prev.minDepth);
+        expect(next.weight).toBeLessThan(prev.weight);
+        expect(next.value).toBeGreaterThan(prev.value);
+        expect(recipeForBase(next.id)!.value).toBeGreaterThanOrEqual(recipeForBase(prev.id)!.value);
+      }
+    }
+  });
+
+  it('places every item base on exactly one line', () => {
+    const listed = GEAR_LINES.flat();
+    expect(new Set(listed).size).toBe(listed.length);
+    for (const r of RECIPES) {
+      expect(listed).toContain(r.baseId);
+      const prev = gearPredecessor(r.baseId);
+      if (prev) expect(gearTier(r.baseId)).toBe(gearTier(prev) + 1);
+    }
+  });
+
+  it('lets a fresh smith reach every blueprint by ranking up', () => {
+    // Walk the ladder from the starter recipes and check nothing is stranded.
+    const ranks: Record<string, number> = {};
+    for (const r of RECIPES) if (r.starter) ranks[r.id] = 1;
+    const rng = createRng(7);
+    for (let i = 0; i < 4000; i++) {
+      const ref = rollBlueprint(rng, 6, ranks).ref;
+      ranks[ref] = Math.min(MAX_RECIPE_RANK, (ranks[ref] ?? 0) + 1);
+    }
+    for (const r of RECIPES) expect(ranks[r.id] ?? 0).toBe(MAX_RECIPE_RANK);
   });
 
   it('applies mastery only to positive crafted core stats', () => {
     const spec = { baseId: 'long_sword', materialId: 'gold', rarity: Rarity.Rare, ilvl: 6, quality: 1, affixes: [{ id: 'vital', value: 10 }], crafted: true } as const;
     const rank1 = makeEquipment({ ...spec, craftRank: 1 });
     const rank5 = makeEquipment({ ...spec, craftRank: 5 });
-    expect(itemStats(rank5).attack).toBe(Math.round(21 * 1.4));
+    const coreAttack = itemBase('long_sword').base.attack! + itemBase('long_sword').perTier.attack! * 2;
+    expect(itemStats(rank5).attack).toBe(Math.round(coreAttack * 1.4));
     expect(itemStats(rank5).luck).toBe(itemStats(rank1).luck);
     expect(itemStats(rank5).find).toBe(itemStats(rank1).find);
     expect(itemStats(rank5).health).toBe(itemStats(rank1).health);
@@ -140,10 +233,11 @@ describe('items', () => {
   });
 
   it('gives basic grip materials distinct secondary stats', () => {
-    const make = (secondaryId: string) => itemStats(makeEquipment({
+    const make = (secondaryId?: string) => itemStats(makeEquipment({
       baseId: 'short_sword', materialId: 'iron', secondaryId, rarity: Rarity.Common, ilvl: 4, quality: 1, crafted: true,
     }));
-    expect(make('bone').attack).toBe(13);
+    const plain = make();
+    expect(make('bone').attack - plain.attack).toBe(2);
     expect(make('rat_hide').health).toBe(3);
     expect(make('timber').speed).toBe(2);
     expect(make('leather').health).toBe(5);
@@ -203,6 +297,22 @@ describe('inventory', () => {
     addItem(s, makeMaterial('bone', 70));
     expect(s.items).toHaveLength(1);
     expect(s.items[0].qty).toBe(120);
+  });
+
+  it('stacks matching blueprints by recipe', () => {
+    const stash = createContainer(0);
+    addItem(stash, makeBlueprint('r_long_sword'));
+    addItem(stash, makeBlueprint('r_long_sword'));
+    addItem(stash, makeBlueprint('r_mace'));
+    expect(stash.items.map((item) => [item.ref, item.qty])).toEqual([
+      ['r_long_sword', 2],
+      ['r_mace', 1],
+    ]);
+
+    const pack = createContainer(1);
+    expect(addItem(pack, { ...makeBlueprint('r_long_sword'), qty: 21 })).toBe(1);
+    expect(pack.items).toHaveLength(1);
+    expect(pack.items[0].qty).toBe(20);
   });
 
   it('removeOf is all-or-nothing', () => {

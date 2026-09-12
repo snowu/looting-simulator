@@ -390,28 +390,30 @@ Vault rooms contain one premium chest. Special chests roll at the current depth 
 
 *File: `src/data/items.ts`* — stats shown at material tier 1, with the per-tier gain.
 
+Bases are arranged into **gear lines** (`GEAR_LINES`), each running from the crudest piece to the strongest: dagger → short sword → long sword, club → mace → war axe, mining pick → spear, buckler → kite → tower, cap → helm → great helm, jerkin → hauberk → plate, gloves → gauntlets, with robe, band and pendant standing alone. Every step up a line is tuned to **beat the step below it forged two material tiers better** — a copper long sword edges out a silver short sword — so upgrading the base is always worth more than upgrading the metal. Each step also starts dropping one depth later and is proportionally scarcer in the drop table. Nothing is gated: a line is a power ordering, not an unlock chain.
+
 | Base | Slot | Stats (tier 1) | Per tier | Windup / recovery / stamina / reach | Value | From depth |
 |---|---|---|---|---|---|---|
 | Dagger | weapon | 5 atk, 3 crit | +3 atk | 0.12 / 0.26 / 11 / 1 | 18 | 1 |
-| Short Sword | weapon | 7 atk | +4 atk | 0.18 / 0.36 / 15 / 1 | 28 | 1 |
-| Long Sword | weapon | 10 atk | +5.5 atk | 0.26 / 0.48 / 21 / 1 | 55 | 2 |
-| War Axe | weapon | 12 atk | +6.5 atk | 0.34 / 0.60 / 26 / 1 | 60 | 2 |
-| Mining Pick | weapon | 10 atk, 2 crit | +5.5 atk | 0.30 / 0.52 / 22 / 1 | 48 | 1 |
-| Mace | weapon | 9 atk | +5 atk | 0.26 / 0.50 / 20 / 1 | 45 | 1 |
-| Spear | weapon | 8 atk | +4.5 atk | 0.24 / 0.50 / 19 / **2** | 46 | 2 |
-| Club | weapon (wood/bone) | 6 atk | +3 atk | 0.22 / 0.44 / 16 / 1 | 10 | 1 |
+| Short Sword | weapon | 12 atk | +4 atk | 0.18 / 0.36 / 15 / 1 | 28 | 2 |
+| Long Sword | weapon | 21 atk | +5.5 atk | 0.26 / 0.48 / 21 / 1 | 55 | 3 |
+| War Axe | weapon | 26 atk | +6.5 atk | 0.34 / 0.60 / 26 / 1 | 60 | 3 |
+| Mining Pick | weapon | 8 atk, 2 crit | +4 atk | 0.28 / 0.44 / 18 / 1 | 40 | 1 |
+| Mace | weapon | 15 atk | +5 atk | 0.26 / 0.50 / 20 / 1 | 45 | 2 |
+| Spear | weapon | 17 atk | +5 atk | 0.24 / 0.56 / 23 / **2** | 54 | 2 |
+| Club | weapon (wood/bone) | 6 atk | +4 atk | 0.22 / 0.44 / 16 / 1 | 10 | 1 |
 | Buckler | offhand | 1 def, 35 block | +1 def, +5 block | — | 18 | 1 |
-| Kite Shield | offhand | 2 def, 55 block | +1.5 def, +5 block | — | 38 | 2 |
-| Tower Shield | offhand | 4 def, 70 block, −10 speed | +2 def, +4 block | — | 60 | 3 |
+| Kite Shield | offhand | 4 def, 55 block | +1.5 def, +5 block | — | 38 | 2 |
+| Tower Shield | offhand | 8 def, 74 block, −10 speed | +2 def, +4 block | — | 60 | 3 |
 | Cap | head (hide/cloth) | 1 def | +1 def | — | 9 | 1 |
-| Helm | head (metal) | 3 def | +2 def | — | 30 | 1 |
-| Great Helm | head (metal) | 5 def, 5 hp | +2.5 def | — | 55 | 3 |
+| Helm | head (metal) | 4 def | +2 def | — | 30 | 2 |
+| Great Helm | head (metal) | 9 def, 5 hp | +2.5 def | — | 55 | 3 |
 | Robe | body (cloth) | 1 def, 10 stamina | +1 def, +5 stamina | — | 18 | 1 |
 | Jerkin | body (hide) | 3 def | +2 def | — | 24 | 1 |
-| Hauberk | body (metal) | 6 def, −5 speed | +3 def | — | 55 | 2 |
-| Plate Armor | body (metal) | 10 def, −10 speed, −10 stamina | +4 def | — | 92 | 4 |
+| Hauberk | body (metal) | 8 def, −5 speed | +3 def | — | 55 | 2 |
+| Plate Armor | body (metal) | 15 def, −10 speed, −10 stamina | +4 def | — | 92 | 4 |
 | Gloves | hands (hide/cloth) | 1 def, 3 speed | +1 def | — | 12 | 1 |
-| Gauntlets | hands (metal) | 2 def, 1 atk | +1.5 def, +0.5 atk | — | 28 | 2 |
+| Gauntlets | hands (metal) | 4 def, 1 atk | +1.5 def, +0.5 atk | — | 28 | 2 |
 | Band | ring (metal) | 1 crit | +1 crit | — | 24 | 1 |
 | Pendant | amulet (metal) | 5 hp | +5 hp | — | 34 | 2 |
 
@@ -469,9 +471,9 @@ Every recipe has **material slots** — the first is the primary (it sets tier, 
 - A craft records the recipe rank used to make it. Later mastery does not retroactively improve existing equipment, and old crafted gear without a recorded rank counts as Rank 1.
 - Crafted items are always identified.
 
-Blueprint rewards prioritize unknown depth-appropriate recipes, then known recipes below Rank 5. Multiple blueprints rolled together avoid duplicates when alternatives exist. A capped recipe appears only when every eligible recipe is capped; extra copies can still be sold.
+Blueprint rewards are one weighted draw over every depth-appropriate recipe. A recipe is weighted `0.4 ^ (position in its gear line)`, so a tier-1 blueprint is 2.5× scarcer than the line's entry piece and a tier-2 one 6.25× scarcer; an unknown recipe is worth **3×** its weight, and a Rank 5 one is worth nothing. Depth is the only gate — a recipe is never locked behind another recipe's mastery. Multiple blueprints rolled together avoid duplicates when alternatives exist. A capped recipe appears only when every eligible recipe is capped; extra copies can still be sold.
 
-Known from the start: dagger, short sword, club, buckler, cap, jerkin, gloves, band. The rest come from blueprints found in the dungeon or bought (long sword 140, war axe 150, mace 110, spear 120, kite shield 120, tower shield 200, helm 100, great helm 190, robe 80, hauberk 180, plate 320, gauntlets 110, pendant 130).
+Known from the start: dagger, short sword, club, buckler, cap, jerkin, gloves, band. The rest come from blueprints found in the dungeon or bought (long sword 140, war axe 150, mining pick 115, mace 110, spear 120, kite shield 120, tower shield 200, helm 100, great helm 190, robe 80, hauberk 180, plate 320, gauntlets 110, pendant 130).
 
 ---
 
