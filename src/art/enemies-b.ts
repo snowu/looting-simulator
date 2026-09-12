@@ -54,8 +54,8 @@ const GHOUL_ATK_HALF = rows(`
   ......khgkfmmmmm
   ......khkkkfmwmw
   ......kkhhhggggg
-  .....khhhhgggggg
-  .....kkkggggfggg
+  ......khhhgggggg
+  ......kkggggfggg
   ......kkgggfgggg
   ......kkggfgggff
   .......kgggfgggg

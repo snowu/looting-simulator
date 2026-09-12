@@ -20,6 +20,7 @@ import {
 import { ITEM_BASES, CONSUMABLES, itemBase, consumable } from '../data/items';
 import { MATERIALS, findMaterial, material, secondaryMaterialMods } from '../data/materials';
 import { AFFIXES, affix } from '../data/affixes';
+import { UNIQUES, UniqueDef, UniqueEffectId, findUnique } from '../data/uniques';
 import { MAX_RECIPE_RANK, RECIPES, blueprintDropWeight, masteryBonus, recipe, recipeRank } from '../data/recipes';
 import { BestiaryState, isKnown, loreName } from './bestiary';
 
@@ -64,6 +65,7 @@ export interface EquipmentSpec {
   quality?: number;
   crafted?: boolean;
   craftRank?: number;
+  uniqueId?: string;
 }
 
 export function makeEquipment(spec: EquipmentSpec): Item {
@@ -82,7 +84,61 @@ export function makeEquipment(spec: EquipmentSpec): Item {
     quality: spec.quality ?? 1,
     crafted: spec.crafted,
     craftRank: spec.craftRank,
+    uniqueId: spec.uniqueId,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Uniques
+// ---------------------------------------------------------------------------
+
+/** The bespoke legendary this item is, or null for everything else. */
+export function uniqueOf(item: Item | null | undefined): UniqueDef | null {
+  if (!item || item.kind !== 'equipment') return null;
+  return findUnique(item.uniqueId) ?? null;
+}
+
+/** Whether this item carries a given bespoke effect. */
+export function hasUniqueEffect(item: Item | null | undefined, effect: UniqueEffectId): boolean {
+  return uniqueOf(item)?.effect === effect;
+}
+
+/** Build one, at the quality and item level the depth it dropped at implies. */
+export function makeUnique(def: UniqueDef, rng: Rng, depth: number, identified = false): Item {
+  const ilvl = Math.max(def.minDepth, depth) * 2 + rng.int(0, 2);
+  const base = itemBase(def.baseId);
+  return makeEquipment({
+    baseId: def.baseId,
+    materialId: def.materialId,
+    uniqueId: def.id,
+    rarity: Rarity.Legendary,
+    ilvl,
+    // Two ordinary affixes rather than a Legendary's four: the effect is the
+    // point, and the rolls are only there so two of the same one still differ.
+    affixes: rollAffixes(rng, base.slot, ilvl, UNIQUE_AFFIXES),
+    identified,
+    quality: Math.round(rng.float(1.08, 1.26) * 100) / 100,
+  });
+}
+
+/** How many ordinary affixes a unique carries on top of its effect. */
+const UNIQUE_AFFIXES = 2;
+
+/** How much more likely a unique you have never held is than one you have. */
+const UNSEEN_UNIQUE_BONUS = 6;
+
+/**
+ * Choose which unique a Legendary roll becomes. One you have never seen is
+ * heavily favoured, so the set reveals itself over a few deep runs instead of
+ * handing you the same blade three times; `onlyUnseen` is the boss's promise
+ * that his drop is always new until there is nothing new left.
+ */
+export function pickUnique(rng: Rng, depth: number, seen: string[] = [], onlyUnseen = false): UniqueDef | null {
+  const eligible = UNIQUES.filter((u) => u.minDepth <= depth);
+  if (!eligible.length) return null;
+  const unseen = eligible.filter((u) => !seen.includes(u.id));
+  if (onlyUnseen) return unseen.length ? rng.pick(unseen) : rng.pick(eligible);
+  return rng.weighted(eligible.map((u) => [u, seen.includes(u.id) ? 1 : UNSEEN_UNIQUE_BONUS] as const));
 }
 
 // ---------------------------------------------------------------------------
@@ -138,6 +194,8 @@ export function itemName(item: Item): string {
       const adj = item.materialId ? MATERIAL_ADJ[item.materialId] ?? findMaterial(item.materialId)?.name ?? '' : '';
       const core = `${adj} ${base.name}`.trim();
       if (!isIdentified(item)) return `Unidentified ${core}`;
+      const unique = uniqueOf(item);
+      if (unique) return unique.name;
       if (item.rarity === Rarity.Legendary) return `${legendName(item.uid)}, ${core}`;
       const affs = (item.affixes ?? []).map((a) => affix(a.id));
       const pre = affs.find((a) => a.kind === 'prefix');
@@ -195,6 +253,8 @@ export function itemCraftRank(item: Item): number {
 /** Zero for gear that never wears, so callers can test with one check. */
 export function maxDurability(item: Item): number {
   if (item.kind !== 'equipment') return 0;
+  // The one item in the game that is simply not part of this system.
+  if (hasUniqueEffect(item, 'never_dulls')) return 0;
   const slotMax = DURABILITY_BY_SLOT[itemBase(item.ref).slot];
   if (!slotMax) return 0;
   const tier = item.materialId ? findMaterial(item.materialId)?.tier ?? 1 : 1;
@@ -268,7 +328,12 @@ export function itemStats(item: Item): Stats {
       addStats(s, m2.mods);
     }
   }
+  // A unique's own numbers are part of what it is, so they land with the
+  // material rather than with the affixes — but only once you know what you
+  // are holding, like everything else on an unidentified drop.
   if (isIdentified(item)) {
+    const unique = uniqueOf(item);
+    if (unique?.stats) addStats(s, unique.stats);
     for (const a of item.affixes ?? []) s[affix(a.id).stat] += a.value;
   }
   // Broken gear still hangs on you, but it is barely doing its job.
@@ -278,6 +343,13 @@ export function itemStats(item: Item): Stats {
 }
 
 const RARITY_VALUE_MULT = [1, 1.35, 1.9, 2.8, 4.5];
+
+/**
+ * A named blade is worth more than the star iron in it. Deliberately steep: a
+ * unique you do not want is a real payday, which is what stops a duplicate
+ * from feeling like the boss gave you nothing.
+ */
+const UNIQUE_VALUE_MULT = 2.2;
 
 /** Fair value of ONE unit, before market modifiers. */
 export function itemValue(item: Item): number {
@@ -298,7 +370,8 @@ export function itemValue(item: Item): number {
       const tier = mat?.tier ?? 1;
       const affixValue = (item.affixes ?? []).reduce((sum, a) => sum + a.value * 4, 0);
       const raw = base.value * (1 + (tier - 1) * 0.9) + (mat?.value ?? 0) * 1.5 + affixValue;
-      return Math.max(1, Math.round(raw * (item.quality ?? 1) * RARITY_VALUE_MULT[RARITY_ORDER[item.rarity ?? Rarity.Common]]));
+      const unique = uniqueOf(item) ? UNIQUE_VALUE_MULT : 1;
+      return Math.max(1, Math.round(raw * unique * (item.quality ?? 1) * RARITY_VALUE_MULT[RARITY_ORDER[item.rarity ?? Rarity.Common]]));
     }
   }
 }

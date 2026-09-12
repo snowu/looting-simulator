@@ -238,6 +238,12 @@ export interface Item {
   /** Recipe rank when forged. Absent on drops and old crafts means rank 1. */
   craftRank?: number;
   /**
+   * Which bespoke legendary this is, if it is one. **Absent means it is an
+   * ordinary item**, which is the same trick `dur` uses — so adding uniques
+   * costs no migration on the items themselves.
+   */
+  uniqueId?: string;
+  /**
    * Remaining durability. **Absent means undamaged** — that is what lets every
    * item written before durability existed read as a fresh one without a
    * migration walking every container on the save.
