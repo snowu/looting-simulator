@@ -23,7 +23,7 @@ import { MATERIALS } from '../data/materials';
 const MAX_MATERIAL_TIER = Math.max(...MATERIALS.map((m) => m.tier));
 import { addItem, canFit, countOf, createContainer, removeOf, takeQty } from '../state/inventory';
 import { studyBlueprint } from '../systems/crafting';
-import { Rarity, RARITY_ORDER } from '../types';
+import { DEFAULT_CRIT_MULT, Rarity, RARITY_ORDER } from '../types';
 import { enemyDef, BOSS_ID } from '../data/enemies';
 import { GEAR_LINES, gearPredecessor, gearTier, itemBase } from '../data/items';
 import { MAX_RECIPE_RANK, RECIPES, recipe, recipeForBase } from '../data/recipes';
@@ -179,6 +179,21 @@ describe('items', () => {
         }
       }
     }
+  });
+
+  it('makes the dagger the crit weapon, and crit gear worth stacking on it', () => {
+    const dagger = itemBase('dagger');
+    const sword = itemBase('long_sword');
+    expect(dagger.swing!.critMult).toBeGreaterThan(DEFAULT_CRIT_MULT);
+    expect(sword.swing!.critMult ?? DEFAULT_CRIT_MULT).toBe(DEFAULT_CRIT_MULT);
+    // Crit chance has to actually scale with the blade, not sit at a token 3%.
+    const luckAt = (tier: number) => (dagger.base.luck ?? 0) + (dagger.perTier.luck ?? 0) * (tier - 1);
+    expect(luckAt(1)).toBeGreaterThanOrEqual(5);
+    expect(luckAt(5)).toBeGreaterThan(luckAt(1) * 2);
+    // The same Crit % ring is worth more than twice as much on the dagger.
+    const gain = (m: number, luck: number) => (luck / 100) * (m - 1);
+    const ring = 10;
+    expect(gain(dagger.swing!.critMult!, ring)).toBeGreaterThan(gain(DEFAULT_CRIT_MULT, ring) * 2);
   });
 
   it('orders every gear line by depth, scarcity and worth', () => {

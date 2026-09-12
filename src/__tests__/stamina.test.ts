@@ -5,6 +5,11 @@ import { newGame } from '../state/game-state';
 import { startRun } from '../systems/run';
 import { World } from '../world/world';
 import { FLOOR } from '../systems/dungeon';
+import { makeEquipment } from '../systems/items';
+import { derivePlayer, emptyEquipment } from '../systems/player';
+import { playerHitsEnemy } from '../systems/combat';
+import { enemyDef } from '../data/enemies';
+import { DEFAULT_CRIT_MULT, Rarity } from '../types';
 
 function tick(w: World, seconds: number): void {
   for (let t = 0; t < seconds; t += 1 / 60) w.update(1 / 60);
@@ -95,5 +100,46 @@ describe('stamina', () => {
     expect(w.player.stamina).toBeGreaterThan(0);
     w.attack();
     expect(w.anim.attack).toBe('windup');
+  });
+});
+
+describe('crit', () => {
+  it('a dagger crit lands harder than a long sword crit', () => {
+    const dagger = makeEquipment({ baseId: 'dagger', materialId: 'iron', rarity: Rarity.Common, ilvl: 2, quality: 1 });
+    const sword = makeEquipment({ baseId: 'long_sword', materialId: 'iron', rarity: Rarity.Common, ilvl: 2, quality: 1 });
+    const foe = enemyDef('rat');
+    // Force every swing to crit so the multiplier is what is being compared.
+    const lucky = (item: typeof dagger) => {
+      const eq = emptyEquipment();
+      eq.weapon = item;
+      const d = derivePlayer(eq, {});
+      d.stats.luck = 100;
+      return d;
+    };
+    const avg = (item: typeof dagger) => {
+      const p = lucky(item);
+      let total = 0;
+      const rng = createRng(5);
+      for (let i = 0; i < 400; i++) total += playerHitsEnemy(rng, p, 1, foe).damage;
+      return total / 400;
+    };
+    const plain = (item: typeof dagger) => {
+      const eq = emptyEquipment();
+      eq.weapon = item;
+      const p = derivePlayer(eq, {});
+      p.stats.luck = 0;
+      let total = 0;
+      const rng = createRng(5);
+      for (let i = 0; i < 400; i++) total += playerHitsEnemy(rng, p, 1, foe).damage;
+      return total / 400;
+    };
+    // Crit chance is capped at 60%, so max luck still only crits 3 swings in 5.
+    const CAP = 0.6;
+    const daggerGain = avg(dagger) / plain(dagger);
+    const swordGain = avg(sword) / plain(sword);
+    expect(swordGain).toBeCloseTo(1 + CAP * (DEFAULT_CRIT_MULT - 1), 1);
+    // What matters is the bonus over a non-crit, not the raw ratio: the dagger
+    // turns the same Crit % into more than twice the extra damage.
+    expect((daggerGain - 1) / (swordGain - 1)).toBeGreaterThan(2);
   });
 });

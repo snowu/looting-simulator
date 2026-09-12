@@ -1,11 +1,11 @@
-import { ConsumableDef, ItemBaseDef, Rarity } from '../types';
+import { ConsumableDef, ItemBaseDef, Rarity, SwingProfile } from '../types';
 
 export const ITEM_BASES: ItemBaseDef[] = [
   // --- Weapons ------------------------------------------------------------
   {
     id: 'dagger', name: 'Dagger', slot: 'weapon', icon: 'ic_dagger', weaponClass: 'dagger', damageType: 'pierce',
-    base: { attack: 5, luck: 3 }, perTier: { attack: 3 }, primary: ['metal'],
-    swing: { windup: 0.12, recovery: 0.26, staminaCost: 10, reach: 1 }, value: 18, minDepth: 1, weight: 3,
+    base: { attack: 5, luck: 5 }, perTier: { attack: 3, luck: 1.5 }, primary: ['metal'],
+    swing: { windup: 0.12, recovery: 0.26, staminaCost: 10, reach: 1, critMult: 2.4 }, value: 18, minDepth: 1, weight: 3,
   },
   {
     id: 'short_sword', name: 'Short Sword', slot: 'weapon', icon: 'ic_short_sword', weaponClass: 'blade', damageType: 'slash',
@@ -198,5 +198,5 @@ export function consumable(id: string): ConsumableDef {
 }
 
 /** Unarmed swing when no weapon is equipped. */
-export const FIST_SWING = { windup: 0.14, recovery: 0.3, staminaCost: 9, reach: 1 };
+export const FIST_SWING: SwingProfile = { windup: 0.14, recovery: 0.3, staminaCost: 9, reach: 1 };
 export const FIST_ATTACK = 3;

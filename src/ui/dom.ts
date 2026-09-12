@@ -1,4 +1,4 @@
-import { ELEMENTS, EquipSlot, EQUIP_SLOTS, Item, RARITY_COLORS, STAT_KEYS, STAT_LABELS, Stats, slotOf } from '../types';
+import { DEFAULT_CRIT_MULT, ELEMENTS, EquipSlot, EQUIP_SLOTS, Item, RARITY_COLORS, STAT_KEYS, STAT_LABELS, Stats, slotOf } from '../types';
 import { consumable, itemBase } from '../data/items';
 import { material } from '../data/materials';
 import { affix } from '../data/affixes';
@@ -231,7 +231,12 @@ export function itemTooltip(item: Item, opts: TipOpts = {}): string {
       lines.push(`<div class="tt-sub">${itemRarity(item)} ${SLOT_LABEL[base.slot]}${base.damageType ? ` · ${base.damageType}` : ''}${item.crafted ? ` · crafted Rank ${rank}` : ''}</div>`);
       if (mat) lines.push(`<div class="tt-dim">${mat.name}${item.secondaryId ? ` & ${material(item.secondaryId).name}` : ''} · quality ${Math.round((item.quality ?? 1) * 100)}%</div>`);
       if (item.crafted && masteryBonus(rank) > 0) lines.push(`<div class="tt-dim">Recipe mastery: +${Math.round(masteryBonus(rank) * 100)}% core stats and durability</div>`);
-      if (base.swing) lines.push(`<div class="tt-dim">Reach ${base.swing.reach} · swing ${(base.swing.windup + base.swing.recovery).toFixed(2)}s · ${base.swing.staminaCost} stamina</div>`);
+      if (base.swing) {
+        const crit = base.swing.critMult && base.swing.critMult !== DEFAULT_CRIT_MULT
+          ? ` · crits ×${base.swing.critMult}`
+          : '';
+        lines.push(`<div class="tt-dim">Reach ${base.swing.reach} · swing ${(base.swing.windup + base.swing.recovery).toFixed(2)}s · ${base.swing.staminaCost} stamina${crit}</div>`);
+      }
       const d = durability(item);
       if (d.wears) {
         const pct = Math.round(d.frac * 100);

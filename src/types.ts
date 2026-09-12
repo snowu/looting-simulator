@@ -142,7 +142,16 @@ export interface SwingProfile {
   staminaCost: number;
   /** Tiles in front of you the swing reaches. */
   reach: number;
+  /**
+   * Damage multiplier on a crit. Defaults to {@link DEFAULT_CRIT_MULT}; a
+   * dagger sets it higher, which is what makes Crit % gear worth stacking on
+   * one rather than being a rounding error on everything.
+   */
+  critMult?: number;
 }
+
+/** Crit damage for anything that does not state its own. */
+export const DEFAULT_CRIT_MULT = 1.6;
 
 export interface ItemBaseDef {
   id: string;

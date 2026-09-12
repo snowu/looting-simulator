@@ -1,4 +1,4 @@
-import { DamageType, EquipSlot, EQUIP_SLOTS, Item, Stats, SwingProfile, WeaponClass, addStats, emptyStats } from '../types';
+import { DamageType, DEFAULT_CRIT_MULT, EquipSlot, EQUIP_SLOTS, Item, Stats, SwingProfile, WeaponClass, addStats, emptyStats } from '../types';
 import { FIST_ATTACK, FIST_SWING, itemBase } from '../data/items';
 import { itemStats } from './items';
 import { MetaLevels, metaLevel } from './meta';
@@ -50,6 +50,7 @@ export function derivePlayer(eq: Equipment, meta: MetaLevels): PlayerDerived {
       recovery: baseSwing.recovery / speedFactor,
       staminaCost: baseSwing.staminaCost,
       reach: baseSwing.reach,
+      critMult: baseSwing.critMult ?? DEFAULT_CRIT_MULT,
     },
     // Parrying with a weapon still takes the edge off; shields do the real work.
     block: hasShield ? Math.min(0.9, stats.block / 100) : weapon ? 0.3 : 0.12,

@@ -43,7 +43,7 @@ Dying ends the day too, but you lose the backpack.
 
 Mitigation is `attack × max(0.2, 1 − defense/(defense + k))`, so armour never blocks more than 80%.
 
-**Your hits:** `mitigate(attack, enemyDefense, k=15) × resistance` + each elemental stat × its resistance, then × stamina power × random 0.9–1.1. Crits are `Crit %` (capped 60%) for ×1.6.
+**Your hits:** `mitigate(attack, enemyDefense, k=15) × resistance` + each elemental stat × its resistance, then × stamina power × random 0.9–1.1. Crits are `Crit %` (capped 60%) for the weapon's crit multiplier — ×1.6 for everything except the **Dagger**, which crits for ×2.4.
 
 **Stamina power:** `0.4 + 0.6 × min(1, stamina / (maxStamina × 0.5))`. At or above half stamina you hit full strength; empty, you do 40%.
 
@@ -394,7 +394,7 @@ Bases are arranged into **gear lines** (`GEAR_LINES`), each running from the cru
 
 | Base | Slot | Stats (tier 1) | Per tier | Windup / recovery / stamina / reach | Value | From depth |
 |---|---|---|---|---|---|---|
-| Dagger | weapon | 5 atk, 3 crit | +3 atk | 0.12 / 0.26 / 10 / 1 | 18 | 1 |
+| Dagger | weapon | 5 atk, 5 crit | +3 atk, +1.5 crit | 0.12 / 0.26 / 10 / 1 (crits ×2.4) | 18 | 1 |
 | Short Sword | weapon | 12 atk | +4 atk | 0.18 / 0.36 / 16 / 1 | 28 | 2 |
 | Long Sword | weapon | 21 atk | +5.5 atk | 0.26 / 0.48 / 24 / 1 | 55 | 3 |
 | War Axe | weapon | 36 atk | +3.5 atk | 0.36 / 0.62 / 22 / 1 | 60 | 4 |
@@ -426,6 +426,8 @@ Stamina does **not** regenerate mid-combo (`world.ts` gates regen on `attack ===
 | Blades | dagger, short sword, long sword | Highest DPS (45–58), smallest hits, shortest windup, shortest window (3.1–3.8s), worst damage per stamina (1.70–1.79) |
 | Haft | club, mace, mining pick, war axe | Biggest hits (up to 50), longest windup (to 0.36s — you are committed), longest windows (4.5–5.5s), best damage per stamina (1.83–2.27) |
 | Reach | spear | The only reach-2 weapon; mid DPS, strong efficiency, hits from outside most enemies' range |
+
+The **Dagger** is the crit weapon and the one build-scaling weapon. It carries its own Crit % (5, +1.5 per material tier) and crits for ×2.4 instead of ×1.6, so the same Crit % ring is worth more than twice as much on a dagger as on anything else. Bare it is an ordinary entry weapon (50 effective DPS, below a Short Sword); with +20 Crit % from gear it is second only to a Long Sword, and a build that stacks Crit % to the 60% cap makes it the strongest weapon in the game on both burst and damage per stamina bar. `lucky` and `fox` roll on every slot, and a tier-5 Band carries 5 on its own, so the cap is reachable if you commit to it.
 
 A swing must be **paid for in full**: below its stamina cost the attack is refused. How tired you are still shows in the damage through `staminaPower` (down to a 40% floor), but a spent bar buys nothing. Holding attack on a fresh bar gives a burst — six swings with a short sword — then throttles to roughly one swing per second as regen trickles back.
 

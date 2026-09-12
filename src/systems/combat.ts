@@ -1,5 +1,5 @@
 import { Rng } from '../core/rng';
-import { DamageType, ELEMENTS, EnemyDef } from '../types';
+import { DamageType, DEFAULT_CRIT_MULT, ELEMENTS, EnemyDef } from '../types';
 import { PlayerDerived } from './player';
 
 /**
@@ -36,7 +36,7 @@ export function playerHitsEnemy(rng: Rng, p: PlayerDerived, power: number, e: En
   }
   dmg *= power * rng.float(0.9, 1.1);
   const crit = rng.chance(Math.min(0.6, p.stats.luck / 100));
-  if (crit) dmg *= 1.6;
+  if (crit) dmg *= p.swing.critMult ?? DEFAULT_CRIT_MULT;
   const effective = physMult === 0 && bestMult === 0 ? 'immune' : bestMult >= 1.4 ? 'weak' : physMult <= 0.7 && bestMult < 1 ? 'resist' : 'normal';
   return { damage: Math.max(dmg > 0 ? 1 : 0, Math.round(dmg)), crit, effective };
 }
