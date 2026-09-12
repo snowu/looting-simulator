@@ -131,10 +131,10 @@ const KNIGHT_HALF = rows(`
   .........kckkkkk
   .........kcbbkkb
   .........kcbbbbb
-  ......kkkkkkkkkk
-  ....kkddcckbbbbb
-  ...kddccbbkttttt
-  ..kdccbbbbktuutt
+  ....kkkkkkkkkkkk
+  ...kdddddddcckbb
+  ..kddccccbkttttt
+  ...kccbbbbktuutt
   ..kcbbkbbbkttutt
   ..kcbk.kbbkttttt
   ..kcbk.kbckttutt
