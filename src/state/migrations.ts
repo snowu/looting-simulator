@@ -18,7 +18,7 @@ import { BASE_BACKPACK } from '../systems/meta';
  */
 
 /** Bump this (and push a migration) whenever a field is added to the save. */
-export const SAVE_REVISION = 4;
+export const SAVE_REVISION = 5;
 
 type AnyState = GameState & Record<string, unknown>;
 
@@ -54,6 +54,11 @@ const MIGRATIONS: ((s: AnyState) => void)[] = [
   // mid-fight in an old save was parried, so they all start closed.
   (s) => {
     for (const f of s.run?.floors ?? []) for (const e of f?.enemies ?? []) e.vuln ??= 0;
+  },
+  // 4 → 5: the last run remembers whether it turned the day. Before this every
+  // run did, so an older summary is a day that turned.
+  (s) => {
+    if (s.lastRun) s.lastRun.dayTurned ??= true;
   },
 ];
 

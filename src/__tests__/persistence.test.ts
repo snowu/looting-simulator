@@ -63,6 +63,13 @@ describe('loading an old save', () => {
     for (const f of s.run!.floors) for (const e of f!.enemies) expect(e.vuln).toBe(0);
   });
 
+  it('treats a summary written before the rule as a day that turned', () => {
+    const withRun = JSON.parse(LEGACY);
+    withRun.lastRun = { outcome: 'extracted', day: 3, depth: 4, gold: 120, items: [], lost: [], renown: 10, kills: 8, bossKilled: false };
+    const s = parseSave(JSON.stringify(withRun))!;
+    expect(s.lastRun!.dayTurned).toBe(true);
+  });
+
   it('refuses a save from an older format family', () => {
     const old = JSON.parse(LEGACY);
     old.version = SAVE_VERSION - 1;

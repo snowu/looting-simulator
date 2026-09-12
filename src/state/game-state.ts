@@ -70,6 +70,8 @@ export interface RunSummary {
   kills: number;
   bossKilled: boolean;
   killedBy?: string;
+  /** Whether the delve counted: a new day in town, or nothing at all. */
+  dayTurned: boolean;
 }
 
 export interface Lifetime {

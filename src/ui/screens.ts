@@ -35,8 +35,18 @@ export function summaryScreen(sum: RunSummary, onContinue: () => void): HTMLElem
     h(
       'div',
       { class: `summary frame${home ? ' gold' : ''}` },
-      h('h1', { text: home ? (sum.bossKilled ? 'Kingslayer' : 'Home Alive') : 'Slain', style: home ? '' : 'color:#d0443a' }),
-      h('p', { class: 'dim', text: home ? `You climbed out of depth ${sum.depth} on day ${sum.day}.` : `Fell at depth ${sum.depth}${sum.killedBy ? `, killed by ${sum.killedBy}` : ''}.` }),
+      h('h1', {
+        text: home ? (sum.bossKilled ? 'Kingslayer' : sum.dayTurned ? 'Home Alive' : 'Turned Back') : 'Slain',
+        style: home ? '' : 'color:#d0443a',
+      }),
+      h('p', {
+        class: 'dim',
+        text: !home
+          ? `Fell at depth ${sum.depth}${sum.killedBy ? `, killed by ${sum.killedBy}` : ''}.`
+          : sum.dayTurned
+            ? `You climbed out of depth ${sum.depth} on day ${sum.day}.`
+            : 'You barely crossed the threshold before turning round.',
+      }),
       h(
         'div',
         { class: 'row', style: 'justify-content:center;gap:40px;margin:14px 0' },
@@ -48,7 +58,13 @@ export function summaryScreen(sum: RunSummary, onContinue: () => void): HTMLElem
       sum.items.length ? h('div', { class: 'items' }, ...sum.items.map((it) => itemSlot(it, { size: 44 }))) : null,
       sum.lost.length ? h('h3', { class: 'red-t', text: 'Lost in the dark' }) : null,
       sum.lost.length ? h('div', { class: 'items', style: 'opacity:0.6' }, ...sum.lost.map((it) => itemSlot(it, { size: 44 }))) : null,
-      h('p', { class: 'dim', style: 'margin:10px 0', text: 'A new day dawns. Prices have moved and the guild has posted new work.' }),
+      h('p', {
+        class: 'dim',
+        style: 'margin:10px 0',
+        text: sum.dayTurned
+          ? 'A new day dawns. Prices have moved and the guild has posted new work.'
+          : 'Still the same day in Hollowmere: the same prices, the same work on the board. Renown and a turn of the day are for those who actually go down.',
+      }),
       btn('Back to town', onContinue, 'primary big'),
     ),
   );

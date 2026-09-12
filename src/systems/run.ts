@@ -96,6 +96,7 @@ export function endRun(state: GameState, outcome: 'dead' | 'extracted'): RunSumm
   state.lifetime.bestDepth = Math.max(state.lifetime.bestDepth, run.stats.deepest);
   const renown = renownForRun(run.stats.deepest, outcome === 'extracted', run.stats.bossKilled);
   state.renown += renown;
+  const dayTurned = run.stats.deepest > 1;
 
   const summary: RunSummary = {
     outcome,
@@ -108,13 +109,20 @@ export function endRun(state: GameState, outcome: 'dead' | 'extracted'): RunSumm
     kills: run.stats.kills,
     bossKilled: run.stats.bossKilled,
     killedBy: run.killedBy,
+    dayTurned,
   };
   state.lastRun = summary;
   state.run = null;
 
-  // A new day dawns in town.
-  const dayRng = createRng(randomSeed());
-  advanceDay(state.market, dayRng, state.lifetime.bestDepth);
-  state.contracts = refreshContracts(state.contracts, dayRng, Math.max(1, state.lifetime.bestDepth));
+  // A new day dawns in town — but only if the delve was one. Stepping into the
+  // entrance and straight back out changes nothing: it pays no renown, and it
+  // does not turn the day either, or it would be a free button for rerolling
+  // market prices, expiring contracts you no longer want and restocking the
+  // merchant, at no cost but the walk back to the stairs.
+  if (dayTurned) {
+    const dayRng = createRng(randomSeed());
+    advanceDay(state.market, dayRng, state.lifetime.bestDepth);
+    state.contracts = refreshContracts(state.contracts, dayRng, Math.max(1, state.lifetime.bestDepth));
+  }
   return summary;
 }

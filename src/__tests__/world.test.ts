@@ -159,7 +159,8 @@ describe('World', () => {
     // otherwise a single step in and out farms the whole upgrade tree.
     expect(summary.renown).toBe(0);
     expect(state.stash.items.some((i) => i.ref === 'silver')).toBe(true);
-    expect(state.market.day).toBe(day + 1);
+    // Nor does the day turn: in and out would otherwise reroll the market free.
+    expect(state.market.day).toBe(day);
     expect(state.run).toBeNull();
   });
 

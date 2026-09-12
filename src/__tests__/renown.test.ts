@@ -22,9 +22,27 @@ describe('renown', () => {
     expect(renownForRun(4, false, false)).toBe(3);
   });
 
+  it('does not turn the day for a delve that never went down', () => {
+    const state = newGame(createRng(11));
+    const day = state.market.day;
+    startRun(state, 11);
+    endRun(state, 'extracted');
+    expect(state.market.day).toBe(day);
+  });
+
+  it('turns the day for a delve that did go down', () => {
+    const state = newGame(createRng(12));
+    const day = state.market.day;
+    startRun(state, 12);
+    state.run!.stats.deepest = 2;
+    endRun(state, 'extracted');
+    expect(state.market.day).toBe(day + 1);
+  });
+
   it('cannot be farmed by entering and leaving a run', () => {
     const state = newGame(createRng(9));
     const before = state.renown;
+    const day = state.market.day;
     for (let i = 0; i < 5; i++) {
       startRun(state, 100 + i);
       // Walk into the up-stairs you spawned next to — the whole exploit.
@@ -46,5 +64,7 @@ describe('renown', () => {
       endRun(state, 'extracted');
     }
     expect(state.renown).toBe(before);
+    // ...and it is not a way to skip days either.
+    expect(state.market.day).toBe(day);
   });
 });
