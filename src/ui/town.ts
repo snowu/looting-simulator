@@ -18,6 +18,8 @@ import {
   trendPercent,
 } from '../systems/market';
 import { MAX_ACCEPTED, contractTitle, gearCandidates, isComplete } from '../systems/contracts';
+import { BESTIARY_ORDER, bestiaryEntry, bestiaryProgress, isKnown, isSeen } from '../systems/bestiary';
+import { ELEMENTS } from '../types';
 import { buildCrafted, craft, materialsForSlot, selectionError, studyBlueprint } from '../systems/crafting';
 import { durability, identify, identifyCost, itemName, itemStats, makeConsumable, repairCost, repairItem, salvage } from '../systems/items';
 import { Container, addItem, canFit, countOf, freeSlots, removeItem, removeOf, roomFor, sortContainer, takeQty } from '../state/inventory';
@@ -26,10 +28,11 @@ import { derivePlayer } from '../systems/player';
 import { defaultSlot, equipFrom, unequipTo } from '../systems/equip';
 import { createRng, randomSeed } from '../core/rng';
 import { artImg, btn, gold, h, hideTooltip, itemSlot, itemTooltip, rarityColor, sparkline, statLines } from './dom';
+import { artUrl } from '../render/art-cache';
 import { paperDoll, statSheet } from './dungeon-ui';
 import { audio } from '../audio/sfx';
 
-export type TownTab = 'market' | 'forge' | 'guild' | 'stash' | 'warden';
+export type TownTab = 'market' | 'forge' | 'guild' | 'stash' | 'bestiary' | 'warden';
 
 export interface TownCtx {
   state: () => GameState;
@@ -97,6 +100,12 @@ function formatForgeStats(stats: Partial<Stats>): string {
 export class Town {
   readonly root = h('div', { class: 'town' });
   tab: TownTab = 'market';
+  /** Codex: which creature is open, and the animation bench's settings. */
+  private beast: string | null = null;
+  private beastFrame: 'idle' | 'atk' | 'play' = 'play';
+  private beastTint: 'none' | 'hurt' | 'windup' | 'dead' = 'none';
+  private beastBob = true;
+  private beastTimer: number | null = null;
   private forgeRecipe = 'r_short_sword';
   private forgeMats: (string | null)[] = [];
   private stashFilter: 'all' | 'gear' | 'materials' | 'other' = 'all';
@@ -130,6 +139,10 @@ export class Town {
 
   render(): void {
     hideTooltip();
+    if (this.beastTimer !== null) {
+      clearInterval(this.beastTimer);
+      this.beastTimer = null;
+    }
     this.scrollMemo = this.root.scrollTop;
     const currentRecipes = this.root.querySelector<HTMLElement>('.recipes');
     if (currentRecipes) this.recipeScrollMemo = currentRecipes.scrollTop;
@@ -141,6 +154,7 @@ export class Town {
       ['forge', 'Forge', s.stash.items.reduce((total, item) => total + (item.kind === 'blueprint' ? item.qty : 0), 0)],
       ['guild', 'Guild', readyContracts],
       ['stash', 'Stash & Gear', 0],
+      ['bestiary', 'Bestiary', 0],
       ['warden', 'Warden', META_UPGRADES.some((u) => (nextCost(u, s.meta) ?? Infinity) <= s.renown) ? 1 : 0],
     ];
     const head = h(
@@ -181,6 +195,9 @@ export class Town {
         break;
       case 'stash':
         body = this.stash();
+        break;
+      case 'bestiary':
+        body = this.bestiary();
         break;
       case 'warden':
         body = this.warden();
@@ -860,6 +877,131 @@ export class Town {
   // ---------------------------------------------------------------------------
   // Warden (meta progression)
   // ---------------------------------------------------------------------------
+
+  /**
+   * The codex. Locked creatures show as silhouettes; field notes open the full
+   * entry — resistances included, which is what tells you what to bring.
+   *
+   * The open entry doubles as an animation bench: every frame, tint and motion
+   * the dungeon renderer can put a creature in is reproducible here, so new
+   * sprites can be checked without hunting one down on a floor.
+   */
+  private bestiary(): HTMLElement {
+    const s = this.s;
+    const p = bestiaryProgress(s.bestiary);
+    const grid = h('div', { class: 'beast-grid' });
+    for (const def of BESTIARY_ORDER) {
+      const known = isKnown(s.bestiary, def.id);
+      const seen = isSeen(s.bestiary, def.id);
+      const entry = bestiaryEntry(s.bestiary, def.id);
+      grid.append(
+        h(
+          'div',
+          {
+            class: `beast${known ? '' : ' locked'}${this.beast === def.id ? ' on' : ''}`,
+            onclick: () => {
+              this.beast = this.beast === def.id ? null : def.id;
+              this.commit();
+            },
+          },
+          h('div', { class: 'beast-art' }, artImg(`${def.sprite}_0`, undefined, 48)),
+          h('span', { class: 'beast-name', text: known || seen ? def.name : '???' }),
+          h('span', {
+            class: 'dim small',
+            text: known ? `depth ${def.minDepth}–${def.maxDepth}` : seen ? `${entry.kills} slain · notes needed` : 'unrecorded',
+          }),
+        ),
+      );
+    }
+
+    const open = this.beast ? BESTIARY_ORDER.find((d) => d.id === this.beast) ?? null : null;
+    return h(
+      'div',
+      { class: 'panes beast-panes' },
+      h(
+        'div',
+        { class: 'col' },
+        h('div', { class: 'row' },
+          h('h3', { class: 'grow', text: 'Codex' }),
+          h('span', { class: 'dim small', text: `${p.known} of ${p.total} recorded · ${p.seen} met` })),
+        h('p', { class: 'dim small', style: 'margin-bottom:6px', text: 'Field notes fall from the creature they describe and are read where they lie. A page you already have will not drop again.' }),
+        grid,
+      ),
+      open ? this.beastDetail(open) : h('div', { class: 'pane frame beast-detail' },
+        h('p', { class: 'dim', text: 'Choose a creature to study it.' })),
+    );
+  }
+
+  private beastDetail(def: (typeof BESTIARY_ORDER)[number]): HTMLElement {
+    const s = this.s;
+    const known = isKnown(s.bestiary, def.id);
+    const entry = bestiaryEntry(s.bestiary, def.id);
+    const img = artImg(`${def.sprite}_0`, undefined, 128);
+    // Undiscovered creatures are a shape and nothing else: no tint (which would
+    // paint the model back in), no second frame (whose silhouette gives away
+    // the attack), no motion. The bench comes with the notes.
+    const stage = h('div', {
+      class: known
+        ? `beast-stage${this.beastBob && def.floats ? ' floats' : ''} tint-${this.beastTint}`
+        : 'beast-stage locked',
+    }, img);
+
+    // Drive the bench. 'play' alternates the two frames the renderer uses;
+    // the fixed settings hold one so a single frame can be inspected.
+    if (known && this.beastFrame === 'play') {
+      let on = false;
+      this.beastTimer = window.setInterval(() => {
+        on = !on;
+        img.src = artUrl(`${def.sprite}_${on ? 'atk' : '0'}`);
+      }, 620);
+    } else if (known) {
+      img.src = artUrl(`${def.sprite}_${this.beastFrame === 'atk' ? 'atk' : '0'}`);
+    }
+
+    const pick = <T extends string>(label: string, value: T, options: [T, string][], set: (v: T) => void) =>
+      h('div', { class: 'row beast-row' },
+        h('span', { class: 'dim small beast-label', text: label }),
+        ...options.map(([v, text]) =>
+          btn(text, () => { set(v); this.commit(); }, `small${known && value === v ? ' primary' : ''}`, !known)));
+
+    const bench = h(
+      'div',
+      { class: 'beast-bench' },
+      h('div', { class: 'dim small', text: 'Animation bench' }),
+      pick('Frame', this.beastFrame, [['play', 'Play'], ['idle', 'Idle'], ['atk', 'Attack']], (v) => { this.beastFrame = v; }),
+      pick('Tint', this.beastTint, [['none', 'None'], ['hurt', 'Hurt'], ['windup', 'Wind-up'], ['dead', 'Death']], (v) => { this.beastTint = v; }),
+      h('div', { class: 'row beast-row' },
+        h('span', { class: 'dim small beast-label', text: 'Motion' }),
+        btn(this.beastBob ? 'Hover on' : 'Hover off', () => { this.beastBob = !this.beastBob; this.commit(); }, 'small', !known),
+        h('span', { class: 'dim small', text: def.floats ? 'this one floats' : 'walker — hover is cosmetic' })),
+      known
+        ? h('div', { class: 'dim small', text: `sprite ${def.sprite} · scale ${def.scale} · windup ${def.windup}s · recovery ${def.recovery}s` })
+        : h('div', { class: 'faint small', text: 'Read its field notes to unlock the bench.' }),
+    );
+
+    const resists = [...['blunt', 'slash', 'pierce'], ...ELEMENTS]
+      .map((t) => [t, def.resist[t as keyof typeof def.resist] ?? 1] as const)
+      .filter(([, v]) => v !== 1);
+
+    return h(
+      'div',
+      { class: 'pane frame beast-detail' },
+      h('h3', { text: known ? def.name : '???' }),
+      stage,
+      known
+        ? h('div', {},
+            h('p', { class: 'tt-desc', text: def.description }),
+            h('p', { class: 'small', text: `${def.hp} HP · ${def.attack} attack · ${def.defense} defense · deals ${def.damageType} · ${def.behavior}` }),
+            h('p', { class: 'small dim', text: `Found on depths ${def.minDepth}–${def.maxDepth}. You have slain ${entry.kills}.` }),
+            resists.length
+              ? h('div', { class: 'beast-resists' }, ...resists.map(([t, v]) =>
+                  h('span', { class: `beast-resist ${v > 1 ? 'weak' : 'strong'}`, text: `${t} ×${v}` })))
+              : h('p', { class: 'small dim', text: 'Nothing it fears, nothing it shrugs off.' }),
+          )
+        : h('p', { class: 'dim', text: entry.kills ? `Slain ${entry.kills} time${entry.kills === 1 ? '' : 's'}. Its field notes would tell you what it fears.` : 'You have never met this.' }),
+      bench,
+    );
+  }
 
   private warden(): HTMLElement {
     const s = this.s;

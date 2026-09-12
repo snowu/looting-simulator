@@ -638,3 +638,46 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
   .slot-card { flex: none; min-height: 106px; padding: 7px 9px; }
   .slot-card .slot-name { font-size: 19px; }
 }
+
+/* --- Bestiary codex ------------------------------------------------------ */
+.beast-panes { align-items: start; }
+.beast-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 5px; max-height: 62vh; overflow: auto; }
+.beast {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: 5px 3px; cursor: pointer; background: #17131b; border: 1px solid #0006; text-align: center;
+}
+.beast:hover { background: #221c28; }
+.beast.on { background: #2e2616; border-color: var(--gold); }
+.beast-art { height: 48px; display: grid; place-items: center; }
+.beast-name { font-size: 16px; }
+/* A creature you have no notes on is a shape in the dark, nothing more. */
+.beast.locked .beast-art img { filter: brightness(0) contrast(2) opacity(0.55); }
+.beast.locked .beast-name { color: var(--faint); }
+
+.beast-detail { min-width: 260px; }
+.beast-stage {
+  height: 150px; display: grid; place-items: center; margin: 4px 0 8px;
+  background: radial-gradient(ellipse at 50% 70%, #241d2a, #0d0b10 70%);
+  border: 1px solid #0008; overflow: hidden;
+}
+.beast-stage img { transition: none; }
+.beast-stage.floats img { animation: beast-hover 2.4s ease-in-out infinite; }
+@keyframes beast-hover { 0%, 100% { transform: translateY(-5px); } 50% { transform: translateY(5px); } }
+/* The tints the dungeon renderer applies, reproduced for inspection. */
+.beast-stage.tint-hurt img { filter: drop-shadow(0 0 0 #fff) brightness(1.6) saturate(0.7); }
+.beast-stage.tint-windup img { filter: brightness(1.2) sepia(1) hue-rotate(-35deg) saturate(3); }
+.beast-stage.tint-dead img { filter: brightness(0.25) grayscale(0.7); }
+/* Last and most specific, so no tint can paint an unread creature back in. */
+.beast-stage.locked.locked img { filter: brightness(0) contrast(2) opacity(0.6); animation: none; }
+
+.beast-bench { border-top: 1px solid #2a2430; margin-top: 8px; padding-top: 6px; display: flex; flex-direction: column; gap: 4px; }
+.beast-row { flex-wrap: wrap; gap: 4px; }
+.beast-label { min-width: 54px; }
+.beast-resists { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+.beast-resist { font-size: 15px; padding: 0 5px; border: 1px solid #0006; background: #17131b; }
+.beast-resist.weak { color: #ff9a70; }
+.beast-resist.strong { color: #7aa8ff; }
+@media (max-width: 700px) {
+  .beast-grid { grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); max-height: none; }
+  .beast-stage { height: 120px; }
+}

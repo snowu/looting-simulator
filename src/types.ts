@@ -211,12 +211,13 @@ export interface AffixRoll {
   value: number;
 }
 
-export type ItemKind = 'equipment' | 'consumable' | 'material' | 'blueprint';
+export type ItemKind = 'equipment' | 'consumable' | 'material' | 'blueprint' | 'lore';
 
 /**
  * One inventory entry. `ref` points into the matching data table:
  * equipment → ITEM_BASES, consumable → CONSUMABLES, material → MATERIALS,
- * blueprint → RECIPES. Stats and names are derived, never stored.
+ * blueprint → RECIPES, lore → ENEMIES. Stats and names are derived, never
+ * stored.
  */
 export interface Item {
   uid: string;

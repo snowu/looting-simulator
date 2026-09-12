@@ -443,6 +443,26 @@ Averaged over the bestiary that lands at blunt ×1.13, slash ×0.99, pierce ×0.
 
 Neither axis alone picks a weapon. Ranked by burst the Long Sword leads (57 effective DPS); ranked by damage from one full stamina bar the order inverts and the War Axe leads (224 against the Long Sword's 177). Short fights favour blades, long ones favour haft.
 
+## The bestiary codex
+
+*Files: `src/systems/bestiary.ts`, the Bestiary tab in `src/ui/town.ts`*
+
+Every creature has a codex entry in three states:
+
+| State | Shown |
+|---|---|
+| Unrecorded | A black silhouette and `???` |
+| Met (killed at least once) | Silhouette, name, kill count, "notes needed" |
+| Recorded (field notes read) | Full sprite, description, stats, **resistances**, and the animation bench |
+
+**Field notes** drop from the creature they describe — `14%` a kill, guaranteed from the Ashen King — and only while that entry is unread, so the codex fills steadily and then stops costing drops. They are read where they lie: they never enter the pack, so a bad run cannot cost you the page and a full pack cannot block it.
+
+The resistance row is the point. It is what tells you a Barrow Champion takes ×1.5 from blunt and shrugs off blades, which is the information the damage triangle is built around.
+
+**The animation bench** sits under each recorded entry and reproduces every state the dungeon renderer can put a creature in: both frames (idle and attack, played or held), the tints (hurt, wind-up, death) and the float hover, alongside the sprite id, scale and swing timings. It is there to check new sprites without hunting one down on a floor. It is disabled on an unrecorded entry — a tint would otherwise paint the silhouette back in, and the attack frame's outline gives away the shape.
+
+Stored as `state.bestiary`, added additively at save revision 12; an older save simply starts with an empty codex.
+
 ### Affixes
 
 *File: `src/data/affixes.ts`* — value rolls between min and max plus `perLevel × item level`.

@@ -21,7 +21,7 @@ import { MATERIALS } from '../data/materials';
  */
 
 /** Bump this (and push a migration) whenever a field is added to the save. */
-export const SAVE_REVISION = 11;
+export const SAVE_REVISION = 12;
 
 type AnyState = GameState & Record<string, unknown>;
 
@@ -114,6 +114,11 @@ const MIGRATIONS: ((s: AnyState) => void)[] = [
     restack(s.stash);
     restack(s.loadout);
     restack(s.run?.backpack);
+  },
+  // 11 → 12: the bestiary codex. Purely additive — an existing save simply
+  // starts with an empty codex and fills it from the next kill onward.
+  (s) => {
+    s.bestiary ??= {};
   },
 ];
 

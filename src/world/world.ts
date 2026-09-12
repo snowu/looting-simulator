@@ -31,6 +31,7 @@ import { PlayerDerived, derivePlayer } from '../systems/player';
 import { enemyHitsPlayer, playerHitsEnemy, staminaPower } from '../systems/combat';
 import { durability, identify, itemName, makeMaterial, rollContainerLoot, rollEnemyLoot, wearItem } from '../systems/items';
 import { recordDepth, recordKill } from '../systems/contracts';
+import { loreName, recordKill as recordBestiaryKill, unlockEntry } from '../systems/bestiary';
 import { metaLevel } from '../systems/meta';
 import { Rarity } from '../types';
 import type { SfxName } from '../audio/sfx';
@@ -842,11 +843,12 @@ export class World {
     e.deadT = 0;
     this.run.stats.kills++;
     recordKill(this.state.contracts, def.id);
+    recordBestiaryKill(this.state.bestiary, def.id);
     this.sfx('enemyDie', e.x, e.y);
     const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
     const loot = e.mimicTier && e.mimicPropId
       ? rollContainerLoot(createRng(hashString(`${this.floor.seed}:${e.mimicPropId}`)), this.run.depth, this.derived.find, e.mimicTier, idBelow, this.state.recipeRanks)
-      : rollEnemyLoot(this.rng, def, this.run.depth, this.derived.find, idBelow, this.state.recipeRanks);
+      : rollEnemyLoot(this.rng, def, this.run.depth, this.derived.find, idBelow, this.state.recipeRanks, this.state.bestiary);
     if (def.behavior === 'boss') {
       // The portal opens where the king fell, so his hoard goes beside it —
       // dropped on the same tile it would be unreachable behind the portal.
@@ -1244,6 +1246,16 @@ export class World {
     let moved = 0;
     for (const it of [...pk.items]) {
       if (uid && it.uid !== uid) continue;
+      // Field notes are read where they lie. They never reach the pack, so a
+      // bad run can't cost you the page, and a full pack can't block it.
+      if (it.kind === 'lore') {
+        const fresh = unlockEntry(this.state.bestiary, it.ref);
+        pk.items = pk.items.filter((i) => i !== it);
+        this.msg(fresh ? `${loreName(it.ref)} — added to the codex.` : 'You already know these notes.', '#c8b8ff');
+        this.sfx('study');
+        moved++;
+        continue;
+      }
       const before = it.qty;
       const left = addItem(this.run.backpack, it);
       if (left < before) moved++;

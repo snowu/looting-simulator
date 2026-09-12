@@ -21,6 +21,7 @@ import { ITEM_BASES, CONSUMABLES, itemBase, consumable } from '../data/items';
 import { MATERIALS, findMaterial, material, secondaryMaterialMods } from '../data/materials';
 import { AFFIXES, affix } from '../data/affixes';
 import { MAX_RECIPE_RANK, RECIPES, blueprintDropWeight, masteryBonus, recipe, recipeRank } from '../data/recipes';
+import { BestiaryState, isKnown, loreName } from './bestiary';
 
 // ---------------------------------------------------------------------------
 // Construction
@@ -45,6 +46,11 @@ export function makeConsumable(id: string, qty = 1): Item {
 export function makeBlueprint(recipeId: string): Item {
   recipe(recipeId);
   return { uid: newUid(), kind: 'blueprint', ref: recipeId, qty: 1 };
+}
+
+/** A page of field notes on one creature; reading it opens its codex entry. */
+export function makeLore(enemyId: string): Item {
+  return { uid: newUid(), kind: 'lore', ref: enemyId, qty: 1 };
 }
 
 export interface EquipmentSpec {
@@ -108,6 +114,8 @@ export function itemRarity(item: Item): Rarity {
       return consumable(item.ref).rarity;
     case 'blueprint':
       return Rarity.Uncommon;
+    case 'lore':
+      return Rarity.Rare;
   }
 }
 
@@ -123,6 +131,8 @@ export function itemName(item: Item): string {
       return consumable(item.ref).name;
     case 'blueprint':
       return `Blueprint: ${itemBase(recipe(item.ref).baseId).name}`;
+    case 'lore':
+      return loreName(item.ref);
     case 'equipment': {
       const base = itemBase(item.ref);
       const adj = item.materialId ? MATERIAL_ADJ[item.materialId] ?? findMaterial(item.materialId)?.name ?? '' : '';
@@ -149,6 +159,8 @@ export function itemIcon(item: Item): { icon: string; ramp?: [string, string, st
     }
     case 'blueprint':
       return { icon: 'ic_blueprint' };
+    case 'lore':
+      return { icon: 'ic_lore' };
     case 'equipment': {
       const m = item.materialId ? findMaterial(item.materialId) : undefined;
       return { icon: itemBase(item.ref).icon, ramp: m?.ramp };
@@ -276,6 +288,10 @@ export function itemValue(item: Item): number {
       return consumable(item.ref).value;
     case 'blueprint':
       return recipe(item.ref).value || 60;
+    // Never sold — it is read where it is found — but it still needs a number
+    // for the loot summaries that price a whole pile.
+    case 'lore':
+      return 40;
     case 'equipment': {
       const base = itemBase(item.ref);
       const mat = item.materialId ? findMaterial(item.materialId) : undefined;
@@ -447,8 +463,26 @@ export interface LootRoll {
   gold: number;
 }
 
-export function rollEnemyLoot(rng: Rng, def: EnemyDef, depth: number, find: number, identifyBelow?: Rarity, ranks: RecipeRanks = {}): LootRoll {
+/**
+ * Chance that a kill yields field notes on its own kind. Only rolls while the
+ * entry is unread, so the codex fills steadily and then stops costing drops.
+ * A boss always gives up its page.
+ */
+const LORE_CHANCE = 0.14;
+
+export function rollEnemyLoot(
+  rng: Rng,
+  def: EnemyDef,
+  depth: number,
+  find: number,
+  identifyBelow?: Rarity,
+  ranks: RecipeRanks = {},
+  bestiary?: BestiaryState,
+): LootRoll {
   const items: Item[] = [];
+  if (!isKnown(bestiary, def.id) && (def.behavior === 'boss' || rng.chance(LORE_CHANCE))) {
+    items.push(makeLore(def.id));
+  }
   const blueprints = new Set<string>();
   const f = 1 + find / 200;
   for (const e of def.loot) {

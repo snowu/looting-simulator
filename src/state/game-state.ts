@@ -6,6 +6,7 @@ import { Equipment, emptyEquipment } from '../systems/player';
 import { MarketState, createMarket } from '../systems/market';
 import { Contract, refreshContracts } from '../systems/contracts';
 import { MetaLevels } from '../systems/meta';
+import { BestiaryState } from '../systems/bestiary';
 import { Floor } from '../systems/dungeon';
 import { makeConsumable, makeEquipment, makeMaterial } from '../systems/items';
 import { starterRecipeRanks } from '../data/recipes';
@@ -101,6 +102,8 @@ export interface GameState {
   stash: Container;
   equipment: Equipment;
   recipeRanks: RecipeRanks;
+  /** Creatures met and the field notes read on them. */
+  bestiary: BestiaryState;
   market: MarketState;
   contracts: Contract[];
   meta: MetaLevels;
@@ -134,6 +137,7 @@ export function newGame(rng: Rng): GameState {
     stash,
     equipment,
     recipeRanks,
+    bestiary: {},
     market: createMarket(rng, recipeRanks),
     contracts: refreshContracts([], rng, 1),
     meta: {},
