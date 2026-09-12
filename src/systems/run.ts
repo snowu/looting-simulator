@@ -122,7 +122,7 @@ export function endRun(state: GameState, outcome: 'dead' | 'extracted'): RunSumm
   // merchant, at no cost but the walk back to the stairs.
   if (dayTurned) {
     const dayRng = createRng(randomSeed());
-    advanceDay(state.market, dayRng, state.lifetime.bestDepth);
+    advanceDay(state.market, dayRng, state.lifetime.bestDepth, state.recipeRanks);
     state.contracts = refreshContracts(state.contracts, dayRng, Math.max(1, state.lifetime.bestDepth));
   }
   return summary;

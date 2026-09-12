@@ -825,8 +825,8 @@ export class World {
     this.sfx('enemyDie', e.x, e.y);
     const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
     const loot = e.mimicTier && e.mimicPropId
-      ? rollContainerLoot(createRng(hashString(`${this.floor.seed}:${e.mimicPropId}`)), this.run.depth, this.derived.find, e.mimicTier, idBelow)
-      : rollEnemyLoot(this.rng, def, this.run.depth, this.derived.find, idBelow);
+      ? rollContainerLoot(createRng(hashString(`${this.floor.seed}:${e.mimicPropId}`)), this.run.depth, this.derived.find, e.mimicTier, idBelow, this.state.recipeRanks)
+      : rollEnemyLoot(this.rng, def, this.run.depth, this.derived.find, idBelow, this.state.recipeRanks);
     if (def.behavior === 'boss') {
       // The portal opens where the king fell, so his hoard goes beside it —
       // dropped on the same tile it would be unreachable behind the portal.
@@ -880,7 +880,7 @@ export class World {
     p.used = true;
     this.sfx('break', p.x, p.y);
     const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
-    const loot = rollContainerLoot(this.propRng(p), this.run.depth, this.derived.find, 'urn', idBelow);
+    const loot = rollContainerLoot(this.propRng(p), this.run.depth, this.derived.find, 'urn', idBelow, this.state.recipeRanks);
     this.dropLoot(p.x, p.y, loot.items, loot.gold);
   }
 
@@ -1085,7 +1085,7 @@ export class World {
         p.used = true;
         this.sfx('chest', p.x, p.y);
         const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
-        const loot = rollContainerLoot(this.propRng(p), this.run.depth, this.derived.find, tier, idBelow);
+        const loot = rollContainerLoot(this.propRng(p), this.run.depth, this.derived.find, tier, idBelow, this.state.recipeRanks);
         const pk = this.dropLoot(p.x, p.y, loot.items, 0);
         if (loot.gold) {
           this.run.gold += loot.gold;

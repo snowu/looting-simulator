@@ -6,6 +6,7 @@ import {
   ItemBaseDef,
   MaterialCategory,
   MaterialDef,
+  RecipeRanks,
   Rarity,
   RARITIES,
   RARITY_ORDER,
@@ -17,9 +18,9 @@ import {
   STAT_KEYS,
 } from '../types';
 import { ITEM_BASES, CONSUMABLES, itemBase, consumable } from '../data/items';
-import { MATERIALS, findMaterial, material } from '../data/materials';
+import { MATERIALS, findMaterial, material, secondaryMaterialMods } from '../data/materials';
 import { AFFIXES, affix } from '../data/affixes';
-import { RECIPES, recipe } from '../data/recipes';
+import { MAX_RECIPE_RANK, RECIPES, masteryBonus, recipe, recipeRank } from '../data/recipes';
 
 // ---------------------------------------------------------------------------
 // Construction
@@ -56,6 +57,7 @@ export interface EquipmentSpec {
   identified?: boolean;
   quality?: number;
   crafted?: boolean;
+  craftRank?: number;
 }
 
 export function makeEquipment(spec: EquipmentSpec): Item {
@@ -73,6 +75,7 @@ export function makeEquipment(spec: EquipmentSpec): Item {
     identified: spec.identified ?? true,
     quality: spec.quality ?? 1,
     crafted: spec.crafted,
+    craftRank: spec.craftRank,
   };
 }
 
@@ -172,13 +175,19 @@ const DURABILITY_BY_SLOT: Partial<Record<Slot, number>> = {
 /** What a piece of gear that is worn out is still worth to you. */
 export const BROKEN_STAT_FRACTION = 0.25;
 
+export function itemCraftRank(item: Item): number {
+  if (item.kind !== 'equipment' || !item.crafted) return 1;
+  return Math.max(1, Math.min(MAX_RECIPE_RANK, Math.floor(item.craftRank ?? 1)));
+}
+
 /** Zero for gear that never wears, so callers can test with one check. */
 export function maxDurability(item: Item): number {
   if (item.kind !== 'equipment') return 0;
   const slotMax = DURABILITY_BY_SLOT[itemBase(item.ref).slot];
   if (!slotMax) return 0;
   const tier = item.materialId ? findMaterial(item.materialId)?.tier ?? 1 : 1;
-  return Math.round(slotMax * (0.8 + 0.2 * tier));
+  const mastery = masteryBonus(itemCraftRank(item));
+  return Math.round(slotMax * (0.8 + 0.2 * tier) * (1 + mastery));
 }
 
 export interface Durability {
@@ -233,12 +242,19 @@ export function itemStats(item: Item): Stats {
   const mat = item.materialId ? findMaterial(item.materialId) : undefined;
   const tier = mat?.tier ?? 1;
   const q = item.quality ?? 1;
-  addStats(s, base.base, q);
-  addStats(s, base.perTier, (tier - 1) * q);
+  const core = emptyStats();
+  addStats(core, base.base, q);
+  addStats(core, base.perTier, (tier - 1) * q);
+  const mastery = masteryBonus(itemCraftRank(item));
+  for (const k of STAT_KEYS) if (core[k] > 0) core[k] *= 1 + mastery;
+  addStats(s, core);
   if (mat) addStats(s, mat.mods);
   if (item.secondaryId) {
     const m2 = findMaterial(item.secondaryId);
-    if (m2) addStats(s, m2.mods, 0.5);
+    if (m2) {
+      addStats(s, secondaryMaterialMods(m2));
+      addStats(s, m2.mods);
+    }
   }
   if (isIdentified(item)) {
     for (const a of item.affixes ?? []) s[affix(a.id).stat] += a.value;
@@ -301,7 +317,12 @@ export function rollRarity(rng: Rng, depth: number, find: number): Rarity {
     [Rarity.Rare, (7 + depth * 3) * f],
     [Rarity.Epic, (1.2 + depth * 1.1) * f],
     [Rarity.Legendary, (0.15 + depth * 0.3) * f],
-  ]);
+  ].filter(([rarity]) => rarityAvailableAtDepth(rarity, depth)));
+}
+
+/** Natural drops unlock one rarity band every two depths. */
+export function rarityAvailableAtDepth(rarity: Rarity, depth: number): boolean {
+  return depth >= [1, 1, 2, 4, 6][RARITY_ORDER[rarity]];
 }
 
 export function rollAffixes(rng: Rng, slot: Slot, ilvl: number, count: number, exclude: string[] = []): AffixRoll[] {
@@ -344,9 +365,19 @@ const EXCLUDED_FROM_GEAR: MaterialCategory[] = ['gem', 'valuable'];
 export function materialForDepth(rng: Rng, depth: number, categories: MaterialCategory[]): MaterialDef {
   const pool = MATERIALS.filter((m) => categories.includes(m.category) && !EXCLUDED_FROM_GEAR.includes(m.category));
   const fallback = MATERIALS.filter((m) => categories.includes(m.category));
-  const list = pool.length ? pool : fallback;
+  const candidates = pool.length ? pool : fallback;
+  const list = candidates.filter((m) => materialAvailableAtDepth(m, depth));
   const target = 1 + (depth - 1) * 0.7 + rng.float(-0.6, 1.1);
-  return rng.weighted(list.map((m) => [m, Math.exp(-Math.abs(m.tier - target) * 1.6) * (m.tier <= depth + 1 ? 1 : 0.05)] as const));
+  return rng.weighted((list.length ? list : candidates).map((m) => [m, Math.exp(-Math.abs(m.tier - target) * 1.6) * materialRarityWeight(m)] as const));
+}
+
+export function materialAvailableAtDepth(material: MaterialDef, depth: number): boolean {
+  const tierDepth = [1, 1, 1, 3, 5, 6][material.tier] ?? 6;
+  return depth >= tierDepth && rarityAvailableAtDepth(material.rarity, depth);
+}
+
+function materialRarityWeight(material: MaterialDef): number {
+  return 0.35 ** RARITY_ORDER[material.rarity];
 }
 
 export function rollEquipment(
@@ -377,7 +408,8 @@ export function rollEquipment(
 
 function rollGem(rng: Rng, depth: number): MaterialDef {
   const gems = MATERIALS.filter((m) => m.category === 'gem');
-  return rng.weighted(gems.map((g) => [g, g.tier <= depth / 1.5 + 1.5 ? 1 : 0.15] as const));
+  const available = gems.filter((g) => materialAvailableAtDepth(g, depth));
+  return rng.weighted((available.length ? available : gems).map((g) => [g, materialRarityWeight(g)] as const));
 }
 
 function rollValuable(rng: Rng, depth: number): MaterialDef {
@@ -385,9 +417,15 @@ function rollValuable(rng: Rng, depth: number): MaterialDef {
   return rng.weighted(vals.map((v) => [v, Math.exp(-Math.abs(v.tier - (depth / 1.4 + 0.5)) * 1.2)] as const));
 }
 
-function rollBlueprint(rng: Rng, depth: number): Item {
-  const pool = RECIPES.filter((r) => !r.starter && itemBase(r.baseId).minDepth <= depth + 1);
-  return makeBlueprint(rng.pick(pool.length ? pool : RECIPES.filter((r) => !r.starter)).id);
+export function rollBlueprint(rng: Rng, depth: number, ranks: RecipeRanks = {}, reserved: Set<string> = new Set()): Item {
+  const eligible = RECIPES.filter((r) => itemBase(r.baseId).minDepth <= depth);
+  const unreserved = eligible.filter((r) => !reserved.has(r.id));
+  const candidates = unreserved.length ? unreserved : eligible;
+  const unknown = candidates.filter((r) => recipeRank(ranks, r.id) === 0);
+  const uncapped = candidates.filter((r) => recipeRank(ranks, r.id) < MAX_RECIPE_RANK);
+  const picked = rng.pick(unknown.length ? unknown : uncapped.length ? uncapped : candidates);
+  reserved.add(picked.id);
+  return makeBlueprint(picked.id);
 }
 
 export interface LootRoll {
@@ -395,8 +433,9 @@ export interface LootRoll {
   gold: number;
 }
 
-export function rollEnemyLoot(rng: Rng, def: EnemyDef, depth: number, find: number, identifyBelow?: Rarity): LootRoll {
+export function rollEnemyLoot(rng: Rng, def: EnemyDef, depth: number, find: number, identifyBelow?: Rarity, ranks: RecipeRanks = {}): LootRoll {
   const items: Item[] = [];
+  const blueprints = new Set<string>();
   const f = 1 + find / 200;
   for (const e of def.loot) {
     if (rng.chance(Math.min(1, e.chance * f))) items.push(makeMaterial(e.id, rng.int(e.min, e.max)));
@@ -405,18 +444,18 @@ export function rollEnemyLoot(rng: Rng, def: EnemyDef, depth: number, find: numb
   if (def.behavior === 'boss') {
     items.push(rollEquipment(rng, depth, find, { rarity: Rarity.Legendary }));
     items.push(rollEquipment(rng, depth, find, { minRarity: Rarity.Epic }));
-    items.push(rollBlueprint(rng, depth));
+    items.push(rollBlueprint(rng, depth, ranks, blueprints));
   } else if (rng.chance(Math.min(0.95, def.itemChance * (1 + find / 100)))) {
     items.push(rollEquipment(rng, depth, find, { identifyBelow }));
   }
   if (rng.chance(0.06)) items.push(makeConsumable('healing_draught'));
-  if (rng.chance(0.012 * depth)) items.push(rollBlueprint(rng, depth));
+  if (rng.chance(0.012 * depth)) items.push(rollBlueprint(rng, depth, ranks, blueprints));
   return { items, gold };
 }
 
 export type ContainerTier = 'urn' | 'chest' | 'vault' | 'secret';
 
-export function rollContainerLoot(rng: Rng, depth: number, find: number, tier: ContainerTier, identifyBelow?: Rarity): LootRoll {
+export function rollContainerLoot(rng: Rng, depth: number, find: number, tier: ContainerTier, identifyBelow?: Rarity, ranks: RecipeRanks = {}): LootRoll {
   const items: Item[] = [];
   let gold = 0;
   const cats: MaterialCategory[] = ['metal', 'wood', 'hide', 'cloth', 'bone'];
@@ -435,16 +474,16 @@ export function rollContainerLoot(rng: Rng, depth: number, find: number, tier: C
       if (rng.chance(0.1)) items.push(makeConsumable('scroll_identify'));
       if (rng.chance(0.18)) items.push(makeMaterial(rollValuable(rng, depth).id, 1));
       if (rng.chance(0.12)) items.push(makeMaterial(rollGem(rng, depth).id, 1));
-      if (rng.chance(0.08)) items.push(rollBlueprint(rng, depth));
+      if (rng.chance(0.08)) items.push(rollBlueprint(rng, depth, ranks));
       break;
     case 'vault':
     case 'secret':
       gold += rng.int(30, 60) * depth;
-      items.push(rollEquipment(rng, depth + 1, find, { minRarity: Rarity.Rare, identifyBelow }));
-      if (rng.chance(0.5)) items.push(rollEquipment(rng, depth + 1, find, { minRarity: Rarity.Uncommon, identifyBelow }));
-      items.push(makeMaterial(rollValuable(rng, depth + 1).id, rng.int(1, 2)));
-      items.push(makeMaterial(rollGem(rng, depth + 1).id, 1));
-      if (rng.chance(tier === 'secret' ? 0.7 : 0.35)) items.push(rollBlueprint(rng, depth + 1));
+      items.push(rollEquipment(rng, depth, find, { minRarity: depth >= 3 ? Rarity.Rare : Rarity.Uncommon, identifyBelow }));
+      if (rng.chance(0.25)) items.push(rollEquipment(rng, depth, find, { minRarity: Rarity.Uncommon, identifyBelow }));
+      items.push(makeMaterial(rollValuable(rng, depth).id, rng.int(1, 2)));
+      items.push(makeMaterial(rollGem(rng, depth).id, 1));
+      if (rng.chance(tier === 'secret' ? 0.7 : 0.35)) items.push(rollBlueprint(rng, depth, ranks));
       if (rng.chance(0.35)) items.push(makeConsumable(rng.pick(['greater_healing', 'scroll_recall', 'scroll_identify'])));
       break;
   }

@@ -61,6 +61,13 @@ describe('what wears and what does not', () => {
     expect(maxDurability(star)).toBeGreaterThan(maxDurability(copper));
   });
 
+  it('scales crafted durability with frozen recipe mastery', () => {
+    const rank1 = makeEquipment({ baseId: 'long_sword', materialId: 'iron', rarity: Rarity.Common, ilvl: 4, crafted: true, craftRank: 1 });
+    const rank5 = makeEquipment({ baseId: 'long_sword', materialId: 'iron', rarity: Rarity.Common, ilvl: 4, crafted: true, craftRank: 5 });
+    expect(maxDurability(rank5)).toBe(Math.round(maxDurability(rank1) * 1.4));
+    expect(maxDurability(makeEquipment({ baseId: 'band', materialId: 'iron', rarity: Rarity.Common, ilvl: 4, crafted: true, craftRank: 5 }))).toBe(0);
+  });
+
   it('never wears stacks of materials or potions', () => {
     expect(maxDurability(makeMaterial('iron', 3))).toBe(0);
     expect(maxDurability(makeConsumable('healing_draught', 2))).toBe(0);

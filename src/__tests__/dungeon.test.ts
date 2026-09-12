@@ -79,6 +79,7 @@ describe('generateFloor', () => {
         for (const p of f.props) {
           expect(p.mimic).toBe(p.kind === 'chest' && chestIsMimic(f.seed, p.id));
         }
+        expect(f.props.filter((p) => p.tier === 'vault')).toHaveLength(f.doors.some((d) => d.locked) ? 1 : 0);
 
         if (depth === FINAL_DEPTH) expect(f.enemies.some((e) => e.def === BOSS_ID)).toBe(true);
       });

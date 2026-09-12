@@ -681,7 +681,6 @@ function tryGenerate(seed: number, depth: number, rng: Rng): Floor | null {
         break;
       case 'vault':
         put('chest', 'vault', true);
-        put('chest', 'vault', true);
         put('bones', 'none', false);
         break;
       case 'secret':

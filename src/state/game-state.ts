@@ -1,6 +1,6 @@
 import { Rng } from '../core/rng';
 import { Dir } from '../core/dir';
-import { Item, Rarity } from '../types';
+import { Item, Rarity, RecipeRanks } from '../types';
 import { Container, addItem, createContainer } from './inventory';
 import { Equipment, emptyEquipment } from '../systems/player';
 import { MarketState, createMarket } from '../systems/market';
@@ -8,7 +8,7 @@ import { Contract, refreshContracts } from '../systems/contracts';
 import { MetaLevels } from '../systems/meta';
 import { Floor } from '../systems/dungeon';
 import { makeConsumable, makeEquipment, makeMaterial } from '../systems/items';
-import { STARTER_RECIPES } from '../data/recipes';
+import { starterRecipeRanks } from '../data/recipes';
 import { SAVE_REVISION } from './migrations';
 import { newId } from '../core/id';
 import { BASE_BACKPACK } from '../systems/meta';
@@ -100,7 +100,7 @@ export interface GameState {
   renown: number;
   stash: Container;
   equipment: Equipment;
-  knownRecipes: string[];
+  recipeRanks: RecipeRanks;
   market: MarketState;
   contracts: Contract[];
   meta: MetaLevels;
@@ -124,6 +124,7 @@ export function newGame(rng: Rng): GameState {
   addItem(stash, makeMaterial('rat_hide', 3));
   addItem(stash, makeMaterial('linen', 2));
 
+  const recipeRanks = starterRecipeRanks();
   return {
     version: SAVE_VERSION,
     revision: SAVE_REVISION,
@@ -132,8 +133,8 @@ export function newGame(rng: Rng): GameState {
     renown: 0,
     stash,
     equipment,
-    knownRecipes: [...STARTER_RECIPES],
-    market: createMarket(rng),
+    recipeRanks,
+    market: createMarket(rng, recipeRanks),
     contracts: refreshContracts([], rng, 1),
     meta: {},
     loadout: createContainer(BASE_BACKPACK),

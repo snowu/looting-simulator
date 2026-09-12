@@ -225,6 +225,8 @@ export interface Item {
   /** Multiplier on base stats, ~0.85–1.25. */
   quality?: number;
   crafted?: boolean;
+  /** Recipe rank when forged. Absent on drops and old crafts means rank 1. */
+  craftRank?: number;
   /**
    * Remaining durability. **Absent means undamaged** — that is what lets every
    * item written before durability existed read as a fresh one without a
@@ -253,6 +255,9 @@ export interface RecipeDef {
   starter: boolean;
   value: number;
 }
+
+/** Recipe id to mastery rank. Missing recipes are unknown (rank 0). */
+export type RecipeRanks = Record<string, number>;
 
 // ---------------------------------------------------------------------------
 // Enemies

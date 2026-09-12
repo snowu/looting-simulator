@@ -291,11 +291,13 @@ An item is **base × material × rarity × affixes × quality**. Nothing is stor
 | Epic | 3 | ×2.8 |
 | Legendary | 4 (and a unique name like "Duskfang") | ×4.5 |
 
-**Rarity roll** (weights, `f = 1 + find/100`): Common 100, Uncommon `(28 + 6×depth) × f`, Rare `(7 + 3×depth) × f`, Epic `(1.2 + 1.1×depth) × f`, Legendary `(0.15 + 0.3×depth) × f`.
+**Rarity roll** (weights, `f = 1 + find/100`): Common 100, Uncommon `(28 + 6×depth) × f`, Rare `(7 + 3×depth) × f`, Epic `(1.2 + 1.1×depth) × f`, Legendary `(0.15 + 0.3×depth) × f`. Natural Rare, Epic, and Legendary drops unlock at depths 2, 4, and 6 respectively; guaranteed boss rewards can exceed these gates.
 
 **Item level** = `depth × 2 + 0–2`. It sets affix strength. **Quality** = `0.86–1.08 + 0.04 × rarity`, a multiplier on the base stats.
 
-**Material tier** drives the stat scaling: `base + perTier × (tier − 1)`, times quality, plus the material's own bonuses (a secondary crafting material contributes half).
+**Material tier** drives the stat scaling: `base + perTier × (tier − 1)`, times quality, plus the material's own bonuses. Secondary recipe materials provide a structural bonus by category (Metal → Defense, Wood → Speed, Hide → Health, Cloth → Stamina, Bone → Attack), scaled by tier, plus their full material-specific modifiers. Crafted recipe mastery multiplies positive base and per-tier stats after quality; it does not multiply penalties, material bonuses, or affixes.
+
+Natural equipment materials are gated by both tier and rarity, then weighted down by material rarity. Tier 3, 4, and 5 materials enter the generic equipment pool at depths 3, 5, and 6; Rare, Epic, and Legendary materials cannot appear before depths 2, 4, and 6.
 
 **Identification:** Common drops are identified; Uncommon and better arrive unknown, showing the base but hiding affixes, which **do not apply** until identified. Identify with a Scroll of Identify or pay the appraiser `10 + 12% of value` (Appraiser's Eye L1 makes that 40% cheaper; L2 identifies Rare and lower on the spot). Unidentified gear sells for 45% of its price.
 
@@ -315,7 +317,7 @@ Only the gear that takes the blows wears out. **Rings and amulets never degrade*
 | Head | 120 | 216 |
 | Hands | 110 | 198 |
 
-The pool is `slotBase × (0.8 + 0.2 × material tier)`, so better metal lasts longer as well as hitting harder.
+The pool is `slotBase × (0.8 + 0.2 × material tier)`, so better metal lasts longer as well as hitting harder. Crafted recipe mastery also multiplies this pool.
 
 **What costs a point:**
 
@@ -339,7 +341,9 @@ Each newly generated chest has a deterministic **12% chance to be a mimic**. It 
 |---|---|
 | Urn / barrel | 55% a material (1–2), 35% gold `2 – (6 + 3×depth)`, 6% potion, 5% valuable |
 | Chest | `8–20 × depth` gold, 1–3 material stacks, 40% gear, 20% potion, 18% valuable, 12% gem, 10% identify scroll, 8% blueprint |
-| Vault / secret chest | `30–60 × depth` gold, a Rare+ item (50% a second Uncommon+), a valuable, a gem, 35%/70% blueprint, 35% a good consumable |
+| Vault / secret chest | `30–60 × depth` gold, an Uncommon+ item (Rare+ from depth 3; 25% a second Uncommon+), a valuable, a gem, 35%/70% blueprint, 35% a good consumable |
+
+Vault rooms contain one premium chest. Special chests roll at the current depth rather than advancing every reward table by one floor.
 
 ---
 
@@ -457,9 +461,13 @@ Every recipe has **material slots** — the first is the primary (it sets tier, 
 
 - **Rarity** from the primary tier: tiers 1–2 → Common, 3 → Uncommon, 4 → Rare, 5 → Epic. A catalyst lifts it one step.
 - **Item level** = `primary tier × 2 + catalyst tier`.
-- **Catalyst** adds its affix (see the materials table).
-- **Quality** = `0.92–1.12 + 6% per Master Smith level`. Master Smith 3 adds an extra random affix.
+- **Affixes** are filled to match the item's rarity; a catalyst reserves one of those slots for its chosen affix (see the materials table).
+- **Quality** = `0.92–1.12 + 6% per Master Smith level`. Master Smith 3 adds an extra random affix, raising rarity when possible.
+- **Recipe mastery:** the first blueprint unlocks a recipe at Rank 1. Advancing to Ranks 2, 3, 4, and 5 costs 2, 3, 4, and 5 duplicate blueprints respectively. Ranks 1–5 grant `0% / 8% / 16% / 26% / 40%` positive core stats and maximum durability.
+- A craft records the recipe rank used to make it. Later mastery does not retroactively improve existing equipment, and old crafted gear without a recorded rank counts as Rank 1.
 - Crafted items are always identified.
+
+Blueprint rewards prioritize unknown depth-appropriate recipes, then known recipes below Rank 5. Multiple blueprints rolled together avoid duplicates when alternatives exist. A capped recipe appears only when every eligible recipe is capped; extra copies can still be sold.
 
 Known from the start: dagger, short sword, club, buckler, cap, jerkin, gloves, band. The rest come from blueprints found in the dungeon or bought (long sword 140, war axe 150, mace 110, spear 120, kite shield 120, tower shield 200, helm 100, great helm 190, robe 80, hauberk 180, plate 320, gauntlets 110, pendant 130).
 
@@ -481,9 +489,9 @@ clamped to [0.25 × value, 4 × value]
 
 - **Spread:** you buy at `price × 1.15`, sell at `price × 0.8`. Silver Tongue moves both by 4% per level.
 - **Slippage:** every unit you sell drops the price by `1.2% × (1 + rarity)`, and buying pushes it up the same way. Dumping 20 silver visibly tanks silver.
-- **Stock:** the merchant holds 40 common / 14 uncommon / 5 rare / 2 epic units, restocking 30–70% of that per day. Legendary materials are never stocked.
+- **Stock:** the merchant holds 40 common / 14 uncommon / 5 rare / 2 epic units once that material's tier and rarity have been reached in the delve, restocking 30–70% per day. Legendary materials are never stocked.
 - **Gear prices** use a separate daily sentiment per category (weapons, armour, jewellery). You sell gear for `value × sentiment × 0.5` (0.6 for other kinds) and buy at `value × sentiment × 1.35`.
-- **Wares:** 6 rolled items (60% Common, 30% Uncommon, 9% Rare, 1% Epic) plus 2 blueprints, refreshed daily.
+- **Wares:** 6 rolled items (60% Common, 30% Uncommon, 9% Rare, 1% Epic before depth gates) plus 2 depth-appropriate blueprints, refreshed daily.
 - **History:** 30 days, shown as sparklines with Market Insider L1; L2 reveals tomorrow's event.
 
 ### Events

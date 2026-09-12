@@ -1,9 +1,9 @@
 import { EquipSlot, EQUIP_SLOTS, Item, RARITY_COLORS, STAT_KEYS, STAT_LABELS, Stats, slotOf } from '../types';
 import { consumable, itemBase } from '../data/items';
-import { material } from '../data/materials';
+import { material, secondaryMaterialMods } from '../data/materials';
 import { affix } from '../data/affixes';
-import { recipe } from '../data/recipes';
-import { durability, isIdentified, itemIcon, itemName, itemRarity, itemStats, itemValue } from '../systems/items';
+import { masteryBonus, recipe } from '../data/recipes';
+import { durability, isIdentified, itemCraftRank, itemIcon, itemName, itemRarity, itemStats, itemValue } from '../systems/items';
 import { artUrl } from '../render/art-cache';
 import type { Ramp } from '../art/raster';
 
@@ -226,8 +226,10 @@ export function itemTooltip(item: Item, opts: TipOpts = {}): string {
     case 'equipment': {
       const base = itemBase(item.ref);
       const mat = item.materialId ? material(item.materialId) : null;
-      lines.push(`<div class="tt-sub">${itemRarity(item)} ${SLOT_LABEL[base.slot]}${base.damageType ? ` · ${base.damageType}` : ''}${item.crafted ? ' · crafted' : ''}</div>`);
+      const rank = itemCraftRank(item);
+      lines.push(`<div class="tt-sub">${itemRarity(item)} ${SLOT_LABEL[base.slot]}${base.damageType ? ` · ${base.damageType}` : ''}${item.crafted ? ` · crafted Rank ${rank}` : ''}</div>`);
       if (mat) lines.push(`<div class="tt-dim">${mat.name}${item.secondaryId ? ` & ${material(item.secondaryId).name}` : ''} · quality ${Math.round((item.quality ?? 1) * 100)}%</div>`);
+      if (item.crafted && masteryBonus(rank) > 0) lines.push(`<div class="tt-dim">Recipe mastery: +${Math.round(masteryBonus(rank) * 100)}% core stats and durability</div>`);
       if (base.swing) lines.push(`<div class="tt-dim">Reach ${base.swing.reach} · swing ${(base.swing.windup + base.swing.recovery).toFixed(2)}s · ${base.swing.staminaCost} stamina</div>`);
       const d = durability(item);
       if (d.wears) {
@@ -251,6 +253,8 @@ export function itemTooltip(item: Item, opts: TipOpts = {}): string {
       lines.push(`<div class="tt-desc">${esc(m.description)}</div>`);
       const mods = statLines({ ...emptyish(), ...m.mods } as Stats);
       if (mods.length && m.category !== 'valuable') lines.push(`<div class="tt-dim">As primary material:</div>`, ...mods);
+      const secondary = statLines({ ...emptyish(), ...secondaryMaterialMods(m) } as Stats);
+      if (secondary.length) lines.push(`<div class="tt-dim">As secondary material:</div>`, ...secondary);
       break;
     }
     case 'consumable': {
@@ -260,7 +264,7 @@ export function itemTooltip(item: Item, opts: TipOpts = {}): string {
     }
     case 'blueprint': {
       const r = recipe(item.ref);
-      lines.push(`<div class="tt-sub">Blueprint</div><div class="tt-desc">Teaches the forge to make a ${itemBase(r.baseId).name}.</div>`);
+      lines.push(`<div class="tt-sub">Blueprint</div><div class="tt-desc">Unlocks or advances ${itemBase(r.baseId).name} mastery up to Rank 5.</div>`);
       lines.push(`<div class="tt-dim">${r.slots.map((s) => `${s.qty}× ${s.label}${s.optional ? ' (optional)' : ''}`).join(' · ')}</div>`);
       break;
     }

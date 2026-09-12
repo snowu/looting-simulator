@@ -1,8 +1,8 @@
-import { Rng } from '../core/rng';
-import { Item, MaterialDef, RARITY_ORDER, RecipeDef, RecipeSlot, rarityFromOrder } from '../types';
+import { createRng, Rng } from '../core/rng';
+import { Item, MaterialDef, RecipeDef, RecipeRanks, RecipeSlot, rarityFromOrder } from '../types';
 import { MATERIALS, material } from '../data/materials';
 import { itemBase } from '../data/items';
-import { recipe } from '../data/recipes';
+import { MAX_RECIPE_RANK, blueprintCostForNextRank, recipe, recipeRank } from '../data/recipes';
 import { Container, countOf, removeOf } from '../state/inventory';
 import { makeEquipment, rollAffixValue, rollAffixes } from './items';
 
@@ -16,7 +16,7 @@ export function materialsForSlot(slot: RecipeSlot, stash: Container): { def: Mat
   return MATERIALS.filter((m) => slot.categories.includes(m.category)).map((def) => ({
     def,
     owned: countOf(stash, 'material', def.id),
-  }));
+  })).sort((a, b) => a.def.tier - b.def.tier || a.def.value - b.def.value || a.def.name.localeCompare(b.def.name));
 }
 
 export function selectionError(sel: CraftSelection, stash: Container): string | null {
@@ -51,7 +51,7 @@ function catalystOf(r: RecipeDef, sel: CraftSelection): MaterialDef | null {
  * Build the crafted item. With `rng` omitted, returns a deterministic preview
  * (median quality, median affix values).
  */
-export function buildCrafted(sel: CraftSelection, smithLevel: number, rng?: Rng): Item {
+export function buildCrafted(sel: CraftSelection, smithLevel: number, rng?: Rng, rank = 1): Item {
   const r = recipe(sel.recipeId);
   const base = itemBase(r.baseId);
   const primary = material(sel.materials[0]!);
@@ -60,26 +60,30 @@ export function buildCrafted(sel: CraftSelection, smithLevel: number, rng?: Rng)
 
   // Rarity: primary tier sets the floor, a catalyst lifts it one step.
   const tierRarity = [0, 0, 0, 1, 2, 3][primary.tier] ?? 0;
-  const rarity = rarityFromOrder(tierRarity + (catalyst ? 1 : 0));
+  const rarityOrder = tierRarity + (catalyst ? 1 : 0);
   const ilvl = primary.tier * 2 + (catalyst ? catalyst.tier : 0);
 
   const affixes = [];
   if (catalyst?.catalystAffix) {
     affixes.push({ id: catalyst.catalystAffix, value: rng ? rollAffixValue(rng, catalyst.catalystAffix, ilvl) : medianAffix(catalyst.catalystAffix, ilvl) });
   }
-  if (rng && smithLevel >= 3) affixes.push(...rollAffixes(rng, base.slot, ilvl, 1, affixes.map((a) => a.id)));
+  const affixCount = Math.min(4, rarityOrder + (smithLevel >= 3 ? 1 : 0));
+  const affixRng = rng ?? createRng(0x534d4954);
+  const rolled = rollAffixes(affixRng, base.slot, ilvl, affixCount - affixes.length, affixes.map((a) => a.id));
+  affixes.push(...(rng ? rolled : rolled.map((a) => ({ id: a.id, value: medianAffix(a.id, ilvl) }))));
 
   const quality = rng ? rng.float(0.92, 1.12) + smithLevel * 0.06 : 1.02 + smithLevel * 0.06;
   return makeEquipment({
     baseId: base.id,
     materialId: primary.id,
     secondaryId,
-    rarity: RARITY_ORDER[rarity] >= affixes.length ? rarity : rarityFromOrder(affixes.length),
+    rarity: rarityFromOrder(Math.max(rarityOrder, affixes.length)),
     ilvl,
     affixes,
     identified: true,
     quality: Math.round(quality * 100) / 100,
     crafted: true,
+    craftRank: Math.max(1, Math.min(MAX_RECIPE_RANK, Math.floor(rank))),
   });
 }
 
@@ -91,13 +95,24 @@ function medianAffix(id: string, ilvl: number): number {
 }
 
 /** Consume materials and create the item. Returns null if the selection is invalid. */
-export function craft(sel: CraftSelection, stash: Container, rng: Rng, smithLevel: number): Item | null {
-  if (selectionError(sel, stash)) return null;
+export function craft(sel: CraftSelection, stash: Container, rng: Rng, smithLevel: number, rank = 1): Item | null {
+  if (rank < 1 || selectionError(sel, stash)) return null;
   const r = recipe(sel.recipeId);
-  const item = buildCrafted(sel, smithLevel, rng);
+  const item = buildCrafted(sel, smithLevel, rng, rank);
   for (let i = 0; i < r.slots.length; i++) {
     const id = sel.materials[i];
     if (id) removeOf(stash, 'material', id, r.slots[i].qty);
   }
   return item;
+}
+
+/** Consume one blueprint to unlock or advance its recipe. */
+export function studyBlueprint(blueprint: Item, stash: Container, ranks: RecipeRanks): number | null {
+  if (blueprint.kind !== 'blueprint') return null;
+  const current = recipeRank(ranks, blueprint.ref);
+  const cost = blueprintCostForNextRank(current);
+  if (cost === 0 || !removeOf(stash, 'blueprint', blueprint.ref, cost)) return null;
+  const next = current + 1;
+  ranks[blueprint.ref] = next;
+  return next;
 }

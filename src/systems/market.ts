@@ -1,9 +1,8 @@
 import { Rng } from '../core/rng';
-import { Item, Rarity, RARITY_ORDER } from '../types';
+import { Item, Rarity, RARITY_ORDER, RecipeRanks } from '../types';
 import { MATERIALS, material } from '../data/materials';
 import { CONSUMABLES } from '../data/items';
-import { RECIPES } from '../data/recipes';
-import { ItemCategory, durability, itemCategory, itemValue, isIdentified, makeBlueprint, rollEquipment } from './items';
+import { ItemCategory, durability, itemCategory, itemValue, isIdentified, materialAvailableAtDepth, rarityAvailableAtDepth, rollBlueprint, rollEquipment } from './items';
 
 // ---------------------------------------------------------------------------
 // Events
@@ -84,11 +83,11 @@ const STOCK_TARGET: Record<Rarity, number> = {
   [Rarity.Legendary]: 0,
 };
 
-export function createMarket(rng: Rng): MarketState {
+export function createMarket(rng: Rng, ranks: RecipeRanks = {}): MarketState {
   const commodities: Record<string, CommodityState> = {};
   for (const m of MATERIALS) {
     const p = Math.max(1, Math.round(m.value * rng.float(0.85, 1.15)));
-    commodities[m.id] = { price: p, supply: 0, stock: STOCK_TARGET[m.rarity], history: [p] };
+    commodities[m.id] = { price: p, supply: 0, stock: materialAvailableAtDepth(m, 1) ? STOCK_TARGET[m.rarity] : 0, history: [p] };
   }
   const market: MarketState = {
     day: 1,
@@ -100,7 +99,7 @@ export function createMarket(rng: Rng): MarketState {
     wares: [],
     news: ['The market square is busy this morning.'],
   };
-  restockWares(market, rng, 1);
+  restockWares(market, rng, 1, ranks);
   return market;
 }
 
@@ -127,7 +126,7 @@ function gauss(rng: Rng): number {
  * Advance one day: prices mean-revert toward their (event-adjusted,
  * supply-depressed) fair value with noise; events tick; stock restocks.
  */
-export function advanceDay(m: MarketState, rng: Rng, bestDepth = 1): void {
+export function advanceDay(m: MarketState, rng: Rng, bestDepth = 1, ranks: RecipeRanks = {}): void {
   m.day += 1;
   m.news = [];
 
@@ -157,7 +156,7 @@ export function advanceDay(m: MarketState, rng: Rng, bestDepth = 1): void {
     c.price = Math.max(1, Math.round(next));
     c.history.push(c.price);
     if (c.history.length > HISTORY_DAYS) c.history.shift();
-    const target = STOCK_TARGET[mat.rarity];
+    const target = materialAvailableAtDepth(mat, bestDepth) ? STOCK_TARGET[mat.rarity] : 0;
     c.stock = Math.min(target, c.stock + Math.ceil(target * rng.float(0.3, 0.7)));
   }
 
@@ -170,7 +169,7 @@ export function advanceDay(m: MarketState, rng: Rng, bestDepth = 1): void {
     if (m.sentimentHistory[cat].length > HISTORY_DAYS) m.sentimentHistory[cat].shift();
   }
 
-  restockWares(m, rng, bestDepth);
+  restockWares(m, rng, bestDepth, ranks);
   if (m.news.length === 0) m.news.push(rng.pick(QUIET_NEWS));
 }
 
@@ -182,7 +181,7 @@ const QUIET_NEWS = [
   'Rumours of a new tunnel under the old crypt.',
 ];
 
-function restockWares(m: MarketState, rng: Rng, bestDepth: number): void {
+function restockWares(m: MarketState, rng: Rng, bestDepth: number, ranks: RecipeRanks): void {
   const wares: Item[] = [];
   const depth = Math.max(1, Math.min(6, bestDepth));
   for (let i = 0; i < 6; i++) {
@@ -191,11 +190,11 @@ function restockWares(m: MarketState, rng: Rng, bestDepth: number): void {
       [Rarity.Uncommon, 30],
       [Rarity.Rare, 9],
       [Rarity.Epic, 1],
-    ]);
+    ].filter(([rarity]) => rarityAvailableAtDepth(rarity, depth)));
     wares.push(rollEquipment(rng, depth, 0, { rarity: r, identifyBelow: Rarity.Legendary }));
   }
-  const bps = RECIPES.filter((r) => !r.starter);
-  for (let i = 0; i < 2; i++) wares.push(makeBlueprint(rng.pick(bps).id));
+  const blueprints = new Set<string>();
+  for (let i = 0; i < 2; i++) wares.push(rollBlueprint(rng, depth, ranks, blueprints));
   m.wares = wares;
 }
 

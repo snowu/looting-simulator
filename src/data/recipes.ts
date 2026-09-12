@@ -1,4 +1,4 @@
-import { MaterialCategory, RecipeDef } from '../types';
+import { MaterialCategory, RecipeDef, RecipeRanks } from '../types';
 
 const GRIP: MaterialCategory[] = ['wood', 'hide', 'bone'];
 const GEM = { label: 'Catalyst', categories: ['gem'] as MaterialCategory[], qty: 1, optional: true };
@@ -70,3 +70,24 @@ export function recipe(id: string): RecipeDef {
 }
 
 export const STARTER_RECIPES = RECIPES.filter((r) => r.starter).map((r) => r.id);
+
+export const MAX_RECIPE_RANK = 5;
+const MASTERY_BONUSES = [0, 0, 0.08, 0.16, 0.26, 0.4];
+
+export function recipeRank(ranks: RecipeRanks | undefined, id: string): number {
+  return Math.max(0, Math.min(MAX_RECIPE_RANK, Math.floor(ranks?.[id] ?? 0)));
+}
+
+export function masteryBonus(rank: number): number {
+  return MASTERY_BONUSES[Math.max(0, Math.min(MAX_RECIPE_RANK, Math.floor(rank)))] ?? 0;
+}
+
+/** Unlocking costs one blueprint; each later rank costs its target rank. */
+export function blueprintCostForNextRank(rank: number): number {
+  const current = Math.max(0, Math.min(MAX_RECIPE_RANK, Math.floor(rank)));
+  return current >= MAX_RECIPE_RANK ? 0 : current + 1;
+}
+
+export function starterRecipeRanks(): RecipeRanks {
+  return Object.fromEntries(STARTER_RECIPES.map((id) => [id, 1]));
+}

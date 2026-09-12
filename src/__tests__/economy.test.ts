@@ -12,8 +12,9 @@ import {
 import { MATERIALS, material } from '../data/materials';
 import { generateContract, isComplete, contractTitle, refreshContracts } from '../systems/contracts';
 import { addItem, countOf, createContainer } from '../state/inventory';
-import { makeEquipment, makeMaterial } from '../systems/items';
-import { buildCrafted, craft, selectionError } from '../systems/crafting';
+import { makeBlueprint, makeEquipment, makeMaterial } from '../systems/items';
+import { buildCrafted, craft, materialsForSlot, selectionError, studyBlueprint } from '../systems/crafting';
+import { recipe } from '../data/recipes';
 import { Rarity, RARITY_ORDER } from '../types';
 
 describe('market', () => {
@@ -64,6 +65,25 @@ describe('market', () => {
     expect(buyCommodity(m, 'iron', 3, 0, 0)).toBeNull();
   });
 
+  it('unlocks high-end commodity stock with delve progress', () => {
+    const rng = createRng(44);
+    const m = createMarket(rng);
+    expect(m.commodities.gold.stock).toBe(0);
+    expect(m.commodities.moonsilver.stock).toBe(0);
+    advanceDay(m, rng, 2);
+    expect(m.commodities.gold.stock).toBeGreaterThan(0);
+    expect(m.commodities.moonsilver.stock).toBe(0);
+    advanceDay(m, rng, 5);
+    expect(m.commodities.moonsilver.stock).toBeGreaterThan(0);
+  });
+
+  it('offers two different unknown blueprints when possible', () => {
+    const m = createMarket(createRng(45), { r_dagger: 1, r_short_sword: 1, r_club: 1, r_buckler: 1, r_cap: 1, r_jerkin: 1, r_gloves: 1, r_band: 1 });
+    const blueprints = m.wares.filter((item) => item.kind === 'blueprint');
+    expect(blueprints).toHaveLength(2);
+    expect(new Set(blueprints.map((item) => item.ref)).size).toBe(2);
+  });
+
   it('unidentified items sell for less', () => {
     const m = createMarket(createRng(5));
     const it = makeEquipment({ baseId: 'long_sword', materialId: 'iron', rarity: Rarity.Rare, ilvl: 4, affixes: [{ id: 'sharp', value: 4 }], identified: true });
@@ -111,6 +131,67 @@ describe('crafting', () => {
     const jade = buildCrafted({ recipeId: 'r_short_sword', materials: ['iron', 'yew', 'jade'] }, 0);
     expect(jade.affixes!.map((a) => a.id)).toContain('vital');
     expect(RARITY_ORDER[jade.rarity!]).toBe(RARITY_ORDER[plain.rarity!] + 1);
+  });
+
+  it('fills crafted items with the affixes promised by their rarity', () => {
+    const epic = buildCrafted({ recipeId: 'r_short_sword', materials: ['star_iron', 'yew', null] }, 0, createRng(8));
+    const legendary = buildCrafted({ recipeId: 'r_short_sword', materials: ['star_iron', 'yew', 'jade'] }, 0, createRng(9));
+    expect(epic.rarity).toBe(Rarity.Epic);
+    expect(epic.affixes).toHaveLength(3);
+    expect(legendary.rarity).toBe(Rarity.Legendary);
+    expect(legendary.affixes).toHaveLength(4);
+    expect(legendary.affixes!.map((a) => a.id)).toContain('vital');
+  });
+
+  it('keeps Master Smith 3 as an extra affix and rarity upgrade', () => {
+    const item = buildCrafted({ recipeId: 'r_short_sword', materials: ['silver', 'yew', null] }, 3, createRng(10));
+    expect(item.rarity).toBe(Rarity.Rare);
+    expect(item.affixes).toHaveLength(2);
+  });
+
+  it('consumes blueprints to unlock and master a recipe up to rank five', () => {
+    const stash = createContainer(0);
+    const ranks: Record<string, number> = {};
+    for (let expected = 1; expected <= 5; expected++) {
+      const blueprints = Array.from({ length: expected }, () => makeBlueprint('r_long_sword'));
+      for (const blueprint of blueprints) addItem(stash, blueprint);
+      expect(studyBlueprint(blueprints[0], stash, ranks)).toBe(expected);
+      expect(ranks.r_long_sword).toBe(expected);
+      expect(countOf(stash, 'blueprint', 'r_long_sword')).toBe(0);
+    }
+    const extra = makeBlueprint('r_long_sword');
+    addItem(stash, extra);
+    expect(studyBlueprint(extra, stash, ranks)).toBeNull();
+    expect(stash.items.some((item) => item.uid === extra.uid)).toBe(true);
+  });
+
+  it('does not spend blueprints until the full next-rank cost is owned', () => {
+    const stash = createContainer(0);
+    const ranks = { r_short_sword: 2 };
+    const first = makeBlueprint('r_short_sword');
+    const second = makeBlueprint('r_short_sword');
+    addItem(stash, first);
+    addItem(stash, second);
+    expect(studyBlueprint(first, stash, ranks)).toBeNull();
+    expect(ranks.r_short_sword).toBe(2);
+    expect(countOf(stash, 'blueprint', 'r_short_sword')).toBe(2);
+  });
+
+  it('orders forge materials by tier and value', () => {
+    const materials = materialsForSlot(recipe('r_short_sword').slots[1], createContainer(0)).map((entry) => entry.def.id);
+    expect(materials.indexOf('bone')).toBeLessThan(materials.indexOf('dragon_scale'));
+    for (let i = 1; i < materials.length; i++) expect(material(materials[i]).tier).toBeGreaterThanOrEqual(material(materials[i - 1]).tier);
+  });
+
+  it('freezes recipe rank on a craft and rejects unknown recipes', () => {
+    const stash = createContainer(0);
+    addItem(stash, makeMaterial('iron', 6));
+    addItem(stash, makeMaterial('timber', 2));
+    const sel = { recipeId: 'r_short_sword', materials: ['iron', 'timber', null] };
+    expect(craft(sel, stash, createRng(11), 0, 0)).toBeNull();
+    expect(countOf(stash, 'material', 'iron')).toBe(6);
+    const item = craft(sel, stash, createRng(11), 0, 5)!;
+    expect(item.craftRank).toBe(5);
   });
 
   it('refuses materials of the wrong category', () => {

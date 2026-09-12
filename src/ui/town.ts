@@ -2,7 +2,7 @@ import { GameState } from '../state/game-state';
 import { EQUIP_SLOTS, Item, MaterialCategory, RARITY_COLORS } from '../types';
 import { MATERIALS, material } from '../data/materials';
 import { CONSUMABLES, itemBase } from '../data/items';
-import { RECIPES, recipe } from '../data/recipes';
+import { MAX_RECIPE_RANK, RECIPES, blueprintCostForNextRank, masteryBonus, recipe, recipeRank } from '../data/recipes';
 import { META_UPGRADES, backpackCapacity, haggleLevel, metaLevel, nextCost } from '../systems/meta';
 import {
   buyCommodity,
@@ -17,7 +17,7 @@ import {
   trendPercent,
 } from '../systems/market';
 import { MAX_ACCEPTED, contractTitle, gearCandidates, isComplete } from '../systems/contracts';
-import { buildCrafted, craft, materialsForSlot, selectionError } from '../systems/crafting';
+import { buildCrafted, craft, materialsForSlot, selectionError, studyBlueprint } from '../systems/crafting';
 import { durability, identify, identifyCost, itemName, itemStats, makeConsumable, repairCost, repairItem, salvage } from '../systems/items';
 import { Container, addItem, canFit, countOf, freeSlots, removeItem, removeOf, roomFor, sortContainer, takeQty } from '../state/inventory';
 import { syncLoadout } from '../systems/run';
@@ -376,7 +376,8 @@ export class Town {
 
     const list = h('div', { class: 'recipes' });
     for (const r of RECIPES) {
-      const known = s.knownRecipes.includes(r.id);
+      const rank = recipeRank(s.recipeRanks, r.id);
+      const known = rank > 0;
       const base = itemBase(r.baseId);
       list.append(
         h(
@@ -392,13 +393,19 @@ export class Town {
           },
           artImg(base.icon, undefined, 28),
           h('span', { class: 'grow', text: base.name }),
-          h('span', { class: 'dim small', text: known ? r.slots.filter((x) => !x.optional).map((x) => `${x.qty} ${x.categories[0]}`).join(' + ') : 'blueprint needed' }),
+          h('span', { class: 'dim small', text: known ? `Rank ${rank} · +${Math.round(masteryBonus(rank) * 100)}% core` : 'blueprint needed' }),
         ),
       );
     }
 
     // Blueprints waiting to be learned.
-    const bps = s.stash.items.filter((i) => i.kind === 'blueprint');
+    const grouped = new Map<string, { sample: Item; owned: number }>();
+    for (const bp of s.stash.items.filter((i) => i.kind === 'blueprint')) {
+      const group = grouped.get(bp.ref);
+      if (group) group.owned += bp.qty;
+      else grouped.set(bp.ref, { sample: bp, owned: bp.qty });
+    }
+    const bps = [...grouped.values()];
     const learn = bps.length
       ? h(
           'div',
@@ -407,29 +414,35 @@ export class Town {
           h(
             'div',
             { class: 'wares' },
-            ...bps.map((bp) => {
-              const known = s.knownRecipes.includes(bp.ref);
+            ...bps.map(({ sample: bp, owned }) => {
+              const rank = recipeRank(s.recipeRanks, bp.ref);
+              const capped = rank >= MAX_RECIPE_RANK;
+              const cost = blueprintCostForNextRank(rank);
+              const enough = owned >= cost;
               return h(
                 'div',
                 { class: 'ware' },
-                itemSlot(bp, { size: 44 }),
-                btn(known ? 'Known' : 'Learn', () => {
-                  removeItem(s.stash, bp.uid);
-                  s.knownRecipes.push(bp.ref);
+                itemSlot({ ...bp, qty: owned }, { size: 44 }),
+                h('span', { class: 'grow dim small', text: capped ? `${owned} owned · mastery capped` : `${owned} owned · ${cost} required` }),
+                btn(capped ? 'Rank 5' : rank === 0 ? 'Learn Rank 1' : `Master Rank ${rank + 1}`, () => {
+                  const next = studyBlueprint(bp, s.stash, s.recipeRanks);
+                  if (!next) return;
                   this.forgeRecipe = bp.ref;
                   this.forgeMats = this.defaultMats(bp.ref);
-                  this.ctx.toast(`Learned to forge the ${itemBase(recipe(bp.ref).baseId).name}.`, '#9ab0d8');
+                  const name = itemBase(recipe(bp.ref).baseId).name;
+                  this.ctx.toast(next === 1 ? `Learned to forge the ${name}.` : `${name} mastery reached Rank ${next} for ${cost} blueprints.`, '#9ab0d8');
                   this.commit('magic');
-                }, 'small', known),
+                }, 'small', capped || !enough),
               );
             }),
           ),
-          h('p', { class: 'dim small', text: 'Known blueprints can still be sold at the market.' }),
+          h('p', { class: 'dim small', text: 'Duplicate blueprints raise mastery to Rank 5. Capped copies can be sold.' }),
         )
       : null;
 
     // Selected recipe.
     const r = recipe(this.forgeRecipe);
+    const rank = recipeRank(s.recipeRanks, r.id);
     const slotRows = r.slots.map((slot, i) => {
       const picker = h('div', { class: 'mat-pick' });
       if (slot.optional) {
@@ -457,14 +470,14 @@ export class Town {
     const err = selectionError(sel, s.stash);
     let preview: HTMLElement | null = null;
     if (this.forgeMats[0]) {
-      const item = buildCrafted(sel, smith);
+      const item = buildCrafted(sel, smith, undefined, rank);
       const cmpSlot = defaultSlot(item, s.equipment);
       const cmp = cmpSlot ? s.equipment[cmpSlot] : null;
       preview = h(
         'div',
         { class: 'preview' },
         itemSlot(item, { size: 56, tip: () => itemTooltip(item, { compare: cmp }) }),
-        h('div', { html: `<div style="color:${rarityColor(item)};font-size:22px">${itemName(item)}</div><div class="dim">${item.rarity} · quality ~${Math.round((item.quality ?? 1) * 100)}%</div>${statLines(itemStats(item), cmp ? itemStats(cmp) : undefined).join('')}` }),
+        h('div', { html: `<div style="color:${rarityColor(item)};font-size:22px">${itemName(item)}</div><div class="dim">${item.rarity} · Rank ${rank} · quality ~${Math.round((item.quality ?? 1) * 100)}%</div>${statLines(itemStats(item), cmp ? itemStats(cmp) : undefined).join('')}` }),
       );
     }
 
@@ -493,12 +506,12 @@ export class Town {
       h(
         'div',
         { class: 'pane frame' },
-        h('h3', { text: `Forge: ${itemBase(r.baseId).name}` }),
-        h('p', { class: 'dim small', text: 'The primary material decides tier, colour and name. A gem catalyst adds its property and lifts rarity. Master Smith improves quality.' }),
+        h('h3', { text: `Forge: ${itemBase(r.baseId).name} · Rank ${rank}` }),
+        h('p', { class: 'dim small', text: `Recipe mastery adds ${Math.round(masteryBonus(rank) * 100)}% core stats and durability. Material decides tier; catalysts guide an affix; Master Smith improves quality.` }),
         ...slotRows,
         preview,
         h('div', { class: 'row' }, btn('Forge it', () => {
-          const item = craft(sel, s.stash, createRng(randomSeed()), smith);
+          const item = craft(sel, s.stash, createRng(randomSeed()), smith, rank);
           if (!item) return;
           addItem(s.stash, item);
           this.forgeMats = this.defaultMats(r.id);

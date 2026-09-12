@@ -28,7 +28,7 @@ describe('loading an old save', () => {
     expect(s.lifetime.kills).toBe(137);
     expect(s.lifetime.bestDepth).toBe(5);
     expect(s.stash.items.length).toBeGreaterThan(0);
-    expect(s.knownRecipes.length).toBeGreaterThan(0);
+    expect(s.recipeRanks.r_short_sword).toBe(1);
     expect(s.equipment.weapon).toBeTruthy();
   });
 
@@ -100,7 +100,7 @@ describe('loading an old save', () => {
     const s = parseSave(JSON.stringify(gutted))!;
     expect(s).not.toBeNull();
     expect(s.meta).toEqual({});
-    expect(s.knownRecipes).toEqual([]);
+    expect(s.recipeRanks.r_short_sword).toBe(1);
     expect(s.lifetime.runs).toBe(0);
     expect(s.run!.keys).toEqual([]);
   });
@@ -123,6 +123,22 @@ describe('loading an old save', () => {
     const a = newGame(createRng(1));
     const b = newGame(createRng(1));
     expect(a.saveId).not.toBe(b.saveId);
+  });
+
+  it('migrates every previously known recipe to rank one', () => {
+    const old = JSON.parse(LEGACY);
+    old.knownRecipes.push('r_long_sword', 'r_long_sword');
+    const s = parseSave(JSON.stringify(old))!;
+    expect(s.recipeRanks.r_long_sword).toBe(1);
+    expect(s.recipeRanks.r_short_sword).toBe(1);
+    expect('knownRecipes' in s).toBe(false);
+  });
+
+  it('starts every starter recipe at rank one', () => {
+    const s = newGame(createRng(2));
+    expect(s.recipeRanks.r_dagger).toBe(1);
+    expect(s.recipeRanks.r_short_sword).toBe(1);
+    expect(s.recipeRanks.r_long_sword).toBeUndefined();
   });
 
   it('is idempotent — migrating twice changes nothing', () => {

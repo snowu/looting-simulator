@@ -1,4 +1,4 @@
-import { MaterialDef, Rarity } from '../types';
+import { MaterialDef, Rarity, Stats } from '../types';
 
 export const MATERIALS: MaterialDef[] = [
   // --- Metals -------------------------------------------------------------
@@ -171,4 +171,16 @@ export function material(id: string): MaterialDef {
 
 export function findMaterial(id: string): MaterialDef | undefined {
   return BY_ID.get(id);
+}
+
+/** Small structural benefit a material provides when used in a recipe's secondary slot. */
+export function secondaryMaterialMods(def: MaterialDef): Partial<Stats> {
+  switch (def.category) {
+    case 'metal': return { defense: Math.ceil(def.tier / 2) };
+    case 'wood': return { speed: def.tier + 1 };
+    case 'hide': return { health: def.tier * 2 + 1 };
+    case 'cloth': return { stamina: def.tier * 3 };
+    case 'bone': return { attack: def.tier + 1 };
+    default: return {};
+  }
 }

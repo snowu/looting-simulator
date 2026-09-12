@@ -3,6 +3,7 @@ import { Floor, shrineKindFor } from '../systems/dungeon';
 import { createContainer } from './inventory';
 import { BASE_BACKPACK } from '../systems/meta';
 import { newId } from '../core/id';
+import { STARTER_RECIPES } from '../data/recipes';
 
 /**
  * Additive save migrations.
@@ -19,7 +20,7 @@ import { newId } from '../core/id';
  */
 
 /** Bump this (and push a migration) whenever a field is added to the save. */
-export const SAVE_REVISION = 8;
+export const SAVE_REVISION = 9;
 
 type AnyState = GameState & Record<string, unknown>;
 
@@ -81,6 +82,15 @@ const MIGRATIONS: ((s: AnyState) => void)[] = [
   // save is the same game it always was and simply gets an id assigned.
   (s) => {
     s.saveId ??= newId();
+  },
+  // 8 → 9: blueprints become repeatable recipe mastery. Every recipe that was
+  // already known starts at rank 1, as do the recipes every smith starts with.
+  (s) => {
+    const known = Array.isArray(s.knownRecipes) ? s.knownRecipes.filter((id): id is string => typeof id === 'string') : [];
+    const ranks: Record<string, number> = {};
+    for (const id of [...STARTER_RECIPES, ...known]) ranks[id] = 1;
+    s.recipeRanks = ranks;
+    delete s.knownRecipes;
   },
 ];
 
