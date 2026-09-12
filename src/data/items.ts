@@ -23,9 +23,9 @@ export const ITEM_BASES: ItemBaseDef[] = [
     swing: { windup: 0.36, recovery: 0.62, staminaCost: 22, reach: 1 }, value: 60, minDepth: 4, weight: 0.45,
   },
   {
-    id: 'mining_pick', name: 'Mining Pick', slot: 'weapon', icon: 'ic_mining_pick', weaponClass: 'pick', damageType: 'blunt',
+    id: 'mining_pick', name: 'Mining Pick', slot: 'weapon', icon: 'ic_mining_pick', weaponClass: 'pick', damageType: 'pierce',
     base: { attack: 26, luck: 2 }, perTier: { attack: 4 }, primary: ['metal'],
-    swing: { windup: 0.32, recovery: 0.58, staminaCost: 20, reach: 1 }, value: 52, minDepth: 3, weight: 0.85,
+    swing: { windup: 0.30, recovery: 0.54, staminaCost: 20, reach: 1 }, value: 52, minDepth: 3, weight: 0.85,
   },
   {
     id: 'mace', name: 'Mace', slot: 'weapon', icon: 'ic_mace', weaponClass: 'blunt', damageType: 'blunt',

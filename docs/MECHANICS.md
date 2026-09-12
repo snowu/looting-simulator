@@ -137,7 +137,7 @@ Depth 6 is the bottom (`FINAL_DEPTH = 6`); there are no stairs down, only the wa
 - Vaults, secret rooms (86% chance at this depth) and shrines still generate as normal. The key here is the **Ashen Key**.
 - The biome has the densest torches of the game, iron doors and obsidian walls whose mortar glows.
 
-**The fight.** 420 HP, 24 attack, 12 defense. It swings when adjacent and fires a **three-bolt shadow volley** when you line up at range 2+. It is immune to shadow, resists pierce (×0.8), takes ×1.5 from holy, and **can never be staggered** out of its wind-up — step out of the tile it aims at, block, or **parry**, which is the one thing that does stagger it and opens a second of double damage. Its volley can be parried a bolt at a time, and the returned bolt is shadow, which it is immune to — so reflect it into the Hollow Knights beside it instead.
+**The fight.** 420 HP, 24 attack, 12 defense. It swings when adjacent and fires a **three-bolt shadow volley** when you line up at range 2+. It is immune to shadow, resists pierce (×0.95), takes ×1.5 from holy, and **can never be staggered** out of its wind-up — step out of the tile it aims at, block, or **parry**, which is the one thing that does stagger it and opens a second of double damage. Its volley can be parried a bolt at a time, and the returned bolt is shadow, which it is immune to — so reflect it into the Hollow Knights beside it instead.
 
 **On its death** it drops a guaranteed **Legendary and an Epic item plus a blueprint**, star iron, shadow essence, a jewelled skull, 50% a dragon scale and 150–300 gold — dropped on a tile *beside* the king, because a **portal** opens on the tile he fell on and would otherwise bury the hoard. Killing it is worth **+25 renown** on top of the usual extraction reward (so 39 for a depth-6 extraction).
 
@@ -149,17 +149,17 @@ There is nothing below. Each new run rolls a fresh seed, so depth 6 can be farme
 
 | Monster | Depths | HP | Atk | Def | Type | Resists / weaknesses | Behaviour | Windup | Recovery | Step | Sight |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| Giant Rat | 1–3 | 10 | 4 | 0 | pierce | — | melee | 0.38 | 0.65 | 0.30 | 6 |
-| Goblin Cutpurse | 1–3 | 20 | 6 | 1 | slash | — | skittish | 0.45 | 0.70 | 0.40 | 7 |
-| Skeleton | 1–4 | 22 | 7 | 2 | slash | undead: blunt ×1.5, holy ×2, pierce ×0.5, slash ×0.8, shadow ×0.5 | melee | 0.55 | 0.90 | 0.55 | 7 |
+| Giant Rat | 1–3 | 10 | 4 | 0 | pierce | **slash ×1.4**, pierce ×1.3 | melee | 0.38 | 0.65 | 0.30 | 6 |
+| Goblin Cutpurse | 1–3 | 20 | 6 | 1 | slash | **slash ×1.4**, pierce ×1.25 | skittish | 0.45 | 0.70 | 0.40 | 7 |
+| Skeleton | 1–4 | 22 | 7 | 2 | slash | undead: **blunt ×1.5**, holy ×2, slash ×0.6, pierce ×0.55, shadow ×0.5 | melee | 0.55 | 0.90 | 0.55 | 7 |
 | Skeleton Archer | 2–5 | 18 | 7 | 2 | pierce | as undead | ranged (arrow, speed 7, range 5) | 0.75 | 1.40 | 0.50 | 8 |
-| Cave Spider | 3–5 | 24 | 9 | 2 | pierce | fire ×1.5 | melee | 0.35 | 0.60 | 0.28 | 5 |
-| Ghoul | 3–6 | 48 | 13 | 4 | slash | holy ×2, fire ×1.3, shadow ×0.5 | melee | 0.65 | 1.00 | 0.75 | 6 |
+| Cave Spider | 3–5 | 24 | 9 | 2 | pierce | **pierce ×1.35**, slash ×1.3, fire ×1.5 | melee | 0.35 | 0.60 | 0.28 | 5 |
+| Ghoul | 3–6 | 48 | 13 | 4 | slash | undead: holy ×2, fire ×1.3, **slash ×1.25**, pierce ×1.2, shadow ×0.5 | melee | 0.65 | 1.00 | 0.75 | 6 |
 | Frost Wisp | 4–6 | 26 | 10 | 1 | frost | **fire ×2**, frost ×0, pierce ×0.6, slash ×0.8 | ranged (frost bolt, speed 5, range 4) | 0.80 | 1.60 | 0.45 | 8 |
-| Hollow Knight | 5–6 | 80 | 16 | 9 | slash | holy ×1.6, blunt ×1.2, pierce ×0.7, shadow ×0.5 | melee | 0.70 | 1.00 | 0.65 | 7 |
+| Hollow Knight | 5–6 | 80 | 16 | 9 | slash | holy ×1.6, **pierce ×1.25**, blunt ×1.2, slash ×0.7, shadow ×0.5 | melee | 0.70 | 1.00 | 0.65 | 7 |
 | Flame Wraith | 5–6 | 50 | 14 | 2 | fire | **frost ×2**, fire ×0, pierce ×0.6, slash ×0.8 | ranged (fire bolt, speed 5.5, range 4) | 0.75 | 1.40 | 0.50 | 8 |
-| Mimic | any chest | 52 | 14 | 5 | pierce | blunt ×1.25, fire ×1.35 | fast melee; dormant until opened | 0.52 | 0.80 | 0.32 | 8 |
-| The Ashen King | 6 (boss) | 420 | 24 | 12 | shadow | holy ×1.5, shadow ×0, pierce ×0.8 | boss: melee + 3-bolt volley | 0.80 | 1.00 | 0.80 | 12 |
+| Mimic | any chest | 52 | 14 | 5 | pierce | blunt ×1.25, pierce ×1.1, fire ×1.35 | fast melee; dormant until opened | 0.52 | 0.80 | 0.32 | 8 |
+| The Ashen King | 6 (boss) | 420 | 24 | 12 | shadow | holy ×1.5, shadow ×0, pierce ×0.95 | boss: melee + 3-bolt volley | 0.80 | 1.00 | 0.80 | 12 |
 
 Spawn weights: rat/goblin/skeleton/spider 3, archer/ghoul/wisp 2, knight/wraith 1.5. Mimics never enter the ordinary spawn pool. Monsters deeper than their `minDepth` get `+12% HP per depth` and the same bonus to damage.
 
@@ -398,7 +398,7 @@ Bases are arranged into **gear lines** (`GEAR_LINES`), each running from the cru
 | Short Sword | weapon | 12 atk | +4 atk | 0.18 / 0.36 / 16 / 1 | 28 | 2 |
 | Long Sword | weapon | 21 atk | +5.5 atk | 0.26 / 0.48 / 24 / 1 | 55 | 3 |
 | War Axe | weapon | 36 atk | +3.5 atk | 0.36 / 0.62 / 22 / 1 | 60 | 4 |
-| Mining Pick | weapon (blunt) | 26 atk, 2 crit | +4 atk | 0.32 / 0.58 / 20 / 1 | 52 | 3 |
+| Mining Pick | weapon | 26 atk, 2 crit | +4 atk | 0.30 / 0.54 / 20 / 1 | 52 | 3 |
 | Mace | weapon | 15 atk | +4.5 atk | 0.28 / 0.52 / 17 / 1 | 45 | 2 |
 | Spear | weapon | 19 atk | +4.5 atk | 0.24 / 0.56 / 17 / **2** | 48 | 2 |
 | Club | weapon (wood/bone) | 6 atk | +4 atk | 0.22 / 0.44 / 16 / 1 | 10 | 1 |
@@ -429,7 +429,15 @@ Stamina does **not** regenerate mid-combo (`world.ts` gates regen on `attack ===
 
 A swing must be **paid for in full**: below its stamina cost the attack is refused. How tired you are still shows in the damage through `staminaPower` (down to a 40% floor), but a spent bar buys nothing. Holding attack on a fresh bar gives a burst — six swings with a short sword — then throttles to roughly one swing per second as regen trickles back.
 
-Damage type is the second axis, and it is **not** balanced flat: across the bestiary blunt averages ×1.18, slash ×0.91 and pierce ×0.75 (no enemy is weak to pierce; six resist it). Blunt's 1.5× against undead is why the club line stays relevant deep.
+Damage type is the second axis, and it is a **triangle**, not a ladder:
+
+- **Blunt** crushes bone and rigid things — 1.5× on skeletons, 1.25× on the mimic, 1.2× on the Hollow Knight's plate.
+- **Slash** opens unarmoured flesh — 1.4× on rats and goblins, 1.3× on spiders, 1.25× on ghouls; it skates off bone (0.6×) and plate (0.7×).
+- **Pierce** punches through armour and hide — 1.25–1.35× on soft living things and 1.25× through the Hollow Knight's plate, but it finds nothing vital in a skeleton (0.55×) or a wraith (0.6×).
+
+Averaged over the bestiary that lands at blunt ×1.13, slash ×0.99, pierce ×0.97, and every type now has four to six enemies weak to it. Blunt stays marginally ahead because the dungeon is undead-heavy, which is the point of the club line.
+
+Neither axis alone picks a weapon. Ranked by burst the Long Sword leads (57 effective DPS); ranked by damage from one full stamina bar the order inverts and the War Axe leads (224 against the Long Sword's 177). Short fights favour blades, long ones favour haft.
 
 ### Affixes
 

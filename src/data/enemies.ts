@@ -1,11 +1,16 @@
 import { EnemyDef } from '../types';
 
-const UNDEAD_RESIST = { pierce: 0.5, slash: 0.8, blunt: 1.5, holy: 2, shadow: 0.5 };
+/*
+ * Physical damage is a triangle, not a ladder. Blunt crushes bone and rigid
+ * things, slash opens unarmoured flesh, pierce punches through plate and hide.
+ * Each type has enemies weak to it; blunt used to be the only one that did.
+ */
+const UNDEAD_RESIST = { pierce: 0.55, slash: 0.6, blunt: 1.5, holy: 2, shadow: 0.5 };
 
 export const ENEMIES: EnemyDef[] = [
   {
     id: 'rat', name: 'Giant Rat', sprite: 'rat', scale: 0.55,
-    hp: 10, attack: 4, defense: 0, damageType: 'pierce', resist: {},
+    hp: 10, attack: 4, defense: 0, damageType: 'pierce', resist: { slash: 1.4, pierce: 1.3 },
     behavior: 'melee', step: 0.3, windup: 0.38, recovery: 0.65, sight: 6,
     minDepth: 1, maxDepth: 3, weight: 3,
     loot: [{ id: 'rat_hide', chance: 0.6, min: 1, max: 2 }, { id: 'bone', chance: 0.25, min: 1, max: 1 }],
@@ -14,7 +19,7 @@ export const ENEMIES: EnemyDef[] = [
   },
   {
     id: 'goblin', name: 'Goblin Cutpurse', sprite: 'goblin', scale: 0.8,
-    hp: 20, attack: 6, defense: 1, damageType: 'slash', resist: {},
+    hp: 20, attack: 6, defense: 1, damageType: 'slash', resist: { slash: 1.4, pierce: 1.25 },
     behavior: 'skittish', step: 0.4, windup: 0.45, recovery: 0.7, sight: 7,
     minDepth: 1, maxDepth: 3, weight: 3,
     loot: [
@@ -51,7 +56,7 @@ export const ENEMIES: EnemyDef[] = [
   },
   {
     id: 'spider', name: 'Cave Spider', sprite: 'spider', scale: 0.6,
-    hp: 24, attack: 9, defense: 2, damageType: 'pierce', resist: { fire: 1.5 },
+    hp: 24, attack: 9, defense: 2, damageType: 'pierce', resist: { fire: 1.5, slash: 1.3, pierce: 1.35 },
     behavior: 'melee', step: 0.28, windup: 0.35, recovery: 0.6, sight: 5,
     minDepth: 3, maxDepth: 5, weight: 3,
     loot: [{ id: 'spider_silk', chance: 0.6, min: 1, max: 2 }, { id: 'crystal', chance: 0.08, min: 1, max: 1 }],
@@ -60,7 +65,7 @@ export const ENEMIES: EnemyDef[] = [
   },
   {
     id: 'ghoul', name: 'Ghoul', sprite: 'ghoul', scale: 1.0,
-    hp: 48, attack: 13, defense: 4, damageType: 'slash', resist: { holy: 2, shadow: 0.5, fire: 1.3 }, undead: true,
+    hp: 48, attack: 13, defense: 4, damageType: 'slash', resist: { holy: 2, shadow: 0.5, fire: 1.3, slash: 1.25, pierce: 1.2 }, undead: true,
     behavior: 'melee', step: 0.75, windup: 0.65, recovery: 1.0, sight: 6,
     minDepth: 3, maxDepth: 6, weight: 2,
     loot: [
@@ -87,7 +92,7 @@ export const ENEMIES: EnemyDef[] = [
   },
   {
     id: 'hollow_knight', name: 'Hollow Knight', sprite: 'knight', scale: 1.05,
-    hp: 80, attack: 16, defense: 9, damageType: 'slash', resist: { holy: 1.6, pierce: 0.7, blunt: 1.2, shadow: 0.5 }, undead: true,
+    hp: 80, attack: 16, defense: 9, damageType: 'slash', resist: { holy: 1.6, pierce: 1.25, slash: 0.7, blunt: 1.2, shadow: 0.5 }, undead: true,
     behavior: 'melee', step: 0.65, windup: 0.7, recovery: 1.0, sight: 7,
     minDepth: 5, maxDepth: 6, weight: 1.5,
     loot: [
@@ -117,7 +122,7 @@ export const ENEMIES: EnemyDef[] = [
   },
   {
     id: 'mimic', name: 'Mimic', sprite: 'mimic', scale: 0.85,
-    hp: 52, attack: 14, defense: 5, damageType: 'pierce', resist: { blunt: 1.25, fire: 1.35 },
+    hp: 52, attack: 14, defense: 5, damageType: 'pierce', resist: { blunt: 1.25, pierce: 1.1, fire: 1.35 },
     behavior: 'melee', step: 0.32, windup: 0.52, recovery: 0.8, sight: 8,
     minDepth: 1, maxDepth: 6, weight: 0,
     loot: [], gold: [0, 0], itemChance: 0,
@@ -125,7 +130,7 @@ export const ENEMIES: EnemyDef[] = [
   },
   {
     id: 'ashen_king', name: 'The Ashen King', sprite: 'king', scale: 1.4,
-    hp: 420, attack: 24, defense: 12, damageType: 'shadow', resist: { holy: 1.5, shadow: 0, pierce: 0.8 }, undead: true,
+    hp: 420, attack: 24, defense: 12, damageType: 'shadow', resist: { holy: 1.5, shadow: 0, pierce: 0.95 }, undead: true,
     behavior: 'boss', step: 0.8, windup: 0.8, recovery: 1.0, sight: 12, range: 3,
     projectile: { sprite: 'proj_shadow', speed: 4.5, damageType: 'shadow', light: '#b060ff' },
     minDepth: 99, maxDepth: 99, weight: 0, glow: '#8a40ff',
