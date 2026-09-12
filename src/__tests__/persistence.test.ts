@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseSave } from '../state/persistence';
+import { parseSave } from '../state/save-format';
 import { SAVE_REVISION, migrateSave } from '../state/migrations';
 import { SAVE_VERSION, newGame } from '../state/game-state';
 import { createRng } from '../core/rng';

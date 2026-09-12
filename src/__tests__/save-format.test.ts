@@ -1,0 +1,81 @@
+import { describe, expect, it } from 'vitest';
+import { contentHash, isFutureSave, parseSave, serializeSave } from '../state/save-format';
+import { SAVE_REVISION } from '../state/migrations';
+import { newGame } from '../state/game-state';
+import { createRng } from '../core/rng';
+import { GameState } from '../state/game-state';
+
+import legacySave from './fixtures/save-legacy.json';
+const LEGACY = JSON.stringify(legacySave);
+
+const fresh = (): GameState => newGame(createRng(1));
+
+describe('writing a save', () => {
+  it('stamps the revision this build writes at', () => {
+    const s = parseSave(LEGACY)!;
+    const back = JSON.parse(serializeSave(s)) as GameState;
+    expect(back.revision).toBe(SAVE_REVISION);
+  });
+
+  it('does not relabel a save written by a newer build', () => {
+    // The player installed a newer build elsewhere, then opened this one. If
+    // saving dated the file backwards, the newer build would come back and run
+    // migrations that had already been applied.
+    const s = parseSave(LEGACY)! as GameState & { revision: number };
+    s.revision = SAVE_REVISION + 5;
+    const back = JSON.parse(serializeSave(s)) as GameState;
+    expect(back.revision).toBe(SAVE_REVISION + 5);
+  });
+
+  it('still saves a future save rather than refusing it', () => {
+    const s = fresh() as GameState & { revision: number };
+    s.revision = SAVE_REVISION + 5;
+    s.gold = 999;
+    const back = parseSave(serializeSave(s))!;
+    expect(back.gold).toBe(999);
+  });
+
+  it('keeps fields it does not understand', () => {
+    const s = fresh() as GameState & Record<string, unknown>;
+    s.revision = SAVE_REVISION + 5;
+    s.cathedral = { consecrated: true };
+    const back = JSON.parse(serializeSave(s)) as Record<string, unknown>;
+    expect(back.cathedral).toEqual({ consecrated: true });
+  });
+
+  it('recognizes a future save, and an ordinary one', () => {
+    const s = fresh();
+    expect(isFutureSave(s)).toBe(false);
+    s.revision = SAVE_REVISION + 1;
+    expect(isFutureSave(s)).toBe(true);
+    // A save from before revisions existed is old, not future.
+    delete s.revision;
+    expect(isFutureSave(s)).toBe(false);
+  });
+});
+
+describe('content hash', () => {
+  it('is stable for identical content', () => {
+    expect(contentHash(LEGACY)).toBe(contentHash(LEGACY));
+  });
+
+  it('changes when anything in the save changes', () => {
+    const s = parseSave(LEGACY)!;
+    const before = contentHash(serializeSave(s));
+    s.gold += 1;
+    expect(contentHash(serializeSave(s))).not.toBe(before);
+  });
+
+  it('notices a change buried deep in a run', () => {
+    const s = parseSave(LEGACY)!;
+    const before = contentHash(serializeSave(s));
+    s.run!.player.hp -= 1;
+    expect(contentHash(serializeSave(s))).not.toBe(before);
+  });
+
+  it('separates saves that differ only late in a long string', () => {
+    const a = 'x'.repeat(5000) + 'a';
+    const b = 'x'.repeat(5000) + 'b';
+    expect(contentHash(a)).not.toBe(contentHash(b));
+  });
+});
