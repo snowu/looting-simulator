@@ -95,6 +95,8 @@ export interface PlayerAnim {
   parryCd: number;
   steps: number;
   sinceStamina: number;
+  /** Throttles the winded cue so a held attack button can't spam it. */
+  windedCd: number;
   recall: number | null;
   transition: { t: number; dir: 'down' | 'up'; done: boolean } | null;
 }
@@ -245,7 +247,7 @@ export class World {
       fromX: this.run.player.x, fromY: this.run.player.y, moveT: 1, moveDur: STEP_TIME,
       yaw, yawFrom: yaw, yawTo: yaw, turnT: 1,
       attack: 'idle', attackT: 0, attackDur: 0, attackPower: 1, blockRaise: 0, blockT: Infinity, parryArmed: false, parryCd: 0, steps: 0,
-      sinceStamina: 10, recall: null, transition: null,
+      sinceStamina: 10, windedCd: 0, recall: null, transition: null,
     };
     this.reveal();
   }
@@ -423,6 +425,7 @@ export class World {
     }
 
     // Stamina recovers; health never does on its own (potions, shrines, leech only).
+    a.windedCd = Math.max(0, a.windedCd - dt);
     a.sinceStamina += dt;
     if (a.sinceStamina > STAMINA_DELAY && a.attack === 'idle') {
       const rate = a.blockRaise > 0.5 ? STAMINA_REGEN * 0.3 : STAMINA_REGEN;
@@ -745,7 +748,22 @@ export class World {
   attack(): void {
     const a = this.anim;
     if (this.busy || a.attack !== 'idle') return;
+    // A swing has to be paid for in full. This used to clamp at zero and land
+    // anyway at staminaPower's 40% floor, so a spent player could attack for
+    // free forever. Gating on "any stamina at all" is not enough either: the
+    // trickle of regen at the tail of each recovery is always a sliver above
+    // zero, which kept the free swings coming. How tired you are still shows
+    // in the damage, through staminaPower — it just is not free any more.
     const cost = this.derived.swing.staminaCost;
+    if (this.player.stamina < cost) {
+      // Throttled hard: at the bottom of the bar almost every frame is a
+      // refusal, and without this the breath loops under a held button.
+      if (a.windedCd <= 0) {
+        a.windedCd = 1.6;
+        this.sfx('winded');
+      }
+      return;
+    }
     a.attackPower = staminaPower(this.player.stamina, this.derived.maxStamina);
     this.player.stamina = Math.max(0, this.player.stamina - cost);
     a.sinceStamina = 0;

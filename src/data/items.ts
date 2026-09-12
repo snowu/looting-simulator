@@ -5,42 +5,42 @@ export const ITEM_BASES: ItemBaseDef[] = [
   {
     id: 'dagger', name: 'Dagger', slot: 'weapon', icon: 'ic_dagger', weaponClass: 'dagger', damageType: 'pierce',
     base: { attack: 5, luck: 3 }, perTier: { attack: 3 }, primary: ['metal'],
-    swing: { windup: 0.12, recovery: 0.26, staminaCost: 11, reach: 1 }, value: 18, minDepth: 1, weight: 3,
+    swing: { windup: 0.12, recovery: 0.26, staminaCost: 10, reach: 1 }, value: 18, minDepth: 1, weight: 3,
   },
   {
     id: 'short_sword', name: 'Short Sword', slot: 'weapon', icon: 'ic_short_sword', weaponClass: 'blade', damageType: 'slash',
     base: { attack: 12 }, perTier: { attack: 4 }, primary: ['metal'],
-    swing: { windup: 0.18, recovery: 0.36, staminaCost: 15, reach: 1 }, value: 28, minDepth: 2, weight: 1.7,
+    swing: { windup: 0.18, recovery: 0.36, staminaCost: 16, reach: 1 }, value: 28, minDepth: 2, weight: 1.7,
   },
   {
     id: 'long_sword', name: 'Long Sword', slot: 'weapon', icon: 'ic_long_sword', weaponClass: 'blade', damageType: 'slash',
     base: { attack: 21 }, perTier: { attack: 5.5 }, primary: ['metal'],
-    swing: { windup: 0.26, recovery: 0.48, staminaCost: 21, reach: 1 }, value: 55, minDepth: 3, weight: 0.85,
+    swing: { windup: 0.26, recovery: 0.48, staminaCost: 24, reach: 1 }, value: 55, minDepth: 3, weight: 0.85,
   },
   {
     id: 'war_axe', name: 'War Axe', slot: 'weapon', icon: 'ic_axe', weaponClass: 'axe', damageType: 'slash',
-    base: { attack: 26 }, perTier: { attack: 6.5 }, primary: ['metal'],
-    swing: { windup: 0.34, recovery: 0.6, staminaCost: 26, reach: 1 }, value: 60, minDepth: 3, weight: 0.85,
+    base: { attack: 36 }, perTier: { attack: 3.5 }, primary: ['metal'],
+    swing: { windup: 0.36, recovery: 0.62, staminaCost: 22, reach: 1 }, value: 60, minDepth: 4, weight: 0.45,
   },
   {
-    id: 'mining_pick', name: 'Mining Pick', slot: 'weapon', icon: 'ic_mining_pick', weaponClass: 'pick', damageType: 'pierce',
-    base: { attack: 8, luck: 2 }, perTier: { attack: 4 }, primary: ['metal'],
-    swing: { windup: 0.28, recovery: 0.44, staminaCost: 18, reach: 1 }, value: 40, minDepth: 1, weight: 2.4,
+    id: 'mining_pick', name: 'Mining Pick', slot: 'weapon', icon: 'ic_mining_pick', weaponClass: 'pick', damageType: 'blunt',
+    base: { attack: 26, luck: 2 }, perTier: { attack: 4 }, primary: ['metal'],
+    swing: { windup: 0.32, recovery: 0.58, staminaCost: 20, reach: 1 }, value: 52, minDepth: 3, weight: 0.85,
   },
   {
     id: 'mace', name: 'Mace', slot: 'weapon', icon: 'ic_mace', weaponClass: 'blunt', damageType: 'blunt',
-    base: { attack: 15 }, perTier: { attack: 5 }, primary: ['metal'],
-    swing: { windup: 0.26, recovery: 0.5, staminaCost: 20, reach: 1 }, value: 45, minDepth: 2, weight: 1.7,
+    base: { attack: 15 }, perTier: { attack: 4.5 }, primary: ['metal'],
+    swing: { windup: 0.28, recovery: 0.52, staminaCost: 17, reach: 1 }, value: 45, minDepth: 2, weight: 1.7,
   },
   {
     id: 'spear', name: 'Spear', slot: 'weapon', icon: 'ic_spear', weaponClass: 'spear', damageType: 'pierce',
-    base: { attack: 17 }, perTier: { attack: 5 }, primary: ['metal'],
-    swing: { windup: 0.24, recovery: 0.56, staminaCost: 23, reach: 2 }, value: 54, minDepth: 2, weight: 1.3,
+    base: { attack: 19 }, perTier: { attack: 4.5 }, primary: ['metal'],
+    swing: { windup: 0.24, recovery: 0.56, staminaCost: 17, reach: 2 }, value: 48, minDepth: 2, weight: 1.3,
   },
   {
     id: 'club', name: 'Club', slot: 'weapon', icon: 'ic_club', weaponClass: 'blunt', damageType: 'blunt',
     base: { attack: 6 }, perTier: { attack: 4 }, primary: ['wood', 'bone'],
-    swing: { windup: 0.22, recovery: 0.44, staminaCost: 16, reach: 1 }, value: 10, minDepth: 1, weight: 3,
+    swing: { windup: 0.22, recovery: 0.44, staminaCost: 12, reach: 1 }, value: 10, minDepth: 1, weight: 3,
   },
 
   // --- Off-hand -----------------------------------------------------------
@@ -149,8 +149,8 @@ export const CONSUMABLES: ConsumableDef[] = [
  */
 export const GEAR_LINES: readonly (readonly string[])[] = [
   ['dagger', 'short_sword', 'long_sword'],
-  ['club', 'mace', 'war_axe'],
-  ['mining_pick', 'spear'],
+  ['club', 'mace', 'mining_pick', 'war_axe'],
+  ['spear'],
   ['buckler', 'kite_shield', 'tower_shield'],
   ['cap', 'helm', 'great_helm'],
   ['robe'],

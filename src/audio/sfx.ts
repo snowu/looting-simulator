@@ -6,7 +6,7 @@
 export type SfxName =
   | 'step' | 'swing' | 'hit' | 'crit' | 'hurt' | 'block' | 'door' | 'locked' | 'unlock'
   | 'pickup' | 'gold' | 'chest' | 'break' | 'death' | 'enemyDie' | 'stairs' | 'shoot'
-  | 'magic' | 'study' | 'secret' | 'ui' | 'craft' | 'drink' | 'alert' | 'miss' | 'sell' | 'recall' | 'parry';
+  | 'magic' | 'study' | 'winded' | 'secret' | 'ui' | 'craft' | 'drink' | 'alert' | 'miss' | 'sell' | 'recall' | 'parry';
 
 export interface PlayOpts {
   volume?: number;
@@ -237,6 +237,12 @@ class AudioEngine {
         // item, and a long tail would stack into a drone.
         this.tone(o, 'sine', 147, 143, 0.85, 0.17, 0.18);
         this.tone(o, 'sine', 220, 214, 0.7, 0.09, 0.21);
+        break;
+      // A spent exhale, not a grunt of pain: this fires when you try to swing
+      // on an empty bar, which is a mistake to notice, not an injury.
+      case 'winded':
+        this.noiseBurst(o, 0.22, 'lowpass', 850 * r, 240, 0.11, 0.8);
+        this.noiseBurst(o, 0.15, 'bandpass', 480 * r, 190, 0.06, 1.5, 0.1);
         break;
       case 'secret':
         this.noiseBurst(o, 1.2, 'lowpass', 220, 90, 0.6, 2);

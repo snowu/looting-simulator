@@ -390,17 +390,17 @@ Vault rooms contain one premium chest. Special chests roll at the current depth 
 
 *File: `src/data/items.ts`* — stats shown at material tier 1, with the per-tier gain.
 
-Bases are arranged into **gear lines** (`GEAR_LINES`), each running from the crudest piece to the strongest: dagger → short sword → long sword, club → mace → war axe, mining pick → spear, buckler → kite → tower, cap → helm → great helm, jerkin → hauberk → plate, gloves → gauntlets, with robe, band and pendant standing alone. Every step up a line is tuned to **beat the step below it forged two material tiers better** — a copper long sword edges out a silver short sword — so upgrading the base is always worth more than upgrading the metal. Each step also starts dropping one depth later and is proportionally scarcer in the drop table. Nothing is gated: a line is a power ordering, not an unlock chain.
+Bases are arranged into **gear lines** (`GEAR_LINES`), each running from the crudest piece to the strongest: dagger → short sword → long sword, club → mace → mining pick → war axe, buckler → kite → tower, cap → helm → great helm, jerkin → hauberk → plate, gloves → gauntlets, with spear, robe, band and pendant standing alone. Every step up a line is tuned to **beat the step below it forged two material tiers better** — a copper long sword edges out a silver short sword — so upgrading the base is always worth more than upgrading the metal. Each step also starts dropping one depth later and is proportionally scarcer in the drop table. Nothing is gated: a line is a power ordering, not an unlock chain.
 
 | Base | Slot | Stats (tier 1) | Per tier | Windup / recovery / stamina / reach | Value | From depth |
 |---|---|---|---|---|---|---|
-| Dagger | weapon | 5 atk, 3 crit | +3 atk | 0.12 / 0.26 / 11 / 1 | 18 | 1 |
-| Short Sword | weapon | 12 atk | +4 atk | 0.18 / 0.36 / 15 / 1 | 28 | 2 |
-| Long Sword | weapon | 21 atk | +5.5 atk | 0.26 / 0.48 / 21 / 1 | 55 | 3 |
-| War Axe | weapon | 26 atk | +6.5 atk | 0.34 / 0.60 / 26 / 1 | 60 | 3 |
-| Mining Pick | weapon | 8 atk, 2 crit | +4 atk | 0.28 / 0.44 / 18 / 1 | 40 | 1 |
-| Mace | weapon | 15 atk | +5 atk | 0.26 / 0.50 / 20 / 1 | 45 | 2 |
-| Spear | weapon | 17 atk | +5 atk | 0.24 / 0.56 / 23 / **2** | 54 | 2 |
+| Dagger | weapon | 5 atk, 3 crit | +3 atk | 0.12 / 0.26 / 10 / 1 | 18 | 1 |
+| Short Sword | weapon | 12 atk | +4 atk | 0.18 / 0.36 / 16 / 1 | 28 | 2 |
+| Long Sword | weapon | 21 atk | +5.5 atk | 0.26 / 0.48 / 24 / 1 | 55 | 3 |
+| War Axe | weapon | 36 atk | +3.5 atk | 0.36 / 0.62 / 22 / 1 | 60 | 4 |
+| Mining Pick | weapon (blunt) | 26 atk, 2 crit | +4 atk | 0.32 / 0.58 / 20 / 1 | 52 | 3 |
+| Mace | weapon | 15 atk | +4.5 atk | 0.28 / 0.52 / 17 / 1 | 45 | 2 |
+| Spear | weapon | 19 atk | +4.5 atk | 0.24 / 0.56 / 17 / **2** | 48 | 2 |
 | Club | weapon (wood/bone) | 6 atk | +4 atk | 0.22 / 0.44 / 16 / 1 | 10 | 1 |
 | Buckler | offhand | 1 def, 35 block | +1 def, +5 block | — | 18 | 1 |
 | Kite Shield | offhand | 4 def, 55 block | +1.5 def, +5 block | — | 38 | 2 |
@@ -416,6 +416,20 @@ Bases are arranged into **gear lines** (`GEAR_LINES`), each running from the cru
 | Gauntlets | hands (metal) | 4 def, 1 atk | +1.5 def, +0.5 atk | — | 28 | 2 |
 | Band | ring (metal) | 1 crit | +1 crit | — | 24 | 1 |
 | Pendant | amulet (metal) | 5 hp | +5 hp | — | 34 | 2 |
+
+### Weapon handling
+
+Stamina does **not** regenerate mid-combo (`world.ts` gates regen on `attack === 'idle'` plus a 0.5s gap), so the axis that separates weapons is **how long one full bar lets you keep swinging, and what that bar buys**. Three classes:
+
+| Class | Weapons | Feel |
+|---|---|---|
+| Blades | dagger, short sword, long sword | Highest DPS (45–58), smallest hits, shortest windup, shortest window (3.1–3.8s), worst damage per stamina (1.70–1.79) |
+| Haft | club, mace, mining pick, war axe | Biggest hits (up to 50), longest windup (to 0.36s — you are committed), longest windows (4.5–5.5s), best damage per stamina (1.83–2.27) |
+| Reach | spear | The only reach-2 weapon; mid DPS, strong efficiency, hits from outside most enemies' range |
+
+A swing must be **paid for in full**: below its stamina cost the attack is refused. How tired you are still shows in the damage through `staminaPower` (down to a 40% floor), but a spent bar buys nothing. Holding attack on a fresh bar gives a burst — six swings with a short sword — then throttles to roughly one swing per second as regen trickles back.
+
+Damage type is the second axis, and it is **not** balanced flat: across the bestiary blunt averages ×1.18, slash ×0.91 and pierce ×0.75 (no enemy is weak to pierce; six resist it). Blunt's 1.5× against undead is why the club line stays relevant deep.
 
 ### Affixes
 

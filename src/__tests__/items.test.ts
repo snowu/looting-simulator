@@ -44,11 +44,15 @@ describe('items', () => {
     expect(itemValue(star)).toBeGreaterThan(itemValue(copper));
   });
 
-  it('the mining pick is a craftable piercing weapon', () => {
+  it('the mining pick is a craftable crushing weapon', () => {
     const base = itemBase('mining_pick');
     const pick = makeEquipment({ baseId: base.id, materialId: 'iron', rarity: Rarity.Common, ilvl: 1 });
+    // Its own weapon class is what Rock and Stone keys off, so that stays put.
     expect(base.weaponClass).toBe('pick');
-    expect(base.damageType).toBe('pierce');
+    // Blunt, not pierce: it sits above the Mace on the haft line, and pierce
+    // averages x0.75 across the bestiary against blunt's x1.18 — as a piercing
+    // weapon the "upgrade" landed softer than the step below it.
+    expect(base.damageType).toBe('blunt');
     expect(itemStats(pick).attack).toBeGreaterThan(0);
     expect(maxDurability(pick)).toBeGreaterThan(0);
     expect(recipe('r_mining_pick').baseId).toBe(base.id);
