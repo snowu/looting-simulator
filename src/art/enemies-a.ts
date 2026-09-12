@@ -264,6 +264,110 @@ const BOW_DRAWN = rows(`
 `);
 const ARCHER_PAL = { ...SKELETON_PAL, h: '#6a4424', g: '#e2d9c2', l: '#d8d0c0', s: '#b0b0ba', w: '#fff4d0fa' };
 
+// --- Goblin archer ---------------------------------------------------------------
+// Same cutpurse base, but the dagger is swapped for a short bow: slack at the
+// side when idle, drawn front-on for the shot.
+const GOB_BOW_SIDE = rows(`
+  ...kw
+  ..ktw
+  ..ktw
+  .kt.w
+  .kt.w
+  kt..w
+  kt..w
+  ku..w
+  ku..w
+  kt..w
+  kt..w
+  .kt.w
+  .kt.w
+  ..ktw
+  ..ktw
+  ...kw
+`);
+const GOB_BOW_DRAWN = rows(`
+  ..ttt..
+  ..ttt..
+  ..ttt..
+  ..ttt..
+  ..ttt..
+  ..ttt..
+  ..ttt..
+  .ktttk.
+  ktswstk
+  .ktttk.
+  ..ttt..
+  ..ttt..
+  ..ttt..
+  ..ttt..
+  ..ttt..
+  ..ttt..
+  ..ttt..
+`);
+
+// --- Shieldbearers ---------------------------------------------------------------
+// Round shields strapped to the left forearm, same spot idle and attacking —
+// only braced a little higher when the right arm goes up with the weapon.
+// The raised stamps below draw arm *and* weapon, so the attack frame erases
+// the hanging weapon-arm first instead of leaving both hanging and raised.
+const GOB_ERASE_ARM = rows(`
+  ______
+  ______
+  ______
+  ______
+  ______
+  ______
+  ______
+  ______
+  ______
+  ______
+  ______
+  ______
+  ______
+  ______
+  ______
+  ______
+`);
+const SKEL_ERASE_ARM = rows(`
+  ________
+  ________
+  ________
+  ________
+  ________
+  ________
+  ________
+  ________
+  ________
+  ________
+  ________
+  ________
+  ________
+  ________
+  ________
+`);
+const GOB_SHIELD = rows(`
+  ..kkk..
+  .ktttk.
+  ktttttk
+  kttjttk
+  ktjsjtk
+  kttjttk
+  ktttttk
+  .ktttk.
+  ..kkk..
+`);
+const SKEL_SHIELD = rows(`
+  ..kkk..
+  .kwwwk.
+  kwwwwwk
+  kwwjwwk
+  kwjsjwk
+  kwwjwwk
+  kwwwwwk
+  .kwwwk.
+  ..kkk..
+`);
+
 // --- Cave spider ---------------------------------------------------------------
 const SPIDER_HALF = rows(`
   ................
@@ -466,6 +570,23 @@ export const ENEMY_ART_A: ArtDef[] = [
 
   { id: 'archer_0', palette: ARCHER_PAL, rows: stamp(SKELETON_BASE, BOW_SIDE, 2, 8) },
   { id: 'archer_atk', palette: ARCHER_PAL, rows: stamp(SKELETON_BASE, BOW_DRAWN, 13, 6) },
+
+  { id: 'gobarcher_0', palette: GOBLIN_PAL, rows: stamp(GOBLIN_BASE, GOB_BOW_SIDE, 1, 8) },
+  { id: 'gobarcher_atk', palette: GOBLIN_PAL, rows: stamp(GOBLIN_BASE, GOB_BOW_DRAWN, 12, 7) },
+
+  { id: 'gobshield_0', palette: GOBLIN_PAL, rows: stamp(stamp(GOBLIN_BASE, GOBLIN_DAGGER, 28, 15), GOB_SHIELD, 0, 20) },
+  {
+    id: 'gobshield_atk',
+    palette: GOBLIN_PAL,
+    rows: stamp(stamp(stamp(stamp(GOBLIN_BASE, GOB_ERASE_ARM, 26, 15), GOBLIN_RAISED, 25, 3), GOB_SHIELD, 0, 18), GOBLIN_SHRIEK, 12, 15),
+  },
+
+  { id: 'skelshield_0', palette: SKELETON_PAL, rows: stamp(stamp(SKELETON_BASE, SKELETON_SWORD, 23, 8), SKEL_SHIELD, 1, 17) },
+  {
+    id: 'skelshield_atk',
+    palette: SKELETON_PAL,
+    rows: stamp(stamp(stamp(SKELETON_BASE, SKEL_ERASE_ARM, 23, 12), SKELETON_RAISED, 20, 0), SKEL_SHIELD, 1, 15),
+  },
 
   { id: 'spider_0', palette: SPIDER_PAL, rows: sym(SPIDER_HALF) },
   { id: 'spider_atk', palette: SPIDER_PAL, rows: sym(SPIDER_ATK_HALF) },

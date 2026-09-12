@@ -103,6 +103,8 @@ export interface PlayerAnim {
   parryArmed: boolean;
   /** Time until another parry window can open, so mashing block isn't a parry. */
   parryCd: number;
+  /** Seconds of shield-bash stun: no moving, swinging or guarding. */
+  stunT: number;
   steps: number;
   sinceStamina: number;
   /** Throttles the winded cue so a held attack button can't spam it. */
@@ -129,6 +131,13 @@ const PARRY_COOLDOWN = 0.75;
 /** How long a parried melee attacker is left open, and how much harder it takes hits. */
 const PARRY_STUN = 1;
 const PARRY_VULN_MULT = 2;
+
+/**
+ * How long a turned blow counts toward a shield-bash: keep swinging into the
+ * wall for this long and the second consecutive block bashes you. Back off,
+ * circle behind, or let the bearer start a swing, and the count goes stale.
+ */
+const BLOCK_EXPIRY = 2.5;
 
 /** Compact button label for an interaction hint. */
 export function shortLabel(hint: string): string {
@@ -256,7 +265,7 @@ export class World {
     this.anim = {
       fromX: this.run.player.x, fromY: this.run.player.y, moveT: 1, moveDur: STEP_TIME,
       yaw, yawFrom: yaw, yawTo: yaw, turnT: 1,
-      attack: 'idle', attackT: 0, attackDur: 0, attackPower: 1, blockRaise: 0, blockT: Infinity, parryArmed: false, parryCd: 0, steps: 0,
+      attack: 'idle', attackT: 0, attackDur: 0, attackPower: 1, blockRaise: 0, blockT: Infinity, parryArmed: false, parryCd: 0, stunT: 0, steps: 0,
       sinceStamina: 10, windedCd: 0, recall: null, transition: null,
     };
     this.reveal();
@@ -397,7 +406,9 @@ export class World {
     }
 
     // Block raise/lower, and the parry window that opens as the guard comes up.
-    const wantBlock = this.held.has('block') && a.attack === 'idle';
+    // A bashed head guards nothing: stun drops the shield and locks it down.
+    a.stunT = Math.max(0, a.stunT - dt);
+    const wantBlock = this.held.has('block') && a.attack === 'idle' && a.stunT <= 0;
     a.parryCd = Math.max(0, a.parryCd - dt);
     if (wantBlock) {
       if (a.blockT === Infinity) {
@@ -414,8 +425,8 @@ export class World {
     }
     a.blockRaise = Math.max(0, Math.min(1, a.blockRaise + (wantBlock ? dt : -dt) / 0.12));
 
-    // Next movement, from the queue or held keys.
-    if (!this.moving && a.transition === null) {
+    // Next movement, from the queue or held keys. Stun sits you out.
+    if (!this.moving && a.transition === null && a.stunT <= 0) {
       const next = this.queued ?? this.heldMove();
       this.queued = null;
       if (next) this.doAction(next);
@@ -757,7 +768,7 @@ export class World {
 
   attack(): void {
     const a = this.anim;
-    if (this.busy || a.attack !== 'idle') return;
+    if (this.busy || a.attack !== 'idle' || a.stunT > 0) return;
     // A swing has to be paid for in full. This used to clamp at zero and land
     // anyway at staminaPower's 40% floor, so a spent player could attack for
     // free forever. Gating on "any stamina at all" is not enough either: the
@@ -816,9 +827,83 @@ export class World {
     this.sfx('miss');
   }
 
+  /**
+   * Whether the bearer's shield turns this blow: frontal only, guard up only.
+   * Committed to a swing, reeling from a parry, or running, and the shield
+   * might as well be firewood. The wind-up telegraph you already dodge is the
+   * tell for when the guard is down.
+   */
+  private enemyBlocks(e: EnemyState, def: EnemyDef): boolean {
+    if (!def.shield) return false;
+    if ((e.vuln ?? 0) > 0) return false;
+    if (e.ai === 'windup' || e.ai === 'recover' || e.ai === 'flee') return false;
+    const d = dirOf(Math.sign(this.player.x - e.x), Math.sign(this.player.y - e.y));
+    return d !== null && d === e.facing;
+  }
+
+  /**
+   * A blow turned on a shield: most of it absorbed, no stagger — the guard
+   * holds. The second consecutive turned blow is answered with a bash that
+   * drops your guard, stuns you, and lets the bearer start a swing you cannot
+   * dodge. Flank it, wait for its swing, or back off and let the count stale.
+   */
+  private shieldBlock(e: EnemyState, def: EnemyDef): void {
+    const sh = def.shield!;
+    this.wear('weapon');
+    const hit = playerHitsEnemy(this.rng, this.derived, this.anim.attackPower, def);
+    const dmg = Math.max(0, Math.round(hit.damage * (1 - sh.block)));
+    e.hp -= dmg;
+    e.blocks = (e.blocks ?? 0) + 1;
+    e.blockT = BLOCK_EXPIRY;
+    e.hurtT = 0.3;
+    e.alert = 8;
+    e.lastSeenX = this.player.x;
+    e.lastSeenY = this.player.y;
+    const life = this.state.lifetime;
+    if (dmg > (life.bestHit ?? 0)) life.bestHit = dmg;
+    recordDamageDealt(this.state.bestiary, def.id, dmg);
+    this.emit({ type: 'float', x: e.x, y: e.y, text: `${dmg}`, color: '#9a9aa8' });
+    this.sfx('block', e.x, e.y);
+    if (this.derived.stats.leech > 0 && dmg > 0) {
+      const heal = Math.max(1, Math.round((dmg * this.derived.stats.leech) / 100));
+      this.player.hp = Math.min(this.derived.maxHp, this.player.hp + heal);
+    }
+    if (e.hp <= 0) {
+      this.killEnemy(e);
+      return;
+    }
+    if (e.blocks >= 2) {
+      e.blocks = 0;
+      this.shieldBash(e, def);
+    }
+  }
+
+  private shieldBash(e: EnemyState, def: EnemyDef): void {
+    const a = this.anim;
+    a.attack = 'idle';
+    a.attackT = 0;
+    a.blockRaise = 0;
+    a.blockT = Infinity;
+    a.parryArmed = false;
+    a.stunT = def.shield!.stun;
+    e.alert = 8;
+    e.lastSeenX = this.player.x;
+    e.lastSeenY = this.player.y;
+    this.emit({ type: 'shake', amount: 0.6 });
+    this.sfx('block', e.x, e.y);
+    this.msg(`The ${def.name} turns your blow aside and bashes you!`, '#ff9070');
+    // The sure hit: it starts its swing now, while you can't move or guard.
+    this.beginWindup(e, def, this.player.x, this.player.y);
+  }
+
   private hitEnemy(e: EnemyState): void {
     this.wear('weapon');
     const def = enemyDef(e.def);
+    if (this.enemyBlocks(e, def)) {
+      this.shieldBlock(e, def);
+      return;
+    }
+    e.blocks = 0;
     const hit = playerHitsEnemy(this.rng, this.derived, this.anim.attackPower, def);
     // Everything you land while the parry opening lasts hits twice as hard.
     const exposed = !!e.vuln && e.vuln > 0;
@@ -1436,6 +1521,10 @@ export class World {
       e.hurtT = Math.max(0, e.hurtT - dt);
       e.attackCd -= dt;
       if (e.vuln) e.vuln = Math.max(0, e.vuln - dt);
+      if ((e.blockT ?? 0) > 0) {
+        e.blockT = Math.max(0, (e.blockT ?? 0) - dt);
+        if (e.blockT === 0) e.blocks = 0;
+      }
       if (e.moveT < 1) {
         e.moveT = Math.min(1, e.moveT + dt / def.step);
         if (e.moveT < 1) continue;

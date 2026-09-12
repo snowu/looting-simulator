@@ -32,6 +32,35 @@ export const ENEMIES: EnemyDef[] = [
     description: 'Runs when hurt. Always carrying something that isn\'t theirs.',
   },
   {
+    id: 'goblin_archer', name: 'Goblin Archer', sprite: 'gobarcher', scale: 0.8,
+    hp: 14, attack: 6, defense: 1, damageType: 'pierce', resist: { slash: 1.4, pierce: 1.25 },
+    behavior: 'ranged', step: 0.35, windup: 0.7, recovery: 1.3, sight: 8, range: 4,
+    projectile: { sprite: 'proj_arrow', speed: 6.5, damageType: 'pierce' },
+    minDepth: 2, maxDepth: 4, weight: 2,
+    loot: [
+      { id: 'copper', chance: 0.4, min: 1, max: 2 },
+      { id: 'linen', chance: 0.3, min: 1, max: 2 },
+      { id: 'timber', chance: 0.3, min: 1, max: 1 },
+      { id: 'yew', chance: 0.2, min: 1, max: 1 },
+    ],
+    gold: [2, 8], itemChance: 0.1,
+    description: 'Small bow, short temper. Close the distance or sidestep the shaft.',
+  },
+  {
+    id: 'goblin_shield', name: 'Goblin Shieldbearer', sprite: 'gobshield', scale: 0.8,
+    hp: 26, attack: 6, defense: 3, damageType: 'slash', resist: { slash: 1.4, pierce: 1.25 },
+    behavior: 'melee', step: 0.45, windup: 0.5, recovery: 0.8, sight: 6,
+    shield: { block: 0.75, stun: 1 },
+    minDepth: 2, maxDepth: 4, weight: 1.5,
+    loot: [
+      { id: 'copper', chance: 0.5, min: 1, max: 2 },
+      { id: 'timber', chance: 0.4, min: 1, max: 2 },
+      { id: 'iron', chance: 0.25, min: 1, max: 1 },
+    ],
+    gold: [3, 10], itemChance: 0.12,
+    description: 'Hides behind a door of a shield. Turn two blows and it bashes back — circle it.',
+  },
+  {
     id: 'bat', name: 'Cave Bat', sprite: 'bat', scale: 0.45, floats: true,
     hp: 12, attack: 5, defense: 0, damageType: 'pierce',
     // Small, fast and soft: a blade opens it, a club swings through the air it
@@ -65,6 +94,16 @@ export const ENEMIES: EnemyDef[] = [
     ],
     gold: [0, 8], itemChance: 0.1,
     description: 'Keeps its distance. Step aside when it draws.',
+  },
+  {
+    id: 'skeleton_shield', name: 'Skeleton Shieldguard', sprite: 'skelshield', scale: 0.95,
+    hp: 30, attack: 8, defense: 4, damageType: 'slash', resist: UNDEAD_RESIST, undead: true,
+    behavior: 'melee', step: 0.55, windup: 0.6, recovery: 0.9, sight: 7,
+    shield: { block: 0.75, stun: 1 },
+    minDepth: 3, maxDepth: 5, weight: 1.5,
+    loot: [{ id: 'bone', chance: 0.7, min: 1, max: 3 }, { id: 'iron', chance: 0.4, min: 1, max: 2 }],
+    gold: [2, 8], itemChance: 0.12,
+    description: 'Old bones behind a white wall. Flank it — the shield only faces you.',
   },
   {
     id: 'spider', name: 'Cave Spider', sprite: 'spider', scale: 0.6,

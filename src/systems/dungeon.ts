@@ -145,6 +145,10 @@ export interface EnemyState {
   power: number;
   /** Seconds left of the opening a parry tore in its guard. */
   vuln?: number;
+  /** Consecutive blows turned on a carried shield. Resets when one gets through or the guard drops. */
+  blocks?: number;
+  /** Seconds until the block count goes stale. */
+  blockT?: number;
   /** The chest reward this mimic swallowed, released when it dies. */
   mimicTier?: ContainerTier;
   mimicPropId?: string;

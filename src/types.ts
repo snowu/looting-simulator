@@ -178,7 +178,9 @@ export type ConsumableEffect =
   | { type: 'heal'; fraction: number }
   | { type: 'stamina'; fraction: number }
   | { type: 'identify' }
-  | { type: 'recall'; seconds: number };
+  | { type: 'recall'; seconds: number }
+  /** A draught whose effect lasts the rest of the delve. See TONICS. */
+  | { type: 'tonic'; tonicId: string };
 
 export interface ConsumableDef {
   id: string;
@@ -311,6 +313,13 @@ export interface EnemyDef {
   resist: Partial<Record<DamageType, number>>;
   undead?: boolean;
   behavior: EnemyBehavior;
+  /**
+   * Carried shield, if any. Frontal blows that land while the bearer is
+   * neither winding up nor reeling are absorbed for `block` (fraction), and
+   * every second consecutive blocked blow is answered with a shield-bash that
+   * stuns you for `stun` seconds. Absent means no guard at all.
+   */
+  shield?: { block: number; stun: number };
   /** Seconds per tile step. */
   step: number;
   windup: number;

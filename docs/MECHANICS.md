@@ -151,9 +151,12 @@ There is nothing below. Each new run rolls a fresh seed, so depth 6 can be farme
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | Giant Rat | 1–3 | 10 | 4 | 0 | pierce | **slash ×1.4**, pierce ×1.3 | melee | 0.38 | 0.65 | 0.30 | 6 |
 | Goblin Cutpurse | 1–4 | 20 | 6 | 1 | slash | **slash ×1.4**, pierce ×1.25 | skittish | 0.45 | 0.70 | 0.40 | 7 |
+| Goblin Archer | 2–4 | 14 | 6 | 1 | pierce | **slash ×1.4**, pierce ×1.25 | ranged (arrow, speed 6.5, range 4) | 0.70 | 1.30 | 0.35 | 8 |
+| Goblin Shieldbearer | 2–4 | 26 | 6 | 3 | slash | **slash ×1.4**, pierce ×1.25 | melee, shield (blocks 75%) | 0.50 | 0.80 | 0.45 | 6 |
 | Cave Bat | 1–3 | 12 | 5 | 0 | pierce | **slash ×1.4**, pierce ×1.3, blunt ×0.85 | fast melee, floats | 0.24 | 0.40 | 0.20 | 5 |
 | Skeleton | 1–4 | 22 | 7 | 2 | slash | undead: **blunt ×1.5**, holy ×2, slash ×0.6, pierce ×0.55, shadow ×0.5 | melee | 0.55 | 0.90 | 0.55 | 7 |
 | Skeleton Archer | 2–5 | 18 | 7 | 2 | pierce | as undead | ranged (arrow, speed 7, range 5) | 0.75 | 1.40 | 0.50 | 8 |
+| Skeleton Shieldguard | 3–5 | 30 | 8 | 4 | slash | as undead | melee, shield (blocks 75%) | 0.60 | 0.90 | 0.55 | 7 |
 | Cave Spider | 3–5 | 24 | 9 | 2 | pierce | **pierce ×1.35**, slash ×1.3, fire ×1.5 | melee | 0.35 | 0.60 | 0.28 | 5 |
 | Ghoul | 3–6 | 48 | 13 | 4 | slash | undead: holy ×2, **slash ×1.35**, fire ×1.3, pierce ×1.3, shadow ×0.5 | melee | 0.65 | 1.00 | 0.75 | 6 |
 | Ember Wisp | 3–5 | 22 | 9 | 1 | fire | **frost ×2**, fire ×0, blunt ×0.7, slash ×0.8, pierce ×0.6 | ranged (fire bolt, speed 5.5, range 4) | 0.70 | 1.45 | 0.42 | 8 |
@@ -164,7 +167,7 @@ There is nothing below. Each new run rolls a fresh seed, so depth 6 can be farme
 | Mimic | any chest | 52 | 14 | 5 | pierce | blunt ×1.25, pierce ×1.1, fire ×1.35 | fast melee; dormant until opened | 0.52 | 0.80 | 0.32 | 8 |
 | The Ashen King | 6 (boss) | 420 | 24 | 12 | shadow | holy ×1.5, shadow ×0, pierce ×0.95 | boss: melee + 3-bolt volley | 0.80 | 1.00 | 0.80 | 12 |
 
-Spawn weights: rat/goblin/skeleton/spider 3, bat 2.5, archer/ghoul/wisps 2, knight/champion/wraith 1.5. The Ember Wisp is the Frost Wisp's shallow counterpart, sharing its sprite rows under a warm palette — it puts the first elemental enemy on depth 3, which had none. Every floor holds at least five kinds, and each gives blunt, slash and pierce something it is good against — depth 6 without the Barrow Champion had no bone left to break, which left the club line with nothing to do on the final floor. Mimics never enter the ordinary spawn pool. Monsters deeper than their `minDepth` get `+12% HP per depth` and the same bonus to damage.
+Spawn weights: rat/goblin/skeleton/spider 3, bat 2.5, archer/goblin archer/ghoul/wisps 2, goblin shield/skeleton shield/knight/champion/wraith 1.5. The Ember Wisp is the Frost Wisp's shallow counterpart, sharing its sprite rows under a warm palette — it puts the first elemental enemy on depth 3, which had none. Every floor holds at least five kinds, and each gives blunt, slash and pierce something it is good against — depth 6 without the Barrow Champion had no bone left to break, which left the club line with nothing to do on the final floor. Mimics never enter the ordinary spawn pool. Monsters deeper than their `minDepth` get `+12% HP per depth` and the same bonus to damage.
 
 ### Monster drops
 
@@ -172,8 +175,11 @@ Spawn weights: rat/goblin/skeleton/spider 3, bat 2.5, archer/ghoul/wisps 2, knig
 |---|---|---|---|
 | Giant Rat | rat hide 60% (1–2), bone 25% | 0–2 | — |
 | Goblin Cutpurse | copper 50%, linen 40%, timber 30%, bone idol 10% | 3–12 | 15% |
+| Goblin Archer | copper 40%, linen 30%, timber 30%, yew 20% | 2–8 | 10% |
+| Goblin Shieldbearer | copper 50%, timber 40%, iron 25% | 3–10 | 12% |
 | Skeleton | bone 70% (1–3), iron 35% | 0–6 | 12% |
 | Skeleton Archer | bone 60%, timber 30%, yew 25% | 0–8 | 10% |
+| Skeleton Shieldguard | bone 70%, iron 40% | 2–8 | 12% |
 | Cave Spider | spider silk 60%, crystal 8% | 0–4 | 5% |
 | Ghoul | bone 50%, leather 50%, silver chalice 12% | 5–20 | 20% |
 | Frost Wisp | frost shard 45%, crystal 35%, moonstone 8% | 0–5 | 8% |
@@ -193,6 +199,7 @@ Every kill also has a 6% chance of a Healing Draught and `1.2% × depth` of a bl
 - **Chasing:** breadth-first pathfinding, recomputed about 3 times a second, up to 18 tiles. Closed doors block monsters, so shutting one behind you works.
 - **Attacking (the telegraph):** the monster commits to the tile you are standing in, leans in and flashes red for its windup, then strikes. **Step out of that tile and it misses.** Then it's in recovery and can't act.
 - **Staggering:** hitting a monster with under 40 base HP during its windup interrupts it (0.5s recovery). Bosses never stagger.
+- **Shields** (Shieldbearer, Shieldguard): frontal blows that land while the bearer is neither winding up nor reeling are **absorbed for 75%**, and the guard holds — no stagger. The **second consecutive** turned blow is answered with a shield-bash: your guard drops, you are **stunned for 1 second**, and the bearer starts a swing you cannot dodge. The count goes stale after 2.5s without a blocked blow, breaks when one gets through, and never starts from behind, mid-swing, or while the bearer reels from your parry. Flank them, meet their swing, or back off.
 - **Ranged:** only fire along a row or column with clear sight. They back away if you close to melee and sidestep to line up a shot. Bolts travel tile by tile, so strafing out of the line dodges them.
 - **Skittish** (goblins): flee below 35% health.
 - **Boss:** melee when adjacent, otherwise a three-bolt shadow volley when aligned.
