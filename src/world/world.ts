@@ -31,7 +31,14 @@ import { PlayerDerived, derivePlayer } from '../systems/player';
 import { enemyHitsPlayer, playerHitsEnemy, staminaPower } from '../systems/combat';
 import { durability, identify, itemName, makeMaterial, rollContainerLoot, rollEnemyLoot, wearItem } from '../systems/items';
 import { recordDepth, recordKill } from '../systems/contracts';
-import { loreName, recordKill as recordBestiaryKill, unlockEntry } from '../systems/bestiary';
+import {
+  loreName,
+  recordDamageDealt,
+  recordDamageTaken,
+  recordDeath as recordBestiaryDeath,
+  recordKill as recordBestiaryKill,
+  unlockEntry,
+} from '../systems/bestiary';
 import { metaLevel } from '../systems/meta';
 import { Rarity } from '../types';
 import type { SfxName } from '../audio/sfx';
@@ -67,6 +74,8 @@ export interface Projectile {
   tileX: number;
   tileY: number;
   source: string;
+  /** Enemy id behind the shot, so a death can be filed in the codex. */
+  sourceId?: string;
   /** Parried back at them: now it hits monsters instead of passing through. */
   reflected?: boolean;
 }
@@ -815,6 +824,9 @@ export class World {
     const exposed = !!e.vuln && e.vuln > 0;
     if (exposed) hit.damage = Math.round(hit.damage * PARRY_VULN_MULT);
     e.hp -= hit.damage;
+    const life = this.state.lifetime;
+    if (hit.damage > (life.bestHit ?? 0)) life.bestHit = hit.damage;
+    recordDamageDealt(this.state.bestiary, def.id, hit.damage);
     e.hurtT = 0.3;
     e.alert = 8;
     e.lastSeenX = this.player.x;
@@ -1553,7 +1565,7 @@ export class World {
         this.projectiles.push({
           id: this.projN++, x: e.x + ox + 0.5, y: e.y + oy + 0.5, dx, dy, speed: pr.speed,
           damage: Math.round(def.attack * e.power), type: pr.damageType, sprite: pr.sprite, light: pr.light,
-          tileX: e.x + ox, tileY: e.y + oy, source: def.name,
+          tileX: e.x + ox, tileY: e.y + oy, source: def.name, sourceId: def.id,
         });
       }
       this.sfx(pr.sprite === 'proj_arrow' ? 'shoot' : 'magic', e.x, e.y);
@@ -1562,13 +1574,21 @@ export class World {
     // Melee lands only if you're still in the tile it aimed at.
     this.sfx('swing', e.x, e.y);
     if (p.x === e.lastSeenX && p.y === e.lastSeenY && dist === 1) {
-      this.damagePlayer(Math.round(def.attack * e.power), def.damageType, e.x, e.y, def.name, e);
+      this.damagePlayer(Math.round(def.attack * e.power), def.damageType, e.x, e.y, def.name, def.id, e);
     } else {
       this.sfx('miss', e.x, e.y);
     }
   }
 
-  private damagePlayer(attack: number, type: DamageType, fromX: number, fromY: number, source: string, attacker?: EnemyState): void {
+  private damagePlayer(
+    attack: number,
+    type: DamageType,
+    fromX: number,
+    fromY: number,
+    source: string,
+    sourceId?: string,
+    attacker?: EnemyState,
+  ): void {
     const p = this.player;
     // A parry denies the hit outright and leaves the attacker open.
     if (this.parries(fromX, fromY)) {
@@ -1615,12 +1635,16 @@ export class World {
     }
     if (dmg > 0 && !blocked) this.wearArmour();
     p.hp -= dmg;
+    if (dmg > (this.state.lifetime.worstHit ?? 0)) this.state.lifetime.worstHit = dmg;
+    if (sourceId) recordDamageTaken(this.state.bestiary, sourceId, dmg);
     this.emit({ type: 'hurt', amount: dmg, blocked });
     this.emit({ type: 'shake', amount: blocked ? 0.3 : Math.min(1, dmg / 20) });
     if (dmg > 0 && !blocked) this.sfx('hurt');
     if (p.hp <= 0) {
       p.hp = 0;
       this.run.killedBy = source;
+      // Traps have no codex entry, so they file nothing.
+      if (sourceId) recordBestiaryDeath(this.state.bestiary, sourceId);
       this.sfx('death');
       this.msg(`You were slain by ${source.startsWith('The ') ? source : 'a ' + source}.`, '#ff5050');
       this.finish('dead');
@@ -1658,7 +1682,7 @@ export class World {
           continue;
         }
         pr.speed = 0;
-        this.damagePlayer(pr.damage, pr.type, tx - pr.dx, ty - pr.dy, pr.source);
+        this.damagePlayer(pr.damage, pr.type, tx - pr.dx, ty - pr.dy, pr.source, pr.reflected ? undefined : pr.sourceId);
       }
     }
     this.projectiles = this.projectiles.filter((pr) => pr.speed > 0);

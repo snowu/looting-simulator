@@ -459,9 +459,11 @@ Every creature has a codex entry in three states:
 
 The resistance row is the point. It is what tells you a Barrow Champion takes ×1.5 from blunt and shrugs off blades, which is the information the damage triangle is built around.
 
-**The animation bench** sits under each recorded entry and reproduces every state the dungeon renderer can put a creature in: both frames (idle and attack, played or held), the tints (hurt, wind-up, death) and the float hover, alongside the sprite id, scale and swing timings. It is there to check new sprites without hunting one down on a floor. It is disabled on an unrecorded entry — a tint would otherwise paint the silhouette back in, and the attack frame's outline gives away the shape.
+A recorded entry shows four tallies — **slain**, **deaths to it**, **best hit** landed on it and **worst taken** from it — alongside its own stats. All four accumulate from the first encounter whether or not the entry is read, so the numbers are already waiting the moment the notes are found. The same two extremes are kept lifetime-wide and shown in the Warden's Chronicle.
 
-Stored as `state.bestiary`, added additively at save revision 12; an older save simply starts with an empty codex.
+**The animation bench is a development tool and ships only in `vite dev`.** It hangs off `import.meta.env.DEV`, which Vite replaces at build time, so the whole block is dead-code eliminated from a production bundle — verified by grepping `dist` for its strings. It reproduces every state the dungeon renderer can put a creature in: both frames (played or held), the hurt, wind-up and death tints and the float hover, next to the sprite id, scale and swing timings, so a new sprite can be checked without hunting one down on a floor. It also carries an **Unlock / Relock** toggle for flipping an entry between the locked and recorded presentations. Its frame and tint controls stay disabled while an entry is unrecorded, so the locked view stays honest — a tint would otherwise paint the silhouette back in, and the attack frame's outline gives the shape away.
+
+Stored as `state.bestiary`, added additively at save revision 12; an older save simply starts with an empty codex, and entries written before a field existed read as zero rather than breaking.
 
 ### Affixes
 

@@ -1,6 +1,9 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
+  /** True under `vite dev`, statically false in a production build. */
+  readonly DEV: boolean;
+  readonly PROD: boolean;
   /** Supabase project URL. Public: it ships in the bundle. */
   readonly VITE_SUPABASE_URL?: string;
   /** Supabase publishable key. Public: RLS and the player's JWT are the boundary. */

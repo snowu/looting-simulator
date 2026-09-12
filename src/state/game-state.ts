@@ -85,6 +85,9 @@ export interface Lifetime {
   bestDepth: number;
   goldEarned: number;
   kills: number;
+  /** Hardest single blow you have landed, and the hardest you have taken. */
+  bestHit?: number;
+  worstHit?: number;
 }
 
 export interface GameState {

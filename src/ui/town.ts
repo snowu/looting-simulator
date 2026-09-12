@@ -893,7 +893,6 @@ export class Town {
     for (const def of BESTIARY_ORDER) {
       const known = isKnown(s.bestiary, def.id);
       const seen = isSeen(s.bestiary, def.id);
-      const entry = bestiaryEntry(s.bestiary, def.id);
       grid.append(
         h(
           'div',
@@ -908,7 +907,7 @@ export class Town {
           h('span', { class: 'beast-name', text: known || seen ? def.name : '???' }),
           h('span', {
             class: 'dim small',
-            text: known ? `depth ${def.minDepth}–${def.maxDepth}` : seen ? `${entry.kills} slain · notes needed` : 'unrecorded',
+            text: known ? `depth ${def.minDepth}–${def.maxDepth}` : seen ? 'notes needed' : 'unrecorded',
           }),
         ),
       );
@@ -964,24 +963,37 @@ export class Town {
         ...options.map(([v, text]) =>
           btn(text, () => { set(v); this.commit(); }, `small${known && value === v ? ' primary' : ''}`, !known)));
 
-    const bench = h(
+    // The animation bench is a development tool, not part of the game: it is
+    // built only under `vite dev` and the whole block is dropped from a
+    // production bundle, since import.meta.env.DEV is replaced at build time.
+    const bench = !import.meta.env.DEV ? null : h(
       'div',
       { class: 'beast-bench' },
-      h('div', { class: 'dim small', text: 'Animation bench' }),
+      h('div', { class: 'row beast-row' },
+        h('span', { class: 'dim small grow', text: 'Animation bench · dev build only' }),
+        btn(known ? 'Relock' : 'Unlock', () => {
+          const e = (s.bestiary[def.id] ??= { kills: 0, deaths: 0, bestHit: 0, worstHit: 0, known: false });
+          e.known = !known;
+          this.commit();
+        }, 'small')),
       pick('Frame', this.beastFrame, [['play', 'Play'], ['idle', 'Idle'], ['atk', 'Attack']], (v) => { this.beastFrame = v; }),
       pick('Tint', this.beastTint, [['none', 'None'], ['hurt', 'Hurt'], ['windup', 'Wind-up'], ['dead', 'Death']], (v) => { this.beastTint = v; }),
       h('div', { class: 'row beast-row' },
         h('span', { class: 'dim small beast-label', text: 'Motion' }),
         btn(this.beastBob ? 'Hover on' : 'Hover off', () => { this.beastBob = !this.beastBob; this.commit(); }, 'small', !known),
         h('span', { class: 'dim small', text: def.floats ? 'this one floats' : 'walker — hover is cosmetic' })),
-      known
-        ? h('div', { class: 'dim small', text: `sprite ${def.sprite} · scale ${def.scale} · windup ${def.windup}s · recovery ${def.recovery}s` })
-        : h('div', { class: 'faint small', text: 'Read its field notes to unlock the bench.' }),
+      h('div', { class: 'dim small', text: `sprite ${def.sprite} · scale ${def.scale} · windup ${def.windup}s · recovery ${def.recovery}s` }),
     );
 
     const resists = [...['blunt', 'slash', 'pierce'], ...ELEMENTS]
       .map((t) => [t, def.resist[t as keyof typeof def.resist] ?? 1] as const)
       .filter(([, v]) => v !== 1);
+
+    const tally = h('div', { class: 'beast-tally' },
+      h('span', {}, h('b', { text: String(entry.kills) }), h('span', { class: 'dim small', text: entry.kills === 1 ? ' slain' : ' slain' })),
+      h('span', {}, h('b', { class: entry.deaths ? 'red-t' : '', text: String(entry.deaths) }), h('span', { class: 'dim small', text: entry.deaths === 1 ? ' death to it' : ' deaths to it' })),
+      h('span', {}, h('b', { text: String(entry.bestHit) }), h('span', { class: 'dim small', text: ' best hit' })),
+      h('span', {}, h('b', { class: entry.worstHit ? 'red-t' : '', text: String(entry.worstHit) }), h('span', { class: 'dim small', text: ' worst taken' })));
 
     return h(
       'div',
@@ -991,14 +1003,15 @@ export class Town {
       known
         ? h('div', {},
             h('p', { class: 'tt-desc', text: def.description }),
+            tally,
             h('p', { class: 'small', text: `${def.hp} HP · ${def.attack} attack · ${def.defense} defense · deals ${def.damageType} · ${def.behavior}` }),
-            h('p', { class: 'small dim', text: `Found on depths ${def.minDepth}–${def.maxDepth}. You have slain ${entry.kills}.` }),
+            h('p', { class: 'small dim', text: `Found on depths ${def.minDepth}–${def.maxDepth}.` }),
             resists.length
               ? h('div', { class: 'beast-resists' }, ...resists.map(([t, v]) =>
                   h('span', { class: `beast-resist ${v > 1 ? 'weak' : 'strong'}`, text: `${t} ×${v}` })))
               : h('p', { class: 'small dim', text: 'Nothing it fears, nothing it shrugs off.' }),
           )
-        : h('p', { class: 'dim', text: entry.kills ? `Slain ${entry.kills} time${entry.kills === 1 ? '' : 's'}. Its field notes would tell you what it fears.` : 'You have never met this.' }),
+        : h('p', { class: 'dim', text: 'Its field notes would tell you what it is and what it fears.' }),
       bench,
     );
   }
@@ -1038,6 +1051,7 @@ export class Town {
         { class: 'pane frame', style: 'margin-top:14px' },
         h('h3', { text: 'Chronicle' }),
         h('p', { text: `${L.runs} delves · ${L.extractions} returns · ${L.deaths} deaths · deepest ${L.bestDepth} · ${L.kills} slain · ${gold(L.goldEarned)} earned` }),
+        h('p', { class: 'dim', text: `Hardest blow landed ${L.bestHit ?? 0} · hardest taken ${L.worstHit ?? 0}` }),
         h('div', { class: 'row', style: 'margin-top:8px' }, btn(this.confirmReset ? 'Really erase everything? Click again' : 'Start a new life', () => {
           if (!this.confirmReset) {
             this.confirmReset = true;

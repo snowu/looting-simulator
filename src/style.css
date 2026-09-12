@@ -673,6 +673,7 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
 .beast-bench { border-top: 1px solid #2a2430; margin-top: 8px; padding-top: 6px; display: flex; flex-direction: column; gap: 4px; }
 .beast-row { flex-wrap: wrap; gap: 4px; }
 .beast-label { min-width: 54px; }
+.beast-tally { display: flex; gap: 14px; margin: 4px 0 6px; font-size: 18px; }
 .beast-resists { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
 .beast-resist { font-size: 15px; padding: 0 5px; border: 1px solid #0006; background: #17131b; }
 .beast-resist.weak { color: #ff9a70; }
