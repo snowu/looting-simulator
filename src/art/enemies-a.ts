@@ -323,6 +323,121 @@ const SPIDER_LUNGE = rows(`
 `);
 const SPIDER_PAL = { k: '#0e0a0c', a: '#2a1c22', b: '#44303a', c: '#644a56', r: '#ff2a2afa', y: '#ffb0a0fa', f: '#d8d0c0' };
 
+// --- Cave bat ----------------------------------------------------------------
+// Floats, so it sits in the middle of the canvas rather than on the bottom row.
+const BAT_HALF = rows(`
+  ................
+  ................
+  ................
+  .............k..
+  ............kdk.
+  ............kcd.
+  ...........kcccd
+  ...........kcrcd
+  k..........kcccd
+  kk.........kcwcd
+  kak........kcccd
+  kaak.......kcccc
+  .kaak......kbccc
+  .kabak.....kbbcc
+  ..kabak....kbbbc
+  ..kaabak...kabbb
+  ...kaabak..kaabb
+  ...kaaabak.kaaab
+  ....kaaabakkaaaa
+  ....kaaaabaaaaaa
+  .....kaaaabaaaaa
+  .....kbaaaabaaaa
+  ......kkaaaabaaa
+  ........kaaaabaa
+  .......kkbaaaaba
+  ......kk..kbaaaa
+  ...........kkbaa
+  .............kka
+  ..............kk
+  ................
+  ................
+  ................
+`);
+// Wings swept back and maw open: the frame it snaps forward on.
+const BAT_LUNGE = rows(`
+  .kwwwwk.
+  kwmmmmwk
+  kmmmmmmk
+  .kwmmwk.
+  ..kkkk..
+`);
+const BAT_PAL = {
+  k: '#0b0809', a: '#3a2831', b: '#584049', c: '#7a5446', d: '#9c7058',
+  r: '#ff4028fa', w: '#ede4d0', m: '#5a0c16',
+};
+
+// --- Barrow champion ---------------------------------------------------------
+// The same bones as a skeleton, gone green in the mould, swinging a maul. Reusing
+// SKELETON_BASE is the same trick the archer plays.
+const MAUL_REST = rows(`
+  .kkkkk.
+  kmnnnmk
+  kmnnnmk
+  kmnnnmk
+  kmmmmmk
+  .kkqkk.
+  ..kqk..
+  ..kqk..
+  ..kqk..
+  ..kqk..
+  ..kqk..
+  ..kqk..
+  ..kqk..
+  ..kqk..
+  ..kqk..
+  ..kqk..
+  ..kqk..
+  ...k...
+`);
+const MAUL_RAISED = rows(`
+  ...kkkkk.
+  ..kmnnnmk
+  ..kmnnnmk
+  ..kmnnnmk
+  ..kmmmmmk
+  ...kkqkk.
+  ....kqk..
+  ...kqk...
+  ...kqk...
+  ..kqk....
+  ..kqk....
+  .kqk.....
+  .kqk.....
+`);
+const ERASE_5x20 = rows(`
+  _____
+  _____
+  _____
+  _____
+  _____
+  _____
+  _____
+  _____
+  _____
+  _____
+  _____
+  _____
+  _____
+  _____
+  _____
+  _____
+  _____
+  _____
+  _____
+  _____
+`);
+const BARROW_PAL = {
+  ...SKELETON_PAL,
+  w: '#c2c8a4', v: '#8e9676', u: '#5e6450', r: '#7cff8afa',
+  s: '#5a5e50', j: '#3e4238', m: '#3e3e46', n: '#6a6a76',
+};
+
 export const ENEMY_ART_A: ArtDef[] = [
   { id: 'rat_0', palette: RAT_PAL, rows: sym(RAT_HALF) },
   { id: 'rat_atk', palette: RAT_PAL, rows: sym(stamp(RAT_HALF, RAT_BITE, 0, 23)) },
@@ -342,4 +457,14 @@ export const ENEMY_ART_A: ArtDef[] = [
 
   { id: 'spider_0', palette: SPIDER_PAL, rows: sym(SPIDER_HALF) },
   { id: 'spider_atk', palette: SPIDER_PAL, rows: sym(stamp(SPIDER_HALF, SPIDER_LUNGE, 0, 4)) },
+
+  { id: 'champion_0', palette: BARROW_PAL, rows: stamp(SKELETON_BASE, MAUL_REST, 22, 6) },
+  {
+    id: 'champion_atk',
+    palette: BARROW_PAL,
+    rows: stamp(stamp(SKELETON_BASE, ERASE_5x20, 23, 8), MAUL_RAISED, 18, 0),
+  },
+
+  { id: 'bat_0', palette: BAT_PAL, rows: sym(BAT_HALF) },
+  { id: 'bat_atk', palette: BAT_PAL, rows: stamp(sym(BAT_HALF), BAT_LUNGE, 12, 12) },
 ];

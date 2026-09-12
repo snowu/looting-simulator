@@ -185,12 +185,13 @@ function restockWares(m: MarketState, rng: Rng, bestDepth: number, ranks: Recipe
   const wares: Item[] = [];
   const depth = Math.max(1, Math.min(6, bestDepth));
   for (let i = 0; i < 6; i++) {
-    const r = rng.weighted<Rarity>([
+    const bands: [Rarity, number][] = [
       [Rarity.Common, 60],
       [Rarity.Uncommon, 30],
       [Rarity.Rare, 9],
       [Rarity.Epic, 1],
-    ].filter(([rarity]) => rarityAvailableAtDepth(rarity, depth)));
+    ];
+    const r = rng.weighted<Rarity>(bands.filter(([rarity]) => rarityAvailableAtDepth(rarity, depth)));
     wares.push(rollEquipment(rng, depth, 0, { rarity: r, identifyBelow: Rarity.Legendary }));
   }
   const blueprints = new Set<string>();

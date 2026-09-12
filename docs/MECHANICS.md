@@ -150,18 +150,20 @@ There is nothing below. Each new run rolls a fresh seed, so depth 6 can be farme
 | Monster | Depths | HP | Atk | Def | Type | Resists / weaknesses | Behaviour | Windup | Recovery | Step | Sight |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | Giant Rat | 1–3 | 10 | 4 | 0 | pierce | **slash ×1.4**, pierce ×1.3 | melee | 0.38 | 0.65 | 0.30 | 6 |
-| Goblin Cutpurse | 1–3 | 20 | 6 | 1 | slash | **slash ×1.4**, pierce ×1.25 | skittish | 0.45 | 0.70 | 0.40 | 7 |
+| Goblin Cutpurse | 1–4 | 20 | 6 | 1 | slash | **slash ×1.4**, pierce ×1.25 | skittish | 0.45 | 0.70 | 0.40 | 7 |
+| Cave Bat | 1–3 | 12 | 5 | 0 | pierce | **slash ×1.4**, pierce ×1.3, blunt ×0.85 | fast melee, floats | 0.24 | 0.40 | 0.20 | 5 |
 | Skeleton | 1–4 | 22 | 7 | 2 | slash | undead: **blunt ×1.5**, holy ×2, slash ×0.6, pierce ×0.55, shadow ×0.5 | melee | 0.55 | 0.90 | 0.55 | 7 |
 | Skeleton Archer | 2–5 | 18 | 7 | 2 | pierce | as undead | ranged (arrow, speed 7, range 5) | 0.75 | 1.40 | 0.50 | 8 |
 | Cave Spider | 3–5 | 24 | 9 | 2 | pierce | **pierce ×1.35**, slash ×1.3, fire ×1.5 | melee | 0.35 | 0.60 | 0.28 | 5 |
-| Ghoul | 3–6 | 48 | 13 | 4 | slash | undead: holy ×2, fire ×1.3, **slash ×1.25**, pierce ×1.2, shadow ×0.5 | melee | 0.65 | 1.00 | 0.75 | 6 |
-| Frost Wisp | 4–6 | 26 | 10 | 1 | frost | **fire ×2**, frost ×0, pierce ×0.6, slash ×0.8 | ranged (frost bolt, speed 5, range 4) | 0.80 | 1.60 | 0.45 | 8 |
+| Ghoul | 3–6 | 48 | 13 | 4 | slash | undead: holy ×2, **slash ×1.35**, fire ×1.3, pierce ×1.3, shadow ×0.5 | melee | 0.65 | 1.00 | 0.75 | 6 |
+| Frost Wisp | 4–6 | 26 | 10 | 1 | frost | **fire ×2**, frost ×0, blunt ×0.7, slash ×0.8, pierce ×0.6 | ranged (frost bolt, speed 5, range 4) | 0.80 | 1.60 | 0.45 | 8 |
 | Hollow Knight | 5–6 | 80 | 16 | 9 | slash | holy ×1.6, **pierce ×1.25**, blunt ×1.2, slash ×0.7, shadow ×0.5 | melee | 0.70 | 1.00 | 0.65 | 7 |
-| Flame Wraith | 5–6 | 50 | 14 | 2 | fire | **frost ×2**, fire ×0, pierce ×0.6, slash ×0.8 | ranged (fire bolt, speed 5.5, range 4) | 0.75 | 1.40 | 0.50 | 8 |
+| Barrow Champion | 5–6 | 110 | 18 | 7 | blunt | undead: **blunt ×1.5**, holy ×2, slash ×0.55, pierce ×0.5, shadow ×0.5 | slow melee | 0.85 | 1.20 | 0.80 | 7 |
+| Flame Wraith | 5–6 | 50 | 14 | 2 | fire | **frost ×2**, fire ×0, blunt ×0.7, slash ×0.8, pierce ×0.6 | ranged (fire bolt, speed 5.5, range 4) | 0.75 | 1.40 | 0.50 | 8 |
 | Mimic | any chest | 52 | 14 | 5 | pierce | blunt ×1.25, pierce ×1.1, fire ×1.35 | fast melee; dormant until opened | 0.52 | 0.80 | 0.32 | 8 |
 | The Ashen King | 6 (boss) | 420 | 24 | 12 | shadow | holy ×1.5, shadow ×0, pierce ×0.95 | boss: melee + 3-bolt volley | 0.80 | 1.00 | 0.80 | 12 |
 
-Spawn weights: rat/goblin/skeleton/spider 3, archer/ghoul/wisp 2, knight/wraith 1.5. Mimics never enter the ordinary spawn pool. Monsters deeper than their `minDepth` get `+12% HP per depth` and the same bonus to damage.
+Spawn weights: rat/goblin/skeleton/spider 3, bat 2.5, archer/ghoul/wisp 2, knight/champion/wraith 1.5. Every floor holds at least five kinds, and each gives blunt, slash and pierce something it is good against — depth 6 without the Barrow Champion had no bone left to break, which left the club line with nothing to do on the final floor. Mimics never enter the ordinary spawn pool. Monsters deeper than their `minDepth` get `+12% HP per depth` and the same bonus to damage.
 
 ### Monster drops
 

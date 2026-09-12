@@ -232,7 +232,7 @@ describe('items', () => {
   });
 
   it('applies mastery only to positive crafted core stats', () => {
-    const spec = { baseId: 'long_sword', materialId: 'gold', rarity: Rarity.Rare, ilvl: 6, quality: 1, affixes: [{ id: 'vital', value: 10 }], crafted: true } as const;
+    const spec = { baseId: 'long_sword', materialId: 'gold', rarity: Rarity.Rare, ilvl: 6, quality: 1, affixes: [{ id: 'vital', value: 10 }], crafted: true };
     const rank1 = makeEquipment({ ...spec, craftRank: 1 });
     const rank5 = makeEquipment({ ...spec, craftRank: 5 });
     const coreAttack = itemBase('long_sword').base.attack! + itemBase('long_sword').perTier.attack! * 2;

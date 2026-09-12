@@ -311,13 +311,14 @@ export function identifyCost(item: Item, appraiserLevel: number): number {
 
 export function rollRarity(rng: Rng, depth: number, find: number): Rarity {
   const f = 1 + find / 100;
-  return rng.weighted<Rarity>([
+  const bands: [Rarity, number][] = [
     [Rarity.Common, 100],
     [Rarity.Uncommon, (28 + depth * 6) * f],
     [Rarity.Rare, (7 + depth * 3) * f],
     [Rarity.Epic, (1.2 + depth * 1.1) * f],
     [Rarity.Legendary, (0.15 + depth * 0.3) * f],
-  ].filter(([rarity]) => rarityAvailableAtDepth(rarity, depth)));
+  ];
+  return rng.weighted<Rarity>(bands.filter(([rarity]) => rarityAvailableAtDepth(rarity, depth)));
 }
 
 /** Natural drops unlock one rarity band every two depths. */

@@ -21,7 +21,7 @@ export const ENEMIES: EnemyDef[] = [
     id: 'goblin', name: 'Goblin Cutpurse', sprite: 'goblin', scale: 0.8,
     hp: 20, attack: 6, defense: 1, damageType: 'slash', resist: { slash: 1.4, pierce: 1.25 },
     behavior: 'skittish', step: 0.4, windup: 0.45, recovery: 0.7, sight: 7,
-    minDepth: 1, maxDepth: 3, weight: 3,
+    minDepth: 1, maxDepth: 4, weight: 3,
     loot: [
       { id: 'copper', chance: 0.5, min: 1, max: 2 },
       { id: 'linen', chance: 0.4, min: 1, max: 2 },
@@ -30,6 +30,18 @@ export const ENEMIES: EnemyDef[] = [
     ],
     gold: [3, 12], itemChance: 0.15,
     description: 'Runs when hurt. Always carrying something that isn\'t theirs.',
+  },
+  {
+    id: 'bat', name: 'Cave Bat', sprite: 'bat', scale: 0.5, floats: true,
+    hp: 12, attack: 5, defense: 0, damageType: 'pierce',
+    // Small, fast and soft: a blade opens it, a club swings through the air it
+    // just left. It is the first floor's argument for carrying something quick.
+    resist: { slash: 1.4, pierce: 1.3, blunt: 0.85 },
+    behavior: 'melee', step: 0.2, windup: 0.24, recovery: 0.4, sight: 5,
+    minDepth: 1, maxDepth: 3, weight: 2.5,
+    loot: [{ id: 'rat_hide', chance: 0.45, min: 1, max: 1 }, { id: 'bone', chance: 0.3, min: 1, max: 1 }],
+    gold: [0, 3], itemChance: 0.04,
+    description: 'It moves before you decide to swing.',
   },
   {
     id: 'skeleton', name: 'Skeleton', sprite: 'skeleton', scale: 0.95,
@@ -65,7 +77,7 @@ export const ENEMIES: EnemyDef[] = [
   },
   {
     id: 'ghoul', name: 'Ghoul', sprite: 'ghoul', scale: 1.0,
-    hp: 48, attack: 13, defense: 4, damageType: 'slash', resist: { holy: 2, shadow: 0.5, fire: 1.3, slash: 1.25, pierce: 1.2 }, undead: true,
+    hp: 48, attack: 13, defense: 4, damageType: 'slash', resist: { holy: 2, shadow: 0.5, fire: 1.3, slash: 1.35, pierce: 1.3 }, undead: true,
     behavior: 'melee', step: 0.75, windup: 0.65, recovery: 1.0, sight: 6,
     minDepth: 3, maxDepth: 6, weight: 2,
     loot: [
@@ -78,7 +90,7 @@ export const ENEMIES: EnemyDef[] = [
   },
   {
     id: 'frost_wisp', name: 'Frost Wisp', sprite: 'wisp', scale: 0.6, floats: true,
-    hp: 26, attack: 10, defense: 1, damageType: 'frost', resist: { frost: 0, fire: 2, pierce: 0.6, slash: 0.8 },
+    hp: 26, attack: 10, defense: 1, damageType: 'frost', resist: { frost: 0, fire: 2, blunt: 0.7, slash: 0.8, pierce: 0.6 },
     behavior: 'ranged', step: 0.45, windup: 0.8, recovery: 1.6, sight: 8, range: 4,
     projectile: { sprite: 'proj_frost', speed: 5, damageType: 'frost', light: '#80c0ff' },
     minDepth: 4, maxDepth: 6, weight: 2, glow: '#6aa8ff',
@@ -105,8 +117,26 @@ export const ENEMIES: EnemyDef[] = [
     description: 'The armour kept walking after the knight stopped.',
   },
   {
+    id: 'barrow_champion', name: 'Barrow Champion', sprite: 'champion', scale: 1.25,
+    hp: 110, attack: 18, defense: 7, damageType: 'blunt',
+    // Bone and nothing else, so blades glance and a spike finds no organ — but
+    // it caves in. Depth 6 had no such target, which left the club line with
+    // nothing to say on the last floor.
+    resist: { blunt: 1.5, slash: 0.55, pierce: 0.5, holy: 2, shadow: 0.5 }, undead: true,
+    behavior: 'melee', step: 0.8, windup: 0.85, recovery: 1.2, sight: 7,
+    minDepth: 5, maxDepth: 6, weight: 1.5,
+    loot: [
+      { id: 'bone', chance: 0.9, min: 2, max: 4 },
+      { id: 'silver', chance: 0.45, min: 1, max: 2 },
+      { id: 'moonsilver', chance: 0.12, min: 1, max: 1 },
+      { id: 'ancient_tome', chance: 0.1, min: 1, max: 1 },
+    ],
+    gold: [10, 34], itemChance: 0.22,
+    description: 'Whatever it was buried with, it kept the hammer.',
+  },
+  {
     id: 'flame_wraith', name: 'Flame Wraith', sprite: 'wraith', scale: 0.95, floats: true,
-    hp: 50, attack: 14, defense: 2, damageType: 'fire', resist: { fire: 0, frost: 2, slash: 0.8, pierce: 0.6 },
+    hp: 50, attack: 14, defense: 2, damageType: 'fire', resist: { fire: 0, frost: 2, blunt: 0.7, slash: 0.8, pierce: 0.6 },
     behavior: 'ranged', step: 0.5, windup: 0.75, recovery: 1.4, sight: 8, range: 4,
     projectile: { sprite: 'proj_fire', speed: 5.5, damageType: 'fire', light: '#ff8030' },
     minDepth: 5, maxDepth: 6, weight: 1.5, glow: '#ff7a2a',
