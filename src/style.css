@@ -571,3 +571,10 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
 .field::placeholder { color: var(--faint); }
 .field:focus { outline: none; border-color: var(--gold); }
 .field.code { flex: 0 0 auto; width: 190px; letter-spacing: 4px; text-align: center; }
+
+.save-chooser { max-width: min(94vw, 620px); padding: 14px 18px 18px; text-align: center; }
+.save-cols { display: flex; gap: 12px; margin-top: 12px; }
+.save-col { flex: 1; display: flex; flex-direction: column; gap: 4px; padding: 12px; text-align: left; }
+.save-col h3 { color: var(--gold); }
+.save-col .btn { margin-top: 8px; }
+@media (max-width: 560px) { .save-cols { flex-direction: column; } }

@@ -13,6 +13,9 @@ import { DungeonOverlays } from './ui/dungeon-ui';
 import { Town } from './ui/town';
 import { summaryScreen, titleScreen } from './ui/screens';
 import { AccountPanel } from './ui/account';
+import { saveChooser } from './ui/save-chooser';
+import { CloudSync } from './cloud/sync';
+import { CloudSave } from './cloud/cloud-save';
 import { h, setTouchMode } from './ui/dom';
 import { TouchControls, TouchMove, isTouchDevice } from './ui/touch';
 import { FULLSCREEN_HELP, fullscreenSupported, isFullscreen, isStandalone, mountFullscreenButton, toggleFullscreen } from './ui/fullscreen';
@@ -25,7 +28,11 @@ type Mode = 'title' | 'town' | 'dungeon' | 'summary';
 const AMBIENT: Record<string, [number, number]> = { crypt: [55, 0.3], mines: [49, 0.5], caverns: [62, 0.75], throne: [41, 0.4] };
 
 // --- State ---------------------------------------------------------------------
-let state: GameState = loadGame() ?? newGame(createRng(randomSeed()));
+const loaded = loadGame();
+// Whether this browser already held progress decides, later, whether a cloud
+// save is a question for the player or simply the only save there is.
+let hadLocalSave = loaded !== null;
+let state: GameState = loaded ?? newGame(createRng(randomSeed()));
 let world: World | null = null;
 let mode: Mode = 'title';
 let saveTimer = 0;
@@ -100,7 +107,7 @@ function renderUpdateBanner(): void {
   updateBanner.replaceChildren(
     h('span', { text: 'A new version is out.' }),
     btn('Update now', () => {
-      saveGame(state);
+      commit();
       void reloadToLatest(id);
     }, 'small primary'),
   );
@@ -115,17 +122,32 @@ async function checkForUpdate(): Promise<void> {
 
 const town = new Town(screen, {
   state: () => state,
-  save: () => saveGame(state),
+  save: () => commit(),
   descend: () => enterDungeon(),
   newGame: () => {
     clearSave();
     state = newGame(createRng(randomSeed()));
-    saveGame(state);
+    hadLocalSave = true;
+    commit();
+    // A reset has to reach the server. Otherwise the old snapshot is still up
+    // there, with a higher generation, ready to come back on the next reload.
+    sync.flush();
     town.tab = 'market';
     town.render();
   },
   toast,
 });
+
+/**
+ * Save locally, then let the cloud catch up in its own time. Every existing
+ * save point goes through here, so marking the snapshot dirty can never be
+ * forgotten, and a cloud failure can never stop a local save from landing.
+ */
+function commit(): void {
+  saveGame(state);
+  hadLocalSave = true;
+  sync.touch();
+}
 
 function toast(text: string, color = '#e8dcc4'): void {
   const el = h('div', {
@@ -153,13 +175,86 @@ function show(m: Mode): void {
   renderUpdateBanner();
 }
 
+const sync = new CloudSync({
+  state: () => state,
+  hasLocalSave: () => hadLocalSave,
+  onStatus: (_status, text) => account.setNote(text),
+});
+
 // One panel for the life of the page: it holds the auth subscription and the
 // stage of a half-finished sign-in, neither of which should be thrown away
 // every time the title screen is rebuilt.
 const account = new AccountPanel({
-  onSignedIn: () => account.setNote('Signed in on this device.'),
-  onSignedOut: () => account.setNote(''),
+  onSignedIn: () => void reconcile(),
+  onSignedOut: () => {
+    sync.reset();
+    dismissChooser();
+    pendingChoice = null;
+  },
 });
+
+/** A cloud save waiting for the player to choose, once it is safe to ask. */
+let pendingChoice: CloudSave | null = null;
+let chooserEl: HTMLElement | null = null;
+
+async function reconcile(): Promise<void> {
+  const result = await sync.begin();
+  if (result.kind === 'take-cloud') installCloud(result.save);
+  else if (result.kind === 'choose') {
+    pendingChoice = result.save;
+    askAboutSaves();
+  }
+}
+
+/**
+ * Ask which save to keep — but only from town or the title screen. A `World`
+ * holds direct references to the running `GameState`, so replacing it mid-delve
+ * would tear the run in half. The question simply waits.
+ */
+function askAboutSaves(): void {
+  if (!pendingChoice || chooserEl || world || mode === 'dungeon') return;
+  const cloud = pendingChoice;
+  chooserEl = saveChooser({
+    local: state,
+    cloud: cloud.state,
+    cloudUpdatedAt: cloud.updatedAt,
+    onKeepLocal: () => {
+      dismissChooser();
+      pendingChoice = null;
+      void sync.keepLocal();
+    },
+    onTakeCloud: () => {
+      dismissChooser();
+      pendingChoice = null;
+      installCloud(cloud);
+    },
+    // Offline for now: nothing is uploaded and nothing is replaced. The
+    // question comes back the next time town or the title is reached.
+    onDismiss: () => dismissChooser(),
+  });
+  app.append(chooserEl);
+}
+
+function dismissChooser(): void {
+  chooserEl?.remove();
+  chooserEl = null;
+}
+
+/** Adopt the cloud snapshot as the game being played. Never during a run. */
+function installCloud(save: CloudSave): void {
+  if (world) return;
+  state = save.state;
+  hadLocalSave = true;
+  saveGame(state);
+  sync.adopt(save);
+  if (mode === 'town') {
+    town.tab = 'stash';
+    town.render();
+  } else {
+    enterTitle();
+  }
+  toast('Cloud save loaded.', '#9ac0ff');
+}
 
 function enterTitle(): void {
   show('title');
@@ -170,6 +265,7 @@ function enterTitle(): void {
     if (touchMode && fullscreenSupported() && !isStandalone() && !isFullscreen()) void toggleFullscreen();
     enterTown();
   }, BUILD_ID, account.el));
+  askAboutSaves();
 }
 
 function enterTown(): void {
@@ -177,6 +273,7 @@ function enterTown(): void {
   screen.replaceChildren(town.root);
   show('town');
   town.render();
+  askAboutSaves();
 }
 
 function startAmbient(): void {
@@ -203,7 +300,7 @@ function enterDungeon(): void {
   screen.replaceChildren();
   show('dungeon');
   renderer.resize();
-  saveGame(state);
+  commit();
   startAmbient();
   hud.message(`Depth ${world.run.depth} — ${biomeForDepth(world.run.depth).name}. The torch gutters.`, '#d8c8a8');
   if (portal) hud.message('The portal closes behind you.', '#9ac0ff');
@@ -220,7 +317,8 @@ function enterDungeon(): void {
 /** Through a town portal: the run stays open and the portal stays put. */
 function returnToTown(): void {
   const banked = bankCarriedGold(state);
-  saveGame(state);
+  commit();
+  sync.flush();
   world = null;
   audio.stopAmbient();
   town.tab = 'stash';
@@ -230,7 +328,8 @@ function returnToTown(): void {
 
 function finishRun(outcome: 'dead' | 'extracted'): void {
   const summary = endRun(state, outcome);
-  saveGame(state);
+  commit();
+  sync.flush();
   world = null;
   audio.stopAmbient();
   show('summary');
@@ -269,12 +368,13 @@ function handle(ev: WorldEvent): void {
       overlays.open('loot', w, ev.pickupId);
       break;
     case 'floor':
-      saveGame(state);
+      commit();
+      sync.flush();
       startAmbient();
       break;
     case 'end':
       ending = { outcome: ev.outcome, t: 0 };
-      saveGame(state);
+      commit();
       break;
     case 'secret':
       break;
@@ -317,7 +417,7 @@ function frame(now: number): void {
       saveTimer += dt;
       if (saveTimer > 15) {
         saveTimer = 0;
-        saveGame(state);
+        commit();
       }
     }
   }
@@ -404,7 +504,7 @@ window.addEventListener('beforeunload', () => saveGame(state));
 // Backgrounded (app switcher, lock screen, other tab): silence audio, save,
 // and pause a run so you don't come back mid-fight. Resume sound on return.
 function goBackground(): void {
-  saveGame(state);
+  commit();
   audio.suspend();
   world?.held.clear();
   world?.setBlock(false);

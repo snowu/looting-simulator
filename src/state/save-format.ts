@@ -77,3 +77,24 @@ export function contentHash(text: string): string {
   }
   return (a >>> 0).toString(16).padStart(8, '0') + (b >>> 0).toString(16).padStart(8, '0');
 }
+
+export interface SaveSummary {
+  day: number;
+  /** Where the save sits: in town, or partway down a delve. */
+  place: string;
+  gold: number;
+  runs: number;
+}
+
+/**
+ * The handful of facts that let a player recognize one of their own saves.
+ *
+ * Deliberately descriptive and never comparative: day, gold and depth can all
+ * legitimately go backwards, so none of them can decide which save is newer.
+ * Only the player can, which is what the chooser is for.
+ */
+export function describeSave(state: GameState): SaveSummary {
+  const run = state.run;
+  const place = run && run.outcome === 'active' ? `Depth ${run.depth}, mid-delve` : 'In town';
+  return { day: state.market?.day ?? 1, place, gold: state.gold ?? 0, runs: state.lifetime?.runs ?? 0 };
+}
