@@ -141,6 +141,18 @@ const PARRY_VULN_MULT = 2;
  * circle behind, or let the bearer start a swing, and the count goes stale.
  */
 const BLOCK_EXPIRY = 2.5;
+
+/**
+ * The guard rhythm. The shield sweeps center fast, holds long enough to chip
+ * two swings, then drops long enough to punish. Hitting the raise is the
+ * parry the bearer lands on *you*; chipping three in a row sags the arm and
+ * opens them up. Everything is read off the sprite, never off a counter.
+ */
+const GUARD_RAISE = 0.25;
+const GUARD_UP = 1.4;
+const GUARD_DOWN = 1.6;
+const GUARD_RANGE = 4;
+const GUARD_BREAK_AT = 3;
 /** Compact button label for an interaction hint. */
 export function shortLabel(hint: string): string {
   if (hint === 'Search') return 'Loot';
@@ -859,26 +871,74 @@ export class World {
   }
 
   /**
-   * Whether the bearer's shield turns this blow: frontal only, guard up only.
-   * Committed to a swing, reeling from a parry, or running, and the shield
-   * might as well be firewood. The wind-up telegraph you already dodge is the
-   * tell for when the guard is down.
+   * What the bearer's shield does about this blow. Frontal only, and only
+   * while the guard is up in some form: committed to a swing, reeling from
+   * your parry, running, or guard down, and the shield might as well be
+   * firewood. A blow into the *raise* is the parry the bearer lands on you;
+   * a blow into the hold just chips.
    */
-  private enemyBlocks(e: EnemyState, def: EnemyDef): boolean {
-    if (!def.shield) return false;
-    if ((e.vuln ?? 0) > 0) return false;
-    if (e.ai === 'windup' || e.ai === 'recover' || e.ai === 'flee') return false;
+  private guardReaction(e: EnemyState, def: EnemyDef): 'bash' | 'chip' | null {
+    if (!def.shield) return null;
+    if ((e.vuln ?? 0) > 0) return null;
+    if (e.ai === 'windup' || e.ai === 'recover' || e.ai === 'flee') return null;
+    if ((e.guard ?? 'down') === 'down') return null;
     const d = dirOf(Math.sign(this.player.x - e.x), Math.sign(this.player.y - e.y));
-    return d !== null && d === e.facing;
+    if (d === null || d !== e.facing) return null;
+    return e.guard === 'raising' ? 'bash' : 'chip';
   }
 
   /**
-   * A blow turned on a shield: most of it absorbed, no stagger — the guard
-   * holds. The second consecutive turned blow is answered with a bash that
-   * drops your guard, stuns you, and lets the bearer start a swing you cannot
-   * dodge. Flank it, wait for its swing, or back off and let the count stale.
+   * The guard rhythm runs on its own while you are close: raise, hold, drop.
+   * The sprite is the whole telegraph — shield sweeping center means back
+   * off, held means circle, dropped means strike.
    */
-  private shieldBlock(e: EnemyState, def: EnemyDef): void {
+  private updateGuard(e: EnemyState, def: EnemyDef, dt: number, threat: boolean): void {
+    if (!def.shield) return;
+    if (e.ai === 'windup' || e.ai === 'recover' || e.ai === 'flee' || e.ai === 'dead') return;
+    if (!threat) {
+      e.guard = 'down';
+      e.blocks = 0;
+      e.guardT = Math.max(e.guardT ?? 0, 0.5);
+      return;
+    }
+    const left = (e.guardT ?? 0) - dt;
+    switch (e.guard ?? 'down') {
+      case 'down':
+        if (left <= 0) {
+          e.guard = 'raising';
+          e.guardT = GUARD_RAISE;
+          const d = dirOf(Math.sign(this.player.x - e.x), Math.sign(this.player.y - e.y));
+          if (d !== null) e.facing = d;
+        } else {
+          e.guardT = left;
+        }
+        break;
+      case 'raising':
+        if (left <= 0) {
+          e.guard = 'up';
+          e.guardT = GUARD_UP;
+        } else {
+          e.guardT = left;
+        }
+        break;
+      case 'up':
+        if (left <= 0) {
+          e.guard = 'down';
+          e.guardT = GUARD_DOWN;
+          e.blocks = 0;
+        } else {
+          e.guardT = left;
+        }
+        break;
+    }
+  }
+
+  /**
+   * A blow into the held guard: most of it absorbed, no stagger — the guard
+   * holds. Lean on it three chips running and the arm sags, dropping the
+   * guard wide open. Flank it, meet its swing, or time the drop instead.
+   */
+  private shieldChip(e: EnemyState, def: EnemyDef): void {
     const sh = def.shield!;
     this.wear('weapon');
     const hit = playerHitsEnemy(this.rng, this.derived, this.anim.attackPower, def);
@@ -903,9 +963,12 @@ export class World {
       this.killEnemy(e);
       return;
     }
-    if (e.blocks >= 2) {
+    if ((e.blocks ?? 0) >= GUARD_BREAK_AT) {
       e.blocks = 0;
-      this.shieldBash(e, def);
+      e.guard = 'down';
+      e.guardT = GUARD_DOWN;
+      this.sfx('break', e.x, e.y);
+      this.msg(`The ${def.name}'s guard sags!`, '#ffe8a0');
     }
   }
 
@@ -918,6 +981,9 @@ export class World {
     a.parryArmed = false;
     a.stunT = def.shield!.stun;
     e.alert = 8;
+    e.blocks = 0;
+    e.guard = 'down';
+    e.guardT = GUARD_DOWN;
     e.lastSeenX = this.player.x;
     e.lastSeenY = this.player.y;
     this.emit({ type: 'shake', amount: 0.6 });
@@ -930,8 +996,13 @@ export class World {
   private hitEnemy(e: EnemyState): void {
     this.wear('weapon');
     const def = enemyDef(e.def);
-    if (this.enemyBlocks(e, def)) {
-      this.shieldBlock(e, def);
+    const reaction = this.guardReaction(e, def);
+    if (reaction === 'bash') {
+      this.shieldBash(e, def);
+      return;
+    }
+    if (reaction === 'chip') {
+      this.shieldChip(e, def);
       return;
     }
     e.blocks = 0;
@@ -1614,6 +1685,9 @@ export class World {
         e.alert -= dt;
       }
 
+      // The guard rhythm ticks while the bearer is free to hold it.
+      this.updateGuard(e, def, dt, e.alert > 0 && dist <= GUARD_RANGE);
+
       switch (e.ai) {
         case 'windup':
           e.timer -= dt;
@@ -1698,6 +1772,12 @@ export class World {
   private beginWindup(e: EnemyState, def: EnemyDef, tx: number, ty: number): void {
     const d = dirOf(Math.sign(tx - e.x), Math.sign(ty - e.y));
     if (d !== null) e.facing = d;
+    // Swinging means the shield is elsewhere: the guard drops tired.
+    if (def.shield) {
+      e.guard = 'down';
+      e.guardT = Math.max(e.guardT ?? 0, GUARD_DOWN);
+      e.blocks = 0;
+    }
     e.ai = 'windup';
     e.timer = def.windup;
     e.lastSeenX = tx;

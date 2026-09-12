@@ -35,7 +35,7 @@ function arena(seed = 1): World {
   throw new Error('no arena');
 }
 
-/** A shieldbearer one tile ahead, facing you, guard up. */
+/** A shieldbearer one tile ahead, facing you, held still. */
 function bearer(w: World, id = 'goblin_shield'): EnemyState {
   const t = w.frontTile(1);
   const e = createEnemy(enemyDef(id), t.x, t.y, turnAround(w.player.facing), `e${id}`, 1);
@@ -53,58 +53,130 @@ function swing(w: World): void {
   tick(w, 1.5);
 }
 
-describe('shieldbearers', () => {
-  it('turn a frontal blow, absorbing most of it', () => {
-    const plain = arena(21);
+describe('the guard rhythm', () => {
+  it('raises while you close in, holds, then drops on its own', () => {
+    const w = arena(31);
+    const e = bearer(w);
+    expect(e.guard ?? 'down').toBe('down');
+    tick(w, 0.1); // threat near and no cooldown: guard comes straight up
+    expect(e.guard).toBe('raising');
+    tick(w, 0.3);
+    expect(e.guard).toBe('up');
+    tick(w, 1.5);
+    expect(e.guard).toBe('down');
+  });
+
+  it('chips a blow into the held guard, with no stagger', () => {
+    const plain = arena(32);
     const a = bearer(plain, 'skeleton');
     a.hp = 500;
+    a.guard = 'down';
+    a.guardT = 99; // never raises: plain comparison swing
     swing(plain);
     const normal = 500 - a.hp;
 
-    const w = arena(21);
+    const w = arena(32);
     const e = bearer(w, 'goblin_shield');
     e.hp = 500;
+    e.guard = 'up';
+    e.guardT = 99; // held: the rhythm cannot drop it mid-swing
+    e.attackCd = 99;
     swing(w);
-    const blocked = 500 - e.hp;
+    const chipped = 500 - e.hp;
 
-    expect(blocked).toBeGreaterThanOrEqual(0);
-    expect(blocked).toBeLessThan(normal);
+    expect(chipped).toBeGreaterThanOrEqual(0);
+    expect(chipped).toBeLessThan(normal);
     expect(e.blocks).toBe(1);
+    expect(e.ai).not.toBe('recover');
   });
 
-  it('take the full blow from behind', () => {
-    const w = arena(22);
+  /** Swing into a frozen raise; the stun only lasts a second, so catch it fresh. */
+  function bashed(w: World, e: EnemyState): void {
+    e.guard = 'raising';
+    e.guardT = 99; // frozen mid-sweep
+    e.attackCd = 99; // passive until the bash starts its swing
+    w.player.stamina = w.derived.maxStamina;
+    w.attack();
+    for (let i = 0; i < 120 && w.anim.stunT <= 0; i++) w.update(1 / 60);
+    expect(e.blocks ?? 0).toBe(0);
+    expect(w.anim.stunT).toBeGreaterThan(0);
+    expect(e.ai).toBe('windup');
+    expect(e.guard).toBe('down');
+  }
+
+  it('bashes a blow into the raise: guard drops, you reel, it swings', () => {
+    const w = arena(33);
+    const e = bearer(w, 'goblin_shield');
+    e.hp = 500;
+    bashed(w, e);
+  });
+
+  it('lands the sure hit through a held guard', () => {
+    const w = arena(34);
+    const e = bearer(w, 'goblin_shield');
+    e.hp = 500;
+    bashed(w, e);
+    const hp = w.player.hp;
+    w.setBlock(true); // guard stays down while stunned
+    tick(w, 1.5);
+    expect(w.player.hp).toBeLessThan(hp);
+  });
+
+  it('sags the guard after three consecutive chips', () => {
+    const w = arena(35);
+    const e = bearer(w, 'goblin_shield');
+    e.hp = 9999;
+    for (let i = 0; i < 3; i++) {
+      e.guard = 'up';
+      e.guardT = 99;
+      e.attackCd = 99;
+      swing(w);
+    }
+    expect(e.guard).toBe('down');
+    expect(e.blocks).toBe(0);
+    // And the opening is real: the next swing lands full.
+    e.guardT = 99; // rhythm held off so nothing re-raises mid-swing
+    const before = e.hp;
+    swing(w);
+    expect(before - e.hp).toBeGreaterThan(2);
+  });
+
+  it('takes the full blow from behind, even held', () => {
+    const w = arena(36);
     const t = w.frontTile(1);
-    // Facing away: same direction you face, so your swing lands in its back.
     const e = createEnemy(enemyDef('goblin_shield'), t.x, t.y, w.player.facing, 'back', 1);
     e.ai = 'chase';
     e.alert = 6;
     e.attackCd = 99;
+    e.guard = 'up';
+    e.guardT = 99;
     w.floor.enemies.push(e);
     e.hp = 500;
     swing(w);
-    const dmg = 500 - e.hp;
-    expect(dmg).toBeGreaterThan(0);
+    expect(500 - e.hp).toBeGreaterThan(2);
     expect(e.blocks ?? 0).toBe(0);
   });
 
-  it('cannot block while reeling from your parry', () => {
-    const w = arena(23);
+  it('cannot guard while reeling from your parry', () => {
+    const w = arena(37);
     const e = bearer(w, 'goblin_shield');
     e.hp = 500;
+    e.guard = 'up';
+    e.guardT = 99;
     e.vuln = 1;
     swing(w);
-    const dmg = 500 - e.hp;
-    expect(dmg).toBeGreaterThan(2);
+    expect(500 - e.hp).toBeGreaterThan(2);
     expect(e.blocks ?? 0).toBe(0);
   });
 
-  it('cannot block mid-swing, and can still be staggered out of it', () => {
-    const w = arena(24);
+  it('cannot guard mid-swing, and can still be staggered out of it', () => {
+    const w = arena(38);
     const e = bearer(w, 'goblin_shield');
     e.hp = 500;
+    e.guard = 'up'; // guard means nothing once committed
+    e.guardT = 99;
     e.ai = 'windup';
-    e.timer = 99; // held mid-swing: guard down
+    e.timer = 99;
     e.alert = 6;
     e.lastSeenX = w.player.x;
     e.lastSeenY = w.player.y;
@@ -116,72 +188,27 @@ describe('shieldbearers', () => {
     expect(e.ai).toBe('recover'); // light foe interrupted, as usual
   });
 
-  /** Swing until the bash lands; the stun only lasts a second, so don't blink. */
-  function bash(w: World, e: EnemyState): void {
-    swing(w);
-    expect(e.blocks).toBe(1);
-    expect(w.anim.stunT).toBe(0);
-    w.player.stamina = w.derived.maxStamina;
-    w.attack();
-    for (let i = 0; i < 120 && (e.blocks ?? 0) > 0; i++) w.update(1 / 60);
-    // Bashed: guard dropped, stunned, bearer swinging at a helpless you.
-    expect(e.blocks).toBe(0);
-    expect(w.anim.stunT).toBeGreaterThan(0);
-    expect(e.ai).toBe('windup');
-  }
-
-  it('bashes back after the second consecutive blocked blow', () => {
-    const w = arena(25);
+  it('drops the guard to swing: no block on the way in', () => {
+    const w = arena(39);
     const e = bearer(w, 'goblin_shield');
     e.hp = 500;
-    bash(w, e);
-  });
-
-  it('lands the sure hit through a held guard', () => {
-    const w = arena(26);
-    const e = bearer(w, 'goblin_shield');
-    e.hp = 500;
-    bash(w, e);
-    const hp = w.player.hp;
-    w.setBlock(true); // guard stays down while stunned
-    tick(w, 1.5);
-    expect(w.player.hp).toBeLessThan(hp);
-  });
-
-  it('lets the count go stale if you back off', () => {
-    const w = arena(27);
-    const e = bearer(w, 'goblin_shield');
-    e.hp = 9999;
-    swing(w);
-    expect(e.blocks).toBe(1);
-    tick(w, 3); // longer than the block memory
-    const before = e.hp;
-    w.player.stamina = w.derived.maxStamina;
-    w.attack();
-    tick(w, 1.5);
-    // Fresh count: blocked once, no bash yet.
-    expect(e.blocks).toBe(1);
-    expect(w.anim.stunT).toBe(0);
-    expect(before - e.hp).toBeGreaterThanOrEqual(0);
-  });
-
-  it('breaks the count when one gets through', () => {
-    const w = arena(28);
-    const e = bearer(w, 'goblin_shield');
-    e.hp = 500;
-    swing(w);
-    expect(e.blocks).toBe(1);
-    // Circle behind for the next swing.
-    e.facing = w.player.facing;
-    swing(w);
-    expect(e.blocks).toBe(0);
-    expect(w.anim.stunT).toBe(0);
+    e.guard = 'up';
+    e.guardT = 99;
+    e.ai = 'windup';
+    e.timer = 0.1; // about to land its own hit: guard already down
+    e.alert = 6;
+    e.lastSeenX = w.player.x;
+    e.lastSeenY = w.player.y;
+    // beginWindup is what a live swing goes through; take the same path.
+    (w as unknown as { beginWindup(e: EnemyState, def: unknown, x: number, y: number): void })
+      .beginWindup(e, enemyDef('goblin_shield'), w.player.x, w.player.y);
+    expect(e.guard).toBe('down');
   });
 });
 
 describe('goblin archer', () => {
   it('looses arrows down a corridor like its bony cousin', () => {
-    const w = arena(29);
+    const w = arena(40);
     const t = w.frontTile(4);
     const e = createEnemy(enemyDef('goblin_archer'), t.x, t.y, turnAround(w.player.facing), 'ga', 1);
     e.ai = 'windup';

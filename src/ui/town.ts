@@ -106,7 +106,7 @@ export class Town {
   private codex: 'creatures' | 'relics' = 'creatures';
   private relic: string | null = null;
   private beast: string | null = null;
-  private beastFrame: 'idle' | 'atk' | 'play' = 'play';
+  private beastFrame: 'idle' | 'atk' | 'block' | 'play' = 'play';
   private beastTint: 'none' | 'hurt' | 'windup' | 'dead' = 'none';
   private beastBob = true;
   private beastTimer: number | null = null;
@@ -1062,6 +1062,7 @@ export class Town {
 
     // Drive the bench. 'play' alternates the two frames the renderer uses;
     // the fixed settings hold one so a single frame can be inspected.
+    // 'block' holds the guard pose, which only shieldbearers have.
     if (known && this.beastFrame === 'play') {
       let on = false;
       this.beastTimer = window.setInterval(() => {
@@ -1069,7 +1070,7 @@ export class Town {
         img.src = artUrl(`${def.sprite}_${on ? 'atk' : '0'}`);
       }, 620);
     } else if (known) {
-      img.src = artUrl(`${def.sprite}_${this.beastFrame === 'atk' ? 'atk' : '0'}`);
+      img.src = artUrl(`${def.sprite}_${this.beastFrame === 'atk' ? 'atk' : this.beastFrame === 'block' ? 'block' : '0'}`);
     }
 
     const pick = <T extends string>(label: string, value: T, options: [T, string][], set: (v: T) => void) =>
@@ -1081,6 +1082,10 @@ export class Town {
     // The animation bench is a development tool, not part of the game: it is
     // built only under `vite dev` and the whole block is dropped from a
     // production bundle, since import.meta.env.DEV is replaced at build time.
+    // Shieldbearers get a third frame for the guard; everyone else plays idle
+    // and attack, which are the two frames the renderer uses.
+    const frames: [typeof this.beastFrame, string][] = [['play', 'Play'], ['idle', 'Idle'], ['atk', 'Attack']];
+    if (def.shield) frames.push(['block', 'Block']);
     const bench = !import.meta.env.DEV ? null : h(
       'div',
       { class: 'beast-bench' },
@@ -1091,7 +1096,7 @@ export class Town {
           e.known = !known;
           this.commit();
         }, 'small')),
-      pick('Frame', this.beastFrame, [['play', 'Play'], ['idle', 'Idle'], ['atk', 'Attack']], (v) => { this.beastFrame = v; }),
+      pick('Frame', this.beastFrame, frames, (v) => { this.beastFrame = v; }),
       pick('Tint', this.beastTint, [['none', 'None'], ['hurt', 'Hurt'], ['windup', 'Wind-up'], ['dead', 'Death']], (v) => { this.beastTint = v; }),
       h('div', { class: 'row beast-row' },
         h('span', { class: 'dim small beast-label', text: 'Motion' }),

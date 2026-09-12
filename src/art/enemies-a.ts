@@ -345,6 +345,59 @@ const SKEL_ERASE_ARM = rows(`
   ________
   ________
 `);
+// --- Shield block pose -----------------------------------------------------------
+// The left arm bends across the body and the shield comes center: the same
+// arm, redrawn — not a second shield teleported in. The weapon arm stays
+// hanging with its weapon down, exactly as in idle.
+const GOB_ERASE_LEFT = rows(`
+  ________
+  ________
+  ________
+  ________
+  ________
+  ________
+  ________
+  ________
+  ________
+  ________
+  ________
+  ________
+  ________
+`);
+const GOB_BENT_ARM = rows(`
+  .....kk..........
+  .....kggk........
+  ......kggk.......
+  .......kggk......
+  .......kggkk.....
+  ........kggk.....
+  .........kkk.....
+  ..........k......
+`);
+const SKEL_ERASE_LEFT = rows(`
+  _______
+  _______
+  _______
+  _______
+  _______
+  _______
+  _______
+  _______
+  _______
+  _______
+  _______
+  _______
+`);
+const SKEL_BENT_ARM = rows(`
+  .....kk..........
+  .....kwwk........
+  ......kwwk.......
+  .......kwwk......
+  .......kwwkk.....
+  ........kwwk.....
+  .........kkk.....
+  ..........k......
+`);
 const GOB_SHIELD = rows(`
   ..kkk..
   .ktttk.
@@ -576,12 +629,22 @@ export const ENEMY_ART_A: ArtDef[] = [
 
   { id: 'gobshield_0', palette: GOBLIN_PAL, rows: stamp(stamp(GOBLIN_BASE, GOBLIN_DAGGER, 28, 15), GOB_SHIELD, 0, 20) },
   {
+    id: 'gobshield_block',
+    palette: GOBLIN_PAL,
+    rows: stamp(stamp(stamp(stamp(GOBLIN_BASE, GOB_ERASE_LEFT, 0, 18), GOB_BENT_ARM, 0, 13), GOB_SHIELD, 9, 13), GOBLIN_DAGGER, 28, 15),
+  },
+  {
     id: 'gobshield_atk',
     palette: GOBLIN_PAL,
     rows: stamp(stamp(stamp(stamp(GOBLIN_BASE, GOB_ERASE_ARM, 26, 15), GOBLIN_RAISED, 25, 3), GOB_SHIELD, 0, 18), GOBLIN_SHRIEK, 12, 15),
   },
 
   { id: 'skelshield_0', palette: SKELETON_PAL, rows: stamp(stamp(SKELETON_BASE, SKELETON_SWORD, 23, 8), SKEL_SHIELD, 1, 17) },
+  {
+    id: 'skelshield_block',
+    palette: SKELETON_PAL,
+    rows: stamp(stamp(stamp(stamp(SKELETON_BASE, SKEL_ERASE_LEFT, 2, 15), SKEL_BENT_ARM, 0, 13), SKEL_SHIELD, 9, 13), SKELETON_SWORD, 23, 8),
+  },
   {
     id: 'skelshield_atk',
     palette: SKELETON_PAL,

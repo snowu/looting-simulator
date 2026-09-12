@@ -149,6 +149,14 @@ export interface EnemyState {
   blocks?: number;
   /** Seconds until the block count goes stale. */
   blockT?: number;
+  /**
+   * Shield guard rhythm: `raising` sweeps the shield center (hitting it then
+   * is answered with a bash), `up` holds it (blows chip), `down` is the
+   * opening. Absent means down.
+   */
+  guard?: 'down' | 'raising' | 'up';
+  /** Seconds left in the current guard state (or cooldown while down). */
+  guardT?: number;
   /** The chest reward this mimic swallowed, released when it dies. */
   mimicTier?: ContainerTier;
   mimicPropId?: string;
