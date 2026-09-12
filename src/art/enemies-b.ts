@@ -38,14 +38,14 @@ const GHOUL_HALF = rows(`
 `);
 const GHOUL_ATK_HALF = rows(`
   ................
-  ..c.c.c.........
-  ..khghk.........
-  ..khggk.........
-  ..khggk.........
+  .c.c.c..........
+  .khghk..........
+  .khggk..........
+  .khggk..........
   ..khggk.........
   ..khggk...kkkkkk
   ..khggk..khhhhhh
-  ..khggk.khgggggg
+  ...khggk.khggggg
   ...khggkkgfkkggg
   ....khggkgkyykgg
   .....khgkggkkggg
@@ -53,10 +53,10 @@ const GHOUL_ATK_HALF = rows(`
   ......khgkfmmmmm
   ......khgkfmmmmm
   ......khkkkfmwmw
-  ....kkhhhhhggggg
-  ...khhhhhggggggg
-  ...khgkggggfgggg
-  .....khkgggfgggg
+  ......kkhhhggggg
+  .....khhhhgggggg
+  .....kkkggggfggg
+  ......kkgggfgggg
   ......kkggfgggff
   .......kgggfgggg
   .......kfggggggf
