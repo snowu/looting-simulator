@@ -15,6 +15,15 @@ import { cloudConfigured, currentSession, onSession, requestCode, signOut, verif
  * gone" — has to leave the game entirely playable.
  */
 
+/**
+ * Supabase's email OTP length is a per-project setting: six by default, and up
+ * to ten. Nothing here may assume six — truncating a longer code turns a
+ * perfectly good sign-in into "token has expired or is invalid", which reads
+ * like the code was wrong rather than like the box ate two digits.
+ */
+const MIN_CODE = 6;
+const MAX_CODE = 10;
+
 type Stage =
   | { name: 'out' }
   | { name: 'email' }
@@ -164,19 +173,22 @@ export class AccountPanel {
     } else if (s.name === 'code' || s.name === 'verifying') {
       const input = h('input', {
         class: 'field code',
-        attrs: { type: 'text', placeholder: '000000', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: '6' },
+        attrs: { type: 'text', placeholder: 'code', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: String(MAX_CODE) },
       });
       const go = (): void => {
         const code = input.value.trim();
-        if (code.length >= 6) void this.verify(s.email, code);
+        if (code.length >= MIN_CODE) void this.verify(s.email, code);
       };
       input.addEventListener('keydown', (e) => {
         if ((e as KeyboardEvent).key === 'Enter') go();
       });
-      // Codes are pasted as often as typed; submit as soon as one is complete.
-      input.addEventListener('input', () => {
-        input.value = input.value.replace(/\D/g, '').slice(0, 6);
-        if (input.value.length === 6) go();
+      // A pasted or autofilled code is whole by definition, so send it. A typed
+      // one is not: there is no way to know how many digits are still coming,
+      // so it waits for Enter or the button rather than guessing a length.
+      input.addEventListener('input', (e) => {
+        input.value = input.value.replace(/\D/g, '').slice(0, MAX_CODE);
+        const how = (e as InputEvent).inputType;
+        if ((how === 'insertFromPaste' || how === 'insertReplacementText') && input.value.length >= MIN_CODE) go();
       });
       kids.push(
         h('div', { class: 'dim small', text: `Code sent to ${s.email}` }),

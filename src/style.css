@@ -570,4 +570,4 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
 }
 .field::placeholder { color: var(--faint); }
 .field:focus { outline: none; border-color: var(--gold); }
-.field.code { flex: 0 0 auto; width: 130px; letter-spacing: 5px; text-align: center; }
+.field.code { flex: 0 0 auto; width: 190px; letter-spacing: 4px; text-align: center; }
