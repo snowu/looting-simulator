@@ -1,7 +1,7 @@
 import { GameState } from '../state/game-state';
 import { Slot } from '../state/persistence';
 import { contentHash, serializeSave } from '../state/save-format';
-import { CloudSave, fetchCloudSave, uploadSave } from './cloud-save';
+import { CloudFetch, CloudSave, fetchCloudSlots, uploadSave } from './cloud-save';
 
 /**
  * The local-first sync coordinator.
@@ -80,6 +80,9 @@ export class CloudSync {
    */
   private blocked = false;
   private _status: SyncStatus = 'off';
+  /** Where this playthrough actually lives in the cloud, which need not be the
+   * slot this device files it under. */
+  private cloudSlot: Slot | null = null;
 
   constructor(private deps: SyncDeps) {
     // A device that was offline when it last tried is the common case for a
@@ -107,38 +110,41 @@ export class CloudSync {
   async begin(): Promise<Reconciliation> {
     this.active = true;
     this.set('syncing');
-    let found;
+    let all: Map<Slot, CloudFetch>;
     try {
-      found = await fetchCloudSave(this.deps.slot());
+      all = await fetchCloudSlots();
     } catch {
       this.set('saved-local');
       return { kind: 'none' };
     }
 
-    if (found.kind === 'incompatible') {
+    const match = this.findMine(all);
+
+    if (match === 'incompatible') {
       this.set('update-required');
       return { kind: 'update-required' };
     }
 
-    if (found.kind === 'none') {
-      // First device on this account. Its save becomes the cloud save, but a
-      // player who has not played yet has nothing worth uploading.
+    if (!match) {
+      // This playthrough has no copy in the cloud. Someone who has been playing
+      // offline and just signed in lands here: their game goes up as it is, and
+      // there is nothing up there for it to displace.
+      this.cloudSlot = null;
+      this.generation = null;
       if (!this.deps.hasLocalSave()) {
-        this.generation = null;
         this.set('synced');
         return { kind: 'none' };
       }
-      this.generation = null;
       const ok = await this.push();
       return ok ? { kind: 'uploaded' } : { kind: 'none' };
     }
 
-    const save = found.save;
-    this.generation = save.generation;
+    this.cloudSlot = match.slot;
+    this.generation = match.generation;
 
     // Same bytes on both sides: nothing happened while this device was away.
-    if (contentHash(save.raw) === contentHash(serializeSave(this.deps.state()))) {
-      this.lastHash = contentHash(save.raw);
+    if (contentHash(match.raw) === contentHash(serializeSave(this.deps.state()))) {
+      this.lastHash = contentHash(match.raw);
       this.set('synced');
       return { kind: 'none' };
     }
@@ -147,12 +153,30 @@ export class CloudSync {
     // ask: the cloud save is the only progress that exists.
     if (!this.deps.hasLocalSave()) {
       this.set('synced');
-      return { kind: 'take-cloud', save };
+      return { kind: 'take-cloud', save: match };
     }
 
     this.blocked = true;
     this.set('conflict');
-    return { kind: 'choose', save };
+    return { kind: 'choose', save: match };
+  }
+
+  /**
+   * Find this playthrough in the cloud by its identity, wherever it is filed.
+   * A row written before ids existed can only be matched by position, and only
+   * where this device files this game — nothing else could have put it there.
+   */
+  private findMine(all: Map<Slot, CloudFetch>): CloudSave | 'incompatible' | null {
+    const mine = this.deps.state().saveId;
+    if (mine) {
+      for (const found of all.values()) {
+        if (found.kind === 'save' && found.save.state.saveId === mine) return found.save;
+      }
+    }
+    const here = all.get(this.deps.slot());
+    if (here?.kind === 'incompatible') return 'incompatible';
+    if (here?.kind === 'save' && !here.save.state.saveId) return here.save;
+    return null;
   }
 
   /** The player chose this device. Their snapshot replaces the cloud row. */
@@ -165,6 +189,7 @@ export class CloudSync {
   /** The player chose the cloud save; the caller has installed it. */
   adopt(save: CloudSave): void {
     this.blocked = false;
+    this.cloudSlot = save.slot;
     this.generation = save.generation;
     this.lastHash = contentHash(save.raw);
     this.dirty = false;
@@ -181,6 +206,7 @@ export class CloudSync {
     this.timer = null;
     this.blocked = false;
     this.dirty = false;
+    this.cloudSlot = null;
     this.generation = null;
     this.lastHash = null;
   }
@@ -249,8 +275,9 @@ export class CloudSync {
     this.busy = true;
     this.set('syncing');
     try {
-      const res = await uploadSave(this.deps.slot(), state, this.generation);
+      const res = await uploadSave(this.cloudSlot ?? this.deps.slot(), state, this.generation);
       if (res.status === 'ok' || res.status === 'unchanged') {
+        this.cloudSlot = res.slot;
         this.generation = res.generation;
         this.lastHash = hash;
         this.dirty = false;

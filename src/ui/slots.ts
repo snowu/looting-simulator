@@ -17,6 +17,8 @@ export interface SlotView {
   slot: Slot;
   local: GameState | null;
   cloud: CloudSave | null;
+  /** A cloud save this build is too old to read. Shown, never overwritten. */
+  cloudUnreadable?: boolean;
 }
 
 export function slotPicker(views: SlotView[], onPlay: (slot: Slot) => void): HTMLElement {
@@ -27,7 +29,15 @@ function card(v: SlotView, onPlay: (slot: Slot) => void): HTMLElement {
   const shown = v.local ?? v.cloud?.state ?? null;
   const kids: (Node | null)[] = [h('div', { class: 'slot-name', text: `Slot ${v.slot}` })];
 
-  if (!shown) {
+  if (!shown && v.cloudUnreadable) {
+    // There is a save here; this build just cannot read it. Saying "Empty"
+    // would invite starting a new game straight over the top of it.
+    kids.push(
+      h('div', { class: 'gold-t small', text: 'Needs a newer version' }),
+      h('div', { class: 'grow' }),
+      btn('Update', () => location.reload(), 'small'),
+    );
+  } else if (!shown) {
     kids.push(
       h('div', { class: 'dim', text: 'Empty' }),
       h('div', { class: 'grow' }),

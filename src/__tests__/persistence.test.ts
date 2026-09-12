@@ -105,6 +105,26 @@ describe('loading an old save', () => {
     expect(s.run!.keys).toEqual([]);
   });
 
+  it('gives a save written before ids existed an identity', () => {
+    const s = parseSave(LEGACY)!;
+    expect(typeof s.saveId).toBe('string');
+    expect(s.saveId!.length).toBeGreaterThan(8);
+  });
+
+  it('never re-identifies a save that already has an id', () => {
+    // The id is how sync recognises this playthrough on another device. If
+    // loading could change it, the same game would start syncing as two.
+    const once = parseSave(LEGACY)!;
+    const again = parseSave(JSON.stringify(once))!;
+    expect(again.saveId).toBe(once.saveId);
+  });
+
+  it('gives separate games separate identities', () => {
+    const a = newGame(createRng(1));
+    const b = newGame(createRng(1));
+    expect(a.saveId).not.toBe(b.saveId);
+  });
+
   it('is idempotent — migrating twice changes nothing', () => {
     const once = parseSave(LEGACY)!;
     const twice = migrateSave(JSON.parse(JSON.stringify(once)));

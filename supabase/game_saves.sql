@@ -11,6 +11,11 @@ create table if not exists public.game_saves (
   user_id uuid not null references auth.users(id) on delete cascade,
   -- One row per playthrough. Slots are independent saves, not a history.
   slot smallint not null default 1,
+  -- Identifies the playthrough itself. Slots are positions: the same game can
+  -- be slot 1 on a laptop and slot 3 on a phone, and sync matches on this.
+  -- Nullable because rows written before ids existed have none until their
+  -- device next uploads.
+  save_id text,
   state jsonb not null,
   format_version integer not null,
   schema_revision integer not null,
@@ -34,6 +39,13 @@ begin
     alter table public.game_saves add primary key (user_id, slot);
   end if;
 end $$;
+
+alter table public.game_saves add column if not exists save_id text;
+
+-- One playthrough cannot occupy two slots. Partial, because legacy rows share
+-- a null id until the device that owns them uploads again.
+create unique index if not exists game_saves_user_save_id
+  on public.game_saves (user_id, save_id) where save_id is not null;
 
 do $$
 begin
@@ -103,8 +115,12 @@ with check (auth.uid() = user_id);
  * Output columns are prefixed so the body can reference table columns without
  * plpgsql resolving them to the OUT parameters.
  */
+-- The slots-without-ids signature never shipped, so nothing is calling it.
+drop function if exists public.save_game(smallint, bigint, jsonb, integer, integer, text, text);
+
 create or replace function public.save_game(
   p_slot smallint,
+  p_save_id text,
   p_expected_generation bigint,
   p_state jsonb,
   p_format_version integer,
@@ -112,7 +128,7 @@ create or replace function public.save_game(
   p_device_id text,
   p_content_hash text
 )
-returns table (result_status text, result_generation bigint, result_updated_at timestamptz)
+returns table (result_status text, result_slot smallint, result_generation bigint, result_updated_at timestamptz)
 language plpgsql
 security invoker
 set search_path = public, pg_temp
@@ -122,70 +138,86 @@ declare
   v_current public.game_saves%rowtype;
   v_gen bigint;
   v_at timestamptz;
+  v_slot smallint;
 begin
   if v_uid is null then
     raise exception 'not authenticated' using errcode = '28000';
   end if;
 
-  select * into v_current from public.game_saves where user_id = v_uid and slot = p_slot;
+  -- Identity first, position second. The same playthrough can sit in a
+  -- different slot on every device, so a save is found by what it is and only
+  -- then by where this device happens to file it.
+  if p_save_id is not null then
+    select * into v_current from public.game_saves
+    where user_id = v_uid and save_id = p_save_id;
+  end if;
 
-  -- No row yet. Only an upload that expects to find none may create one; an
-  -- upload naming a generation has lost a row it thought existed.
-  if not found then
+  if v_current.user_id is null then
+    select * into v_current from public.game_saves
+    where user_id = v_uid and slot = p_slot;
+  end if;
+
+  -- Neither this playthrough nor anything in the requested slot: a new row.
+  if v_current.user_id is null then
     if p_expected_generation is not null then
-      return query select 'conflict'::text, null::bigint, null::timestamptz;
+      return query select 'conflict'::text, p_slot, null::bigint, null::timestamptz;
       return;
     end if;
-    insert into public.game_saves (user_id, slot, state, format_version, schema_revision, generation, device_id, content_hash)
-    values (v_uid, p_slot, p_state, p_format_version, p_schema_revision, 1, p_device_id, p_content_hash)
-    returning game_saves.generation, game_saves.updated_at into v_gen, v_at;
-    return query select 'ok'::text, v_gen, v_at;
+    insert into public.game_saves (user_id, slot, save_id, state, format_version, schema_revision, generation, device_id, content_hash)
+    values (v_uid, p_slot, p_save_id, p_state, p_format_version, p_schema_revision, 1, p_device_id, p_content_hash)
+    returning game_saves.slot, game_saves.generation, game_saves.updated_at into v_slot, v_gen, v_at;
+    return query select 'ok'::text, v_slot, v_gen, v_at;
     return;
   end if;
 
   -- An older build must not write over a save in a format it cannot fully
   -- read. The client checks this too; here it is enforced.
   if p_format_version < v_current.format_version or p_schema_revision < v_current.schema_revision then
-    return query select 'stale_client'::text, v_current.generation, v_current.updated_at;
+    return query select 'stale_client'::text, v_current.slot, v_current.generation, v_current.updated_at;
     return;
   end if;
 
   -- Town UI churn reaches the same commit path as real progress, so an upload
   -- that would change nothing is dropped before it costs a generation.
   if v_current.content_hash = p_content_hash then
-    return query select 'unchanged'::text, v_current.generation, v_current.updated_at;
+    return query select 'unchanged'::text, v_current.slot, v_current.generation, v_current.updated_at;
     return;
   end if;
 
   if p_expected_generation is null or p_expected_generation <> v_current.generation then
-    return query select 'conflict'::text, v_current.generation, v_current.updated_at;
+    return query select 'conflict'::text, v_current.slot, v_current.generation, v_current.updated_at;
     return;
   end if;
 
+  -- The row keeps the slot it already occupies: a playthrough already filed on
+  -- this account does not move because another device numbers its slots
+  -- differently.
   update public.game_saves
   set state = p_state,
+      save_id = coalesce(p_save_id, save_id),
       format_version = p_format_version,
       schema_revision = p_schema_revision,
       generation = v_current.generation + 1,
       device_id = p_device_id,
       content_hash = p_content_hash,
       updated_at = now()
-  where user_id = v_uid and slot = p_slot and generation = p_expected_generation
-  returning game_saves.generation, game_saves.updated_at into v_gen, v_at;
+  where user_id = v_uid and slot = v_current.slot and generation = p_expected_generation
+  returning game_saves.slot, game_saves.generation, game_saves.updated_at into v_slot, v_gen, v_at;
 
   -- Lost a race between the read above and the update.
   if v_gen is null then
-    select generation, updated_at into v_gen, v_at from public.game_saves where user_id = v_uid and slot = p_slot;
-    return query select 'conflict'::text, v_gen, v_at;
+    select slot, generation, updated_at into v_slot, v_gen, v_at
+    from public.game_saves where user_id = v_uid and slot = v_current.slot;
+    return query select 'conflict'::text, v_slot, v_gen, v_at;
     return;
   end if;
 
-  return query select 'ok'::text, v_gen, v_at;
+  return query select 'ok'::text, v_slot, v_gen, v_at;
 end;
 $$;
 
-revoke all on function public.save_game(smallint, bigint, jsonb, integer, integer, text, text) from public, anon;
-grant execute on function public.save_game(smallint, bigint, jsonb, integer, integer, text, text) to authenticated;
+revoke all on function public.save_game(smallint, text, bigint, jsonb, integer, integer, text, text) from public, anon;
+grant execute on function public.save_game(smallint, text, bigint, jsonb, integer, integer, text, text) to authenticated;
 
 /*
  * The pre-slots signature, kept as a shim onto slot 1.
@@ -210,8 +242,9 @@ language sql
 security invoker
 set search_path = public, pg_temp
 as $$
-  select * from public.save_game(1::smallint, p_expected_generation, p_state,
-                                 p_format_version, p_schema_revision, p_device_id, p_content_hash);
+  select result_status, result_generation, result_updated_at
+  from public.save_game(1::smallint, null::text, p_expected_generation, p_state,
+                        p_format_version, p_schema_revision, p_device_id, p_content_hash);
 $$;
 
 revoke all on function public.save_game(bigint, jsonb, integer, integer, text, text) from public, anon;

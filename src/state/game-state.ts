@@ -10,6 +10,7 @@ import { Floor } from '../systems/dungeon';
 import { makeConsumable, makeEquipment, makeMaterial } from '../systems/items';
 import { STARTER_RECIPES } from '../data/recipes';
 import { SAVE_REVISION } from './migrations';
+import { newId } from '../core/id';
 import { BASE_BACKPACK } from '../systems/meta';
 
 export const SAVE_VERSION = 2;
@@ -89,6 +90,12 @@ export interface GameState {
   version: number;
   /** Additive schema revision within `version` — see state/migrations.ts. */
   revision?: number;
+  /**
+   * Identifies this playthrough wherever it is stored. Sync matches on it
+   * rather than on slot position, so the same game is recognised across
+   * devices even when it sits in a different slot on each.
+   */
+  saveId?: string;
   gold: number;
   renown: number;
   stash: Container;
@@ -120,6 +127,7 @@ export function newGame(rng: Rng): GameState {
   return {
     version: SAVE_VERSION,
     revision: SAVE_REVISION,
+    saveId: newId(),
     gold: 120,
     renown: 0,
     stash,

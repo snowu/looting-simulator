@@ -16,7 +16,7 @@ import { AccountPanel } from './ui/account';
 import { saveChooser } from './ui/save-chooser';
 import { SlotView, slotPicker } from './ui/slots';
 import { CloudSync } from './cloud/sync';
-import { CloudSave, fetchCloudSave, fetchCloudSlots } from './cloud/cloud-save';
+import { CloudFetch, CloudSave, fetchCloudSave, fetchCloudSlots } from './cloud/cloud-save';
 import { h, setTouchMode } from './ui/dom';
 import { TouchControls, TouchMove, isTouchDevice } from './ui/touch';
 import { FULLSCREEN_HELP, fullscreenSupported, isFullscreen, isStandalone, mountFullscreenButton, toggleFullscreen } from './ui/fullscreen';
@@ -39,7 +39,7 @@ const loaded = loadGame(slot);
 let hadLocalSave = loaded !== null;
 let state: GameState = loaded ?? newGame(createRng(randomSeed()));
 let signedIn = false;
-let cloudSlots = new Map<Slot, CloudSave>();
+let cloudSlots = new Map<Slot, CloudFetch>();
 let world: World | null = null;
 let mode: Mode = 'title';
 let saveTimer = 0;
@@ -295,7 +295,7 @@ function installCloud(save: CloudSave): void {
   state = save.state;
   hadLocalSave = true;
   saveGame(state, slot);
-  cloudSlots.set(save.slot, save);
+  cloudSlots.set(save.slot, { kind: 'save', save });
   sync.adopt(save);
   if (mode === 'town') {
     town.tab = 'stash';
@@ -307,7 +307,15 @@ function installCloud(save: CloudSave): void {
 }
 
 function slotViews(): SlotView[] {
-  return SLOTS.map((n) => ({ slot: n, local: loadGame(n), cloud: cloudSlots.get(n) ?? null }));
+  return SLOTS.map((n) => {
+    const found = cloudSlots.get(n);
+    return {
+      slot: n,
+      local: loadGame(n),
+      cloud: found?.kind === 'save' ? found.save : null,
+      cloudUnreadable: found?.kind === 'incompatible',
+    };
+  });
 }
 
 function enterTitle(): void {

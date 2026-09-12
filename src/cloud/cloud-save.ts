@@ -29,8 +29,8 @@ export type CloudFetch =
   | { kind: 'incompatible'; generation: number; updatedAt: string; schemaRevision: number };
 
 export type UploadResult =
-  | { status: 'ok' | 'unchanged'; generation: number; updatedAt: string }
-  | { status: 'conflict' | 'stale_client'; generation: number | null; updatedAt: string | null };
+  | { status: 'ok' | 'unchanged'; slot: Slot; generation: number; updatedAt: string }
+  | { status: 'conflict' | 'stale_client'; slot: Slot; generation: number | null; updatedAt: string | null };
 
 interface Row {
   slot: Slot;
@@ -65,16 +65,13 @@ export async function fetchCloudSave(slot: Slot): Promise<CloudFetch> {
  * Every slot this player has in the cloud, for the title screen's picker. A
  * device that has never played still has to be able to see what is up there.
  */
-export async function fetchCloudSlots(): Promise<Map<Slot, CloudSave>> {
+export async function fetchCloudSlots(): Promise<Map<Slot, CloudFetch>> {
   const { data, error } = await (await supabase()).from('game_saves').select(COLUMNS);
   if (error) throw error;
-  const out = new Map<Slot, CloudSave>();
-  for (const row of (data ?? []) as Row[]) {
-    const found = readRow(row);
-    // Slots this build cannot read are simply not offered; the picker shows
-    // them as unavailable rather than pretending they are empty.
-    if (found.kind === 'save') out.set(found.save.slot, found.save);
-  }
+  const out = new Map<Slot, CloudFetch>();
+  // Rows this build cannot read are reported rather than hidden, so a slot the
+  // player really has does not show up as empty and invite overwriting.
+  for (const row of (data ?? []) as Row[]) out.set(row.slot, readRow(row));
   return out;
 }
 
@@ -114,11 +111,14 @@ export async function uploadSave(slot: Slot, state: GameState, expectedGeneratio
   // A save from a newer build must not be written back under this build's
   // revision. The server enforces this too; refusing here saves a round trip
   // and gives the UI something specific to say.
-  if (isFutureSave(state)) return { status: 'stale_client', generation: expectedGeneration, updatedAt: null };
+  if (isFutureSave(state)) return { status: 'stale_client', slot, generation: expectedGeneration, updatedAt: null };
 
   const raw = serializeSave(state);
   const { data, error } = await (await supabase()).rpc('save_game', {
     p_slot: slot,
+    // Identity travels with the save, so the server can recognise this
+    // playthrough even when another device filed it in a different slot.
+    p_save_id: state.saveId ?? null,
     p_expected_generation: expectedGeneration,
     p_state: JSON.parse(raw),
     p_format_version: state.version,
@@ -129,13 +129,16 @@ export async function uploadSave(slot: Slot, state: GameState, expectedGeneratio
   if (error) throw error;
 
   const row = (Array.isArray(data) ? data[0] : data) as
-    | { result_status: string; result_generation: number | null; result_updated_at: string | null }
+    | { result_status: string; result_slot: Slot; result_generation: number | null; result_updated_at: string | null }
     | undefined;
   if (!row) throw new Error('save_game returned nothing');
 
+  // The row keeps whichever slot it already occupied on this account, which
+  // need not be the one this device asked for.
+  const landed = row.result_slot ?? slot;
   const status = row.result_status as UploadResult['status'];
   if (status === 'ok' || status === 'unchanged') {
-    return { status, generation: row.result_generation!, updatedAt: row.result_updated_at! };
+    return { status, slot: landed, generation: row.result_generation!, updatedAt: row.result_updated_at! };
   }
-  return { status, generation: row.result_generation, updatedAt: row.result_updated_at };
+  return { status, slot: landed, generation: row.result_generation, updatedAt: row.result_updated_at };
 }

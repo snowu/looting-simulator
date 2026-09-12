@@ -2,6 +2,7 @@ import { GameState } from './game-state';
 import { Floor, shrineKindFor } from '../systems/dungeon';
 import { createContainer } from './inventory';
 import { BASE_BACKPACK } from '../systems/meta';
+import { newId } from '../core/id';
 
 /**
  * Additive save migrations.
@@ -18,7 +19,7 @@ import { BASE_BACKPACK } from '../systems/meta';
  */
 
 /** Bump this (and push a migration) whenever a field is added to the save. */
-export const SAVE_REVISION = 7;
+export const SAVE_REVISION = 8;
 
 type AnyState = GameState & Record<string, unknown>;
 
@@ -74,6 +75,12 @@ const MIGRATIONS: ((s: AnyState) => void)[] = [
       if (!f) continue;
       for (const p of f.props ?? []) if (p.kind === 'shrine') p.shrine ??= shrineKindFor(f.seed, p.id);
     }
+  },
+  // 7 → 8: a playthrough gains an identity of its own, so sync can match it
+  // across devices instead of trusting which slot it landed in. An existing
+  // save is the same game it always was and simply gets an id assigned.
+  (s) => {
+    s.saveId ??= newId();
   },
 ];
 
