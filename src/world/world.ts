@@ -1011,7 +1011,7 @@ export class World {
           f.enemies.push(mimic);
           this.sfx('alert', p.x, p.y);
           this.emit({ type: 'shake', amount: 0.35 });
-          this.msg('The chest splits into a hungry grin!', '#e8c080');
+          this.msg('The chest sprouts legs and splits into a hungry grin!', '#e8c080');
           return;
         }
         p.used = true;

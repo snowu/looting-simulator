@@ -154,9 +154,10 @@ There is nothing below. Each new run rolls a fresh seed, so depth 6 can be farme
 | Frost Wisp | 4–6 | 26 | 10 | 1 | frost | **fire ×2**, frost ×0, pierce ×0.6, slash ×0.8 | ranged (frost bolt, speed 5, range 4) | 0.80 | 1.60 | 0.45 | 8 |
 | Hollow Knight | 5–6 | 80 | 16 | 9 | slash | holy ×1.6, blunt ×1.2, pierce ×0.7, shadow ×0.5 | melee | 0.70 | 1.00 | 0.65 | 7 |
 | Flame Wraith | 5–6 | 50 | 14 | 2 | fire | **frost ×2**, fire ×0, pierce ×0.6, slash ×0.8 | ranged (fire bolt, speed 5.5, range 4) | 0.75 | 1.40 | 0.50 | 8 |
+| Mimic | any chest | 52 | 14 | 5 | pierce | blunt ×1.25, fire ×1.35 | fast melee; dormant until opened | 0.52 | 0.80 | 0.32 | 8 |
 | The Ashen King | 6 (boss) | 420 | 24 | 12 | shadow | holy ×1.5, shadow ×0, pierce ×0.8 | boss: melee + 3-bolt volley | 0.80 | 1.00 | 0.80 | 12 |
 
-Spawn weights: rat/goblin/skeleton/spider 3, archer/ghoul/wisp 2, knight/wraith 1.5. Monsters deeper than their `minDepth` get `+12% HP per depth` and the same bonus to damage.
+Spawn weights: rat/goblin/skeleton/spider 3, archer/ghoul/wisp 2, knight/wraith 1.5. Mimics never enter the ordinary spawn pool. Monsters deeper than their `minDepth` get `+12% HP per depth` and the same bonus to damage.
 
 ### Monster drops
 
@@ -171,6 +172,7 @@ Spawn weights: rat/goblin/skeleton/spider 3, archer/ghoul/wisp 2, knight/wraith 
 | Frost Wisp | frost shard 45%, crystal 35%, moonstone 8% | 0–5 | 8% |
 | Hollow Knight | iron 80% (2–3), silver 40%, moonsilver 8%, candelabra 10% | 10–40 | 45% |
 | Flame Wraith | flame shard 45%, gold 20%, emerald 8%, tome 8%, shadow essence 5% | 5–25 | 25% |
+| Mimic | the exact tier of hoard hidden by its chest disguise | chest roll | chest roll |
 | The Ashen King | star iron ×1–2, shadow essence ×1–2, jewelled skull, dragon scale 50% | 150–300 | guaranteed Legendary + Epic + a blueprint |
 
 Every kill also has a 6% chance of a Healing Draught and `1.2% × depth` of a blueprint. Loot find multiplies material chances by `1 + find/200` and gear chance by `1 + find/100`.
@@ -279,7 +281,7 @@ An item is **base × material × rarity × affixes × quality**. Nothing is stor
 
 ### Containers
 
-Each newly generated chest has a deterministic **12% chance to be a mimic**. It looks almost right: two pale points interrupt the lid seam, visible to someone who has learned to check without announcing the trick to a first-time player. Opening one replaces the chest with a Mimic and gives you a brief moment to react. Killing it releases the same tier of hoard the chest would have contained, including vault and secret-chest rewards.
+Each newly generated chest has a deterministic **12% chance to be a mimic**. It looks almost right: two pale points interrupt the lid seam, visible to someone who has learned to check without announcing the trick to a first-time player. Opening one makes it split into a maw and unfold eight wooden legs, with a brief moment to react before this unusually tough, fast monster attacks. Killing it releases the same tier of hoard the chest would have contained, including vault and secret-chest rewards.
 
 | Source | Contents |
 |---|---|

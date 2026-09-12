@@ -49,6 +49,7 @@ describe('mimics', () => {
     expect(mimic.def).toBe('mimic');
     expect(mimic.ai).toBe('recover');
     expect(mimic.alert).toBeGreaterThan(0);
+    expect(mimic.maxHp).toBe(52);
     expect(mimic.mimicTier).toBe('vault');
 
     w.interact();

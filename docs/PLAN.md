@@ -30,7 +30,7 @@ where the real game is what you do with the loot: trade it, craft with it, fill 
   affine texture warp, per-pixel torch lighting, fog, 15-bit colour + Bayer dither post pass,
   billboard sprites, hand-drawn weapon viewmodel.
 - **World sim** — fixed-timestep real-time: enemies with sight/hearing, BFS chase, telegraphed
-  melee, ranged projectiles, doors, keys, secret walls, chests, breakables, floor loot.
+  melee, ranged projectiles, doors, keys, secret walls, chests and mimics, breakables, floor loot.
 - **Items** — base × material × rarity × affixes; unidentified drops; 7 equipment slots;
   limited backpack; consumables (potions, scrolls of identify/recall).
 - **Crafting** — blueprints with material *slots* (metal/wood/hide/cloth/gem); the material you
@@ -55,6 +55,7 @@ where the real game is what you do with the loot: trade it, craft with it, fill 
 ## Next ideas
 
 - [x] Traps: dart plates, spike pits and alarm wards, spotted by looking rather than by a roll.
+- [x] Mimic chests: deterministic chance, a subtle visual tell, and the original hoard on death.
 - [ ] More shrine outcomes beyond the current cruel/restore split.
 - [ ] Durability & repairs (a Shadow Tower staple and another gold sink).
 - [ ] Legendary uniques with bespoke effects instead of named random rolls.
