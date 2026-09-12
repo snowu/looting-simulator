@@ -10,6 +10,12 @@ const LEGACY = JSON.stringify(legacySave);
 
 const fresh = (): GameState => newGame(createRng(1));
 
+function reverseObjectKeys(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(reverseObjectKeys);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.entries(value).reverse().map(([key, child]) => [key, reverseObjectKeys(child)]));
+}
+
 describe('writing a save', () => {
   it('stamps the revision this build writes at', () => {
     const s = parseSave(LEGACY)!;
@@ -66,6 +72,16 @@ describe('content hash', () => {
     expect(contentHash(serializeSave(s))).not.toBe(before);
   });
 
+  it('is stable after a jsonb-style recursive key reorder', () => {
+    const local = fresh();
+    const localRaw = serializeSave(local);
+    const databaseRaw = JSON.stringify(reverseObjectKeys(JSON.parse(localRaw)));
+    const downloaded = parseSave(databaseRaw)!;
+
+    expect(serializeSave(downloaded)).toBe(localRaw);
+    expect(contentHash(serializeSave(downloaded))).toBe(contentHash(localRaw));
+  });
+
   it('notices a change buried deep in a run', () => {
     const s = parseSave(LEGACY)!;
     const before = contentHash(serializeSave(s));
@@ -97,5 +113,11 @@ describe('progress hash', () => {
     const b = parseSave(LEGACY)!;
     b.gold += 1;
     expect(progressHash(a)).not.toBe(progressHash(b));
+  });
+
+  it('ignores object key order at every depth', () => {
+    const local = fresh();
+    const reordered = parseSave(JSON.stringify(reverseObjectKeys(JSON.parse(serializeSave(local)))))!;
+    expect(progressHash(reordered)).toBe(progressHash(local));
   });
 });

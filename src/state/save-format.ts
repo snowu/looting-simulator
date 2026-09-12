@@ -19,7 +19,24 @@ const AFFIX_IDS = new Set(AFFIXES.map((a) => a.id));
 /** Serialize for storage, stamping the revision this build is writing at. */
 export function serializeSave(state: GameState): string {
   stampRevision(state);
-  return JSON.stringify(state);
+  return canonicalJson(state);
+}
+
+/** Stable JSON for comparisons across stores such as Postgres jsonb. */
+function canonicalJson(value: unknown): string {
+  return JSON.stringify(sortObjectKeys(value));
+}
+
+function sortObjectKeys(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sortObjectKeys);
+  if (!value || typeof value !== 'object') return value;
+
+  const out: Record<string, unknown> = {};
+  for (const key of Object.keys(value).sort()) {
+    const sorted = sortObjectKeys((value as Record<string, unknown>)[key]);
+    if (sorted !== undefined) out[key] = sorted;
+  }
+  return out;
 }
 
 /**
@@ -109,5 +126,5 @@ export function describeSave(state: GameState): SaveSummary {
  */
 export function progressHash(state: GameState): string {
   const { saveId: _saveId, ...rest } = state;
-  return contentHash(JSON.stringify(rest));
+  return contentHash(canonicalJson(rest));
 }
