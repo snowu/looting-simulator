@@ -283,7 +283,7 @@ table.market .num { text-align: right; font-variant-numeric: tabular-nums; }
 .title-screen .tag { color: var(--dim); font-size: 24px; margin: 6px 0 24px; }
 .help { font-size: 19px; text-align: left; columns: 2; column-gap: 30px; }
 .help div { break-inside: avoid; }
-.help kbd { font-family: inherit; color: var(--gold); display: inline-block; min-width: 88px; }
+.help kbd { font-family: inherit; color: var(--gold); display: inline-block; min-width: 118px; padding-right: 8px; }
 
 .dim-overlay { position: absolute; inset: 0; background: #000; pointer-events: none; transition: opacity 0.4s; }
 
@@ -496,7 +496,7 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
   .loot-row .slot { --sz: 32px !important; }
   .loot-list { max-height: 55vh; }
   .help { font-size: 14px; }
-  .help kbd { min-width: 70px; }
+  .help kbd { min-width: 92px; padding-right: 6px; }
   .tooltip { font-size: 14px; max-width: 240px; border-width: 8px; }
   .tt-name { font-size: 17px; }
   .tt-dim { font-size: 13px; }

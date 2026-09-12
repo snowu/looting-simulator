@@ -302,7 +302,8 @@ export class DungeonOverlays {
         'p',
         { class: 'dim', style: 'margin-top:10px;max-width:640px' },
         'Enemies telegraph: they lean in and flash red before striking. Step out of the tile they are aiming at, or raise your guard. ' +
-          'Chalk X marks on a wall mean something is hidden behind it. The way out is the stairs you came down — or a Scroll of Recall.',
+          'Chalk X marks on a wall mean something is hidden behind it, and loose flagstones mean a trap — watch the floor ahead of you. ' +
+          'The way out is the stairs you came down. A Scroll of Recall instead opens a portal you can step back through, so you can sell and restock mid-delve.',
       ),
     );
   }
