@@ -276,7 +276,7 @@ export class DungeonOverlays {
       ['Drag ← →', 'Turn — hold to keep turning'],
       ['Tap view', 'Swing — or Loot / Open / Pray / Descend when facing something'],
       ['Main button', 'Same as a tap; hold to keep swinging'],
-      ['Shield', 'Hold to block (shields block far more)'],
+      ['Shield', 'Hold to block — raise it as they strike to parry'],
       ['Quick slots', 'Tap to drink / read'],
       ['Pack · Map', 'Gear, backpack and the automap'],
     ];
@@ -285,7 +285,7 @@ export class DungeonOverlays {
       ['A / D  ← →', 'Turn'],
       ['Q / E', 'Strafe left / right'],
       ['Space / LMB', 'Swing — hits harder with stamina above half'],
-      ['Shift / RMB', 'Hold to block (shields block far more)'],
+      ['Shift / RMB', 'Hold to block — raise it as they strike to parry'],
       ['F', 'Open, search, loot, pray, push marked walls'],
       ['1 – 4', 'Drink / read your first four consumables'],
       ['I / Tab', 'Pack & gear'],
@@ -302,6 +302,8 @@ export class DungeonOverlays {
         'p',
         { class: 'dim', style: 'margin-top:10px;max-width:640px' },
         'Enemies telegraph: they lean in and flash red before striking. Step out of the tile they are aiming at, or raise your guard. ' +
+          'Raise it just as the blow lands and you parry instead: no damage at all, melee attackers reel and take double, and arrows and bolts fly back the way they came. ' +
+          'Your shield flashes while the window is open. Holding the guard up does not parry — you have to meet the swing. ' +
           'Chalk X marks on a wall mean something is hidden behind it, and loose flagstones mean a trap — watch the floor ahead of you. ' +
           'The way out is the stairs you came down. A Scroll of Recall instead opens a portal you can step back through, so you can sell and restock mid-delve.',
       ),

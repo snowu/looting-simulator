@@ -60,6 +60,7 @@ describe('loading an old save', () => {
     expect(s.loadout.items).toEqual([]);
     expect(s.loadout.capacity).toBeGreaterThan(0);
     expect(s.run!.portal).toBeNull();
+    for (const f of s.run!.floors) for (const e of f!.enemies) expect(e.vuln).toBe(0);
   });
 
   it('refuses a save from an older format family', () => {

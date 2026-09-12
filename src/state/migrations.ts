@@ -18,7 +18,7 @@ import { BASE_BACKPACK } from '../systems/meta';
  */
 
 /** Bump this (and push a migration) whenever a field is added to the save. */
-export const SAVE_REVISION = 3;
+export const SAVE_REVISION = 4;
 
 type AnyState = GameState & Record<string, unknown>;
 
@@ -49,6 +49,11 @@ const MIGRATIONS: ((s: AnyState) => void)[] = [
     s.loadout ??= createContainer(BASE_BACKPACK);
     s.loadout.items ??= [];
     if (s.run) s.run.portal ??= null;
+  },
+  // 3 → 4: monsters carry the opening a parry leaves in their guard. Nothing
+  // mid-fight in an old save was parried, so they all start closed.
+  (s) => {
+    for (const f of s.run?.floors ?? []) for (const e of f?.enemies ?? []) e.vuln ??= 0;
   },
 ];
 

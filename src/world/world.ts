@@ -64,6 +64,8 @@ export interface Projectile {
   tileX: number;
   tileY: number;
   source: string;
+  /** Parried back at them: now it hits monsters instead of passing through. */
+  reflected?: boolean;
 }
 
 type Move = 'forward' | 'back' | 'left' | 'right';
@@ -83,6 +85,12 @@ export interface PlayerAnim {
   attackDur: number;
   attackPower: number;
   blockRaise: number;
+  /** Seconds the guard has been up, or Infinity while it is down. */
+  blockT: number;
+  /** Whether this particular raise got a parry window (it was off cooldown). */
+  parryArmed: boolean;
+  /** Time until another parry window can open, so mashing block isn't a parry. */
+  parryCd: number;
   steps: number;
   sinceStamina: number;
   recall: number | null;
@@ -95,6 +103,18 @@ const TURN_TIME = 0.17;
 const TURN_REPEAT = 0.16;
 const STAMINA_REGEN = 34;
 const STAMINA_DELAY = 0.5;
+
+/**
+ * Parry. Raising the guard opens a short window; a hit that lands inside it is
+ * denied outright rather than absorbed. The cooldown is what stops mashing the
+ * block key from being a permanent parry — at best you get one attempt per
+ * PARRY_COOLDOWN, so it has to be timed against the wind-up you can see.
+ */
+const PARRY_WINDOW = 0.22;
+const PARRY_COOLDOWN = 0.75;
+/** How long a parried melee attacker is left open, and how much harder it takes hits. */
+const PARRY_STUN = 1;
+const PARRY_VULN_MULT = 2;
 
 /** Compact button label for an interaction hint. */
 export function shortLabel(hint: string): string {
@@ -199,7 +219,7 @@ export class World {
     this.anim = {
       fromX: this.run.player.x, fromY: this.run.player.y, moveT: 1, moveDur: STEP_TIME,
       yaw, yawFrom: yaw, yawTo: yaw, turnT: 1,
-      attack: 'idle', attackT: 0, attackDur: 0, attackPower: 1, blockRaise: 0, steps: 0,
+      attack: 'idle', attackT: 0, attackDur: 0, attackPower: 1, blockRaise: 0, blockT: Infinity, parryArmed: false, parryCd: 0, steps: 0,
       sinceStamina: 10, recall: null, transition: null,
     };
     this.reveal();
@@ -303,8 +323,22 @@ export class World {
       if (a.turnT >= 1) this.turnReadyAt = this.time + TURN_REPEAT;
     }
 
-    // Block raise/lower.
+    // Block raise/lower, and the parry window that opens as the guard comes up.
     const wantBlock = this.held.has('block') && a.attack === 'idle';
+    a.parryCd = Math.max(0, a.parryCd - dt);
+    if (wantBlock) {
+      if (a.blockT === Infinity) {
+        // Rising edge: this raise gets a window only if we're off cooldown.
+        a.blockT = 0;
+        a.parryArmed = a.parryCd <= 0;
+        if (a.parryArmed) a.parryCd = PARRY_COOLDOWN;
+      } else {
+        a.blockT += dt;
+      }
+    } else {
+      a.blockT = Infinity;
+      a.parryArmed = false;
+    }
     a.blockRaise = Math.max(0, Math.min(1, a.blockRaise + (wantBlock ? dt : -dt) / 0.12));
 
     // Next movement, from the queue or held keys.
@@ -580,6 +614,36 @@ export class World {
     this.spotTraps();
   }
 
+  /**
+   * Is an attack arriving from (x, y) inside the parry window? The guard has to
+   * have gone up in the last PARRY_WINDOW seconds and be facing the attack —
+   * the same facing rule blocking uses, since a parry is a sharper block.
+   */
+  private parries(fromX: number, fromY: number): boolean {
+    const a = this.anim;
+    if (!a.parryArmed || a.blockT > PARRY_WINDOW) return false;
+    return this.facingSource(fromX, fromY);
+  }
+
+  /** Whether an attack from (x, y) comes at you from the tile you are facing. */
+  private facingSource(fromX: number, fromY: number): boolean {
+    const p = this.player;
+    const front = this.frontTile();
+    return (
+      (fromX === front.x && fromY === front.y) ||
+      (Math.sign(fromX - p.x) === DX[p.facing] && Math.sign(fromY - p.y) === DY[p.facing] && (fromX === p.x || fromY === p.y))
+    );
+  }
+
+  /** Shared feedback for any parry: it should feel like a moment. */
+  private parryFlourish(x: number, y: number): void {
+    this.anim.blockT = Infinity;
+    this.anim.parryArmed = false;
+    this.sfx('parry', x, y);
+    this.emit({ type: 'float', x, y, text: 'Parry!', color: '#ffe8a0' });
+    this.emit({ type: 'shake', amount: 0.35 });
+  }
+
   /** Grid line of sight (Bresenham). `inclusive` lets the target itself be opaque. */
   los(x0: number, y0: number, x1: number, y1: number, inclusive = false): boolean {
     const f = this.floor;
@@ -647,13 +711,16 @@ export class World {
   private hitEnemy(e: EnemyState): void {
     const def = enemyDef(e.def);
     const hit = playerHitsEnemy(this.rng, this.derived, this.anim.attackPower, def);
+    // Everything you land while the parry opening lasts hits twice as hard.
+    const exposed = !!e.vuln && e.vuln > 0;
+    if (exposed) hit.damage = Math.round(hit.damage * PARRY_VULN_MULT);
     e.hp -= hit.damage;
     e.hurtT = 0.3;
     e.alert = 8;
     e.lastSeenX = this.player.x;
     e.lastSeenY = this.player.y;
-    const color = hit.crit ? '#ffe040' : hit.effective === 'weak' ? '#ff9a40' : hit.effective === 'resist' ? '#9a9aa8' : '#ffffff';
-    this.emit({ type: 'float', x: e.x, y: e.y, text: hit.crit ? `${hit.damage}!` : `${hit.damage}`, color });
+    const color = exposed ? '#ffe8a0' : hit.crit ? '#ffe040' : hit.effective === 'weak' ? '#ff9a40' : hit.effective === 'resist' ? '#9a9aa8' : '#ffffff';
+    this.emit({ type: 'float', x: e.x, y: e.y, text: hit.crit || exposed ? `${hit.damage}!` : `${hit.damage}`, color });
     this.sfx(hit.crit ? 'crit' : 'hit', e.x, e.y);
     if (hit.effective === 'resist' && this.rng.chance(0.3)) this.msg(`The ${def.name} shrugs off your ${this.derived.damageType} blows.`, '#9a9aa8');
     if (hit.effective === 'weak' && this.rng.chance(0.3)) this.msg(`The ${def.name} reels!`, '#ff9a40');
@@ -1161,6 +1228,7 @@ export class World {
       const def = enemyDef(e.def);
       e.hurtT = Math.max(0, e.hurtT - dt);
       e.attackCd -= dt;
+      if (e.vuln) e.vuln = Math.max(0, e.vuln - dt);
       if (e.moveT < 1) {
         e.moveT = Math.min(1, e.moveT + dt / def.step);
         if (e.moveT < 1) continue;
@@ -1299,19 +1367,32 @@ export class World {
     // Melee lands only if you're still in the tile it aimed at.
     this.sfx('swing', e.x, e.y);
     if (p.x === e.lastSeenX && p.y === e.lastSeenY && dist === 1) {
-      this.damagePlayer(Math.round(def.attack * e.power), def.damageType, e.x, e.y, def.name);
+      this.damagePlayer(Math.round(def.attack * e.power), def.damageType, e.x, e.y, def.name, e);
     } else {
       this.sfx('miss', e.x, e.y);
     }
   }
 
-  private damagePlayer(attack: number, type: DamageType, fromX: number, fromY: number, source: string): void {
+  private damagePlayer(attack: number, type: DamageType, fromX: number, fromY: number, source: string, attacker?: EnemyState): void {
     const p = this.player;
+    // A parry denies the hit outright and leaves the attacker open.
+    if (this.parries(fromX, fromY)) {
+      this.parryFlourish(fromX, fromY);
+      if (attacker) {
+        const def = enemyDef(attacker.def);
+        attacker.ai = 'recover';
+        // Never shorter than the recovery it would have had anyway.
+        attacker.timer = Math.max(attacker.timer, PARRY_STUN);
+        attacker.attackCd = Math.max(attacker.attackCd, PARRY_STUN + 0.2);
+        attacker.vuln = PARRY_STUN;
+        this.msg(`You turn the ${def.name}'s blow aside. It reels — strike now!`, '#ffe8a0');
+      } else {
+        this.msg('You turn the blow aside.', '#ffe8a0');
+      }
+      return;
+    }
     let dmg = enemyHitsPlayer(this.rng, attack, type, this.derived);
-    const front = this.frontTile();
-    const facingSource =
-      (fromX === front.x && fromY === front.y) ||
-      (Math.sign(fromX - p.x) === DX[p.facing] && Math.sign(fromY - p.y) === DY[p.facing] && (fromX === p.x || fromY === p.y));
+    const facingSource = this.facingSource(fromX, fromY);
     let blocked = false;
     if (this.anim.blockRaise > 0.6 && facingSource) {
       const absorbed = dmg * this.derived.block;
@@ -1362,12 +1443,65 @@ export class World {
         this.sfx('break', tx, ty);
         continue;
       }
+      // Incoming bolts fly past their own kind; a parried one is yours, and
+      // buries itself in the first thing it meets.
+      if (pr.reflected) {
+        const hit = enemyAt(f, tx, ty);
+        if (hit) {
+          pr.speed = 0;
+          this.reflectedHit(pr, hit);
+        }
+        continue;
+      }
       if (tx === p.x && ty === p.y) {
+        if (this.parries(tx - pr.dx, ty - pr.dy)) {
+          this.reflect(pr);
+          continue;
+        }
         pr.speed = 0;
         this.damagePlayer(pr.damage, pr.type, tx - pr.dx, ty - pr.dy, pr.source);
       }
     }
     this.projectiles = this.projectiles.filter((pr) => pr.speed > 0);
+  }
+
+  /** Send a bolt back the way it came, now hostile to whatever shot it. */
+  private reflect(pr: Projectile): void {
+    this.parryFlourish(this.player.x, this.player.y);
+    pr.dx = -pr.dx;
+    pr.dy = -pr.dy;
+    pr.reflected = true;
+    pr.source = 'your own parry';
+    // Restart it on your own tile, not the next one along: nudging it forward
+    // would mark the adjacent tile as already visited and skip whoever is
+    // standing there — which is exactly where the archer's escort tends to be.
+    pr.x = this.player.x + 0.5;
+    pr.y = this.player.y + 0.5;
+    pr.tileX = this.player.x;
+    pr.tileY = this.player.y;
+    this.msg('You knock the bolt back the way it came.', '#ffe8a0');
+  }
+
+  /** A reflected bolt landing on a monster: its own damage, its own element. */
+  private reflectedHit(pr: Projectile, e: EnemyState): void {
+    const def = enemyDef(e.def);
+    const mult = def.resist[pr.type] ?? 1;
+    const damage = Math.max(mult > 0 ? 1 : 0, Math.round(pr.damage * mult));
+    e.hp -= damage;
+    e.hurtT = 0.3;
+    e.alert = Math.max(e.alert, 8);
+    e.lastSeenX = this.player.x;
+    e.lastSeenY = this.player.y;
+    const color = mult >= 1.4 ? '#ff9a40' : mult <= 0.7 ? '#9a9aa8' : '#ffe8a0';
+    this.emit({ type: 'float', x: e.x, y: e.y, text: `${damage}`, color });
+    this.sfx('hit', e.x, e.y);
+    if (mult >= 1.4) this.msg(`Its own ${pr.type} burns it.`, '#ff9a40');
+    if (e.hp <= 0) this.killEnemy(e);
+  }
+
+  /** True while a raised guard can still turn a blow aside — the renderer's tell. */
+  get parryWindow(): boolean {
+    return this.anim.parryArmed && this.anim.blockT <= PARRY_WINDOW;
   }
 
   facingName(): string {

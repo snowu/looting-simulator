@@ -3,7 +3,7 @@
 A first-person, grid-step dungeon crawler in the spirit of **King's Field** and **Shadow Tower**, where the real game is what you do with the loot back in town: speculate on the market, forge gear from the right materials, and fill guild contracts.
 
 - **The dungeon:** six persistent floors across four biomes (Ossuary, Deep Mines, Glowing Warrens, Ashen Throne). There are locked vaults with keys, secret rooms behind chalk-marked walls, shrines, traps of your own greed, and the Ashen King at the bottom.
-- **The combat:** simple and real time. Enemies lean in and flash before they strike, so you step out of the tile or raise your shield. Swings land harder with stamina above half. Damage types matter: bring a mace to the skeletons.
+- **The combat:** simple and real time. Enemies lean in and flash before they strike, so you step out of the tile or raise your shield. Raise it *just* as the blow lands and you parry instead: no damage, melee attackers reel and take double, and arrows fly back into whatever is behind them. Swings land harder with stamina above half. Damage types matter: bring a mace to the skeletons.
 - **The loot:** base, material, rarity and affixes. Uncommon-and-up drops arrive unidentified. Everything in your pack is lost if you die. Equipped gear is kept.
 - **Coming back:** a Scroll of Recall opens a two-way town portal. Step through to sell, stash and restock with the run still running, then step back where you left off. It closes behind you, so one scroll is one round trip.
 - **The town:** one run is one day. Commodity prices mean-revert with noise, dumping stock slips the price, and events move whole categories. The forge lets you pick the material for each recipe slot, with gem catalysts adding properties. The guild posts delivery, gear, slay and delve contracts. Renown buys permanent upgrades.
@@ -18,7 +18,7 @@ A first-person, grid-step dungeon crawler in the spirit of **King's Field** and 
 | A / D, ← / → | Turn |
 | Q / E | Strafe |
 | Space / left click | Attack |
-| Shift / right click (hold) | Block |
+| Shift / right click (hold) | Block — time the raise to parry |
 | F | Interact: doors, chests, loot, shrines, marked walls, stairs |
 | 1–4 | Quick-use consumables |
 | I / Tab | Pack & gear |

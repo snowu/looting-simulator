@@ -6,7 +6,7 @@
 export type SfxName =
   | 'step' | 'swing' | 'hit' | 'crit' | 'hurt' | 'block' | 'door' | 'locked' | 'unlock'
   | 'pickup' | 'gold' | 'chest' | 'break' | 'death' | 'enemyDie' | 'stairs' | 'shoot'
-  | 'magic' | 'secret' | 'ui' | 'craft' | 'drink' | 'alert' | 'miss' | 'sell' | 'recall';
+  | 'magic' | 'secret' | 'ui' | 'craft' | 'drink' | 'alert' | 'miss' | 'sell' | 'recall' | 'parry';
 
 export interface PlayOpts {
   volume?: number;
@@ -165,6 +165,13 @@ class AudioEngine {
         this.tone(o, 'square', 420 * r, 380 * r, 0.12, 0.25);
         this.tone(o, 'triangle', 1900 * r, 1700 * r, 0.25, 0.15);
         this.noiseBurst(o, 0.06, 'highpass', 3000, 2000, 0.4);
+        break;
+      // A block that rings rather than thuds: brighter, and it hangs in the air.
+      case 'parry':
+        this.tone(o, 'triangle', 2600 * r, 3100 * r, 0.5, 0.3);
+        this.tone(o, 'triangle', 3900 * r, 4300 * r, 0.35, 0.18);
+        this.tone(o, 'square', 700 * r, 900 * r, 0.09, 0.22);
+        this.noiseBurst(o, 0.05, 'highpass', 5000, 4000, 0.5);
         break;
       case 'door':
         this.tone(o, 'sawtooth', 70 * r, 110 * r, 0.5, 0.12);

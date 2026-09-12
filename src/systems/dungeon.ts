@@ -130,6 +130,8 @@ export interface EnemyState {
   attackCd: number;
   /** Depth scaling baked in at spawn. */
   power: number;
+  /** Seconds left of the opening a parry tore in its guard. */
+  vuln?: number;
 }
 
 export interface Floor {

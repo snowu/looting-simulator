@@ -17,7 +17,7 @@ export function titleScreen(hasSave: boolean, onStart: () => void, build = ''): 
         h('div', {}, h('kbd', { text: 'A / D' }), 'turn'),
         h('div', {}, h('kbd', { text: 'Q / E' }), 'strafe'),
         h('div', {}, h('kbd', { text: 'Space · LMB' }), 'attack'),
-        h('div', {}, h('kbd', { text: 'Shift · RMB' }), 'hold to block'),
+        h('div', {}, h('kbd', { text: 'Shift · RMB' }), 'block · time it to parry'),
         h('div', {}, h('kbd', { text: 'F' }), 'interact'),
         h('div', {}, h('kbd', { text: 'I · M' }), 'pack · map'),
       ),

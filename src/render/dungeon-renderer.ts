@@ -420,6 +420,10 @@ export class DungeonRenderer {
       // Mostly out of frame until raised.
       sh.mesh.position.set(W * 0.16 + raise * W * 0.16 - bobX * 0.5, -H * 0.12 + raise * H * 0.4 - bobY - this.deathFade * 120, 0);
       sh.mesh.rotation.set(0, 0, 0.2 - raise * 0.2);
+      // The shield flares white while a parry would land, so the window is
+      // something you learn to see rather than something you read about.
+      const flare = world.parryWindow ? 0.38 : 0;
+      sh.mat.uniforms.uTint.value.set(1, 0.95, 0.75, flare);
     }
   }
 

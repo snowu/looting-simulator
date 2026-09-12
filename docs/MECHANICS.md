@@ -47,7 +47,29 @@ Mitigation is `attack × max(0.2, 1 − defense/(defense + k))`, so armour never
 
 **Their hits:** `mitigate(attack × 1.15, defense, k=25) × random 0.85–1.15`. Elemental attacks ignore half your armour. `ENEMY_DAMAGE_MULT = 1.15` is the global difficulty knob.
 
-**Blocking:** absorbs `Block %` of a hit (shield stat; 30% parrying with just a weapon, 12% bare-handed) and costs `absorbed × 1.3` stamina. Out of stamina, the guard breaks: you take the rest and the block drops. Blocking only works against attacks from the tile you face.
+**Blocking:** absorbs `Block %` of a hit (shield stat; 30% with just a weapon, 12% bare-handed) and costs `absorbed × 1.3` stamina. Out of stamina, the guard breaks: you take the rest and the block drops. Blocking only works against attacks from the tile you face.
+
+### Parrying
+
+Raising the guard opens a **0.22s window**. A hit that lands inside it is not absorbed — it is denied outright, for no damage and no stamina.
+
+| | |
+|---|---|
+| Window | 0.22s from the moment the guard starts to rise |
+| Cooldown | 0.75s, measured from when the window opened |
+| Cost | Nothing. The cost is the risk of mistiming it |
+| Requires | Facing the attack. No shield needed — a weapon or bare hands parry the same |
+| Tell | Your shield flares pale gold while the window is open |
+
+**Holding the guard up does not parry.** The window only opens on the *rising edge*, and the cooldown means at best one attempt per 0.75s — against wind-ups of 0.35–0.8s you have to meet the swing, not sit behind the shield. Mistime it and it is a normal block, so there is no cliff.
+
+**Against melee:** the attacker is staggered for **1 second** (never shorter than the recovery it would have had) and takes **double damage** for that whole second. Bosses are not exempt — this is the only way to open the Ashen King up, since he cannot be staggered out of his wind-up.
+
+**Against ranged:** the bolt is **reflected**, keeping its damage and element, and flies back the way it came. A reflected bolt hits **the first monster in its path** — which is usually the archer that fired it, but is whatever is standing in between. Incoming bolts still pass through monsters, so an archer's escort only shields it *after* you turn one around. Damage uses the target's own resistance, so a Flame Wraith's bolt turned onto a Frost Wisp lands at ×2.
+
+A volley (the boss fires three) only loses one bolt to a parry: a parry spends the window.
+
+*Files: `src/world/world.ts` — `PARRY_WINDOW`, `PARRY_COOLDOWN`, `PARRY_STUN`, `PARRY_VULN_MULT`*
 
 **Life leech:** heals `damage × leech%` on every hit that lands.
 
@@ -109,7 +131,7 @@ Depth 6 is the bottom (`FINAL_DEPTH = 6`); there are no stairs down, only the wa
 - Vaults, secret rooms (86% chance at this depth) and shrines still generate as normal. The key here is the **Ashen Key**.
 - The biome has the densest torches of the game, iron doors and obsidian walls whose mortar glows.
 
-**The fight.** 420 HP, 24 attack, 12 defense. It swings when adjacent and fires a **three-bolt shadow volley** when you line up at range 2+. It is immune to shadow, resists pierce (×0.8), takes ×1.5 from holy, and **can never be staggered** out of its wind-up — the only answer is to step out of the tile it aims at or block.
+**The fight.** 420 HP, 24 attack, 12 defense. It swings when adjacent and fires a **three-bolt shadow volley** when you line up at range 2+. It is immune to shadow, resists pierce (×0.8), takes ×1.5 from holy, and **can never be staggered** out of its wind-up — step out of the tile it aims at, block, or **parry**, which is the one thing that does stagger it and opens a second of double damage. Its volley can be parried a bolt at a time, and the returned bolt is shadow, which it is immune to — so reflect it into the Hollow Knights beside it instead.
 
 **On its death** it drops a guaranteed **Legendary and an Epic item plus a blueprint**, star iron, shadow essence, a jewelled skull, 50% a dragon scale and 150–300 gold — dropped on a tile *beside* the king, because a **portal** opens on the tile he fell on and would otherwise bury the hoard. Killing it is worth **+25 renown** on top of the usual extraction reward (so 39 for a depth-6 extraction).
 
@@ -512,6 +534,7 @@ A save written by a *newer* build than the one loading it is left as it is rathe
 | Recipes and blueprint prices | `src/data/recipes.ts` |
 | Biomes, depth count | `src/data/biomes.ts` |
 | Damage formulas, difficulty multiplier | `src/systems/combat.ts` |
+| Parry window, stun and reflect | `src/world/world.ts` (`PARRY_*`) |
 | Movement, stamina, AI, interaction | `src/world/world.ts` |
 | Layout generation, room and prop density | `src/systems/dungeon.ts` |
 | Trap damage, salvage, spotting range | `src/world/world.ts` (`TRAPS`) |
