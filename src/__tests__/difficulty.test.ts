@@ -41,9 +41,11 @@ describe('hard is the game as it was', () => {
   it('generates bit-identical floors to the old call shape', () => {
     // Item uids carry a timestamp and a counter, so they differ between any
     // two calls by design; everything the player can ever see must not.
-    // Wide net on purpose: every depth, seven seeds. A separate differential
-    // run against master (floors, loot, combat, scripted fights) also came
-    // back byte-identical.
+    // Wide net on purpose: every depth, seven seeds. Note that this compares
+    // the branch against itself — it proves the optional argument defaults to
+    // Hard, not that Hard still computes the old numbers. hard-golden.test.ts
+    // is the one that pins the actual values, against a fixture captured from
+    // the commit before difficulty levels existed.
     const scrub = (f: unknown) => JSON.stringify(f, (k, v) => (k === 'uid' ? undefined : v));
     for (const seed of [1, 2, 3, 42, 777, 1234, 9999]) {
       for (const depth of [1, 2, 3, 4, 5, 6]) {
@@ -156,6 +158,19 @@ describe('difficulty and runs', () => {
     // The snapshot sticks even if town moves afterwards.
     s.difficulty = 'hard';
     expect(s.run!.difficulty).toBe('normal');
+  });
+
+  it('starts a delve at full health for the difficulty', () => {
+    // startRun derives the player itself to seed hp/stamina; forgetting to
+    // pass the difficulty there left a Normal run opening at Hard's maximum,
+    // i.e. visibly short of full on the very first frame.
+    for (const id of ['hard', 'normal'] as const) {
+      const s = newGame(createRng(31));
+      s.difficulty = id;
+      const run = startRun(s, 31);
+      expect(run.player.hp).toBe(derivePlayer(s.equipment, s.meta, id).maxHp);
+      expect(new World(s).derived.maxHp).toBe(run.player.hp);
+    }
   });
 
   it('migrates old saves — in town or mid-delve — to hard', () => {

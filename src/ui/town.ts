@@ -34,6 +34,7 @@ import { artImg, bothRegisters, btn, gold, h, hideTooltip, isTouchMode, itemSlot
 import { artUrl } from '../render/art-cache';
 import { paperDoll, statSheet } from './dungeon-ui';
 import { audio } from '../audio/sfx';
+import { difficultyOf } from '../data/difficulty';
 import { AccountSummary } from './account';
 import { openSettings } from './settings';
 
@@ -251,6 +252,16 @@ export class Town {
     const el = btn('Connect', () => this.openSettings(), 'small');
     el.title = 'Sync saves across devices';
     return el;
+  }
+
+  /**
+   * The difficulty the stat sheet should read at: the run snapshot while a
+   * delve is open, the town setting otherwise. Same rule the world uses, so
+   * the health the town shows is the health you actually walk in with.
+   */
+  private get difficultyId() {
+    const s = this.s;
+    return difficultyOf(s.run?.outcome === 'active' ? s.run.difficulty ?? s.difficulty : s.difficulty).id;
   }
 
   private openSettings(): void {
@@ -967,7 +978,7 @@ export class Town {
         'div',
         { class: 'pane-col' },
         this.packPane(),
-        h('div', { class: 'pane frame' }, h('h3', { text: 'Equipped' }), doll, statSheet({ derived: derivePlayer(eq, s.meta) }), h('p', { class: 'dim small', text: 'Your equipped gear comes back even if you die. Your backpack does not.' })),
+        h('div', { class: 'pane frame' }, h('h3', { text: 'Equipped' }), doll, statSheet({ derived: derivePlayer(eq, s.meta, this.difficultyId) }), h('p', { class: 'dim small', text: 'Your equipped gear comes back even if you die. Your backpack does not.' })),
       ),
     );
   }

@@ -42,7 +42,7 @@ export function startRun(state: GameState, seed = randomSeed()): RunState {
   const floor = generateFloor(seed, 1, difficulty);
   const up = floor.stairs.find((s) => !s.down)!;
   const spawn = stairsFront(up);
-  const d = derivePlayer(state.equipment, state.meta);
+  const d = derivePlayer(state.equipment, state.meta, difficulty);
   const backpack = createContainer(backpackCapacity(state.meta));
   const crate = metaLevel(state.meta, 'supply_crate');
   if (crate > 0) addItem(backpack, makeConsumable('healing_draught', crate));
