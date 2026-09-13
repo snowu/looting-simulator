@@ -67,6 +67,7 @@ const OVERRIDES = {
   fb51f59: 'He is home: the ASHEN KING waits on depth 6. Bring everything.',
   fb6bb03: 'The dungeon pushes back now — monsters ride the same power curve you do, so shiny gear stops auto-winning past depth 2, and loot runs scarcer. Every trip down matters. Deep runs, deep consequences.',
   '90ff9b3': 'The Ashen King has been going easy on you. He is done. He does not fight the same way twice, and the closer he gets to losing, the less he cares what it costs him. Whatever you packed for the throne room: pack more.',
+  e46dd4d: 'Your trinkets pay out in one press now: the market screen sells every valuable you own — the idols and chalices that were only ever coin — instead of row by row. Gems stay put; the forge still wants those.',
   '6cdf3ff': 'Patch notes live on the title screen now — hit the scroll in the corner for every change, newest first. And yes: this era of the game is officially the Prepare To Die edition.',
 };
 
