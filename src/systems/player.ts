@@ -1,5 +1,6 @@
 import { DamageType, DEFAULT_CRIT_MULT, EquipSlot, EQUIP_SLOTS, Item, Stats, SwingProfile, WeaponClass, addStats, emptyStats } from '../types';
 import { FIST_ATTACK, FIST_SWING, itemBase } from '../data/items';
+import { DifficultyId, difficultyOf } from '../data/difficulty';
 import { itemStats, uniqueOf } from './items';
 import { MetaLevels, metaLevel } from './meta';
 
@@ -123,7 +124,7 @@ export const BASE_STAMINA = 100;
  */
 const FIND_PER_TREASURE_SENSE = 20;
 
-export function derivePlayer(eq: Equipment, meta: MetaLevels): PlayerDerived {
+export function derivePlayer(eq: Equipment, meta: MetaLevels, difficulty?: DifficultyId): PlayerDerived {
   const stats = emptyStats();
   for (const slot of EQUIP_SLOTS) {
     const it = eq[slot];
@@ -133,9 +134,12 @@ export function derivePlayer(eq: Equipment, meta: MetaLevels): PlayerDerived {
   const speedFactor = Math.max(0.5, 1 + stats.speed / 100);
   const baseSwing = weapon?.swing ?? FIST_SWING;
   const hasShield = !!eq.offhand;
+  // Difficulty pads the health bar on Normal; Hard multiplies by exactly 1, so
+  // the old number survives the round trip unchanged.
+  const maxHp = Math.max(10, Math.round((BASE_HP + stats.health + 12 * metaLevel(meta, 'toughness')) * difficultyOf(difficulty).playerHp));
   return {
     stats,
-    maxHp: Math.max(10, BASE_HP + stats.health + 12 * metaLevel(meta, 'toughness')),
+    maxHp,
     maxStamina: Math.max(30, BASE_STAMINA + stats.stamina + 15 * metaLevel(meta, 'endurance')),
     attack: weapon ? Math.max(1, stats.attack) : FIST_ATTACK + stats.attack,
     damageType: weapon?.damageType ?? 'blunt',

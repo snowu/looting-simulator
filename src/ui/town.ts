@@ -34,6 +34,8 @@ import { artImg, bothRegisters, btn, gold, h, hideTooltip, isTouchMode, itemSlot
 import { artUrl } from '../render/art-cache';
 import { paperDoll, statSheet } from './dungeon-ui';
 import { audio } from '../audio/sfx';
+import { AccountSummary } from './account';
+import { openSettings } from './settings';
 
 export type TownTab = 'market' | 'forge' | 'guild' | 'stash' | 'bestiary' | 'warden';
 
@@ -45,11 +47,14 @@ export interface TownCtx {
   toast: (text: string, color?: string) => void;
   /**
    * The account and sync block. It lives on the title screen too, and an
-   * element is only ever in one place, so rendering town moves it here — which
-   * is what we want: whoever is signed in and whether the save has reached the
-   * cloud should be legible while playing, not only before starting.
+   * element is only ever in one place, so opening settings moves it there —
+   * which is what we want: whoever is signed in and whether the save has
+   * reached the cloud should be legible while playing, not only before
+   * starting. The town header itself keeps only the compact status below.
    */
   account?: () => HTMLElement | null;
+  /** Compact sync status for the header: "Synced", or a Connect invitation. */
+  accountSummary?: () => AccountSummary;
 }
 
 const CATS: { id: MaterialCategory; name: string }[] = [
@@ -178,7 +183,12 @@ export class Town {
         () => this.ctx.descend(),
         'primary big',
       ),
-      this.ctx.account?.() ?? null,
+      this.syncCompact(),
+      h('button', {
+        class: 'btn small icon-btn',
+        title: 'Settings — difficulty, cloud saves',
+        onclick: () => this.openSettings(),
+      }, artImg('ic_gear', undefined, 28)),
     );
     const tabBar = h(
       'div',
@@ -212,6 +222,37 @@ export class Town {
     this.root.scrollTop = this.scrollMemo;
     const nextRecipes = this.root.querySelector<HTMLElement>('.recipes');
     if (nextRecipes) nextRecipes.scrollTop = this.recipeScrollMemo;
+  }
+
+  /**
+   * The header keeps only the sync status: the coordinator's note while
+   * signed in ("Synced"), a Connect button otherwise. Everything with room
+   * to breathe — the sign-in flow, the difficulty switch — lives behind the
+   * gear. Refreshed on every town render, and on settings close.
+   */
+  private syncCompact(): HTMLElement | null {
+    const sum = this.ctx.accountSummary?.();
+    if (!sum || !sum.available) return null;
+    if (sum.connected) {
+      return h('span', {
+        class: 'dim small',
+        text: sum.note || 'Synced',
+        title: 'Cloud saves are up to date. Details behind the gear.',
+      });
+    }
+    const el = btn('Connect', () => this.openSettings(), 'small');
+    el.title = 'Sync saves across devices';
+    return el;
+  }
+
+  private openSettings(): void {
+    openSettings({
+      state: () => this.s,
+      save: () => this.ctx.save(),
+      toast: (t, c) => this.ctx.toast(t, c),
+      account: () => this.ctx.account?.() ?? null,
+      onClose: () => this.render(),
+    });
   }
 
   private news(): HTMLElement {
