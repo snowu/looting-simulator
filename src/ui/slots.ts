@@ -75,7 +75,7 @@ function card(v: SlotView, onPlay: (slot: Slot) => void, actions: SlotActions): 
     kids.push(
       h('div', { text: `Day ${s.day}` }),
       h('div', { class: 'dim small', text: s.place }),
-      h('div', { class: 'dim small', text: `${s.gold.toLocaleString()} gold · ${s.difficulty}` }),
+      h('div', { class: 'dim small', text: `${s.gold.toLocaleString()} gold` }),
       h('div', { class: 'grow' }),
     );
     const n = note(v);

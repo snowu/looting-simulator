@@ -103,8 +103,6 @@ export interface SaveSummary {
   runs: number;
   /** The player-given name, or '' when the save is unnamed. */
   name: string;
-  /** Town-side difficulty setting: 'Normal' or 'Hard'. */
-  difficulty: string;
 }
 
 /** The longest name a save can carry. Short enough for a slot card. */
@@ -140,8 +138,7 @@ export function describeSave(state: GameState): SaveSummary {
   const run = state.run;
   const place = run && run.outcome === 'active' ? `Depth ${run.depth}, mid-delve` : 'In town';
   const name = typeof state.name === 'string' ? state.name : '';
-  const difficulty = state.difficulty === 'normal' ? 'Normal' : 'Hard';
-  return { day: state.market?.day ?? 1, place, gold: state.gold ?? 0, runs: state.lifetime?.runs ?? 0, name, difficulty };
+  return { day: state.market?.day ?? 1, place, gold: state.gold ?? 0, runs: state.lifetime?.runs ?? 0, name };
 }
 
 /**

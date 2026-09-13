@@ -2,7 +2,6 @@ import { Rng, createRng, hashString } from '../core/rng';
 import { Dir, DIRS, DX, DY, turnAround, turnLeft, turnRight } from '../core/dir';
 import { biomeForDepth, FINAL_DEPTH } from '../data/biomes';
 import { BOSS_ID, ENEMIES, enemyDef } from '../data/enemies';
-import { DifficultyId, DifficultyDef, DIFFICULTIES, difficultyOf } from '../data/difficulty';
 import { EnemyDef, Item } from '../types';
 import { ContainerTier, makeMaterial, materialForDepth } from './items';
 
@@ -291,13 +290,9 @@ export function defensePower(power: number): number {
   return 1 + (power - 1) * 0.45;
 }
 
-export function createEnemy(def: EnemyDef, x: number, y: number, facing: Dir, id: string, depth: number, difficulty?: DifficultyId): EnemyState {
+export function createEnemy(def: EnemyDef, x: number, y: number, facing: Dir, id: string, depth: number): EnemyState {
   const power = depthPower(def, depth);
-  // Difficulty scales the health bar only, never `power`: attack and armour
-  // read `power` back through attackPower/defensePower, and those stay on the
-  // old curve so Hard is untouched and Normal's softening is explicit per
-  // system (damage in the world, armour via enemyDefense, drops in items.ts).
-  const hp = Math.round(def.hp * power * difficultyOf(difficulty).enemyHp);
+  const hp = Math.round(def.hp * power);
   return {
     id, def: def.id, x, y, fromX: x, fromY: y, moveT: 1, facing, hp, maxHp: hp, ai: 'idle', timer: 0, alert: 0,
     lastSeenX: -1, lastSeenY: -1, homeX: x, homeY: y, hurtT: 0, deadT: 0, attackCd: 0, power,
@@ -317,14 +312,10 @@ export function shrineKindFor(floorSeed: number, propId: string): ShrineKind {
 
 const KEY_NAMES: Record<string, string> = { crypt: 'Bone Key', mines: 'Rusted Key', caverns: 'Crystal Key', throne: 'Ashen Key' };
 
-export function generateFloor(runSeed: number, depth: number, difficulty?: DifficultyId): Floor {
+export function generateFloor(runSeed: number, depth: number): Floor {
   const seed = hashString(`floor:${runSeed}:${depth}`);
-  // Difficulty deliberately stays out of the seed: a Hard floor is generated
-  // exactly as before, and Normal only changes *how many* things spawn, never
-  // *which* walls stand where.
-  const diff = difficultyOf(difficulty);
   for (let attempt = 0; attempt < 40; attempt++) {
-    const f = tryGenerate(seed, depth, createRng((seed + Math.imul(attempt + 1, 0x9e3779b1)) >>> 0), diff);
+    const f = tryGenerate(seed, depth, createRng((seed + Math.imul(attempt + 1, 0x9e3779b1)) >>> 0));
     if (f) return f;
   }
   throw new Error(`dungeon generation failed for depth ${depth}`);
@@ -380,7 +371,7 @@ interface Entrance {
   doorable: boolean;
 }
 
-function tryGenerate(seed: number, depth: number, rng: Rng, diff: DifficultyDef = DIFFICULTIES.hard): Floor | null {
+function tryGenerate(seed: number, depth: number, rng: Rng): Floor | null {
   const biome = biomeForDepth(depth);
   const isBoss = depth >= FINAL_DEPTH;
   const W = 31 + 4 * Math.min(depth - 1, 4);
@@ -818,7 +809,7 @@ function tryGenerate(seed: number, depth: number, rng: Rng, diff: DifficultyDef 
   let enemyN = 0;
   const spawnEnemy = (def: EnemyDef, x: number, y: number) => {
     occupied.add(idx(x, y));
-    enemies.push(createEnemy(def, x, y, rng.pick(DIRS), `e${enemyN++}`, depth, diff.id));
+    enemies.push(createEnemy(def, x, y, rng.pick(DIRS), `e${enemyN++}`, depth));
   };
   const pool = ENEMIES.filter((e) => e.weight > 0 && e.minDepth <= depth && depth <= e.maxDepth);
   const roomTiles = (r: Room) => {
@@ -837,9 +828,7 @@ function tryGenerate(seed: number, depth: number, rng: Rng, diff: DifficultyDef 
   }
   // Fights last three to seven swings now instead of one, so the same count
   // would turn a floor into a queue. Fewer and deadlier is the trade.
-  // Difficulty thins the crowd on Normal; Hard multiplies by exactly 1, so the
-  // count — and therefore every RNG draw after it — is unchanged there.
-  const wanted = Math.max(1, Math.round((3 + Math.round(depth * 1.2) + Math.floor(rooms.length / 4)) * diff.enemyCount));
+  const wanted = 3 + Math.round(depth * 1.2) + Math.floor(rooms.length / 4);
   const hostRooms = rooms.filter((r) => r.role !== 'start' && r.role !== 'secret' && r.role !== 'throne');
   for (let guard = 0; enemies.length < wanted + (throne ? 3 : 0) && guard < 200; guard++) {
     const def = rng.weighted(pool.map((e) => [e, e.weight] as const));
@@ -943,8 +932,7 @@ function tryGenerate(seed: number, depth: number, rng: Rng, diff: DifficultyDef 
     }
     rng.shuffle(corridor);
     rng.shuffle(roomTile);
-    // Difficulty plants fewer teeth on Normal; Hard multiplies by exactly 1.
-    const target = Math.max(1, Math.round((2 + Math.round(depth * 1.5)) * diff.trapCount));
+    const target = 2 + Math.round(depth * 1.5);
     for (let n = traps.length; n < target; ) {
       const spot = (rng.chance(0.7) ? corridor.pop() : roomTile.pop()) ?? corridor.pop() ?? roomTile.pop();
       if (!spot) break;

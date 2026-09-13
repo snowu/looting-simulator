@@ -1,7 +1,6 @@
 import { Rng } from '../core/rng';
 import { Dir } from '../core/dir';
 import { Item, Rarity, RecipeRanks } from '../types';
-import { DifficultyId } from '../data/difficulty';
 import { Container, addItem, createContainer } from './inventory';
 import { Equipment, emptyEquipment } from '../systems/player';
 import { MarketState, createMarket } from '../systems/market';
@@ -47,13 +46,6 @@ export interface RunState {
   seed: number;
   rngState: number;
   depth: number;
-  /**
-   * The difficulty this delve is played at, snapshotted from the town setting
-   * when the run starts. The town selector locks while a run is open, and the
-   * world reads this — never the live town value — so the difficulty cannot be
-   * softened mid-fight. Absent on older saves, which were all Hard.
-   */
-  difficulty?: DifficultyId;
   /** Floors persist for the whole run; index = depth - 1. */
   floors: (Floor | null)[];
   player: PlayerRunState;
@@ -133,13 +125,6 @@ export interface GameState {
    * of two saves is newer.
    */
   name: string;
-  /**
-   * Town-side difficulty setting, picked between delves. New playthroughs
-   * start on Hard — the game as it was — and Normal is offered as the gentler
-   * alternative. Older saves migrate to Hard, so nothing about an existing
-   * game changes under it.
-   */
-  difficulty: DifficultyId;
   gold: number;
   renown: number;
   stash: Container;
@@ -176,7 +161,6 @@ export function newGame(rng: Rng): GameState {
     revision: SAVE_REVISION,
     saveId: newId(),
     name: '',
-    difficulty: 'hard',
     gold: 120,
     renown: 0,
     stash,

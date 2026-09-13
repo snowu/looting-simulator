@@ -137,7 +137,6 @@ const town = new Town(screen, {
   descend: () => enterDungeon(),
   // Deferred: the panel is created below, after the town it renders into.
   account: () => account.el,
-  accountSummary: () => account.summary,
   newGame: () => {
     clearSave(slot);
     state = newGame(createRng(randomSeed()));

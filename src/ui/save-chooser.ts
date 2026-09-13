@@ -46,7 +46,7 @@ function column(title: string, s: SaveSummary, when: string, action: HTMLElement
     name ? h('div', { class: 'gold-t', text: `“${name}”` }) : null,
     h('div', { text: `Day ${s.day}` }),
     h('div', { text: s.place }),
-    h('div', { text: `${s.gold.toLocaleString()} gold banked · ${s.difficulty}` }),
+    h('div', { text: `${s.gold.toLocaleString()} gold banked` }),
     h('div', { class: 'dim small', text: `${s.runs} delve${s.runs === 1 ? '' : 's'} · saved ${when}` }),
     action,
   );
