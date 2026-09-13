@@ -243,24 +243,17 @@ const BOW_SIDE = rows(`
   ..khl
   ...kh
 `);
-const BOW_DRAWN = rows(`
-  ..hh..
-  ..hh..
-  ..hh..
-  ..hh..
-  ..hh..
-  ..hh..
-  ..hh..
-  .kssk.
-  kswwsk
-  .kssk.
-  ..hh..
-  ..hh..
-  ..hh..
-  ..hh..
-  ..hh..
-  ..hh..
-  ..hh..
+// Both archers move their existing bow from the side to the center of the
+// body. The arrow comes forward, but the weapon never changes shape or
+// disappears as it did in the old front-on attack stamp.
+const AIMED_ARROW = rows(`
+  ...k...
+  ..ksk..
+  .ksssk.
+  ksswssk
+  .ksssk.
+  ..ksk..
+  ...k...
 `);
 const ARCHER_PAL = { ...SKELETON_PAL, h: '#6a4424', g: '#e2d9c2', l: '#d8d0c0', s: '#b0b0ba', w: '#fff4d0fa' };
 
@@ -284,25 +277,6 @@ const GOB_BOW_SIDE = rows(`
   ..ktw
   ..ktw
   ...kw
-`);
-const GOB_BOW_DRAWN = rows(`
-  ..ttt..
-  ..ttt..
-  ..ttt..
-  ..ttt..
-  ..ttt..
-  ..ttt..
-  ..ttt..
-  .ktttk.
-  ktswstk
-  .ktttk.
-  ..ttt..
-  ..ttt..
-  ..ttt..
-  ..ttt..
-  ..ttt..
-  ..ttt..
-  ..ttt..
 `);
 
 // --- Shieldbearers ---------------------------------------------------------------
@@ -622,10 +596,10 @@ export const ENEMY_ART_A: ArtDef[] = [
   { id: 'skeleton_atk', palette: SKELETON_PAL, rows: stamp(stamp(SKELETON_BASE, ERASE_4x11, 23, 14), SKELETON_RAISED, 20, 0) },
 
   { id: 'archer_0', palette: ARCHER_PAL, rows: stamp(SKELETON_BASE, BOW_SIDE, 2, 8) },
-  { id: 'archer_atk', palette: ARCHER_PAL, rows: stamp(SKELETON_BASE, BOW_DRAWN, 13, 6) },
+  { id: 'archer_atk', palette: ARCHER_PAL, rows: stamp(stamp(SKELETON_BASE, BOW_SIDE, 10, 8), AIMED_ARROW, 13, 13) },
 
   { id: 'gobarcher_0', palette: GOBLIN_PAL, rows: stamp(GOBLIN_BASE, GOB_BOW_SIDE, 1, 8) },
-  { id: 'gobarcher_atk', palette: GOBLIN_PAL, rows: stamp(GOBLIN_BASE, GOB_BOW_DRAWN, 12, 7) },
+  { id: 'gobarcher_atk', palette: GOBLIN_PAL, rows: stamp(stamp(GOBLIN_BASE, GOB_BOW_SIDE, 10, 8), AIMED_ARROW, 13, 13) },
 
   { id: 'gobshield_0', palette: GOBLIN_PAL, rows: stamp(stamp(GOBLIN_BASE, GOBLIN_DAGGER, 28, 15), GOB_SHIELD, 0, 20) },
   {

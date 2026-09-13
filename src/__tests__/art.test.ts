@@ -44,4 +44,13 @@ describe('pixel art', () => {
     for (const id of ['trap_dart_spent', 'trap_spikes_spent', 'trap_alarm_spent']) needed.add(id);
     for (const id of needed) expect(getArt(id), id).toBeDefined();
   });
+
+  it('gives every enemy a visibly different attack pose', () => {
+    const sprites = new Set([...ENEMIES.map((e) => e.sprite), ...KING_PHASES.map((p) => p.sprite)]);
+    for (const sprite of sprites) {
+      const idle = rasterize(getArt(`${sprite}_0`)!, undefined, getArt);
+      const attack = rasterize(getArt(`${sprite}_atk`)!, undefined, getArt);
+      expect(attack.data, sprite).not.toEqual(idle.data);
+    }
+  });
 });

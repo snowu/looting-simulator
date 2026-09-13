@@ -265,7 +265,10 @@ export class DungeonRenderer {
       const ex = en.fromX + (en.x - en.fromX) * t;
       const ey = en.fromY + (en.y - en.fromY) * t;
       let wx = tileX(ex), wz = tileZ(ey);
-      const attacking = (en.ai === 'windup' && en.timer < def.windup * 0.7) || (en.ai === 'recover' && en.timer > def.recovery - 0.18);
+      // A drawn bow or cast releases as soon as the projectile is launched.
+      // Melee weapons hold their follow-through briefly after the hit.
+      const attacking = (en.ai === 'windup' && en.timer < def.windup * 0.7) ||
+        (def.behavior !== 'ranged' && en.ai === 'recover' && en.timer > def.recovery - 0.18);
       // Shieldbearers show the guard: raising or holding the shield center.
       const blocking = !!def.shield && en.ai !== 'dead' && (en.guard ?? 'down') !== 'down';
       if (en.ai === 'windup') {
