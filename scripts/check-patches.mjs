@@ -52,6 +52,7 @@ const SKIP = {
   '2ab1f17': 'sprite redraw, cosmetic only',
   '157f359': 'sprite redraw, cosmetic only',
   b3665fa: 'sprite redraw, cosmetic only',
+  a6a3402: 'notes pipeline rebuild, not a game change',
 };
 
 // Commits touching only these files maintain the notes themselves and never
