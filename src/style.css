@@ -339,6 +339,21 @@ table.market .num { text-align: right; font-variant-numeric: tabular-nums; }
 .title-screen { position: absolute; inset: 0; display: flex; overflow: auto; padding: 18px; text-align: center; }
 .title-panel { width: min(900px, 100%); margin: auto; padding: 18px 36px 24px; }
 .title-screen .tag { color: var(--dim); font-size: 24px; margin: 6px 0 24px; }
+/* Tongue-in-cheek edition line for the difficulty era. Blood red, obviously. */
+.prepare {
+  font-family: var(--font-title);
+  font-size: clamp(22px, 3.4vw, 34px);
+  letter-spacing: 6px;
+  color: var(--red);
+  text-shadow: 0 2px 0 #000, 0 0 18px #d0443a66;
+  margin-top: 2px;
+}
+/* Patch notes live in the corner of the title screen, out of the way. */
+.patch-corner {
+  position: absolute;
+  right: max(14px, env(safe-area-inset-right));
+  bottom: max(14px, env(safe-area-inset-bottom));
+}
 .help { font-size: 19px; text-align: left; columns: 2; column-gap: 30px; }
 .help div { break-inside: avoid; }
 .help kbd { font-family: inherit; color: var(--gold); display: inline-block; min-width: 118px; padding-right: 8px; }
@@ -653,6 +668,22 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
   .slot-card .slot-name { font-size: 19px; }
 }
 
+/* --- Patch notes --------------------------------------------------------- */
+.patch-open .patch-scroll { margin-right: 6px; }
+.patch-wrap { z-index: 80; }
+.patch-modal { min-width: min(94vw, 640px); display: flex; flex-direction: column; gap: 8px; }
+.patch-top { position: sticky; top: 0; }
+.patch-search { width: 100%; }
+.patch-list { display: flex; flex-direction: column; gap: 8px; overflow: auto; padding-bottom: 8px; }
+.patch-day { color: var(--gold); font-family: var(--font-title); font-size: 22px; margin-top: 6px; }
+.patch { background: #17131b; border: 1px solid #0006; padding: 6px 8px; display: flex; flex-direction: column; gap: 3px; }
+.patch-head { gap: 8px; }
+.patch-num { color: var(--gold); font-family: var(--font-title); font-size: 20px; white-space: nowrap; }
+.patch-hash { font-size: 15px; color: var(--faint); border: 1px solid #2a2430; padding: 0 5px; }
+.patch-title { font-size: 21px; }
+.patch-summary { color: #c8bca4; font-size: 18px; }
+.patch-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.patch-tag { font-size: 14px; color: var(--dim); border: 1px solid #2a2430; padding: 0 5px; }
 /* --- Bestiary codex ------------------------------------------------------ */
 .beast-panes { align-items: start; }
 .beast-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 5px; max-height: 62vh; overflow: auto; }

@@ -1,5 +1,6 @@
 import { RunSummary } from '../state/game-state';
 import { gold, h, itemSlot, btn } from './dom';
+import { patchNotesButton } from './patch-notes';
 
 export function titleScreen(slots: HTMLElement, build = '', account?: HTMLElement): HTMLElement {
   return h(
@@ -9,6 +10,7 @@ export function titleScreen(slots: HTMLElement, build = '', account?: HTMLElemen
       'div',
       { class: 'frame title-panel' },
       h('h1', { text: 'Looting Simulator' }),
+      h('div', { class: 'prepare', text: 'Prepare To Die' }),
       h('div', { class: 'tag', text: 'Go down. Bring it back. Sell it high.' }),
       slots,
       h(
@@ -26,6 +28,7 @@ export function titleScreen(slots: HTMLElement, build = '', account?: HTMLElemen
       account ?? null,
       build ? h('p', { class: 'faint small', text: `build ${build}` }) : null,
     ),
+    h('div', { class: 'patch-corner' }, patchNotesButton()),
   );
 }
 

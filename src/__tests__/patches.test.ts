@@ -1,0 +1,45 @@
+import { describe, expect, it } from 'vitest';
+import { PATCHES, PATCH_COUNT } from '../data/patches';
+
+/**
+ * The patch-notes UI consumes PATCHES directly: one entry per gameplay
+ * commit, newest first, every field present so the overlay can render
+ * without guards. Docs, plumbing, dev-only and cosmetic-only commits
+ * are excluded by scripts/generate-patches.mjs.
+ */
+describe('patch notes data', () => {
+  it('has entries and matches the exported count', () => {
+    expect(PATCHES.length).toBeGreaterThan(0);
+    expect(PATCH_COUNT).toBe(PATCHES.length);
+  });
+
+  it('is newest first', () => {
+    const dates = PATCHES.map((p) => p.date);
+    expect([...dates].sort().reverse()).toEqual(dates);
+  });
+
+  it('numbers patches 1..N chronologically, newest first', () => {
+    const ns = PATCHES.map((p) => p.n);
+    expect(ns).toEqual([...ns].sort((a, b) => b - a));
+    expect(Math.max(...ns)).toBe(PATCHES.length);
+    expect(new Set(ns).size).toBe(ns.length);
+    expect(Math.min(...ns)).toBe(1);
+  });
+
+  it('gives every patch a commit identity and a player-facing note', () => {
+    for (const p of PATCHES) {
+      expect(p.hash).toMatch(/^[0-9a-f]{40}$/);
+      expect(p.short).toMatch(/^[0-9a-f]{7}$/);
+      expect(p.hash.startsWith(p.short)).toBe(true);
+      expect(p.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(p.title.length).toBeGreaterThan(0);
+      expect(p.summary.length).toBeGreaterThan(0);
+      expect(p.tags.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('has no duplicate commits', () => {
+    const shorts = PATCHES.map((p) => p.short);
+    expect(new Set(shorts).size).toBe(shorts.length);
+  });
+});
