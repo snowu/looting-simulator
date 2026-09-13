@@ -8,6 +8,7 @@ import { itemIcon } from '../systems/items';
 import { lightIntensity, lightRadius } from '../systems/meta';
 import { World } from '../world/world';
 import { artSize, artTexture } from './art-cache';
+import { enemyPose } from './enemy-pose';
 import { LevelView, TILE, WALL_H, buildLevel, tileX, tileZ } from './level-mesh';
 import { MAX_LIGHTS, PS1Material, PostPass, Shared, createLowResTarget, createShared, ps1Material } from './ps1';
 
@@ -265,22 +266,24 @@ export class DungeonRenderer {
       const ex = en.fromX + (en.x - en.fromX) * t;
       const ey = en.fromY + (en.y - en.fromY) * t;
       let wx = tileX(ex), wz = tileZ(ey);
-      // A drawn bow or cast releases as soon as the projectile is launched.
-      // Melee weapons hold their follow-through briefly after the hit.
-      const attacking = (en.ai === 'windup' && en.timer < def.windup * 0.7) ||
-        (def.behavior !== 'ranged' && en.ai === 'recover' && en.timer > def.recovery - 0.18);
-      // Shieldbearers show the guard: raising or holding the shield center.
-      const blocking = !!def.shield && en.ai !== 'dead' && (en.guard ?? 'down') !== 'down';
-      if (en.ai === 'windup') {
-        // Lean in while winding up — the tell.
-        const k = 0.25 * (1 - en.timer / def.windup);
-        wx += DX[en.facing] * k;
-        wz += DY[en.facing] * k;
-      }
+      // Which frame, and how far the body is thrown: one shared model, so the
+      // dev art sheet previews exactly what the dungeon draws.
+      const pose = enemyPose({
+        ai: en.ai,
+        timer: en.timer,
+        sinceStrike: en.strikeT ?? Infinity,
+        guard: en.guard,
+        hasShield: !!def.shield,
+        ranged: def.behavior === 'ranged',
+        windup: def.windup,
+        recovery: def.recovery,
+      });
+      wx += DX[en.facing] * pose.lunge;
+      wz += DY[en.facing] * pose.lunge;
       const height = def.scale * 1.9;
       let y = (def.floats ? 0.35 + Math.sin(this.time * 2.5 + en.x) * 0.1 : 0) + (en.moveT < 1 ? Math.abs(Math.sin(en.moveT * Math.PI)) * 0.08 : 0);
       if (en.ai === 'dead') y -= en.deadT * 1.4;
-      this.place(s, `${def.sprite}_${blocking ? 'block' : attacking ? 'atk' : '0'}`, wx, y, wz, height);
+      this.place(s, `${def.sprite}_${pose.frame}`, wx, y, wz, height);
       if (en.hurtT > 0) s.mat.uniforms.uTint.value.set(1, 0.95, 0.9, Math.min(0.8, en.hurtT * 3));
       else if (en.ai === 'windup') s.mat.uniforms.uTint.value.set(1, 0.2, 0.1, 0.12 + 0.12 * Math.sin(this.time * 30));
       if (en.ai === 'dead') s.mat.uniforms.uTint.value.set(0, 0, 0, Math.min(1, en.deadT * 1.2));

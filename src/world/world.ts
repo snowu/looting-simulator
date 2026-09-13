@@ -1926,6 +1926,7 @@ export class World {
       if (def.behavior === 'boss') this.checkBossPhase(e);
       e.hurtT = Math.max(0, e.hurtT - dt);
       e.attackCd -= dt;
+      if (e.strikeT !== undefined) e.strikeT += dt;
       if (e.vuln) e.vuln = Math.max(0, e.vuln - dt);
       if ((e.blockT ?? 0) > 0) {
         e.blockT = Math.max(0, (e.blockT ?? 0) - dt);
@@ -2055,6 +2056,9 @@ export class World {
     e.ai = 'recover';
     e.timer = def.recovery;
     e.attackCd = def.recovery + 0.2;
+    // Stamped by the blow itself, so the follow-through is drawn only when
+    // there was one. See `enemyPose`.
+    e.strikeT = 0;
     const p = this.player;
     const dist = Math.abs(e.x - p.x) + Math.abs(e.y - p.y);
     const useRanged = !!def.projectile && (def.behavior === 'ranged' || (def.behavior === 'boss' && dist >= 2));

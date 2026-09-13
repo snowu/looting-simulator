@@ -142,6 +142,14 @@ export interface EnemyState {
   hurtT: number;
   deadT: number;
   attackCd: number;
+  /**
+   * Seconds since its last swing or loosed shot. **Absent means it has not
+   * struck yet**, which is also what a creature reeling out of a wind-up looks
+   * like: the follow-through is drawn from this, never from `recover`, because
+   * a stagger, a parry and a broken phase all park a creature in `recover`
+   * without a blow ever landing.
+   */
+  strikeT?: number;
   /** Depth scaling baked in at spawn. */
   power: number;
   /** Seconds left of the opening a parry tore in its guard. */
