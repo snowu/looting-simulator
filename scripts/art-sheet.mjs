@@ -181,11 +181,8 @@ function draw(sheet, cells) {
 
 const { rasterize } = await loadModule('src/art/raster.ts');
 const { getArt } = await loadModule('src/art/registry.ts');
-const { RAMPS, SHEETS } = await loadModule('src/dev/art-sheets.ts');
-// Icons are ramp art: drawn without one they are a version of the icon the
-// game never shows. The exporter picks the first ramp; the in-game sheet lets
-// you flip through the rest.
-const recolorable = (def) => def.rows.some((row) => /[1-4]/.test(row));
+const { sheets } = await loadModule('src/dev/art-sheets.ts');
+const SHEETS = sheets();
 
 const args = process.argv.slice(2);
 const flag = (name) => {
@@ -207,7 +204,8 @@ for (const sheet of chosen) {
     g.cells.map((cell) => {
       const def = getArt(cell.id);
       if (!def) throw new Error(`${sheet.id}: missing art ${cell.id}`);
-      return { cell, raster: rasterize(def, recolorable(def) ? RAMPS[0].ramp : undefined, getArt) };
+      // A cell carries the material ramp the game would draw it through, if any.
+      return { cell, raster: rasterize(def, cell.ramp, getArt) };
     }),
   );
   const file = resolve(out, `${sheet.id}.png`);

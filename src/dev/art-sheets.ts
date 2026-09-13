@@ -12,6 +12,9 @@ import { ENEMIES, KING_PHASES } from '../data/enemies';
 import { BIOMES } from '../data/biomes';
 import { ICONS } from '../art/icons';
 import { MATERIALS } from '../data/materials';
+import { CONSUMABLES, ITEM_BASES } from '../data/items';
+import { MaterialDef } from '../types';
+import { Ramp } from '../art/raster';
 import { PROPS } from '../art/props';
 import { VIEWMODELS } from '../art/viewmodels';
 import { EnemyDef } from '../types';
@@ -34,18 +37,29 @@ export interface SheetCell {
   label: string;
   /** Set when the cell can be played through a full attack. */
   creature?: Creature;
+  /** The material ramp the game would draw this cell through, if any. */
+  ramp?: Ramp;
 }
 
 /**
- * Art whose `1`-`4` pixels are a material ramp is never shown in the game
- * without one — an icon sheet drawn flat is a sheet of the one version of the
- * icon nobody ever sees. These are the ramps to look at it through.
+ * Icons are never drawn flat in the game and never drawn in an arbitrary
+ * colour either: a potion is one of six potions, an ingot is one of six
+ * metals, and a long sword is made of a metal because its base says
+ * `primary: ['metal']`. So the icon sheet is built from the things that
+ * actually exist rather than from a colour picker — every cell below is a
+ * combination the game can produce, and says which one it is.
  */
-export const RAMPS: { id: string; name: string; ramp: readonly [string, string, string, string] }[] =
-  ['iron', 'copper', 'gold', 'moonsilver', 'shadewood', 'dragon_scale']
-    .map((id) => MATERIALS.find((m) => m.id === id))
-    .filter((m): m is NonNullable<typeof m> => !!m)
-    .map((m) => ({ id: m.id, name: m.name.replace(/ (Ore|Log|Hide|Scale|Cloth)$/, ''), ramp: m.ramp }));
+const TIERS = [...new Set(MATERIALS.map((m) => m.tier))].sort((a, b) => a - b);
+export const MATERIAL_TIERS: number[] = TIERS;
+export const DEFAULT_TIER = TIERS[Math.floor(TIERS.length / 2)];
+
+/** The best material a base is allowed at this tier, or the cheapest it allows. */
+function materialFor(categories: readonly string[], tier: number): MaterialDef | undefined {
+  const allowed = MATERIALS.filter((m) => categories.includes(m.category));
+  const atTier = allowed.filter((m) => m.tier <= tier);
+  const pool = atTier.length ? atTier : allowed;
+  return pool.reduce<MaterialDef | undefined>((best, m) => (!best || m.tier > best.tier ? m : best), undefined);
+}
 
 export interface SheetGroup {
   title: string;
@@ -138,7 +152,34 @@ const biomeGroups: SheetGroup[] = BIOMES.map((b) => ({
 
 const plain = (ids: string[]): SheetCell[] => ids.map((id) => ({ id, label: id }));
 
-export const SHEETS: ArtSheet[] = [
+function iconGroups(tier: number): SheetGroup[] {
+  const covered = new Set<string>();
+  const materials: SheetCell[] = MATERIALS.map((m) => {
+    covered.add(m.icon);
+    return { id: m.icon, label: m.name, ramp: m.ramp };
+  });
+  const gear: SheetCell[] = ITEM_BASES.map((b) => {
+    covered.add(b.icon);
+    const m = materialFor(b.primary, tier);
+    return { id: b.icon, label: m ? `${b.name} · ${m.name}` : b.name, ramp: m?.ramp };
+  });
+  const consumables: SheetCell[] = CONSUMABLES.map((c) => {
+    covered.add(c.icon);
+    return { id: c.icon, label: c.name, ramp: c.ramp };
+  });
+  // Whatever no item claims — the key, the coin, the settings gear. These have
+  // no ramp in the game either, so they are drawn exactly as they ship.
+  const fixed: SheetCell[] = ICONS.filter((i) => !covered.has(i.id)).map((i) => ({ id: i.id, label: i.id }));
+  return [
+    { title: `Gear · best material at tier ${tier}`, cells: gear },
+    { title: 'Materials', cells: materials },
+    { title: 'Consumables', cells: consumables },
+    ...(fixed.length ? [{ title: 'Never recoloured', cells: fixed }] : []),
+  ];
+}
+
+export function sheets(tier: number = DEFAULT_TIER): ArtSheet[] {
+  return [
   {
     id: 'melee',
     title: 'Melee',
@@ -169,8 +210,9 @@ export const SHEETS: ArtSheet[] = [
   },
   { id: 'biomes', title: 'Biomes', note: 'Wall, floor, ceiling and door per biome. In-game these also carry coloured light.', cols: 6, groups: biomeGroups },
   { id: 'props', title: 'Props', note: 'Everything the dungeon stands on the floor.', cols: 6, groups: [{ title: 'Props', cells: plain(PROPS.map((p) => p.id)) }] },
-  { id: 'icons', title: 'Icons', note: 'Inventory icons, through a material ramp — the way the game always draws them.', cols: 8, groups: [{ title: 'Icons', cells: plain(ICONS.map((i) => i.id)) }] },
+  { id: 'icons', title: 'Icons', note: 'Every icon as something that exists: each piece of gear in a material its base actually allows, each material and potion in its own colours.', cols: 6, groups: iconGroups(tier) },
   { id: 'viewmodels', title: 'Viewmodels', note: 'The weapon in your own hands.', cols: 4, groups: [{ title: 'Viewmodels', cells: plain(VIEWMODELS.map((v) => v.id)) }] },
-];
+  ];
+}
 
-export const sheet = (id: string): ArtSheet | undefined => SHEETS.find((s) => s.id === id);
+export const sheet = (id: string, tier?: number): ArtSheet | undefined => sheets(tier).find((s) => s.id === id);

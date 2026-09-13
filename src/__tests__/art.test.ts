@@ -5,7 +5,7 @@ import { MATERIALS } from '../data/materials';
 import { CONSUMABLES, ITEM_BASES } from '../data/items';
 import { BIOMES } from '../data/biomes';
 import { ENEMIES, KING_PHASES } from '../data/enemies';
-import { SHEETS } from '../dev/art-sheets';
+import { MATERIAL_TIERS, sheets } from '../dev/art-sheets';
 
 describe('pixel art', () => {
   it('every art def is well-formed and rasterises', () => {
@@ -94,11 +94,32 @@ describe('pixel art', () => {
     }
   });
 
-  it('has art for every frame the dev art sheet lists', () => {
-    for (const s of SHEETS) {
-      for (const group of s.groups) {
-        for (const cell of group.cells) expect(getArt(cell.id), `${s.id}/${cell.id}`).toBeDefined();
+  it('has art for every frame the dev art sheet lists, at every tier', () => {
+    for (const tier of MATERIAL_TIERS) {
+      for (const s of sheets(tier)) {
+        for (const group of s.groups) {
+          for (const cell of group.cells) expect(getArt(cell.id), `${s.id}/${cell.id}`).toBeDefined();
+        }
       }
+    }
+  });
+
+  /**
+   * The icon sheet claims every cell is something the game can actually make.
+   * If a base were ever drawn in a material its `primary` categories forbid,
+   * the sheet would be inventing gear that cannot exist.
+   */
+  it('only pairs gear icons with materials their base allows', () => {
+    const byName = new Map(MATERIALS.map((m) => [m.name, m]));
+    const gear = sheets().find((s) => s.id === 'icons')!.groups.find((g) => g.title.startsWith('Gear'))!;
+    expect(gear.cells.length).toBe(ITEM_BASES.length);
+    for (const cell of gear.cells) {
+      const base = ITEM_BASES.find((b) => cell.label.startsWith(`${b.name} · `) || cell.label === b.name)!;
+      expect(base, cell.label).toBeDefined();
+      const material = byName.get(cell.label.slice(base.name.length + 3));
+      if (!material) continue;
+      expect(base.primary, cell.label).toContain(material.category);
+      expect(cell.ramp, cell.label).toEqual(material.ramp);
     }
   });
 });

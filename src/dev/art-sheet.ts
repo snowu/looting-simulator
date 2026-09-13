@@ -13,10 +13,9 @@
  * `scripts/art-sheet.mjs` writes the same sheets out as PNGs for a pull
  * request; both read `art-sheets.ts`, so they cannot drift apart.
  */
-import { getArt } from '../art/registry';
 import { artUrl } from '../render/art-cache';
 import { enemyPose } from '../render/enemy-pose';
-import { Creature, RAMPS, SHEETS, sheet } from './art-sheets';
+import { Creature, DEFAULT_TIER, MATERIAL_TIERS, sheets } from './art-sheets';
 
 const CSS = `
 .art-sheet { position: absolute; inset: 0; background: #0b0a0dfa; overflow: auto; z-index: 60; font-family: var(--font-ui, inherit); }
@@ -54,7 +53,7 @@ interface Playing {
 let host: HTMLElement | null = null;
 let root: HTMLElement | null = null;
 let raf = 0;
-let state = { sheet: 'melee', zoom: 3, play: true, bg: 'dark' as Bg, filter: '', ramp: 0 };
+let state = { sheet: 'melee', zoom: 3, play: true, bg: 'dark' as Bg, filter: '', tier: DEFAULT_TIER };
 let playing: Playing[] = [];
 
 export const isArtSheetOpen = (): boolean => root !== null;
@@ -104,7 +103,7 @@ function onKey(e: KeyboardEvent): void {
   if (e.target instanceof HTMLInputElement) return;
   const step = (d: number) => {
     e.preventDefault();
-    const ids = SHEETS.map((s) => s.id);
+    const ids = sheets(state.tier).map((s) => s.id);
     const i = ids.indexOf(state.sheet);
     state.sheet = ids[(i + d + ids.length) % ids.length];
     render();
@@ -116,10 +115,6 @@ function onKey(e: KeyboardEvent): void {
   else if (e.key.toLowerCase() === 'p') { state.play = !state.play; render(); }
   e.stopPropagation();
 }
-
-/** Art with `1`-`4` pixels takes a material ramp; everything else ignores one. */
-const recolorable = (id: string): boolean => !!getArt(id)?.rows.some((row) => /[1-4]/.test(row));
-const rampFor = (id: string) => (recolorable(id) ? RAMPS[state.ramp]?.ramp : undefined);
 
 function el(tag: string, cls?: string, text?: string): HTMLElement {
   const n = document.createElement(tag);
@@ -136,13 +131,14 @@ function button(label: string, on: boolean, onclick: () => void): HTMLElement {
 
 function render(): void {
   if (!root) return;
-  const active = sheet(state.sheet) ?? SHEETS[0];
+  const all = sheets(state.tier);
+  const active = all.find((s) => s.id === state.sheet) ?? all[0];
   playing = [];
   root.replaceChildren();
   root.style.setProperty('--sheet-bg', BACKDROPS[state.bg]);
 
   const bar = el('div', 'art-sheet-bar');
-  for (const s of SHEETS) bar.append(button(s.title, s.id === active.id, () => { state.sheet = s.id; render(); }));
+  for (const s of all) bar.append(button(s.title, s.id === active.id, () => { state.sheet = s.id; render(); }));
   bar.append(el('div', 'sep'));
   bar.append(button('−', false, () => { state.zoom = Math.max(1, state.zoom - 1); render(); }));
   bar.append(el('span', 'dim small', `${state.zoom}×`));
@@ -150,10 +146,13 @@ function render(): void {
   bar.append(el('div', 'sep'));
   for (const bg of Object.keys(BACKDROPS) as Bg[]) bar.append(button(bg, state.bg === bg, () => { state.bg = bg; render(); }));
   bar.append(el('div', 'sep'));
-  // Recolourable art (the icons) is never drawn flat in the game, so the sheet
-  // does not draw it flat either.
-  if (active.groups.some((g) => g.cells.some((c) => recolorable(c.id)))) {
-    RAMPS.forEach((r, i) => bar.append(button(r.name, state.ramp === i, () => { state.ramp = i; render(); })));
+  // Gear is drawn in a material its base allows, so the only choice worth
+  // offering is how deep you are: picking a colour outright would put a long
+  // sword in shadow silk, which is not a thing that exists.
+  if (active.id === 'icons') {
+    for (const t of MATERIAL_TIERS) {
+      bar.append(button(`T${t}`, state.tier === t, () => { state.tier = t; render(); }));
+    }
     bar.append(el('div', 'sep'));
   }
   bar.append(button(state.play ? 'Playing' : 'Frames', state.play, () => { state.play = !state.play; render(); }));
@@ -187,7 +186,7 @@ function render(): void {
       const cell = el('div', 'art-cell');
       const stage = el('div', 'stage');
       const img = document.createElement('img');
-      img.src = artUrl(c.id, rampFor(c.id));
+      img.src = artUrl(c.id, c.ramp);
       img.style.width = `${32 * state.zoom}px`;
       stage.append(img);
       const cap = el('div', 'cap');
