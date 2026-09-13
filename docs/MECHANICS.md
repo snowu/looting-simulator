@@ -243,16 +243,16 @@ A monster lighter than **55 health** (`STAGGER_HP`) is knocked out of its wind-u
 
 | Monster | Materials | Gold | Gear chance |
 |---|---|---|---|
-| Giant Rat | rat hide 42% (1–2), bone 17% | 0–2 | — |
-| Goblin Cutpurse | copper ore 35% (1–2), linen 28% (1–2), timber plank 21%, bone idol 7% | 3–12 | 5% |
-| Goblin Archer | copper ore 28% (1–2), linen 21% (1–2), timber plank 21%, yew stave 14% | 2–8 | 3.5% |
-| Goblin Shieldbearer | copper ore 35% (1–2), timber plank 28% (1–2), iron ore 17% | 3–10 | 4% |
-| Cave Bat | rat hide 32%, bone 21% | 0–3 | 1.5% |
+| Giant Rat | rat hide 42% (1–2), bone 35% | 0–2 | — |
+| Goblin Cutpurse | copper ore 35% (1–2), linen 28% (1–2), timber plank 21%, bone idol 14%, bone 35% | 3–12 | 5% |
+| Goblin Archer | copper ore 28% (1–2), linen 21% (1–2), timber plank 21%, yew stave 14%, bone 35% | 2–8 | 3.5% |
+| Goblin Shieldbearer | copper ore 35% (1–2), timber plank 28% (1–2), iron ore 17%, bone 35% | 3–10 | 4% |
+| Cave Bat | bone 35%, leather 15% | 0–3 | 1.5% |
 | Skeleton | bone 49% (1–3), iron ore 24% (1–2) | 0–6 | 4% |
 | Skeleton Archer | bone 42% (1–2), yew stave 17%, timber plank 21% | 0–8 | 3.5% |
 | Skeleton Shieldguard | bone 49% (1–3), iron ore 28% (1–2) | 2–8 | 4% |
-| Cave Spider | spider silk 42% (1–2), crystal shard 6% | 0–4 | 2% |
-| Ghoul | leather 35% (1–2), bone 35% (1–3), silver chalice 8% | 5–20 | 7% |
+| Cave Spider | spider silk 42% (1–2), crystal shard 6%, bone 35% | 0–4 | 2% |
+| Ghoul | leather 35% (1–2), bone 42% (1–3), silver chalice 14% | 5–20 | 7% |
 | Ember Wisp | flame shard 21%, crystal shard 24% (1–2), sunstone 6% | 0–5 | 3% |
 | Frost Wisp | frost shard 32%, crystal shard 24% (1–2), moonstone 6% | 0–5 | 3% |
 | Hollow Knight | iron ore 56% (2–3), silver ingot 28% (1–2), moonsilver 6%, gilded candelabra 7% | 10–40 | 16% |
@@ -502,8 +502,8 @@ Each newly generated chest has a deterministic **12% chance to be a mimic**. It 
 
 | Source | Contents |
 |---|---|
-| Urn / barrel | 40% a material (1–2), 30% gold `2 – (6 + 3×depth)`, 3% potion, 3% valuable |
-| Chest | `10–22 × depth` gold, 1–2 material stacks, 17% gear, 12% potion, 14% valuable, 10% gem, 7% identify scroll, 5% blueprint, 0.8%×depth Fight Milk. Loot find scales the gear, valuable and gem rolls |
+| Urn / barrel | 40% a material (1–2), 30% gold `2 – (6 + 3×depth)`, 3% potion, 5% valuable |
+| Chest | `10–22 × depth` gold, 1–2 material stacks, 17% gear, 12% potion, 18% valuable, 10% gem, 7% identify scroll, 5% blueprint, 0.8%×depth Fight Milk. Loot find scales the gear, valuable and gem rolls |
 | Vault / secret chest | `40–75 × depth` gold, an Uncommon+ item (Rare+ from depth 4; 25% a second Uncommon+), a valuable, a gem, 35%/70% blueprint, 35% a good consumable, 3%×depth Fight Milk |
 
 Vault rooms contain one premium chest. Special chests roll at the current depth rather than advancing every reward table by one floor.

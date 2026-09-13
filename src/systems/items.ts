@@ -676,7 +676,7 @@ export function rollContainerLoot(
       if (rng.chance(0.4)) items.push(makeMaterial(materialForDepth(rng, depth, cats).id, rng.int(1, 2)));
       if (rng.chance(0.3)) gold += rng.int(2, 6 + depth * 3);
       if (rng.chance(0.03)) items.push(makeConsumable('healing_draught'));
-      if (rng.chance(0.03 * f)) items.push(makeMaterial(rollValuable(rng, depth).id, 1));
+      if (rng.chance(0.05 * f)) items.push(makeMaterial(rollValuable(rng, depth).id, 1));
       break;
     case 'chest':
       // Fewer chests on a floor, and a chest is allowed to be a real find. The
@@ -688,7 +688,7 @@ export function rollContainerLoot(
       if (rng.chance(0.17 * (1 + find / 100))) items.push(rollEquipment(rng, depth, find, { identifyBelow, seenUniques }));
       if (rng.chance(0.12)) items.push(makeConsumable(rng.pick(['healing_draught', 'stamina_tonic'])));
       if (rng.chance(0.07)) items.push(makeConsumable('scroll_identify'));
-      if (rng.chance(0.14 * f)) items.push(makeMaterial(rollValuable(rng, depth).id, 1));
+      if (rng.chance(0.18 * f)) items.push(makeMaterial(rollValuable(rng, depth).id, 1));
       if (rng.chance(0.1 * f)) items.push(makeMaterial(rollGem(rng, depth).id, 1));
       if (rng.chance(0.05)) items.push(rollBlueprint(rng, depth, ranks));
       if (rng.chance(FIGHT_MILK_CHANCE.chest * depthFactor(depth))) items.push(makeConsumable('fight_milk'));
