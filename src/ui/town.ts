@@ -379,10 +379,15 @@ export class Town {
       );
     }
 
+    // One press for the pretty things: no recipe ever takes a valuable, so
+    // there is no reason to sell them one row at a time. (A deliver contract
+    // can still ask for them — that choice stays with the row buttons.)
+    const valuablesOwned = this.valuablesOwned();
+    const valuablesQuote = valuablesOwned.reduce((sum, v) => sum + quoteSell(m, v.id, v.qty, this.hag), 0);
     return h(
       'div',
       { class: 'panes' },
-      h('div', { class: 'pane frame' }, h('h3', { text: 'Commodities' }), h('p', { class: 'dim small', text: 'Prices drift back toward fair value each day. Dumping a stack pushes the price down; it recovers over a few days. Events move whole categories.' }), table),
+      h('div', { class: 'pane frame' }, h('div', { class: 'row' }, h('h3', { text: 'Commodities' }), valuablesOwned.length ? btn(`Sell all valuables (${gold(valuablesQuote)})`, () => this.sellAllValuables(), 'small right') : null), h('p', { class: 'dim small', text: 'Prices drift back toward fair value each day. Dumping a stack pushes the price down; it recovers over a few days. Events move whole categories.' }), table),
       h(
         'div',
         { class: 'col' },
@@ -411,6 +416,32 @@ export class Town {
     s.gold += g;
     s.lifetime.goldEarned += g;
     this.ctx.toast(`Sold ${qty} × ${material(id).name} for ${gold(g)}.`, '#e8b84a');
+    this.commit('sell');
+  }
+
+  /** Valuables in the stash: pretty things with no use but the coin they fetch. */
+  private valuablesOwned(): { id: string; qty: number }[] {
+    return MATERIALS.filter((x) => x.category === 'valuable')
+      .map((mat) => ({ id: mat.id, qty: countOf(this.s.stash, 'material', mat.id) }))
+      .filter((v) => v.qty > 0);
+  }
+
+  /** Dump every valuable at once, through the same per-commodity pricing as the row buttons. */
+  private sellAllValuables(): void {
+    const s = this.s;
+    const owned = this.valuablesOwned();
+    if (!owned.length) return;
+    let total = 0;
+    const names: string[] = [];
+    for (const v of owned) {
+      if (!removeOf(s.stash, 'material', v.id, v.qty)) continue;
+      total += sellCommodity(s.market, v.id, v.qty, this.hag);
+      names.push(`${v.qty} × ${material(v.id).name}`);
+    }
+    if (!total) return;
+    s.gold += total;
+    s.lifetime.goldEarned += total;
+    this.ctx.toast(`Sold ${names.join(', ')} for ${gold(total)}.`, '#e8b84a');
     this.commit('sell');
   }
 
