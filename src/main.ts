@@ -47,6 +47,9 @@ let saveTimer = 0;
 let ending: { outcome: 'dead' | 'extracted'; t: number } | null = null;
 
 // --- DOM -----------------------------------------------------------------------
+const overrideCount = await loadArtOverrides();
+if (overrideCount) console.info(`Loaded ${overrideCount} hand-drawn art override(s).`);
+
 const app = document.getElementById('app')!;
 document.documentElement.style.setProperty('--frame', `url(${artUrl('ui_frame')})`);
 document.documentElement.style.setProperty('--frame-gold', `url(${artUrl('ui_frame_gold')})`);
@@ -765,10 +768,6 @@ async function enterBossArena(): Promise<void> {
 }
 
 // --- Boot ------------------------------------------------------------------------
-void loadArtOverrides().then((n) => {
-  if (n) console.info(`Loaded ${n} hand-drawn art override(s).`);
-});
-
 const params = new URLSearchParams(location.search);
 if (params.has('autostart')) {
   const where = params.get('autostart');
