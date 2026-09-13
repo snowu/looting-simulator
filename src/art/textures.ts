@@ -586,7 +586,9 @@ export const TEXTURES: ArtDef[] = [
   { id: 'wall_mine_b', base: 'wall_mine', palette: TIMBER, rows: TIMBER_ROWS },
   { id: 'wall_mine_s', base: 'wall_mine', palette: MINE_SECRET, rows: SECRET_MARK_ROWS },
   { id: 'floor_mine', palette: MINE_FLOOR, rows: DIRT_ROWS },
-  { id: 'ceil_mine', base: 'ceil_mine_rock', palette: TIMBER, rows: TIMBER_ROWS.slice(0, 6).concat(Array.from({ length: 26 }, () => '.'.repeat(32))) },
+  // Timber belongs on the mine walls. Repeating its lintel on every ceiling
+  // tile puts a beam directly over the player at every texture boundary.
+  { id: 'ceil_mine', palette: MINE_CEIL, rows: RUBBLE_ROWS },
   { id: 'ceil_mine_rock', palette: MINE_CEIL, rows: RUBBLE_ROWS },
 
   // Caverns

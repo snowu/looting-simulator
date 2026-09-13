@@ -134,6 +134,12 @@ describe('pixel art', () => {
     expect(burrows.cells.filter((cell) => cell.label === 'ceiling').map((cell) => cell.id)).toEqual(['floor_cave']);
   });
 
+  it('keeps the mine ceiling free of a repeated timber lintel', () => {
+    const ceiling = rasterize(getArt('ceil_mine')!, undefined, getArt);
+    const rock = rasterize(getArt('ceil_mine_rock')!, undefined, getArt);
+    expect(Array.from(ceiling.data)).toEqual(Array.from(rock.data));
+  });
+
   /**
    * The icon sheet claims every cell is something the game can actually make.
    * If a base were ever drawn in a material its `primary` categories forbid,
