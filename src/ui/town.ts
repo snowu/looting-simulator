@@ -154,9 +154,17 @@ export class Town {
     const s = this.s;
     const running = !!s.run && s.run.outcome === 'active';
     const readyContracts = s.contracts.filter((c) => c.accepted && isComplete(c, s.stash)).length;
+    const blueprintCounts = new Map<string, number>();
+    for (const item of s.stash.items) {
+      if (item.kind === 'blueprint') blueprintCounts.set(item.ref, (blueprintCounts.get(item.ref) ?? 0) + item.qty);
+    }
+    const readyBlueprints = [...blueprintCounts].filter(([id, owned]) => {
+      const rank = recipeRank(s.recipeRanks, id);
+      return rank < MAX_RECIPE_RANK && owned >= blueprintCostForNextRank(rank);
+    }).length;
     const tabs: [TownTab, string, number][] = [
       ['market', 'Market', 0],
-      ['forge', 'Forge', s.stash.items.reduce((total, item) => total + (item.kind === 'blueprint' ? item.qty : 0), 0)],
+      ['forge', 'Forge', readyBlueprints],
       ['guild', 'Guild', readyContracts],
       ['stash', 'Stash & Gear', 0],
       ['bestiary', 'Bestiary', 0],
