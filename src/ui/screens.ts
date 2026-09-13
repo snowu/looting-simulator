@@ -1,5 +1,5 @@
 import { RunSummary } from '../state/game-state';
-import { gold, h, itemSlot, btn } from './dom';
+import { artImg, gold, h, itemSlot, btn } from './dom';
 import { patchNotesButton } from './patch-notes';
 
 const titleTaglines = [
@@ -9,10 +9,34 @@ const titleTaglines = [
 ];
 const titleTagline = titleTaglines[Math.floor(Math.random() * titleTaglines.length)];
 
-export function titleScreen(slots: HTMLElement, build = '', account?: HTMLElement, dev?: HTMLElement | null): HTMLElement {
+/**
+ * The account panel's home on the title screen. Opening settings appends that
+ * same element into the modal, which *moves* it — so closing puts it back
+ * here. A named container means the restore does not have to know where in
+ * the panel it sat.
+ */
+export const TITLE_ACCOUNT_SLOT = 'title-account';
+
+export interface TitleOpts {
+  build?: string;
+  account?: HTMLElement;
+  dev?: HTMLElement | null;
+  /** Opens the settings modal. Omitted, the gear is not drawn. */
+  onSettings?: () => void;
+}
+
+export function titleScreen(slots: HTMLElement, opts: TitleOpts = {}): HTMLElement {
+  const { build = '', account, dev, onSettings } = opts;
   return h(
     'div',
     { class: 'title-screen' },
+    onSettings
+      ? h('div', { class: 'title-gear' }, h('button', {
+          class: 'btn small icon-btn',
+          title: 'Settings — cloud saves',
+          onclick: () => onSettings(),
+        }, artImg('ic_gear', undefined, 28)))
+      : null,
     h(
       'div',
       { class: 'frame title-panel' },
@@ -32,7 +56,7 @@ export function titleScreen(slots: HTMLElement, build = '', account?: HTMLElemen
         h('div', {}, h('kbd', { text: 'I · M' }), 'pack · map'),
       ),
       h('p', { class: 'dim small', style: 'margin-top:14px', text: 'Sound on. Best with headphones and the lights off.' }),
-      account ?? null,
+      h('div', { class: TITLE_ACCOUNT_SLOT }, account ?? null),
       dev ?? null,
       build ? h('p', { class: 'faint small', text: `build ${build}` }) : null,
     ),

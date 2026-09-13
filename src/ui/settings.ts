@@ -14,12 +14,19 @@ import { btn, h } from './dom';
  */
 
 export interface SettingsCtx {
-  state: () => GameState;
-  save: () => void;
-  toast: (text: string, color?: string) => void;
+  /**
+   * The save being played, or absent on the title screen where no slot has
+   * been picked yet. Difficulty belongs to a save rather than to the device,
+   * so with no save there is nothing to switch and the section is left out —
+   * the choice for a new game is offered on the slot card instead.
+   */
+  state?: () => GameState | null;
+  save?: () => void;
+  toast?: (text: string, color?: string) => void;
   /** The persistent account element, moved in here while open. */
   account: () => HTMLElement | null;
-  /** Town refreshes behind the modal (e.g. the header sync status). */
+  /** Whoever opened this refreshes behind the modal, and takes the account
+   * element back: appending it here moved it out of wherever it was. */
   onClose: () => void;
 }
 
@@ -37,7 +44,11 @@ export function openSettings(ctx: SettingsCtx): void {
    * lengths, and swapping one for the other shoved the whole modal around.
    */
   function renderDifficulty(): void {
-    const s = ctx.state();
+    const s = ctx.state?.();
+    if (!s) {
+      difficultyBox.replaceChildren();
+      return;
+    }
     const running = !!s.run && s.run.outcome === 'active';
     // Mid-delve the highlight follows the run snapshot, not town state — the
     // buttons are locked anyway, so this is just saying what you are on.
@@ -49,10 +60,11 @@ export function openSettings(ctx: SettingsCtx): void {
         const el = btn(
           def.name,
           () => {
-            if (ctx.state().run?.outcome === 'active') return;
-            ctx.state().difficulty = id;
-            ctx.save();
-            ctx.toast(`Difficulty: ${def.name}. ${def.tagline}`, '#9ab0d8');
+            const live = ctx.state?.();
+            if (!live || live.run?.outcome === 'active') return;
+            live.difficulty = id;
+            ctx.save?.();
+            ctx.toast?.(`Difficulty: ${def.name}. ${def.tagline}`, '#9ab0d8');
             paintSelection();
           },
           'small',
@@ -78,7 +90,8 @@ export function openSettings(ctx: SettingsCtx): void {
 
   /** Flip the highlight without rebuilding: no reflow, no jumping text. */
   function paintSelection(): void {
-    const s = ctx.state();
+    const s = ctx.state?.();
+    if (!s) return;
     const running = !!s.run && s.run.outcome === 'active';
     const current = running ? difficultyOf(s.run?.difficulty ?? s.difficulty).id : s.difficulty;
     const rows = difficultyBox.querySelectorAll('.diff-row');

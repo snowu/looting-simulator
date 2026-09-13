@@ -1,4 +1,5 @@
 import { GameState } from '../state/game-state';
+import { DIFFICULTIES, DIFFICULTY_IDS, DifficultyId } from '../data/difficulty';
 import { Slot } from '../state/persistence';
 import { MAX_SAVE_NAME, describeSave, displaySaveName, progressHash, sanitizeSaveName } from '../state/save-format';
 import { CloudSave } from '../cloud/cloud-save';
@@ -21,23 +22,31 @@ export interface SlotView {
   cloudUnreadable?: boolean;
 }
 
+/**
+ * Entering a slot. `difficulty` is set only when this is a brand-new game and
+ * the player picked one on the card; continuing a save carries its own, and
+ * passing anything here would overwrite it.
+ */
+export type OnPlay = (slot: Slot, difficulty?: DifficultyId) => void;
+
 export interface SlotActions {
   onRename?: (slot: Slot, name: string) => void;
   onDelete?: (slot: Slot) => void;
 }
 
-export function slotPicker(views: SlotView[], onPlay: (slot: Slot) => void, actions: SlotActions = {}): HTMLElement {
+export function slotPicker(views: SlotView[], onPlay: OnPlay, actions: SlotActions = {}): HTMLElement {
   return h('div', { class: 'slots' }, ...views.map((v) => card(v, onPlay, actions)));
 }
 
-type CardMode = 'view' | 'rename' | 'confirm';
+type CardMode = 'view' | 'rename' | 'confirm' | 'difficulty';
 
-function card(v: SlotView, onPlay: (slot: Slot) => void, actions: SlotActions): HTMLElement {
+function card(v: SlotView, onPlay: OnPlay, actions: SlotActions): HTMLElement {
   const el = h('div', { class: 'slot-card frame' });
   let mode: CardMode = 'view';
   const render = (): void => {
     el.replaceChildren();
     if (mode === 'rename') for (const k of renameEls()) el.append(k);
+    else if (mode === 'difficulty') for (const k of difficultyEls()) el.append(k);
     else if (mode === 'confirm') for (const k of confirmEls()) el.append(k);
     else for (const k of viewEls()) el.append(k);
   };
@@ -66,7 +75,7 @@ function card(v: SlotView, onPlay: (slot: Slot) => void, actions: SlotActions): 
         h('div', { class: 'slot-name', text: `Slot ${v.slot}` }),
         h('div', { class: 'dim', text: 'Empty' }),
         h('div', { class: 'grow' }),
-        btn('Begin', () => onPlay(v.slot), 'small'),
+        btn('Begin', () => { mode = 'difficulty'; render(); }, 'small'),
       ];
     }
     const s = describeSave(shown);
@@ -121,6 +130,38 @@ function card(v: SlotView, onPlay: (slot: Slot) => void, actions: SlotActions): 
         { class: 'row', style: 'margin-top:4px' },
         btn('Save', save, 'small primary'),
         btn('Cancel', () => { mode = 'view'; render(); }, 'small'),
+      ),
+    ];
+  }
+
+  /**
+   * Picked once, when the save is created. Hard is preselected because it is
+   * the game as it was and the default everything else assumes; Normal is a
+   * deliberate choice, not somewhere you land by mishitting a button. It stays
+   * changeable later behind the gear in town, between delves.
+   */
+  function difficultyEls(): Node[] {
+    let picked: DifficultyId = 'hard';
+    const rows = h('div', { class: 'slot-diff' });
+    const paint = (): void => {
+      rows.replaceChildren(...DIFFICULTY_IDS.map((id) => {
+        const def = DIFFICULTIES[id];
+        const b = btn(def.name, () => { picked = id; paint(); }, `small${picked === id ? ' primary' : ''}`);
+        b.title = def.description;
+        return h('div', { class: 'row' }, b, h('span', { class: 'dim small', text: def.tagline }));
+      }));
+    };
+    paint();
+    return [
+      h('div', { class: 'slot-name', text: `Slot ${v.slot}` }),
+      h('div', { class: 'dim small', text: 'How hard?' }),
+      rows,
+      h('div', { class: 'grow' }),
+      h(
+        'div',
+        { class: 'row', style: 'margin-top:4px' },
+        btn('Begin', () => onPlay(v.slot, picked), 'small primary'),
+        btn('Back', () => { mode = 'view'; render(); }, 'small'),
       ),
     ];
   }
