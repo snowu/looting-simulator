@@ -140,6 +140,11 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
 
       B(biome.floor).quad([x0, 0, z0], [x1, 0, z0], [x1, 0, z1], [x0, 0, z1], [0, 1, 0]);
       B(ceiling).quad([x0, WALL_H, z0], [x1, WALL_H, z0], [x1, WALL_H, z1], [x0, WALL_H, z1], [0, -1, 0]);
+      if (biome.id === 'catacombs') {
+        B('water_catacombs').quad(
+          [x0, 0.018, z0], [x1, 0.018, z0], [x1, 0.018, z1], [x0, 0.018, z1], [0, 1, 0],
+        );
+      }
 
       if (t === PILLAR) {
         const p = 0.42 * TILE;
@@ -174,7 +179,11 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
   for (const [tex, b] of builders) {
     if (!b.idx.length) continue;
     const geo = b.build();
-    const mat = ps1Material(shared, artTexture(tex));
+    const water = tex === 'water_catacombs';
+    const mat = ps1Material(shared, artTexture(tex), water
+      ? { transparent: true, depthWrite: false, side: THREE.DoubleSide }
+      : undefined);
+    if (water) mat.uniforms.uOpacity.value = 0.16;
     geometries.push(geo);
     materials.push(mat);
     root.add(new THREE.Mesh(geo, mat));

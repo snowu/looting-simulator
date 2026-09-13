@@ -6,8 +6,8 @@
 export type SfxName =
   | 'step' | 'swing' | 'hit' | 'crit' | 'hurt' | 'block' | 'door' | 'locked' | 'unlock'
   | 'pickup' | 'gold' | 'chest' | 'break' | 'death' | 'enemyDie' | 'stairs' | 'shoot'
-  | 'magic' | 'study' | 'winded' | 'secret' | 'ui' | 'craft' | 'drink' | 'alert' | 'miss' | 'sell' | 'recall' | 'parry'
-  | 'kingturn' | 'snuff';
+   | 'magic' | 'study' | 'winded' | 'secret' | 'ui' | 'craft' | 'drink' | 'alert' | 'miss' | 'sell' | 'recall' | 'parry'
+  | 'kingturn' | 'snuff' | 'splash';
 
 export interface PlayOpts {
   volume?: number;
@@ -264,6 +264,14 @@ class AudioEngine {
       case 'snuff':
         this.noiseBurst(o, 0.5, 'lowpass', 700, 120, 0.4, 1.2);
         this.noiseBurst(o, 0.9, 'highpass', 1800, 500, 0.16, 0.7, 0.05);
+        break;
+      // Water reads as a surface break plus the small rising plinks of
+      // entrained air bubbles, not as one envelope of white noise.
+      case 'splash':
+        this.noiseBurst(o, 0.11, 'bandpass', 1900 * r, 420, 0.28, 1.3);
+        this.noiseBurst(o, 0.045, 'highpass', 5200 * r, 1700, 0.12, 1, 0.012);
+        this.tone(o, 'sine', 760 * r, 1240 * r, 0.14, 0.11, 0.028);
+        this.tone(o, 'sine', 1180 * r, 1960 * r, 0.09, 0.07, 0.06);
         break;
       case 'ui':
         this.tone(o, 'square', 700, 700, 0.03, 0.08);

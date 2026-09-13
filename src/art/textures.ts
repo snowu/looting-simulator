@@ -414,6 +414,14 @@ const PUDDLE_ROWS = rows(`
   ................................
 `);
 
+// A full, very dark water film. The renderer draws it with low opacity over
+// the floor; the sparse bright pixels catch the light as small ripples.
+const WATER_ROWS = Array.from({ length: 32 }, (_, y) => {
+  const row = Array(32).fill('q');
+  for (let x = (y * 7) % 11; x < 32; x += 13) row[x] = 'r';
+  return row.join('');
+});
+
 // Throne-room banner with the Ashen King's sigil.
 const pad10 = (seg: string) => '..........' + seg + '..........';
 const SIGIL = ['rgrggrgr', 'rggggggr', 'rrggggrr', 'rgkggkgr', 'rggggggr', 'rrgkkgrr', 'rrggggrr', 'rrrggrrr'];
@@ -611,6 +619,7 @@ const TIMBER = { x: '#7a5230', w: '#5e3e22', y: '#3c2614', z: '#1e1209', n: '#9a
 const CAVE = { m: '#050a09', e: '#0c1614', a: '#152420', b: '#1e302b', c: '#294038', d: '#365248' };
 const CAVE_FLOOR = { e: '#0a1210', a: '#101c18', b: '#16241f', c: '#1e2e28', d: '#2a3c34', p: '#44605a' };
 const CAVE_CEIL = { m: '#030605', e: '#070d0b', a: '#0b1411', b: '#101a17', c: '#15221e', d: '#1b2a25' };
+const CATACOMB_WATER = { q: '#286b78', r: '#75c2bf' };
 
 const THRONE = { m: '#7a2410fa', e: '#1a1218', a: '#241a22', b: '#30232c', c: '#3e2e38', d: '#4e3a46' };
 const THRONE_FLOOR = { r: '#b03c18fa', d: '#3a2c34', b: '#1e161c', f: '#2a2026', g: '#3a2e36', a: '#100a0e', c: '#2a2028' };
@@ -653,6 +662,7 @@ export const TEXTURES: ArtDef[] = [
   { id: 'wall_cave_s', base: 'wall_cave', palette: CAVE_SECRET, rows: SECRET_MARK_ROWS },
   { id: 'floor_cave_dirt', palette: CAVE_FLOOR, rows: DIRT_ROWS },
   { id: 'floor_cave', base: 'floor_cave_dirt', palette: { p: '#223e4a', q: '#4a7a8a' }, rows: PUDDLE_ROWS },
+  { id: 'water_catacombs', palette: CATACOMB_WATER, rows: WATER_ROWS },
   { id: 'ceil_cave', palette: CAVE_CEIL, rows: SLAB_ROWS },
 
   // Themed variants that preserve the crypt silhouette while changing only

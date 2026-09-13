@@ -145,6 +145,7 @@ const biomeGroups: SheetGroup[] = BIOMES.map((b) => ({
     { id: b.wallAlt, label: 'wall alt' },
     { id: b.wallSecret, label: 'secret' },
     { id: b.floor, label: 'floor' },
+    ...(b.id === 'catacombs' ? [{ id: 'water_catacombs', label: 'water' }] : []),
     // Burrows swaps this fallback for the preceding floor's texture at runtime.
     // The sheet only needs one representative tile; the transition logic is code.
     { id: b.ceiling, label: 'ceiling' },

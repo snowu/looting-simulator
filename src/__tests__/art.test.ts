@@ -22,7 +22,7 @@ describe('pixel art', () => {
   });
 
   it('everything the data references exists', () => {
-    const needed = new Set<string>(['ic_blueprint', 'ic_key', 'ic_gold', 'door_locked', 'ui_frame']);
+    const needed = new Set<string>(['ic_blueprint', 'ic_key', 'ic_gold', 'door_locked', 'ui_frame', 'water_catacombs']);
     for (const m of MATERIALS) needed.add(m.icon);
     for (const b of ITEM_BASES) needed.add(b.icon);
     for (const c of CONSUMABLES) needed.add(c.icon);
@@ -131,7 +131,7 @@ describe('pixel art', () => {
 
   it('shows only the Burrows fallback ceiling on the biome sheet', () => {
     const burrows = sheets().find((s) => s.id === 'biomes')!.groups.find((g) => g.title === 'The Vermin Burrows')!;
-    expect(burrows.cells.filter((cell) => cell.label === 'ceiling').map((cell) => cell.id)).toEqual(['floor_cave']);
+    expect(burrows.cells.filter((cell) => cell.label === 'ceiling').map((cell) => cell.id)).toEqual(['ceil_cave']);
   });
 
   it('keeps the mine ceiling free of a repeated timber lintel', () => {

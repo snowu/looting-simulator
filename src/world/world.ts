@@ -611,7 +611,6 @@ export class World {
   private arrive(): void {
     const p = this.player;
     this.anim.steps++;
-    this.sfx('step');
     this.reveal();
     const f = this.floor;
     const trap = trapAt(f, p.x, p.y);
@@ -620,6 +619,7 @@ export class World {
       if (this.run.outcome !== 'active') return;
     }
     const s = stairsAt(f, p.x, p.y);
+    this.sfx(biomeForFloor(f).id === 'catacombs' && !s ? 'splash' : 'step');
     if (s) {
       if (!s.down && this.run.depth === 1) {
         this.msg('You climb back into the daylight.', '#e8d8a0');

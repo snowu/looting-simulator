@@ -122,7 +122,7 @@ Every generated floor is checked: all walkable tiles reachable, keys reachable w
 |---|---|---|---|
 | 1–2 | The Ossuary | Wood | Stone brickwork, bone niches, warm torchlight |
 | 3–4 | The Deep Mines | Wood | Rubble walls, timber supports, dirt floors |
-| 1–3 | The Sunken Catacombs | Wood | Wet stone, cold fungus, drowned dead |
+| 1–3 | The Sunken Catacombs | Wood | Wet stone, shallow water that splashes underfoot, cold fungus, drowned dead |
 | 1–3 | The Vermin Burrows | Wood | Packed earth, roots, vermin and stalkers |
 | 3–5 | The Frost Vault | Iron | Blue stone, fractured ice, frostbound guards; frost creatures are favored and fire creatures do not spawn |
 | 3–5 | The Emberworks | Iron | Soot-black masonry, hot seams, fire creatures; fire creatures are favored and frost creatures do not spawn |
