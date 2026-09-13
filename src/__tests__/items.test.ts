@@ -93,13 +93,36 @@ describe('items', () => {
     expect(MATERIALS.filter((m) => materialAvailableAtDepth(m, 1)).map((m) => m.id)).not.toContain('gold');
   });
 
-  it('makes rare materials scarcer than same-tier common materials', () => {
+  it('makes rarer materials scarcer than commoner ones of the same tier', () => {
     const counts: Record<string, number> = {};
+    // Silver and gold are both tier 3, so the tier-distance weighting cancels
+    // and only the rarity weight is left — which is the thing under test. The
+    // old version compared gold against iron, a tier apart, and so measured
+    // the two weightings multiplied together. Depth 4 is the first floor
+    // either of them can drop on.
     for (let seed = 0; seed < 1000; seed++) {
-      const id = materialForDepth(createRng(seed), 3, ['metal']).id;
+      const id = materialForDepth(createRng(seed), 4, ['metal']).id;
       counts[id] = (counts[id] ?? 0) + 1;
     }
-    expect(counts.gold).toBeLessThan(counts.iron / 4);
+    expect(counts.silver).toBeGreaterThan(0);
+    expect(counts.gold ?? 0).toBeLessThan(counts.silver / 2);
+  });
+
+  it('makes loot find raise quality, not just quantity', () => {
+    // Common's weight used to be a flat 100, which anchored the whole roll: a
+    // maxed Treasure Sense bought about 15% more drops of which nearly all were
+    // still Common. "Loot find" has to mean better loot, not more junk.
+    const share = (find: number) => {
+      let common = 0;
+      const rng = createRng(4);
+      for (let i = 0; i < 4000; i++) if (rollRarity(rng, 4, find) === Rarity.Common) common++;
+      return common / 4000;
+    };
+    const none = share(0);
+    const maxed = share(60);
+    expect(maxed).toBeLessThan(none * 0.75);
+    // And it must change nothing at all for a player who has bought none.
+    expect(share(0)).toBe(none);
   });
 
   it('keeps shallow special chests within the current depth band', () => {

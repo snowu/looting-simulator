@@ -3,6 +3,7 @@ import { DIRS, DX, DY } from '../core/dir';
 import { createRng } from '../core/rng';
 import { newGame } from '../state/game-state';
 import { FLOOR, chestIsMimic } from '../systems/dungeon';
+import { enemyDef } from '../data/enemies';
 import { startRun } from '../systems/run';
 import { World } from '../world/world';
 
@@ -49,7 +50,7 @@ describe('mimics', () => {
     expect(mimic.def).toBe('mimic');
     expect(mimic.ai).toBe('recover');
     expect(mimic.alert).toBeGreaterThan(0);
-    expect(mimic.maxHp).toBe(52);
+    expect(mimic.maxHp).toBe(enemyDef('mimic').hp);
     expect(mimic.mimicTier).toBe('vault');
 
     w.interact();

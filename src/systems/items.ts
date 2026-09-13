@@ -415,20 +415,33 @@ export function identifyCost(item: Item, appraiserLevel: number): number {
 // ---------------------------------------------------------------------------
 
 export function rollRarity(rng: Rng, depth: number, find: number): Rarity {
-  const f = 1 + find / 100;
+  // Floored above zero: find is a stat, a relic is allowed to spend it, and
+  // Common's weight is now a division rather than a constant.
+  const f = Math.max(0.1, 1 + find / 100);
+  // Loot find pushes the whole distribution up, rather than only scaling the
+  // good bands. Common sat at a flat 100 and anchored the roll, so a maxed
+  // Treasure Sense bought about 15% more drops of which almost all were still
+  // Common — more junk, not better junk, which is not what "loot find" means
+  // to anyone reading it. Dividing the Common weight makes the same number
+  // move quality as well as quantity. At find 0 this is exactly 100, so it
+  // changes nothing for a player who has not bought any.
   const bands: [Rarity, number][] = [
-    [Rarity.Common, 100],
-    [Rarity.Uncommon, (28 + depth * 6) * f],
-    [Rarity.Rare, (7 + depth * 3) * f],
-    [Rarity.Epic, (1.2 + depth * 1.1) * f],
-    [Rarity.Legendary, (0.15 + depth * 0.3) * f],
+    [Rarity.Common, 100 / f],
+    [Rarity.Uncommon, (18 + depth * 4) * f],
+    [Rarity.Rare, (4 + depth * 1.8) * f],
+    [Rarity.Epic, (0.5 + depth * 0.6) * f],
+    [Rarity.Legendary, (0.06 + depth * 0.16) * f],
   ];
   return rng.weighted<Rarity>(bands.filter(([rarity]) => rarityAvailableAtDepth(rarity, depth)));
 }
 
-/** Natural drops unlock one rarity band every two depths. */
+/**
+ * Natural drops unlock one rarity band as you go. Later than it used to be: a
+ * Rare on the second floor made the first two floors' worth of Commons
+ * pointless the moment you saw one.
+ */
 export function rarityAvailableAtDepth(rarity: Rarity, depth: number): boolean {
-  return depth >= [1, 1, 2, 4, 6][RARITY_ORDER[rarity]];
+  return depth >= [1, 1, 3, 5, 6][RARITY_ORDER[rarity]];
 }
 
 export function rollAffixes(
@@ -480,12 +493,22 @@ export function materialForDepth(rng: Rng, depth: number, categories: MaterialCa
   const fallback = MATERIALS.filter((m) => categories.includes(m.category));
   const candidates = pool.length ? pool : fallback;
   const list = candidates.filter((m) => materialAvailableAtDepth(m, depth));
-  const target = 1 + (depth - 1) * 0.7 + rng.float(-0.6, 1.1);
+  const target = 1 + (depth - 1) * 0.55 + rng.float(-0.7, 0.8);
   return rng.weighted((list.length ? list : candidates).map((m) => [m, Math.exp(-Math.abs(m.tier - target) * 1.6) * materialRarityWeight(m)] as const));
 }
 
+/**
+ * Which floor a material tier starts appearing on, indexed by tier.
+ *
+ * Tier 3 used to be reachable on floor one, which is most of why the power
+ * curve ran away: silver and ironwood were in the first chest you opened, and
+ * the gear ladder was three rungs ahead of the floor ladder by depth 2. The
+ * metal you are wearing should say how deep you have been.
+ */
+const TIER_DEPTH = [1, 1, 2, 4, 5, 6];
+
 export function materialAvailableAtDepth(material: MaterialDef, depth: number): boolean {
-  const tierDepth = [1, 1, 1, 3, 5, 6][material.tier] ?? 6;
+  const tierDepth = TIER_DEPTH[material.tier] ?? 6;
   return depth >= tierDepth && rarityAvailableAtDepth(material.rarity, depth);
 }
 
@@ -578,7 +601,7 @@ export interface LootRoll {
  * entry is unread, so the codex fills steadily and then stops costing drops.
  * A boss always gives up its page.
  */
-const LORE_CHANCE = 0.14;
+const LORE_CHANCE = 0.1;
 
 export function rollEnemyLoot(
   rng: Rng,
@@ -609,8 +632,9 @@ export function rollEnemyLoot(
   } else if (rng.chance(Math.min(0.95, def.itemChance * (1 + find / 100)))) {
     items.push(rollEquipment(rng, depth, find, { identifyBelow, seenUniques }));
   }
-  if (rng.chance(0.06)) items.push(makeConsumable('healing_draught'));
-  if (rng.chance(0.012 * depth)) items.push(rollBlueprint(rng, depth, ranks, blueprints));
+  // Potions off corpses were the reason health never actually ran out.
+  if (rng.chance(0.025)) items.push(makeConsumable('healing_draught'));
+  if (rng.chance(0.006 * depth)) items.push(rollBlueprint(rng, depth, ranks, blueprints));
   return { items, gold };
 }
 
@@ -639,29 +663,39 @@ export function rollContainerLoot(
 ): LootRoll {
   const items: Item[] = [];
   let gold = 0;
+  const f = 1 + find / 100;
   const cats: MaterialCategory[] = ['metal', 'wood', 'hide', 'cloth', 'bone'];
   switch (tier) {
     case 'urn':
-      if (rng.chance(0.55)) items.push(makeMaterial(materialForDepth(rng, depth, cats).id, rng.int(1, 2)));
-      if (rng.chance(0.35)) gold += rng.int(2, 6 + depth * 3);
-      if (rng.chance(0.06)) items.push(makeConsumable('healing_draught'));
-      if (rng.chance(0.05)) items.push(makeMaterial(rollValuable(rng, depth).id, 1));
+      // An urn is a handful of something, or nothing. Most of them are nothing,
+      // which is what makes the one with a gem in it worth the swing.
+      if (rng.chance(0.4)) items.push(makeMaterial(materialForDepth(rng, depth, cats).id, rng.int(1, 2)));
+      if (rng.chance(0.3)) gold += rng.int(2, 6 + depth * 3);
+      if (rng.chance(0.03)) items.push(makeConsumable('healing_draught'));
+      if (rng.chance(0.03 * f)) items.push(makeMaterial(rollValuable(rng, depth).id, 1));
       break;
     case 'chest':
-      gold += rng.int(8, 20) * depth;
-      for (let i = rng.int(1, 3); i > 0; i--) items.push(makeMaterial(materialForDepth(rng, depth, cats).id, rng.int(1, 3)));
-      if (rng.chance(0.4 * (1 + find / 100))) items.push(rollEquipment(rng, depth, find, { identifyBelow, seenUniques }));
-      if (rng.chance(0.2)) items.push(makeConsumable(rng.pick(['healing_draught', 'stamina_tonic'])));
-      if (rng.chance(0.1)) items.push(makeConsumable('scroll_identify'));
-      if (rng.chance(0.18)) items.push(makeMaterial(rollValuable(rng, depth).id, 1));
-      if (rng.chance(0.12)) items.push(makeMaterial(rollGem(rng, depth).id, 1));
-      if (rng.chance(0.08)) items.push(rollBlueprint(rng, depth, ranks));
+      // Fewer chests on a floor, and a chest is allowed to be a real find. The
+      // coin per chest is up; the gear chance is less than half what it was,
+      // because a chest that hands you a weapon every other time is a vending
+      // machine and you stop reading the room it is standing in.
+      gold += rng.int(10, 22) * depth;
+      for (let i = rng.int(1, 2); i > 0; i--) items.push(makeMaterial(materialForDepth(rng, depth, cats).id, rng.int(1, 3)));
+      if (rng.chance(0.17 * (1 + find / 100))) items.push(rollEquipment(rng, depth, find, { identifyBelow, seenUniques }));
+      if (rng.chance(0.12)) items.push(makeConsumable(rng.pick(['healing_draught', 'stamina_tonic'])));
+      if (rng.chance(0.07)) items.push(makeConsumable('scroll_identify'));
+      if (rng.chance(0.14 * f)) items.push(makeMaterial(rollValuable(rng, depth).id, 1));
+      if (rng.chance(0.1 * f)) items.push(makeMaterial(rollGem(rng, depth).id, 1));
+      if (rng.chance(0.05)) items.push(rollBlueprint(rng, depth, ranks));
       if (rng.chance(FIGHT_MILK_CHANCE.chest * depthFactor(depth))) items.push(makeConsumable('fight_milk'));
       break;
     case 'vault':
     case 'secret':
-      gold += rng.int(30, 60) * depth;
-      items.push(rollEquipment(rng, depth, find, { minRarity: depth >= 3 ? Rarity.Rare : Rarity.Uncommon, identifyBelow, seenUniques }));
+      // Untouched on purpose. A vault is behind a key and a secret is behind a
+      // wall you had to read: they are the two places in the dungeon that are
+      // supposed to pay, and they are rarer than everything else by design.
+      gold += rng.int(40, 75) * depth;
+      items.push(rollEquipment(rng, depth, find, { minRarity: depth >= 4 ? Rarity.Rare : Rarity.Uncommon, identifyBelow, seenUniques }));
       if (rng.chance(0.25)) items.push(rollEquipment(rng, depth, find, { minRarity: Rarity.Uncommon, identifyBelow, seenUniques }));
       items.push(makeMaterial(rollValuable(rng, depth).id, rng.int(1, 2)));
       items.push(makeMaterial(rollGem(rng, depth).id, 1));

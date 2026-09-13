@@ -1,7 +1,7 @@
 import { GameState } from '../state/game-state';
 import { EQUIP_SLOTS, Item, MaterialCategory, Rarity, RARITY_COLORS, STAT_KEYS, STAT_LABELS, Stats } from '../types';
 import { MATERIALS, catalystAffixBonus, material, secondaryMaterialMods } from '../data/materials';
-import { CONSUMABLES, itemBase } from '../data/items';
+import { consumable, itemBase } from '../data/items';
 import { affix } from '../data/affixes';
 import { MAX_RECIPE_RANK, RECIPE_LADDER, blueprintCostForNextRank, masteryBonus, recipe, recipeRank } from '../data/recipes';
 import { META_UPGRADES, backpackCapacity, haggleLevel, metaLevel, nextCost } from '../systems/meta';
@@ -15,6 +15,7 @@ import {
   marketEvent,
   quoteSell,
   sellCommodity,
+  SHOP_CONSUMABLES,
   trendPercent,
 } from '../systems/market';
 import { MAX_ACCEPTED, contractTitle, gearCandidates, isComplete } from '../systems/contracts';
@@ -357,7 +358,10 @@ export class Town {
       );
     }
     const supplies = h('div', { class: 'wares' });
-    for (const c of CONSUMABLES) {
+    // SHOP_CONSUMABLES, not every consumable in the game: it is the one place
+    // that decides what a merchant stocks, and it already leaves out the
+    // found-only tonics.
+    for (const c of SHOP_CONSUMABLES.map(consumable)) {
       const price = Math.ceil(c.value * (1.2 - 0.04 * this.hag));
       const it = makeConsumable(c.id);
       supplies.append(

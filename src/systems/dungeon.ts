@@ -242,8 +242,42 @@ export function stairsFront(s: Stairs): { x: number; y: number; facing: Dir } {
 // Generation
 // ---------------------------------------------------------------------------
 
+/**
+ * How much stronger than its stat block a monster is on this floor.
+ *
+ * Two things are going on, and they used to be one. A monster standing below
+ * its own home floor is a veteran of its kind, which is the `overlevel` term.
+ * But the player's gear tracks the *floor number* — depth is what decides which
+ * materials drop and therefore what you are swinging — so the monsters have to
+ * track the floor number too, or the two curves never meet. That is `floor`.
+ *
+ * Health climbs faster than damage on purpose: a deep floor should be a longer
+ * fight you can lose slowly, not a coin flip that removes you in two blows.
+ *
+ * Exported because the balance tables ask the same question the generator does,
+ * and a second copy of the formula is a second copy to forget to update.
+ */
+export function depthPower(def: EnemyDef, depth: number): number {
+  const overlevel = 1 + Math.max(0, depth - def.minDepth) * 0.12;
+  const floor = 1 + Math.max(0, depth - 1) * 0.5;
+  return overlevel * floor;
+}
+
+/**
+ * Damage and armour climb more slowly than health. `power` is already the
+ * health multiplier, so these are expressed against it rather than against
+ * depth again — one curve, read three ways.
+ */
+export function attackPower(power: number): number {
+  return 1 + (power - 1) * 0.55;
+}
+
+export function defensePower(power: number): number {
+  return 1 + (power - 1) * 0.45;
+}
+
 export function createEnemy(def: EnemyDef, x: number, y: number, facing: Dir, id: string, depth: number): EnemyState {
-  const power = 1 + Math.max(0, depth - def.minDepth) * 0.12;
+  const power = depthPower(def, depth);
   const hp = Math.round(def.hp * power);
   return {
     id, def: def.id, x, y, fromX: x, fromY: y, moveT: 1, facing, hp, maxHp: hp, ai: 'idle', timer: 0, alert: 0,
@@ -678,18 +712,24 @@ function tryGenerate(seed: number, depth: number, rng: Rng): Floor | null {
     };
     switch (r.role) {
       case 'start':
-        if (rng.chance(0.5)) put(vessel, 'urn', true);
+        if (rng.chance(0.25)) put(vessel, 'urn', true);
         break;
       case 'normal':
       case 'end':
-        if (rng.chance(0.35)) put('chest', 'chest', true);
-        for (let n = rng.int(0, 3); n > 0; n--) put(vessel, 'urn', true);
+        // A chest used to sit in a third of all ordinary rooms, and a floor
+        // carried nineteen lootable things against a sixteen-slot pack. If
+        // every room pays, no room is worth remembering.
+        if (rng.chance(0.12)) put('chest', 'chest', true);
+        if (rng.chance(0.45)) put(vessel, 'urn', true);
+        // This second urn is a new roll. Keep it off the floor's shared stream
+        // so a balance tweak cannot shift the later enemy and trap rolls.
+        if (createRng(hashString(`extra-urn:${seed}:${r.x}:${r.y}`)).chance(0.15)) put(vessel, 'urn', true);
         if (rng.chance(0.5)) put('bones', 'none', false);
         break;
       case 'treasure':
         put('chest', 'chest', true);
-        if (rng.chance(0.3)) put('chest', 'chest', true);
-        for (let n = rng.int(2, 4); n > 0; n--) put(vessel, 'urn', true);
+        if (rng.chance(0.15)) put('chest', 'chest', true);
+        for (let n = rng.int(1, 2); n > 0; n--) put(vessel, 'urn', true);
         break;
       case 'vault':
         put('chest', 'vault', true);
@@ -701,11 +741,11 @@ function tryGenerate(seed: number, depth: number, rng: Rng): Floor | null {
       case 'shrine': {
         const sx = cx(r), sy = cy(r);
         if (!nearReserved(sx, sy)) place('shrine', sx, sy, 'none', true);
-        for (let n = rng.int(0, 2); n > 0; n--) put(vessel, 'urn', true);
+        if (rng.chance(0.4)) put(vessel, 'urn', true);
         break;
       }
       case 'throne':
-        for (let n = 4; n > 0; n--) put(vessel, 'urn', true);
+        for (let n = 2; n > 0; n--) put(vessel, 'urn', true);
         put('bones', 'none', false);
         put('bones', 'none', false);
         break;
@@ -772,7 +812,9 @@ function tryGenerate(seed: number, depth: number, rng: Rng): Floor | null {
     if (free(bx - 2, by + 3)) spawnEnemy(guard, bx - 2, by + 3);
     if (free(bx + 2, by + 3)) spawnEnemy(guard, bx + 2, by + 3);
   }
-  const wanted = 4 + depth * 2 + Math.floor(rooms.length / 3);
+  // Fights last three to seven swings now instead of one, so the same count
+  // would turn a floor into a queue. Fewer and deadlier is the trade.
+  const wanted = 3 + Math.round(depth * 1.2) + Math.floor(rooms.length / 4);
   const hostRooms = rooms.filter((r) => r.role !== 'start' && r.role !== 'secret' && r.role !== 'throne');
   for (let guard = 0; enemies.length < wanted + (throne ? 3 : 0) && guard < 200; guard++) {
     const def = rng.weighted(pool.map((e) => [e, e.weight] as const));
@@ -804,10 +846,10 @@ function tryGenerate(seed: number, depth: number, rng: Rng): Floor | null {
   };
   {
     const spots = rng.shuffle(looseSpots());
-    for (let n = 3 + depth; n > 0 && spots.length; n--) {
+    for (let n = 1 + Math.ceil(depth / 2); n > 0 && spots.length; n--) {
       const [x, y] = spots.pop()!;
       if (rng.chance(0.55)) {
-        pickups.push({ id: `k${pickN++}`, x, y, items: [], gold: rng.int(3, 8) * depth });
+        pickups.push({ id: `k${pickN++}`, x, y, items: [], gold: rng.int(2, 5) * depth });
       } else {
         const m = materialForDepth(rng, depth, ['metal', 'wood', 'hide', 'cloth', 'bone']);
         pickups.push({ id: `k${pickN++}`, x, y, items: [makeMaterial(m.id, rng.int(1, 2))], gold: 0 });

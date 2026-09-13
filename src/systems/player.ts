@@ -113,7 +113,15 @@ export interface PlayerDerived {
 }
 
 export const BASE_HP = 70;
+
 export const BASE_STAMINA = 100;
+/**
+ * Loot find per level of Treasure Sense. Raised from 12 with the balance pass:
+ * find multiplies drop *chances*, and those were cut by more than half, so
+ * +36% of a much smaller number measured as very close to nothing. Scarcer
+ * loot should make finding more of it matter more, not less.
+ */
+const FIND_PER_TREASURE_SENSE = 20;
 
 export function derivePlayer(eq: Equipment, meta: MetaLevels): PlayerDerived {
   const stats = emptyStats();
@@ -144,7 +152,7 @@ export function derivePlayer(eq: Equipment, meta: MetaLevels): PlayerDerived {
     // and a negative absorption would turn raising your guard into taking more.
     block: hasShield ? Math.max(0, Math.min(0.9, stats.block / 100)) : weapon ? 0.3 : 0.12,
     hasShield,
-    find: stats.find + 12 * metaLevel(meta, 'treasure_sense'),
+    find: stats.find + FIND_PER_TREASURE_SENSE * metaLevel(meta, 'treasure_sense'),
     traits: traitsOf(eq),
   };
 }

@@ -116,12 +116,12 @@ export const ITEM_BASES: ItemBaseDef[] = [
 export const CONSUMABLES: ConsumableDef[] = [
   {
     id: 'healing_draught', name: 'Healing Draught', icon: 'ic_potion', ramp: ['#3a0408', '#7a0c14', '#c82028', '#ff8080'],
-    description: 'Restores 35% of your health.', effect: { type: 'heal', fraction: 0.35 },
+    description: 'Restores 25% of your health.', effect: { type: 'heal', fraction: 0.25 },
     rarity: Rarity.Common, value: 24, stack: 5,
   },
   {
     id: 'greater_healing', name: 'Greater Healing', icon: 'ic_potion', ramp: ['#3a0428', '#7a0c5a', '#d0209a', '#ffa0e0'],
-    description: 'Restores 75% of your health.', effect: { type: 'heal', fraction: 0.75 },
+    description: 'Restores 55% of your health.', effect: { type: 'heal', fraction: 0.55 },
     rarity: Rarity.Rare, value: 70, stack: 5,
   },
   {

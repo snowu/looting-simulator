@@ -7,7 +7,7 @@ export interface MetaUpgrade {
 }
 
 export const META_UPGRADES: MetaUpgrade[] = [
-  { id: 'pack_mule', name: 'Pack Mule', description: '+4 backpack slots per level.', costs: [4, 8, 14] },
+  { id: 'pack_mule', name: 'Pack Mule', description: '+4 backpack slots per level.', costs: [3, 6, 11] },
   { id: 'toughness', name: 'Toughness', description: '+12 max health per level.', costs: [3, 6, 10, 15, 22] },
   { id: 'endurance', name: 'Second Wind', description: '+15 max stamina per level.', costs: [3, 7, 12] },
   { id: 'soul_pouch', name: 'Soul Pouch', description: 'On death, keep 3 backpack slots and 20% of carried gold per level.', costs: [5, 10, 16] },
@@ -15,8 +15,8 @@ export const META_UPGRADES: MetaUpgrade[] = [
   { id: 'insider', name: 'Market Insider', description: 'L1: price history and trends. L2: hear rumours of tomorrow\'s market event.', costs: [5, 12] },
   { id: 'master_smith', name: 'Master Smith', description: '+6% crafted quality per level. L3: crafted gear rolls an extra affix.', costs: [4, 9, 15] },
   { id: 'appraiser', name: 'Appraiser\'s Eye', description: 'L1: identifying costs 40% less. L2: Rare and lower drops come identified.', costs: [5, 12] },
-  { id: 'treasure_sense', name: 'Treasure Sense', description: '+12% loot find per level.', costs: [5, 10, 16] },
-  { id: 'supply_crate', name: 'Supply Crate', description: 'Start each run with +1 Healing Draught per level.', costs: [3, 6, 10] },
+  { id: 'treasure_sense', name: 'Treasure Sense', description: '+20% loot find per level. Find raises how much drops and how good it is.', costs: [6, 13, 22] },
+  { id: 'supply_crate', name: 'Supply Crate', description: 'Start each run with +1 Healing Draught per level.', costs: [5, 11, 18] },
   { id: 'lantern', name: 'Lantern Wick', description: '+1 light radius per level, 9.5 to 12.5 at L3, against fog that starts at 4. L1 also reads the floor for traps 3 tiles ahead instead of 2.', costs: [3, 7, 12] },
 ];
 
@@ -31,7 +31,18 @@ export function nextCost(u: MetaUpgrade, levels: MetaLevels): number | null {
   return lvl < u.costs.length ? u.costs[lvl] : null;
 }
 
-export const BASE_BACKPACK = 16;
+/**
+ * The pack you start with.
+ *
+ * Sixteen slots was sized against a dungeon that handed you forty items a
+ * floor. With loot cut by about sixty percent, a deep delve now peaks at
+ * fourteen to nineteen slots and the pack simply never filled — which made
+ * Pack Mule worth measurably nothing, and took the "what do I carry home"
+ * decision out of a game named after looting. Twelve puts the squeeze back
+ * exactly where it belongs: on the deep runs that find things worth arguing
+ * over, and nowhere near the first floor.
+ */
+export const BASE_BACKPACK = 12;
 
 /**
  * The light you carry, in world units of radius. Kept deliberately small per

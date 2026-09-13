@@ -176,7 +176,7 @@ export const UNIQUES: UniqueDef[] = [
     effect: 'swift_stamina',
     power: 1.7,
     rule: 'Drunk, and it lasts the delve. You come back quicker and you have less to come back with.',
-    detail: 'Stamina regeneration x1.7 (34/s to 57.8/s) and -20 maximum stamina, for the rest of the delve. A second bottle does nothing and is not spent.',
+    detail: 'Stamina regeneration x1.7 (22/s to 37.4/s) and -20 maximum stamina, for the rest of the delve. A second bottle does nothing and is not spent.',
     flavour: "Crow's egg, goat milk, and something the distiller declined to name. The unofficial drink of bodyguards, brewed by bodyguards, and it shows.",
     minDepth: 3,
   },

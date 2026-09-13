@@ -3,8 +3,12 @@ import { parseSave } from '../state/save-format';
 import { SAVE_REVISION, migrateSave } from '../state/migrations';
 import { SAVE_VERSION, newGame } from '../state/game-state';
 import { createRng } from '../core/rng';
+import { addItem, createContainer } from '../state/inventory';
+import { startRun, syncLoadout } from '../systems/run';
+import { backpackCapacity } from '../systems/meta';
+import { Rarity } from '../types';
 import { GameState } from '../state/game-state';
-import { makeBlueprint } from '../systems/items';
+import { makeBlueprint, makeEquipment } from '../systems/items';
 
 /**
  * A real save captured from the build of 2026-09-12, before revisions existed.
@@ -179,5 +183,30 @@ describe('loading an old save', () => {
     const back = parseSave(JSON.stringify(fresh))!;
     expect(back.revision).toBe(SAVE_REVISION);
     expect(back.gold).toBe(fresh.gold);
+  });
+});
+
+describe('shrinking the backpack', () => {
+  it('never eats what an old save was already carrying', () => {
+    // BASE_BACKPACK went 16 -> 12 in the balance pass. A save written before
+    // that has a town loadout sized for the old pack, and the one thing this
+    // project never does is lose a player's items.
+    const s = newGame(createRng(1));
+    s.loadout = createContainer(16);
+    // Equipment, not materials: materials of one kind stack into a single slot,
+    // which is also most of why the pack stopped filling in the first place.
+    for (let i = 0; i < 16; i++) {
+      addItem(s.loadout, makeEquipment({ baseId: 'club', materialId: 'timber', rarity: Rarity.Common, ilvl: 1 }));
+    }
+    const before = s.loadout.items.length + s.stash.items.length;
+
+    syncLoadout(s); // town redraw: capacity snaps down to the new size
+    expect(s.loadout.capacity).toBe(backpackCapacity(s.meta));
+    expect(s.loadout.items).toHaveLength(16); // nothing dropped on the floor
+
+    startRun(s, 7);
+    const after = s.run!.backpack.items.length + s.stash.items.length;
+    expect(after).toBe(before);
+    expect(s.run!.backpack.items.length).toBeLessThanOrEqual(s.run!.backpack.capacity);
   });
 });

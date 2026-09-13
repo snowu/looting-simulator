@@ -2,6 +2,7 @@ import { Rng } from '../core/rng';
 import { Item, Rarity, RARITY_ORDER, RecipeRanks } from '../types';
 import { MATERIALS, material } from '../data/materials';
 import { CONSUMABLES } from '../data/items';
+import { tonicUnique } from '../data/uniques';
 import { ItemCategory, durability, itemCategory, itemValue, isIdentified, materialAvailableAtDepth, rarityAvailableAtDepth, rollBlueprint, rollEquipment } from './items';
 
 // ---------------------------------------------------------------------------
@@ -274,8 +275,15 @@ export function itemBuyPrice(m: MarketState, item: Item, haggle: number): number
   return Math.max(1, Math.ceil(itemValue(item) * sentiment * (1.35 - 0.04 * haggle)));
 }
 
-/** Consumables the merchant always has. */
-export const SHOP_CONSUMABLES = CONSUMABLES.map((c) => c.id);
+/**
+ * Consumables the merchant always has.
+ *
+ * Tonics are excluded, because a tonic is a relic you drink: found-only is the
+ * whole point of it, and a shop that sells Fight Milk for 504 gold turns the
+ * rarest consumable in the game into a purchase. Derived from `tonicUnique`
+ * rather than an id check, so the next tonic added is excluded for free.
+ */
+export const SHOP_CONSUMABLES = CONSUMABLES.filter((c) => !tonicUnique(c.id)).map((c) => c.id);
 
 export function trendPercent(history: number[], days = 5): number {
   if (history.length < 2) return 0;

@@ -8,6 +8,7 @@ import {
   itemSellPrice,
   quoteSell,
   sellCommodity,
+  SHOP_CONSUMABLES,
 } from '../systems/market';
 import { MATERIALS, material } from '../data/materials';
 import { generateContract, isComplete, contractTitle, refreshContracts } from '../systems/contracts';
@@ -15,6 +16,7 @@ import { addItem, countOf, createContainer } from '../state/inventory';
 import { itemStats, makeBlueprint, makeEquipment, makeMaterial } from '../systems/items';
 import { buildCrafted, craft, materialsForSlot, selectionError, studyBlueprint } from '../systems/crafting';
 import { recipe } from '../data/recipes';
+import { tonicUnique } from '../data/uniques';
 import { Rarity, RARITY_ORDER } from '../types';
 
 describe('market', () => {
@@ -71,12 +73,14 @@ describe('market', () => {
 
   it('buying consumes stock and costs gold', () => {
     const m = createMarket(createRng(4));
-    const stock = m.commodities.iron.stock;
-    const res = buyCommodity(m, 'iron', 3, 0, 10_000)!;
+    // Copper, not iron: a day-one market only stocks what a day-one delver
+    // could have brought back, and iron is a floor-two metal now.
+    const stock = m.commodities.copper.stock;
+    const res = buyCommodity(m, 'copper', 3, 0, 10_000)!;
     expect(res.qty).toBe(3);
     expect(res.cost).toBeGreaterThan(0);
-    expect(m.commodities.iron.stock).toBe(stock - 3);
-    expect(buyCommodity(m, 'iron', 3, 0, 0)).toBeNull();
+    expect(m.commodities.copper.stock).toBe(stock - 3);
+    expect(buyCommodity(m, 'copper', 3, 0, 0)).toBeNull();
   });
 
   it('unlocks high-end commodity stock with delve progress', () => {
@@ -84,11 +88,20 @@ describe('market', () => {
     const m = createMarket(rng);
     expect(m.commodities.gold.stock).toBe(0);
     expect(m.commodities.moonsilver.stock).toBe(0);
-    advanceDay(m, rng, 3);
+    advanceDay(m, rng, 4);
     expect(m.commodities.gold.stock).toBeGreaterThan(0);
     expect(m.commodities.moonsilver.stock).toBe(0);
     advanceDay(m, rng, 5);
     expect(m.commodities.moonsilver.stock).toBeGreaterThan(0);
+  });
+
+  it('never stocks a found-only tonic', () => {
+    // Fight Milk is a relic you drink; the shop listing was built from every
+    // entry in CONSUMABLES, which put the rarest consumable in the game on the
+    // shelf for about 504 gold and quietly undid its found-only design.
+    expect(SHOP_CONSUMABLES).not.toContain('fight_milk');
+    expect(SHOP_CONSUMABLES).toContain('healing_draught');
+    for (const id of SHOP_CONSUMABLES) expect(tonicUnique(id)).toBeUndefined();
   });
 
   it('offers two different unknown blueprints when possible', () => {

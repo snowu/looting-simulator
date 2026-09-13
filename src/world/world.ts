@@ -10,9 +10,11 @@ import {
   Pickup,
   Prop,
   ShrineKind,
+  attackPower,
   blocksMove,
   blocksSight,
   createEnemy,
+  defensePower,
   doorAt,
   enemyAt,
   generateFloor,
@@ -120,8 +122,16 @@ const STEP_TIME = 0.24;
 const TURN_TIME = 0.17;
 /** Pause between repeated turns while a turn is held, so you can stop where you want. */
 const TURN_REPEAT = 0.16;
-const STAMINA_REGEN = 34;
-const STAMINA_DELAY = 0.5;
+/**
+ * Stamina. Deliberately slower than it was, and slower to start coming back.
+ *
+ * At 34/s with half a second of grace, the bar refilled faster than a fight
+ * could empty it, so nothing in the game was ever limited by breath — you
+ * swung until the thing in front of you fell over. A fight now costs more than
+ * it earns back, which is what makes backing off a move rather than a mistake.
+ */
+export const STAMINA_REGEN = 22;
+const STAMINA_DELAY = 0.9;
 
 /**
  * Parry. Raising the guard opens a short window; a hit that lands inside it is
@@ -154,6 +164,16 @@ const GUARD_UP = 1.4;
 const GUARD_DOWN = 1.6;
 const GUARD_RANGE = 4;
 const GUARD_BREAK_AT = 3;
+
+/**
+ * Anything lighter than this is knocked out of its wind-up when you land a
+ * blow, which is what makes trading with a rat different from trading with a
+ * ghoul. It is a raw health number and so it has to move whenever the health
+ * scale does: it was 40 against a roster topping out at 30 for a shieldguard,
+ * and 55 keeps exactly the same creatures on the light side of the line now
+ * that every stat block is larger.
+ */
+const STAGGER_HP = 55;
 /** Compact button label for an interaction hint. */
 export function shortLabel(hint: string): string {
   if (hint === 'Search') return 'Loot';
@@ -256,7 +276,7 @@ export const CURSES: Record<string, { name: string; text: string }> = {
 export const TONICS: Record<string, { name: string; text: string; apply: (d: PlayerDerived) => void }> = {
   fight_milk: {
     name: 'Fight Milk',
-    text: 'Stamina recovery 34/s → 57.8/s, maximum stamina −20.',
+    text: 'Stamina recovery 22/s → 37.4/s, maximum stamina −20.',
     apply: (d) => {
       d.traits.staminaRegen *= 1.7;
       d.maxStamina = Math.max(30, d.maxStamina - 20);
@@ -942,7 +962,7 @@ export class World {
   private shieldChip(e: EnemyState, def: EnemyDef): void {
     const sh = def.shield!;
     this.wear('weapon');
-    const hit = playerHitsEnemy(this.rng, this.derived, this.anim.attackPower, def);
+    const hit = playerHitsEnemy(this.rng, this.derived, this.anim.attackPower, def, defensePower(e.power));
     const dmg = Math.max(0, Math.round(hit.damage * (1 - sh.block)));
     e.hp -= dmg;
     e.blocks = (e.blocks ?? 0) + 1;
@@ -1007,7 +1027,7 @@ export class World {
       return;
     }
     e.blocks = 0;
-    const hit = playerHitsEnemy(this.rng, this.derived, this.anim.attackPower, def);
+    const hit = playerHitsEnemy(this.rng, this.derived, this.anim.attackPower, def, defensePower(e.power));
     // Everything you land while the parry opening lasts hits twice as hard.
     const exposed = !!e.vuln && e.vuln > 0;
     if (exposed) hit.damage = Math.round(hit.damage * PARRY_VULN_MULT);
@@ -1031,7 +1051,7 @@ export class World {
       this.heal(Math.max(1, Math.round((hit.damage * this.derived.stats.leech) / 100)));
     }
     // Lighter foes are staggered out of their wind-up.
-    if (e.ai === 'windup' && def.hp < 40 && def.behavior !== 'boss') {
+    if (e.ai === 'windup' && def.hp < STAGGER_HP && def.behavior !== 'boss') {
       e.ai = 'recover';
       e.timer = 0.5;
     }
@@ -1405,8 +1425,13 @@ export class World {
     return 30 + 25 * this.run.depth;
   }
 
+  /**
+   * What a shrine gives back. Not a full heal any more: a font that refills the
+   * bar is a save point, and a save point on every other floor is the end of
+   * attrition as a mechanic. It is a large, welcome, *partial* mend.
+   */
   private restore(): void {
-    this.player.hp = this.derived.maxHp;
+    this.heal(Math.round(this.derived.maxHp * 0.6));
     this.player.stamina = this.derived.maxStamina;
   }
 
@@ -1422,15 +1447,15 @@ export class World {
   private pray(p: Prop): void {
     this.sfx('magic');
     switch (p.shrine ?? 'font') {
-      // The safe one. Restores you outright, and washes off a curse — which is
-      // what makes a font worth crossing a floor for once an idol has marked you.
+      // The safe one. A large mend and it washes off a curse — which is what
+      // makes a font worth crossing a floor for once an idol has marked you.
       case 'font': {
         const lifted = this.run.curse;
         this.run.curse = null;
         this.refreshDerived();
         this.restore();
         if (lifted) this.msg(`The water runs black and clears. ${CURSES[lifted].name} is washed away.`, '#a0c8ff');
-        else this.msg('Cold clean water. You are whole again.', '#a0c8ff');
+        else this.msg('Cold clean water. Most of the hurt goes out of you.', '#a0c8ff');
         return;
       }
 
@@ -1439,7 +1464,7 @@ export class World {
       case 'idol': {
         if (this.rng.chance(0.6)) {
           this.restore();
-          if (!this.grantBlessing()) this.msg('The idol is satisfied. You are restored.', '#a0c8ff');
+          if (!this.grantBlessing()) this.msg('The idol is satisfied. Much of the hurt leaves you.', '#a0c8ff');
           return;
         }
         const id = this.rng.pick(Object.keys(CURSES));
@@ -1463,7 +1488,7 @@ export class World {
         }
         this.run.gold -= cost;
         this.restore();
-        if (!this.grantBlessing()) this.msg('The coin vanishes. You are restored.', '#e8c060');
+        if (!this.grantBlessing()) this.msg('The coin vanishes. Much of the hurt leaves you.', '#e8c060');
         this.sfx('gold');
         return;
       }
@@ -1816,7 +1841,7 @@ export class World {
         if (off !== 0 && blocksSight(this.floor, e.x + ox, e.y + oy)) continue;
         this.projectiles.push({
           id: this.projN++, x: e.x + ox + 0.5, y: e.y + oy + 0.5, dx, dy, speed: pr.speed,
-          damage: Math.round(def.attack * e.power), type: pr.damageType, sprite: pr.sprite, light: pr.light,
+          damage: Math.round(def.attack * attackPower(e.power)), type: pr.damageType, sprite: pr.sprite, light: pr.light,
           tileX: e.x + ox, tileY: e.y + oy, source: def.name, sourceId: def.id,
         });
       }
@@ -1826,7 +1851,7 @@ export class World {
     // Melee lands only if you're still in the tile it aimed at.
     this.sfx('swing', e.x, e.y);
     if (p.x === e.lastSeenX && p.y === e.lastSeenY && dist === 1) {
-      this.damagePlayer(Math.round(def.attack * e.power), def.damageType, e.x, e.y, def.name, def.id, e);
+      this.damagePlayer(Math.round(def.attack * attackPower(e.power)), def.damageType, e.x, e.y, def.name, def.id, e);
     } else {
       this.sfx('miss', e.x, e.y);
     }

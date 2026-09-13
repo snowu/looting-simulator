@@ -58,12 +58,15 @@ describe('shrine flavours', () => {
 });
 
 describe('the font', () => {
-  it('restores you outright', () => {
+  it('mends most of you, and all of your breath', () => {
     const { w } = atShrine('font');
     w.player.hp = 5;
     w.player.stamina = 1;
     w.interact();
-    expect(w.player.hp).toBe(w.derived.maxHp);
+    // A font is a large mend, not a save point: it gives back a big share of
+    // the bar and every point of stamina, and it does not undo the delve.
+    expect(w.player.hp).toBeGreaterThan(5 + w.derived.maxHp * 0.4);
+    expect(w.player.hp).toBeLessThan(w.derived.maxHp);
     expect(w.player.stamina).toBe(w.derived.maxStamina);
   });
 

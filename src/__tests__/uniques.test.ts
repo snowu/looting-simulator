@@ -4,7 +4,7 @@ import { DIRS, DX, DY, turnAround } from '../core/dir';
 import { newGame } from '../state/game-state';
 import { migrateSave, SAVE_REVISION } from '../state/migrations';
 import { startRun } from '../systems/run';
-import { World } from '../world/world';
+import { World, STAMINA_REGEN } from '../world/world';
 import { EnemyState, FLOOR, createEnemy } from '../systems/dungeon';
 import { enemyDef, BOSS_ID } from '../data/enemies';
 import { itemBase } from '../data/items';
@@ -259,7 +259,11 @@ describe('the effects', () => {
       if (relic) wearRelic(w, relic);
       const potion = makeConsumable('healing_draught');
       addItem(w.run.backpack, potion);
-      const full = Math.round(w.derived.maxHp * 0.35);
+      // Read the fraction off the data rather than restating it: this test is
+      // about the relic halving a draught, not about how big a draught is.
+      const effect = consumable('healing_draught').effect;
+      const fraction = effect.type === 'heal' ? effect.fraction : 0;
+      const full = Math.round(w.derived.maxHp * fraction);
       w.player.hp = 1;
       w.use(potion.uid);
       return { healed: w.player.hp - 1, full };
@@ -441,17 +445,20 @@ describe('every number a rule quotes is true', () => {
     expect(findUnique('kitten_mittens')!.power).toBe(2);
   });
 
-  it('Fight Milk: 34/s becomes 57.8/s, and -20 stamina', () => {
+  it('Fight Milk multiplies stamina regen by 1.7 and costs 20 maximum', () => {
+    // The printed rate is derived from STAMINA_REGEN rather than restated, so
+    // retuning stamina cannot leave the relic's own description lying.
+    const boosted = Math.round(STAMINA_REGEN * 1.7 * 10) / 10;
     const r = rule('fight_milk');
-    expect(r).toContain('34/s');
-    expect(r).toContain('57.8/s');
+    expect(r).toContain(`${STAMINA_REGEN}/s`);
+    expect(r).toContain(`${boosted}/s`);
     expect(r).toContain('-20 maximum stamina');
     const w = arena(6);
     const before = w.derived.maxStamina;
     const bottle = makeConsumable('fight_milk');
     addItem(w.run.backpack, bottle);
     w.use(bottle.uid);
-    expect(w.derived.traits.staminaRegen * 34).toBeCloseTo(57.8);
+    expect(w.derived.traits.staminaRegen * STAMINA_REGEN).toBeCloseTo(boosted);
     expect(before - w.derived.maxStamina).toBe(20);
   });
 });
