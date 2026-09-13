@@ -54,6 +54,27 @@ describe('hard is the game as it was', () => {
     }
   });
 
+  it('hard matches the default call shape across hundreds of seeds', () => {
+    // The spot checks above pin a few seeds; this hammers the whole surface
+    // so a divergence cannot hide between sampled points. Same uid caveat.
+    const scrub = (f: unknown) => JSON.stringify(f, (k, v) => (k === 'uid' ? undefined : v));
+    for (let seed = 0; seed < 200; seed++) {
+      const depth = 1 + (seed % 6);
+      const find = seed % 40;
+      expect(scrub(generateFloor(seed, depth, 'hard'))).toBe(scrub(generateFloor(seed, depth)));
+      for (const id of ['rat', 'ghoul', 'hollow_knight', 'ashen_king']) {
+        expect(createEnemy(enemyDef(id), 0, 0, Dir.N, 'x', depth, 'hard'))
+          .toEqual(createEnemy(enemyDef(id), 0, 0, Dir.N, 'x', depth));
+      }
+      expect(scrub(rollEnemyLoot(createRng(seed), enemyDef('ghoul'), depth, find, undefined, {}, {}, [], 'hard')))
+        .toBe(scrub(rollEnemyLoot(createRng(seed), enemyDef('ghoul'), depth, find)));
+      for (const tier of ['urn', 'chest', 'vault', 'secret'] as const) {
+        expect(scrub(rollContainerLoot(createRng(seed), depth, find, tier, undefined, {}, [], 'hard')))
+          .toBe(scrub(rollContainerLoot(createRng(seed), depth, find, tier)));
+      }
+    }
+  });
+
   it('computes the old enemy health on hard', () => {
     for (const id of ['rat', 'skeleton', 'ghoul', 'hollow_knight', 'ashen_king']) {
       const def = enemyDef(id);
