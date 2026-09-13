@@ -39,8 +39,9 @@ const SKIP = {
   '428ced0': 'README and screenshots, not in the game',
   deeb6b6: 'patch-notes feature itself, not a game change',
   '3b4d337': 'docs clarification, not in the game',
-  fa0420d: 'tooltip register tweak, not a change',
-  '48357f5': 'tooltip register tweak, not a change',
+  '52ec1ea': 'single study sound, not a note',
+  '8daf200': 'app update plumbing, not gameplay',
+  '35dbdbd': 'fullscreen toggle chrome, not gameplay',
   '783eee0': 'dev harness + NEXT.md write-up, not gameplay',
   b7a9ca6: 'sprite redraw, cosmetic only',
   cd0b5a3: 'sprite redraw, cosmetic only',
@@ -52,6 +53,7 @@ const SKIP = {
   '2ab1f17': 'sprite redraw, cosmetic only',
   '157f359': 'sprite redraw, cosmetic only',
   b3665fa: 'sprite redraw, cosmetic only',
+  '94991ca': 'art handoff export, not in the game',
   a6a3402: 'notes pipeline rebuild, not a game change',
 };
 
