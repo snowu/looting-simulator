@@ -260,24 +260,24 @@ export class Town {
         const ev = eventMultiplier(m, { materialId: mat.id });
         const trendEl = h('span', { class: trend > 2 ? 'up' : trend < -2 ? 'down' : 'dim', text: trend > 2 ? '▲' : trend < -2 ? '▼' : '–' });
         const trendCell = h('td', { class: 'col-trend' }, h('div', { class: 'row', style: 'gap:4px' }, trendEl, insider ? h('span', { class: 'small', text: `${trend > 0 ? '+' : ''}${trend}%` }) : null, insider ? sparkline(c.history, 70, 18, ev > 1 ? '#e8b84a' : ev < 1 ? '#d0443a' : '#8a7f6e') : null));
-        // An accepted delivery contract marks its material: gold outline, a
-        // pennant by the name, and the shortfall in the tooltip.
-        const questNeed = s.contracts
+        const questRequired = s.contracts
           .filter((c) => c.accepted && c.kind === 'deliver' && c.materialId === mat.id)
-          .reduce((n, c) => n + Math.max(0, (c.qty ?? 0) - owned), 0);
-        const icon = itemSlot({ uid: mat.id, kind: 'material', ref: mat.id, qty: 1 }, { size: 32, tip: () => itemTooltip({ uid: '', kind: 'material', ref: mat.id, qty: Math.max(1, owned) }, { price: { label: 'Sells for', value: sell } }) + (questNeed > 0 ? `<div class="tt-warn">Wanted: a guild contract still needs ${questNeed} more.</div>` : '') });
-        if (questNeed > 0) icon.classList.add('quest');
+          .reduce((n, c) => n + (c.qty ?? 0), 0);
+        const questShortfall = Math.max(0, questRequired - owned);
+        const questLabel = questRequired ? `Quest: ${owned}/${questRequired}${questShortfall ? ` · need ${questShortfall} more` : ' · ready to deliver'}` : '';
+        const icon = itemSlot({ uid: mat.id, kind: 'material', ref: mat.id, qty: 1 }, { size: 32, tip: () => itemTooltip({ uid: '', kind: 'material', ref: mat.id, qty: Math.max(1, owned) }, { price: { label: 'Sells for', value: sell } }) + (questRequired ? `<div class="tt-warn">${questLabel}</div>` : '') });
+        if (questRequired) icon.classList.add('quest');
         rows.push(
           h(
             'tr',
             {},
             h('td', {}, icon),
-            h('td', {}, h('span', { style: `color:${RARITY_COLORS[mat.rarity]}`, text: mat.name }), questNeed > 0 ? h('span', { class: 'gold-t small', attrs: { title: `A guild contract still needs ${questNeed} more` }, text: ' ⚑' }) : null, ev !== 1 ? h('span', { class: ev > 1 ? 'gold-t small' : 'red-t small', text: ev > 1 ? ' ★' : ' ▾' }) : null),
+            h('td', {}, h('span', { style: `color:${RARITY_COLORS[mat.rarity]}`, text: mat.name }), questRequired ? h('span', { class: 'gold-t small', attrs: { title: questLabel }, text: ` ⚑ ${owned}/${questRequired}` }) : null, ev !== 1 ? h('span', { class: ev > 1 ? 'gold-t small' : 'red-t small', text: ev > 1 ? ' ★' : ' ▾' }) : null),
             h('td', { class: 'num gold-t', text: `${sell}` }),
             h('td', { class: 'num dim', text: `${buy}` }),
             trendCell,
-            h('td', { class: 'num', text: owned ? String(owned) : '·' }),
-            h('td', { class: 'num dim small col-stock', text: c.stock ? `${c.stock} in stock` : 'sold out' }),
+            h('td', { class: 'num market-owned', text: String(owned) }),
+            h('td', { class: 'num dim col-stock', text: String(c.stock) }),
             h(
               'td',
               {},
@@ -301,7 +301,7 @@ export class Town {
       h(
         'table',
         { class: 'market' },
-        h('thead', {}, h('tr', {}, h('th', {}), h('th', { text: 'Commodity' }), h('th', { class: 'num', text: 'Sell' }), h('th', { class: 'num', text: 'Buy' }), h('th', { class: 'col-trend', text: insider ? 'Trend (30d)' : 'Trend' }), h('th', { class: 'num', text: 'Owned' }), h('th', {}), h('th', {}))),
+        h('thead', {}, h('tr', {}, h('th', {}), h('th', { text: 'Commodity' }), h('th', { class: 'num', text: 'Sell' }), h('th', { class: 'num', text: 'Buy' }), h('th', { class: 'col-trend', text: insider ? 'Trend (30d)' : 'Trend' }), h('th', { class: 'num', text: 'Yours' }), h('th', { class: 'num col-stock', text: 'Merchant' }), h('th', {}))),
         h('tbody', {}, ...rows),
       ),
     );
@@ -385,15 +385,13 @@ export class Town {
       );
     }
 
-    // One press for the pretty things: no recipe ever takes a valuable, so
-    // there is no reason to sell them one row at a time. (A deliver contract
-    // can still ask for them — that choice stays with the row buttons.)
+    // Sell only valuables beyond the quantity promised to accepted contracts.
     const valuablesOwned = this.valuablesOwned();
     const valuablesQuote = valuablesOwned.reduce((sum, v) => sum + quoteSell(m, v.id, v.qty, this.hag), 0);
     return h(
       'div',
       { class: 'panes' },
-      h('div', { class: 'pane frame' }, h('div', { class: 'row' }, h('h3', { text: 'Commodities' }), valuablesOwned.length ? btn(`Sell all valuables (${gold(valuablesQuote)})`, () => this.sellAllValuables(), 'small right') : null), h('p', { class: 'dim small', text: 'Prices drift back toward fair value each day. Dumping a stack pushes the price down; it recovers over a few days. Events move whole categories.' }), table),
+      h('div', { class: 'pane frame' }, h('div', { class: 'row' }, h('h3', { text: 'Commodities' }), valuablesOwned.length ? btn(`Sell spare valuables (${gold(valuablesQuote)})`, () => this.sellAllValuables(), 'small right') : null), h('p', { class: 'dim small', text: '⚑ marks materials needed for accepted quests; the count shows yours / required. Yours means your stash; Merchant means available to buy.' }), table),
       h(
         'div',
         { class: 'col' },
@@ -425,14 +423,14 @@ export class Town {
     this.commit('sell');
   }
 
-  /** Valuables in the stash: pretty things with no use but the coin they fetch. */
+  /** Valuables available to sell after reserving accepted delivery contracts. */
   private valuablesOwned(): { id: string; qty: number }[] {
     return MATERIALS.filter((x) => x.category === 'valuable')
-      .map((mat) => ({ id: mat.id, qty: countOf(this.s.stash, 'material', mat.id) }))
+      .map((mat) => ({ id: mat.id, qty: Math.max(0, countOf(this.s.stash, 'material', mat.id) - this.s.contracts.filter((c) => c.accepted && c.kind === 'deliver' && c.materialId === mat.id).reduce((n, c) => n + (c.qty ?? 0), 0)) }))
       .filter((v) => v.qty > 0);
   }
 
-  /** Dump every valuable at once, through the same per-commodity pricing as the row buttons. */
+  /** Sell spare valuables through the same per-commodity pricing as the row buttons. */
   private sellAllValuables(): void {
     const s = this.s;
     const owned = this.valuablesOwned();

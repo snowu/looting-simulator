@@ -273,6 +273,7 @@ table.market th { text-align: left; color: var(--dim); font-weight: 400; border-
 table.market td { padding: 2px 4px; border-bottom: 1px solid #1a161e; vertical-align: middle; }
 table.market tr:hover td { background: #1c1822; }
 table.market .num { text-align: right; font-variant-numeric: tabular-nums; }
+table.market .market-owned { color: var(--gold); font-weight: 700; }
 .table-wrap { overflow-x: auto; }
 .cat-row td { color: var(--gold); font-family: var(--font-title); font-size: 22px; padding-top: 8px; }
 
