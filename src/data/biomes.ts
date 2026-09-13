@@ -71,7 +71,7 @@ export const BIOMES: BiomeDef[] = [
   {
     id: 'emberworks', name: 'The Emberworks', depths: [3, 4, 5],
     wall: 'wall_emberworks', wallAlt: 'wall_emberworks_b', wallSecret: 'wall_emberworks_s',
-    floor: 'floor_emberworks', ceiling: 'ceil_mine', door: 'door_iron',
+    floor: 'floor_emberworks', ceiling: 'ceil_emberworks', door: 'door_iron',
     fog: '#160603', ambient: '#483022', torch: '#ff7848', torchDensity: 0.09, element: 'fire',
     favoredEnemies: ['ember_wisp', 'flame_wraith', 'goblin_shield', 'cinder_raider'],
   },

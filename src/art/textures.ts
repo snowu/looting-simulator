@@ -465,6 +465,10 @@ const EMBER_SEAM = rows(`
   ...........r....
 `);
 const EMBER_FLOOR_ROWS = stamp(stamp(DIRT_ROWS, EMBER_SEAM, 1, 1), EMBER_SEAM, 15, 18);
+const EMBER_CEILING_ROWS = stamp(
+  stamp(EMPTY_WALL_ROWS, EMBER_SEAM, 2, 2),
+  EMBER_SEAM, 14, 18,
+);
 const BURROW_ROOT = rows(`
   r.............
   .r............
@@ -616,6 +620,7 @@ const EMBERWORKS_FLOOR = { e: '#100d0d', a: '#241b1a', b: '#352523', c: '#50332b
 const BURROW_WALL = { e: '#2a1c12', a: '#49301b', b: '#61432a', c: '#806044', d: '#977555', p: '#af8860', r: '#281709' };
 const BURROW_FLOOR = { e: '#1c140d', a: '#342417', b: '#4b3320', c: '#63452b', d: '#80593b', p: '#a47751', q: '#bc9368' };
 const EMBERWORKS_WALL = { m: '#130b09', e: '#261410', a: '#3b2119', b: '#513027', c: '#704334', d: '#8a5440', q: '#ef6626fa', r: '#190e0c' };
+const EMBERWORKS_CEILING = { r: '#6d251798', q: '#e85d2e98' };
 
 const WOOD_DOOR = { w: '#5a3a1c', x: '#6e4824', y: '#3a240e', z: '#24160a', i: '#2a2a30', j: '#4a4a54', k: '#15151a', n: '#8a8a94' };
 const IRON_DOOR = { i: '#34343c', j: '#50505a', k: '#1c1c22', n: '#7a7a86', r: '#5a2a1a', s: '#40201a' };
@@ -669,6 +674,7 @@ export const TEXTURES: ArtDef[] = [
   // Alternate mid-depth floors
   { id: 'floor_frostvault', palette: FROST_VAULT_FLOOR, rows: FROST_FLOOR_ROWS },
   { id: 'floor_emberworks', palette: EMBERWORKS_FLOOR, rows: EMBER_FLOOR_ROWS },
+  { id: 'ceil_emberworks', base: 'ceil_mine', palette: EMBERWORKS_CEILING, rows: EMBER_CEILING_ROWS },
 
   // Packed-earth burrows and soot-black furnace masonry
   { id: 'wall_burrows', palette: BURROW_WALL, rows: BURROW_WALL_ROWS },

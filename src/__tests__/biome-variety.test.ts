@@ -48,6 +48,13 @@ describe('run biome variety', () => {
     }
   });
 
+  it('gives Emberworks a hot ceiling instead of reusing the mine roof', () => {
+    const ember = rasterize(getArt('ceil_emberworks')!, undefined, getArt);
+    const mine = rasterize(getArt('ceil_mine')!, undefined, getArt);
+    expect(Array.from(ember.data)).not.toEqual(Array.from(mine.data));
+    expect(getArt('ceil_emberworks')!.base).toBe('ceil_mine');
+  });
+
   it('carries whatever preceding floor texture exists into the burrows roof', () => {
     const burrows = BIOMES.find((b) => b.id === 'burrows')!;
     const crypt = BIOMES.find((b) => b.id === 'crypt')!;
