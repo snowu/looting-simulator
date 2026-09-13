@@ -60,6 +60,8 @@ export const BIOMES: BiomeDef[] = [
   {
     id: 'burrows', name: 'The Vermin Burrows', depths: [1, 2, 3],
     wall: 'wall_burrows', wallAlt: 'wall_burrows_b', wallSecret: 'wall_burrows_s',
+    // Burrows inherit the preceding floor's ground texture at render time.
+    // Keep a cave floor as the depth-1 fallback, where no preceding floor exists.
     floor: 'floor_burrows', ceiling: 'floor_cave', door: 'door_wood',
     fog: '#0e0904', ambient: '#3a2b1a', torch: '#ffbb70', torchDensity: 0.055,
     favoredEnemies: ['rat', 'bat', 'spider', 'goblin', 'tunnel_stalker'],
@@ -96,4 +98,13 @@ export function biomeForDepth(depth: number, seed?: number): BiomeDef {
 
 export function biomeForFloor(floor: { biome: string; depth: number }): BiomeDef {
   return BIOMES.find((b) => b.id === floor.biome) ?? biomeForDepth(floor.depth);
+}
+
+/** The roof texture for a floor, including the Burrows' transition from above. */
+export function ceilingForFloor(
+  floor: { biome: string; depth: number },
+  previous?: { biome: string; depth: number },
+): string {
+  const biome = biomeForFloor(floor);
+  return biome.id === 'burrows' && previous ? biomeForFloor(previous).floor : biome.ceiling;
 }

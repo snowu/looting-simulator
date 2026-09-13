@@ -129,6 +129,13 @@ describe('pixel art', () => {
     }
   });
 
+  it('shows every possible Burrows transition ceiling on the biome sheet', () => {
+    const burrows = sheets().find((s) => s.id === 'biomes')!.groups.find((g) => g.title === 'The Vermin Burrows')!;
+    expect(burrows.cells.map((cell) => cell.id)).toEqual(expect.arrayContaining([
+      'floor_crypt', 'floor_cave', 'floor_burrows',
+    ]));
+  });
+
   /**
    * The icon sheet claims every cell is something the game can actually make.
    * If a base were ever drawn in a material its `primary` categories forbid,

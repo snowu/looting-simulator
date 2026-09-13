@@ -95,8 +95,9 @@ function hash3(x: number, y: number, d: number): number {
   return (((x * 73856093) ^ (y * 19349663) ^ (d * 83492791)) >>> 0) % 100;
 }
 
-export function buildLevel(floor: Floor, shared: Shared): LevelView {
+export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string): LevelView {
   const biome = biomeForFloor(floor);
+  const ceiling = ceilingTexture ?? biome.ceiling;
   const builders = new Map<string, Builder>();
   const B = (tex: string) => {
     let b = builders.get(tex);
@@ -138,7 +139,7 @@ export function buildLevel(floor: Floor, shared: Shared): LevelView {
       }
 
       B(biome.floor).quad([x0, 0, z0], [x1, 0, z0], [x1, 0, z1], [x0, 0, z1], [0, 1, 0]);
-      B(biome.ceiling).quad([x0, WALL_H, z0], [x1, WALL_H, z0], [x1, WALL_H, z1], [x0, WALL_H, z1], [0, -1, 0]);
+      B(ceiling).quad([x0, WALL_H, z0], [x1, WALL_H, z0], [x1, WALL_H, z1], [x0, WALL_H, z1], [0, -1, 0]);
 
       if (t === PILLAR) {
         const p = 0.42 * TILE;

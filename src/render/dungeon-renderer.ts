@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { DX, DY, turnRight } from '../core/dir';
-import { biomeForFloor } from '../data/biomes';
+import { biomeForFloor, ceilingForFloor } from '../data/biomes';
 import { enemyDef, enemyView } from '../data/enemies';
 import { findMaterial } from '../data/materials';
 import { Floor, ShrineKind } from '../systems/dungeon';
@@ -168,7 +168,8 @@ export class DungeonRenderer {
         this.scene.remove(this.level.root);
         this.level.dispose();
       }
-      this.level = buildLevel(floor, this.shared);
+      const previous = world.run.floors[world.run.depth - 2];
+      this.level = buildLevel(floor, this.shared, ceilingForFloor(floor, previous ?? undefined));
       this.levelFloor = floor;
       this.trapTriggeredAt.clear();
       this.scene.add(this.level.root);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BIOMES, biomeForDepth, biomeForFloor } from '../data/biomes';
+import { BIOMES, biomeForDepth, biomeForFloor, ceilingForFloor } from '../data/biomes';
 import { getArt } from '../art/registry';
 import { rasterize } from '../art/raster';
 import { generateFloor } from '../systems/dungeon';
@@ -32,9 +32,13 @@ describe('run biome variety', () => {
     expect(BIOMES.find((b) => b.id === 'burrows')!.wall).not.toBe(BIOMES.find((b) => b.id === 'emberworks')!.wall);
   });
 
-  it('carries the preceding catacombs floor into the burrows roof', () => {
-    const catacombs = BIOMES.find((b) => b.id === 'catacombs')!;
+  it('carries whatever preceding floor texture exists into the burrows roof', () => {
     const burrows = BIOMES.find((b) => b.id === 'burrows')!;
-    expect(burrows.ceiling).toBe(catacombs.floor);
+    const crypt = BIOMES.find((b) => b.id === 'crypt')!;
+    const catacombs = BIOMES.find((b) => b.id === 'catacombs')!;
+    const current = { biome: burrows.id, depth: 2 };
+    expect(ceilingForFloor(current, { biome: crypt.id, depth: 1 })).toBe(crypt.floor);
+    expect(ceilingForFloor(current, { biome: catacombs.id, depth: 1 })).toBe(catacombs.floor);
+    expect(ceilingForFloor(current)).toBe(burrows.ceiling);
   });
 });
