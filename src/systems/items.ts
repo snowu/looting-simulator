@@ -326,6 +326,10 @@ export function repairItem(item: Item): void {
 export function itemStats(item: Item): Stats {
   const s = emptyStats();
   if (item.kind !== 'equipment') return s;
+  // Diablo rule: an unidentified item is unusable — it grants nothing at all,
+  // not even its base and material numbers, until it is identified. This also
+  // covers gear that was equipped before this rule existed.
+  if (!isIdentified(item)) return s;
   const base = itemBase(item.ref);
   const mat = item.materialId ? findMaterial(item.materialId) : undefined;
   const tier = mat?.tier ?? 1;

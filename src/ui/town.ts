@@ -835,13 +835,15 @@ export class Town {
       const slot = defaultSlot(it, eq);
       // Only gear can be worn, so a click on anything else always packs it.
       const wears = !packing && it.kind === 'equipment';
+      const unidGear = wears && it.identified === false;
       grid.append(
         itemSlot(it, {
           size: 44,
-          tip: () => itemTooltip(it, { compare: slot ? eq[slot] : null, hint: wears ? 'Click to equip' : 'Click to move it into your pack' }),
+          tip: () => itemTooltip(it, { compare: slot ? eq[slot] : null, hint: unidGear ? 'Unidentified — see the appraiser under Sell' : wears ? 'Click to equip' : 'Click to move it into your pack' }),
           onclick: () => {
             if (wears) {
-              equipFrom(eq, s.stash, it.uid);
+              const err = equipFrom(eq, s.stash, it.uid);
+              if (err) this.ctx.toast(err, '#ff9070');
               this.commit();
             } else {
               this.toPack(it.uid);

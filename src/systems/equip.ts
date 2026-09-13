@@ -15,6 +15,8 @@ export function defaultSlot(item: Item, eq: Equipment): EquipSlot | null {
 export function equipFrom(eq: Equipment, c: Container, uid: string, slot?: EquipSlot): string | null {
   const item = findItem(c, uid);
   if (!item || item.kind !== 'equipment') return 'That can\'t be equipped.';
+  // Diablo rule: an unidentified item cannot be worn at all. Identify it first.
+  if (item.identified === false) return 'Unidentified — use a Scroll of Identify or see the appraiser first.';
   const target = slot ?? defaultSlot(item, eq);
   if (!target || slotOf(target) !== itemBase(item.ref).slot) return 'Wrong slot.';
   removeItem(c, uid);

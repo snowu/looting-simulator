@@ -1542,7 +1542,12 @@ export class World {
     this.sfx('ui');
   }
 
-  use(uid: string): void {
+  /** Equipment in the pack still waiting to be identified. */
+  unidentifiedItems(): Item[] {
+    return this.run.backpack.items.filter((i) => i.kind === 'equipment' && i.identified === false);
+  }
+
+  use(uid: string, targetUid?: string): void {
     const it = findItem(this.run.backpack, uid);
     if (!it) return;
     if (it.kind === 'blueprint') {
@@ -1582,14 +1587,24 @@ export class World {
         break;
       }
       case 'identify': {
-        const target = this.run.backpack.items.find((i) => i.kind === 'equipment' && i.identified === false);
-        if (!target) {
+        const unids = this.unidentifiedItems();
+        if (!unids.length) {
           this.msg('Nothing in your pack needs identifying.', '#888');
           return;
         }
-        identify(target);
-        this.recordUnique(target);
-        this.msg(`It is: ${itemName(target)}.`, '#c8b8ff');
+        // A caller may name which item the scroll is read over; without a
+        // choice the UI asks, and headless callers (quick-slots, tests) fall
+        // back to the first. The scroll is only spent when something is
+        // actually identified.
+        let target = targetUid ? unids.find((i) => i.uid === targetUid) : undefined;
+        if (targetUid && !target) {
+          this.msg('That doesn\'t need identifying.', '#888');
+          return;
+        }
+        target ??= unids[0];
+        identify(target!);
+        this.recordUnique(target!);
+        this.msg(`It is: ${itemName(target!)}.`, '#c8b8ff');
         this.sfx('magic');
         break;
       }

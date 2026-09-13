@@ -1,5 +1,5 @@
 import { EquipSlot, Item, STAT_LABELS } from '../types';
-import { itemBase } from '../data/items';
+import { consumable, itemBase } from '../data/items';
 import { enemyDef } from '../data/enemies';
 import { biomeForDepth } from '../data/biomes';
 import { itemName } from '../systems/items';
@@ -56,6 +56,8 @@ export class DungeonOverlays {
   mode: OverlayMode | null = null;
   private pickupId = '';
   private world: World | null = null;
+  /** Uid of the Scroll of Identify currently being read, awaiting a target choice. */
+  private identifyScrollUid: string | null = null;
 
   constructor(parent: HTMLElement, private notify: (text: string, color?: string) => void) {
     parent.append(this.root);
@@ -69,12 +71,14 @@ export class DungeonOverlays {
     this.mode = mode;
     this.world = world;
     this.pickupId = pickupId;
+    this.identifyScrollUid = null;
     world.held.clear();
     this.render();
   }
 
   close(): void {
     this.mode = null;
+    this.identifyScrollUid = null;
     hideTooltip();
     this.root.replaceChildren();
   }
@@ -151,6 +155,7 @@ export class DungeonOverlays {
       this.render();
     });
     const grid = h('div', { class: 'grid-slots' });
+    const readingScroll = this.identifyScrollUid !== null;
     for (let i = 0; i < pack.capacity; i++) {
       const it = pack.items[i] ?? null;
       if (!it) {
@@ -159,19 +164,45 @@ export class DungeonOverlays {
       }
       const slot = defaultSlot(it, eq);
       const cmp = slot ? eq[slot] : null;
+      const unid = it.kind === 'equipment' && it.identified === false;
+      const isScrollTarget = readingScroll && unid;
       const hint =
-        it.kind === 'equipment' ? 'Click: equip · Right-click: drop' : it.kind === 'consumable' ? 'Click: use · Right-click: drop' : 'Right-click: drop';
+        isScrollTarget ? 'Click: identify this item'
+        : it.kind === 'equipment' ? (unid ? 'Unidentified — read a Scroll of Identify first' : 'Click: equip · Right-click: drop')
+        : it.kind === 'consumable' ? (consumable(it.ref).effect.type === 'identify' ? 'Click: choose what to identify' : 'Click: use · Right-click: drop')
+        : 'Right-click: drop';
       const el = itemSlot(it, {
         size: 44,
         tip: () => itemTooltip(it, { compare: cmp, hint }),
         onclick: () => {
+          if (readingScroll) {
+            if (unid) {
+              w.use(this.identifyScrollUid!, it.uid);
+              this.identifyScrollUid = null;
+              w.refreshDerived();
+            } else {
+              this.notify('That doesn\'t need identifying — pick an unidentified item.', '#888');
+            }
+            this.render();
+            return;
+          }
           if (it.kind === 'equipment') {
-            const err = equipFrom(eq, pack, it.uid);
-            if (err) this.notify(err, '#ff9070');
-            else audio.play('ui');
-            w.refreshDerived();
+            if (unid) {
+              this.notify('Unidentified — read a Scroll of Identify first.', '#ff9070');
+            } else {
+              const err = equipFrom(eq, pack, it.uid);
+              if (err) this.notify(err, '#ff9070');
+              else audio.play('ui');
+              w.refreshDerived();
+            }
           } else if (it.kind === 'consumable') {
-            w.use(it.uid);
+            if (consumable(it.ref).effect.type === 'identify' && w.unidentifiedItems().length > 1) {
+              // More than one candidate: let the player choose instead of
+              // spending the scroll on whatever happens to be first.
+              this.identifyScrollUid = it.uid;
+            } else {
+              w.use(it.uid);
+            }
           }
           this.render();
         },
@@ -189,6 +220,8 @@ export class DungeonOverlays {
       { class: 'modal frame' },
       btn('Close [I]', () => this.close(), 'small close'),
       h('h2', { text: 'Pack & Gear' }),
+      readingScroll ? h('p', { class: 'gold-t small', text: 'Reading a Scroll of Identify — click which item to reveal.', style: 'margin:0 0 6px' }) : null,
+      readingScroll ? btn('Cancel identify', () => { this.identifyScrollUid = null; this.render(); }, 'small') : null,
       h(
         'div',
         { class: 'inv' },
