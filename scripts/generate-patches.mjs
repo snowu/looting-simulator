@@ -68,6 +68,7 @@ const OVERRIDES = {
   fb6bb03: 'The dungeon pushes back now — monsters ride the same power curve you do, so shiny gear stops auto-winning past depth 2, and loot runs scarcer. Every trip down matters. Deep runs, deep consequences.',
   '90ff9b3': 'The Ashen King has been going easy on you. He is done. He does not fight the same way twice, and the closer he gets to losing, the less he cares what it costs him. Whatever you packed for the throne room: pack more.',
   e46dd4d: 'Your trinkets pay out in one press now: the market screen sells every valuable you own — the idols and chalices that were only ever coin — instead of row by row. Gems stay put; the forge still wants those.',
+  ccc6336: 'Cashing in is easier and safer: one button on the market screen sells every valuable you own — the idols and chalices that were only ever coin — and anything a guild contract still needs wears a gold outline with a pennant, so you will know what you are giving up before you sell it.',
   '6cdf3ff': 'Patch notes live on the title screen now — hit the scroll in the corner for every change, newest first. And yes: this era of the game is officially the Prepare To Die edition.',
 };
 
@@ -120,6 +121,7 @@ const SKIP = {
   '428ced0': 'README and screenshots, not in the game',
   deeb6b6: 'patch-notes feature itself, not a game change',
   '3b4d337': 'docs clarification, not in the game',
+  e46dd4d: 'folded into the combined market note below',
   '783eee0': 'dev harness + NEXT.md write-up, not gameplay',
   b7a9ca6: 'sprite redraw, cosmetic only',
   cd0b5a3: 'sprite redraw, cosmetic only',
