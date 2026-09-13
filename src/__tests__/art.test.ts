@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { ALL_ART, getArt } from '../art/registry';
 import { rasterize, validateArt } from '../art/raster';
 import { MATERIALS } from '../data/materials';
-import { CONSUMABLES, ITEM_BASES } from '../data/items';
+import { CONSUMABLES, ITEM_BASES, viewmodelFor } from '../data/items';
 import { BIOMES } from '../data/biomes';
 import { ENEMIES, KING_PHASES } from '../data/enemies';
 import { MATERIAL_TIERS, sheets } from '../dev/art-sheets';
@@ -41,6 +41,8 @@ describe('pixel art', () => {
       needed.add(`${p.sprite}_atk`);
       if (p.shield) needed.add(`${p.sprite}_block`);
     }
+    // Every weapon in the game has to have something to be held as.
+    for (const b of ITEM_BASES) if (b.slot === 'weapon') needed.add(viewmodelFor(b.weaponClass));
     for (const id of ['vm_blade', 'vm_axe', 'vm_pick', 'vm_blunt', 'vm_spear', 'vm_fist', 'vm_shield']) needed.add(id);
     for (const id of ['trap_dart_spent', 'trap_spikes_spent', 'trap_alarm_spent']) needed.add(id);
     for (const id of needed) expect(getArt(id), id).toBeDefined();

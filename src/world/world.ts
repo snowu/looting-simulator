@@ -28,7 +28,7 @@ import {
   trapAt,
 } from '../systems/dungeon';
 import { enemyDef, enemyView, kingPhase, phaseForHp } from '../data/enemies';
-import { consumable, itemBase } from '../data/items';
+import { consumable, itemBase, viewmodelFor } from '../data/items';
 import { biomeForFloor, FINAL_DEPTH } from '../data/biomes';
 import { PlayerDerived, derivePlayer } from '../systems/player';
 import { DifficultyId, DifficultyDef, difficultyOf } from '../data/difficulty';
@@ -2291,8 +2291,6 @@ export class World {
   weaponArt(): { id: string; materialId?: string } {
     const w = this.state.equipment.weapon;
     if (!w) return { id: 'vm_fist' };
-    const cls = itemBase(w.ref).weaponClass;
-    const id = cls === 'axe' ? 'vm_axe' : cls === 'pick' ? 'vm_pick' : cls === 'blunt' ? 'vm_blunt' : cls === 'spear' ? 'vm_spear' : 'vm_blade';
-    return { id, materialId: w.materialId };
+    return { id: viewmodelFor(itemBase(w.ref).weaponClass), materialId: w.materialId };
   }
 }

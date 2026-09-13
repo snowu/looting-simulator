@@ -12,7 +12,7 @@ import { ENEMIES, KING_PHASES } from '../data/enemies';
 import { BIOMES } from '../data/biomes';
 import { ICONS } from '../art/icons';
 import { MATERIALS } from '../data/materials';
-import { CONSUMABLES, ITEM_BASES } from '../data/items';
+import { CONSUMABLES, ITEM_BASES, viewmodelFor } from '../data/items';
 import { MaterialDef } from '../types';
 import { Ramp } from '../art/raster';
 import { PROPS } from '../art/props';
@@ -152,6 +152,21 @@ const biomeGroups: SheetGroup[] = BIOMES.map((b) => ({
 
 const plain = (ids: string[]): SheetCell[] => ids.map((id) => ({ id, label: id }));
 
+/**
+ * The game hands the viewmodel the equipped weapon's ramp, so a flat one is a
+ * weapon made of nothing. Each model is shown in the material of a real base
+ * that is held as it — `vm_fist` excepted, which is a hand.
+ */
+function viewmodelCells(tier: number): SheetCell[] {
+  return VIEWMODELS.map((vm) => {
+    const base = ITEM_BASES.find((b) =>
+      vm.id === 'vm_shield' ? b.slot === 'offhand' : b.slot === 'weapon' && viewmodelFor(b.weaponClass) === vm.id);
+    if (!base) return { id: vm.id, label: 'Bare hands' };
+    const m = materialFor(base.primary, tier);
+    return { id: vm.id, label: m ? `${base.name} · ${m.name}` : base.name, ramp: m?.ramp };
+  });
+}
+
 function iconGroups(tier: number): SheetGroup[] {
   const covered = new Set<string>();
   const materials: SheetCell[] = MATERIALS.map((m) => {
@@ -211,7 +226,7 @@ export function sheets(tier: number = DEFAULT_TIER): ArtSheet[] {
   { id: 'biomes', title: 'Biomes', note: 'Wall, floor, ceiling and door per biome. In-game these also carry coloured light.', cols: 6, groups: biomeGroups },
   { id: 'props', title: 'Props', note: 'Everything the dungeon stands on the floor.', cols: 6, groups: [{ title: 'Props', cells: plain(PROPS.map((p) => p.id)) }] },
   { id: 'icons', title: 'Icons', note: 'Every icon as something that exists: each piece of gear in a material its base actually allows, each material and potion in its own colours.', cols: 6, groups: iconGroups(tier) },
-  { id: 'viewmodels', title: 'Viewmodels', note: 'The weapon in your own hands.', cols: 4, groups: [{ title: 'Viewmodels', cells: plain(VIEWMODELS.map((v) => v.id)) }] },
+  { id: 'viewmodels', title: 'Viewmodels', note: 'The weapon in your own hands, in the material of a weapon that uses it. An empty hand has no material.', cols: 4, groups: [{ title: `Held · best material at tier ${tier}`, cells: viewmodelCells(tier) }] },
   ];
 }
 

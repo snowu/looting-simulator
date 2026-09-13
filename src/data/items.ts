@@ -193,6 +193,23 @@ export function gearLadderIndex(baseId: string): number {
 const BASE_BY_ID = new Map(ITEM_BASES.map((b) => [b.id, b]));
 const CONS_BY_ID = new Map(CONSUMABLES.map((c) => [c.id, c]));
 
+/**
+ * The first-person model a weapon class is held as. Shared so the dev art
+ * sheet draws the viewmodels the game would actually draw, in the materials
+ * the bases behind them allow, rather than guessing at the mapping.
+ * An empty hand is `vm_fist`, decided by the caller that knows there is no
+ * weapon at all.
+ */
+export function viewmodelFor(weaponClass: ItemBaseDef['weaponClass']): string {
+  switch (weaponClass) {
+    case 'axe': return 'vm_axe';
+    case 'pick': return 'vm_pick';
+    case 'blunt': return 'vm_blunt';
+    case 'spear': return 'vm_spear';
+    default: return 'vm_blade';
+  }
+}
+
 export function itemBase(id: string): ItemBaseDef {
   const b = BASE_BY_ID.get(id);
   if (!b) throw new Error(`unknown item base ${id}`);
