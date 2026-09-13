@@ -498,6 +498,9 @@ const BURROW_TRACK = rows(`
 const BURROW_WALL_ROWS = stamp(stamp(DIRT_ROWS, BURROW_ROOT, 1, 1), BURROW_ROOT, 17, 17);
 const BURROW_WALL_ALT_ROWS = stamp(BURROW_WALL_ROWS, BURROW_ROOT, 8, 9);
 const BURROW_FLOOR_ROWS = stamp(stamp(DIRT_ROWS, BURROW_TRACK, 2, 4), BURROW_TRACK, 17, 21);
+// The Burrows' own roof: packed earth slabs with roots hanging through. This is
+// only the depth-1 fallback — deeper Burrows floors inherit the floor above.
+const BURROW_CEIL_ROWS = stamp(stamp(SLAB_ROWS, BURROW_ROOT, 3, 4), BURROW_ROOT, 18, 22);
 const FURNACE_VENT = rows(`
   rrrrrrrrrrrrrr
   rqqqqqqqqqqqqr
@@ -628,6 +631,7 @@ const FROST_VAULT_FLOOR = { m: '#102333', e: '#284459', a: '#35556a', b: '#496b8
 const EMBERWORKS_FLOOR = { e: '#100d0d', a: '#241b1a', b: '#352523', c: '#50332b', d: '#714534', p: '#96644b', q: '#ff9a30fa', r: '#b95222fa' };
 const BURROW_WALL = { e: '#2a1c12', a: '#49301b', b: '#61432a', c: '#806044', d: '#977555', p: '#af8860', r: '#281709' };
 const BURROW_FLOOR = { e: '#1c140d', a: '#342417', b: '#4b3320', c: '#63452b', d: '#80593b', p: '#a47751', q: '#bc9368' };
+const BURROW_CEIL = { m: '#100b06', e: '#20140c', a: '#2f1e12', b: '#3f2a18', c: '#503522', d: '#64452e', r: '#281709' };
 const EMBERWORKS_WALL = { m: '#130b09', e: '#261410', a: '#3b2119', b: '#513027', c: '#704334', d: '#8a5440', q: '#ef6626fa', r: '#190e0c' };
 const EMBERWORKS_CEILING = { r: '#6d251798', q: '#e85d2e98' };
 
@@ -691,6 +695,7 @@ export const TEXTURES: ArtDef[] = [
   { id: 'wall_burrows_b', palette: BURROW_WALL, rows: BURROW_WALL_ALT_ROWS },
   { id: 'wall_burrows_s', base: 'wall_burrows', palette: BURROW_SECRET, rows: SECRET_MARK_ROWS },
   { id: 'floor_burrows', palette: BURROW_FLOOR, rows: BURROW_FLOOR_ROWS },
+  { id: 'ceil_burrows', palette: BURROW_CEIL, rows: BURROW_CEIL_ROWS },
   { id: 'wall_emberworks', palette: EMBERWORKS_WALL, rows: EMBER_WALL_ROWS },
   { id: 'wall_emberworks_b', palette: EMBERWORKS_WALL, rows: EMBER_WALL_ALT_ROWS },
   { id: 'wall_emberworks_s', base: 'wall_emberworks', palette: EMBERWORKS_SECRET, rows: SECRET_MARK_ROWS },

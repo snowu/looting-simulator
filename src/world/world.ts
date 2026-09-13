@@ -1451,7 +1451,8 @@ export class World {
 
     const s = stairsAt(f, t.x, t.y);
     if (s) {
-      this.press('forward');
+      // Interacting with stairs is one step, not a held movement key.
+      this.queued = 'forward';
       return;
     }
 

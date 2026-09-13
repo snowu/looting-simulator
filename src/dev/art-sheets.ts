@@ -146,9 +146,16 @@ const biomeGroups: SheetGroup[] = BIOMES.map((b) => ({
     { id: b.wallSecret, label: 'secret' },
     { id: b.floor, label: 'floor' },
     ...(b.id === 'catacombs' ? [{ id: 'water_catacombs', label: 'water' }] : []),
-    // Burrows swaps this fallback for the preceding floor's texture at runtime.
-    // The sheet only needs one representative tile; the transition logic is code.
-    { id: b.ceiling, label: 'ceiling' },
+    // Burrows inherits the preceding floor's ground texture at runtime, falling
+    // back to its own packed-earth roof on depth 1. The sheet shows both so the
+    // PR preview proves the fallback exists and the transition reads.
+    ...(b.id === 'burrows'
+      ? [
+        { id: b.ceiling, label: 'ceiling · depth-1 fallback' },
+        { id: 'floor_crypt', label: 'ceiling <- crypt floor' },
+        { id: 'floor_cave', label: 'ceiling <- catacombs floor' },
+      ]
+      : [{ id: b.ceiling, label: 'ceiling' }]),
     { id: b.door, label: 'door' },
   ],
 }));
@@ -226,7 +233,7 @@ export function sheets(tier: number = DEFAULT_TIER): ArtSheet[] {
     cols: 3,
     groups: [creatureGroup('Phases', 'boss')],
   },
-  { id: 'biomes', title: 'Biomes', note: 'Wall, floor, ceiling and door per biome. In-game these also carry coloured light.', cols: 6, groups: biomeGroups },
+  { id: 'biomes', title: 'Biomes', note: 'Wall, floor, ceiling and door per biome. Burrows shows its depth-1 fallback roof plus the two inherited ceilings. In-game these also carry coloured light.', cols: 6, groups: biomeGroups },
   { id: 'props', title: 'Props', note: 'Everything the dungeon stands on the floor.', cols: 6, groups: [{ title: 'Props', cells: plain(PROPS.map((p) => p.id)) }] },
   { id: 'icons', title: 'Icons', note: 'Every icon as something that exists: each piece of gear in a material its base actually allows, each material and potion in its own colours.', cols: 6, groups: iconGroups(tier) },
   { id: 'viewmodels', title: 'Viewmodels', note: 'The weapon in your own hands, in the material of a weapon that uses it. An empty hand has no material.', cols: 4, groups: [{ title: `Held · best material at tier ${tier}`, cells: viewmodelCells(tier) }] },
