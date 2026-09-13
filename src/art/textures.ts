@@ -1,5 +1,5 @@
 import { ArtDef } from './raster';
-import { rows } from './helpers';
+import { rows, stamp } from './helpers';
 
 // Palette values with alpha 'fa' (250) are EMISSIVE: the renderer draws them
 // at full brightness regardless of lighting (glowing mortar, crystals...).
@@ -379,6 +379,68 @@ const CHECKER_ROWS = [0, 1, 2, 3].flatMap((band) =>
   TILE_A.map((_, i) => (band % 2 === 0 ? TILE_A[i] + TILE_B[i] : TILE_B[i] + TILE_A[i]).repeat(2)),
 );
 
+// Frost Vault has fractured blue flagstones rather than the throne checker.
+// Emberworks has charcoal dirt split by hot seams. Both keep the 32px tile
+// cadence of the existing floor art, but their patterns read apart at a glance.
+const ICE_FISSURE = rows(`
+  q...........
+  .q..........
+  ..qq........
+  ....q.......
+  .....qq.....
+  .......q....
+  ........qq..
+  ..........q.
+`);
+const FROST_FLOOR_ROWS = stamp(stamp(FLAG_ROWS, ICE_FISSURE, 2, 2), ICE_FISSURE, 17, 19);
+const EMBER_SEAM = rows(`
+  .....r..........
+  ....rqr.........
+  ...rqqr.........
+  ....rqr.........
+  .....rqr........
+  ......rqqr......
+  .......rqr......
+  ........rqr.....
+  .........rqqr...
+  ..........rqr...
+  ...........r....
+`);
+const EMBER_FLOOR_ROWS = stamp(stamp(DIRT_ROWS, EMBER_SEAM, 1, 1), EMBER_SEAM, 15, 18);
+const BURROW_ROOT = rows(`
+  r.............
+  .r............
+  ..rr..........
+  ....r.........
+  .....r...r....
+  ......rrr.....
+  .......r......
+  ......r.rr....
+  .....r....r...
+  ....r......r..
+`);
+const BURROW_TRACK = rows(`
+  ...q.......q..
+  ..qq......qq..
+  .q..q....q..q.
+  .....q.......q
+`);
+const BURROW_WALL_ROWS = stamp(stamp(DIRT_ROWS, BURROW_ROOT, 1, 1), BURROW_ROOT, 17, 17);
+const BURROW_WALL_ALT_ROWS = stamp(BURROW_WALL_ROWS, BURROW_ROOT, 8, 9);
+const BURROW_FLOOR_ROWS = stamp(stamp(DIRT_ROWS, BURROW_TRACK, 2, 4), BURROW_TRACK, 17, 21);
+const FURNACE_VENT = rows(`
+  rrrrrrrrrrrrrr
+  rqqqqqqqqqqqqr
+  rqrrrrrrrrrrqr
+  rqrqqqqqqrqrqr
+  rqrqqqqqqrqrqr
+  rqrrrrrrrrrrqr
+  rqqqqqqqqqqqqr
+  rrrrrrrrrrrrrr
+`);
+const EMBER_WALL_ROWS = stamp(BRICK_ROWS, EMBER_SEAM, 8, 9);
+const EMBER_WALL_ALT_ROWS = stamp(EMBER_WALL_ROWS, FURNACE_VENT, 9, 11);
+
 // Doors -------------------------------------------------------------------------
 const DOOR_WOOD_ROWS = rows(`
   zxwwwwwyzxwwwwwyzxwwwwwyzxwwwwwy
@@ -491,6 +553,11 @@ const CAVE_CEIL = { m: '#030605', e: '#070d0b', a: '#0b1411', b: '#101a17', c: '
 const THRONE = { m: '#7a2410fa', e: '#1a1218', a: '#241a22', b: '#30232c', c: '#3e2e38', d: '#4e3a46' };
 const THRONE_FLOOR = { r: '#b03c18fa', d: '#3a2c34', b: '#1e161c', f: '#2a2026', g: '#3a2e36', a: '#100a0e', c: '#2a2028' };
 const THRONE_CEIL = { m: '#4a160afa', e: '#0e0a0c', a: '#140e12', b: '#1a1318', c: '#20181e', d: '#281e26' };
+const FROST_VAULT_FLOOR = { m: '#102333', e: '#284459', a: '#35556a', b: '#496b80', c: '#7294a6', q: '#b7eafffa' };
+const EMBERWORKS_FLOOR = { e: '#100d0d', a: '#241b1a', b: '#352523', c: '#50332b', d: '#714534', p: '#96644b', q: '#ff9a30fa', r: '#b95222fa' };
+const BURROW_WALL = { e: '#2a1c12', a: '#49301b', b: '#61432a', c: '#806044', d: '#977555', p: '#af8860', r: '#281709' };
+const BURROW_FLOOR = { e: '#1c140d', a: '#342417', b: '#4b3320', c: '#63452b', d: '#80593b', p: '#a47751', q: '#bc9368' };
+const EMBERWORKS_WALL = { m: '#130b09', e: '#261410', a: '#3b2119', b: '#513027', c: '#704334', d: '#8a5440', q: '#ef6626fa', r: '#190e0c' };
 
 const WOOD_DOOR = { w: '#5a3a1c', x: '#6e4824', y: '#3a240e', z: '#24160a', i: '#2a2a30', j: '#4a4a54', k: '#15151a', n: '#8a8a94' };
 const IRON_DOOR = { i: '#34343c', j: '#50505a', k: '#1c1c22', n: '#7a7a86', r: '#5a2a1a', s: '#40201a' };
@@ -529,6 +596,19 @@ export const TEXTURES: ArtDef[] = [
   { id: 'wall_throne_s', base: 'wall_throne', palette: CHALK_PAL, rows: CHALK_ROWS },
   { id: 'floor_throne', palette: THRONE_FLOOR, rows: CHECKER_ROWS },
   { id: 'ceil_throne', palette: THRONE_CEIL, rows: SLAB_ROWS },
+
+  // Alternate mid-depth floors
+  { id: 'floor_frostvault', palette: FROST_VAULT_FLOOR, rows: FROST_FLOOR_ROWS },
+  { id: 'floor_emberworks', palette: EMBERWORKS_FLOOR, rows: EMBER_FLOOR_ROWS },
+
+  // Packed-earth burrows and soot-black furnace masonry
+  { id: 'wall_burrows', palette: BURROW_WALL, rows: BURROW_WALL_ROWS },
+  { id: 'wall_burrows_b', palette: BURROW_WALL, rows: BURROW_WALL_ALT_ROWS },
+  { id: 'wall_burrows_s', base: 'wall_burrows', palette: CHALK_PAL, rows: CHALK_ROWS },
+  { id: 'floor_burrows', palette: BURROW_FLOOR, rows: BURROW_FLOOR_ROWS },
+  { id: 'wall_emberworks', palette: EMBERWORKS_WALL, rows: EMBER_WALL_ROWS },
+  { id: 'wall_emberworks_b', palette: EMBERWORKS_WALL, rows: EMBER_WALL_ALT_ROWS },
+  { id: 'wall_emberworks_s', base: 'wall_emberworks', palette: CHALK_PAL, rows: CHALK_ROWS },
 
   // Doors
   { id: 'door_wood', palette: WOOD_DOOR, rows: DOOR_WOOD_ROWS },
