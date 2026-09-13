@@ -12,8 +12,7 @@ import { artUrl, loadArtOverrides } from './render/art-cache';
 import { Hud } from './ui/hud';
 import { DungeonOverlays } from './ui/dungeon-ui';
 import { Town } from './ui/town';
-import { TITLE_ACCOUNT_SLOT, summaryScreen, titleScreen } from './ui/screens';
-import { openSettings } from './ui/settings';
+import { summaryScreen, titleScreen } from './ui/screens';
 import { DifficultyId } from './data/difficulty';
 import { AccountPanel } from './ui/account';
 import { saveChooser } from './ui/save-chooser';
@@ -370,30 +369,8 @@ function enterTitle(): void {
   screen.replaceChildren(titleScreen(slotPicker(slotViews(), enterSlot, {
     onRename: (n, name) => void renameSlot(n, name),
     onDelete: (n) => void deleteSlot(n),
-  }), {
-    build: BUILD_ID,
-    account: account.el,
-    dev: devTitleTools(),
-    onSettings: openTitleSettings,
-  }));
+  }), BUILD_ID, account.el, devTitleTools()));
   askAboutSaves();
-}
-
-/**
- * Settings from the title screen: cloud saves only, since difficulty belongs
- * to a save and none has been picked yet — a new game chooses it on the slot
- * card, and an existing one changes it behind the gear in town.
- *
- * The account panel is a single element shared with the title screen, so
- * opening this moves it into the modal; closing puts it back in its slot
- * rather than re-rendering the title, which would restart the save chooser.
- */
-function openTitleSettings(): void {
-  openSettings({
-    account: () => account.el,
-    toast,
-    onClose: () => document.querySelector(`.${TITLE_ACCOUNT_SLOT}`)?.append(account.el),
-  });
 }
 
 /**

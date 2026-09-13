@@ -555,8 +555,6 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
   body.touch #hud .minimap { width: 76px; height: 76px; top: calc(max(8px, env(safe-area-inset-top)) + 40px); }
   #fs-btn { width: 30px; height: 30px; }
   #fs-btn svg { width: 16px; height: 16px; }
-  .title-gear { right: calc(max(8px, env(safe-area-inset-right)) + 36px); }
-  .title-gear .btn { height: 30px; }
   .town-head { padding-right: 38px; }
   body.touch #hud .compass { font-size: 18px; gap: 8px; }
   body.touch #hud .compass .side { font-size: 13px; }
@@ -747,18 +745,6 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
   .beast-grid { grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); max-height: none; }
   .beast-stage { height: 120px; }
 }
-
-/* The gear sits beside the fullscreen toggle rather than under it: same top
-   edge, offset left by that button's width plus a gap, and inside the safe
-   area so a notch or rounded corner cannot eat either one. Fixed, like the
-   toggle, so scrolling the title on a short screen does not carry it away. */
-.title-gear {
-  position: fixed;
-  top: max(8px, env(safe-area-inset-top));
-  right: calc(max(8px, env(safe-area-inset-right)) + 40px);
-  z-index: 50;
-}
-.title-gear .btn { height: 34px; }
 
 /* Choosing a difficulty for a new save, inline on the slot card. */
 .slot-diff { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
