@@ -360,8 +360,20 @@ function devTitleTools(): HTMLElement | null {
     'div',
     { class: 'dev-tools' },
     h('span', { class: 'dim small grow', text: 'Dev build only' }),
+    btn('Art sheet', () => void openArtSheet(), 'small'),
     btn('Fight the King', () => void enterBossArena(), 'small'),
   );
+}
+
+/**
+ * The art sheet, on F2 from anywhere. Dynamically imported behind the same
+ * `import.meta.env.DEV` guard as the boss arena, so the tool and its styles
+ * are dropped from a real build.
+ */
+async function openArtSheet(): Promise<void> {
+  if (!import.meta.env.DEV) return;
+  const { toggleArtSheet } = await import('./dev/art-sheet');
+  toggleArtSheet(app);
 }
 
 function enterTitle(): void {
@@ -655,6 +667,11 @@ const MOVES: Record<string, Parameters<World['press']>[0]> = {
 
 window.addEventListener('keydown', (e) => {
   audio.unlock();
+  if (import.meta.env.DEV && e.key === 'F2') {
+    e.preventDefault();
+    void openArtSheet();
+    return;
+  }
   if (mode !== 'dungeon' || !world) return;
   if (overlays.handleKey(e)) {
     e.preventDefault();
@@ -774,6 +791,7 @@ async function enterBossArena(): Promise<void> {
 
 // --- Boot ------------------------------------------------------------------------
 const params = new URLSearchParams(location.search);
+if (import.meta.env.DEV && params.has('art')) void openArtSheet();
 if (params.has('autostart')) {
   const where = params.get('autostart');
   if (import.meta.env.DEV && where === 'boss') void enterBossArena();
