@@ -260,13 +260,19 @@ export class Town {
         const ev = eventMultiplier(m, { materialId: mat.id });
         const trendEl = h('span', { class: trend > 2 ? 'up' : trend < -2 ? 'down' : 'dim', text: trend > 2 ? '▲' : trend < -2 ? '▼' : '–' });
         const trendCell = h('td', { class: 'col-trend' }, h('div', { class: 'row', style: 'gap:4px' }, trendEl, insider ? h('span', { class: 'small', text: `${trend > 0 ? '+' : ''}${trend}%` }) : null, insider ? sparkline(c.history, 70, 18, ev > 1 ? '#e8b84a' : ev < 1 ? '#d0443a' : '#8a7f6e') : null));
-        const icon = itemSlot({ uid: mat.id, kind: 'material', ref: mat.id, qty: 1 }, { size: 32, tip: () => itemTooltip({ uid: '', kind: 'material', ref: mat.id, qty: Math.max(1, owned) }, { price: { label: 'Sells for', value: sell } }) });
+        // An accepted delivery contract marks its material: gold outline, a
+        // pennant by the name, and the shortfall in the tooltip.
+        const questNeed = s.contracts
+          .filter((c) => c.accepted && c.kind === 'deliver' && c.materialId === mat.id)
+          .reduce((n, c) => n + Math.max(0, (c.qty ?? 0) - owned), 0);
+        const icon = itemSlot({ uid: mat.id, kind: 'material', ref: mat.id, qty: 1 }, { size: 32, tip: () => itemTooltip({ uid: '', kind: 'material', ref: mat.id, qty: Math.max(1, owned) }, { price: { label: 'Sells for', value: sell } }) + (questNeed > 0 ? `<div class="tt-warn">Wanted: a guild contract still needs ${questNeed} more.</div>` : '') });
+        if (questNeed > 0) icon.classList.add('quest');
         rows.push(
           h(
             'tr',
             {},
             h('td', {}, icon),
-            h('td', {}, h('span', { style: `color:${RARITY_COLORS[mat.rarity]}`, text: mat.name }), ev !== 1 ? h('span', { class: ev > 1 ? 'gold-t small' : 'red-t small', text: ev > 1 ? ' ★' : ' ▾' }) : null),
+            h('td', {}, h('span', { style: `color:${RARITY_COLORS[mat.rarity]}`, text: mat.name }), questNeed > 0 ? h('span', { class: 'gold-t small', attrs: { title: `A guild contract still needs ${questNeed} more` }, text: ' ⚑' }) : null, ev !== 1 ? h('span', { class: ev > 1 ? 'gold-t small' : 'red-t small', text: ev > 1 ? ' ★' : ' ▾' }) : null),
             h('td', { class: 'num gold-t', text: `${sell}` }),
             h('td', { class: 'num dim', text: `${buy}` }),
             trendCell,

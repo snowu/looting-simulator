@@ -107,6 +107,7 @@ h3 { font-size: 26px; color: var(--ink); margin-bottom: 6px; }
 }
 .slot.empty { --rc: #2a2430; cursor: default; }
 .slot.selected { outline: 2px solid var(--gold); outline-offset: 1px; }
+.slot.quest { outline: 2px solid var(--gold); outline-offset: 1px; box-shadow: inset 0 0 0 1px #000, inset 0 0 10px #0008, 0 0 9px #e8b84a88; }
 .slot:not(.empty):hover { filter: brightness(1.3); }
 .slot .qty { position: absolute; right: 2px; bottom: -2px; font-size: 16px; color: #fff; text-shadow: 1px 1px 0 #000, -1px -1px 0 #000; }
 .slot .unid { position: absolute; left: 3px; top: -2px; font-size: 16px; color: var(--violet); text-shadow: 1px 1px 0 #000; }
