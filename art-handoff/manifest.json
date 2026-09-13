@@ -1,0 +1,1218 @@
+[
+  {
+    "id": "wall_crypt",
+    "file": "textures/wall_crypt.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "wall_crypt_b",
+    "file": "textures/wall_crypt_b.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "wall_crypt_s",
+    "file": "textures/wall_crypt_s.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_crypt",
+    "recolorable": false
+  },
+  {
+    "id": "floor_crypt",
+    "file": "textures/floor_crypt.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "ceil_crypt",
+    "file": "textures/ceil_crypt.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "wall_mine",
+    "file": "textures/wall_mine.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "wall_mine_b",
+    "file": "textures/wall_mine_b.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_mine",
+    "recolorable": false
+  },
+  {
+    "id": "wall_mine_s",
+    "file": "textures/wall_mine_s.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_mine",
+    "recolorable": false
+  },
+  {
+    "id": "floor_mine",
+    "file": "textures/floor_mine.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "ceil_mine",
+    "file": "textures/ceil_mine.png",
+    "width": 32,
+    "height": 32,
+    "base": "ceil_mine_rock",
+    "recolorable": false
+  },
+  {
+    "id": "ceil_mine_rock",
+    "file": "textures/ceil_mine_rock.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "wall_cave",
+    "file": "textures/wall_cave.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "wall_cave_b",
+    "file": "textures/wall_cave_b.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_cave",
+    "recolorable": false
+  },
+  {
+    "id": "wall_cave_s",
+    "file": "textures/wall_cave_s.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_cave",
+    "recolorable": false
+  },
+  {
+    "id": "floor_cave_dirt",
+    "file": "textures/floor_cave_dirt.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "floor_cave",
+    "file": "textures/floor_cave.png",
+    "width": 32,
+    "height": 32,
+    "base": "floor_cave_dirt",
+    "recolorable": false
+  },
+  {
+    "id": "ceil_cave",
+    "file": "textures/ceil_cave.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "wall_throne",
+    "file": "textures/wall_throne.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "wall_throne_b",
+    "file": "textures/wall_throne_b.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_throne",
+    "recolorable": false
+  },
+  {
+    "id": "wall_throne_s",
+    "file": "textures/wall_throne_s.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_throne",
+    "recolorable": false
+  },
+  {
+    "id": "floor_throne",
+    "file": "textures/floor_throne.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "ceil_throne",
+    "file": "textures/ceil_throne.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "door_wood",
+    "file": "textures/door_wood.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "door_iron",
+    "file": "textures/door_iron.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "door_locked",
+    "file": "textures/door_locked.png",
+    "width": 32,
+    "height": 32,
+    "base": "door_iron",
+    "recolorable": false
+  },
+  {
+    "id": "chest",
+    "file": "props/chest.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "chest_mimic",
+    "file": "props/chest_mimic.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "chest_open",
+    "file": "props/chest_open.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "mimic_0",
+    "file": "props/mimic_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "mimic_atk",
+    "file": "props/mimic_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "urn",
+    "file": "props/urn.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "urn_broken",
+    "file": "props/urn_broken.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "barrel",
+    "file": "props/barrel.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "barrel_broken",
+    "file": "props/barrel_broken.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "bones",
+    "file": "props/bones.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "shrine",
+    "file": "props/shrine.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "shrine_used",
+    "file": "props/shrine_used.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "shrine_font",
+    "file": "props/shrine_font.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "shrine_font_used",
+    "file": "props/shrine_font_used.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "shrine_idol",
+    "file": "props/shrine_idol.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "shrine_idol_used",
+    "file": "props/shrine_idol_used.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "shrine_coffer",
+    "file": "props/shrine_coffer.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "shrine_coffer_used",
+    "file": "props/shrine_coffer_used.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "fungus",
+    "file": "props/fungus.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "trap_dart",
+    "file": "props/trap_dart.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "trap_spikes",
+    "file": "props/trap_spikes.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "trap_alarm",
+    "file": "props/trap_alarm.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "trap_dart_spent",
+    "file": "props/trap_dart_spent.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "trap_spikes_spent",
+    "file": "props/trap_spikes_spent.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "trap_alarm_spent",
+    "file": "props/trap_alarm_spent.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "town_portal",
+    "file": "props/town_portal.png",
+    "width": 16,
+    "height": 20,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "sconce",
+    "file": "props/sconce.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "flame_0",
+    "file": "props/flame_0.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "flame_1",
+    "file": "props/flame_1.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "flame_2",
+    "file": "props/flame_2.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "pickup_bag",
+    "file": "props/pickup_bag.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "pickup_gold",
+    "file": "props/pickup_gold.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "proj_frost",
+    "file": "props/proj_frost.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "proj_fire",
+    "file": "props/proj_fire.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "proj_shadow",
+    "file": "props/proj_shadow.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "proj_arrow",
+    "file": "props/proj_arrow.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "ic_ingot",
+    "file": "icons/ic_ingot.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_plank",
+    "file": "icons/ic_plank.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_hide",
+    "file": "icons/ic_hide.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_scale",
+    "file": "icons/ic_scale.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_cloth",
+    "file": "icons/ic_cloth.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_bone",
+    "file": "icons/ic_bone.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_gem",
+    "file": "icons/ic_gem.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_shard",
+    "file": "icons/ic_shard.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_essence",
+    "file": "icons/ic_essence.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_chalice",
+    "file": "icons/ic_chalice.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_idol",
+    "file": "icons/ic_idol.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_candelabra",
+    "file": "icons/ic_candelabra.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_skull",
+    "file": "icons/ic_skull.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_tome",
+    "file": "icons/ic_tome.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_dagger",
+    "file": "icons/ic_dagger.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_short_sword",
+    "file": "icons/ic_short_sword.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_long_sword",
+    "file": "icons/ic_long_sword.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_axe",
+    "file": "icons/ic_axe.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_mining_pick",
+    "file": "icons/ic_mining_pick.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_mace",
+    "file": "icons/ic_mace.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_spear",
+    "file": "icons/ic_spear.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_club",
+    "file": "icons/ic_club.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_buckler",
+    "file": "icons/ic_buckler.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_kite_shield",
+    "file": "icons/ic_kite_shield.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_tower_shield",
+    "file": "icons/ic_tower_shield.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_cap",
+    "file": "icons/ic_cap.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_helm",
+    "file": "icons/ic_helm.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_great_helm",
+    "file": "icons/ic_great_helm.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_robe",
+    "file": "icons/ic_robe.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_jerkin",
+    "file": "icons/ic_jerkin.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_hauberk",
+    "file": "icons/ic_hauberk.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_plate",
+    "file": "icons/ic_plate.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_gloves",
+    "file": "icons/ic_gloves.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_gauntlets",
+    "file": "icons/ic_gauntlets.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_ring",
+    "file": "icons/ic_ring.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_amulet",
+    "file": "icons/ic_amulet.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_potion",
+    "file": "icons/ic_potion.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_scroll",
+    "file": "icons/ic_scroll.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_lore",
+    "file": "icons/ic_lore.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_blueprint",
+    "file": "icons/ic_blueprint.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "ic_key",
+    "file": "icons/ic_key.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_gold",
+    "file": "icons/ic_gold.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ui_frame",
+    "file": "ui/ui_frame.png",
+    "width": 12,
+    "height": 12,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "ui_frame_gold",
+    "file": "ui/ui_frame_gold.png",
+    "width": 12,
+    "height": 12,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "rat_0",
+    "file": "enemies/rat_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "rat_atk",
+    "file": "enemies/rat_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "goblin_0",
+    "file": "enemies/goblin_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "goblin_atk",
+    "file": "enemies/goblin_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "skeleton_0",
+    "file": "enemies/skeleton_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "skeleton_atk",
+    "file": "enemies/skeleton_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "archer_0",
+    "file": "enemies/archer_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "archer_atk",
+    "file": "enemies/archer_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "gobarcher_0",
+    "file": "enemies/gobarcher_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "gobarcher_atk",
+    "file": "enemies/gobarcher_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "gobshield_0",
+    "file": "enemies/gobshield_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "gobshield_block",
+    "file": "enemies/gobshield_block.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "gobshield_atk",
+    "file": "enemies/gobshield_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "skelshield_0",
+    "file": "enemies/skelshield_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "skelshield_block",
+    "file": "enemies/skelshield_block.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "skelshield_atk",
+    "file": "enemies/skelshield_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "spider_0",
+    "file": "enemies/spider_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "spider_atk",
+    "file": "enemies/spider_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "champion_0",
+    "file": "enemies/champion_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "champion_atk",
+    "file": "enemies/champion_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "bat_0",
+    "file": "enemies/bat_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "bat_atk",
+    "file": "enemies/bat_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "ghoul_0",
+    "file": "enemies/ghoul_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "ghoul_atk",
+    "file": "enemies/ghoul_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "wisp_0",
+    "file": "enemies/wisp_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "wisp_atk",
+    "file": "enemies/wisp_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "ember_0",
+    "file": "enemies/ember_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "ember_atk",
+    "file": "enemies/ember_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "knight_0",
+    "file": "enemies/knight_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "knight_atk",
+    "file": "enemies/knight_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "knight_block",
+    "file": "enemies/knight_block.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "wraith_0",
+    "file": "enemies/wraith_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "wraith_atk",
+    "file": "enemies/wraith_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "king_0",
+    "file": "enemies/king_0.png",
+    "width": 48,
+    "height": 48,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "king_atk",
+    "file": "enemies/king_atk.png",
+    "width": 48,
+    "height": 48,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "king_dark_0",
+    "file": "enemies/king_dark_0.png",
+    "width": 48,
+    "height": 48,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "king_dark_atk",
+    "file": "enemies/king_dark_atk.png",
+    "width": 48,
+    "height": 48,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "king_last_0",
+    "file": "enemies/king_last_0.png",
+    "width": 48,
+    "height": 48,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "king_last_atk",
+    "file": "enemies/king_last_atk.png",
+    "width": 48,
+    "height": 48,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "king_last_block",
+    "file": "enemies/king_last_block.png",
+    "width": 48,
+    "height": 48,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "vm_blade",
+    "file": "viewmodels/vm_blade.png",
+    "width": 24,
+    "height": 40,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "vm_axe",
+    "file": "viewmodels/vm_axe.png",
+    "width": 24,
+    "height": 40,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "vm_pick",
+    "file": "viewmodels/vm_pick.png",
+    "width": 24,
+    "height": 40,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "vm_blunt",
+    "file": "viewmodels/vm_blunt.png",
+    "width": 24,
+    "height": 40,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "vm_spear",
+    "file": "viewmodels/vm_spear.png",
+    "width": 24,
+    "height": 40,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "vm_fist",
+    "file": "viewmodels/vm_fist.png",
+    "width": 24,
+    "height": 40,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "vm_shield",
+    "file": "viewmodels/vm_shield.png",
+    "width": 24,
+    "height": 24,
+    "base": null,
+    "recolorable": true
+  }
+]
