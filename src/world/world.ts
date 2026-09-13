@@ -108,6 +108,10 @@ export interface PlayerAnim {
   parryArmed: boolean;
   /** Time until another parry window can open, so mashing block isn't a parry. */
   parryCd: number;
+  /** Brief window in which one more incoming projectile can be parried. */
+  rangedParryT: number;
+  /** Brief immunity after a melee parry, covering near-simultaneous attacks. */
+  parryInvulnT: number;
   /** Seconds of shield-bash stun: no moving, swinging or guarding. */
   stunT: number;
   steps: number;
@@ -143,6 +147,10 @@ const STAMINA_DELAY = 0.9;
  */
 const PARRY_WINDOW = 0.22;
 const PARRY_COOLDOWN = 0.75;
+/** Base grace after a parry; Normal extends it through difficulty tuning. */
+const PARRY_GRACE = 0.75;
+/** Crowd control after turning aside a melee blow. */
+const MELEE_PARRY_SPLASH_STUN = 0.25;
 /** How long a parried melee attacker is left open, and how much harder it takes hits. */
 const PARRY_STUN = 1;
 
@@ -334,7 +342,8 @@ export class World {
     this.anim = {
       fromX: this.run.player.x, fromY: this.run.player.y, moveT: 1, moveDur: STEP_TIME,
       yaw, yawFrom: yaw, yawTo: yaw, turnT: 1,
-      attack: 'idle', attackT: 0, attackDur: 0, attackPower: 1, blockRaise: 0, blockT: Infinity, parryArmed: false, parryCd: 0, stunT: 0, steps: 0, parryStacks: 0,
+      attack: 'idle', attackT: 0, attackDur: 0, attackPower: 1, blockRaise: 0, blockT: Infinity, parryArmed: false, parryCd: 0,
+      rangedParryT: 0, parryInvulnT: 0, stunT: 0, steps: 0, parryStacks: 0,
       sinceStamina: 10, windedCd: 0, recall: null, transition: null,
     };
     this.reveal();
@@ -505,6 +514,8 @@ export class World {
     // Block raise/lower, and the parry window that opens as the guard comes up.
     // A bashed head guards nothing: stun drops the shield and locks it down.
     a.stunT = Math.max(0, a.stunT - dt);
+    a.rangedParryT = Math.max(0, a.rangedParryT - dt);
+    a.parryInvulnT = Math.max(0, a.parryInvulnT - dt);
     const wantBlock = this.held.has('block') && a.attack === 'idle' && a.stunT <= 0;
     a.parryCd = Math.max(0, a.parryCd - dt);
     if (wantBlock) {
@@ -817,6 +828,11 @@ export class World {
     const a = this.anim;
     if (!a.parryArmed || a.blockT > PARRY_WINDOW) return false;
     return this.facingSource(fromX, fromY);
+  }
+
+  /** A projectile parry may spend the one follow-up granted by a prior reflection. */
+  private parriesProjectile(fromX: number, fromY: number): boolean {
+    return this.parries(fromX, fromY) || (this.anim.rangedParryT > 0 && this.facingSource(fromX, fromY));
   }
 
   /** Whether an attack from (x, y) comes at you from the tile you are facing. */
@@ -2109,11 +2125,19 @@ export class World {
       }
       if (attacker) {
         const def = enemyDef(attacker.def);
+        this.anim.parryInvulnT = PARRY_GRACE * this.diff.parryGrace;
         attacker.ai = 'recover';
         // Never shorter than the recovery it would have had anyway.
         attacker.timer = Math.max(attacker.timer, PARRY_STUN);
         attacker.attackCd = Math.max(attacker.attackCd, PARRY_STUN + 0.2);
         attacker.vuln = PARRY_STUN;
+        for (const other of this.floor.enemies) {
+          if (other === attacker || other.ai === 'dead') continue;
+          if (Math.abs(other.x - p.x) + Math.abs(other.y - p.y) !== 1) continue;
+          other.ai = 'recover';
+          other.timer = Math.max(other.timer, MELEE_PARRY_SPLASH_STUN);
+          other.attackCd = Math.max(other.attackCd, MELEE_PARRY_SPLASH_STUN);
+        }
         this.msg(`You turn the ${def.name}'s blow aside. It reels — strike now!`, '#ffe8a0');
         // A shield that answers: the blow it threw, thrown back.
         if (traits.parryReflect > 0) this.reflectOntoAttacker(attacker, Math.round(attack * traits.parryReflect), type);
@@ -2122,6 +2146,7 @@ export class World {
       }
       return;
     }
+    if (this.anim.parryInvulnT > 0) return;
     let dmg = enemyHitsPlayer(this.rng, attack, type, this.derived);
     const facingSource = this.facingSource(fromX, fromY);
     let blocked = false;
@@ -2199,7 +2224,7 @@ export class World {
         continue;
       }
       if (tx === p.x && ty === p.y) {
-        if (this.parries(tx - pr.dx, ty - pr.dy)) {
+        if (this.parriesProjectile(tx - pr.dx, ty - pr.dy)) {
           this.reflect(pr);
           continue;
         }
@@ -2212,7 +2237,9 @@ export class World {
 
   /** Send a bolt back the way it came, now hostile to whatever shot it. */
   private reflect(pr: Projectile): void {
+    const followUp = !this.anim.parryArmed;
     this.parryFlourish(this.player.x, this.player.y);
+    this.anim.rangedParryT = followUp ? 0 : PARRY_GRACE * this.diff.parryGrace;
     pr.dx = -pr.dx;
     pr.dy = -pr.dy;
     pr.reflected = true;
@@ -2265,7 +2292,7 @@ export class World {
 
   /** True while a raised guard can still turn a blow aside — the renderer's tell. */
   get parryWindow(): boolean {
-    return this.anim.parryArmed && this.anim.blockT <= PARRY_WINDOW;
+    return (this.anim.parryArmed && this.anim.blockT <= PARRY_WINDOW) || this.anim.rangedParryT > 0;
   }
 
   facingName(): string {

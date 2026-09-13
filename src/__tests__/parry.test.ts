@@ -11,8 +11,9 @@ function tick(w: World, seconds: number): void {
   for (let t = 0; t < seconds; t += 1 / 60) w.update(1 / 60);
 }
 
-function arena(seed = 1): World {
+function arena(seed = 1, difficulty: 'normal' | 'hard' = 'hard'): World {
   const state = newGame(createRng(seed));
+  state.difficulty = difficulty;
   startRun(state, seed);
   const w = new World(state);
   const f = w.floor;
@@ -70,6 +71,49 @@ describe('parrying a melee attack', () => {
     tick(w, 0.2);
     expect(e.ai).toBe('recover');
     expect(e.vuln).toBeGreaterThan(0);
+  });
+
+  it('briefly protects the player and staggers other adjacent enemies', () => {
+    const w = arena(16);
+    const attacker = spawn(w, 'skeleton', 1);
+    const t = w.frontTile(-1);
+    const other = createEnemy(enemyDef('rat'), t.x, t.y, w.player.facing, 'other', 1);
+    w.floor.enemies.push(other);
+    windUp(w, attacker);
+    windUp(w, other);
+    w.setBlock(true);
+    tick(w, 0.15);
+
+    expect(attacker.vuln).toBeGreaterThan(0);
+    expect(other.ai).toBe('recover');
+    expect(other.timer).toBeGreaterThan(0);
+    expect(other.vuln ?? 0).toBe(0);
+
+    const hp = w.player.hp;
+    const front = w.frontTile();
+    w.projectiles.push({
+      id: 999, x: front.x + 0.5, y: front.y + 0.5,
+      dx: -DX[w.player.facing], dy: -DY[w.player.facing], speed: 12,
+      damage: 100, type: 'pierce', sprite: 'proj_arrow',
+      tileX: front.x, tileY: front.y, source: 'a second attack',
+    });
+    tick(w, 0.06);
+    expect(w.player.hp).toBe(hp);
+  });
+
+  it('extends melee parry immunity on Normal', () => {
+    const hard = arena(18, 'hard');
+    const normal = arena(18, 'normal');
+    for (const w of [hard, normal]) {
+      const e = spawn(w, 'skeleton', 1);
+      windUp(w, e);
+      e.timer = 0.01;
+      w.setBlock(true);
+      w.update(1 / 60);
+    }
+
+    expect(hard.anim.parryInvulnT).toBeCloseTo(0.75);
+    expect(normal.anim.parryInvulnT).toBeCloseTo(1.25);
   });
 
   it('doubles what you land while the opening lasts', () => {
@@ -164,6 +208,43 @@ describe('parrying a projectile', () => {
     expect(w.player.hp).toBe(hp);
     const back = w.projectiles.find((p) => p.reflected);
     expect(back).toBeTruthy();
+  });
+
+  it('parries one additional bolt stacked behind the first', () => {
+    const w = arena(17);
+    incoming(w);
+    tick(w, 0.1);
+    for (let i = 0; i < 200 && w.projectiles.length; i++) {
+      const pr = w.projectiles[0];
+      if (Math.abs(pr.tileX - w.player.x) + Math.abs(pr.tileY - w.player.y) <= 1) break;
+      w.update(1 / 60);
+    }
+    w.projectiles.push({ ...w.projectiles[0], id: 999 });
+    const hp = w.player.hp;
+    w.setBlock(true);
+    tick(w, 0.2);
+
+    expect(w.player.hp).toBe(hp);
+    expect(w.projectiles.filter((p) => p.reflected)).toHaveLength(2);
+  });
+
+  it('extends the ranged follow-up window on Normal', () => {
+    const hard = arena(19, 'hard');
+    const normal = arena(19, 'normal');
+    for (const w of [hard, normal]) {
+      const t = w.frontTile();
+      w.projectiles.push({
+        id: 999, x: t.x + 0.5, y: t.y + 0.5,
+        dx: -DX[w.player.facing], dy: -DY[w.player.facing], speed: 60,
+        damage: 1, type: 'pierce', sprite: 'proj_arrow',
+        tileX: t.x, tileY: t.y, source: 'an arrow',
+      });
+      w.setBlock(true);
+      w.update(1 / 60);
+    }
+
+    expect(hard.anim.rangedParryT).toBeCloseTo(0.75);
+    expect(normal.anim.rangedParryT).toBeCloseTo(1.25);
   });
 
   it('buries the reflected bolt in whatever is in its path', () => {

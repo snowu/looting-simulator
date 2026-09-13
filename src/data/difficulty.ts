@@ -50,6 +50,8 @@ export interface DifficultyDef {
   playerHealing: number;
   /** Multiplier on stamina regeneration. */
   staminaRegen: number;
+  /** Multiplier on post-parry immunity and ranged follow-up windows. */
+  parryGrace: number;
   /** Multiplier on gold from kills and containers. */
   gold: number;
   /** Flat loot-find bonus, stacking with gear and Treasure Sense. */
@@ -73,6 +75,7 @@ export const DIFFICULTIES: Record<DifficultyId, DifficultyDef> = {
     playerHp: 1,
     playerHealing: 1,
     staminaRegen: 1,
+    parryGrace: 1,
     gold: 1,
     findBonus: 0,
     dropChance: 1,
@@ -81,7 +84,7 @@ export const DIFFICULTIES: Record<DifficultyId, DifficultyDef> = {
     id: 'normal',
     name: 'Normal',
     tagline: 'A gentler delve.',
-    description: 'Monsters hit softer (−20%) and fall faster (−20% health, thinner armour), traps sting less, you mend faster (+25% healing, +20% health), and drops are slightly kinder (+25 find, +25% gear odds, +20% gold). Same dungeon, same rules.',
+    description: 'Monsters hit softer (−20%) and fall faster (−20% health, thinner armour), traps sting less, parry grace lasts longer, you mend faster (+25% healing, +20% health), and drops are slightly kinder (+25 find, +25% gear odds, +20% gold).',
     enemyHp: 0.8,
     enemyDamage: 0.8,
     enemyDefense: 0.85,
@@ -91,6 +94,7 @@ export const DIFFICULTIES: Record<DifficultyId, DifficultyDef> = {
     playerHp: 1.2,
     playerHealing: 1.25,
     staminaRegen: 1.15,
+    parryGrace: 5 / 3,
     gold: 1.2,
     findBonus: 25,
     dropChance: 1.25,

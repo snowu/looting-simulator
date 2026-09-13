@@ -118,6 +118,7 @@ describe('normal tones it down and pays slightly better', () => {
     expect(n.playerHp).toBeGreaterThan(1);
     expect(n.playerHealing).toBeGreaterThan(1);
     expect(n.staminaRegen).toBeGreaterThan(1);
+    expect(n.parryGrace).toBeCloseTo(5 / 3);
     expect(n.gold).toBeGreaterThan(1);
     expect(n.findBonus).toBeGreaterThan(0);
     expect(n.dropChance).toBeGreaterThan(1);

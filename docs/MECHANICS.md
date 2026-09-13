@@ -67,13 +67,13 @@ Raising the guard opens a **0.22s window**. A hit that lands inside it is not ab
 
 **Holding the guard up does not parry.** The window only opens on the *rising edge*, and the cooldown means at best one attempt per 0.75s — against wind-ups of 0.35–0.8s you have to meet the swing, not sit behind the shield. Mistime it and it is a normal block, so there is no cliff.
 
-**Against melee:** the attacker is staggered for **1 second** (never shorter than the recovery it would have had) and takes **double damage** for that whole second. Bosses are not exempt — this is the only way to open the Ashen King up, since he cannot be staggered out of his wind-up.
+**Against melee:** the attacker is staggered for **1 second** (never shorter than the recovery it would have had) and takes **double damage** for that whole second. You are immune for the next **0.75s on Hard or 1.25s on Normal**, and other adjacent enemies are staggered for at least **0.25s**, preventing a cluster of near-simultaneous attacks from landing through a successful parry. Bosses are not exempt — this is the only way to open the Ashen King up, since he cannot be staggered out of his wind-up.
 
-**Against ranged:** the bolt is **reflected**, keeping its damage and element, and flies back the way it came. A reflected bolt hits **the first monster in its path** — which is usually the archer that fired it, but is whatever is standing in between. Incoming bolts still pass through monsters, so an archer's escort only shields it *after* you turn one around. Damage uses the target's own resistance, so a Flame Wraith's bolt turned onto a Frost Wisp lands at ×2.
+**Against ranged:** the bolt is **reflected**, keeping its damage and element, and flies back the way it came. The reflection leaves a **0.75s follow-up window on Hard or 1.25s on Normal** that can parry one more projectile, protecting against arrows stacked almost on top of each other. A reflected bolt hits **the first monster in its path** — which is usually the archer that fired it, but is whatever is standing in between. Incoming bolts still pass through monsters, so an archer's escort only shields it *after* you turn one around. Damage uses the target's own resistance, so a Flame Wraith's bolt turned onto a Frost Wisp lands at ×2.
 
-A volley (the boss fires three) only loses one bolt to a parry: a parry spends the window.
+A volley can lose up to two closely stacked bolts to one timed parry; the follow-up is spent after the second reflection.
 
-*Files: `src/world/world.ts` — `PARRY_WINDOW`, `PARRY_COOLDOWN`, `PARRY_STUN`, `PARRY_VULN_MULT`*
+*Files: `src/world/world.ts` — `PARRY_WINDOW`, `PARRY_COOLDOWN`, `PARRY_GRACE`, `MELEE_PARRY_*`, `PARRY_STUN`, `PARRY_VULN_MULT`; `src/data/difficulty.ts` — `parryGrace`*
 
 **Life leech:** heals `damage × leech%` on every hit that lands.
 
