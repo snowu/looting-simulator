@@ -16,8 +16,9 @@ export function patchNotesButton(): HTMLElement {
 }
 
 /**
- * Full-screen overlay listing every patch. One patch is one commit:
- * `short`/`hash` is the source commit, `summary` the player-facing note.
+ * Full-screen overlay listing every patch. One patch is one curated entry:
+ * `short`/`hash` name the newest commit it covers (`also` lists the rest) and
+ * `summary` is the player-facing note.
  * Rendered on demand so the title screen stays cheap; closed by the button,
  * the backdrop, or Escape.
  */

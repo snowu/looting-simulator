@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { PATCHES, PATCH_COUNT } from '../data/patches';
 
 /**
- * The patch-notes UI consumes PATCHES directly: one entry per gameplay
- * commit, newest first, every field present so the overlay can render
- * without guards. Docs, plumbing, dev-only and cosmetic-only commits
- * are excluded by scripts/generate-patches.mjs.
+ * The patch-notes UI consumes PATCHES directly: hand-curated entries, newest
+ * first, every field present so the overlay can render without guards. An
+ * entry cites every commit it covers (`hash` plus `also`); `npm run patches`
+ * checks those citations against history.
  */
 describe('patch notes data', () => {
   it('has entries and matches the exported count', () => {
@@ -45,7 +45,7 @@ describe('patch notes data', () => {
   });
 
   it('has no duplicate commits', () => {
-    const shorts = PATCHES.map((p) => p.short);
-    expect(new Set(shorts).size).toBe(shorts.length);
+    const cited = PATCHES.flatMap((p) => [p.short, ...(p.also ?? [])]);
+    expect(new Set(cited).size).toBe(cited.length);
   });
 });
