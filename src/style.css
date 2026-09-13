@@ -673,7 +673,6 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
 .patch-wrap { z-index: 80; }
 .patch-modal { min-width: min(94vw, 640px); display: flex; flex-direction: column; gap: 8px; }
 .patch-top { position: sticky; top: 0; }
-.patch-search { width: 100%; }
 .patch-list { display: flex; flex-direction: column; gap: 8px; overflow: auto; padding-bottom: 8px; }
 .patch-day { color: var(--gold); font-family: var(--font-title); font-size: 22px; margin-top: 6px; }
 .patch { background: #17131b; border: 1px solid #0006; padding: 6px 8px; display: flex; flex-direction: column; gap: 3px; }
@@ -682,6 +681,9 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
 .patch-hash { font-size: 15px; color: var(--faint); border: 1px solid #2a2430; padding: 0 5px; }
 .patch-title { font-size: 21px; }
 .patch-summary { color: #c8bca4; font-size: 18px; }
+.patch-points { list-style: none; display: flex; flex-direction: column; gap: 2px; margin-top: 2px; }
+.patch-points li { color: #a89c84; font-size: 17px; padding-left: 16px; position: relative; }
+.patch-points li::before { content: '▸'; color: var(--gold); position: absolute; left: 2px; }
 .patch-tags { display: flex; flex-wrap: wrap; gap: 4px; }
 .patch-tag { font-size: 14px; color: var(--dim); border: 1px solid #2a2430; padding: 0 5px; }
 /* --- Bestiary codex ------------------------------------------------------ */

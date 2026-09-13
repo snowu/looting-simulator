@@ -38,6 +38,12 @@ describe('patch notes data', () => {
     }
   });
 
+  it('keeps detail bullets honest where they exist', () => {
+    const detailed = PATCHES.filter((p) => p.details);
+    expect(detailed.length).toBeGreaterThan(0);
+    for (const p of detailed) for (const d of p.details!) expect(d.length).toBeGreaterThan(0);
+  });
+
   it('has no duplicate commits', () => {
     const shorts = PATCHES.map((p) => p.short);
     expect(new Set(shorts).size).toBe(shorts.length);

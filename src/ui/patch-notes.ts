@@ -24,21 +24,10 @@ export function patchNotesButton(): HTMLElement {
 export function openPatchNotes(): void {
   closePatchNotes();
   const wrap = h('div', { class: 'modal-wrap patch-wrap' });
-  const search = h('input', {
-    class: 'field patch-search',
-    attrs: { placeholder: 'Search patches…', type: 'search' },
-  }) as HTMLInputElement;
   const list = h('div', { class: 'patch-list' });
-  const count = h('span', { class: 'dim small' });
 
   function render(): void {
-    const q = search.value.trim().toLowerCase();
-    const shown = q
-      ? PATCHES.filter((p) =>
-          `patch ${p.n} ${p.title} ${p.summary} ${p.short} ${p.tags.join(' ')}`.toLowerCase().includes(q),
-        )
-      : PATCHES;
-    count.textContent = `${shown.length} of ${PATCHES.length} patches`;
+    const shown = PATCHES;
     list.replaceChildren();
     let lastDate = '';
     for (const p of shown) {
@@ -58,16 +47,18 @@ export function openPatchNotes(): void {
             h('span', { class: 'patch-hash', text: p.short }),
           ),
           h('p', { class: 'patch-summary', text: p.summary }),
+          p.details?.length
+            ? h('ul', { class: 'patch-points' }, ...p.details.map((d) => h('li', { text: d })))
+            : null,
           p.tags.length
             ? h('div', { class: 'patch-tags' }, ...p.tags.map((t) => h('span', { class: 'patch-tag', text: t })))
             : null,
         ),
       );
     }
-    if (!shown.length) list.append(h('p', { class: 'dim', text: 'No patches match that search.' }));
+    if (!shown.length) list.append(h('p', { class: 'dim', text: 'No patches yet.' }));
   }
 
-  search.addEventListener('input', render);
   const modal = h(
     'div',
     { class: 'modal frame gold patch-modal' },
@@ -75,11 +66,10 @@ export function openPatchNotes(): void {
       'div',
       { class: 'row patch-top' },
       h('h2', { class: 'grow', text: 'Patch notes' }),
-      count,
+      h('span', { class: 'dim small', text: `${PATCHES.length} patches` }),
       btn('Close', closePatchNotes, 'small'),
     ),
     h('p', { class: 'dim small', text: 'Gameplay changes only, newest first. Patch numbers are stable — Patch 1 is the oldest.' }),
-    search,
     list,
   );
   const onKey = (e: KeyboardEvent): void => {
@@ -98,7 +88,6 @@ export function openPatchNotes(): void {
   wrap.append(modal);
   document.getElementById('app')?.append(wrap) ?? document.body.append(wrap);
   render();
-  search.focus();
 }
 
 export function closePatchNotes(): void {
