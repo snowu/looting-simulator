@@ -11,40 +11,41 @@ const ARCHER_HALF = rows(`
   ..........kkbbbb
   .........kbbcccc
   ........kbbccccc
-  .......kbbcccccc
   .......kbbccckkk
-  .......kbbcckmmm
-  .......kbcckkmmm
-  ........kcckkmmm
+  .......kbccckmmm
+  .......kbcckmmvm
   ........kcckmmmm
   ........kcckmmmm
-  ........kkkmmmmm
-  .......kkddkkkkk
-  ......kddddddddd
-  .....kdddeeedddd
-  ....kddddeeedddd
-  ...kdddddeeedddd
-  ...kdddddeeedddd
-  ..kddddddededddd
-  ..kddddddeeedddd
-  .kdddddddeeedddd
-  .kddddddeeeedddd
-  kddddddddddddddd
-  kddddddddddddddd
-  kddddddddddddddd
-  .kkddddddddddddd
-  ....kkddddkkkkkk
-  .......kdddk....
-  .......kdddk....
-  .......kkkkk....
+  .........kkkmfff
+  .........kkdkkkk
+  .......kkdddeeed
+  .....kkdddeeeeed
+  ....kddddddeeeed
+  ...kddddddeeeeed
+  ...kdddgdeeeeeed
+  ....kddgdeeeeeed
+  .....kgkdeeeeeed
+  .......kkdddeeed
+  ........kdddeeed
+  ........kddddddd
+  ........kdddeeed
+  ........kdddeeed
+  ........kddddddd
+  ........kddkdddd
+  ........kddkdddd
+  ........kddkdddd
+  ........kddkdddd
+  .......kkddkdddd
+  .......kkkkkkkkk
 `);
 const ARCHER_PAL = {
-  k: '#0b1019', b: '#273445', c: '#506476', d: '#242c39', e: '#667786',
-  m: '#111722', a: '#8b6844', s: '#d8c6a3', t: '#d5d7c9',
+  k: '#0b1019', b: '#273445', c: '#506476', d: '#283342', e: '#647a8a',
+  m: '#111722', f: '#b69470', g: '#ac8d69', v: '#ffe6abfa',
+  a: '#8b6844', s: '#d8c6a3', t: '#d5d7c9',
 };
-// A tall recurved bow, held to the archer's left. Its string stays visible in
-// both frames, separating this figure from a staff wielder at corridor scale.
-const BOW = rows(`
+// Slack on the left in idle; raised in front of the chest when drawing. The
+// bow itself changes position and curve, rather than just the glowing arrow.
+const BOW_IDLE = rows(`
   ..kaa..
   .ka..s.
   ka...s.
@@ -62,6 +63,23 @@ const BOW = rows(`
   ka...s.
   .ka..s.
   ..kaa..
+`);
+const BOW_DRAWN = rows(`
+  ....aaa....
+  ...aa.s....
+  ..aa..s....
+  .aa...s....
+  aa....s....
+  a.....s....
+  a.....s....
+  a.....s....
+  a.....s....
+  a.....s....
+  aa....s....
+  .aa...s....
+  ..aa..s....
+  ...aa.s....
+  ....aaa....
 `);
 const QUIVER = rows(`
   t.t.t
@@ -72,9 +90,14 @@ const QUIVER = rows(`
   akkka
 `);
 const HELD_ARROW = rows(`
-  sssssssssssttt
-  aaaaaaaaaaattt
-  sssssssssssttt
+  .......tt
+  ......tGt
+  .....aas.
+  ....aas..
+  ...aas...
+  ..aas....
+  .aas.....
+  aag......
 `);
 const DRAWN_ARROW = rows(`
   ....ttttt....
@@ -99,9 +122,9 @@ const TIP_DRAWN = rows(`
   .GHHHG.
   ..GGG..
 `);
-const baseArcher = stamp(sym(ARCHER_HALF), BOW, 0, 9);
-const idleArcher = stamp(stamp(baseArcher, QUIVER, 26, 14), HELD_ARROW, 13, 18);
-const attackArcher = stamp(baseArcher, DRAWN_ARROW, 10, 14);
+const bodyArcher = sym(ARCHER_HALF);
+const idleArcher = stamp(stamp(stamp(bodyArcher, QUIVER, 25, 13), BOW_IDLE, 0, 9), HELD_ARROW, 21, 15);
+const attackArcher = stamp(stamp(bodyArcher, BOW_DRAWN, 7, 8), DRAWN_ARROW, 10, 14);
 
 const ELEMENTS = [
   { sprite: 'cinder', tip: '#ff9a28fa', core: '#fff0a8fa', trim: '#83452f' },
