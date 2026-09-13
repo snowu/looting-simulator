@@ -48,6 +48,29 @@ describe('pixel art', () => {
     for (const id of needed) expect(getArt(id), id).toBeDefined();
   });
 
+  it('gives secret walls one learned mark, tuned to their masonry', () => {
+    const secretIds = [...new Set(BIOMES.map((b) => b.wallSecret))];
+    const shapes = new Set(secretIds.map((id) => getArt(id)!.rows.join('\n')));
+    expect(shapes).toHaveLength(1);
+
+    const palettes = new Set(secretIds.map((id) => JSON.stringify(getArt(id)!.palette)));
+    expect(palettes.size).toBeGreaterThan(1);
+
+    for (const biome of BIOMES) {
+      const wall = getArt(biome.wall)!;
+      const secret = getArt(biome.wallSecret)!;
+      expect(secret.base, biome.wallSecret).toBe(biome.wall);
+      const plain = rasterize(wall, undefined, getArt);
+      const marked = rasterize(secret, undefined, getArt);
+      let changed = 0;
+      for (let i = 0; i < plain.data.length; i++) {
+        if (plain.data[i] !== marked.data[i]) changed++;
+      }
+      expect(changed, biome.wallSecret).toBeGreaterThan(20);
+      expect(changed, biome.wallSecret).toBeLessThan(400);
+    }
+  });
+
   /**
    * Share of the creature that changes between two frames, counted over the
    * pixels either frame draws rather than over the canvas — otherwise a bat at
