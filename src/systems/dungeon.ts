@@ -160,6 +160,20 @@ export interface EnemyState {
   /** The chest reward this mimic swallowed, released when it dies. */
   mimicTier?: ContainerTier;
   mimicPropId?: string;
+  /**
+   * For a boss: the highest phase whose entrance has already played. **Absent
+   * means the first** — the same trick `guard` and `dur` use, so a King already
+   * mid-fight in an older save costs no migration. The phase he is actually *in*
+   * is derived from his health every tick (`phaseForHp`); this only remembers
+   * how far the fight has been announced, so each turn lands once.
+   */
+  phase?: number;
+  /**
+   * Put down once and stood back up by the King. **Absent means it is having
+   * its first life**, so killing it pays out normally; a risen one pays
+   * nothing, because it already did.
+   */
+  risen?: boolean;
 }
 
 export interface Floor {

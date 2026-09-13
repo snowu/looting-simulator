@@ -9,6 +9,7 @@ import {
   FLOOR,
   Pickup,
   Prop,
+  Room,
   ShrineKind,
   attackPower,
   blocksMove,
@@ -26,7 +27,7 @@ import {
   TrapKind,
   trapAt,
 } from '../systems/dungeon';
-import { enemyDef } from '../data/enemies';
+import { enemyDef, enemyView, kingPhase, phaseForHp } from '../data/enemies';
 import { consumable, itemBase } from '../data/items';
 import { biomeForDepth, FINAL_DEPTH } from '../data/biomes';
 import { PlayerDerived, derivePlayer } from '../systems/player';
@@ -174,6 +175,21 @@ const GUARD_BREAK_AT = 3;
  * that every stat block is larger.
  */
 const STAGGER_HP = 55;
+
+/**
+ * How long the King reels when a phase breaks. Long enough to read the turn and
+ * take a free swing at it, short enough that it is a moment rather than a
+ * cutscene.
+ */
+const BOSS_PHASE_BEAT = 1.2;
+
+/**
+ * What share of its health a guard comes back up with, and how many rise. They
+ * came back wrong: a third of what they were is enough to be a problem while
+ * you are trying to fight something else, without becoming the fight.
+ */
+const RAISED_GUARD_HP = 0.3;
+const MAX_RAISED_GUARDS = 2;
 /** Compact button label for an interaction hint. */
 export function shortLabel(hint: string): string {
   if (hint === 'Search') return 'Loot';
@@ -898,6 +914,16 @@ export class World {
    * firewood. A blow into the *raise* is the parry the bearer lands on you;
    * a blow into the hold just chips.
    */
+  /**
+   * This creature as it is right now. Identical to its stat block for
+   * everything in the game except the King, who answers from his phase — so the
+   * guard rhythm, the sprite picker, the wind-up and the volley all keep
+   * reading the fields they always read.
+   */
+  private view(e: EnemyState): EnemyDef {
+    return enemyView(enemyDef(e.def), e.hp, e.maxHp);
+  }
+
   private guardReaction(e: EnemyState, def: EnemyDef): 'bash' | 'chip' | null {
     if (!def.shield) return null;
     if ((e.vuln ?? 0) > 0) return null;
@@ -1016,7 +1042,7 @@ export class World {
 
   private hitEnemy(e: EnemyState): void {
     this.wear('weapon');
-    const def = enemyDef(e.def);
+    const def = this.view(e);
     const reaction = this.guardReaction(e, def);
     if (reaction === 'bash') {
       this.shieldBash(e, def);
@@ -1059,14 +1085,25 @@ export class World {
   }
 
   private killEnemy(e: EnemyState): void {
+    // Deliberately the stat block and not the phase view: what dies here has to
+    // be the creature itself, because its id is what the codex, the field notes
+    // and the one guaranteed relic in the game are all keyed off.
     const def = enemyDef(e.def);
     e.hp = 0;
     e.ai = 'dead';
     e.deadT = 0;
+    this.sfx('enemyDie', e.x, e.y);
+    // Something the King stood back up pays out once, not twice. It already
+    // gave you its hoard, its tally and its contract credit the first time it
+    // fell; without this the throne room would be the best place in the game to
+    // farm a Hollow Knight's moonsilver.
+    if (e.risen) {
+      this.msg(`${def.name} falls still again.`, '#c8c0b0');
+      return;
+    }
     this.run.stats.kills++;
     recordKill(this.state.contracts, def.id);
     recordBestiaryKill(this.state.bestiary, def.id);
-    this.sfx('enemyDie', e.x, e.y);
     const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
     const loot = e.mimicTier && e.mimicPropId
       ? rollContainerLoot(createRng(hashString(`${this.floor.seed}:${e.mimicPropId}`)), this.run.depth, this.derived.find, e.mimicTier, idBelow, this.state.recipeRanks, this.seenUniques)
@@ -1703,6 +1740,149 @@ export class World {
     return next;
   }
 
+  /**
+   * Has the King crossed into a new phase?
+   *
+   * Checked every tick rather than on the swing that did it, because enemy
+   * health falls in five different places — a sprung trap, a chip off a guard,
+   * a landed blow and two parry reflections — and a threshold crossed by any of
+   * the other four would otherwise go unannounced. The phase he is *in* comes
+   * from his health; `e.phase` only remembers how far the fight has been
+   * announced, so each turn lands exactly once.
+   */
+  private checkBossPhase(e: EnemyState): void {
+    if (e.ai === 'dead' || e.hp <= 0) return;
+    const now = phaseForHp(e.hp / Math.max(1, e.maxHp));
+    const announced = e.phase ?? 1;
+    if (now <= announced) return;
+    // Step through every phase that was crossed, not just the one he landed in.
+    // A crit inside a parry window can take two thirds of the bar off in a
+    // single blow, and jumping straight to the last phase would mean the room
+    // never goes dark and the guard never gets up — the middle of the fight
+    // would simply not happen on the runs that hit hardest.
+    for (let p = announced + 1; p <= now; p++) this.enterBossPhase(e, p, p === now);
+  }
+
+  private enterBossPhase(e: EnemyState, phase: number, announce: boolean): void {
+    e.phase = phase;
+    const profile = kingPhase(phase);
+
+    // He reels. The beat is the reward for breaking a phase: he cannot act while
+    // the room changes around you, which is the same grace the mimic gets when
+    // it unfolds and is what keeps a transition from being a free hit on the
+    // player. Deliberately NOT a `vuln` window — that belongs to the parry, and
+    // handing it out for nothing would cheapen the one thing the last phase is
+    // built to teach.
+    e.ai = 'recover';
+    e.timer = BOSS_PHASE_BEAT;
+    e.attackCd = BOSS_PHASE_BEAT + 0.2;
+    e.hurtT = 0.3;
+    e.guard = 'down';
+    e.guardT = BOSS_PHASE_BEAT;
+    e.blocks = 0;
+
+    if (phase === 2) {
+      // Losing the light and three unseen bolts in the same instant is the one
+      // combination here that would be genuinely unfair, so the room holds its
+      // breath: whatever he already had in the air goes out with the torches.
+      this.projectiles = this.projectiles.filter((pr) => pr.sourceId !== e.def);
+      this.snuffThrone();
+      this.raiseTheGuard();
+    }
+
+    if (!announce) return;
+    this.sfx('kingturn', e.x, e.y);
+    this.emit({ type: 'shake', amount: 0.6 });
+    if (profile.entry) this.msg(profile.entry, '#c080ff');
+  }
+
+  /** The tiles of the room the King is standing his last in. */
+  private throneRoom(): Room | undefined {
+    return this.floor.rooms.find((r) => r.role === 'throne');
+  }
+
+  private inRoom(r: Room, x: number, y: number): boolean {
+    return x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
+  }
+
+  /**
+   * He puts the room out.
+   *
+   * Only the throne room's own sconces: the corridor you came down stays lit,
+   * so the way back is still readable and the darkness is somewhere you chose
+   * to stand. The renderer rebuilds its lights from `floor.torches` every frame,
+   * so dropping them here is the whole effect, and it persists — they do not
+   * come back.
+   */
+  private snuffThrone(): void {
+    const room = this.throneRoom();
+    if (!room) return;
+    const before = this.floor.torches.length;
+    this.floor.torches = this.floor.torches.filter((t) => !this.inRoom(room, t.x, t.y));
+    if (this.floor.torches.length !== before) this.sfx('snuff');
+  }
+
+  /**
+   * The guard gets up. Only the ones you actually put down — leave them alive
+   * and you simply do not get a second pair, which is a real reason to think
+   * about whether to kill them at all.
+   */
+  private raiseTheGuard(): void {
+    const room = this.throneRoom();
+    if (!room) return;
+    // Only inside the throne room: Hollow Knights are ordinary depth-six
+    // monsters, and without the bounds test he would be calling every corpse on
+    // the floor. Nearest first and capped, so this cannot become a mob.
+    const fallen = this.floor.enemies
+      .filter((g) => g.def === 'hollow_knight' && g.ai === 'dead' && this.inRoom(room, g.x, g.y))
+      .sort((a, b) => Math.abs(a.x - room.x) + Math.abs(a.y - room.y) - (Math.abs(b.x - room.x) + Math.abs(b.y - room.y)))
+      .slice(0, MAX_RAISED_GUARDS);
+    for (const g of fallen) {
+      const spot = this.freeTileForRise(g.x, g.y);
+      g.hp = Math.max(1, Math.round(g.maxHp * RAISED_GUARD_HP));
+      g.risen = true;
+      g.ai = 'chase';
+      g.timer = 0;
+      g.deadT = 0;
+      g.hurtT = 0.3;
+      g.alert = 8;
+      g.vuln = 0;
+      g.guard = 'down';
+      g.guardT = GUARD_DOWN;
+      g.blocks = 0;
+      g.blockT = 0;
+      // They do not come up swinging — the same beat the King gets.
+      g.attackCd = BOSS_PHASE_BEAT;
+      g.x = g.fromX = spot.x;
+      g.y = g.fromY = spot.y;
+      g.moveT = 1;
+      g.lastSeenX = this.player.x;
+      g.lastSeenY = this.player.y;
+    }
+    if (fallen.length) {
+      this.sfx('alert');
+      this.msg(fallen.length > 1 ? 'His fallen stand back up.' : 'His fallen stands back up.', '#c080ff');
+    }
+  }
+
+  /**
+   * Where a corpse can stand up. Its own tile if nothing is on it — a knight
+   * that rises underneath you can never reach you, because a melee strike wants
+   * a distance of exactly one and it would sit at zero swinging forever.
+   */
+  private freeTileForRise(x: number, y: number): { x: number; y: number } {
+    const clear = (tx: number, ty: number) =>
+      !blocksMove(this.floor, tx, ty) &&
+      !(tx === this.player.x && ty === this.player.y) &&
+      !enemyAt(this.floor, tx, ty);
+    if (clear(x, y)) return { x, y };
+    for (const d of DIRS) {
+      const tx = x + DX[d], ty = y + DY[d];
+      if (clear(tx, ty)) return { x: tx, y: ty };
+    }
+    return { x, y };
+  }
+
   private updateEnemies(dt: number): void {
     const f = this.floor;
     const p = this.player;
@@ -1711,7 +1891,8 @@ export class World {
         e.deadT += dt;
         continue;
       }
-      const def = enemyDef(e.def);
+      const def = this.view(e);
+      if (def.behavior === 'boss') this.checkBossPhase(e);
       e.hurtT = Math.max(0, e.hurtT - dt);
       e.attackCd -= dt;
       if (e.vuln) e.vuln = Math.max(0, e.vuln - dt);
@@ -1850,7 +2031,7 @@ export class World {
       const dx = Math.sign(e.lastSeenX - e.x), dy = Math.sign(e.lastSeenY - e.y);
       if (dx !== 0 && dy !== 0) return;
       const pr = def.projectile!;
-      const shots = def.behavior === 'boss' ? [0, -1, 1] : [0];
+      const shots = def.volley ?? [0];
       for (const off of shots) {
         const ox = dy !== 0 ? off : 0, oy = dx !== 0 ? off : 0;
         if (off !== 0 && blocksSight(this.floor, e.x + ox, e.y + oy)) continue;

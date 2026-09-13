@@ -2,7 +2,7 @@ import './style.css';
 import { createRng, randomSeed } from './core/rng';
 import { DX, DY, turnRight } from './core/dir';
 import { GameState, newGame } from './state/game-state';
-import { SLOTS, Slot, clearSave, lastSlot, loadGame, saveGame, setLastSlot } from './state/persistence';
+import { SLOTS, Slot, clearSave, lastSlot, loadGame, saveGame, setLastSlot, setScratchMode } from './state/persistence';
 import { startRun, endRun, bankCarriedGold } from './systems/run';
 import { biomeForDepth } from './data/biomes';
 import { World, WorldEvent } from './world/world';
@@ -140,7 +140,7 @@ const town = new Town(screen, {
     commit();
     // A reset has to reach the server. Otherwise the old snapshot is still up
     // there, with a higher generation, ready to come back on the next reload.
-    sync.flush();
+    flushSync();
     town.tab = 'market';
     town.render();
   },
@@ -152,10 +152,24 @@ const town = new Town(screen, {
  * save point goes through here, so marking the snapshot dirty can never be
  * forgotten, and a cloud failure can never stop a local save from landing.
  */
+/**
+ * The dev boss arena runs on a throwaway game that must never reach the
+ * player's slot — it hands out endgame gear and maxed renown, and writing that
+ * over a real save would be exactly the thing this project never does. Set
+ * once, cleared by reloading the page.
+ */
+let devScratch = false;
+
 function commit(): void {
+  if (devScratch) return;
   saveGame(state, slot);
   hadLocalSave = true;
   sync.touch();
+}
+
+/** Never push a scratch game to the cloud either. */
+function flushSync(): void {
+  if (!devScratch) sync.flush();
 }
 
 function toast(text: string, color = '#e8dcc4'): void {
@@ -294,6 +308,9 @@ function installCloud(save: CloudSave): void {
   setLastSlot(slot);
   state = save.state;
   hadLocalSave = true;
+  // Adopting a cloud save also leaves the scratch game behind, if we were in one.
+  devScratch = false;
+  setScratchMode(false);
   saveGame(state, slot);
   cloudSlots.set(save.slot, { kind: 'save', save });
   sync.adopt(save);
@@ -318,9 +335,24 @@ function slotViews(): SlotView[] {
   });
 }
 
+/**
+ * The dev-only door to the throne room. `import.meta.env.DEV` is replaced with
+ * `false` at build time, so this collapses to `null` and the button does not
+ * exist in a real build — the same trick the animation bench in town uses.
+ */
+function devTitleTools(): HTMLElement | null {
+  if (!import.meta.env.DEV) return null;
+  return h(
+    'div',
+    { class: 'dev-tools' },
+    h('span', { class: 'dim small grow', text: 'Dev build only' }),
+    btn('Fight the King', () => void enterBossArena(), 'small'),
+  );
+}
+
 function enterTitle(): void {
   show('title');
-  screen.replaceChildren(titleScreen(slotPicker(slotViews(), enterSlot), BUILD_ID, account.el));
+  screen.replaceChildren(titleScreen(slotPicker(slotViews(), enterSlot), BUILD_ID, account.el, devTitleTools()));
   askAboutSaves();
 }
 
@@ -402,7 +434,7 @@ function enterDungeon(): void {
 function returnToTown(): void {
   const banked = bankCarriedGold(state);
   commit();
-  sync.flush();
+  flushSync();
   world = null;
   audio.stopAmbient();
   town.tab = 'stash';
@@ -413,7 +445,7 @@ function returnToTown(): void {
 function finishRun(outcome: 'dead' | 'extracted'): void {
   const summary = endRun(state, outcome);
   commit();
-  sync.flush();
+  flushSync();
   world = null;
   audio.stopAmbient();
   show('summary');
@@ -453,7 +485,7 @@ function handle(ev: WorldEvent): void {
       break;
     case 'floor':
       commit();
-      sync.flush();
+      flushSync();
       startAmbient();
       break;
     case 'end':
@@ -583,7 +615,7 @@ window.addEventListener('mouseup', (e) => {
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 window.addEventListener('blur', () => world?.held.clear());
 window.addEventListener('resize', () => renderer.resize());
-window.addEventListener('beforeunload', () => saveGame(state, slot));
+window.addEventListener('beforeunload', () => commit());
 
 // Backgrounded (app switcher, lock screen, other tab): silence audio, save,
 // and pause a run so you don't come back mid-fight. Resume sound on return.
@@ -609,6 +641,31 @@ setInterval(() => {
 }, 10 * 60 * 1000);
 void checkForUpdate();
 
+/**
+ * Dev only: a throwaway game, kitted for depth six, standing in the throne room.
+ *
+ * It swaps `state` for a fresh one and latches `devScratch`, so the gear and
+ * renown it hands out can never be written over the playthrough in the slot —
+ * the only way out is to reload the page, which is the honest contract for a
+ * debug button. The module is dynamically imported behind the same DEV guard,
+ * so neither it nor this path survives into a production bundle.
+ */
+async function enterBossArena(): Promise<void> {
+  const dev = await import('./dev/boss-arena');
+  devScratch = true;
+  // Belt and braces: the lock on the storage door itself, so no future call
+  // path can write this game to a slot the way `beforeunload` once did.
+  setScratchMode(true);
+  state = newGame(createRng(randomSeed()));
+  dev.prepare(state);
+  enterTown();
+  enterDungeon();
+  if (!world) return;
+  const at = dev.dropIntoThroneRoom(world);
+  hud.message(`Dev arena — ${at}. He turns at 65% and 30%.`, '#c080ff');
+  hud.message('Scratch game: nothing here is saved. Reload to get your slot back.', '#c8a060');
+}
+
 // --- Boot ------------------------------------------------------------------------
 void loadArtOverrides().then((n) => {
   if (n) console.info(`Loaded ${n} hand-drawn art override(s).`);
@@ -616,8 +673,12 @@ void loadArtOverrides().then((n) => {
 
 const params = new URLSearchParams(location.search);
 if (params.has('autostart')) {
-  enterTown();
-  if (params.get('autostart') === 'dungeon') enterDungeon();
+  const where = params.get('autostart');
+  if (import.meta.env.DEV && where === 'boss') void enterBossArena();
+  else {
+    enterTown();
+    if (where === 'dungeon') enterDungeon();
+  }
 } else {
   enterTitle();
 }

@@ -34,6 +34,26 @@ The earlier game gave roughly 40 items per floor against a 16-slot pack. By dept
 - `npm run playtest` includes fresh, geared and prepared profiles; `npm run tables` produces faster static composition, loot and combat tables. The separate `scripts/prepared.bench.ts` compares reaching depth 6 with seeking the King under the same seeds. `scripts/` is now trackable apart from the personal helper. The ordinary test suite remains separate.
 - Seven new tests cover balance gates and guaranteed boss loot. `docs/MECHANICS.md` is the numerical reference, including generated monster tables; `docs/NEXT.md` records the remaining playtest questions. No save format or migration changed. Floors already stored in a live run retain their generated contents.
 
+## The Ashen King, in three phases
+
+He was the biggest trash mob in the game: one telegraph, one volley, thirty swings of health, and nothing changed between the first swing and the last. The fight now asks a different question as it goes, and each one is something the six floors above already taught.
+
+- **The Throne** (100–65%) — the fight exactly as it was. Read the telegraph, step off the tile.
+- **The Dark** (65–30%) — he puts out every torch in the throne room, permanently, and the guards you killed get back up at a third of their health. Only his glow and your lantern are left; the Lantern Wick finally earns its renown.
+- **The Last Stand** (30–0%) — the crown splits, he gets faster, and he raises a ward of shadow that turns blows the way a shieldbearer's guard does. Openings have to be made, and the parry is how.
+
+**He stays one creature.** Phases change his sprite family, glow, wind-up, recovery and whether he carries a guard; his id, name, resistances, hoard and health are untouched, because the codex, the field notes and the one guaranteed relic in the game are all keyed off them. `enemyView()` folds the phase into a copy of the stat block, so the guard rhythm, the sprite picker and the volley read the fields they always read.
+
+**Which phase he is in is derived from his health, not stored**, so it cannot drift out of step with the bar — and a King already mid-fight in an older save resolves on the next tick with no migration. `SAVE_VERSION` and `SAVE_REVISION` both stay where they are.
+
+**The turn is an opening, not a free hit.** He reels for 1.2 s and cannot act while the room changes around you — the same grace beat the mimic gets when it unfolds. It is deliberately *not* a parry window; that belongs to the parry. Anything he had in the air is cleared when the lights go out, because losing the room and three unseen bolts in the same instant is the one genuinely unfair combination here.
+
+**Health 470 → 330**, so racing him is about 23 swings at the gear depth 6 is meant to be reached with, and clearing the risen guards too is about 32. The old fight was a flat 30. The guards are optional — phase advance is driven by the King's health alone, so you can ignore them and carry two knights into the last phase.
+
+**A risen guard pays nothing.** Killing one again costs it no second hoard, no second tally and no second contract credit; without that the throne room would be the best place in the game to farm a Hollow Knight's moonsilver.
+
+Art is recomposed, not redrawn: two new palettes over the existing grids, a crown with its two inner points knocked out, and an emissive ward stamped across the chest for the guard pose. No new 48×48 sprites.
+
 ## What the checks show
 
 The 24-seed headless report uses the same seeds for the fresh parry comparison. These are scripted policies, not human success rates.
@@ -53,4 +73,4 @@ With endgame gear, high renown upgrades, 20 Greater Healings and a route that sk
 
 The bot does not dodge telegraphs, plan town visits, price repairs or restocking, or earn its starting endgame gear and upgrades over connected runs. It therefore establishes that a well-stocked character **can enter depth 6** and that the King **can be beaten**, but does not establish whether normal play reaches that loadout by the twentieth run or whether the final fight feels fair. The two Hollow Knight guards and the supply cost across depth 6 deserve particular attention in a human session.
 
-Validation on the final code: `npm test` passes **309/309**, `npm run build` passes, `npm run playtest` completes with no timeouts, and `git diff --check` is clean. The build reports Vite's existing large-chunk advisory.
+Validation on the final code: `npm test` passes **330/330**, `npm run build` passes, `npm run playtest` completes with no timeouts, and `git diff --check` is clean. The build reports Vite's existing large-chunk advisory.

@@ -145,6 +145,65 @@ Depth 6 is the bottom (`FINAL_DEPTH = 6`); there are no stairs down, only the wa
 
 There is nothing below. Each new run rolls a fresh seed, so depth 6 can be farmed.
 
+### The King's three phases
+
+*File: `src/data/enemies.ts` (`KING_PHASES`), `src/world/world.ts` (`checkBossPhase`)*
+
+He was a very large trash mob: one telegraph, one volley, and thirty swings of
+health. Now the fight asks a different question as it goes, and each question is
+one the six floors above it already taught you.
+
+| | health | what changes | what it asks |
+|---|---|---|---|
+| **The Throne** | 100–65% | nothing — the fight as it always was | can you read a telegraph? |
+| **The Dark** | 65–30% | he puts out every torch in the throne room, and the guards you killed get back up at a third of their health | can you fight blind, with company? |
+| **The Last Stand** | 30–0% | the crown splits; he is faster, and he raises a ward of shadow that turns blows the way a shieldbearer's guard does | can you parry under pressure? |
+
+**He stays one creature.** The phases change his sprite family, his glow, his
+wind-up, his recovery and whether he carries a guard — and nothing else. His id,
+name, resistances, hoard and health are untouched, because the codex, the field
+notes and the one guaranteed relic in the game are all keyed off them.
+`enemyView(def, hp, maxHp)` folds the phase into a copy of the stat block, so the
+guard rhythm, the sprite picker and the volley all read the fields they always
+read and simply get a different answer on the last floor.
+
+**Which phase he is in is derived from his health**, not stored — so it cannot
+drift out of step with the bar. `EnemyState.phase` only remembers how far the
+fight has been *announced*, so each turn lands once. A phase crossed and skipped
+in a single big hit still happens: the loop steps through every stage between,
+or a crit inside a parry window would mean the room never goes dark.
+
+**The turn.** He reels for 1.2s and cannot act while the room changes around
+you — the same grace beat the mimic gets when it unfolds, and what keeps a
+transition from being a free hit. Deliberately *not* a `vuln` window: that
+belongs to the parry, and giving it away would cheapen the thing the last phase
+exists to teach. Anything he already had in the air is cleared when the lights
+go, because losing the room and three unseen bolts in the same instant is the
+one genuinely unfair combination here.
+
+**The dark is permanent.** The torches are removed from the floor, not dimmed,
+so they do not come back — and the renderer rebuilds its lights from that list
+every frame, so it is the whole effect. Only the throne room's own sconces go;
+the corridor you came down stays lit, so the way back is still readable. The
+automap is untouched, because the map is a memory of where you have walked, not
+eyesight. This is also the moment the Lantern Wick finally earns its renown.
+
+**The risen pay nothing.** A guard the King stands back up is flagged `risen`,
+and killing it again costs it no second hoard, no second tally and no second
+contract credit — without that, the throne room would be the best place in the
+game to farm a Hollow Knight's moonsilver. Only guards you actually killed rise,
+so leaving them alive means there is nothing for him to call.
+
+**Testing it.** `npm run dev` then `?autostart=boss` kits you out in the
+depth-6 ladder gear and stands you at the back of the throne room. Dev builds
+only — the helper is behind an `import.meta.env.DEV` guard and its module is
+dropped from a production bundle.
+
+**They are optional.** Phase advance is driven by the King's health alone, so
+you can ignore the risen and burn him into his last phase — and carry two
+knights into it. Racing him is about 23 swings at the gear depth 6 is meant to
+be reached with; clearing everything is about 32. The old fight was a flat 30.
+
 ## 5. Monsters
 
 *File: `src/data/enemies.ts`*
@@ -167,7 +226,7 @@ There is nothing below. Each new run rolls a fresh seed, so depth 6 can be farme
 | Barrow Champion | 5–6 | 170 | 24 | 14 | blunt | undead: **blunt ×1.5**, slash ×0.55, pierce ×0.5, **holy ×2**, shadow ×0.5 | melee | 0.85 | 1.2 | 0.8 | 7 |
 | Flame Wraith | 5–6 | 82 | 19 | 6 | fire | blunt ×0.7, slash ×0.8, pierce ×0.6, fire ×0, **frost ×2** | ranged, fire bolt, speed 5.5, range 4, floats | 0.75 | 1.4 | 0.5 | 8 |
 | Mimic | any chest | 58 | 17 | 8 | pierce | blunt ×1.25, pierce ×1.1, **fire ×1.35** | melee | 0.52 | 0.8 | 0.32 | 8 |
-| The Ashen King | 6 (boss) | 470 | 32 | 22 | shadow | undead: pierce ×0.95, **holy ×1.5**, shadow ×0 | boss, shadow bolt, speed 4.5, range 3 | 0.8 | 1 | 0.8 | 12 |
+| The Ashen King | 6 (boss) | 330 | 32 | 22 | shadow | undead: pierce ×0.95, **holy ×1.5**, shadow ×0 | boss, shadow bolt, speed 4.5, range 3 | 0.8 | 1 | 0.8 | 12 |
 
 Spawn weights: Giant Rat 3, Goblin Cutpurse 3, Goblin Archer 2, Goblin Shieldbearer 1.5, Cave Bat 2.5, Skeleton 2, Skeleton Archer 2, Skeleton Shieldguard 1.5, Cave Spider 3, Ghoul 2, Ember Wisp 2, Frost Wisp 2, Hollow Knight 1.5, Barrow Champion 1.5, Flame Wraith 1.5. The Ember Wisp is the Frost Wisp's shallow counterpart, sharing its sprite rows under a warm palette — it puts the first elemental enemy on depth 3, which had none. Every floor holds at least five kinds, and each gives blunt, slash and pierce something it is good against — depth 6 without the Barrow Champion had no bone left to break, which left the club line with nothing to do on the final floor. Mimics never enter the ordinary spawn pool.
 

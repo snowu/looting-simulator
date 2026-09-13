@@ -2,7 +2,7 @@ import { RunSummary } from '../state/game-state';
 import { gold, h, itemSlot, btn } from './dom';
 import { patchNotesButton } from './patch-notes';
 
-export function titleScreen(slots: HTMLElement, build = '', account?: HTMLElement): HTMLElement {
+export function titleScreen(slots: HTMLElement, build = '', account?: HTMLElement, dev?: HTMLElement | null): HTMLElement {
   return h(
     'div',
     { class: 'title-screen' },
@@ -26,6 +26,7 @@ export function titleScreen(slots: HTMLElement, build = '', account?: HTMLElemen
       ),
       h('p', { class: 'dim small', style: 'margin-top:14px', text: 'Sound on. Best with headphones and the lights off.' }),
       account ?? null,
+      dev ?? null,
       build ? h('p', { class: 'faint small', text: `build ${build}` }) : null,
     ),
     h('div', { class: 'patch-corner' }, patchNotesButton()),

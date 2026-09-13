@@ -389,6 +389,44 @@ const KING_PAL = {
 };
 const KING_BASE = sym(KING_HALF);
 
+/**
+ * The two inner points of the crown, knocked out. `sym` has already mirrored
+ * the sprite by this point, so the break is stamped once across the centre
+ * line and takes a spike off each side of it.
+ */
+const KING_CROWN_BREAK = rows(`
+  _.._
+  _.._
+`);
+const KING_LAST_BASE = stamp(KING_BASE, KING_CROWN_BREAK, 22, 3);
+
+/** A bar of held shadow, emissive so it reads against the dark he made. */
+const KING_WARD = rows(`
+  .eeeeeeeeeeeeee.
+  eeeeeeeeeeeeeeee
+  .eeeeeeeeeeeeee.
+`);
+
+/**
+ * Phase palettes. Same pixels, different light — which is the cheapest way in
+ * this engine to make a creature look like it has changed, and the only one
+ * that costs no new art. Colours ending `fa` are emissive: they ignore the
+ * lighting and the fog, so they are the parts that still show in a black room.
+ */
+const KING_PAL_DARK = {
+  k: '#050308', w: '#3a3630', v: '#2a2822', u: '#1a1814',
+  g: '#3a2e12', h: '#5a4820',
+  p: '#120826', q: '#1a0c38', r: '#281050', m: '#0a0414',
+  e: '#b060fffa', j: '#ff6020fa',
+};
+
+const KING_PAL_LAST = {
+  k: '#140406', w: '#8a7060', v: '#6a5040', u: '#3a2820',
+  g: '#ff8a20', h: '#ffd070',
+  p: '#3a0e08', q: '#6a1a0c', r: '#a83a14', m: '#200606',
+  e: '#ffb040fa', j: '#ffe060fa',
+};
+
 export const ENEMY_ART_B: ArtDef[] = [
   { id: 'ghoul_0', palette: GHOUL_PAL, rows: sym(GHOUL_HALF) },
   { id: 'ghoul_atk', palette: GHOUL_PAL, rows: sym(GHOUL_ATK_HALF) },
@@ -412,4 +450,24 @@ export const ENEMY_ART_B: ArtDef[] = [
 
   { id: 'king_0', palette: KING_PAL, rows: stamp(KING_BASE, SCEPTER, 40, 8) },
   { id: 'king_atk', palette: KING_PAL, rows: stamp(stamp(KING_BASE, SCEPTER, 40, 1), KING_ROAR, 19, 17) },
+
+  // The Dark. Same king, drowned: every colour sinks toward the stone and only
+  // the eyes and the gem keep their alpha, so once he puts the room out there
+  // is nothing left of him but two coals and the light on his scepter.
+  { id: 'king_dark_0', palette: KING_PAL_DARK, rows: stamp(KING_BASE, SCEPTER, 40, 8) },
+  { id: 'king_dark_atk', palette: KING_PAL_DARK, rows: stamp(stamp(KING_BASE, SCEPTER, 40, 1), KING_ROAR, 19, 17) },
+
+  // The Last Stand. The crown has lost its two inner points and the robe has
+  // gone to embers. Bright enough to read against the dark he made.
+  { id: 'king_last_0', palette: KING_PAL_LAST, rows: stamp(KING_LAST_BASE, SCEPTER, 40, 8) },
+  { id: 'king_last_atk', palette: KING_PAL_LAST, rows: stamp(stamp(KING_LAST_BASE, SCEPTER, 40, 1), KING_ROAR, 19, 17) },
+  // The guard. He has no shield, so the tell is the scepter held high and a
+  // ward of shadow across his chest — raised-and-silent reads as "up", and the
+  // same scepter with the mouth open is the swing landing. The whole phase asks
+  // you to read this one difference, so it is drawn, never counted.
+  {
+    id: 'king_last_block',
+    palette: KING_PAL_LAST,
+    rows: stamp(stamp(KING_LAST_BASE, SCEPTER, 40, 1), KING_WARD, 17, 22),
+  },
 ];

@@ -329,6 +329,8 @@ export interface EnemyDef {
   projectile?: ProjectileDef;
   /** Preferred distance for ranged enemies. */
   range?: number;
+  /** Lateral offsets of a volley. Absent means a single bolt. */
+  volley?: number[];
   floats?: boolean;
   minDepth: number;
   maxDepth: number;

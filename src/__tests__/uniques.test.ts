@@ -166,6 +166,10 @@ describe('the Ashen King always gives up a new one', () => {
     const w = arena(9);
     const e = spawn(w, BOSS_ID, 1);
     e.hp = 1;
+    // At one hit left he is in his last phase, which carries a guard — and this
+    // test is about who gets credit for the relic, not about getting through it.
+    e.guard = 'down';
+    e.guardT = 99;
     w.player.stamina = w.derived.maxStamina;
     w.attack();
     tick(w, 1.5);

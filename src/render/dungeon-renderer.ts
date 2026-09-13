@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { DX, DY, turnRight } from '../core/dir';
 import { biomeForDepth } from '../data/biomes';
-import { enemyDef } from '../data/enemies';
+import { enemyDef, enemyView } from '../data/enemies';
 import { findMaterial } from '../data/materials';
 import { Floor, ShrineKind } from '../systems/dungeon';
 import { itemIcon } from '../systems/items';
@@ -234,7 +234,8 @@ export class DungeonRenderer {
     }
     for (const en of floor.enemies) {
       const def = enemyDef(en.def);
-      if (def.glow && en.ai !== 'dead') lights.push({ x: tileX(en.x), y: 1.2, z: tileZ(en.y), r: 4.5, color: new THREE.Color(def.glow), intensity: 0.9 });
+      const view = enemyView(def, en.hp, en.maxHp);
+      if (view.glow && en.ai !== 'dead') lights.push({ x: tileX(en.x), y: 1.2, z: tileZ(en.y), r: 4.5, color: new THREE.Color(view.glow), intensity: 0.9 });
     }
     for (const pr of world.projectiles) {
       if (pr.light) lights.push({ x: pr.x * TILE, y: 1.3, z: pr.y * TILE, r: 3.5, color: new THREE.Color(pr.light), intensity: 1.1 });
@@ -255,7 +256,9 @@ export class DungeonRenderer {
 
     for (const en of floor.enemies) {
       if (!near(en.x, en.y)) continue;
-      const def = enemyDef(en.def);
+      // The phase view, so the King's sprite family, glow and guard all follow
+      // the fight. Everything else gets its own stat block back unchanged.
+      const def = enemyView(enemyDef(en.def), en.hp, en.maxHp);
       if (en.ai === 'dead' && en.deadT > 0.9) continue;
       const s = this.sprite(`e:${en.id}`);
       const t = en.moveT < 1 ? en.moveT : 1;

@@ -4,6 +4,7 @@ import { SAVE_REVISION, migrateSave } from '../state/migrations';
 import { SAVE_VERSION, newGame } from '../state/game-state';
 import { createRng } from '../core/rng';
 import { addItem, createContainer } from '../state/inventory';
+import { loadGame, saveGame, setScratchMode } from '../state/persistence';
 import { startRun, syncLoadout } from '../systems/run';
 import { backpackCapacity } from '../systems/meta';
 import { Rarity } from '../types';
@@ -209,4 +210,50 @@ describe('shrinking the backpack', () => {
     expect(after).toBe(before);
     expect(s.run!.backpack.items.length).toBeLessThanOrEqual(s.run!.backpack.capacity);
   });
+});
+
+describe('scratch mode', () => {
+  /** vitest runs without a DOM, and saveGame swallows the missing-storage error. */
+  function withStorage<T>(fn: () => T): T {
+    const store = new Map<string, string>();
+    const g = globalThis as unknown as { localStorage?: unknown };
+    const had = 'localStorage' in g;
+    const prev = g.localStorage;
+    g.localStorage = {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+      removeItem: (k: string) => void store.delete(k),
+    };
+    try {
+      return fn();
+    } finally {
+      if (had) g.localStorage = prev;
+      else delete g.localStorage;
+    }
+  }
+
+  it('refuses to write a slot at all', () => withStorage(() => {
+    // The dev boss arena hands out endgame gear and maxed renown on a throwaway
+    // game. Guarding the call sites was not enough — `beforeunload` wrote
+    // straight past it and ate a save — so the lock is on the storage door.
+    const s = newGame(createRng(1));
+    s.gold = 4242;
+    saveGame(s, 1);
+    expect(loadGame(1)?.gold).toBe(4242);
+
+    setScratchMode(true);
+    try {
+      const junk = newGame(createRng(2));
+      junk.gold = 999999;
+      saveGame(junk, 1);
+      expect(loadGame(1)?.gold, 'the real save is untouched').toBe(4242);
+    } finally {
+      setScratchMode(false);
+    }
+
+    const after = newGame(createRng(3));
+    after.gold = 77;
+    saveGame(after, 1);
+    expect(loadGame(1)?.gold, 'and writing works again once it is off').toBe(77);
+  }));
 });

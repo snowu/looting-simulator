@@ -22,7 +22,27 @@ function keyFor(slot: Slot): string {
   return slot === 1 ? 'looting-simulator-save-v2' : `looting-simulator-save-v2-s${slot}`;
 }
 
+/**
+ * Scratch mode: nothing may be written to a slot at all.
+ *
+ * The dev boss arena runs on a throwaway game holding endgame gear and maxed
+ * renown, and it must never land in a real playthrough. That guard lived at the
+ * call sites first and was bypassed within the hour — `beforeunload` wrote
+ * directly and skipped it, so navigating away from the arena silently ate the
+ * save. There is exactly one door to disk, so the lock belongs on the door.
+ */
+let scratch = false;
+
+export function setScratchMode(on: boolean): void {
+  scratch = on;
+}
+
+export function isScratchMode(): boolean {
+  return scratch;
+}
+
 export function saveGame(state: GameState, slot: Slot): void {
+  if (scratch) return;
   try {
     localStorage.setItem(keyFor(slot), serializeSave(state));
   } catch {

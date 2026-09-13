@@ -718,6 +718,10 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
 .beast-stage.locked.locked img { filter: brightness(0) contrast(2) opacity(0.6); animation: none; }
 
 .beast-bench { border-top: 1px solid #2a2430; margin-top: 8px; padding-top: 6px; display: flex; flex-direction: column; gap: 4px; }
+/* The dev door on the title screen. Same rule as the animation bench: it is
+   only ever rendered by a dev build, so it is styled to look like a tool
+   rather than part of the game. */
+.dev-tools { display: flex; align-items: center; gap: 8px; margin-top: 14px; padding-top: 8px; border-top: 1px dashed #3a3040; }
 .beast-row { flex-wrap: wrap; gap: 4px; }
 .beast-label { min-width: 54px; }
 .beast-tally { display: flex; gap: 14px; margin: 4px 0 6px; font-size: 18px; }

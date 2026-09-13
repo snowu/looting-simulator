@@ -6,7 +6,8 @@
 export type SfxName =
   | 'step' | 'swing' | 'hit' | 'crit' | 'hurt' | 'block' | 'door' | 'locked' | 'unlock'
   | 'pickup' | 'gold' | 'chest' | 'break' | 'death' | 'enemyDie' | 'stairs' | 'shoot'
-  | 'magic' | 'study' | 'winded' | 'secret' | 'ui' | 'craft' | 'drink' | 'alert' | 'miss' | 'sell' | 'recall' | 'parry';
+  | 'magic' | 'study' | 'winded' | 'secret' | 'ui' | 'craft' | 'drink' | 'alert' | 'miss' | 'sell' | 'recall' | 'parry'
+  | 'kingturn' | 'snuff';
 
 export interface PlayOpts {
   volume?: number;
@@ -248,6 +249,21 @@ class AudioEngine {
         this.noiseBurst(o, 1.2, 'lowpass', 220, 90, 0.6, 2);
         this.tone(o, 'sine', 55, 45, 1.2, 0.5);
         for (let i = 0; i < 3; i++) this.tone(o, 'sine', 523 * Math.pow(1.26, i), 523 * Math.pow(1.26, i), 0.4, 0.15, 1.1 + i * 0.12);
+        break;
+      // The King turns. Built like 'secret' — a long low shove followed by a
+      // figure — but the figure falls instead of rising, because this is not a
+      // discovery. The detuned fifth under it is what makes it read as wrong.
+      case 'kingturn':
+        this.noiseBurst(o, 1.4, 'lowpass', 300, 60, 0.7, 2);
+        this.tone(o, 'sine', 62, 38, 1.5, 0.55);
+        this.tone(o, 'sine', 93, 57, 1.5, 0.3);
+        for (let i = 0; i < 3; i++) this.tone(o, 'triangle', 440 / Math.pow(1.19, i), 330 / Math.pow(1.19, i), 0.5, 0.16, 0.25 + i * 0.16);
+        break;
+      // Every flame in the room going out at once: a soft pressure thump and a
+      // long breath of air, no pitch to it at all.
+      case 'snuff':
+        this.noiseBurst(o, 0.5, 'lowpass', 700, 120, 0.4, 1.2);
+        this.noiseBurst(o, 0.9, 'highpass', 1800, 500, 0.16, 0.7, 0.05);
         break;
       case 'ui':
         this.tone(o, 'square', 700, 700, 0.03, 0.08);

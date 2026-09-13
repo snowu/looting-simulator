@@ -225,9 +225,12 @@ export const ENEMIES: EnemyDef[] = [
   },
   {
     id: 'ashen_king', name: 'The Ashen King', sprite: 'king', scale: 1.4,
-    hp: 470, attack: 32, defense: 22, damageType: 'shadow', resist: { holy: 1.5, shadow: 0, pierce: 0.95 }, undead: true,
+    // Lower than it was: the fight is three phases now, and the threat is meant
+    // to come from what he does rather than from how long the bar is.
+    hp: 330, attack: 32, defense: 22, damageType: 'shadow', resist: { holy: 1.5, shadow: 0, pierce: 0.95 }, undead: true,
     behavior: 'boss', step: 0.8, windup: 0.8, recovery: 1.0, sight: 12, range: 3,
     projectile: { sprite: 'proj_shadow', speed: 4.5, damageType: 'shadow', light: '#b060ff' },
+    volley: [0, -1, 1],
     minDepth: 6, maxDepth: 6, weight: 0, glow: '#8a40ff',
     // Guaranteed, and staying guaranteed. Killing the King is the one thing in
     // the game that is allowed to pay out reliably; the general trim to drop
@@ -242,6 +245,132 @@ export const ENEMIES: EnemyDef[] = [
     description: 'He rules what is left.',
   },
 ];
+
+// ---------------------------------------------------------------------------
+// The King's phases
+// ---------------------------------------------------------------------------
+
+/**
+ * What the Ashen King is during one stretch of his health bar.
+ *
+ * He stays a single `EnemyDef` — his id is load-bearing for the codex, for slay
+ * contracts and for the one guaranteed relic in the game, so splitting him into
+ * three creatures would quietly break all three. These are the handful of
+ * properties that change instead, read through `kingPhase()` at the few call
+ * sites that care.
+ */
+export interface BossPhase {
+  /** Art id prefix, so a phase can look different without being a different creature. */
+  sprite: string;
+  glow: string;
+  windup: number;
+  recovery: number;
+  /** Lateral offsets of the shadow volley. More offsets, wider wall of bolts. */
+  shots: number[];
+  /** A carried guard, if this phase has one. Absent means no guard at all. */
+  shield?: { block: number; stun: number };
+  /** What the log says when he enters it. */
+  entry: string;
+}
+
+/**
+ * Three phases, each asking a different question. The first is the fight exactly
+ * as it was; the other two are earned by taking him apart.
+ */
+export const KING_PHASES: BossPhase[] = [
+  {
+    // The Throne. Read the telegraph, step off the tile.
+    sprite: 'king', glow: '#8a40ff', windup: 0.8, recovery: 1.0, shots: [0, -1, 1],
+    entry: '',
+  },
+  {
+    // The Dark. He puts the room out and calls his guard back up. The volley is
+    // a wall now, and the wind-up is quicker, but the real change is that you
+    // cannot see him coming — only the two coals where his eyes were.
+    // The volley stays three wide. The throne room is nine across and he stands
+    // on its centre line, so five bolts would cover every tile you could step
+    // to — and a dodge you cannot perform is not a mechanic, it is a tax. The
+    // glow goes UP, not down: once the sconces are out he and your lantern are
+    // the only things lighting the room, and a darker king is a black screen.
+    sprite: 'king_dark', glow: '#b070ff', windup: 0.68, recovery: 0.9, shots: [0, -1, 1],
+    entry: 'The torches gutter and die. Two coals watch you from the dark.',
+  },
+  {
+    // The Last Stand. Cornered, faster, and behind a guard — which makes the
+    // parry the only reliable way in. Everything he has left, at once.
+    sprite: 'king_last', glow: '#ff5a20', windup: 0.55, recovery: 0.75, shots: [0, -1, 1],
+    shield: { block: 0.6, stun: 1 },
+    entry: 'The crown splits. What is left of him burns, and comes on.',
+  },
+];
+
+/** Health fractions at or below which each phase begins. */
+const PHASE_AT = [0.65, 0.3];
+
+/**
+ * Which phase a boss at this much health belongs in, 1-based. Derived from the
+ * bar rather than stored, so it cannot drift out of step with it and so a King
+ * halfway through a fight in an old save resolves correctly on the next tick.
+ */
+export function phaseForHp(frac: number): number {
+  let phase = 1;
+  for (const at of PHASE_AT) if (frac <= at) phase++;
+  return phase;
+}
+
+/** The profile for a phase, clamped so an out-of-range number cannot throw. */
+export function kingPhase(phase: number): BossPhase {
+  return KING_PHASES[Math.max(0, Math.min(KING_PHASES.length - 1, phase - 1))];
+}
+
+/**
+ * The phase profile for a creature at this much health, or null if it is not a
+ * boss. Takes plain numbers rather than an `EnemyState` so this file stays free
+ * of a cycle back through the dungeon module, and so the renderer can ask the
+ * same question the world does without either of them owning the answer.
+ */
+export function bossPhase(def: EnemyDef, hp: number, maxHp: number): BossPhase | null {
+  if (def.behavior !== 'boss') return null;
+  return kingPhase(phaseForHp(maxHp > 0 ? hp / maxHp : 1));
+}
+
+const VIEW_CACHE = new Map<string, EnemyDef>();
+
+/**
+ * The creature as it is *right now* — the stat block for everything ordinary,
+ * and the stat block with this phase's handful of overrides folded in for the
+ * King.
+ *
+ * This exists so that nothing downstream has to know phases are a thing. The
+ * guard rhythm, the sprite picker, the wind-up and the volley all read the
+ * fields they always read; they just get a different answer on the last floor.
+ * Returns the def itself when there is nothing to change, so the per-frame path
+ * allocates nothing, and memoises the merged views because there are six of them
+ * in the whole game.
+ *
+ * The merge is explicit rather than a spread of the phase: `id`, `name`,
+ * `behavior`, `resist`, `loot` and `hp` must never move, because the codex, the
+ * guaranteed relic and the field notes are all keyed off them.
+ */
+export function enemyView(def: EnemyDef, hp: number, maxHp: number): EnemyDef {
+  const phase = bossPhase(def, hp, maxHp);
+  if (!phase || phase === KING_PHASES[0]) return def;
+  const key = `${def.id}:${phase.sprite}`;
+  let view = VIEW_CACHE.get(key);
+  if (!view) {
+    view = {
+      ...def,
+      sprite: phase.sprite,
+      glow: phase.glow,
+      windup: phase.windup,
+      recovery: phase.recovery,
+      shield: phase.shield,
+      volley: phase.shots,
+    };
+    VIEW_CACHE.set(key, view);
+  }
+  return view;
+}
 
 const BY_ID = new Map(ENEMIES.map((e) => [e.id, e]));
 

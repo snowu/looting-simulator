@@ -43,3 +43,5 @@ Progress saves locally in your browser. Passwordless sign-in lets you sync saves
 On touchscreens, drag on the view to move and turn. Tap the view or the action button to attack or interact, and hold the shield button to block. The corner button offers fullscreen and landscape lock where supported.
 
 For exact rules and numbers, see the [mechanics reference](docs/MECHANICS.md). For development, run `npm install` and `npm run dev`; `npm test` and `npm run build` check the project.
+
+Dev builds only, via the URL: `?autostart=1` skips the title, `?autostart=dungeon` drops straight into a run, `?autostart=boss` kits you out and stands you in the throne room facing the Ashen King, and `window.__game` exposes state. All of it is behind `import.meta.env.DEV`, so none of it reaches a production bundle.
