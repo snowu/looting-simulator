@@ -55,6 +55,14 @@ const SKIP = {
   b3665fa: 'sprite redraw, cosmetic only',
   '94991ca': 'art handoff export, not in the game',
   a6a3402: 'notes pipeline rebuild, not a game change',
+  // The first difficulty branch, merged and then reverted whole. The feature
+  // ships from the second one instead, so these describe nothing a player can
+  // reach and the note for it cites 652132b.
+  '11f0cb8': 'reverted first difficulty branch, superseded by 652132b',
+  '846f204': 'reverted first difficulty branch',
+  b73ccf5: 'reverted first difficulty branch',
+  '0c3027b': 'merge of the reverted first difficulty branch',
+  '5d91673': 'the revert itself, restoring the pre-difficulty game',
 };
 
 // Commits touching only these files maintain the notes themselves and never

@@ -13,6 +13,7 @@ import { Hud } from './ui/hud';
 import { DungeonOverlays } from './ui/dungeon-ui';
 import { Town } from './ui/town';
 import { summaryScreen, titleScreen } from './ui/screens';
+import { DifficultyId } from './data/difficulty';
 import { AccountPanel } from './ui/account';
 import { saveChooser } from './ui/save-chooser';
 import { SlotView, slotPicker } from './ui/slots';
@@ -137,6 +138,7 @@ const town = new Town(screen, {
   descend: () => enterDungeon(),
   // Deferred: the panel is created below, after the town it renders into.
   account: () => account.el,
+  accountSummary: () => account.summary,
   newGame: () => {
     clearSave(slot);
     state = newGame(createRng(randomSeed()));
@@ -461,7 +463,7 @@ async function deleteSlot(n: Slot): Promise<void> {
  * this device had it, and the cloud generation the coordinator is replacing —
  * belongs to the slot, so all of it is swapped here and nowhere else.
  */
-function enterSlot(n: Slot): void {
+function enterSlot(n: Slot, difficulty?: DifficultyId): void {
   audio.unlock();
   audio.play('ui');
   // On phones and tablets, starting the game is the gesture that takes us fullscreen.
@@ -477,6 +479,9 @@ function enterSlot(n: Slot): void {
   const existing = loadGame(n);
   hadLocalSave = existing !== null;
   state = existing ?? newGame(createRng(randomSeed()));
+  // Only a brand-new game takes the difficulty from the card. An existing save
+  // carries its own, and the card offers no choice over it.
+  if (!existing && difficulty) state.difficulty = difficulty;
   // A slot that only exists in the cloud is settled by reconcile() below, which
   // is why nothing is written here for an empty one until then.
   if (existing) commit();

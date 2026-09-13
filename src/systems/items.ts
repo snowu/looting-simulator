@@ -20,6 +20,7 @@ import {
 import { ITEM_BASES, CONSUMABLES, itemBase, consumable } from '../data/items';
 import { MATERIALS, findMaterial, material, secondaryMaterialMods } from '../data/materials';
 import { AFFIXES, affix } from '../data/affixes';
+import { DifficultyId, difficultyOf } from '../data/difficulty';
 import { GEAR_UNIQUES, UniqueDef, UniqueEffectId, findUnique, tonicUnique } from '../data/uniques';
 import { MAX_RECIPE_RANK, RECIPES, blueprintDropWeight, masteryBonus, recipe, recipeRank } from '../data/recipes';
 import { BestiaryState, isKnown, loreName } from './bestiary';
@@ -616,25 +617,32 @@ export function rollEnemyLoot(
   ranks: RecipeRanks = {},
   bestiary?: BestiaryState,
   seenUniques: string[] = [],
+  difficulty?: DifficultyId,
 ): LootRoll {
   const items: Item[] = [];
   if (!isKnown(bestiary, def.id) && (def.behavior === 'boss' || rng.chance(LORE_CHANCE))) {
     items.push(makeLore(def.id));
   }
   const blueprints = new Set<string>();
-  const f = 1 + find / 200;
+  // Difficulty sweetens the pot on Normal: a flat find bonus (which flows into
+  // rarity, material and gear rolls downstream) plus a direct lift on the gear
+  // chance and the coin. Hard adds 0 and multiplies by exactly 1, so every
+  // draw and every total matches the old code.
+  const diff = difficultyOf(difficulty);
+  const effFind = find + diff.findBonus;
+  const f = 1 + effFind / 200;
   for (const e of def.loot) {
     if (rng.chance(Math.min(1, e.chance * f))) items.push(makeMaterial(e.id, rng.int(e.min, e.max)));
   }
-  const gold = rng.int(def.gold[0], def.gold[1]);
+  const gold = Math.round(rng.int(def.gold[0], def.gold[1]) * diff.gold);
   if (def.behavior === 'boss') {
     // The one guaranteed Legendary in the game, and it is always one you have
     // not held. Killing the King should be progression, not a lottery ticket.
-    items.push(rollEquipment(rng, depth, find, { rarity: Rarity.Legendary, seenUniques, guaranteeNewUnique: true }));
-    items.push(rollEquipment(rng, depth, find, { minRarity: Rarity.Epic }));
+    items.push(rollEquipment(rng, depth, effFind, { rarity: Rarity.Legendary, seenUniques, guaranteeNewUnique: true }));
+    items.push(rollEquipment(rng, depth, effFind, { minRarity: Rarity.Epic }));
     items.push(rollBlueprint(rng, depth, ranks, blueprints));
-  } else if (rng.chance(Math.min(0.95, def.itemChance * (1 + find / 100)))) {
-    items.push(rollEquipment(rng, depth, find, { identifyBelow, seenUniques }));
+  } else if (rng.chance(Math.min(0.95, def.itemChance * (1 + effFind / 100) * diff.dropChance))) {
+    items.push(rollEquipment(rng, depth, effFind, { identifyBelow, seenUniques }));
   }
   // Potions off corpses were the reason health never actually ran out.
   if (rng.chance(0.025)) items.push(makeConsumable('healing_draught'));
@@ -664,17 +672,23 @@ export function rollContainerLoot(
   identifyBelow?: Rarity,
   ranks: RecipeRanks = {},
   seenUniques: string[] = [],
+  difficulty?: DifficultyId,
 ): LootRoll {
   const items: Item[] = [];
   let gold = 0;
-  const f = 1 + find / 100;
+  // Same sweetening as kills: find bonus first (it feeds rarity and material
+  // rolls), then a direct lift on the gear chances and the coin. Hard is the
+  // old arithmetic exactly.
+  const diff = difficultyOf(difficulty);
+  const effFind = find + diff.findBonus;
+  const f = 1 + effFind / 100;
   const cats: MaterialCategory[] = ['metal', 'wood', 'hide', 'cloth', 'bone'];
   switch (tier) {
     case 'urn':
       // An urn is a handful of something, or nothing. Most of them are nothing,
       // which is what makes the one with a gem in it worth the swing.
       if (rng.chance(0.4)) items.push(makeMaterial(materialForDepth(rng, depth, cats).id, rng.int(1, 2)));
-      if (rng.chance(0.3)) gold += rng.int(2, 6 + depth * 3);
+      if (rng.chance(0.3)) gold += Math.round(rng.int(2, 6 + depth * 3) * diff.gold);
       if (rng.chance(0.03)) items.push(makeConsumable('healing_draught'));
       if (rng.chance(0.05 * f)) items.push(makeMaterial(rollValuable(rng, depth).id, 1));
       break;
@@ -683,9 +697,9 @@ export function rollContainerLoot(
       // coin per chest is up; the gear chance is less than half what it was,
       // because a chest that hands you a weapon every other time is a vending
       // machine and you stop reading the room it is standing in.
-      gold += rng.int(10, 22) * depth;
+      gold += Math.round(rng.int(10, 22) * depth * diff.gold);
       for (let i = rng.int(1, 2); i > 0; i--) items.push(makeMaterial(materialForDepth(rng, depth, cats).id, rng.int(1, 3)));
-      if (rng.chance(0.17 * (1 + find / 100))) items.push(rollEquipment(rng, depth, find, { identifyBelow, seenUniques }));
+      if (rng.chance(0.17 * (1 + effFind / 100) * diff.dropChance)) items.push(rollEquipment(rng, depth, effFind, { identifyBelow, seenUniques }));
       if (rng.chance(0.12)) items.push(makeConsumable(rng.pick(['healing_draught', 'stamina_tonic'])));
       if (rng.chance(0.07)) items.push(makeConsumable('scroll_identify'));
       if (rng.chance(0.18 * f)) items.push(makeMaterial(rollValuable(rng, depth).id, 1));
@@ -698,9 +712,9 @@ export function rollContainerLoot(
       // Untouched on purpose. A vault is behind a key and a secret is behind a
       // wall you had to read: they are the two places in the dungeon that are
       // supposed to pay, and they are rarer than everything else by design.
-      gold += rng.int(40, 75) * depth;
-      items.push(rollEquipment(rng, depth, find, { minRarity: depth >= 4 ? Rarity.Rare : Rarity.Uncommon, identifyBelow, seenUniques }));
-      if (rng.chance(0.25)) items.push(rollEquipment(rng, depth, find, { minRarity: Rarity.Uncommon, identifyBelow, seenUniques }));
+      gold += Math.round(rng.int(40, 75) * depth * diff.gold);
+      items.push(rollEquipment(rng, depth, effFind, { minRarity: depth >= 4 ? Rarity.Rare : Rarity.Uncommon, identifyBelow, seenUniques }));
+      if (rng.chance(0.25)) items.push(rollEquipment(rng, depth, effFind, { minRarity: Rarity.Uncommon, identifyBelow, seenUniques }));
       items.push(makeMaterial(rollValuable(rng, depth).id, rng.int(1, 2)));
       items.push(makeMaterial(rollGem(rng, depth).id, 1));
       if (rng.chance(tier === 'secret' ? 0.7 : 0.35)) items.push(rollBlueprint(rng, depth, ranks));
