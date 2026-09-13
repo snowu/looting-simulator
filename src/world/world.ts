@@ -31,6 +31,7 @@ import { enemyDef, enemyView, kingPhase, phaseForHp } from '../data/enemies';
 import { consumable, itemBase } from '../data/items';
 import { biomeForDepth, FINAL_DEPTH } from '../data/biomes';
 import { PlayerDerived, derivePlayer } from '../systems/player';
+import { DifficultyId, DifficultyDef, difficultyOf } from '../data/difficulty';
 import { enemyHitsPlayer, playerHitsEnemy, staminaPower } from '../systems/combat';
 import { durability, identify, isIdentified, itemName, makeMaterial, rollContainerLoot, rollEnemyLoot, uniqueOf, wearItem } from '../systems/items';
 import { nameRelic } from '../systems/relics';
@@ -347,8 +348,23 @@ export class World {
     return this.run.player;
   }
 
+  /**
+   * The difficulty this delve is playing at. Read from the run snapshot, never
+   * from town state: the selector locks while a run is open, and even if it
+   * did not, this getter would keep a boss fight from getting softer halfway
+   * through. Older saves have no snapshot and were all Hard.
+   */
+  get diff(): DifficultyDef {
+    return difficultyOf(this.run.difficulty ?? this.state.difficulty);
+  }
+
+  /** The raw id behind `diff`, for passing into loot and generation calls. */
+  get difficultyId(): DifficultyId {
+    return this.diff.id;
+  }
+
   refreshDerived(): void {
-    this.derived = derivePlayer(this.state.equipment, this.state.meta);
+    this.derived = derivePlayer(this.state.equipment, this.state.meta, this.difficultyId);
     if (this.run.blessing === 'fury') this.derived.attack = Math.round(this.derived.attack * 1.25);
     if (this.run.blessing === 'fortune') this.derived.find += 30;
     if (this.run.blessing === 'ward') this.derived.stats.defense += 5;
@@ -363,9 +379,10 @@ export class World {
   /**
    * Every drop of healing in the game goes through here, which is what lets one
    * suit of armour halve all of it at once. Returns what was actually restored.
+   * Difficulty mends faster on Normal; Hard multiplies by exactly 1.
    */
   private heal(amount: number): number {
-    const scaled = Math.round(amount * this.derived.traits.healing);
+    const scaled = Math.round(amount * this.derived.traits.healing * this.diff.playerHealing);
     const healed = Math.min(Math.max(0, scaled), this.derived.maxHp - this.player.hp);
     this.player.hp += healed;
     return healed;
@@ -529,7 +546,7 @@ export class World {
     a.windedCd = Math.max(0, a.windedCd - dt);
     a.sinceStamina += dt;
     if (a.sinceStamina > STAMINA_DELAY && a.attack === 'idle') {
-      const rate = (a.blockRaise > 0.5 ? STAMINA_REGEN * 0.3 : STAMINA_REGEN) * this.derived.traits.staminaRegen;
+      const rate = (a.blockRaise > 0.5 ? STAMINA_REGEN * 0.3 : STAMINA_REGEN) * this.derived.traits.staminaRegen * this.diff.staminaRegen;
       this.player.stamina = Math.min(this.derived.maxStamina, this.player.stamina + rate * dt);
     }
 
@@ -651,7 +668,7 @@ export class World {
   private changeFloor(dir: 'down' | 'up'): void {
     const run = this.run;
     run.depth += dir === 'down' ? 1 : -1;
-    if (!run.floors[run.depth - 1]) run.floors[run.depth - 1] = generateFloor(run.seed, run.depth);
+    if (!run.floors[run.depth - 1]) run.floors[run.depth - 1] = generateFloor(run.seed, run.depth, this.difficultyId);
     const f = this.floor;
     const arrive = f.stairs.find((s) => s.down === (dir === 'up'))!;
     const spot = stairsFront(arrive);
@@ -751,6 +768,8 @@ export class World {
     const damage = Math.round(def.base + def.perDepth * depth);
     if (victim) {
       // Monsters take the hit raw; they have no armour model for hazards.
+      // Deliberately unscaled by difficulty: a softer trap that still thins
+      // the pack for you is help enough on Normal.
       const dealt = Math.max(1, Math.round(damage * 0.8));
       victim.hp -= dealt;
       victim.hurtT = 0.3;
@@ -763,7 +782,7 @@ export class World {
       return;
     }
     this.msg(def.hit, '#ff7070');
-    this.damagePlayer(damage, def.damageType, trap.x, trap.y, def.source);
+    this.damagePlayer(Math.max(1, Math.round(damage * this.diff.trapDamage)), def.damageType, trap.x, trap.y, def.source);
   }
 
   /** Mark tiles near and in view as explored (automap fog). */
@@ -988,7 +1007,8 @@ export class World {
   private shieldChip(e: EnemyState, def: EnemyDef): void {
     const sh = def.shield!;
     this.wear('weapon');
-    const hit = playerHitsEnemy(this.rng, this.derived, this.anim.attackPower, def, defensePower(e.power));
+    // Difficulty thins the armour on Normal; Hard multiplies by exactly 1.
+    const hit = playerHitsEnemy(this.rng, this.derived, this.anim.attackPower, def, defensePower(e.power) * this.diff.enemyDefense);
     const dmg = Math.max(0, Math.round(hit.damage * (1 - sh.block)));
     e.hp -= dmg;
     e.blocks = (e.blocks ?? 0) + 1;
@@ -1053,7 +1073,7 @@ export class World {
       return;
     }
     e.blocks = 0;
-    const hit = playerHitsEnemy(this.rng, this.derived, this.anim.attackPower, def, defensePower(e.power));
+    const hit = playerHitsEnemy(this.rng, this.derived, this.anim.attackPower, def, defensePower(e.power) * this.diff.enemyDefense);
     // Everything you land while the parry opening lasts hits twice as hard.
     const exposed = !!e.vuln && e.vuln > 0;
     if (exposed) hit.damage = Math.round(hit.damage * PARRY_VULN_MULT);
@@ -1106,8 +1126,8 @@ export class World {
     recordBestiaryKill(this.state.bestiary, def.id);
     const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
     const loot = e.mimicTier && e.mimicPropId
-      ? rollContainerLoot(createRng(hashString(`${this.floor.seed}:${e.mimicPropId}`)), this.run.depth, this.derived.find, e.mimicTier, idBelow, this.state.recipeRanks, this.seenUniques)
-      : rollEnemyLoot(this.rng, def, this.run.depth, this.derived.find, idBelow, this.state.recipeRanks, this.state.bestiary, this.seenUniques);
+      ? rollContainerLoot(createRng(hashString(`${this.floor.seed}:${e.mimicPropId}`)), this.run.depth, this.derived.find, e.mimicTier, idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId)
+      : rollEnemyLoot(this.rng, def, this.run.depth, this.derived.find, idBelow, this.state.recipeRanks, this.state.bestiary, this.seenUniques, this.difficultyId);
     if (def.behavior === 'boss') {
       // The portal opens where the king fell, so his hoard goes beside it —
       // dropped on the same tile it would be unreachable behind the portal.
@@ -1190,7 +1210,7 @@ export class World {
     p.used = true;
     this.sfx('break', p.x, p.y);
     const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
-    const loot = rollContainerLoot(this.propRng(p), this.run.depth, this.derived.find, 'urn', idBelow, this.state.recipeRanks, this.seenUniques);
+    const loot = rollContainerLoot(this.propRng(p), this.run.depth, this.derived.find, 'urn', idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId);
     this.dropLoot(p.x, p.y, loot.items, loot.gold);
   }
 
@@ -1378,7 +1398,7 @@ export class World {
         const tier = p.tier === 'none' ? 'chest' : p.tier;
         if (p.mimic) {
           f.props = f.props.filter((q) => q !== p);
-          const mimic = createEnemy(enemyDef('mimic'), p.x, p.y, turnAround(this.player.facing), `mimic:${p.id}`, this.run.depth);
+          const mimic = createEnemy(enemyDef('mimic'), p.x, p.y, turnAround(this.player.facing), `mimic:${p.id}`, this.run.depth, this.difficultyId);
           mimic.ai = 'recover';
           mimic.timer = 0.65;
           mimic.alert = 6;
@@ -1395,7 +1415,7 @@ export class World {
         p.used = true;
         this.sfx('chest', p.x, p.y);
         const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
-        const loot = rollContainerLoot(this.propRng(p), this.run.depth, this.derived.find, tier, idBelow, this.state.recipeRanks, this.seenUniques);
+        const loot = rollContainerLoot(this.propRng(p), this.run.depth, this.derived.find, tier, idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId);
         const pk = this.dropLoot(p.x, p.y, loot.items, 0);
         if (loot.gold) {
           this.run.gold += loot.gold;
@@ -2048,7 +2068,7 @@ export class World {
         if (off !== 0 && blocksSight(this.floor, e.x + ox, e.y + oy)) continue;
         this.projectiles.push({
           id: this.projN++, x: e.x + ox + 0.5, y: e.y + oy + 0.5, dx, dy, speed: pr.speed,
-          damage: Math.round(def.attack * attackPower(e.power)), type: pr.damageType, sprite: pr.sprite, light: pr.light,
+          damage: Math.round(def.attack * attackPower(e.power) * this.diff.enemyDamage), type: pr.damageType, sprite: pr.sprite, light: pr.light,
           tileX: e.x + ox, tileY: e.y + oy, source: def.name, sourceId: def.id,
         });
       }
@@ -2058,7 +2078,7 @@ export class World {
     // Melee lands only if you're still in the tile it aimed at.
     this.sfx('swing', e.x, e.y);
     if (p.x === e.lastSeenX && p.y === e.lastSeenY && dist === 1) {
-      this.damagePlayer(Math.round(def.attack * attackPower(e.power)), def.damageType, e.x, e.y, def.name, def.id, e);
+      this.damagePlayer(Math.max(1, Math.round(def.attack * attackPower(e.power) * this.diff.enemyDamage)), def.damageType, e.x, e.y, def.name, def.id, e);
     } else {
       this.sfx('miss', e.x, e.y);
     }

@@ -21,7 +21,7 @@ import { MATERIALS } from '../data/materials';
  */
 
 /** Bump this (and push a migration) whenever a field is added to the save. */
-export const SAVE_REVISION = 16;
+export const SAVE_REVISION = 17;
 
 type AnyState = GameState & Record<string, unknown>;
 
@@ -143,6 +143,16 @@ const MIGRATIONS: ((s: AnyState) => void)[] = [
   // never had one, so it stays unnamed and keeps showing "Slot N".
   (s) => {
     if (typeof s.name !== 'string') s.name = '';
+  },
+  // 16 → 17: a town-side difficulty setting plus the snapshot each run carries.
+  // Everything before this was the current game, which is now called Hard, so
+  // an older save — in town or mid-delve — lands on Hard and plays on exactly
+  // as before.
+  (s) => {
+    if (s.difficulty !== 'normal' && s.difficulty !== 'hard') s.difficulty = 'hard';
+    if (s.run && s.run.difficulty !== 'normal' && s.run.difficulty !== 'hard') {
+      s.run.difficulty = s.difficulty;
+    }
   },
 ];
 

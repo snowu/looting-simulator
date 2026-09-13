@@ -2,6 +2,13 @@ import { RunSummary } from '../state/game-state';
 import { gold, h, itemSlot, btn } from './dom';
 import { patchNotesButton } from './patch-notes';
 
+const titleTaglines = [
+  'Every treasure has a body count',
+  'Fortune favors',
+  'Delve Deep. Die Rich.',
+];
+const titleTagline = titleTaglines[Math.floor(Math.random() * titleTaglines.length)];
+
 export function titleScreen(slots: HTMLElement, build = '', account?: HTMLElement, dev?: HTMLElement | null): HTMLElement {
   return h(
     'div',
@@ -11,7 +18,7 @@ export function titleScreen(slots: HTMLElement, build = '', account?: HTMLElemen
       { class: 'frame title-panel' },
       h('h1', { text: 'Looting Simulator' }),
       h('div', { class: 'prepare', text: 'Prepare To Die' }),
-      h('div', { class: 'tag', text: 'Go down. Bring it back. Sell it high.' }),
+      h('div', { class: 'tag', text: titleTagline }),
       slots,
       h(
         'div',
