@@ -23,7 +23,7 @@ A first-person, grid-step dungeon crawler about getting rich without getting kil
 - **Wear, weight, and timing.** Weapons, shields, and armour lose durability through use. Your pack has limited room, so a long run asks you to weigh spare gear, materials, consumables, and the risk of pushing one floor deeper.
 - **A town that reacts.** Commodity prices fluctuate, selling a large stack pushes its price down, and events shift whole categories. Forge recipes let you choose materials for each component, while guild contracts give a purpose to particular finds and kills.
 
-Progress saves locally in your browser. Passwordless sign-in can sync saves across devices when cloud saving is available.
+Progress saves locally in your browser. Passwordless sign-in lets you sync saves across devices.
 
 ## Controls
 
