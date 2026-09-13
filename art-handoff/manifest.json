@@ -824,6 +824,14 @@
     "recolorable": true
   },
   {
+    "id": "ic_gear",
+    "file": "icons/ic_gear.png",
+    "width": 24,
+    "height": 24,
+    "base": null,
+    "recolorable": true
+  },
+  {
     "id": "ui_frame",
     "file": "ui/ui_frame.png",
     "width": 12,

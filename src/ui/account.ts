@@ -39,6 +39,19 @@ export interface AccountOpts {
   onSignedOut: () => void;
 }
 
+/**
+ * What the town header shows when it cannot host the full panel: either the
+ * sync status or an invitation to connect. The full sign-in flow lives in the
+ * settings modal instead.
+ */
+export interface AccountSummary {
+  /** False in builds with no Supabase configured: there is nothing to show. */
+  available: boolean;
+  connected: boolean;
+  /** Sync status line from the coordinator, e.g. "Synced". */
+  note: string;
+}
+
 export class AccountPanel {
   readonly el = h('div', { class: 'account' });
   private stage: Stage = { name: 'out' };
@@ -82,6 +95,15 @@ export class AccountPanel {
   setNote(text: string): void {
     this.note = text;
     if (this.stage.name === 'in') this.render();
+  }
+
+  /** Compact status for the town header; the full panel lives in settings. */
+  get summary(): AccountSummary {
+    return {
+      available: cloudConfigured(),
+      connected: this.stage.name === 'in',
+      note: this.note,
+    };
   }
 
   private fail(e: unknown, fallback: string): void {
