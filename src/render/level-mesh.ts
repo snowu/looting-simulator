@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Dir, DIRS, DX, DY, turnRight } from '../core/dir';
-import { biomeForDepth } from '../data/biomes';
+import { biomeForFloor } from '../data/biomes';
 import { Door, Floor, FLOOR, PILLAR, Secret, WALL, stairsAt, tileAt } from '../systems/dungeon';
 import { artTexture } from './art-cache';
 import { PS1Material, Shared, ps1Material } from './ps1';
@@ -96,7 +96,7 @@ function hash3(x: number, y: number, d: number): number {
 }
 
 export function buildLevel(floor: Floor, shared: Shared): LevelView {
-  const biome = biomeForDepth(floor.depth);
+  const biome = biomeForFloor(floor);
   const builders = new Map<string, Builder>();
   const B = (tex: string) => {
     let b = builders.get(tex);
@@ -252,7 +252,7 @@ export function buildLevel(floor: Floor, shared: Shared): LevelView {
 
 function buildStairs(
   B: (tex: string) => Builder,
-  biome: ReturnType<typeof biomeForDepth>,
+  biome: ReturnType<typeof biomeForFloor>,
   cx: number,
   cz: number,
   d: Dir,

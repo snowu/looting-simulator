@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { DX, DY, turnRight } from '../core/dir';
-import { biomeForDepth } from '../data/biomes';
+import { biomeForFloor } from '../data/biomes';
 import { enemyDef, enemyView } from '../data/enemies';
 import { findMaterial } from '../data/materials';
 import { Floor, ShrineKind } from '../systems/dungeon';
@@ -161,7 +161,7 @@ export class DungeonRenderer {
   render(world: World, dt: number): void {
     this.time += dt;
     const floor = world.floor;
-    const biome = biomeForDepth(floor.depth);
+    const biome = biomeForFloor(floor);
     if (this.levelFloor !== floor) {
       if (this.level) {
         this.scene.remove(this.level.root);
@@ -367,7 +367,7 @@ export class DungeonRenderer {
     for (const pr of world.projectiles) {
       const s = this.sprite(`j:${pr.id}`);
       this.place(s, pr.sprite, pr.x * TILE, 0.95, pr.y * TILE, 0.7);
-      if (pr.sprite === 'proj_arrow') {
+      if (pr.sprite.startsWith('proj_arrow')) {
         s.mesh.rotation.set(0, this.camera.rotation.y, Math.atan2(-pr.dy, pr.dx));
       }
     }
@@ -414,7 +414,7 @@ export class DungeonRenderer {
       w.mat.uniforms.map.value = artTexture(art.id, ramp);
     }
     // Torch-lit: tint the viewmodel by the torch colour, flickering.
-    const biome = biomeForDepth(world.floor.depth);
+    const biome = biomeForFloor(world.floor);
     const tc = new THREE.Color(biome.torch).lerp(new THREE.Color('#ffffff'), 0.6);
     this.vmShared.uAmbient.value.setRGB(tc.r * 0.85 * flicker, tc.g * 0.85 * flicker, tc.b * 0.85 * flicker);
     this.vmShared.uLightCount.value = 0;

@@ -29,7 +29,7 @@ import {
 } from '../systems/dungeon';
 import { enemyDef, enemyView, kingPhase, phaseForHp } from '../data/enemies';
 import { consumable, itemBase } from '../data/items';
-import { biomeForDepth, FINAL_DEPTH } from '../data/biomes';
+import { biomeForFloor, FINAL_DEPTH } from '../data/biomes';
 import { PlayerDerived, derivePlayer } from '../systems/player';
 import { enemyHitsPlayer, playerHitsEnemy, staminaPower } from '../systems/combat';
 import { durability, identify, isIdentified, itemName, makeMaterial, rollContainerLoot, rollEnemyLoot, uniqueOf, wearItem } from '../systems/items';
@@ -667,7 +667,7 @@ export class World {
       recordDepth(this.state.contracts, run.depth);
     }
     this.reveal();
-    const biome = biomeForDepth(run.depth);
+    const biome = biomeForFloor(f);
     this.msg(`Depth ${run.depth} — ${biome.name}`, '#d8c8a8');
     if (run.depth === FINAL_DEPTH && dir === 'down') this.msg('The air is thick with ash. Something waits below the throne.', '#c080ff');
     this.emit({ type: 'floor' });
@@ -2052,7 +2052,7 @@ export class World {
           tileX: e.x + ox, tileY: e.y + oy, source: def.name, sourceId: def.id,
         });
       }
-      this.sfx(pr.sprite === 'proj_arrow' ? 'shoot' : 'magic', e.x, e.y);
+      this.sfx(pr.sprite.startsWith('proj_arrow') ? 'shoot' : 'magic', e.x, e.y);
       return;
     }
     // Melee lands only if you're still in the tile it aimed at.

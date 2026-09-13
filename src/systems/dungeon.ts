@@ -310,7 +310,11 @@ export function shrineKindFor(floorSeed: number, propId: string): ShrineKind {
   return rng.weighted<ShrineKind>([['font', 4], ['idol', 4], ['coffer', 3]]);
 }
 
-const KEY_NAMES: Record<string, string> = { crypt: 'Bone Key', mines: 'Rusted Key', caverns: 'Crystal Key', throne: 'Ashen Key' };
+const KEY_NAMES: Record<string, string> = {
+  crypt: 'Bone Key', catacombs: 'Silted Key', burrows: 'Burrow Key',
+  mines: 'Rusted Key', frostvault: 'Frost Key', emberworks: 'Cinder Key',
+  sporegrove: 'Spore Key', caverns: 'Crystal Key', throne: 'Ashen Key',
+};
 
 export function generateFloor(runSeed: number, depth: number): Floor {
   const seed = hashString(`floor:${runSeed}:${depth}`);
@@ -372,7 +376,7 @@ interface Entrance {
 }
 
 function tryGenerate(seed: number, depth: number, rng: Rng): Floor | null {
-  const biome = biomeForDepth(depth);
+  const biome = biomeForDepth(depth, seed);
   const isBoss = depth >= FINAL_DEPTH;
   const W = 31 + 4 * Math.min(depth - 1, 4);
   const H = W;
@@ -831,7 +835,7 @@ function tryGenerate(seed: number, depth: number, rng: Rng): Floor | null {
   const wanted = 3 + Math.round(depth * 1.2) + Math.floor(rooms.length / 4);
   const hostRooms = rooms.filter((r) => r.role !== 'start' && r.role !== 'secret' && r.role !== 'throne');
   for (let guard = 0; enemies.length < wanted + (throne ? 3 : 0) && guard < 200; guard++) {
-    const def = rng.weighted(pool.map((e) => [e, e.weight] as const));
+    const def = rng.weighted(pool.map((e) => [e, e.weight * (biome.favoredEnemies?.includes(e.id) ? 4 : 1)] as const));
     const group = def.id === 'rat' || def.id === 'spider' ? rng.int(1, 3) : rng.int(1, 2);
     if (rng.chance(0.15)) {
       // A wanderer in the tunnels.

@@ -5,7 +5,7 @@ import { GameState, newGame } from './state/game-state';
 import { SLOTS, Slot, clearSave, lastSlot, loadGame, renameSave, saveGame, setLastSlot, setScratchMode } from './state/persistence';
 import { sanitizeSaveName, serializeSave } from './state/save-format';
 import { startRun, endRun, bankCarriedGold } from './systems/run';
-import { biomeForDepth } from './data/biomes';
+import { biomeForFloor } from './data/biomes';
 import { World, WorldEvent } from './world/world';
 import { DungeonRenderer } from './render/dungeon-renderer';
 import { artUrl, loadArtOverrides } from './render/art-cache';
@@ -495,7 +495,7 @@ function enterTown(): void {
 
 function startAmbient(): void {
   if (!world) return;
-  const [hz, br] = AMBIENT[biomeForDepth(world.run.depth).id] ?? [50, 0.4];
+  const [hz, br] = AMBIENT[biomeForFloor(world.floor).id] ?? [50, 0.4];
   audio.startAmbient(hz, br);
 }
 
@@ -519,7 +519,7 @@ function enterDungeon(): void {
   renderer.resize();
   commit();
   startAmbient();
-  hud.message(`Depth ${world.run.depth} — ${biomeForDepth(world.run.depth).name}. The torch gutters.`, '#d8c8a8');
+  hud.message(`Depth ${world.run.depth} — ${biomeForFloor(world.floor).name}. The torch gutters.`, '#d8c8a8');
   if (portal) hud.message('The portal closes behind you.', '#9ac0ff');
   if (state.lifetime.runs <= 1) {
     hud.message(

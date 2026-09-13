@@ -1,7 +1,7 @@
 import { EquipSlot, Item, STAT_LABELS } from '../types';
 import { consumable, itemBase } from '../data/items';
 import { enemyDef } from '../data/enemies';
-import { biomeForDepth } from '../data/biomes';
+import { biomeForFloor } from '../data/biomes';
 import { itemName } from '../systems/items';
 import { equipFrom, unequipTo, defaultSlot } from '../systems/equip';
 import { sortContainer } from '../state/inventory';
@@ -369,7 +369,7 @@ export class DungeonOverlays {
       'div',
       { class: 'modal frame' },
       btn('Close [M]', () => this.close(), 'small close'),
-      h('h2', { text: `Depth ${w.run.depth} — ${biomeForDepth(w.run.depth).name}` }),
+      h('h2', { text: `Depth ${w.run.depth} — ${biomeForFloor(w.floor).name}` }),
       c,
       h(
         'p',
