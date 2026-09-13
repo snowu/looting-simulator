@@ -1,6 +1,7 @@
 {
-  "note": "Hard is the game as it was before difficulty levels. Captured from the pre-difficulty commit; regenerating this file from current code would defeat its purpose. See difficulty.test.ts.",
+  "note": "Original Hard stats and loot stay pinned to the pre-difficulty game. Variety intentionally changed floors; varietyFloorHash pins the new layout and spawn result while floorHash retains the historical baseline.",
   "floorHash": "b182a0fb",
+  "varietyFloorHash": "fcfb15ca",
   "lootHash": "c87954b9",
   "enemyHp": {
     "rat": [

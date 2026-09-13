@@ -28,8 +28,8 @@ import {
   trapAt,
 } from '../systems/dungeon';
 import { enemyDef, enemyView, kingPhase, phaseForHp } from '../data/enemies';
-import { consumable, itemBase } from '../data/items';
-import { biomeForDepth, FINAL_DEPTH } from '../data/biomes';
+import { consumable, itemBase, viewmodelFor } from '../data/items';
+import { biomeForFloor, FINAL_DEPTH } from '../data/biomes';
 import { PlayerDerived, derivePlayer } from '../systems/player';
 import { DifficultyId, DifficultyDef, difficultyOf } from '../data/difficulty';
 import { enemyHitsPlayer, playerHitsEnemy, staminaPower } from '../systems/combat';
@@ -611,7 +611,6 @@ export class World {
   private arrive(): void {
     const p = this.player;
     this.anim.steps++;
-    this.sfx('step');
     this.reveal();
     const f = this.floor;
     const trap = trapAt(f, p.x, p.y);
@@ -620,6 +619,7 @@ export class World {
       if (this.run.outcome !== 'active') return;
     }
     const s = stairsAt(f, p.x, p.y);
+    this.sfx(biomeForFloor(f).id === 'catacombs' && !s ? 'splash' : 'step');
     if (s) {
       if (!s.down && this.run.depth === 1) {
         this.msg('You climb back into the daylight.', '#e8d8a0');
@@ -684,7 +684,7 @@ export class World {
       recordDepth(this.state.contracts, run.depth);
     }
     this.reveal();
-    const biome = biomeForDepth(run.depth);
+    const biome = biomeForFloor(f);
     this.msg(`Depth ${run.depth} — ${biome.name}`, '#d8c8a8');
     if (run.depth === FINAL_DEPTH && dir === 'down') this.msg('The air is thick with ash. Something waits below the throne.', '#c080ff');
     this.emit({ type: 'floor' });
@@ -1926,6 +1926,7 @@ export class World {
       if (def.behavior === 'boss') this.checkBossPhase(e);
       e.hurtT = Math.max(0, e.hurtT - dt);
       e.attackCd -= dt;
+      if (e.strikeT !== undefined) e.strikeT += dt;
       if (e.vuln) e.vuln = Math.max(0, e.vuln - dt);
       if ((e.blockT ?? 0) > 0) {
         e.blockT = Math.max(0, (e.blockT ?? 0) - dt);
@@ -2055,6 +2056,9 @@ export class World {
     e.ai = 'recover';
     e.timer = def.recovery;
     e.attackCd = def.recovery + 0.2;
+    // Stamped by the blow itself, so the follow-through is drawn only when
+    // there was one. See `enemyPose`.
+    e.strikeT = 0;
     const p = this.player;
     const dist = Math.abs(e.x - p.x) + Math.abs(e.y - p.y);
     const useRanged = !!def.projectile && (def.behavior === 'ranged' || (def.behavior === 'boss' && dist >= 2));
@@ -2072,7 +2076,7 @@ export class World {
           tileX: e.x + ox, tileY: e.y + oy, source: def.name, sourceId: def.id,
         });
       }
-      this.sfx(pr.sprite === 'proj_arrow' ? 'shoot' : 'magic', e.x, e.y);
+      this.sfx(pr.sprite.startsWith('proj_arrow') ? 'shoot' : 'magic', e.x, e.y);
       return;
     }
     // Melee lands only if you're still in the tile it aimed at.
@@ -2287,8 +2291,6 @@ export class World {
   weaponArt(): { id: string; materialId?: string } {
     const w = this.state.equipment.weapon;
     if (!w) return { id: 'vm_fist' };
-    const cls = itemBase(w.ref).weaponClass;
-    const id = cls === 'axe' ? 'vm_axe' : cls === 'pick' ? 'vm_pick' : cls === 'blunt' ? 'vm_blunt' : cls === 'spear' ? 'vm_spear' : 'vm_blade';
-    return { id, materialId: w.materialId };
+    return { id: viewmodelFor(itemBase(w.ref).weaponClass), materialId: w.materialId };
   }
 }

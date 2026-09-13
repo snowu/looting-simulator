@@ -59,6 +59,8 @@ function png({ w, h, data }) {
     ['ui', 'src/art/ui.ts', 'UI_ART'],
     ['enemies', 'src/art/enemies-a.ts', 'ENEMY_ART_A'],
     ['enemies', 'src/art/enemies-b.ts', 'ENEMY_ART_B'],
+    ['enemies', 'src/art/enemies-variety.ts', 'ENEMY_ART_VARIETY'],
+    ['enemies', 'src/art/enemies-elemental.ts', 'ENEMY_ART_ELEMENTAL'],
     ['viewmodels', 'src/art/viewmodels.ts', 'VIEWMODELS'],
   ];
   const manifest = [];

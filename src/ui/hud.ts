@@ -1,5 +1,5 @@
 import { DIR_NAMES, DX, DY, turnLeft, turnRight } from '../core/dir';
-import { biomeForDepth } from '../data/biomes';
+import { biomeForFloor } from '../data/biomes';
 import { enemyDef } from '../data/enemies';
 import { consumable } from '../data/items';
 import { EnemyState, blocksSight, enemyAt } from '../systems/dungeon';
@@ -113,14 +113,14 @@ export class Hud {
     const f = world.facingName();
     this.compass.innerHTML = `<span class="side">${DIR_NAMES[turnLeft(p.facing)][0]}</span>${f}<span class="side">${DIR_NAMES[turnRight(p.facing)][0]}</span>`;
 
-    const biome = biomeForDepth(world.run.depth);
+    const biome = biomeForFloor(world.floor);
     // Key names are generated, but they live in the save file, so they are the
     // one string here that a hand-edited save controls. Everything else in this
     // panel comes from the data tables in code.
     const keyNames = world.run.keys.map((k) => esc(world.floor.keys.find((kd) => kd.id === k)?.name ?? 'Key'));
     const bless = world.run.blessing ? BLESSINGS[world.run.blessing]?.name ?? '' : '';
     const curse = world.run.curse ? CURSES[world.run.curse]?.name ?? '' : '';
-    const statusKey = `${world.run.depth}|${world.run.gold}|${keyNames.join()}|${bless}|${curse}|${world.freeSlots}`;
+    const statusKey = `${world.run.depth}|${biome.id}|${world.run.gold}|${keyNames.join()}|${bless}|${curse}|${world.freeSlots}`;
     if (statusKey !== this.statusKey) {
       this.statusKey = statusKey;
       this.status.innerHTML =

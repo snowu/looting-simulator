@@ -2,9 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { ALL_ART, getArt } from '../art/registry';
 import { rasterize, validateArt } from '../art/raster';
 import { MATERIALS } from '../data/materials';
-import { CONSUMABLES, ITEM_BASES } from '../data/items';
+import { CONSUMABLES, ITEM_BASES, viewmodelFor } from '../data/items';
 import { BIOMES } from '../data/biomes';
 import { ENEMIES, KING_PHASES } from '../data/enemies';
+import { MATERIAL_TIERS, sheets } from '../dev/art-sheets';
 
 describe('pixel art', () => {
   it('every art def is well-formed and rasterises', () => {
@@ -21,7 +22,7 @@ describe('pixel art', () => {
   });
 
   it('everything the data references exists', () => {
-    const needed = new Set<string>(['ic_blueprint', 'ic_key', 'ic_gold', 'door_locked', 'ui_frame']);
+    const needed = new Set<string>(['ic_blueprint', 'ic_key', 'ic_gold', 'door_locked', 'ui_frame', 'water_catacombs']);
     for (const m of MATERIALS) needed.add(m.icon);
     for (const b of ITEM_BASES) needed.add(b.icon);
     for (const c of CONSUMABLES) needed.add(c.icon);
@@ -40,8 +41,121 @@ describe('pixel art', () => {
       needed.add(`${p.sprite}_atk`);
       if (p.shield) needed.add(`${p.sprite}_block`);
     }
+    // Every weapon in the game has to have something to be held as.
+    for (const b of ITEM_BASES) if (b.slot === 'weapon') needed.add(viewmodelFor(b.weaponClass));
     for (const id of ['vm_blade', 'vm_axe', 'vm_pick', 'vm_blunt', 'vm_spear', 'vm_fist', 'vm_shield']) needed.add(id);
     for (const id of ['trap_dart_spent', 'trap_spikes_spent', 'trap_alarm_spent']) needed.add(id);
     for (const id of needed) expect(getArt(id), id).toBeDefined();
+  });
+
+  it('gives secret walls one learned mark, tuned to their masonry', () => {
+    const secretIds = [...new Set(BIOMES.map((b) => b.wallSecret))];
+    const shapes = new Set(secretIds.map((id) => getArt(id)!.rows.join('\n')));
+    expect(shapes).toHaveLength(1);
+
+    const palettes = new Set(secretIds.map((id) => JSON.stringify(getArt(id)!.palette)));
+    expect(palettes.size).toBeGreaterThan(1);
+
+    for (const biome of BIOMES) {
+      const wall = getArt(biome.wall)!;
+      const secret = getArt(biome.wallSecret)!;
+      expect(secret.base, biome.wallSecret).toBe(biome.wall);
+      const plain = rasterize(wall, undefined, getArt);
+      const marked = rasterize(secret, undefined, getArt);
+      let changed = 0;
+      for (let i = 0; i < plain.data.length; i++) {
+        if (plain.data[i] !== marked.data[i]) changed++;
+      }
+      expect(changed, biome.wallSecret).toBeGreaterThan(20);
+      expect(changed, biome.wallSecret).toBeLessThan(400);
+    }
+  });
+
+  /**
+   * Share of the creature that changes between two frames, counted over the
+   * pixels either frame draws rather than over the canvas — otherwise a bat at
+   * 0.45 scale, which is mostly empty air, scores as though it were a king.
+   */
+  function poseChange(a: string, b: string): number {
+    const x = rasterize(getArt(a)!, undefined, getArt);
+    const y = rasterize(getArt(b)!, undefined, getArt);
+    let changed = 0;
+    let ink = 0;
+    for (let i = 0; i < x.data.length; i += 4) {
+      if (x.data[i + 3] || y.data[i + 3]) ink++;
+      if (
+        x.data[i] !== y.data[i] || x.data[i + 1] !== y.data[i + 1] ||
+        x.data[i + 2] !== y.data[i + 2] || x.data[i + 3] !== y.data[i + 3]
+      ) changed++;
+    }
+    return changed / Math.max(1, ink);
+  }
+
+  /**
+   * A tell you cannot see is not a tell. The renderer gives a creature two
+   * frames and about a third of a second to say "this is the blow" — so the
+   * frames have to differ by more than a few pixels of tongue or a mouth slot,
+   * which is what the Giant Rat, the Cave Bat, the wisps and the Mimic all used
+   * to differ by. The floor is deliberately low: it catches art that forgot to
+   * move, not art that is merely restrained.
+   */
+  const TELL_FLOOR = 0.08;
+
+  it('gives every enemy an attack pose that changes a readable share of it', () => {
+    const sprites = new Set([...ENEMIES.map((e) => e.sprite), ...KING_PHASES.map((p) => p.sprite)]);
+    for (const sprite of sprites) {
+      expect(poseChange(`${sprite}_0`, `${sprite}_atk`), `${sprite} attack`).toBeGreaterThan(TELL_FLOOR);
+    }
+  });
+
+  it('gives every shieldbearer a guard that reads apart from its idle', () => {
+    const shields = [
+      ...ENEMIES.filter((e) => e.shield).map((e) => e.sprite),
+      ...KING_PHASES.filter((p) => p.shield).map((p) => p.sprite),
+    ];
+    expect(shields.length).toBeGreaterThan(0);
+    for (const sprite of shields) {
+      expect(poseChange(`${sprite}_0`, `${sprite}_block`), `${sprite} guard`).toBeGreaterThan(TELL_FLOOR);
+    }
+  });
+
+  it('has art for every frame the dev art sheet lists, at every tier', () => {
+    for (const tier of MATERIAL_TIERS) {
+      for (const s of sheets(tier)) {
+        for (const group of s.groups) {
+          for (const cell of group.cells) expect(getArt(cell.id), `${s.id}/${cell.id}`).toBeDefined();
+        }
+      }
+    }
+  });
+
+  it('shows only the Burrows fallback ceiling on the biome sheet', () => {
+    const burrows = sheets().find((s) => s.id === 'biomes')!.groups.find((g) => g.title === 'The Vermin Burrows')!;
+    expect(burrows.cells.filter((cell) => cell.label === 'ceiling').map((cell) => cell.id)).toEqual(['ceil_cave']);
+  });
+
+  it('keeps the mine ceiling free of a repeated timber lintel', () => {
+    const ceiling = rasterize(getArt('ceil_mine')!, undefined, getArt);
+    const rock = rasterize(getArt('ceil_mine_rock')!, undefined, getArt);
+    expect(Array.from(ceiling.data)).toEqual(Array.from(rock.data));
+  });
+
+  /**
+   * The icon sheet claims every cell is something the game can actually make.
+   * If a base were ever drawn in a material its `primary` categories forbid,
+   * the sheet would be inventing gear that cannot exist.
+   */
+  it('only pairs gear icons with materials their base allows', () => {
+    const byName = new Map(MATERIALS.map((m) => [m.name, m]));
+    const gear = sheets().find((s) => s.id === 'icons')!.groups.find((g) => g.title.startsWith('Gear'))!;
+    expect(gear.cells.length).toBe(ITEM_BASES.length);
+    for (const cell of gear.cells) {
+      const base = ITEM_BASES.find((b) => cell.label.startsWith(`${b.name} · `) || cell.label === b.name)!;
+      expect(base, cell.label).toBeDefined();
+      const material = byName.get(cell.label.slice(base.name.length + 3));
+      if (!material) continue;
+      expect(base.primary, cell.label).toContain(material.category);
+      expect(cell.ramp, cell.label).toEqual(material.ramp);
+    }
   });
 });

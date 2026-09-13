@@ -17,7 +17,8 @@
     "upgrades": "vitest run --config vitest.playtest.config.ts scripts/upgrades.bench.ts",
     "find": "vitest run --config vitest.playtest.config.ts scripts/find.bench.ts",
     "patches": "node scripts/check-patches.mjs",
-    "art:export": "node scripts/export-art.mjs"
+    "art:export": "node scripts/export-art.mjs",
+    "art:sheet": "node scripts/art-sheet.mjs"
   },
   "keywords": [],
   "author": "",

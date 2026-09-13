@@ -76,7 +76,7 @@
     "file": "textures/ceil_mine.png",
     "width": 32,
     "height": 32,
-    "base": "ceil_mine_rock",
+    "base": null,
     "recolorable": false
   },
   {
@@ -128,11 +128,67 @@
     "recolorable": false
   },
   {
+    "id": "water_catacombs",
+    "file": "textures/water_catacombs.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
     "id": "ceil_cave",
     "file": "textures/ceil_cave.png",
     "width": 32,
     "height": 32,
     "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "wall_catacombs",
+    "file": "textures/wall_catacombs.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_crypt",
+    "recolorable": false
+  },
+  {
+    "id": "wall_catacombs_b",
+    "file": "textures/wall_catacombs_b.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_crypt_b",
+    "recolorable": false
+  },
+  {
+    "id": "wall_catacombs_s",
+    "file": "textures/wall_catacombs_s.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_catacombs",
+    "recolorable": false
+  },
+  {
+    "id": "wall_frostvault",
+    "file": "textures/wall_frostvault.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_crypt",
+    "recolorable": false
+  },
+  {
+    "id": "wall_frostvault_b",
+    "file": "textures/wall_frostvault_b.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_crypt_b",
+    "recolorable": false
+  },
+  {
+    "id": "wall_frostvault_s",
+    "file": "textures/wall_frostvault_s.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_frostvault",
     "recolorable": false
   },
   {
@@ -173,6 +229,86 @@
     "width": 32,
     "height": 32,
     "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "floor_frostvault",
+    "file": "textures/floor_frostvault.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "floor_emberworks",
+    "file": "textures/floor_emberworks.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "ceil_emberworks",
+    "file": "textures/ceil_emberworks.png",
+    "width": 32,
+    "height": 32,
+    "base": "ceil_mine",
+    "recolorable": false
+  },
+  {
+    "id": "wall_burrows",
+    "file": "textures/wall_burrows.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "wall_burrows_b",
+    "file": "textures/wall_burrows_b.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "wall_burrows_s",
+    "file": "textures/wall_burrows_s.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_burrows",
+    "recolorable": false
+  },
+  {
+    "id": "floor_burrows",
+    "file": "textures/floor_burrows.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "wall_emberworks",
+    "file": "textures/wall_emberworks.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "wall_emberworks_b",
+    "file": "textures/wall_emberworks_b.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "wall_emberworks_s",
+    "file": "textures/wall_emberworks_s.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_emberworks",
     "recolorable": false
   },
   {
@@ -482,6 +618,38 @@
   {
     "id": "proj_arrow",
     "file": "props/proj_arrow.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "proj_arrow_fire",
+    "file": "props/proj_arrow_fire.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "proj_arrow_frost",
+    "file": "props/proj_arrow_frost.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "proj_arrow_shadow",
+    "file": "props/proj_arrow_shadow.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "proj_arrow_holy",
+    "file": "props/proj_arrow_holy.png",
     "width": 16,
     "height": 16,
     "base": null,
@@ -1164,6 +1332,142 @@
     "file": "enemies/king_last_block.png",
     "width": 48,
     "height": 48,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "drowned_0",
+    "file": "enemies/drowned_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "drowned_atk",
+    "file": "enemies/drowned_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "stalker_0",
+    "file": "enemies/stalker_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "stalker_atk",
+    "file": "enemies/stalker_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "iceguard_0",
+    "file": "enemies/iceguard_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "iceguard_block",
+    "file": "enemies/iceguard_block.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "iceguard_atk",
+    "file": "enemies/iceguard_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "cinder_0",
+    "file": "enemies/cinder_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "cinder_atk",
+    "file": "enemies/cinder_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "rime_0",
+    "file": "enemies/rime_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "rime_atk",
+    "file": "enemies/rime_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "gloom_0",
+    "file": "enemies/gloom_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "gloom_atk",
+    "file": "enemies/gloom_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "dawn_0",
+    "file": "enemies/dawn_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "dawn_atk",
+    "file": "enemies/dawn_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "spore_0",
+    "file": "enemies/spore_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "spore_atk",
+    "file": "enemies/spore_atk.png",
+    "width": 32,
+    "height": 32,
     "base": null,
     "recolorable": false
   },

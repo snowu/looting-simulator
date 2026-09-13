@@ -11,7 +11,7 @@ A first-person, grid-step dungeon crawler about getting rich without getting kil
 ## The loop
 
 1. **Prepare in Bleakmere.** Equip your best gear, buy supplies, take contracts, and check the market.
-2. **Descend through six persistent floors.** Each run has its own dungeon, from the Ossuary and Deep Mines to the Glowing Warrens and the Ashen Throne. Explore vaults, marked secret walls, shrines, traps, and treasure rooms on the way to the Ashen King.
+2. **Descend through six persistent floors.** Each run has its own dungeon, from the Ossuary and Deep Mines through the Sunken Catacombs, Vermin Burrows, Frost Vault, Emberworks and Sporegrove to the Ashen Throne. Explore vaults, marked secret walls, shrines, traps, and treasure rooms on the way to the Ashen King.
 3. **Choose when to leave.** Return by the stairs, defeat the King and use his portal, or open a Scroll of Recall for a round trip to town without ending the delve. Dying ends the run and costs everything in your pack; equipped gear stays with you.
 4. **Make the haul count.** Sell into a changing market, craft with the materials you found, finish guild contracts, and spend renown on permanent upgrades. A completed delve advances the day, moving prices, events, contracts, and merchant stock.
 
@@ -19,7 +19,7 @@ A first-person, grid-step dungeon crawler about getting rich without getting kil
 
 - **Readable, real-time fights.** Enemies telegraph attacks at your tile. Step away, block, or raise your guard at the last moment to parry. A parry staggers melee enemies and opens them to extra damage, or sends a projectile back down its path. Stamina affects how hard you hit, and damage types reward bringing the right weapon for the enemy.
 - **Loot with decisions attached.** Equipment combines a base item, material, rarity, and affixes. Better drops may need identifying before you know what you found. Legendary finds are bespoke relics with distinct effects and tradeoffs, including gear that never dulls and armour that cuts all healing in half. The Ashen King guarantees a relic you have not held before.
-- **A dungeon worth searching.** Floors remain in place for the whole run, so you can backtrack. Vault keys are hidden on reachable ground, faint chalk marks reveal secret rooms, and some chests reveal themselves as mimics only when you look closely.
+- **A dungeon worth searching.** Floors remain in place for the whole run, so you can backtrack. Vault keys are hidden on reachable ground, faint masonry seals reveal secret rooms, and some chests reveal themselves as mimics only when you look closely.
 - **Wear, weight, and timing.** Weapons, shields, and armour lose durability through use. Your pack has limited room, so a long run asks you to weigh spare gear, materials, consumables, and the risk of pushing one floor deeper.
 - **A town that reacts.** Commodity prices fluctuate, selling a large stack pushes its price down, and events shift whole categories. Forge recipes let you choose materials for each component, while guild contracts give a purpose to particular finds and kills.
 

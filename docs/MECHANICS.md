@@ -102,7 +102,7 @@ Floors are generated from `hash(runSeed, depth)`, so the same seed always gives 
 | Corridors | Minimum spanning tree over room centres, plus 20% extra links for loops; carved by Dijkstra that prefers existing tunnels and avoids cutting through other rooms |
 | Doors | 45% of eligible room entrances (a 1-tile gap flanked by wall) |
 | Vault | One dead-end room per floor, locked; its key is placed in a room reachable without it |
-| Secret room | `50% + 6% × depth`: a 3×3 room behind a pushable wall, marked with a faint chalk X |
+| Secret room | `50% + 6% × depth`: a 3×3 room behind a pushable wall, marked with a faint local-stone arch and keystone |
 | Shrine | 45% of floors |
 | Pillars | Rooms of at least 6×5 get pillars, never blocking a route |
 | Stairs | Carved as alcoves — up in the start room, down in the farthest room; the boss floor has no down stairs |
@@ -122,7 +122,11 @@ Every generated floor is checked: all walkable tiles reachable, keys reachable w
 |---|---|---|---|
 | 1–2 | The Ossuary | Wood | Stone brickwork, bone niches, warm torchlight |
 | 3–4 | The Deep Mines | Wood | Rubble walls, timber supports, dirt floors |
-| 5 | The Glowing Warrens | Iron | Wet stone, glowing fungus (light sources), darkest biome |
+| 1–3 | The Sunken Catacombs | Wood | Wet stone, shallow water that splashes underfoot, cold fungus, drowned dead |
+| 1–3 | The Vermin Burrows | Wood | Packed earth, roots, vermin and stalkers |
+| 3–5 | The Frost Vault | Iron | Blue stone, fractured ice, frostbound guards; frost creatures are favored and fire creatures do not spawn |
+| 3–5 | The Emberworks | Iron | Soot-black masonry, hot seams, fire creatures; fire creatures are favored and frost creatures do not spawn |
+| 3–5 | The Sporegrove | Wood | Green stone, luminous fungus, spore hunters |
 | 6 | The Ashen Throne | Iron | Obsidian with glowing mortar, banners, the boss |
 
 ---
@@ -287,7 +291,7 @@ Every kill also has a 2.5% chance of a Healing Draught and `0.6% × depth` of a 
 |---|---|
 | Door | Opens/closes. Monsters can't open them |
 | Locked door (vault) | Needs that floor's key, which is always findable without it; consumes the key |
-| Chalk-marked wall | Push it aside to open a secret room |
+| Masonry-marked wall | Push it aside to open a secret room |
 | Chest | Opens into the loot window; gold goes straight to your purse. 12% are mimics: two pale points in the lid seam are the quiet tell |
 | Urn / barrel | Smash by attacking or interacting; small loot |
 | Shrine | One of three flavours — see below. The prompt names it before you touch it |

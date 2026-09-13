@@ -69,12 +69,17 @@ const MIMIC_FACE = rows(`
   ......mmmm......
   .......mm.......
 `);
+// Lid thrown back and the whole box turned into a mouth. The old attack frame
+// widened the tongue and nothing else, which on a creature the player is
+// already standing next to is no warning at all.
 const MIMIC_FACE_ATK = rows(`
   ...rr........rr...
   ..................
   .tttttttttttttttt.
   ..tktktktktktktk..
-  .....mmmmmmmm.....
+  ..mmmmmmmmmmmmmm..
+  ..mmmmmmmmmmmmmm..
+  ...mmtmmmmmmtmm...
   ....mmmmmmmmmm....
   .....mmmmmmmm.....
 `);
@@ -703,4 +708,20 @@ export const PROPS: ArtDef[] = [
   { id: 'proj_fire', palette: { 1: '#a02008fa', 2: '#e05010fa', 3: '#ffa030fa', 4: '#ffe080fa', w: '#fffff0fa' }, rows: ORB },
   { id: 'proj_shadow', palette: { 1: '#30104afa', 2: '#6020a0fa', 3: '#a060e0fa', 4: '#e0c0fffa', w: '#fffffffa' }, rows: ORB },
   { id: 'proj_arrow', palette: { k: '#1a1a1e', s: '#a0a0aa', h: '#8a6a40', f: '#d8d0c0' }, rows: ARROW },
+  ...([
+    ['fire', '#ff8e25fa', '#fff1a8fa'],
+    ['frost', '#64c7fffa', '#e4fafffa'],
+    ['shadow', '#ab69effa', '#eed5fffa'],
+    ['holy', '#ffdb63fa', '#fffad1fa'],
+  ] as const).map(([element, tip, core]) => ({
+    id: `proj_arrow_${element}`,
+    palette: { k: '#1a1a1e', s: '#a0a0aa', h: '#8a6a40', f: '#d8d0c0', G: tip, H: core },
+    rows: stamp(ARROW, rows(`
+      ..G..
+      .GHG.
+      GHHHG
+      .GHG.
+      ..G..
+    `), 10, 1),
+  })),
 ];

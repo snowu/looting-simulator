@@ -4,7 +4,7 @@ import { patchNotesButton } from './patch-notes';
 
 const titleTaglines = [
   'Every treasure has a body count',
-  'Fortune favors',
+  'Fortune favors the prepared',
   'Delve Deep. Die Rich.',
 ];
 const titleTagline = titleTaglines[Math.floor(Math.random() * titleTaglines.length)];

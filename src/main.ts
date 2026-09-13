@@ -5,7 +5,7 @@ import { GameState, newGame } from './state/game-state';
 import { SLOTS, Slot, clearSave, lastSlot, loadGame, renameSave, saveGame, setLastSlot, setScratchMode } from './state/persistence';
 import { sanitizeSaveName, serializeSave } from './state/save-format';
 import { startRun, endRun, bankCarriedGold } from './systems/run';
-import { biomeForDepth } from './data/biomes';
+import { biomeForFloor } from './data/biomes';
 import { World, WorldEvent } from './world/world';
 import { DungeonRenderer } from './render/dungeon-renderer';
 import { artUrl, loadArtOverrides } from './render/art-cache';
@@ -28,7 +28,7 @@ import { audio } from './audio/sfx';
 
 type Mode = 'title' | 'town' | 'dungeon' | 'summary';
 
-const AMBIENT: Record<string, [number, number]> = { crypt: [55, 0.3], mines: [49, 0.5], caverns: [62, 0.75], throne: [41, 0.4] };
+const AMBIENT: Record<string, [number, number]> = { crypt: [55, 0.3], mines: [49, 0.5], caverns: [62, 0.75], sporegrove: [62, 0.75], throne: [41, 0.4] };
 
 // --- State ---------------------------------------------------------------------
 // The playthrough in front of the player. Each slot is a separate game with
@@ -360,8 +360,20 @@ function devTitleTools(): HTMLElement | null {
     'div',
     { class: 'dev-tools' },
     h('span', { class: 'dim small grow', text: 'Dev build only' }),
+    btn('Art sheet', () => void openArtSheet(), 'small'),
     btn('Fight the King', () => void enterBossArena(), 'small'),
   );
+}
+
+/**
+ * The art sheet, on F2 from anywhere. Dynamically imported behind the same
+ * `import.meta.env.DEV` guard as the boss arena, so the tool and its styles
+ * are dropped from a real build.
+ */
+async function openArtSheet(): Promise<void> {
+  if (!import.meta.env.DEV) return;
+  const { toggleArtSheet } = await import('./dev/art-sheet');
+  toggleArtSheet(app);
 }
 
 function enterTitle(): void {
@@ -500,7 +512,7 @@ function enterTown(): void {
 
 function startAmbient(): void {
   if (!world) return;
-  const [hz, br] = AMBIENT[biomeForDepth(world.run.depth).id] ?? [50, 0.4];
+  const [hz, br] = AMBIENT[biomeForFloor(world.floor).id] ?? [50, 0.4];
   audio.startAmbient(hz, br);
 }
 
@@ -524,7 +536,7 @@ function enterDungeon(): void {
   renderer.resize();
   commit();
   startAmbient();
-  hud.message(`Depth ${world.run.depth} — ${biomeForDepth(world.run.depth).name}. The torch gutters.`, '#d8c8a8');
+  hud.message(`Depth ${world.run.depth} — ${biomeForFloor(world.floor).name}. The torch gutters.`, '#d8c8a8');
   if (portal) hud.message('The portal closes behind you.', '#9ac0ff');
   if (state.lifetime.runs <= 1) {
     hud.message(
@@ -655,6 +667,11 @@ const MOVES: Record<string, Parameters<World['press']>[0]> = {
 
 window.addEventListener('keydown', (e) => {
   audio.unlock();
+  if (import.meta.env.DEV && e.key === 'F2') {
+    e.preventDefault();
+    void openArtSheet();
+    return;
+  }
   if (mode !== 'dungeon' || !world) return;
   if (overlays.handleKey(e)) {
     e.preventDefault();
@@ -774,6 +791,7 @@ async function enterBossArena(): Promise<void> {
 
 // --- Boot ------------------------------------------------------------------------
 const params = new URLSearchParams(location.search);
+if (import.meta.env.DEV && params.has('art')) void openArtSheet();
 if (params.has('autostart')) {
   const where = params.get('autostart');
   if (import.meta.env.DEV && where === 'boss') void enterBossArena();

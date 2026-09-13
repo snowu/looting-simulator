@@ -142,6 +142,14 @@ export interface EnemyState {
   hurtT: number;
   deadT: number;
   attackCd: number;
+  /**
+   * Seconds since its last swing or loosed shot. **Absent means it has not
+   * struck yet**, which is also what a creature reeling out of a wind-up looks
+   * like: the follow-through is drawn from this, never from `recover`, because
+   * a stagger, a parry and a broken phase all park a creature in `recover`
+   * without a blow ever landing.
+   */
+  strikeT?: number;
   /** Depth scaling baked in at spawn. */
   power: number;
   /** Seconds left of the opening a parry tore in its guard. */
@@ -315,7 +323,14 @@ export function shrineKindFor(floorSeed: number, propId: string): ShrineKind {
   return rng.weighted<ShrineKind>([['font', 4], ['idol', 4], ['coffer', 3]]);
 }
 
-const KEY_NAMES: Record<string, string> = { crypt: 'Bone Key', mines: 'Rusted Key', caverns: 'Crystal Key', throne: 'Ashen Key' };
+const KEY_NAMES: Record<string, string> = {
+  crypt: 'Bone Key', catacombs: 'Silted Key', burrows: 'Burrow Key',
+  mines: 'Rusted Key', frostvault: 'Frost Key', emberworks: 'Cinder Key',
+  sporegrove: 'Spore Key', caverns: 'Crystal Key', throne: 'Ashen Key',
+};
+
+const FAVORED_ENEMY_WEIGHT = 4;
+const ELEMENTAL_ENEMY_WEIGHT = 4;
 
 export function generateFloor(runSeed: number, depth: number, difficulty?: DifficultyId): Floor {
   const seed = hashString(`floor:${runSeed}:${depth}`);
@@ -381,7 +396,7 @@ interface Entrance {
 }
 
 function tryGenerate(seed: number, depth: number, rng: Rng, diff: DifficultyDef = DIFFICULTIES.hard): Floor | null {
-  const biome = biomeForDepth(depth);
+  const biome = biomeForDepth(depth, seed);
   const isBoss = depth >= FINAL_DEPTH;
   const W = 31 + 4 * Math.min(depth - 1, 4);
   const H = W;
@@ -726,7 +741,7 @@ function tryGenerate(seed: number, depth: number, rng: Rng, diff: DifficultyDef 
     });
     return true;
   };
-  const vessel: PropKind = biome.id === 'mines' || biome.id === 'caverns' ? 'barrel' : 'urn';
+  const vessel: PropKind = biome.id === 'mines' || biome.id === 'caverns' || biome.id === 'sporegrove' ? 'barrel' : 'urn';
   for (const r of rooms) {
     const spots = edgeTiles(r);
     const take = () => spots.pop();
@@ -820,7 +835,8 @@ function tryGenerate(seed: number, depth: number, rng: Rng, diff: DifficultyDef 
     occupied.add(idx(x, y));
     enemies.push(createEnemy(def, x, y, rng.pick(DIRS), `e${enemyN++}`, depth, diff.id));
   };
-  const pool = ENEMIES.filter((e) => e.weight > 0 && e.minDepth <= depth && depth <= e.maxDepth);
+  const pool = ENEMIES.filter((e) => e.weight > 0 && e.minDepth <= depth && depth <= e.maxDepth
+    && !(biome.element && e.element && e.element !== biome.element));
   const roomTiles = (r: Room) => {
     const out: [number, number][] = [];
     for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
@@ -842,7 +858,11 @@ function tryGenerate(seed: number, depth: number, rng: Rng, diff: DifficultyDef 
   const wanted = Math.max(1, Math.round((3 + Math.round(depth * 1.2) + Math.floor(rooms.length / 4)) * diff.enemyCount));
   const hostRooms = rooms.filter((r) => r.role !== 'start' && r.role !== 'secret' && r.role !== 'throne');
   for (let guard = 0; enemies.length < wanted + (throne ? 3 : 0) && guard < 200; guard++) {
-    const def = rng.weighted(pool.map((e) => [e, e.weight] as const));
+    const def = rng.weighted(pool.map((e) => [e,
+      e.weight
+      * (biome.favoredEnemies?.includes(e.id) ? FAVORED_ENEMY_WEIGHT : 1)
+      * (biome.element && e.element === biome.element ? ELEMENTAL_ENEMY_WEIGHT : 1),
+    ] as const));
     const group = def.id === 'rat' || def.id === 'spider' ? rng.int(1, 3) : rng.int(1, 2);
     if (rng.chance(0.15)) {
       // A wanderer in the tunnels.
