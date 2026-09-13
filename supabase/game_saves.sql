@@ -4,9 +4,8 @@
 -- safe to re-run: every statement is idempotent, and re-running never touches a
 -- stored save.
 --
--- This adds one table and two functions (`save_game`, `delete_game`). It does
--- not read, alter or depend on anything else already in the project; only
--- `auth.users` is shared.
+-- This adds one table and one function. It does not read, alter or depend on
+-- anything else already in the project; only `auth.users` is shared.
 
 create table if not exists public.game_saves (
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -22,9 +21,6 @@ create table if not exists public.game_saves (
   schema_revision integer not null,
   generation bigint not null default 1,
   device_id text not null,
-  -- Fixed 16-hex-char FNV-1a hash (see contentHash in save-format.ts). The
-  -- length cap keeps a tampered client from parking bulk data in a metadata
-  -- column; the hex format is enforced by constraint below and in save_game.
   content_hash text not null,
   updated_at timestamptz not null default now(),
   primary key (user_id, slot)
@@ -74,38 +70,27 @@ begin
   end if;
 end $$;
 
--- Metadata columns carry ids and hashes, never bulk data. The caps are far
--- above any honest value (a UUID is 36 chars, the content hash is 16 hex
--- chars) and exist so a tampered client cannot park arbitrary payloads in
--- them to eat the project's storage quota. They apply to direct writes and
--- to the RPC functions alike, because both go through the table constraints.
+-- Revert of the 2026-09-13 hardening that added `game_saves_ids_size`. That
+-- constraint validated `save_id`/`device_id`/`content_hash` lengths and broke
+-- sync for some existing installs where the hash did not match the new regex.
+-- Dropping it restores the pre-hardening behaviour; the esc fix and RLS
+-- boundary remain. Re-hardening will be re-applied incrementally after the
+-- duplicate-alert is confirmed working again.
 do $$
 begin
-  if not exists (
+  if exists (
     select 1 from pg_constraint where conname = 'game_saves_ids_size' and conrelid = 'public.game_saves'::regclass
   ) then
-    alter table public.game_saves
-      add constraint game_saves_ids_size check (
-        (save_id is null or (char_length(save_id) between 1 and 64))
-        and char_length(device_id) between 1 and 128
-        and content_hash ~ '^[0-9a-f]{16}$'
-      );
+    alter table public.game_saves drop constraint game_saves_ids_size;
   end if;
 end $$;
 
 alter table public.game_saves enable row level security;
 
 -- Supabase grants these on new public tables by default; stated explicitly so
--- the schema does not depend on the project's default privileges.
---
--- These grants are required for the `save_game` / `delete_game` functions
--- below to work: they run as `security invoker`, i.e. with the caller's own
--- privileges under RLS, so revoking direct writes would break the RPC path
--- too. Compare-and-swap ordering is therefore a data-integrity guarantee for
--- honest clients, not a security boundary — the security boundary is RLS
--- (auth.uid() = user_id), which constrains direct writes and RPC writes
--- identically. Direct writes can only ever touch the caller's own rows, and
--- the table constraints (slot range, state size, id sizes) apply to both.
+-- the schema does not depend on the project's default privileges. Delete is
+-- granted because the title screen lets the player remove a save outright, but
+-- only through the `delete_game` function below and behind a double confirm.
 grant select, insert, update, delete on public.game_saves to authenticated;
 
 -- RLS is the security boundary: the browser holds only the publishable key and
@@ -178,28 +163,6 @@ declare
 begin
   if v_uid is null then
     raise exception 'not authenticated' using errcode = '28000';
-  end if;
-
-  -- Fail fast on malformed input with a clean error rather than a raw
-  -- constraint violation. The table constraints enforce the same limits, so
-  -- this is defense in depth, not the boundary itself.
-  if p_slot is null or p_slot < 1 or p_slot > 3 then
-    raise exception 'invalid slot' using errcode = '22003';
-  end if;
-  if p_save_id is not null and (char_length(p_save_id) < 1 or char_length(p_save_id) > 64) then
-    raise exception 'invalid save id' using errcode = '22001';
-  end if;
-  if p_device_id is null or char_length(p_device_id) < 1 or char_length(p_device_id) > 128 then
-    raise exception 'invalid device id' using errcode = '22001';
-  end if;
-  if p_content_hash is null or p_content_hash !~ '^[0-9a-f]{16}$' then
-    raise exception 'invalid content hash' using errcode = '22001';
-  end if;
-  if p_state is null or jsonb_typeof(p_state) != 'object' then
-    raise exception 'invalid state' using errcode = '22000';
-  end if;
-  if p_format_version is null or p_format_version < 0 or p_schema_revision is null or p_schema_revision < 0 then
-    raise exception 'invalid format version' using errcode = '22003';
   end if;
 
   -- Identity first, position second. The same playthrough can sit in a
@@ -332,13 +295,6 @@ declare
 begin
   if v_uid is null then
     raise exception 'not authenticated' using errcode = '28000';
-  end if;
-
-  if p_slot is null or p_slot < 1 or p_slot > 3 then
-    raise exception 'invalid slot' using errcode = '22003';
-  end if;
-  if p_save_id is not null and (char_length(p_save_id) < 1 or char_length(p_save_id) > 64) then
-    raise exception 'invalid save id' using errcode = '22001';
   end if;
 
   if p_save_id is not null then
