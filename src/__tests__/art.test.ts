@@ -129,9 +129,24 @@ describe('pixel art', () => {
     }
   });
 
-  it('shows only the Burrows fallback ceiling on the biome sheet', () => {
+  it('shows the Burrows fallback plus its inherited ceilings on the biome sheet', () => {
     const burrows = sheets().find((s) => s.id === 'biomes')!.groups.find((g) => g.title === 'The Vermin Burrows')!;
-    expect(burrows.cells.filter((cell) => cell.label === 'ceiling').map((cell) => cell.id)).toEqual(['ceil_cave']);
+    expect(burrows.cells.filter((cell) => cell.label.startsWith('ceiling')).map((cell) => cell.id)).toEqual([
+      'ceil_burrows',
+      'floor_crypt',
+      'floor_cave',
+    ]);
+  });
+
+  it('gives the Burrows fallback its own roof instead of another biome ceiling', () => {
+    const burrows = BIOMES.find((b) => b.id === 'burrows')!;
+    for (const other of BIOMES) {
+      if (other.id === 'burrows') continue;
+      expect(burrows.ceiling).not.toBe(other.ceiling);
+    }
+    const fallback = rasterize(getArt(burrows.ceiling)!, undefined, getArt);
+    const cave = rasterize(getArt('ceil_cave')!, undefined, getArt);
+    expect(Array.from(fallback.data)).not.toEqual(Array.from(cave.data));
   });
 
   it('keeps the mine ceiling free of a repeated timber lintel', () => {

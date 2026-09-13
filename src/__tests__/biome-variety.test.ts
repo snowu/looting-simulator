@@ -62,7 +62,10 @@ describe('run biome variety', () => {
     const current = { biome: burrows.id, depth: 2 };
     expect(ceilingForFloor(current, { biome: crypt.id, depth: 1 })).toBe(crypt.floor);
     expect(ceilingForFloor(current, { biome: catacombs.id, depth: 1 })).toBe(catacombs.floor);
-    expect(ceilingForFloor(current)).toBe(burrows.ceiling);
+    expect(ceilingForFloor(current, { biome: burrows.id, depth: 1 })).toBe(burrows.floor);
+    // Depth-1 Burrows has no floor above: its own packed-earth roof.
+    expect(burrows.ceiling).toBe('ceil_burrows');
+    expect(ceilingForFloor(current)).toBe('ceil_burrows');
   });
 
   it('keeps elemental spawns aligned with elemental biomes', () => {

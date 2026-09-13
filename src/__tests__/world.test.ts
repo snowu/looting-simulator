@@ -166,6 +166,31 @@ describe('World', () => {
     expect(w.run.floors[1]).toBeTruthy();
   });
 
+  it('interacting with stairs takes one step and does not keep walking', () => {
+    const state = newGame(createRng(7));
+    startRun(state, 7);
+    const w = new World(state);
+    w.floor.enemies = [];
+    const down = w.floor.stairs.find((s) => s.down)!;
+    const front = stairsFront(down);
+    Object.assign(w.player, { x: front.x, y: front.y, facing: down.dir });
+
+    w.interact();
+    tick(w, 1.5);
+
+    expect(w.run.depth).toBe(2);
+    const arrival = stairsFront(w.floor.stairs.find((s) => !s.down)!);
+    expect({ x: w.player.x, y: w.player.y, facing: w.player.facing }).toEqual(arrival);
+    expect(w.held.has('forward')).toBe(false);
+    tick(w, 0.6);
+    expect({ x: w.player.x, y: w.player.y, facing: w.player.facing }).toEqual(arrival);
+
+    w.press('back');
+    w.release('back');
+    tick(w, 1.5);
+    expect(w.run.depth).toBe(1);
+  });
+
   it('leaving by the entrance banks the backpack', () => {
     const state = newGame(createRng(8));
     startRun(state, 8);

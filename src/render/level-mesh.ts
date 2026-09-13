@@ -134,7 +134,7 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
       const x0 = cx - half, x1 = cx + half, z0 = cz - half, z1 = cz + half;
       const stairs = stairsAt(floor, x, y);
       if (stairs) {
-        buildStairs(B, biome, cx, cz, stairs.dir, stairs.down);
+        buildStairs(B, biome, cx, cz, stairs.dir, stairs.down, ceiling);
         continue;
       }
 
@@ -267,6 +267,7 @@ function buildStairs(
   cz: number,
   d: Dir,
   down: boolean,
+  ceiling: string,
 ): void {
   const fx = DX[d], fz = DY[d];
   const r = turnRight(d);
@@ -298,7 +299,7 @@ function buildStairs(
   }
   B(biome.wall).quad(P(TILE, -half, lowY), P(TILE, half, lowY), P(TILE, half, highY), P(TILE, -half, highY), [-fx, 0, -fz], 0, 0, 1, (highY - lowY) / WALL_H);
   // Ceiling (raised for stairs up, with a lintel closing the gap).
-  B(biome.ceiling).quad(P(0, -half, highY), P(TILE, -half, highY), P(TILE, half, highY), P(0, half, highY), [0, -1, 0]);
+  B(ceiling).quad(P(0, -half, highY), P(TILE, -half, highY), P(TILE, half, highY), P(0, half, highY), [0, -1, 0]);
   if (!down) B(biome.wall).quad(P(0, -half, WALL_H), P(0, half, WALL_H), P(0, half, highY), P(0, -half, highY), [-fx, 0, -fz], 0, 0, 1, total / WALL_H);
 }
 

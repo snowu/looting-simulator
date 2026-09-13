@@ -288,6 +288,14 @@
     "recolorable": false
   },
   {
+    "id": "ceil_burrows",
+    "file": "textures/ceil_burrows.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
     "id": "wall_emberworks",
     "file": "textures/wall_emberworks.png",
     "width": 32,

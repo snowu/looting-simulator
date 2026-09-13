@@ -56,8 +56,8 @@ export const BIOMES: BiomeDef[] = [
     id: 'burrows', name: 'The Vermin Burrows', depths: [1, 2, 3],
     wall: 'wall_burrows', wallAlt: 'wall_burrows_b', wallSecret: 'wall_burrows_s',
     // Burrows inherit the preceding floor's ground texture at render time.
-    // Keep a cave floor as the depth-1 fallback, where no preceding floor exists.
-    floor: 'floor_burrows', ceiling: 'ceil_cave', door: 'door_wood',
+    // Keep a packed-earth roof as the depth-1 fallback, where no preceding floor exists.
+    floor: 'floor_burrows', ceiling: 'ceil_burrows', door: 'door_wood',
     fog: '#0e0904', ambient: '#3a2b1a', torch: '#ffbb70', torchDensity: 0.055,
     favoredEnemies: ['rat', 'bat', 'spider', 'goblin', 'tunnel_stalker'],
   },
