@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { getArt } from '../art/registry';
+import { ALL_ART, getArt } from '../art/registry';
 import { Ramp, rasterize } from '../art/raster';
 
 /**
@@ -19,27 +19,40 @@ const keyOf = (id: string, ramp?: Ramp) => (ramp ? `${id}|${ramp.join(',')}` : i
 
 export async function loadArtOverrides(): Promise<number> {
   const base = import.meta.env.BASE_URL;
-  try {
-    const res = await fetch(`${base}art/manifest.json`);
-    if (!res.ok) return 0;
-    const ids: string[] = await res.json();
-    await Promise.all(
-      ids.map(
-        (id) =>
-          new Promise<void>((resolve) => {
-            const img = new Image();
-            img.onload = () => {
-              overrides.set(id, img);
-              resolve();
-            };
-            img.onerror = () => resolve();
-            img.src = `${base}art/${id}.png`;
-          }),
-      ),
-    );
-  } catch {
-    // No manifest: built-in art only.
+  const manifestUrl = `${base}art/manifest.json`;
+  const res = await fetch(manifestUrl);
+  if (!res.ok) throw new Error(`Failed to load art manifest ${manifestUrl}: HTTP ${res.status}`);
+
+  const ids: unknown = await res.json();
+  if (!Array.isArray(ids) || ids.some((id) => typeof id !== 'string')) {
+    throw new Error(`Invalid art manifest ${manifestUrl}: expected an array of IDs`);
   }
+
+  const expected = new Set(ALL_ART.map((art) => art.id));
+  const listed = new Set(ids);
+  const duplicates = ids.filter((id, index) => ids.indexOf(id) !== index);
+  const missing = [...expected].filter((id) => !listed.has(id));
+  const unknown = [...listed].filter((id) => !expected.has(id));
+  if (duplicates.length || missing.length || unknown.length) {
+    throw new Error(
+      `Invalid art manifest ${manifestUrl}: duplicates [${duplicates.join(', ')}], missing [${missing.join(', ')}], unknown [${unknown.join(', ')}]`,
+    );
+  }
+
+  await Promise.all(
+    ids.map(
+      (id) =>
+        new Promise<void>((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => {
+            overrides.set(id, img);
+            resolve();
+          };
+          img.onerror = () => reject(new Error(`Failed to load art asset ${base}art/${id}.png`));
+          img.src = `${base}art/${id}.png`;
+        }),
+    ),
+  );
   return overrides.size;
 }
 
