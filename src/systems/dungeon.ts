@@ -738,7 +738,7 @@ function tryGenerate(seed: number, depth: number, rng: Rng, diff: DifficultyDef 
     });
     return true;
   };
-  const vessel: PropKind = biome.id === 'mines' || biome.id === 'caverns' ? 'barrel' : 'urn';
+  const vessel: PropKind = biome.id === 'mines' || biome.id === 'caverns' || biome.id === 'sporegrove' ? 'barrel' : 'urn';
   for (const r of rooms) {
     const spots = edgeTiles(r);
     const take = () => spots.pop();

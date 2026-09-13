@@ -11,7 +11,7 @@ A first-person, grid-step dungeon crawler about getting rich without getting kil
 ## The loop
 
 1. **Prepare in Bleakmere.** Equip your best gear, buy supplies, take contracts, and check the market.
-2. **Descend through six persistent floors.** Each run has its own dungeon, from the Ossuary and Deep Mines to the Glowing Warrens and the Ashen Throne. Explore vaults, marked secret walls, shrines, traps, and treasure rooms on the way to the Ashen King.
+2. **Descend through six persistent floors.** Each run has its own dungeon, from the Ossuary and Deep Mines through the Sunken Catacombs, Vermin Burrows, Frost Vault, Emberworks and Sporegrove to the Ashen Throne. Explore vaults, marked secret walls, shrines, traps, and treasure rooms on the way to the Ashen King.
 3. **Choose when to leave.** Return by the stairs, defeat the King and use his portal, or open a Scroll of Recall for a round trip to town without ending the delve. Dying ends the run and costs everything in your pack; equipped gear stays with you.
 4. **Make the haul count.** Sell into a changing market, craft with the materials you found, finish guild contracts, and spend renown on permanent upgrades. A completed delve advances the day, moving prices, events, contracts, and merchant stock.
 

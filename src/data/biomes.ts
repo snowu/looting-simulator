@@ -37,13 +37,6 @@ export const BIOMES: BiomeDef[] = [
     fog: '#080503', ambient: '#2a2016', torch: '#ffb870', torchDensity: 0.06,
   },
   {
-    id: 'caverns', name: 'The Glowing Warrens', depths: [5],
-    wall: 'wall_cave', wallAlt: 'wall_cave_b', wallSecret: 'wall_cave_s',
-    floor: 'floor_cave', ceiling: 'ceil_cave', door: 'door_iron',
-    fog: '#020705', ambient: '#1c3028', torch: '#ffc890', torchDensity: 0.045,
-    glow: { color: '#40e0c0', density: 0.05, sprite: 'fungus' },
-  },
-  {
     id: 'throne', name: 'The Ashen Throne', depths: [6],
     wall: 'wall_throne', wallAlt: 'wall_throne_b', wallSecret: 'wall_throne_s',
     floor: 'floor_throne', ceiling: 'ceil_throne', door: 'door_iron',
@@ -90,6 +83,21 @@ export const BIOMES: BiomeDef[] = [
   },
 ];
 
+/**
+ * The old depth-5 biome remains readable for saves made before Sporegrove
+ * replaced its duplicate walls. It is not selectable for newly generated
+ * floors and is intentionally absent from the art sheet.
+ */
+const LEGACY_BIOMES: BiomeDef[] = [
+  {
+    id: 'caverns', name: 'The Glowing Warrens', depths: [5],
+    wall: 'wall_cave', wallAlt: 'wall_cave_b', wallSecret: 'wall_cave_s',
+    floor: 'floor_cave', ceiling: 'ceil_cave', door: 'door_iron',
+    fog: '#020705', ambient: '#1c3028', torch: '#ffc890', torchDensity: 0.045,
+    glow: { color: '#40e0c0', density: 0.05, sprite: 'fungus' },
+  },
+];
+
 export function biomeForDepth(depth: number, seed?: number): BiomeDef {
   const choices = BIOMES.filter((b) => b.depths.includes(depth));
   if (!choices.length) return BIOMES.find((b) => b.id === 'throne')!;
@@ -97,7 +105,9 @@ export function biomeForDepth(depth: number, seed?: number): BiomeDef {
 }
 
 export function biomeForFloor(floor: { biome: string; depth: number }): BiomeDef {
-  return BIOMES.find((b) => b.id === floor.biome) ?? biomeForDepth(floor.depth);
+  return BIOMES.find((b) => b.id === floor.biome)
+    ?? LEGACY_BIOMES.find((b) => b.id === floor.biome)
+    ?? biomeForDepth(floor.depth);
 }
 
 /** The roof texture for a floor, including the Burrows' transition from above. */

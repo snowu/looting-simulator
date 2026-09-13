@@ -1,7 +1,7 @@
 {
   "note": "Original Hard stats and loot stay pinned to the pre-difficulty game. Variety intentionally changed floors; varietyFloorHash pins the new layout and spawn result while floorHash retains the historical baseline.",
   "floorHash": "b182a0fb",
-  "varietyFloorHash": "dc0015cd",
+  "varietyFloorHash": "12740a15",
   "lootHash": "c87954b9",
   "enemyHp": {
     "rat": [

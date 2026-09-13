@@ -122,7 +122,11 @@ Every generated floor is checked: all walkable tiles reachable, keys reachable w
 |---|---|---|---|
 | 1–2 | The Ossuary | Wood | Stone brickwork, bone niches, warm torchlight |
 | 3–4 | The Deep Mines | Wood | Rubble walls, timber supports, dirt floors |
-| 5 | The Glowing Warrens | Iron | Wet stone, glowing fungus (light sources), darkest biome |
+| 1–3 | The Sunken Catacombs | Wood | Wet stone, cold fungus, drowned dead |
+| 1–3 | The Vermin Burrows | Wood | Packed earth, roots, vermin and stalkers |
+| 3–5 | The Frost Vault | Iron | Blue stone, fractured ice, frostbound guards |
+| 3–5 | The Emberworks | Iron | Soot-black masonry, hot seams, fire creatures |
+| 3–5 | The Sporegrove | Wood | Green stone, luminous fungus, spore hunters |
 | 6 | The Ashen Throne | Iron | Obsidian with glowing mortar, banners, the boss |
 
 ---

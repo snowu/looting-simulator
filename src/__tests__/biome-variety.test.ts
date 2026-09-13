@@ -23,6 +23,12 @@ describe('run biome variety', () => {
     for (let seed = 1; seed <= 12; seed++) expect(generateFloor(seed, 6).biome).toBe('throne');
   });
 
+  it('keeps the retired duplicate cavern biome out of the choices', () => {
+    expect(BIOMES.some((b) => b.id === 'caverns')).toBe(false);
+    for (let seed = 1; seed <= 12; seed++) expect(generateFloor(seed, 5).biome).not.toBe('caverns');
+    expect(biomeForFloor({ biome: 'caverns', depth: 5 }).id).toBe('caverns');
+  });
+
   it('gives the vault, forge and burrows visibly different floors', () => {
     const ids = ['frostvault', 'emberworks', 'burrows', 'mines'];
     const floors = ids.map((id) => BIOMES.find((b) => b.id === id)!.floor);

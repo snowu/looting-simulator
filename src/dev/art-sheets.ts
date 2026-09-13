@@ -138,17 +138,6 @@ function creatureGroup(title: string, cls: CreatureClass): SheetGroup {
   };
 }
 
-function biomeCeilings(b: (typeof BIOMES)[number]): SheetCell[] {
-  if (b.id !== 'burrows') return [{ id: b.ceiling, label: 'ceiling' }];
-
-  const inherited = new Map<string, string>();
-  for (const previous of BIOMES) {
-    const canPrecede = b.depths.some((depth) => depth > 1 && previous.depths.includes(depth - 1));
-    if (canPrecede) inherited.set(previous.floor, previous.name);
-  }
-  return [...inherited].map(([id, name]) => ({ id, label: `ceiling · ${name}` }));
-}
-
 const biomeGroups: SheetGroup[] = BIOMES.map((b) => ({
   title: b.name,
   cells: [
@@ -156,7 +145,9 @@ const biomeGroups: SheetGroup[] = BIOMES.map((b) => ({
     { id: b.wallAlt, label: 'wall alt' },
     { id: b.wallSecret, label: 'secret' },
     { id: b.floor, label: 'floor' },
-    ...biomeCeilings(b),
+    // Burrows swaps this fallback for the preceding floor's texture at runtime.
+    // The sheet only needs one representative tile; the transition logic is code.
+    { id: b.ceiling, label: 'ceiling' },
     { id: b.door, label: 'door' },
   ],
 }));

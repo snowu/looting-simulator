@@ -28,7 +28,7 @@ import { audio } from './audio/sfx';
 
 type Mode = 'title' | 'town' | 'dungeon' | 'summary';
 
-const AMBIENT: Record<string, [number, number]> = { crypt: [55, 0.3], mines: [49, 0.5], caverns: [62, 0.75], throne: [41, 0.4] };
+const AMBIENT: Record<string, [number, number]> = { crypt: [55, 0.3], mines: [49, 0.5], caverns: [62, 0.75], sporegrove: [62, 0.75], throne: [41, 0.4] };
 
 // --- State ---------------------------------------------------------------------
 // The playthrough in front of the player. Each slot is a separate game with
