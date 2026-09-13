@@ -5,6 +5,7 @@ import { MATERIALS } from '../data/materials';
 import { CONSUMABLES, ITEM_BASES } from '../data/items';
 import { BIOMES } from '../data/biomes';
 import { ENEMIES, KING_PHASES } from '../data/enemies';
+import { SHEETS } from '../dev/art-sheets';
 
 describe('pixel art', () => {
   it('every art def is well-formed and rasterises', () => {
@@ -45,12 +46,59 @@ describe('pixel art', () => {
     for (const id of needed) expect(getArt(id), id).toBeDefined();
   });
 
-  it('gives every enemy a visibly different attack pose', () => {
+  /**
+   * Share of the creature that changes between two frames, counted over the
+   * pixels either frame draws rather than over the canvas — otherwise a bat at
+   * 0.45 scale, which is mostly empty air, scores as though it were a king.
+   */
+  function poseChange(a: string, b: string): number {
+    const x = rasterize(getArt(a)!, undefined, getArt);
+    const y = rasterize(getArt(b)!, undefined, getArt);
+    let changed = 0;
+    let ink = 0;
+    for (let i = 0; i < x.data.length; i += 4) {
+      if (x.data[i + 3] || y.data[i + 3]) ink++;
+      if (
+        x.data[i] !== y.data[i] || x.data[i + 1] !== y.data[i + 1] ||
+        x.data[i + 2] !== y.data[i + 2] || x.data[i + 3] !== y.data[i + 3]
+      ) changed++;
+    }
+    return changed / Math.max(1, ink);
+  }
+
+  /**
+   * A tell you cannot see is not a tell. The renderer gives a creature two
+   * frames and about a third of a second to say "this is the blow" — so the
+   * frames have to differ by more than a few pixels of tongue or a mouth slot,
+   * which is what the Giant Rat, the Cave Bat, the wisps and the Mimic all used
+   * to differ by. The floor is deliberately low: it catches art that forgot to
+   * move, not art that is merely restrained.
+   */
+  const TELL_FLOOR = 0.08;
+
+  it('gives every enemy an attack pose that changes a readable share of it', () => {
     const sprites = new Set([...ENEMIES.map((e) => e.sprite), ...KING_PHASES.map((p) => p.sprite)]);
     for (const sprite of sprites) {
-      const idle = rasterize(getArt(`${sprite}_0`)!, undefined, getArt);
-      const attack = rasterize(getArt(`${sprite}_atk`)!, undefined, getArt);
-      expect(attack.data, sprite).not.toEqual(idle.data);
+      expect(poseChange(`${sprite}_0`, `${sprite}_atk`), `${sprite} attack`).toBeGreaterThan(TELL_FLOOR);
+    }
+  });
+
+  it('gives every shieldbearer a guard that reads apart from its idle', () => {
+    const shields = [
+      ...ENEMIES.filter((e) => e.shield).map((e) => e.sprite),
+      ...KING_PHASES.filter((p) => p.shield).map((p) => p.sprite),
+    ];
+    expect(shields.length).toBeGreaterThan(0);
+    for (const sprite of shields) {
+      expect(poseChange(`${sprite}_0`, `${sprite}_block`), `${sprite} guard`).toBeGreaterThan(TELL_FLOOR);
+    }
+  });
+
+  it('has art for every frame the dev art sheet lists', () => {
+    for (const s of SHEETS) {
+      for (const group of s.groups) {
+        for (const cell of group.cells) expect(getArt(cell.id), `${s.id}/${cell.id}`).toBeDefined();
+      }
     }
   });
 });

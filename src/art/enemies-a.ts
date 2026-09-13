@@ -1,5 +1,6 @@
 import { ArtDef } from './raster';
 import { rows, stamp, sym } from './helpers';
+import { bowAtRest, bowDrawn } from './weapons';
 
 // Front-facing 32×32 enemy sprites, feet on the bottom row. Each enemy has an
 // idle frame (`<id>_0`) and an attack/telegraph frame (`<id>_atk`).
@@ -40,12 +41,16 @@ const RAT_HALF = rows(`
   ...kkkkpkpkkkkkk
   ......kkkkk.....
 `);
+// The bite. A rat is 0.55 scale and mostly head on screen, so the jaws have to
+// take the whole face: the old bite opened a four-pixel slot and changed one
+// twentieth of the creature.
 const RAT_BITE = rows(`
-  kbbcbbbbckbbkkkk
-  kabbbbbbbckbkwkm
-  kaabbbbbbbkbkmmm
-  kaaabbbbbbbkkwkm
-  .kaaabbbbbbbkkkk
+  kbbcbbbbckkkkkkk
+  kabbbbbbbkwkwkwk
+  kaabbbbbbkmmmmmm
+  kaaabbbbbkmmmmmm
+  .kaaabbbbkmmmmmm
+  .kaaaabbbkkwkwkk
 `);
 const RAT_PAL = { k: '#140e0c', a: '#3a2c24', b: '#5e4a3c', c: '#7e6654', p: '#c88080', r: '#ff3020fa', w: '#f0e8d8', m: '#6a0c0c' };
 
@@ -224,60 +229,29 @@ const SKELETON_PAL = {
 };
 const SKELETON_BASE = sym(SKELETON_HALF);
 
-// --- Skeleton archer -----------------------------------------------------------
-const BOW_SIDE = rows(`
-  ...kh
-  ..khl
-  ..khl
-  .kh.l
-  .kh.l
-  kh..l
-  kh..l
-  kg..l
-  kg..l
-  kh..l
-  kh..l
-  .kh.l
-  .kh.l
-  ..khl
-  ..khl
-  ...kh
-`);
-// Both archers move their existing bow from the side to the center of the
-// body. The arrow comes forward, but the weapon never changes shape or
-// disappears as it did in the old front-on attack stamp.
-const AIMED_ARROW = rows(`
-  ...k...
-  ..ksk..
-  .ksssk.
-  ksswssk
-  .ksssk.
-  ..ksk..
-  ...k...
-`);
-const ARCHER_PAL = { ...SKELETON_PAL, h: '#6a4424', g: '#e2d9c2', l: '#d8d0c0', s: '#b0b0ba', w: '#fff4d0fa' };
+// --- Archers -------------------------------------------------------------------
+// The skeleton, the goblin and the four elemental archers all carry the bow
+// from `weapons.ts`: same silhouette at rest, same long V when it is drawn.
+// Ranged creatures are read by their weapon before anything else, so the
+// weapon is the thing that must not vary between them.
+//
+// The old side bow was a filled ellipse — at sprite scale it read as a small
+// shield — and the old attack frame swapped it for a diamond on the chest.
+const ARCHER_PAL = {
+  ...SKELETON_PAL,
+  Y: '#4a3218', Z: '#a8763f', X: '#8e877a', P: '#c8ccd6', H: '#f2f6ff', F: '#aa9e84',
+};
+/**
+ * The skeleton's arms hang past its hips, and with the bow across its chest
+ * that read as four limbs. Cut both forearms back to where the pose puts a
+ * hand — one closed on the riser, one on the held shaft.
+ */
+const ARCHER_TRIM_ARMS = Array.from({ length: 6 }, () => '_'.repeat(4));
 
-// --- Goblin archer ---------------------------------------------------------------
-// Same cutpurse base, but the dagger is swapped for a short bow: slack at the
-// side when idle, drawn front-on for the shot.
-const GOB_BOW_SIDE = rows(`
-  ...kw
-  ..ktw
-  ..ktw
-  .kt.w
-  .kt.w
-  kt..w
-  kt..w
-  ku..w
-  ku..w
-  kt..w
-  kt..w
-  .kt.w
-  .kt.w
-  ..ktw
-  ..ktw
-  ...kw
-`);
+const GOB_ARCHER_PAL = {
+  ...GOBLIN_PAL,
+  Y: '#3a2410', Z: '#8a5c2a', X: '#8e877a', P: '#b4b4c0', H: '#eef0f8', F: '#3a5020',
+};
 
 // --- Shieldbearers ---------------------------------------------------------------
 // Round shields strapped to the left forearm, same spot idle and attacking —
@@ -323,6 +297,11 @@ const SKEL_ERASE_ARM = rows(`
 // The left arm bends across the body and the shield comes center: the same
 // arm, redrawn — not a second shield teleported in. The weapon arm stays
 // hanging with its weapon down, exactly as in idle.
+//
+// The guard sits on the chest, not under the chin. Held at head height it
+// covered the face, which is where every one of these creatures keeps the eyes
+// that tell you it has seen you; and the elbow now swings clear of the body,
+// because a shield that only slides across is a shield you do not notice.
 const GOB_ERASE_LEFT = rows(`
   ________
   ________
@@ -339,14 +318,12 @@ const GOB_ERASE_LEFT = rows(`
   ________
 `);
 const GOB_BENT_ARM = rows(`
-  .....kk..........
-  .....kggk........
-  ......kggk.......
-  .......kggk......
-  .......kggkk.....
-  ........kggk.....
-  .........kkk.....
-  ..........k......
+  kgk.....
+  kgkk....
+  kgggk...
+  .kgggk..
+  ..kgggk.
+  ...kkkk.
 `);
 const SKEL_ERASE_LEFT = rows(`
   _______
@@ -363,14 +340,12 @@ const SKEL_ERASE_LEFT = rows(`
   _______
 `);
 const SKEL_BENT_ARM = rows(`
-  .....kk..........
-  .....kwwk........
-  ......kwwk.......
-  .......kwwk......
-  .......kwwkk.....
-  ........kwwk.....
-  .........kkk.....
-  ..........k......
+  kwk.....
+  kwkk....
+  kwwwk...
+  .kwwwk..
+  ..kwwwk.
+  ...kkkk.
 `);
 const GOB_SHIELD = rows(`
   ..kkk..
@@ -385,16 +360,15 @@ const GOB_SHIELD = rows(`
 `);
 const SKEL_SHIELD = rows(`
   ..kkk..
-  .kwwwk.
-  kwwwwwk
-  kwwjwwk
-  kwjsjwk
-  kwwjwwk
-  kwwwwwk
-  .kwwwk.
+  .kjjjk.
+  kjsssjk
+  kjsjsjk
+  kjjwjjk
+  kjsjsjk
+  kjsssjk
+  .kjjjk.
   ..kkk..
 `);
-
 // --- Cave spider ---------------------------------------------------------------
 const SPIDER_HALF = rows(`
   ................
@@ -503,12 +477,17 @@ const BAT_HALF = rows(`
   ................
 `);
 // Wings swept back and maw open: the frame it snaps forward on.
+// Wings swept forward and the maw open across the whole body: at 0.45 scale a
+// bat is a smudge with a mouth, and the mouth is the only thing that can carry
+// the tell.
 const BAT_LUNGE = rows(`
-  .kwwwwk.
-  kwmmmmwk
-  kmmmmmmk
-  .kwmmwk.
-  ..kkkk..
+  ..kwwwwwwk..
+  .kwmmmmmmwk.
+  kwmmmmmmmmwk
+  kmmmwmmwmmmk
+  .kwmmmmmmwk.
+  ..kwmmmmwk..
+  ...kkwwkk...
 `);
 const BAT_PAL = {
   k: '#090608', a: '#3e2a30', b: '#63464c', c: '#8a5c46', d: '#ab7458',
@@ -581,9 +560,11 @@ const BARROW_PAL = {
   s: '#5a5e50', j: '#3e4238', m: '#3e3e46', n: '#6a6a76',
 };
 
+const archerBones = stamp(stamp(SKELETON_BASE, ARCHER_TRIM_ARMS, 5, 20), ARCHER_TRIM_ARMS, 23, 20);
+
 export const ENEMY_ART_A: ArtDef[] = [
   { id: 'rat_0', palette: RAT_PAL, rows: sym(RAT_HALF) },
-  { id: 'rat_atk', palette: RAT_PAL, rows: sym(stamp(RAT_HALF, RAT_BITE, 0, 23)) },
+  { id: 'rat_atk', palette: RAT_PAL, rows: sym(stamp(RAT_HALF, RAT_BITE, 0, 22)) },
 
   { id: 'goblin_0', palette: GOBLIN_PAL, rows: stamp(GOBLIN_BASE, GOBLIN_DAGGER, 28, 15) },
   {
@@ -595,17 +576,18 @@ export const ENEMY_ART_A: ArtDef[] = [
   { id: 'skeleton_0', palette: SKELETON_PAL, rows: stamp(SKELETON_BASE, SKELETON_SWORD, 23, 8) },
   { id: 'skeleton_atk', palette: SKELETON_PAL, rows: stamp(stamp(SKELETON_BASE, ERASE_4x11, 23, 14), SKELETON_RAISED, 20, 0) },
 
-  { id: 'archer_0', palette: ARCHER_PAL, rows: stamp(SKELETON_BASE, BOW_SIDE, 2, 8) },
-  { id: 'archer_atk', palette: ARCHER_PAL, rows: stamp(stamp(SKELETON_BASE, BOW_SIDE, 10, 8), AIMED_ARROW, 13, 13) },
+  { id: 'archer_0', palette: ARCHER_PAL, rows: bowAtRest(archerBones) },
+  { id: 'archer_atk', palette: ARCHER_PAL, rows: bowDrawn(archerBones) },
 
-  { id: 'gobarcher_0', palette: GOBLIN_PAL, rows: stamp(GOBLIN_BASE, GOB_BOW_SIDE, 1, 8) },
-  { id: 'gobarcher_atk', palette: GOBLIN_PAL, rows: stamp(stamp(GOBLIN_BASE, GOB_BOW_SIDE, 10, 8), AIMED_ARROW, 13, 13) },
+  // The goblin is the squat one: everything sits two rows lower on it.
+  { id: 'gobarcher_0', palette: GOB_ARCHER_PAL, rows: bowAtRest(GOBLIN_BASE, 2) },
+  { id: 'gobarcher_atk', palette: GOB_ARCHER_PAL, rows: bowDrawn(GOBLIN_BASE, 2) },
 
   { id: 'gobshield_0', palette: GOBLIN_PAL, rows: stamp(stamp(GOBLIN_BASE, GOBLIN_DAGGER, 28, 15), GOB_SHIELD, 0, 20) },
   {
     id: 'gobshield_block',
     palette: GOBLIN_PAL,
-    rows: stamp(stamp(stamp(stamp(GOBLIN_BASE, GOB_ERASE_LEFT, 0, 18), GOB_BENT_ARM, 0, 13), GOB_SHIELD, 9, 13), GOBLIN_DAGGER, 28, 15),
+    rows: stamp(stamp(stamp(stamp(GOBLIN_BASE, GOB_ERASE_LEFT, 0, 18), GOB_BENT_ARM, 4, 16), GOB_SHIELD, 9, 16), GOBLIN_DAGGER, 28, 15),
   },
   {
     id: 'gobshield_atk',
@@ -617,7 +599,7 @@ export const ENEMY_ART_A: ArtDef[] = [
   {
     id: 'skelshield_block',
     palette: SKELETON_PAL,
-    rows: stamp(stamp(stamp(stamp(SKELETON_BASE, SKEL_ERASE_LEFT, 2, 15), SKEL_BENT_ARM, 0, 13), SKEL_SHIELD, 9, 13), SKELETON_SWORD, 23, 8),
+    rows: stamp(stamp(stamp(stamp(SKELETON_BASE, SKEL_ERASE_LEFT, 2, 15), SKEL_BENT_ARM, 6, 15), SKEL_SHIELD, 9, 16), SKELETON_SWORD, 23, 8),
   },
   {
     id: 'skelshield_atk',
@@ -636,5 +618,5 @@ export const ENEMY_ART_A: ArtDef[] = [
   },
 
   { id: 'bat_0', palette: BAT_PAL, rows: sym(BAT_HALF) },
-  { id: 'bat_atk', palette: BAT_PAL, rows: stamp(sym(BAT_HALF), BAT_LUNGE, 12, 12) },
+  { id: 'bat_atk', palette: BAT_PAL, rows: stamp(sym(BAT_HALF), BAT_LUNGE, 10, 11) },
 ];

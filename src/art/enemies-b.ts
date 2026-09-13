@@ -107,10 +107,13 @@ const WISP_HALF = rows(`
   ................
   ................
 `);
+// Wide open, and the light gathers behind it. A wisp is a face made of fire,
+// so the only tell it can have is how much of that face is mouth.
 const WISP_MAW = rows(`
+  ....abbccdkkkkkk
+  .....abbcdkkkkkk
+  .....abbcdkkkkkk
   .....abbccdkkkkk
-  ......abbccdkkkk
-  ......abbbcdkkkk
 `);
 const WISP_PAL = { a: '#1a3a8afa', b: '#3a70d0fa', c: '#80c0fffa', d: '#e0f4fffa', e: '#fffffffa', k: '#0a1030' };
 // The same light, burning instead of freezing — the trick the archer plays on
@@ -245,14 +248,12 @@ const KNIGHT_ERASE_LEFT = rows(`
   _______
 `);
 const KNIGHT_BENT_ARM = rows(`
-  ....kkkk..........
-  ...kcccck.........
-  ...kccccck........
-  ....kccccck.......
-  .....kccccck......
-  ......kcccckk.....
-  .......kccck......
-  ........kkk.......
+  kck.....
+  kckk....
+  kcbck...
+  .kcbck..
+  ..kcbck.
+  ...kkkk.
 `);
 const KNIGHT_BASE = sym(KNIGHT_HALF);
 
@@ -291,14 +292,28 @@ const WRAITH_HALF = rows(`
   ................
   ................
 `);
-const WRAITH_CAST = rows(`
-  ...oooo.kdccckkk
-  ..oyyyyokdcccccc
-  ..oywwyokdcccccc
-  ..oyyyyokdcccccc
-  ...oooookddccdcc
+// Both hands up and a gathered ball of fire between them. The old cast frame
+// mirrored two small flames to the outside of the body, which is where the
+// idle frame already keeps four of them — so the tell was invisible.
+const WRAITH_ARMS_UP = rows(`
+  ....oo..kdccckkk
+  ...oyyokkdcccccc
+  ...oywyokdcccccc
+  ....oyokdcccccff
+  .....okddccdcfcc
 `);
-const WRAITH_PAL = { k: '#140604', r: '#7a1a08fa', o: '#d05010fa', y: '#ffa030fa', w: '#fff0a0fa', c: '#2a0e08', d: '#401810' };
+const WRAITH_ORB = rows(`
+  ...oooo...
+  ..oyyyyo..
+  .oywwwwyo.
+  oywwwwwwyo
+  oywwwwwwyo
+  oywwwwwwyo
+  .oywwwwyo.
+  ..oyyyyo..
+  ...oooo...
+`);
+const WRAITH_PAL = { k: '#140604', r: '#7a1a08fa', o: '#d05010fa', y: '#ffa030fa', w: '#fff0a0fa', c: '#2a0e08', d: '#401810', f: '#5a2416' };
 
 // --- The Ashen King (48×48) ----------------------------------------------------------
 const KING_HALF = rows(`
@@ -400,6 +415,23 @@ const KING_CROWN_BREAK = rows(`
 `);
 const KING_LAST_BASE = stamp(KING_BASE, KING_CROWN_BREAK, 22, 3);
 
+/**
+ * The shot gathering on the scepter's gem. He is a caster at range, and the
+ * raised scepter on its own moved a tenth of his pixels — on a creature that
+ * fills half the screen, a tell has to be light, not posture.
+ */
+const KING_GATHER = rows(`
+  ...rrr...
+  ..reeer..
+  .reeeeer.
+  reeeeeeer
+  reeeeeeer
+  reeeeeeer
+  .reeeeer.
+  ..reeer..
+  ...rrr...
+`);
+
 /** A bar of held shadow, emissive so it reads against the dark he made. */
 const KING_WARD = rows(`
   .eeeeeeeeeeeeee.
@@ -432,35 +464,37 @@ export const ENEMY_ART_B: ArtDef[] = [
   { id: 'ghoul_atk', palette: GHOUL_PAL, rows: sym(GHOUL_ATK_HALF) },
 
   { id: 'wisp_0', palette: WISP_PAL, rows: sym(WISP_HALF) },
-  { id: 'wisp_atk', palette: WISP_PAL, rows: sym(stamp(WISP_HALF, WISP_MAW, 0, 16)) },
+  { id: 'wisp_atk', palette: WISP_PAL, rows: sym(stamp(WISP_HALF, WISP_MAW, 0, 15)) },
 
   { id: 'ember_0', palette: EMBER_PAL, rows: sym(WISP_HALF) },
-  { id: 'ember_atk', palette: EMBER_PAL, rows: sym(stamp(WISP_HALF, WISP_MAW, 0, 16)) },
+  { id: 'ember_atk', palette: EMBER_PAL, rows: sym(stamp(WISP_HALF, WISP_MAW, 0, 15)) },
 
   { id: 'knight_0', palette: KNIGHT_PAL, rows: stamp(stamp(KNIGHT_BASE, GREATSWORD_REST, 25, 19), KNIGHT_SHIELD, 1, 18) },
   { id: 'knight_atk', palette: KNIGHT_PAL, rows: stamp(stamp(stamp(KNIGHT_BASE, KNIGHT_ERASE_RIGHT, 24, 14), KNIGHT_RAISED, 22, 0), KNIGHT_SHIELD, 1, 16) },
   {
     id: 'knight_block',
     palette: KNIGHT_PAL,
-    rows: stamp(stamp(stamp(stamp(KNIGHT_BASE, KNIGHT_ERASE_LEFT, 1, 17), KNIGHT_BENT_ARM, 0, 13), KNIGHT_SHIELD, 12, 13), GREATSWORD_REST, 25, 19),
+    rows: stamp(stamp(stamp(stamp(KNIGHT_BASE, KNIGHT_ERASE_LEFT, 1, 17), KNIGHT_BENT_ARM, 5, 14), KNIGHT_SHIELD, 11, 15), GREATSWORD_REST, 25, 19),
   },
 
   { id: 'wraith_0', palette: WRAITH_PAL, rows: sym(WRAITH_HALF) },
-  { id: 'wraith_atk', palette: WRAITH_PAL, rows: sym(stamp(WRAITH_HALF, WRAITH_CAST, 0, 12)) },
+  // The orb is stamped after the mirror, so there is one of it, in the middle,
+  // where a gathered shot belongs.
+  { id: 'wraith_atk', palette: WRAITH_PAL, rows: stamp(sym(stamp(WRAITH_HALF, WRAITH_ARMS_UP, 0, 10)), WRAITH_ORB, 11, 14) },
 
   { id: 'king_0', palette: KING_PAL, rows: stamp(KING_BASE, SCEPTER, 40, 8) },
-  { id: 'king_atk', palette: KING_PAL, rows: stamp(stamp(KING_BASE, SCEPTER, 40, 1), KING_ROAR, 19, 17) },
+  { id: 'king_atk', palette: KING_PAL, rows: stamp(stamp(stamp(KING_BASE, SCEPTER, 40, 1), KING_ROAR, 19, 17), KING_GATHER, 39, 0) },
 
   // The Dark. Same king, drowned: every colour sinks toward the stone and only
   // the eyes and the gem keep their alpha, so once he puts the room out there
   // is nothing left of him but two coals and the light on his scepter.
   { id: 'king_dark_0', palette: KING_PAL_DARK, rows: stamp(KING_BASE, SCEPTER, 40, 8) },
-  { id: 'king_dark_atk', palette: KING_PAL_DARK, rows: stamp(stamp(KING_BASE, SCEPTER, 40, 1), KING_ROAR, 19, 17) },
+  { id: 'king_dark_atk', palette: KING_PAL_DARK, rows: stamp(stamp(stamp(KING_BASE, SCEPTER, 40, 1), KING_ROAR, 19, 17), KING_GATHER, 39, 0) },
 
   // The Last Stand. The crown has lost its two inner points and the robe has
   // gone to embers. Bright enough to read against the dark he made.
   { id: 'king_last_0', palette: KING_PAL_LAST, rows: stamp(KING_LAST_BASE, SCEPTER, 40, 8) },
-  { id: 'king_last_atk', palette: KING_PAL_LAST, rows: stamp(stamp(KING_LAST_BASE, SCEPTER, 40, 1), KING_ROAR, 19, 17) },
+  { id: 'king_last_atk', palette: KING_PAL_LAST, rows: stamp(stamp(stamp(KING_LAST_BASE, SCEPTER, 40, 1), KING_ROAR, 19, 17), KING_GATHER, 39, 0) },
   // The guard. He has no shield, so the tell is the scepter held high and a
   // ward of shadow across his chest — raised-and-silent reads as "up", and the
   // same scepter with the mouth open is the swing landing. The whole phase asks
