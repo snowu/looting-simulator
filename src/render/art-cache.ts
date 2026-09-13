@@ -1,13 +1,14 @@
 import * as THREE from 'three';
 import { ALL_ART, getArt } from '../art/registry';
 import { Ramp, rasterize } from '../art/raster';
+import { recolorIcon } from './recolor-icon';
 
 /**
  * Browser-side cache turning art defs into canvases, textures and CSS URLs.
  *
  * Hand-drawn PNG overrides: list art ids in `public/art/manifest.json`
  * (e.g. ["wall_crypt", "rat_0"]) and drop `public/art/<id>.png` next to it.
- * An override replaces the built-in grid (ramp recolouring doesn't apply).
+ * An override replaces the built-in grid. Icon PNGs retain material ramp recolouring.
  */
 
 const canvases = new Map<string, HTMLCanvasElement>();
@@ -67,6 +68,14 @@ export function artCanvas(id: string, ramp?: Ramp): HTMLCanvasElement {
     canvas.width = img.naturalWidth;
     canvas.height = img.naturalHeight;
     ctx.drawImage(img, 0, 0);
+    if (ramp && id.startsWith('ic_')) {
+      const def = getArt(id);
+      if (def) {
+        const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        recolorIcon(pixels.data, def, ramp);
+        ctx.putImageData(pixels, 0, 0);
+      }
+    }
   } else {
     const def = getArt(id);
     if (!def) throw new Error(`missing art ${id}`);

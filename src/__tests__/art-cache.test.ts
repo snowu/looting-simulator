@@ -4,12 +4,22 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ALL_ART, getArt } from '../art/registry';
 import { rasterize } from '../art/raster';
 import { loadArtOverrides } from '../render/art-cache';
+import { recolorIcon } from '../render/recolor-icon';
 
 const artIds = ALL_ART.map((art) => art.id);
 
 afterEach(() => vi.unstubAllGlobals());
 
 describe('art overrides', () => {
+  it('recolors an exported potion while preserving its glass and cork', () => {
+    const def = getArt('ic_potion')!;
+    const original = rasterize(def);
+    const ramp: [string, string, string, string] = ['#6a0808', '#af2020', '#e05040', '#ffaaa0'];
+    const expected = rasterize(def, ramp);
+    recolorIcon(original.data, def, ramp);
+    expect(original.data).toEqual(expected.data);
+  });
+
   it('ships a valid, correctly sized PNG for every art ID', () => {
     const artDir = resolve(process.cwd(), 'public/art');
     const manifest: string[] = JSON.parse(readFileSync(resolve(artDir, 'manifest.json'), 'utf8'));
