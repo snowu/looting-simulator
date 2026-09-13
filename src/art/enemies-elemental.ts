@@ -16,7 +16,7 @@ const ARCHER_HALF = rows(`
   .......kbcckmmvm
   ........kcckmmmm
   ........kcckmmmm
-  .........kkkmfff
+  .........kkkmmmm
   .........kkdkkkk
   .......kkdddeeed
   .....kkdddeeeeed
@@ -40,12 +40,12 @@ const ARCHER_HALF = rows(`
 `);
 const ARCHER_PAL = {
   k: '#0b1019', b: '#273445', c: '#506476', d: '#283342', e: '#647a8a',
-  m: '#111722', f: '#b69470', g: '#ac8d69', v: '#ffe6abfa',
+  m: '#111722', g: '#ac8d69', v: '#ffe6abfa',
   a: '#8b6844', s: '#d8c6a3', t: '#d5d7c9',
 };
-// Slack on the left in idle; raised in front of the chest when drawing. The
-// bow itself changes position and curve, rather than just the glowing arrow.
-const BOW_IDLE = rows(`
+// The same recurved bow is carried at the side and raised into the shot.
+// Keeping its pixels identical across frames makes the movement legible.
+const BOW = rows(`
   ..kaa..
   .ka..s.
   ka...s.
@@ -63,23 +63,6 @@ const BOW_IDLE = rows(`
   ka...s.
   .ka..s.
   ..kaa..
-`);
-const BOW_DRAWN = rows(`
-  ....aaa....
-  ...aa.s....
-  ..aa..s....
-  .aa...s....
-  aa....s....
-  a.....s....
-  a.....s....
-  a.....s....
-  a.....s....
-  a.....s....
-  aa....s....
-  .aa...s....
-  ..aa..s....
-  ...aa.s....
-  ....aaa....
 `);
 const QUIVER = rows(`
   t.t.t
@@ -123,8 +106,8 @@ const TIP_DRAWN = rows(`
   ..GGG..
 `);
 const bodyArcher = sym(ARCHER_HALF);
-const idleArcher = stamp(stamp(stamp(bodyArcher, QUIVER, 25, 13), BOW_IDLE, 0, 9), HELD_ARROW, 21, 15);
-const attackArcher = stamp(stamp(bodyArcher, BOW_DRAWN, 7, 8), DRAWN_ARROW, 10, 14);
+const idleArcher = stamp(stamp(stamp(bodyArcher, QUIVER, 25, 13), BOW, 0, 9), HELD_ARROW, 21, 15);
+const attackArcher = stamp(stamp(bodyArcher, BOW, 8, 9), DRAWN_ARROW, 10, 14);
 
 const ELEMENTS = [
   { sprite: 'cinder', tip: '#ff9a28fa', core: '#fff0a8fa', trim: '#83452f' },
