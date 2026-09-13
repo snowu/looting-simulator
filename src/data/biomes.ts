@@ -60,7 +60,7 @@ export const BIOMES: BiomeDef[] = [
   {
     id: 'burrows', name: 'The Vermin Burrows', depths: [1, 2, 3],
     wall: 'wall_burrows', wallAlt: 'wall_burrows_b', wallSecret: 'wall_burrows_s',
-    floor: 'floor_burrows', ceiling: 'ceil_cave', door: 'door_wood',
+    floor: 'floor_burrows', ceiling: 'floor_cave', door: 'door_wood',
     fog: '#0e0904', ambient: '#3a2b1a', torch: '#ffbb70', torchDensity: 0.055,
     favoredEnemies: ['rat', 'bat', 'spider', 'goblin', 'tunnel_stalker'],
   },

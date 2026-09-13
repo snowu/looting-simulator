@@ -31,4 +31,10 @@ describe('run biome variety', () => {
     expect(new Set(pixels).size).toBe(ids.length);
     expect(BIOMES.find((b) => b.id === 'burrows')!.wall).not.toBe(BIOMES.find((b) => b.id === 'emberworks')!.wall);
   });
+
+  it('carries the preceding catacombs floor into the burrows roof', () => {
+    const catacombs = BIOMES.find((b) => b.id === 'catacombs')!;
+    const burrows = BIOMES.find((b) => b.id === 'burrows')!;
+    expect(burrows.ceiling).toBe(catacombs.floor);
+  });
 });
