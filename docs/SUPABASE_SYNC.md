@@ -59,35 +59,20 @@ while a `World` is active: `World` retains direct references to the existing
 
 ## Database
 
-One current save per Supabase user is enough initially:
+The source of truth is `supabase/game_saves.sql` — paste that file into the
+Supabase SQL editor. Do not copy SQL from this document; any snippet here will
+rot. Shape of the schema:
 
-```sql
-create table public.game_saves (
-  user_id uuid primary key references auth.users(id) on delete cascade,
-  state jsonb not null,
-  format_version integer not null,
-  schema_revision integer not null,
-  generation bigint not null default 1,
-  device_id text not null,
-  content_hash text not null,
-  updated_at timestamptz not null default now()
-);
-
-alter table public.game_saves enable row level security;
-
-create policy "players can read their own save"
-on public.game_saves for select
-using (auth.uid() = user_id);
-
-create policy "players can create their own save"
-on public.game_saves for insert
-with check (auth.uid() = user_id);
-
-create policy "players can update their own save"
-on public.game_saves for update
-using (auth.uid() = user_id)
-with check (auth.uid() = user_id);
-```
+- One row per playthrough: primary key `(user_id, slot)` with `slot` in 1..3,
+  plus a per-user unique `save_id` so a playthrough is recognised wherever a
+  device files it.
+- Row-level security is the security boundary: every policy is scoped to
+  `auth.uid() = user_id`. The `save_game` / `delete_game` functions run as
+  `security invoker` and derive the user from `auth.uid()` — the client never
+  sends a `user_id`.
+- Table constraints cap the blast radius of a tampered client: `state` ≤ 2MB,
+  `save_id` ≤ 64 chars, `device_id` ≤ 128 chars, `content_hash` exactly 16
+  lowercase hex chars. The RPC functions validate the same limits up front.
 
 Normal browser traffic uses the public publishable/anon key and the signed-in
 user's JWT. Never put a service-role key in this repository, GitHub Pages, Vite
@@ -95,23 +80,22 @@ variables or browser code. RLS is the security boundary.
 
 ### Compare-and-swap function
 
-Prefer a Postgres function over a direct upsert. Its contract should be:
+Uploads go through `save_game(slot, save_id, expected_generation, state,
+format_version, schema_revision, device_id, content_hash)` (see
+`supabase/game_saves.sql` for the exact contract):
 
-```text
-save_game(expected_generation, state, format_version, schema_revision,
-          device_id, content_hash)
-  -> { generation, updated_at }
-```
-
-- Insert generation 1 when the user has no row and the expected generation is
-  null.
+- Insert generation 1 when neither the playthrough nor the slot exists and the
+  expected generation is null.
+- Return `stale_client` when the caller is older than the row's format.
+- Return `unchanged` when the content hash already matches.
 - Update only where `user_id = auth.uid()` and `generation` equals
-  `expected_generation`.
+  `expected_generation`, otherwise return `conflict`.
 - Increment `generation` and set `updated_at = now()` in the database.
-- Return a distinct conflict result when the expected generation is stale.
-- Ignore an upload whose content hash already matches the current row.
 
-The server generation, not a device clock, decides ordering.
+The server generation, not a device clock, decides ordering. CAS ordering is a
+data-integrity guarantee for honest clients, not the security boundary: direct
+table writes are constrained by the same RLS policies and CHECK constraints,
+so they can only ever touch the caller's own rows.
 
 ## Client Structure
 

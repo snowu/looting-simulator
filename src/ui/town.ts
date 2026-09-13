@@ -31,6 +31,7 @@ import { derivePlayer } from '../systems/player';
 import { defaultSlot, equipFrom, unequipTo } from '../systems/equip';
 import { createRng, hashString, randomSeed } from '../core/rng';
 import { artImg, bothRegisters, btn, gold, h, hideTooltip, isTouchMode, itemSlot, itemTooltip, rarityColor, sparkline, statLines, toggleDetailed } from './dom';
+import { esc } from '../core/escape';
 import { artUrl } from '../render/art-cache';
 import { paperDoll, statSheet } from './dungeon-ui';
 import { audio } from '../audio/sfx';
@@ -671,7 +672,11 @@ export class Town {
         'div',
         { class: 'preview' },
         itemSlot(item, { size: 56, tip: () => itemTooltip(item, { compare: cmp }) }),
-        h('div', { html: `<div style="color:${rarityColor(item)};font-size:22px">${itemName(item)}</div><div class="dim">${item.rarity} · Rank ${rank} · quality ~${Math.round((item.quality ?? 1) * 100)}%</div>${statLines(itemStats(item), cmp ? itemStats(cmp) : undefined).join('')}` }),
+        // itemName/item.rarity ultimately derive from save data (a hand-edited
+        // or console-injected save can carry anything), so both are escaped
+        // before going into innerHTML. rarityColor/statLines only emit
+        // constants and numbers.
+        h('div', { html: `<div style="color:${rarityColor(item)};font-size:22px">${esc(itemName(item))}</div><div class="dim">${esc(String(item.rarity))} · Rank ${rank} · quality ~${Math.round((item.quality ?? 1) * 100)}%</div>${statLines(itemStats(item), cmp ? itemStats(cmp) : undefined).join('')}` }),
       );
     }
 

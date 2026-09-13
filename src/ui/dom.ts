@@ -46,9 +46,8 @@ export function artImg(id: string, ramp?: Ramp, size = 32): HTMLImageElement {
   return img;
 }
 
-export function esc(s: string): string {
-  return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
-}
+import { esc } from '../core/escape';
+export { esc };
 
 export function gold(n: number): string {
   return `${Math.floor(n).toLocaleString()}g`;
