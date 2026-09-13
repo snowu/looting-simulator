@@ -38,6 +38,44 @@ export type UploadResult =
   | { status: 'ok' | 'unchanged'; slot: Slot; generation: number; updatedAt: string }
   | { status: 'conflict' | 'stale_client'; slot: Slot; generation: number | null; updatedAt: string | null };
 
+/**
+ * Client-side mirrors of the `game_saves` table constraints (see
+ * supabase/game_saves.sql). The server enforces these too; checking here
+ * fails fast without a round trip and gives the UI something specific to say.
+ * Keep the two in sync.
+ */
+export const MAX_SAVE_ID_LENGTH = 64;
+export const MAX_DEVICE_ID_LENGTH = 128;
+export const CONTENT_HASH_RE = /^[0-9a-f]{16}$/;
+
+function assertSlot(slot: number): asserts slot is Slot {
+  if (!Number.isInteger(slot) || slot < 1 || slot > 3) throw new Error(`Invalid slot: ${String(slot)}`);
+}
+
+function assertSaveId(saveId: string | null | undefined): void {
+  if (saveId == null) return;
+  if (typeof saveId !== 'string' || saveId.length < 1 || saveId.length > MAX_SAVE_ID_LENGTH) {
+    throw new Error(`Invalid save id: must be 1-${MAX_SAVE_ID_LENGTH} chars`);
+  }
+}
+
+/** Validate upload metadata before paying for a round trip. Throws on misuse. */
+export function validateUploadArgs(args: {
+  slot: number;
+  saveId: string | null | undefined;
+  deviceId: string;
+  contentHash: string;
+}): void {
+  assertSlot(args.slot);
+  assertSaveId(args.saveId);
+  if (typeof args.deviceId !== 'string' || args.deviceId.length < 1 || args.deviceId.length > MAX_DEVICE_ID_LENGTH) {
+    throw new Error(`Invalid device id: must be 1-${MAX_DEVICE_ID_LENGTH} chars`);
+  }
+  if (typeof args.contentHash !== 'string' || !CONTENT_HASH_RE.test(args.contentHash)) {
+    throw new Error('Invalid content hash: must be 16 lowercase hex chars');
+  }
+}
+
 interface Row {
   slot: Slot;
   save_id: string | null;
@@ -130,6 +168,10 @@ export async function uploadSave(slot: Slot, state: GameState, expectedGeneratio
   if (isFutureSave(state)) return { status: 'stale_client', slot, generation: expectedGeneration, updatedAt: null };
 
   const raw = serializeSave(state);
+  const hash = contentHash(raw);
+  const did = deviceId();
+  // Fail fast on malformed metadata the server would reject anyway.
+  validateUploadArgs({ slot, saveId: state.saveId ?? null, deviceId: did, contentHash: hash });
   const { data, error } = await (await supabase()).rpc('save_game', {
     p_slot: slot,
     // Identity travels with the save, so the server can recognise this
@@ -139,8 +181,8 @@ export async function uploadSave(slot: Slot, state: GameState, expectedGeneratio
     p_state: JSON.parse(raw),
     p_format_version: state.version,
     p_schema_revision: state.revision ?? SAVE_REVISION,
-    p_device_id: deviceId(),
-    p_content_hash: contentHash(raw),
+    p_device_id: did,
+    p_content_hash: hash,
   });
   if (error) throw error;
 
@@ -159,6 +201,12 @@ export async function uploadSave(slot: Slot, state: GameState, expectedGeneratio
   return { status, slot: landed, generation: row.result_generation, updatedAt: row.result_updated_at };
 }
 
+/** Validate delete arguments before paying for a round trip. Throws on misuse. */
+export function validateDeleteArgs(args: { slot: number; saveId: string | null }): void {
+  assertSlot(args.slot);
+  assertSaveId(args.saveId);
+}
+
 /**
  * Delete a playthrough from the cloud, by identity where it has one.
  *
@@ -169,6 +217,7 @@ export async function uploadSave(slot: Slot, state: GameState, expectedGeneratio
  * title screen asks twice — so it wins over whatever generation is up there.
  */
 export async function deleteCloudSave(slot: Slot, saveId: string | null): Promise<void> {
+  validateDeleteArgs({ slot, saveId });
   const { error } = await (await supabase()).rpc('delete_game', {
     p_slot: slot,
     p_save_id: saveId,
