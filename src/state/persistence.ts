@@ -1,5 +1,5 @@
 import { GameState } from './game-state';
-import { parseSave, serializeSave } from './save-format';
+import { parseSave, sanitizeSaveName, serializeSave } from './save-format';
 
 /**
  * The local store: synchronous, authoritative during play, and never waiting on
@@ -66,6 +66,18 @@ export function clearSave(slot: Slot): void {
   } catch {
     // ignore
   }
+}
+
+/**
+ * Give the save in a slot a player-visible name. Returns the renamed state,
+ * or null when the slot holds nothing — there is nothing to name then.
+ */
+export function renameSave(slot: Slot, name: string): GameState | null {
+  const existing = loadGame(slot);
+  if (!existing) return null;
+  existing.name = sanitizeSaveName(name);
+  saveGame(existing, slot);
+  return existing;
 }
 
 /** Which slot the player was last in, so the title can lead with it. */

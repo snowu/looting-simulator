@@ -73,9 +73,10 @@ end $$;
 alter table public.game_saves enable row level security;
 
 -- Supabase grants these on new public tables by default; stated explicitly so
--- the schema does not depend on the project's default privileges. There is no
--- delete grant: a save is replaced, never removed.
-grant select, insert, update on public.game_saves to authenticated;
+-- the schema does not depend on the project's default privileges. Delete is
+-- granted because the title screen lets the player remove a save outright, but
+-- only through the `delete_game` function below and behind a double confirm.
+grant select, insert, update, delete on public.game_saves to authenticated;
 
 -- RLS is the security boundary: the browser holds only the publishable key and
 -- the player's own JWT, so every policy is scoped to their own row.
@@ -95,9 +96,14 @@ on public.game_saves for update
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
 
--- Deliberately no delete policy: a save is replaced, never removed. Resetting
--- the game writes a fresh state through the same compare-and-swap, so an older
--- snapshot cannot come back on the next reload.
+-- Resetting the game writes a fresh state through the same compare-and-swap,
+-- so an older snapshot cannot come back on the next reload. Removing a save
+-- outright goes through `delete_game` below instead, so the row is found by
+-- the playthrough's identity wherever it sits rather than by slot position.
+drop policy if exists "players can delete their own save" on public.game_saves;
+create policy "players can delete their own save"
+on public.game_saves for delete
+using (auth.uid() = user_id);
 
 /*
  * Compare-and-swap upload.
@@ -249,3 +255,40 @@ $$;
 
 revoke all on function public.save_game(bigint, jsonb, integer, integer, text, text) from public, anon;
 grant execute on function public.save_game(bigint, jsonb, integer, integer, text, text) to authenticated;
+
+/*
+ * Delete a playthrough outright.
+ *
+ * Identity first, position second, mirroring `save_game`: a save with an id
+ * is removed wherever it sits, because the same playthrough can be filed
+ * under a different slot on each device. A null id means a row from before
+ * ids existed, which can only be addressed by position. This is an explicit,
+ * confirmed player action from the title screen, so it wins over whatever
+ * generation is up there — no generation check, no tombstone.
+ */
+create or replace function public.delete_game(
+  p_slot smallint,
+  p_save_id text default null
+)
+returns void
+language plpgsql
+security invoker
+set search_path = public, pg_temp
+as $$
+declare
+  v_uid uuid := auth.uid();
+begin
+  if v_uid is null then
+    raise exception 'not authenticated' using errcode = '28000';
+  end if;
+
+  if p_save_id is not null then
+    delete from public.game_saves where user_id = v_uid and save_id = p_save_id;
+  else
+    delete from public.game_saves where user_id = v_uid and slot = p_slot;
+  end if;
+end;
+$$;
+
+revoke all on function public.delete_game(smallint, text) from public, anon;
+grant execute on function public.delete_game(smallint, text) to authenticated;

@@ -101,6 +101,30 @@ export interface SaveSummary {
   place: string;
   gold: number;
   runs: number;
+  /** The player-given name, or '' when the save is unnamed. */
+  name: string;
+}
+
+/** The longest name a save can carry. Short enough for a slot card. */
+export const MAX_SAVE_NAME = 24;
+
+/**
+ * What actually gets stored when the player names a save: trimmed, single
+ * spaces, capped. An empty result means unnamed, and the slot shows "Slot N".
+ */
+export function sanitizeSaveName(name: string): string {
+  return name.trim().replace(/\s+/g, ' ').slice(0, MAX_SAVE_NAME);
+}
+
+/**
+ * What the title screen calls a save. A save without a player-given name
+ * defaults to its slot spot — "Slot 1", "Slot 2", "Slot 3" — so every
+ * existing game already has a sensible name before anyone renames anything.
+ * Kept as a display fallback rather than stored, so it always matches where
+ * the save actually sits.
+ */
+export function displaySaveName(name: string | undefined, slot: number): string {
+  return sanitizeSaveName(typeof name === 'string' ? name : '') || `Slot ${slot}`;
 }
 
 /**
@@ -113,18 +137,22 @@ export interface SaveSummary {
 export function describeSave(state: GameState): SaveSummary {
   const run = state.run;
   const place = run && run.outcome === 'active' ? `Depth ${run.depth}, mid-delve` : 'In town';
-  return { day: state.market?.day ?? 1, place, gold: state.gold ?? 0, runs: state.lifetime?.runs ?? 0 };
+  const name = typeof state.name === 'string' ? state.name : '';
+  return { day: state.market?.day ?? 1, place, gold: state.gold ?? 0, runs: state.lifetime?.runs ?? 0, name };
 }
 
 /**
- * Hash of what a save contains, ignoring which playthrough it claims to be.
+ * Hash of what a save contains, ignoring which playthrough it claims to be
+ * and what the player calls it.
  *
  * Identity answers "is this the same game?"; this answers "has anything
  * actually happened since?". They have to be asked separately, because a row
  * written before ids existed gets one assigned on the way in, and comparing
  * that against a local save would report a difference that is purely the id.
+ * The name is cosmetic for the same reason: renaming a save must not read as
+ * two versions of one game.
  */
 export function progressHash(state: GameState): string {
-  const { saveId: _saveId, ...rest } = state;
+  const { saveId: _saveId, name: _name, ...rest } = state;
   return contentHash(canonicalJson(rest));
 }

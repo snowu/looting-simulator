@@ -1,5 +1,5 @@
 import { GameState } from '../state/game-state';
-import { SaveSummary, describeSave } from '../state/save-format';
+import { SaveSummary, describeSave, sanitizeSaveName } from '../state/save-format';
 import { btn, h } from './dom';
 
 /**
@@ -36,10 +36,14 @@ function ago(iso: string): string {
 }
 
 function column(title: string, s: SaveSummary, when: string, action: HTMLElement): HTMLElement {
+  // A custom name is the fastest way to tell two otherwise identical saves
+  // apart — which is exactly what a rename-only divergence looks like.
+  const name = sanitizeSaveName(s.name);
   return h(
     'div',
     { class: 'save-col frame' },
     h('h3', { text: title }),
+    name ? h('div', { class: 'gold-t', text: `“${name}”` }) : null,
     h('div', { text: `Day ${s.day}` }),
     h('div', { text: s.place }),
     h('div', { text: `${s.gold.toLocaleString()} gold banked` }),

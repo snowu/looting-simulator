@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { SLOTS, clearSave, lastSlot, loadGame, saveGame, setLastSlot } from '../state/persistence';
-import { newGame } from '../state/game-state';
+import { SLOTS, clearSave, lastSlot, loadGame, renameSave, saveGame, setLastSlot } from '../state/persistence';
+import { GameState, newGame } from '../state/game-state';
 import { createRng } from '../core/rng';
 
 /** A Map-backed localStorage, since these tests run outside a browser. */
@@ -77,5 +77,50 @@ describe('save slots', () => {
   it('falls back to slot 1 if the remembered slot is nonsense', () => {
     store.set('looting-simulator-slot', '7');
     expect(lastSlot()).toBe(1);
+  });
+
+  it('starts unnamed and shows its slot spot until renamed', () => {
+    const g = newGame(createRng(1));
+    expect(g.name).toBe('');
+    saveGame(g, 2);
+    expect(loadGame(2)!.name).toBe('');
+  });
+
+  it('renames a save and reads it back', () => {
+    saveGame(newGame(createRng(1)), 1);
+    const renamed = renameSave(1, '  Ashen   King  ');
+    expect(renamed).not.toBeNull();
+    expect(renamed!.name).toBe('Ashen King');
+    expect(loadGame(1)!.name).toBe('Ashen King');
+  });
+
+  it('clearing a name goes back to unnamed', () => {
+    saveGame(newGame(createRng(1)), 1);
+    renameSave(1, 'Kingslayer');
+    renameSave(1, '   ');
+    expect(loadGame(1)!.name).toBe('');
+  });
+
+  it('renaming one slot leaves the others alone', () => {
+    for (const n of SLOTS) saveGame(newGame(createRng(n)), n);
+    renameSave(2, 'Kingslayer');
+    expect(loadGame(2)!.name).toBe('Kingslayer');
+    expect(loadGame(1)!.name).toBe('');
+    expect(loadGame(3)!.name).toBe('');
+  });
+
+  it('renaming an empty slot does nothing', () => {
+    expect(renameSave(2, 'Kingslayer')).toBeNull();
+    expect(loadGame(2)).toBeNull();
+  });
+
+  it('gives a save from before names existed an empty one', () => {
+    const existing = newGame(createRng(1)) as GameState & { revision: number };
+    delete (existing as { name?: unknown }).name;
+    // A save that predates names claims an older revision, so the migration
+    // runs on the way in.
+    existing.revision = 15;
+    store.set(LEGACY_KEY, JSON.stringify(existing));
+    expect(loadGame(1)!.name).toBe('');
   });
 });

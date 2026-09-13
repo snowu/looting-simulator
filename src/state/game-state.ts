@@ -118,6 +118,13 @@ export interface GameState {
    * devices even when it sits in a different slot on each.
    */
   saveId?: string;
+  /**
+   * The player-given name for this playthrough, shown on the title screen.
+   * Empty means unnamed, and the slot shows "Slot N" instead. It travels with
+   * the save like any other field, but it is cosmetic: it never decides which
+   * of two saves is newer.
+   */
+  name: string;
   gold: number;
   renown: number;
   stash: Container;
@@ -153,6 +160,7 @@ export function newGame(rng: Rng): GameState {
     version: SAVE_VERSION,
     revision: SAVE_REVISION,
     saveId: newId(),
+    name: '',
     gold: 120,
     renown: 0,
     stash,

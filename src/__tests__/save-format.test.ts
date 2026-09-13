@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { contentHash, isFutureSave, parseSave, progressHash, serializeSave } from '../state/save-format';
+import { MAX_SAVE_NAME, contentHash, describeSave, displaySaveName, isFutureSave, parseSave, progressHash, sanitizeSaveName, serializeSave } from '../state/save-format';
 import { SAVE_REVISION } from '../state/migrations';
 import { newGame } from '../state/game-state';
 import { createRng } from '../core/rng';
@@ -119,5 +119,54 @@ describe('progress hash', () => {
     const local = fresh();
     const reordered = parseSave(JSON.stringify(reverseObjectKeys(JSON.parse(serializeSave(local)))))!;
     expect(progressHash(reordered)).toBe(progressHash(local));
+  });
+
+  it('ignores the player-given name', () => {
+    // Renaming a save must not read as two versions of one game.
+    const a = parseSave(LEGACY)!;
+    const b = parseSave(LEGACY)!;
+    b.name = 'Kingslayer';
+    expect(progressHash(a)).toBe(progressHash(b));
+  });
+
+  it('still uploads a rename', () => {
+    // The progress hash ignores the name, but the content hash must not: a
+    // rename has to reach the cloud like any other change.
+    const s = fresh();
+    const before = contentHash(serializeSave(s));
+    s.name = 'Kingslayer';
+    expect(contentHash(serializeSave(s))).not.toBe(before);
+  });
+});
+
+describe('save names', () => {
+  it('trims and collapses whitespace', () => {
+    expect(sanitizeSaveName('  Ashen   King  ')).toBe('Ashen King');
+  });
+
+  it('caps the length for the slot card', () => {
+    expect(sanitizeSaveName('x'.repeat(MAX_SAVE_NAME + 10))).toBe('x'.repeat(MAX_SAVE_NAME));
+  });
+
+  it('treats blank as unnamed', () => {
+    expect(sanitizeSaveName('   ')).toBe('');
+  });
+
+  it('defaults an unnamed save to its slot spot', () => {
+    expect(displaySaveName('', 2)).toBe('Slot 2');
+    expect(displaySaveName(undefined, 3)).toBe('Slot 3');
+    expect(displaySaveName('Kingslayer', 1)).toBe('Kingslayer');
+  });
+
+  it('carries the name in the summary', () => {
+    const s = fresh();
+    s.name = 'Kingslayer';
+    expect(describeSave(s).name).toBe('Kingslayer');
+  });
+
+  it('backfills a name for saves from before names existed', () => {
+    const back = parseSave(LEGACY)!;
+    expect(back.name).toBe('');
+    expect(describeSave(back).name).toBe('');
   });
 });

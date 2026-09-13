@@ -21,7 +21,7 @@ import { MATERIALS } from '../data/materials';
  */
 
 /** Bump this (and push a migration) whenever a field is added to the save. */
-export const SAVE_REVISION = 15;
+export const SAVE_REVISION = 16;
 
 type AnyState = GameState & Record<string, unknown>;
 
@@ -138,6 +138,11 @@ const MIGRATIONS: ((s: AnyState) => void)[] = [
   (s) => {
     s.lifetime ??= { runs: 0, deaths: 0, extractions: 0, bestDepth: 0, goldEarned: 0, kills: 0 };
     s.lifetime.uniquesKnown ??= [...(s.lifetime.uniquesSeen ?? [])];
+  },
+  // 15 → 16: a player-given name for the title-screen slots. An older save
+  // never had one, so it stays unnamed and keeps showing "Slot N".
+  (s) => {
+    if (typeof s.name !== 'string') s.name = '';
   },
 ];
 

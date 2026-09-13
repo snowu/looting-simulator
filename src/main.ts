@@ -2,7 +2,8 @@ import './style.css';
 import { createRng, randomSeed } from './core/rng';
 import { DX, DY, turnRight } from './core/dir';
 import { GameState, newGame } from './state/game-state';
-import { SLOTS, Slot, clearSave, lastSlot, loadGame, saveGame, setLastSlot, setScratchMode } from './state/persistence';
+import { SLOTS, Slot, clearSave, lastSlot, loadGame, renameSave, saveGame, setLastSlot, setScratchMode } from './state/persistence';
+import { sanitizeSaveName, serializeSave } from './state/save-format';
 import { startRun, endRun, bankCarriedGold } from './systems/run';
 import { biomeForDepth } from './data/biomes';
 import { World, WorldEvent } from './world/world';
@@ -16,7 +17,7 @@ import { AccountPanel } from './ui/account';
 import { saveChooser } from './ui/save-chooser';
 import { SlotView, slotPicker } from './ui/slots';
 import { CloudSync } from './cloud/sync';
-import { CloudFetch, CloudSave, fetchCloudSave, fetchCloudSlots } from './cloud/cloud-save';
+import { CloudFetch, CloudSave, deleteCloudSave, fetchCloudSave, fetchCloudSlots, uploadSave } from './cloud/cloud-save';
 import { h, setTouchMode } from './ui/dom';
 import { TouchControls, TouchMove, isTouchDevice } from './ui/touch';
 import { FULLSCREEN_HELP, fullscreenSupported, isFullscreen, isStandalone, mountFullscreenButton, toggleFullscreen } from './ui/fullscreen';
@@ -160,8 +161,15 @@ const town = new Town(screen, {
  */
 let devScratch = false;
 
+/**
+ * The current slot was deleted from the title screen. Nothing may be written
+ * back to it until a slot is entered again — otherwise the next autosave or
+ * unload would resurrect a fresh game in the slot just emptied.
+ */
+let slotDeleted = false;
+
 function commit(): void {
-  if (devScratch) return;
+  if (devScratch || slotDeleted) return;
   saveGame(state, slot);
   hadLocalSave = true;
   sync.touch();
@@ -308,6 +316,7 @@ function installCloud(save: CloudSave): void {
   setLastSlot(slot);
   state = save.state;
   hadLocalSave = true;
+  slotDeleted = false;
   // Adopting a cloud save also leaves the scratch game behind, if we were in one.
   devScratch = false;
   setScratchMode(false);
@@ -352,8 +361,96 @@ function devTitleTools(): HTMLElement | null {
 
 function enterTitle(): void {
   show('title');
-  screen.replaceChildren(titleScreen(slotPicker(slotViews(), enterSlot), BUILD_ID, account.el, devTitleTools()));
+  screen.replaceChildren(titleScreen(slotPicker(slotViews(), enterSlot, {
+    onRename: (n, name) => void renameSlot(n, name),
+    onDelete: (n) => void deleteSlot(n),
+  }), BUILD_ID, account.el, devTitleTools()));
   askAboutSaves();
+}
+
+/**
+ * Rename the save in a slot. The name travels with the save like any other
+ * field, so the ordinary upload path carries it to the cloud — except a slot
+ * that is not being played has no sync coordinator watching it, and its
+ * renamed snapshot is pushed directly at the generation already known.
+ */
+async function renameSlot(n: Slot, name: string): Promise<void> {
+  const clean = sanitizeSaveName(name);
+  // What the card was showing: the local game first, the cloud one otherwise.
+  const found = cloudSlots.get(n);
+  const cloudSave = found?.kind === 'save' ? found.save : null;
+  let base = renameSave(n, clean);
+  if (!base) {
+    if (!cloudSave) return;
+    // A slot that lives only in the cloud: bring it down, name it, keep it.
+    base = cloudSave.state;
+    base.name = clean;
+    saveGame(base, n);
+  }
+  if (n === slot) {
+    state.name = clean;
+    commit();
+  } else if (signedIn && cloudSave) {
+    try {
+      const res = await uploadSave(cloudSave.slot, base, cloudSave.generation);
+      if (res.status === 'ok' || res.status === 'unchanged') {
+        cloudSlots.set(cloudSave.slot, {
+          kind: 'save',
+          save: { ...cloudSave, state: base, generation: res.generation, updatedAt: res.updatedAt, raw: serializeSave(base) },
+        });
+      }
+    } catch {
+      // Offline. The renamed save is on this device and goes up the next time
+      // the slot is played and sync runs.
+    }
+  }
+  enterTitle();
+  toast(clean ? `Save named "${clean}".` : `Back to Slot ${n}.`, '#9ac0ff');
+}
+
+/**
+ * Delete the save in a slot, on this device and in the cloud. Only the
+ * playthrough the card was showing goes: a different game shadowed in the
+ * same cloud slot is left alone.
+ */
+async function deleteSlot(n: Slot): Promise<void> {
+  const local = loadGame(n);
+  const found = cloudSlots.get(n);
+  const cloudSave = found?.kind === 'save' ? found.save : null;
+  if (!local && !cloudSave) return;
+  const saveId = local?.saveId ?? cloudSave?.saveId ?? null;
+  clearSave(n);
+  // The same playthrough can surface under another slot number when devices
+  // file it differently; drop every cached sighting so no ghost card remains.
+  if (saveId) {
+    for (const [key, entry] of cloudSlots) {
+      if (entry.kind === 'save' && entry.save.saveId === saveId) cloudSlots.delete(key);
+    }
+  } else {
+    cloudSlots.delete(n);
+  }
+  if (signedIn) {
+    try {
+      await deleteCloudSave(n, saveId);
+    } catch {
+      toast('Deleted on this device. The cloud copy stays until you are back online.', '#e8c060');
+    }
+  }
+  if (n === slot) {
+    // The game in front of the player is gone: forget it, or the next
+    // autosave would write it straight back into the emptied slot.
+    state = newGame(createRng(randomSeed()));
+    hadLocalSave = false;
+    slotDeleted = true;
+    sync.switchSlot();
+    dismissChooser();
+    pendingChoice = null;
+  } else if (pendingChoice && saveId && pendingChoice.saveId === saveId) {
+    dismissChooser();
+    pendingChoice = null;
+  }
+  enterTitle();
+  toast(`Slot ${n} deleted.`, '#e08080');
 }
 
 /**
@@ -372,6 +469,7 @@ function enterSlot(n: Slot): void {
   sync.switchSlot();
   dismissChooser();
   pendingChoice = null;
+  slotDeleted = false;
 
   const existing = loadGame(n);
   hadLocalSave = existing !== null;

@@ -158,3 +158,20 @@ export async function uploadSave(slot: Slot, state: GameState, expectedGeneratio
   }
   return { status, slot: landed, generation: row.result_generation, updatedAt: row.result_updated_at };
 }
+
+/**
+ * Delete a playthrough from the cloud, by identity where it has one.
+ *
+ * A save is matched by `saveId` wherever it sits rather than by slot number,
+ * because the same playthrough can be filed under a different slot on each
+ * device. A null id means a row from before ids existed, which can only be
+ * addressed by position. This is an explicit, confirmed player action — the
+ * title screen asks twice — so it wins over whatever generation is up there.
+ */
+export async function deleteCloudSave(slot: Slot, saveId: string | null): Promise<void> {
+  const { error } = await (await supabase()).rpc('delete_game', {
+    p_slot: slot,
+    p_save_id: saveId,
+  });
+  if (error) throw error;
+}
