@@ -309,6 +309,8 @@ export interface EnemyDef {
   attack: number;
   defense: number;
   damageType: DamageType;
+  /** Native element for fire/frost-biome spawn rules. */
+  element?: 'fire' | 'frost';
   /** Damage multipliers taken per type (default 1). */
   resist: Partial<Record<DamageType, number>>;
   undead?: boolean;

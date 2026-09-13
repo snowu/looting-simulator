@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BIOMES, biomeForDepth, biomeForFloor, ceilingForFloor } from '../data/biomes';
+import { enemyDef } from '../data/enemies';
 import { getArt } from '../art/registry';
 import { rasterize } from '../art/raster';
 import { generateFloor } from '../systems/dungeon';
@@ -38,6 +39,15 @@ describe('run biome variety', () => {
     expect(BIOMES.find((b) => b.id === 'burrows')!.wall).not.toBe(BIOMES.find((b) => b.id === 'emberworks')!.wall);
   });
 
+  it('gives the Catacombs and Frost Vault their own detailed wall variants', () => {
+    const base = rasterize(getArt('wall_crypt')!, undefined, getArt).data;
+    const walls = ['wall_catacombs', 'wall_frostvault'].map((id) => getArt(id)!);
+    expect(walls.map((wall) => wall.base)).toEqual(['wall_crypt', 'wall_crypt']);
+    for (const wall of walls) {
+      expect(Array.from(rasterize(wall, undefined, getArt).data)).not.toEqual(Array.from(base));
+    }
+  });
+
   it('carries whatever preceding floor texture exists into the burrows roof', () => {
     const burrows = BIOMES.find((b) => b.id === 'burrows')!;
     const crypt = BIOMES.find((b) => b.id === 'crypt')!;
@@ -46,5 +56,32 @@ describe('run biome variety', () => {
     expect(ceilingForFloor(current, { biome: crypt.id, depth: 1 })).toBe(crypt.floor);
     expect(ceilingForFloor(current, { biome: catacombs.id, depth: 1 })).toBe(catacombs.floor);
     expect(ceilingForFloor(current)).toBe(burrows.ceiling);
+  });
+
+  it('keeps elemental spawns aligned with elemental biomes', () => {
+    const aligned = new Map<'fire' | 'frost', number>([['fire', 0], ['frost', 0]]);
+    const neutral = new Map<'fire' | 'frost', number>([['fire', 0], ['frost', 0]]);
+    for (let seed = 1; seed <= 48; seed++) {
+      for (let depth = 3; depth <= 5; depth++) {
+        const floor = generateFloor(seed, depth);
+        const theme = BIOMES.find((b) => b.id === floor.biome)?.element;
+        if (!theme) continue;
+        for (const enemy of floor.enemies) {
+          const def = enemyDef(enemy.def);
+          if (def.element) {
+            expect(def.element).toBe(theme);
+            expect(def.damageType).toBe(theme);
+            expect(def.resist[theme] ?? 1).toBeLessThan(1);
+            aligned.set(theme, aligned.get(theme)! + 1);
+          } else {
+            neutral.set(theme, neutral.get(theme)! + 1);
+          }
+        }
+      }
+    }
+    for (const theme of ['fire', 'frost'] as const) {
+      expect(aligned.get(theme)).toBeGreaterThan(0);
+      expect(aligned.get(theme)).toBeGreaterThan(neutral.get(theme)!);
+    }
   });
 });

@@ -19,6 +19,8 @@ export interface BiomeDef {
   glow?: { color: string; density: number; sprite: string };
   /** Enemy families that are more common on this floor. */
   favoredEnemies?: string[];
+  /** Elemental theme: aligned creatures are favored and the opposite is excluded. */
+  element?: 'fire' | 'frost';
 }
 
 export const FINAL_DEPTH = 6;
@@ -44,7 +46,7 @@ export const BIOMES: BiomeDef[] = [
   },
   {
     id: 'catacombs', name: 'The Sunken Catacombs', depths: [1, 2, 3],
-    wall: 'wall_crypt', wallAlt: 'wall_crypt_b', wallSecret: 'wall_crypt_s',
+    wall: 'wall_catacombs', wallAlt: 'wall_catacombs_b', wallSecret: 'wall_catacombs_s',
     floor: 'floor_cave', ceiling: 'ceil_crypt', door: 'door_wood',
     fog: '#061013', ambient: '#20333b', torch: '#86c9d4', torchDensity: 0.035,
     glow: { color: '#55b9bc', density: 0.025, sprite: 'fungus' },
@@ -61,16 +63,16 @@ export const BIOMES: BiomeDef[] = [
   },
   {
     id: 'frostvault', name: 'The Frost Vault', depths: [3, 4, 5],
-    wall: 'wall_crypt', wallAlt: 'wall_crypt_b', wallSecret: 'wall_crypt_s',
+    wall: 'wall_frostvault', wallAlt: 'wall_frostvault_b', wallSecret: 'wall_frostvault_s',
     floor: 'floor_frostvault', ceiling: 'ceil_crypt', door: 'door_iron',
-    fog: '#050b17', ambient: '#23344c', torch: '#a9d5ff', torchDensity: 0.04,
+    fog: '#050b17', ambient: '#23344c', torch: '#a9d5ff', torchDensity: 0.04, element: 'frost',
     favoredEnemies: ['frost_wisp', 'skeleton_archer', 'skeleton_shield', 'icebound_guard', 'elemental_frost'],
   },
   {
     id: 'emberworks', name: 'The Emberworks', depths: [3, 4, 5],
     wall: 'wall_emberworks', wallAlt: 'wall_emberworks_b', wallSecret: 'wall_emberworks_s',
     floor: 'floor_emberworks', ceiling: 'ceil_mine', door: 'door_iron',
-    fog: '#160603', ambient: '#483022', torch: '#ff7848', torchDensity: 0.09,
+    fog: '#160603', ambient: '#483022', torch: '#ff7848', torchDensity: 0.09, element: 'fire',
     favoredEnemies: ['ember_wisp', 'flame_wraith', 'goblin_shield', 'cinder_raider'],
   },
   {

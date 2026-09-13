@@ -76,7 +76,7 @@
     "file": "textures/ceil_mine.png",
     "width": 32,
     "height": 32,
-    "base": "ceil_mine_rock",
+    "base": null,
     "recolorable": false
   },
   {
@@ -133,6 +133,54 @@
     "width": 32,
     "height": 32,
     "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "wall_catacombs",
+    "file": "textures/wall_catacombs.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_crypt",
+    "recolorable": false
+  },
+  {
+    "id": "wall_catacombs_b",
+    "file": "textures/wall_catacombs_b.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_crypt_b",
+    "recolorable": false
+  },
+  {
+    "id": "wall_catacombs_s",
+    "file": "textures/wall_catacombs_s.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_catacombs",
+    "recolorable": false
+  },
+  {
+    "id": "wall_frostvault",
+    "file": "textures/wall_frostvault.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_crypt",
+    "recolorable": false
+  },
+  {
+    "id": "wall_frostvault_b",
+    "file": "textures/wall_frostvault_b.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_crypt_b",
+    "recolorable": false
+  },
+  {
+    "id": "wall_frostvault_s",
+    "file": "textures/wall_frostvault_s.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_frostvault",
     "recolorable": false
   },
   {

@@ -26,7 +26,7 @@ export const ENEMIES: EnemyDef[] = [
   },
   {
     id: 'cinder_raider', name: 'Ember Archer', sprite: 'cinder', scale: 0.95,
-    hp: 39, attack: 12, defense: 4, damageType: 'fire', resist: { fire: 0.5, frost: 1.6, pierce: 1.2 },
+    hp: 39, attack: 12, defense: 4, damageType: 'fire', element: 'fire', resist: { fire: 0.5, frost: 1.6, pierce: 1.2 },
     behavior: 'ranged', step: 0.4, windup: 0.8, recovery: 1.5, sight: 8, range: 4,
     projectile: { sprite: 'proj_arrow_fire', speed: 6, damageType: 'fire', light: '#ff8030' },
     minDepth: 3, maxDepth: 5, weight: 0.7,
@@ -36,7 +36,7 @@ export const ENEMIES: EnemyDef[] = [
   },
   {
     id: 'elemental_frost', name: 'Rime Archer', sprite: 'rime', scale: 0.95,
-    hp: 39, attack: 12, defense: 4, damageType: 'frost', resist: { frost: 0.5, fire: 1.6, pierce: 1.2 },
+    hp: 39, attack: 12, defense: 4, damageType: 'frost', element: 'frost', resist: { frost: 0.5, fire: 1.6, pierce: 1.2 },
     behavior: 'ranged', step: 0.4, windup: 0.8, recovery: 1.5, sight: 8, range: 4,
     projectile: { sprite: 'proj_arrow_frost', speed: 6, damageType: 'frost', light: '#80cfff' },
     minDepth: 3, maxDepth: 5, weight: 0.6,
@@ -66,7 +66,7 @@ export const ENEMIES: EnemyDef[] = [
   },
   {
     id: 'icebound_guard', name: 'Icebound Guard', sprite: 'iceguard', scale: 1,
-    hp: 66, attack: 13, defense: 10, damageType: 'frost', resist: { ...UNDEAD_RESIST, frost: 0.4, fire: 1.7 }, undead: true,
+    hp: 66, attack: 13, defense: 10, damageType: 'frost', element: 'frost', resist: { ...UNDEAD_RESIST, frost: 0.4, fire: 1.7 }, undead: true,
     behavior: 'melee', step: 0.65, windup: 0.7, recovery: 1.1, sight: 7,
     shield: { block: 0.7, stun: 1 }, minDepth: 3, maxDepth: 5, weight: 0.6,
     loot: [{ id: 'frost_shard', chance: 0.25, min: 1, max: 1 }, { id: 'iron', chance: 0.3, min: 1, max: 2 }],
@@ -215,7 +215,7 @@ export const ENEMIES: EnemyDef[] = [
   },
   {
     id: 'ember_wisp', name: 'Ember Wisp', sprite: 'ember', scale: 0.55, floats: true,
-    hp: 30, attack: 11, defense: 2, damageType: 'fire', resist: { fire: 0, frost: 2, blunt: 0.7, slash: 0.8, pierce: 0.6 },
+    hp: 30, attack: 11, defense: 2, damageType: 'fire', element: 'fire', resist: { fire: 0, frost: 2, blunt: 0.7, slash: 0.8, pierce: 0.6 },
     behavior: 'ranged', step: 0.42, windup: 0.7, recovery: 1.45, sight: 8, range: 4,
     projectile: { sprite: 'proj_fire', speed: 5.5, damageType: 'fire', light: '#ff8030' },
     // The shallow half of the pair: it introduces elemental damage a floor
@@ -231,7 +231,7 @@ export const ENEMIES: EnemyDef[] = [
   },
   {
     id: 'frost_wisp', name: 'Frost Wisp', sprite: 'wisp', scale: 0.6, floats: true,
-    hp: 36, attack: 13, defense: 2, damageType: 'frost', resist: { frost: 0, fire: 2, blunt: 0.7, slash: 0.8, pierce: 0.6 },
+    hp: 36, attack: 13, defense: 2, damageType: 'frost', element: 'frost', resist: { frost: 0, fire: 2, blunt: 0.7, slash: 0.8, pierce: 0.6 },
     behavior: 'ranged', step: 0.45, windup: 0.8, recovery: 1.6, sight: 8, range: 4,
     projectile: { sprite: 'proj_frost', speed: 5, damageType: 'frost', light: '#80c0ff' },
     minDepth: 4, maxDepth: 6, weight: 2, glow: '#6aa8ff',
@@ -278,7 +278,7 @@ export const ENEMIES: EnemyDef[] = [
   },
   {
     id: 'flame_wraith', name: 'Flame Wraith', sprite: 'wraith', scale: 0.95, floats: true,
-    hp: 82, attack: 19, defense: 6, damageType: 'fire', resist: { fire: 0, frost: 2, blunt: 0.7, slash: 0.8, pierce: 0.6 },
+    hp: 82, attack: 19, defense: 6, damageType: 'fire', element: 'fire', resist: { fire: 0, frost: 2, blunt: 0.7, slash: 0.8, pierce: 0.6 },
     behavior: 'ranged', step: 0.5, windup: 0.75, recovery: 1.4, sight: 8, range: 4,
     projectile: { sprite: 'proj_fire', speed: 5.5, damageType: 'fire', light: '#ff8030' },
     minDepth: 5, maxDepth: 6, weight: 1.5, glow: '#ff7a2a',

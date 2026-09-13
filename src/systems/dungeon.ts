@@ -329,6 +329,9 @@ const KEY_NAMES: Record<string, string> = {
   sporegrove: 'Spore Key', caverns: 'Crystal Key', throne: 'Ashen Key',
 };
 
+const FAVORED_ENEMY_WEIGHT = 4;
+const ELEMENTAL_ENEMY_WEIGHT = 4;
+
 export function generateFloor(runSeed: number, depth: number, difficulty?: DifficultyId): Floor {
   const seed = hashString(`floor:${runSeed}:${depth}`);
   // Difficulty deliberately stays out of the seed: a Hard floor is generated
@@ -832,7 +835,8 @@ function tryGenerate(seed: number, depth: number, rng: Rng, diff: DifficultyDef 
     occupied.add(idx(x, y));
     enemies.push(createEnemy(def, x, y, rng.pick(DIRS), `e${enemyN++}`, depth, diff.id));
   };
-  const pool = ENEMIES.filter((e) => e.weight > 0 && e.minDepth <= depth && depth <= e.maxDepth);
+  const pool = ENEMIES.filter((e) => e.weight > 0 && e.minDepth <= depth && depth <= e.maxDepth
+    && !(biome.element && e.element && e.element !== biome.element));
   const roomTiles = (r: Room) => {
     const out: [number, number][] = [];
     for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
@@ -854,7 +858,11 @@ function tryGenerate(seed: number, depth: number, rng: Rng, diff: DifficultyDef 
   const wanted = Math.max(1, Math.round((3 + Math.round(depth * 1.2) + Math.floor(rooms.length / 4)) * diff.enemyCount));
   const hostRooms = rooms.filter((r) => r.role !== 'start' && r.role !== 'secret' && r.role !== 'throne');
   for (let guard = 0; enemies.length < wanted + (throne ? 3 : 0) && guard < 200; guard++) {
-    const def = rng.weighted(pool.map((e) => [e, e.weight * (biome.favoredEnemies?.includes(e.id) ? 4 : 1)] as const));
+    const def = rng.weighted(pool.map((e) => [e,
+      e.weight
+      * (biome.favoredEnemies?.includes(e.id) ? FAVORED_ENEMY_WEIGHT : 1)
+      * (biome.element && e.element === biome.element ? ELEMENTAL_ENEMY_WEIGHT : 1),
+    ] as const));
     const group = def.id === 'rat' || def.id === 'spider' ? rng.int(1, 3) : rng.int(1, 2);
     if (rng.chance(0.15)) {
       // A wanderer in the tunnels.

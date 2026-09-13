@@ -42,7 +42,54 @@ const BRICK_ROWS = rows(`
   bcbbbbamcbbbbbbbbbbbbbamcbbabbbb
   aaaaaaambaaaaaaaaaaaaaambaaaaaaa
   mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+  `);
+
+const EMPTY_WALL_ROWS = BRICK_ROWS.map(() => '.'.repeat(32));
+
+// The Catacombs keep the crypt's masonry, but damp seepage follows the joints
+// and algae gathers low on the wall.
+const CATACOMB_SEEP = rows(`
+  s...
+  sq..
+  .q..
+  .q..
+  .qq.
+  ..q.
+  ...q
 `);
+const CATACOMB_ALGAE = rows(`
+  qqq...
+  .qqq..
+  ..qq..
+  ...q..
+`);
+const CATACOMB_WALL_ROWS = stamp(
+  stamp(stamp(EMPTY_WALL_ROWS, CATACOMB_SEEP, 4, 2), CATACOMB_SEEP, 23, 16),
+  CATACOMB_ALGAE, 12, 27,
+);
+
+// The Frost Vault keeps the same brick silhouette, but cold fissures catch
+// the blue light and a small ice bloom hangs over one course.
+const FROST_FISSURE = rows(`
+  s......
+  sq.....
+  .q.....
+  .qq....
+  ..q....
+  ...qq..
+  ....q..
+`);
+const FROST_BLOOM = rows(`
+  ..r...
+  .rr...
+  rrr...
+  .rr...
+  ..r...
+`);
+const FROST_WALL_ROWS = stamp(
+  stamp(stamp(EMPTY_WALL_ROWS, FROST_FISSURE, 3, 3), FROST_FISSURE, 21, 18),
+  FROST_BLOOM, 12, 13,
+);
 
 /** Rubble masonry: rounded stones of uneven width in three courses. */
 const RUBBLE_ROWS = rows(`
@@ -249,6 +296,10 @@ const CAVE_SECRET = { s: '#0914119c', q: '#83b2a288' };
 const THRONE_SECRET = { s: '#1b0f159c', q: '#bd806d88' };
 const BURROW_SECRET = { s: '#28190f9c', q: '#b58d6488' };
 const EMBERWORKS_SECRET = { s: '#21110e9c', q: '#df7b5488' };
+const CATACOMB_WALL = { s: '#17383b98', q: '#428b8c98', r: '#75c4ba88' };
+const CATACOMB_SECRET = { s: '#17383b9c', q: '#75c4ba88' };
+const FROST_WALL = { s: '#1c334198', q: '#6c9db5a8', r: '#d2f3ff98' };
+const FROST_SECRET = { s: '#1c33419c', q: '#b7eaff88' };
 
 // Ossuary niches: a skull cell and a bone-stack cell.
 const NICHE_SKULL = rows(`
@@ -598,6 +649,15 @@ export const TEXTURES: ArtDef[] = [
   { id: 'floor_cave_dirt', palette: CAVE_FLOOR, rows: DIRT_ROWS },
   { id: 'floor_cave', base: 'floor_cave_dirt', palette: { p: '#223e4a', q: '#4a7a8a' }, rows: PUDDLE_ROWS },
   { id: 'ceil_cave', palette: CAVE_CEIL, rows: SLAB_ROWS },
+
+  // Themed variants that preserve the crypt silhouette while changing only
+  // the environmental detail.
+  { id: 'wall_catacombs', base: 'wall_crypt', palette: CATACOMB_WALL, rows: CATACOMB_WALL_ROWS },
+  { id: 'wall_catacombs_b', base: 'wall_crypt_b', palette: CATACOMB_WALL, rows: CATACOMB_WALL_ROWS },
+  { id: 'wall_catacombs_s', base: 'wall_catacombs', palette: CATACOMB_SECRET, rows: SECRET_MARK_ROWS },
+  { id: 'wall_frostvault', base: 'wall_crypt', palette: FROST_WALL, rows: FROST_WALL_ROWS },
+  { id: 'wall_frostvault_b', base: 'wall_crypt_b', palette: FROST_WALL, rows: FROST_WALL_ROWS },
+  { id: 'wall_frostvault_s', base: 'wall_frostvault', palette: FROST_SECRET, rows: SECRET_MARK_ROWS },
 
   // Throne
   { id: 'wall_throne', palette: THRONE, rows: BRICK_ROWS },
