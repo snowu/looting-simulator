@@ -139,7 +139,42 @@ Someone finishes a run and can name the item they found without looking.
 
 ---
 
-# 2. Balance pass
+# 2. Balance pass — **DONE 2026-09-13**
+
+The harness below was built first, as this section asked, and lives at
+`scripts/playtest.ts` and `scripts/tables.ts` behind `npm run playtest`. The
+pass itself is written up in **`patch_notes.md`** at the repo root, and every
+number that moved is in [MECHANICS.md](MECHANICS.md). The reasoning, including
+the two things that were tried and walked back, is in `overnight_feature.txt`.
+
+The section below is kept as written, because the suspicions in it were mostly
+right and the ones that were wrong are worth having on the record.
+
+**What the harness found that this section did not predict:** the problem was
+never any single knob. The player's damage grew about tenfold from depth 1 to
+depth 6 and their toughness about fourfold, while monsters grew 1.2x, because
+`depthPower` keyed off how far a monster was past its *own* minimum depth
+rather than off the floor number the player's gear tracks. Every specific
+number listed below was a symptom of that.
+
+**What it confirmed:** `ENEMY_DAMAGE_MULT` was indeed the wrong place to look
+(it is untouched), durability is tight rather than punitive (nothing broke in
+any scripted run), and the parry is worth exactly what it was meant to be worth
+— with the same seeds, turning it off drops a fresh character from 1.88 floors
+to 1.54.
+
+**Still open after this pass:** renown and upgrade costs are untouched, because
+the scripted profiles earn less renown per delve after the difficulty change.
+The harness does not play twenty connected runs with purchases and crafting, so
+time to the final loadout remains unverified. Trap density is untouched; its
+share of damage depends on the route taken. Relic drop rates and effect
+magnitudes still need real playtesting.
+
+---
+
+## The original section
+
+## 2. Balance pass (as written on 2026-09-12)
 
 ## The problem
 
@@ -215,3 +250,29 @@ Current values, with the suspicion attached:
 
 A first run ends in death around depth 2–3 and the player knows why. A
 twentieth run reaches depth 6. Neither of those happens by accident.
+
+**The first-run target is measurable.** Across 24 scripted runs, a fresh
+character reaches depth 2 in 67% of runs and dies in 58% of runs; before
+the pass it strolled to 2.46 floors on average and 63% of runs came home alive.
+
+And the bottom floor is reachable *by someone who prepares for it*. A bot in
+endgame gear that clears floors and loots everything runs dry around depth 5.
+The same bot given a pack of Greater Healing, told to walk past the urns and go
+down, reaches depth 6 in **100%** of runs and dies in 33% of them — to
+the Barrow Champion, Hollow Knight, Flame Wraith, Frost Wisp and Ghoul. It drinks
+about 19 potions doing it. That is the prepared profile in `npm run playtest`, and
+it is the canary: if it stops reaching depth 6, the floor term in `depthPower`
+has gone too far. This proves reachability with a supplied endgame loadout; it
+does not prove that normal play acquires that loadout by the twentieth run.
+
+Killing him is separate from reaching him. In a 24-seed boss-seeking check,
+12 Greater Healings yielded no King kills; with 60, a 16-seed stress test killed
+him eight times and extracted three. That extreme supply shows the bot can win,
+but it is not a realistic repeatable loadout. The two Hollow Knight guards
+kill it more often than the King does.
+
+What a real session still has to judge is *feel* — whether the telegraphs give
+you enough to answer with, whether the Ashen King's three-hit kill reads as
+tense or as cheap, and whether depth 6's attrition is a supply problem worth
+solving or a chore. The bot is a poor judge of all three: it never steps out of
+a telegraph, so its damage taken is an upper bound rather than an estimate.

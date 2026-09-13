@@ -1,0 +1,349 @@
+# Overnight balance pass — decision log
+# Goal: loot less often, enemies stronger, progression slower, game harder.
+# Target feel: King's Field / Shadow Tower. Do not push; leave for the user to test.
+# Started 2026-09-13.
+
+## Standing constraints inherited from docs/NEXT.md + memory
+- Never invalidate a save. Balance constants are not save data, so retuning is free.
+  No SAVE_VERSION bump. Floors already generated in a live run keep their contents.
+- Reproducible from the seed. Any NEW roll during generation gets its own hashed
+  stream so it cannot reshuffle floors that already exist.
+- Punishing is fine; unfair is not. The player must see what got them.
+- MECHANICS.md is the single reference for every number.
+
+## D0. Method: measure first, tune second
+docs/NEXT.md already specified a headless harness at scripts/playtest.ts as the
+first task of the balance pass, and it was never built. Building it first rather
+than hand-tuning constants, because the systems interact and every knob I move
+shifts three curves I cannot see. Decision: build the harness, take a baseline,
+then change one thing at a time against it.
+
+## Baseline measurements (before any change)
+Floor composition, per floor, averaged over 60 seeds:
+  D1: 10.4 rooms,  9.4 enemies, 4.1 chest, 13.4 urn, 0.9 vault, 0.4 secret, 4.9 loose
+  D6:  8.8 rooms, 22.1 enemies, 2.3 chest, 12.7 urn, 0.9 vault, 0.8 secret, 9.9 loose
+Loot yield, per floor:
+  D1:  181 gold, 40.4 items, 4.1 gear, 1101 gold of value
+  D6: 1454 gold, 71.8 items, 10.5 gear, 22447 gold of value
+Time-to-kill by gear tier (seconds, average enemy). NOTE: these are
+player-optimistic — every enemy is measured at full stamina, on average rolls,
+with no dodging and no telegraph read. They are a before/after yardstick, not
+a prediction of a real session:
+  naked/starter: 2-4s for trash, 12-17s for a Hollow Knight, 86s for the King
+  mid (iron Rare): EVERYTHING trash dies in 1 hit (0.78s). King in 17.9s.
+  deep (moonsilver Epic): everything except the King dies in ONE hit. King in 8.6s.
+
+## D1. The diagnosis: three separate faults, not one
+1. LOOT VOLUME. ~23 lootable containers per floor against a 16-slot backpack.
+   40-70 items per floor. There is no scarcity, so there is no decision, so
+   there is no King's Field.
+2. THE POWER CURVE DIVERGES. Player attack runs 3 -> 6 -> 33 -> 59 across gear
+   tiers, a ~20x spread. Enemy HP is a constant (a rat is 10 HP on every floor
+   it appears on; depth scaling is only +12% per depth past minDepth and caps
+   out after 2-3 floors). The curves are not on the same axis at all.
+3. MITIGATION SATURATES. With k=25, a defense of 58 leaves you taking 30% of a
+   blow and a defense of 100 reaches the 20% clamp outright. (An earlier draft
+   of this note said 58 was already at the clamp; it is not, and the review
+   pass was right to catch it. The conclusion is unchanged — late armour
+   reduces damage to a rounding error — but the number to tune against is 100.)
+   Enemies hit a plated player for 1-7 against 75 HP.
+Making enemies "stronger" by raising HP numbers alone would fix none of this: it
+would make the early game unwinnable and the late game merely longer.
+
+## D2. The instrument: scripts/playtest.ts + scripts/tables.ts
+Built the harness docs/NEXT.md asked for, plus a static table pass that runs in
+seconds so it can be re-read after every single knob. `npm run playtest` writes
+a report; `vitest run --config vitest.playtest.config.ts scripts/tables.bench.ts`
+writes just the tables. Default `npm test` is untouched and still fast.
+
+The table that matters is THE LADDER: for each floor, the enemies native to it,
+fought by a player carrying what that floor is supposed to have given them.
+Baseline ladder (hits to kill / hits to be killed):
+  D1 club+jerkin:      rat 2, goblin 4, skeleton 3  | it needs 10-17 hits. CORRECT.
+  D2 copper mace:      almost everything 1-2 hits   | it needs 12-22.
+  D3 iron long sword:  almost everything 1 hit      | it needs 18-32.
+  D4 iron war axe:     almost everything 1 hit      | it needs 20-26.
+  D5 silver plate:     EVERYTHING 1 hit incl. Hollow Knight-2 | it needs 20-37.
+  D6 moonsilver:       Ashen King dies in 6 hits    | the final boss needs 13.
+D1 is right. The game falls apart on D2 and never recovers.
+
+## D3. Decision: fix the curve, do not just inflate numbers
+Player damage grows ~10x from D1 to D6 (6 -> 62) and effective toughness ~4x.
+Enemies grow 1.2x. The fix is to put enemies on the same axis, not to multiply
+one number. Five levers, in order of how much they do:
+  1. Enemy defense is the strongest lever in the game and is barely used.
+     mitigate(atk, def, k=15) means def 45 cuts a 62-attack weapon to 15.
+     Deep enemies have def 9-12. This is where the armour of the deep goes.
+  2. Depth must scale enemy stats on ABSOLUTE depth, not on how far a monster is
+     past its own minDepth. The player's gear tracks the floor number; the
+     monsters have to track the same thing or the curves cannot meet.
+  3. The player's incoming-damage mitigation saturates: floor 0.2 at k=25 means
+     plate deletes damage rather than reducing it. Raise k so defense has real
+     diminishing returns, and raise the floor so a blow always lands.
+  4. Enemy attack has to grow with depth or deep floors cannot threaten.
+  5. Base stat blocks for elites and the boss are simply too small.
+
+## D4. Decision: fewer, bigger piles — not just less gold
+"Loot too often" is about FREQUENCY, and the economy (market, forge, contracts)
+still needs material flowing in. So the target is fewer containers and fewer
+items per container, with what is left worth more per pile. Cutting item count
+5x and value 5x would starve the town half of the game, which is the half the
+README says is the real game.
+
+## D5. Decision: enemy armour is the lever, but a gentle one
+First attempt set ENEMY_ARMOUR_K to 22 and scaled armour at 0.8 of the health
+curve. That made 30 defense on a Hollow Knight into a 25-swing fight — armour
+became a refusal rather than a slope. Walked it back: K=45, armour scaling at
+0.45 of the health curve, and the raw defense numbers on the heavies cut by a
+third. Armour is now the reason to bring the right weapon, not a wall.
+
+## D6. Decision: three curves from one number
+depthPower() now returns the HEALTH multiplier, and attackPower()/defensePower()
+express damage and armour as fractions of it (0.55 and 0.45). One curve read
+three ways: health climbs fastest, so a deep floor is a longer fight you can
+lose slowly rather than a coin flip that removes you in two blows.
+
+## D7. Decision: the stagger threshold had to move with the health scale
+`def.hp < 40` sat inline in hitEnemy and decided which monsters get knocked out
+of a wind-up. Every stat block is now ~1.5x larger, so that bare 40 would have
+silently made the Skeleton Shieldguard stagger-proof. Extracted as STAGGER_HP
+and set to 55, which keeps exactly the same creatures on the light side of the
+line. This is the class of bug a raw number in the middle of a function causes.
+
+## D8. Corrections from the review pass (overnight_feedback.txt)
+Acted on all of it. The substantive ones:
+- scripts/ was gitignored wholesale, so the harness would not have been
+  committed at all. Now `scripts/*` with negations for the four harness files;
+  the personal inject-forge-test-save.js stays untracked as before.
+- The harness reported carried loot as "banked". It now settles through the
+  real endRun(), so a death takes the pack off you in the numbers too, and
+  renown is the number the results screen would show.
+- collect() was additive and called from three places, double-counting.
+- The parry / no-parry pair used different seed sets, so it measured the seeds.
+- The bot emptied piles it could not carry, rewriting the floor to suit itself.
+- Taking the stairs only queues a step, so the old code watched for a transition
+  that had not started yet and filed three reports for depth 1.
+
+## D9. Decision: re-measure the baseline rather than quote earlier notes
+The harness changed a lot while the pass was being written (settlement, stairs
+detection, packing potions). A before/after across two different harnesses is
+not a before/after. So the baseline was re-run in a `git worktree` at HEAD with
+the finished harness copied in, plus a three-line shim giving HEAD the two
+functions the harness calls (`attackPower`/`defensePower` as identities, since
+HEAD had no such split). Every number in patch_notes.md comes from that pair.
+
+It changed the story. The earlier draft claimed the endgame character reached
+3.85 floors before the pass. Measured properly, it reached 6.00 — 24 runs out
+of 24, zero deaths, walking out at 70% health with 154 items worth 3603 gold.
+That is the thing that needed fixing, and the first draft understated it.
+
+## D10. Decision: leave renown and upgrade costs alone
+Difficulty alone slowed progression about fourfold: nobody walks to depth 6 any
+more, so nobody collects 14 renown a run any more. Moving the payout AND the
+costs on top of that would overshoot, and it is the easiest knob to turn later
+once the combat has been felt. Flagged in patch_notes.md as the pair to move if
+progression reads as slow rather than pleasantly slow.
+
+## D11. Decision: the Ashen King kills you in three hits, deliberately
+At the gear depth 6 is meant to be reached with, he takes ~30 swings and lands
+three. That is the tightest number in the game and it assumes you are blocking,
+parrying and stepping out of the telegraph — which his 0.8s wind-up, the slowest
+in the game, gives you time to do. Flagged for the playtest rather than softened
+on a guess, because this is a question about feel and I cannot feel it.
+
+## D12. Two bugs I caused and caught
+- A blanket regex trimming every `chance:` in enemies.ts by 30% also hit the
+  Ashen King's GUARANTEED drops, turning `chance: 1` into `0.7`. Restored, and
+  there is now a test asserting they stay at 1.
+- The shrine messages still said "You are whole again" and "You are restored"
+  after the font became a 60% mend. Punishing is fine, lying is not.
+
+## Final state
+- `npm test` 306 passing (7 new, locking the shape of the curve in place).
+- `npm run build` clean. `npm run playtest` and `npm run tables` both work.
+- docs/MECHANICS.md updated throughout, with its monster tables now GENERATED
+  from src/data/enemies.ts (scripts/mechanics.bench.ts) rather than hand-typed.
+- docs/NEXT.md marks the balance pass done and records what it found that the
+  original plan did not predict, and what is still open.
+- Nothing pushed. Nothing committed. All of it sitting on master for testing.
+
+## D13. Second review pass — three gaps closed, one question answered
+Re-checked every point in overnight_feedback.txt against the code rather than
+against memory. Most were already done; three were not, and I had counted them
+as addressed when they were only partly addressed:
+
+1. TIMEOUTS SETTLED AS EXTRACTIONS. A timed-out run called collect(), which
+   settles through endRun(), which banks the pack as a successful delve — then
+   only the label was overwritten to 'timeout'. Zero runs time out today so no
+   published number is wrong, but it was a live trap. A timeout is now recorded
+   unsettled, and summarise() prints a two-line warning telling the reader to
+   throw the whole block away.
+2. ARRIVAL ACTED ON WHATEVER WAS IN FRONT. navigate() fell through to
+   interactionHint(), which answers for any prop, door or staircase the bot
+   happens to face — so arriving beside an open door meant closing it every
+   tick until the stuck counter fired. Arrival is now only ever about loot;
+   stairs are transition()'s job and fights are the adjacent-enemy branch's.
+3. GOLD OUT IS STILL NOT MODELLED, and I had quietly let "banked" imply it was.
+   The bot never goes to town, so repairs, identification and restocking are
+   unpriced. Rather than half-build a town sim, every report block now says so
+   in one line. Banked is income, not profit.
+
+Also added the reviewer's own caveat to the generated tables themselves rather
+than only to this log: the hit-counts are computed, not played — full stamina,
+average rolls, no dodging, blocking or parrying, one monster at a time.
+
+## D14. Depth six is reachable WHEN STOCKED — which is not the same claim
+The review agent wrote a prepared-expedition bench to test the thing I had
+flagged as unanswerable: is depth 6 reachable by someone who prepares? Endgame
+gear, twenty Greater Healing, skip the urns, go down rather than clear floors.
+On the final 24-seed report:
+
+  100% of runs reach depth 6. 33% die there — Barrow Champion x3, Hollow Knight
+  x2, Flame Wraith, Frost Wisp, Ghoul. About 18 potions per run.
+
+CORRECTION (this entry originally claimed docs/NEXT.md's second success
+criterion, "a twentieth run reaches depth 6", was met). It is not, and the
+review pass was right to push back. The prepared profile is HANDED its endgame
+gear, its renown upgrades and its potions at run start. It establishes that a
+well-stocked character can enter depth 6. It says nothing about whether twenty
+connected runs of normal play actually earn that loadout, because the harness
+plays runs in isolation and never visits town. That remains open, and the
+distinction is now stated in both docs/NEXT.md and patch_notes.md.
+
+What it IS good for: the fifth profile in `npm run playtest` is the canary for
+the floor multiplier. If it stops reaching depth 6, depthPower has gone too far.
+
+Note on quoting these numbers: earlier figures in this log predate the extra-urn
+roll being moved to its own hashed stream and the bot navigation fixes. Quote
+the final 24-seed report, not the running commentary above.
+
+## D15. The Ashen King: softened him, then put him back
+The reviewer's bench added a `fightBoss` policy (the run harness never actually
+fought the King — it reached depth 6 and turned round) and a "King slain" line.
+First result: 0 out of 16, with 100% deaths when it tried. Top killer at the
+throne was the Hollow Knight, not the King.
+
+I read that as the final encounter being over-tuned and softened him: 470 -> 400
+health, 32 -> 26 attack. It changed nothing measurable — still 0/16, and still
+three hits to kill you, because 135/58.6 and 135/47.6 both round to 3. So I ran
+the experiment I should have run first and gave the bot 60 Greater Healing
+instead of 12:
+
+  King slain 12/16. 50% of runs came home. Remaining deaths: Hollow Knight x6.
+
+So the King is beatable and the binding constraint is HEALING SUPPLY ACROSS
+DEPTH SIX, not his stat block. The softening was a fix for a misdiagnosis, so it
+is reverted — he is 470/32 again. Weakening a final boss on bad evidence is
+exactly the change that should not survive.
+
+What is real, and is for the user to judge by feel rather than by bot:
+- Depth 6 is a war of attrition on potions. The bot burns 4+ full health bars on
+  the floor before the throne room even starts.
+- The two Hollow Knight guards kill more often than the King does.
+- The bot is a bad proxy for THIS fight specifically: it never steps out of a
+  telegraph, and it takes 134 hits in a run where a player would take a fraction
+  of that. Its potion count is an upper bound, not an estimate.
+
+## D16. Third review pass
+- TRAP DAMAGE ATTRIBUTION was wrong and the reviewer fixed it in place before I
+  got there. The `trap` event fires for alarm wards (which do no damage) and for
+  traps a monster blundered into, and my flag persisted across frames — so a
+  monster hit seconds later could be filed as trap damage. Now batch-local, and
+  gated on the trap being under the player and not an alarm. Their version is
+  better than the one I was about to write: a local variable makes the batch
+  scoping structural instead of depending on a reset call. The corrected split
+  turns out to be close to the old one, so the "traps are about a third of
+  damage taken in the deep profiles" claim survives on the corrected numbers.
+- THE EXTRA URN ROLL was consuming a draw from the floor's shared RNG stream,
+  which breaks the project's seed contract (a new roll must not reshuffle the
+  rolls after it). The reviewer moved it to its own hashed stream. Correct, and
+  I should have caught it: it is the pattern chestIsMimic and shrineKindFor
+  already establish, and docs/NEXT.md names it as a standing constraint.
+- FIGHT MILK WAS BUYABLE. src/ui/town.ts built the supply shop from every entry
+  in CONSUMABLES, so the one found-only Legendary consumable was on the shelf
+  for about 504 gold. This predates the balance pass but it defeats exactly the
+  scarcity the pass is about. The reviewer filtered it by id in the UI; I moved
+  the fix down to SHOP_CONSUMABLES in market.ts, which was the real source of
+  truth (exported, unused, and about to become a second leak), and derived the
+  exclusion from tonicUnique so the next tonic added is excluded for free. Test
+  added.
+
+## D17. The Warden tree, measured rather than guessed
+User feedback after playing: difficulty reads much better, and the Warden (the
+renown upgrade tree) now needs the same treatment. Correct — D10 deferred it on
+purpose, and the tree was still priced for a game where nothing could kill you
+and the floor handed you forty items.
+
+Built scripts/upgrades.bench.ts: same seeds, each upgrade maxed and ALONE,
+against no upgrades at all. Two things it taught me, both of which I would have
+got wrong by reasoning:
+
+1. PACK MULE MEASURED AT EXACTLY ZERO — zero depth, zero survival, zero haul.
+   Not noise: with the 16-slot pack and the new loot rates, NO scripted profile
+   at any depth ever filled a pack. Peak usage was 5 to 19 slots against 16 to
+   28. So the loot cut had silently deleted an upgrade, and with it the "what do
+   I carry home" decision, in a game called Looting Simulator. Fixed at the
+   source: BASE_BACKPACK 16 -> 12. Pack Mule now measures +85g a run.
+2. MY FIRST COMPOSITE SCORE RANKED SUPPLY CRATE WORST IN THE TREE. It mixed
+   depth, survival and haul into one "worth" number — and potions take the bot
+   deeper, and deeper is where it dies, so the survival term punished the single
+   most valuable upgrade in the game. I nearly repriced on it. Deleted the
+   composite, kept raw deltas, and wrote the confound into the bench output so
+   the next reader distrusts that column too.
+
+## D18. Decision: do not reprice what the harness cannot see
+Five of eleven upgrades are invisible to this bot. Silver Tongue, Market
+Insider, Master Smith and Appraiser's Eye act entirely in town, and the bot
+never goes to town. Second Wind measures zero as well, but for a different
+reason worth writing down: at 22/s regen and a ~1.1s axe cycle, regeneration
+roughly matches cost per swing, so stamina does not bind for a slow weapon. It
+does bind for fast ones, which the bot does not carry.
+
+All five are left alone. The bench prints them as UNMEASURED rather than as
+zero, because a zero there is a statement about the harness and repricing on it
+would be exactly the mistake the composite score nearly caused.
+
+## D19. Treasure Sense: buffed the effect, then put the price back
+Raised +12% -> +20% per level AND raised the cost, which is incoherent — I made
+it stronger and more expensive in the same edit. Checked the effect analytically
+instead (yields() over 60 deterministic seeds, far more sensitive than 24 runs):
++60 find is worth +15% gear and +5% loot value, because the Common band's flat
+weight of 100 anchors the whole roll. So it is a modest upgrade by construction.
+Kept the +20, put the cost back to 5/10/16.
+
+## D20. The save risk in a smaller backpack
+Shrinking BASE_BACKPACK is the one change in this whole pass that could eat a
+player's items: an older save has a town loadout sized for sixteen slots. It
+cannot — addItem refuses to overfill rather than dropping, and startRun returns
+the overflow to the unlimited stash. Verified and pinned with a test, because
+"never wipe a save" is the rule this project runs on and I would rather it fail
+in CI than in someone's browser.
+
+Tree total 323 against 314: the shape moved, the total did not.
+
+## D21. Treasure Sense: the user was right, for a reason the numbers hid
+User: "treasure sense should cost more, 20% loot is a whole lot." My measurement
+said the opposite — +60 find was only +15% gear and +5% value, so I had argued
+it should stay cheap.
+
+Both were true, and the gap between them was the bug. Find multiplied the good
+rarity bands but Common's weight was a flat 100, so it anchored the roll: a
+maxed Treasure Sense bought about 15% MORE DROPS OF WHICH NEARLY ALL WERE STILL
+COMMON. More junk, not better junk. That is not what "loot find" means to anyone
+reading it, and it is why the label felt like a whole lot while the numbers said
+it was nothing. The user was reading the promise; I was measuring the delivery.
+
+Fixed the delivery rather than the promise:
+- Common's weight is now 100/f as well as the good bands being x f, so find
+  moves quality, not only quantity. At find 0 it is exactly 100, so nothing
+  changes for a player who has bought none.
+- Find now also scales a chest's valuable and gem rolls, which it never touched
+  — a chalice or a sunstone is precisely what a treasure sense should surface.
+Result at +60 find: +22% gear pieces and +85% more Uncommons (was +15%/+0%).
+Then raised the cost as asked: 5/10/16 -> 6/13/22. Tree total 333.
+
+Note for the record: the 24-run bench STILL reports treasure_sense at about
+zero, because a single Epic drop swings banked value by hundreds of gold and
+24 runs cannot resolve a ten-percent effect. The analytical table over 60
+deterministic seeds can. The bench now says so in its own output rather than
+printing a number that contradicts the table.

@@ -32,7 +32,7 @@ Dying ends the day too, but you lose the backpack.
 | Base health | 70 (+12 per Toughness level, + item Health) |
 | Base stamina | 100 (+15 per Second Wind level, + item Stamina) |
 | Health regeneration | **None.** Potions, shrines and life leech only |
-| Stamina regeneration | 34/s, starting 0.5s after your last swing; 30% of that while blocking |
+| Stamina regeneration | 22/s, starting 0.9s after your last swing; 30% of that while blocking |
 | Unarmed | 3 attack, 0.14s windup, 0.30s recovery, 9 stamina, reach 1 |
 | Step | 0.24s per tile; backwards ×1.25; ×1.2 more if Speed < −12 |
 | Turn | 0.17s per 90°, then a 0.16s pause before a held turn repeats |
@@ -41,13 +41,15 @@ Dying ends the day too, but you lose the backpack.
 
 ### Damage
 
-Mitigation is `attack × max(0.2, 1 − defense/(defense + k))`, so armour never blocks more than 80%.
+Mitigation is `attack × max(floor, 1 − defense/(defense + k))`. `k` is how much armour it takes to halve a blow; `floor` is the share that always gets through.
 
-**Your hits:** `mitigate(attack, enemyDefense, k=15) × resistance` + each elemental stat × its resistance, then × stamina power × random 0.9–1.1. Crits are `Crit %` (capped 60%) for the weapon's crit multiplier — ×1.6 for everything except the **Dagger**, which crits for ×2.4.
+**Your hits:** `mitigate(attack, enemyDefense, k=45) × resistance` + each elemental stat through `mitigate` at **half** the monster's armour, × its resistance; then × stamina power × random 0.9–1.1. Elemental damage is armour-*piercing*, not armour-ignoring: it used to be added flat after mitigation, which was harmless while deep monsters had 9 defense and became an outright bypass once they had 40. Crits are `Crit %` (capped 60%) for the weapon's crit multiplier — ×1.6 for everything except the **Dagger**, which crits for ×2.4.
 
 **Stamina power:** `0.4 + 0.6 × min(1, stamina / (maxStamina × 0.5))`. At or above half stamina you hit full strength; empty, you do 40%.
 
-**Their hits:** `mitigate(attack × 1.15, defense, k=25) × random 0.85–1.15`. Elemental attacks ignore half your armour. `ENEMY_DAMAGE_MULT = 1.15` is the global difficulty knob.
+**Their hits:** `mitigate(attack × 1.15, defense, k=75, floor=0.34) × random 0.85–1.15`. Elemental attacks ignore half your armour. `ENEMY_DAMAGE_MULT = 1.15` is the global difficulty knob.
+
+The wide `k` and the high floor are deliberate. At `k=25` with a 20% floor, plate did not reduce damage so much as switch it off — a Hollow Knight needed twenty-six swings to kill a player in moonsilver. Armour should be the difference between four hits and nine, never the difference between dying and not noticing, so **a third of every blow always gets through**.
 
 **Blocking:** absorbs `Block %` of a hit (shield stat; 30% with just a weapon, 12% bare-handed) and costs `absorbed × 1.3` stamina. Out of stamina, the guard breaks: you take the rest and the block drops. Blocking only works against attacks from the tile you face.
 
@@ -105,9 +107,9 @@ Floors are generated from `hash(runSeed, depth)`, so the same seed always gives 
 | Pillars | Rooms of at least 6×5 get pillars, never blocking a route |
 | Stairs | Carved as alcoves — up in the start room, down in the farthest room; the boss floor has no down stairs |
 | Torches | Placed on room walls, at least 5 tiles apart, density per biome; always one at the arrival point |
-| Props | Normal rooms: 35% a chest, 0–3 urns/barrels, 50% bones. Treasure rooms: a chest (+30% a second) and 2–4 urns. Vault: two vault chests |
-| Enemies | `4 + 2 × depth + rooms/3`, never within 7 tiles of the arrival point; 15% spawn wandering in corridors instead of rooms |
-| Loose loot | `3 + depth` piles: 55% coins (`3–8 × depth`), otherwise a material stack |
+| Props | See the room-by-room table under [Containers](#containers). Eight or nine lootable things per floor |
+| Enemies | `3 + 1.2 × depth + rooms/4`, never within 7 tiles of the arrival point; 15% spawn wandering in corridors instead of rooms. About a third fewer than before: fights are three to seven swings now instead of one, so the old count turned a floor into a queue |
+| Loose loot | `1 + ⌈depth/2⌉` piles: 55% coins (`2–5 × depth`), otherwise a material stack |
 | Traps | `2 + 1.5 × depth`, 70% in corridors, at least 4 tiles apart, never within 3 of the arrival tile; 70% of treasure/vault/secret rooms also get one inside |
 
 Every generated floor is checked: all walkable tiles reachable, keys reachable without their own vault, stairs present. Failed layouts are regenerated (up to 40 attempts).
@@ -132,7 +134,7 @@ Depth 6 is the bottom (`FINAL_DEPTH = 6`); there are no stairs down, only the wa
 - A **9×11 throne room** is placed first, and the rest of the floor (8 rooms instead of `9 + depth`) is fitted around it.
 - The throne room is forced to be a **dead end**: it gets exactly one connection, no loop links, and its entrance is an **iron door**.
 - You arrive in the room **farthest from the throne**, so there's a floor to cross before the fight.
-- **The Ashen King** waits two tiles inside, flanked by **two Hollow Knights**. The floor also carries 3 more wanderers than the usual `4 + 2 × depth + rooms/3`.
+- **The Ashen King** waits two tiles inside, flanked by **two Hollow Knights**. The floor also carries 3 more wanderers than the usual `3 + round(1.2 × depth) + floor(rooms/4)`.
 - Only the deep roster spawns here: **Ghouls, Frost Wisps, Hollow Knights, Flame Wraiths**. Skeletons stop at depth 4, archers and spiders at 5.
 - Vaults, secret rooms (86% chance at this depth) and shrines still generate as normal. The key here is the **Ashen Key**.
 - The biome has the densest torches of the game, iron doors and obsidian walls whose mortar glows.
@@ -149,46 +151,58 @@ There is nothing below. Each new run rolls a fresh seed, so depth 6 can be farme
 
 | Monster | Depths | HP | Atk | Def | Type | Resists / weaknesses | Behaviour | Windup | Recovery | Step | Sight |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| Giant Rat | 1–3 | 10 | 4 | 0 | pierce | **slash ×1.4**, pierce ×1.3 | melee | 0.38 | 0.65 | 0.30 | 6 |
-| Goblin Cutpurse | 1–4 | 20 | 6 | 1 | slash | **slash ×1.4**, pierce ×1.25 | skittish | 0.45 | 0.70 | 0.40 | 7 |
-| Goblin Archer | 2–4 | 14 | 6 | 1 | pierce | **slash ×1.4**, pierce ×1.25 | ranged (arrow, speed 6.5, range 4) | 0.70 | 1.30 | 0.35 | 8 |
-| Goblin Shieldbearer | 2–4 | 26 | 6 | 3 | slash | **slash ×1.4**, pierce ×1.25 | melee, shield (blocks 75%) | 0.50 | 0.80 | 0.45 | 6 |
-| Cave Bat | 1–3 | 12 | 5 | 0 | pierce | **slash ×1.4**, pierce ×1.3, blunt ×0.85 | fast melee, floats | 0.24 | 0.40 | 0.20 | 5 |
-| Skeleton | 1–4 | 22 | 7 | 2 | slash | undead: **blunt ×1.5**, holy ×2, slash ×0.6, pierce ×0.55, shadow ×0.5 | melee | 0.55 | 0.90 | 0.55 | 7 |
-| Skeleton Archer | 2–5 | 18 | 7 | 2 | pierce | as undead | ranged (arrow, speed 7, range 5) | 0.75 | 1.40 | 0.50 | 8 |
-| Skeleton Shieldguard | 3–5 | 30 | 8 | 4 | slash | as undead | melee, shield (blocks 75%) | 0.60 | 0.90 | 0.55 | 7 |
-| Cave Spider | 3–5 | 24 | 9 | 2 | pierce | **pierce ×1.35**, slash ×1.3, fire ×1.5 | melee | 0.35 | 0.60 | 0.28 | 5 |
-| Ghoul | 3–6 | 48 | 13 | 4 | slash | undead: holy ×2, **slash ×1.35**, fire ×1.3, pierce ×1.3, shadow ×0.5 | melee | 0.65 | 1.00 | 0.75 | 6 |
-| Ember Wisp | 3–5 | 22 | 9 | 1 | fire | **frost ×2**, fire ×0, blunt ×0.7, slash ×0.8, pierce ×0.6 | ranged (fire bolt, speed 5.5, range 4) | 0.70 | 1.45 | 0.42 | 8 |
-| Frost Wisp | 4–6 | 26 | 10 | 1 | frost | **fire ×2**, frost ×0, blunt ×0.7, slash ×0.8, pierce ×0.6 | ranged (frost bolt, speed 5, range 4) | 0.80 | 1.60 | 0.45 | 8 |
-| Hollow Knight | 5–6 | 80 | 16 | 9 | slash | holy ×1.6, **pierce ×1.25**, blunt ×1.2, slash ×0.7, shadow ×0.5 | melee, shield (blocks 75%) | 0.70 | 1.00 | 0.65 | 7 |
-| Barrow Champion | 5–6 | 110 | 18 | 7 | blunt | undead: **blunt ×1.5**, holy ×2, slash ×0.55, pierce ×0.5, shadow ×0.5 | slow melee | 0.85 | 1.20 | 0.80 | 7 |
-| Flame Wraith | 5–6 | 50 | 14 | 2 | fire | **frost ×2**, fire ×0, blunt ×0.7, slash ×0.8, pierce ×0.6 | ranged (fire bolt, speed 5.5, range 4) | 0.75 | 1.40 | 0.50 | 8 |
-| Mimic | any chest | 52 | 14 | 5 | pierce | blunt ×1.25, pierce ×1.1, fire ×1.35 | fast melee; dormant until opened | 0.52 | 0.80 | 0.32 | 8 |
-| The Ashen King | 6 (boss) | 420 | 24 | 12 | shadow | holy ×1.5, shadow ×0, pierce ×0.95 | boss: melee + 3-bolt volley | 0.80 | 1.00 | 0.80 | 12 |
+| Giant Rat | 1–3 | 14 | 5 | 0 | pierce | **slash ×1.4**, pierce ×1.3 | melee | 0.38 | 0.65 | 0.3 | 6 |
+| Goblin Cutpurse | 1–4 | 28 | 8 | 2 | slash | **slash ×1.4**, pierce ×1.25 | skittish | 0.45 | 0.7 | 0.4 | 7 |
+| Goblin Archer | 2–4 | 20 | 8 | 1 | pierce | **slash ×1.4**, pierce ×1.25 | ranged, pierce bolt, speed 6.5, range 4 | 0.7 | 1.3 | 0.35 | 8 |
+| Goblin Shieldbearer | 2–4 | 40 | 8 | 6 | slash | **slash ×1.4**, pierce ×1.25 | melee, shield (blocks 75%) | 0.5 | 0.8 | 0.45 | 6 |
+| Cave Bat | 1–3 | 16 | 6 | 0 | pierce | blunt ×0.85, **slash ×1.4**, pierce ×1.3 | melee, floats | 0.24 | 0.4 | 0.2 | 5 |
+| Skeleton | 1–4 | 30 | 9 | 4 | slash | undead: **blunt ×1.5**, slash ×0.6, pierce ×0.55, **holy ×2**, shadow ×0.5 | melee | 0.55 | 0.9 | 0.55 | 7 |
+| Skeleton Archer | 2–5 | 26 | 9 | 4 | pierce | undead: **blunt ×1.5**, slash ×0.6, pierce ×0.55, **holy ×2**, shadow ×0.5 | ranged, pierce bolt, speed 7, range 5 | 0.75 | 1.4 | 0.5 | 8 |
+| Skeleton Shieldguard | 3–5 | 50 | 11 | 9 | slash | undead: **blunt ×1.5**, slash ×0.6, pierce ×0.55, **holy ×2**, shadow ×0.5 | melee, shield (blocks 75%) | 0.6 | 0.9 | 0.55 | 7 |
+| Cave Spider | 3–5 | 36 | 11 | 3 | pierce | slash ×1.3, **pierce ×1.35**, **fire ×1.5** | melee | 0.42 | 0.8 | 0.28 | 5 |
+| Ghoul | 3–6 | 72 | 16 | 8 | slash | undead: **slash ×1.35**, pierce ×1.3, fire ×1.3, **holy ×2**, shadow ×0.5 | melee | 0.65 | 1 | 0.75 | 6 |
+| Ember Wisp | 3–5 | 30 | 11 | 2 | fire | blunt ×0.7, slash ×0.8, pierce ×0.6, fire ×0, **frost ×2** | ranged, fire bolt, speed 5.5, range 4, floats | 0.7 | 1.45 | 0.42 | 8 |
+| Frost Wisp | 4–6 | 36 | 13 | 2 | frost | blunt ×0.7, slash ×0.8, pierce ×0.6, **fire ×2**, frost ×0 | ranged, frost bolt, speed 5, range 4, floats | 0.8 | 1.6 | 0.45 | 8 |
+| Hollow Knight | 5–6 | 135 | 21 | 20 | slash | undead: blunt ×1.2, slash ×0.7, pierce ×1.25, **holy ×1.6**, shadow ×0.5 | melee, shield (blocks 75%) | 0.7 | 1 | 0.65 | 7 |
+| Barrow Champion | 5–6 | 170 | 24 | 14 | blunt | undead: **blunt ×1.5**, slash ×0.55, pierce ×0.5, **holy ×2**, shadow ×0.5 | melee | 0.85 | 1.2 | 0.8 | 7 |
+| Flame Wraith | 5–6 | 82 | 19 | 6 | fire | blunt ×0.7, slash ×0.8, pierce ×0.6, fire ×0, **frost ×2** | ranged, fire bolt, speed 5.5, range 4, floats | 0.75 | 1.4 | 0.5 | 8 |
+| Mimic | any chest | 58 | 17 | 8 | pierce | blunt ×1.25, pierce ×1.1, **fire ×1.35** | melee | 0.52 | 0.8 | 0.32 | 8 |
+| The Ashen King | 6 (boss) | 470 | 32 | 22 | shadow | undead: pierce ×0.95, **holy ×1.5**, shadow ×0 | boss, shadow bolt, speed 4.5, range 3 | 0.8 | 1 | 0.8 | 12 |
 
-Spawn weights: rat/goblin/skeleton/spider 3, bat 2.5, archer/goblin archer/ghoul/wisps 2, goblin shield/skeleton shield/knight/champion/wraith 1.5. The Ember Wisp is the Frost Wisp's shallow counterpart, sharing its sprite rows under a warm palette — it puts the first elemental enemy on depth 3, which had none. Every floor holds at least five kinds, and each gives blunt, slash and pierce something it is good against — depth 6 without the Barrow Champion had no bone left to break, which left the club line with nothing to do on the final floor. Mimics never enter the ordinary spawn pool. Monsters deeper than their `minDepth` get `+12% HP per depth` and the same bonus to damage.
+Spawn weights: Giant Rat 3, Goblin Cutpurse 3, Goblin Archer 2, Goblin Shieldbearer 1.5, Cave Bat 2.5, Skeleton 2, Skeleton Archer 2, Skeleton Shieldguard 1.5, Cave Spider 3, Ghoul 2, Ember Wisp 2, Frost Wisp 2, Hollow Knight 1.5, Barrow Champion 1.5, Flame Wraith 1.5. The Ember Wisp is the Frost Wisp's shallow counterpart, sharing its sprite rows under a warm palette — it puts the first elemental enemy on depth 3, which had none. Every floor holds at least five kinds, and each gives blunt, slash and pierce something it is good against — depth 6 without the Barrow Champion had no bone left to break, which left the club line with nothing to do on the final floor. Mimics never enter the ordinary spawn pool.
+
+**Depth scaling.** The stat block above is what a monster is on the shallowest floor it appears on. Two multipliers stack on top, both in `depthPower()`:
+
+- **Over-level**, `1 + 0.12 × (depth − minDepth)` — a monster standing below its own home floor is a veteran of its kind.
+- **The floor itself**, `1 + 0.5 × (depth − 1)` — the player's gear tracks the *floor number*, because depth is what decides which materials drop, so the monsters have to track it too or the two curves never meet.
+
+Their product is the **health** multiplier. Damage and armour are expressed as fractions of it rather than scaled again: `attackPower = 1 + 0.55 × (power − 1)` and `defensePower = 1 + 0.45 × (power − 1)`. Health climbs fastest on purpose — a deep floor should be a longer fight you can lose slowly, not a coin flip that removes you in two blows. A Hollow Knight on depth 6 is therefore 529 health, 55 attack and 46 defense, not the 135/21/20 in the table.
+
+A monster lighter than **55 health** (`STAGGER_HP`) is knocked out of its wind-up when you land a blow, which is what makes trading with a rat different from trading with a ghoul. Bosses never stagger.
 
 ### Monster drops
 
 | Monster | Materials | Gold | Gear chance |
 |---|---|---|---|
-| Giant Rat | rat hide 60% (1–2), bone 25% | 0–2 | — |
-| Goblin Cutpurse | copper 50%, linen 40%, timber 30%, bone idol 10% | 3–12 | 15% |
-| Goblin Archer | copper 40%, linen 30%, timber 30%, yew 20% | 2–8 | 10% |
-| Goblin Shieldbearer | copper 50%, timber 40%, iron 25% | 3–10 | 12% |
-| Skeleton | bone 70% (1–3), iron 35% | 0–6 | 12% |
-| Skeleton Archer | bone 60%, timber 30%, yew 25% | 0–8 | 10% |
-| Skeleton Shieldguard | bone 70%, iron 40% | 2–8 | 12% |
-| Cave Spider | spider silk 60%, crystal 8% | 0–4 | 5% |
-| Ghoul | bone 50%, leather 50%, silver chalice 12% | 5–20 | 20% |
-| Frost Wisp | frost shard 45%, crystal 35%, moonstone 8% | 0–5 | 8% |
-| Hollow Knight | iron 80% (2–3), silver 40%, moonsilver 8%, candelabra 10% | 10–40 | 45% |
-| Flame Wraith | flame shard 45%, gold 20%, emerald 8%, tome 8%, shadow essence 5% | 5–25 | 25% |
-| Mimic | the exact tier of hoard hidden by its chest disguise | chest roll | chest roll |
-| The Ashen King | star iron ×1–2, shadow essence ×1–2, jewelled skull, dragon scale 50% | 150–300 | guaranteed Legendary + Epic + a blueprint |
+| Giant Rat | rat hide 42% (1–2), bone 17% | 0–2 | — |
+| Goblin Cutpurse | copper ore 35% (1–2), linen 28% (1–2), timber plank 21%, bone idol 7% | 3–12 | 5% |
+| Goblin Archer | copper ore 28% (1–2), linen 21% (1–2), timber plank 21%, yew stave 14% | 2–8 | 3.5% |
+| Goblin Shieldbearer | copper ore 35% (1–2), timber plank 28% (1–2), iron ore 17% | 3–10 | 4% |
+| Cave Bat | rat hide 32%, bone 21% | 0–3 | 1.5% |
+| Skeleton | bone 49% (1–3), iron ore 24% (1–2) | 0–6 | 4% |
+| Skeleton Archer | bone 42% (1–2), yew stave 17%, timber plank 21% | 0–8 | 3.5% |
+| Skeleton Shieldguard | bone 49% (1–3), iron ore 28% (1–2) | 2–8 | 4% |
+| Cave Spider | spider silk 42% (1–2), crystal shard 6% | 0–4 | 2% |
+| Ghoul | leather 35% (1–2), bone 35% (1–3), silver chalice 8% | 5–20 | 7% |
+| Ember Wisp | flame shard 21%, crystal shard 24% (1–2), sunstone 6% | 0–5 | 3% |
+| Frost Wisp | frost shard 32%, crystal shard 24% (1–2), moonstone 6% | 0–5 | 3% |
+| Hollow Knight | iron ore 56% (2–3), silver ingot 28% (1–2), moonsilver 6%, gilded candelabra 7% | 10–40 | 16% |
+| Barrow Champion | bone 63% (2–4), silver ingot 32% (1–2), moonsilver 8%, ancient tome 7% | 10–34 | 8% |
+| Flame Wraith | flame shard 32%, gold nugget 14%, emerald 6%, shadow essence 4%, ancient tome 6% | 5–25 | 9% |
+| Mimic | — | 0–0 | — |
+| The Ashen King | star iron 100% (1–2), shadow essence 100% (1–2), dragon scale 50%, jeweled skull 100% | 150–300 | 100% |
 
-Every kill also has a 6% chance of a Healing Draught and `1.2% × depth` of a blueprint. Loot find multiplies material chances by `1 + find/200` and gear chance by `1 + find/100`.
+Every kill also has a 2.5% chance of a Healing Draught and `0.6% × depth` of a blueprint. Loot find multiplies material chances by `1 + find/200` and gear chance by `1 + find/100`.
 
 ### Monster AI
 
@@ -229,9 +243,11 @@ A shrine serves one of three gods, fixed per floor and rolled from its own seed 
 
 | | Colour | Prompt | What it does |
 |---|---|---|---|
-| **Font of Mending** | cold blue | *Drink at the font* | Full health and stamina, and **lifts a curse**. Never harms you |
-| **Hollow Idol** | violet | *Pray at the hollow idol* | **60%**: full restore and a blessing. **40%**: a curse for the rest of the run |
-| **Offering Stone** | gold | *Offer N gold at the stone* | Costs `30 + 25 × depth` carried gold for a full restore and a blessing. Too poor? It stays unused — come back with the coin |
+| **Font of Mending** | cold blue | *Drink at the font* | **60% of your health** and all of your stamina, and **lifts a curse**. Never harms you |
+| **Hollow Idol** | violet | *Pray at the hollow idol* | **60%**: the same mend and a blessing. **40%**: a curse for the rest of the run |
+| **Offering Stone** | gold | *Offer N gold at the stone* | Costs `30 + 25 × depth` carried gold for the same mend and a blessing. Too poor? It stays unused — come back with the coin |
+
+No shrine restores you outright any more. A font that refills the bar is a save point, and a save point every other floor is the end of attrition as a mechanic — so it is a large, welcome, *partial* mend, and it does not undo the delve.
 
 **Blessings** (one per run): Fortune (+30% loot find), Fury (+25% damage), Warding (+5 defense).
 
@@ -301,13 +317,15 @@ An item is **base × material × rarity × affixes × quality**. Nothing is stor
 | Epic | 3 | ×2.8 |
 | Legendary | 4 (and a unique name like "Duskfang") | ×4.5 |
 
-**Rarity roll** (weights, `f = 1 + find/100`): Common 100, Uncommon `(28 + 6×depth) × f`, Rare `(7 + 3×depth) × f`, Epic `(1.2 + 1.1×depth) × f`, Legendary `(0.15 + 0.3×depth) × f`. Natural Rare, Epic, and Legendary drops unlock at depths 2, 4, and 6 respectively; guaranteed boss rewards can exceed these gates.
+**Rarity roll** (weights, `f = 1 + find/100`, floored at 0.1): Common `100 / f`, Uncommon `(18 + 4×depth) × f`, Rare `(4 + 1.8×depth) × f`, Epic `(0.5 + 0.6×depth) × f`, Legendary `(0.06 + 0.16×depth) × f`. Natural Rare, Epic, and Legendary drops unlock at depths **3, 5 and 6**; guaranteed boss rewards can exceed these gates. A Rare on the second floor made the first two floors' worth of Commons pointless the moment you saw one.
 
 **Item level** = `depth × 2 + 0–2`. It sets affix strength. **Quality** = `0.86–1.08 + 0.04 × rarity`, a multiplier on the base stats.
 
 **Material tier** drives the stat scaling: `base + perTier × (tier − 1)`, times quality, plus the material's own bonuses. Secondary recipe materials provide a structural bonus by category (Metal → Defense, Wood → Speed, Hide → Health, Cloth → Stamina, Bone → Attack), scaled by tier, plus their full material-specific modifiers. Crafted recipe mastery multiplies positive base and per-tier stats after quality; it does not multiply penalties, material bonuses, or affixes.
 
-Natural equipment materials are gated by both tier and rarity, then weighted down by material rarity. Tier 3, 4, and 5 materials enter the generic equipment pool at depths 3, 5, and 6; Rare, Epic, and Legendary materials cannot appear before depths 2, 4, and 6.
+Natural equipment materials are gated by both tier and rarity, then weighted down by material rarity. First floor per tier is `1, 1, 2, 4, 5, 6` (`TIER_DEPTH`), and Rare, Epic and Legendary materials cannot appear before depths 3, 5 and 6. Tier 3 — silver, gold, ironwood — used to be reachable in the first chest you opened on floor one, which is most of why the power curve ran away: the gear ladder was three rungs ahead of the floor ladder by depth 2. The metal you are wearing should say how deep you have been. A visible consequence: **the day-one market does not stock iron**, because a day-one delver could not have brought any back.
+
+The tier a floor aims for is `1 + 0.55 × (depth − 1)`, plus `−0.7 … +0.8` of spread, weighted by `e^(−1.6 × |tier − target|)`.
 
 **Identification:** Common drops are identified; Uncommon and better arrive unknown, showing the base but hiding affixes, which **do not apply** until identified. Identify with a Scroll of Identify or pay the appraiser `10 + 12% of value` (Appraiser's Eye L1 makes that 40% cheaper; L2 identifies Rare and lower on the spot). Unidentified gear sells for 45% of its price.
 
@@ -385,7 +403,7 @@ fails the suite rather than reaching a player.
 | Eulogy Plate | Star-Iron Plate | +14 Defense, +20 Health; **all** healing at exactly 50% |
 | Charlie Work | Silver Band | +2 tiles of trap-reading: 4 ahead instead of 2 |
 | Kitten Mittens | Shadow-Silk Gloves | −2 tiles off every creature's sight; a skeleton's 7 becomes 5 |
-| Fight Milk | *Legendary draught* | Drunk: stamina regen 34/s → 57.8/s, −20 max stamina, rest of the delve |
+| Fight Milk | *Legendary draught* | Drunk: stamina regen 22/s → 37.4/s, −20 max stamina, rest of the delve |
 
 **Depth.** Legendary only becomes available at depth 6 (`rarityAvailableAtDepth`),
 so relics are a bottom-of-the-dungeon thing by construction. Each also carries
@@ -425,11 +443,27 @@ Each newly generated chest has a deterministic **12% chance to be a mimic**. It 
 
 | Source | Contents |
 |---|---|
-| Urn / barrel | 55% a material (1–2), 35% gold `2 – (6 + 3×depth)`, 6% potion, 5% valuable |
-| Chest | `8–20 × depth` gold, 1–3 material stacks, 40% gear, 20% potion, 18% valuable, 12% gem, 10% identify scroll, 8% blueprint, 0.8%×depth Fight Milk |
-| Vault / secret chest | `30–60 × depth` gold, an Uncommon+ item (Rare+ from depth 3; 25% a second Uncommon+), a valuable, a gem, 35%/70% blueprint, 35% a good consumable, 3%×depth Fight Milk |
+| Urn / barrel | 40% a material (1–2), 30% gold `2 – (6 + 3×depth)`, 3% potion, 3% valuable |
+| Chest | `10–22 × depth` gold, 1–2 material stacks, 17% gear, 12% potion, 14% valuable, 10% gem, 7% identify scroll, 5% blueprint, 0.8%×depth Fight Milk. Loot find scales the gear, valuable and gem rolls |
+| Vault / secret chest | `40–75 × depth` gold, an Uncommon+ item (Rare+ from depth 4; 25% a second Uncommon+), a valuable, a gem, 35%/70% blueprint, 35% a good consumable, 3%×depth Fight Milk |
 
 Vault rooms contain one premium chest. Special chests roll at the current depth rather than advancing every reward table by one floor.
+
+**Most urns are nothing**, which is what makes the one with a gem in it worth the swing, and a chest's gear chance is less than half what it was — a chest that hands you a weapon every other time is a vending machine, and you stop reading the room it is standing in. Vaults and secret chests are deliberately left generous: they are behind a key and behind a wall you had to read, and they are the two places in the dungeon that are supposed to pay.
+
+**How many are on a floor** (`src/systems/dungeon.ts`):
+
+| Room | Contents |
+|---|---|
+| Start | 25% one urn |
+| Ordinary / stairs room | 12% a chest, 45% an urn, 15% a second urn, 50% a bone pile |
+| Treasure | a chest, 15% a second, 1–2 urns |
+| Vault | the vault chest and a bone pile |
+| Secret | the secret chest |
+| Shrine | the shrine, 40% an urn |
+| Throne | 2 urns, 2 bone piles |
+
+Plus `1 + ⌈depth/2⌉` loose piles on the floor, each 55% a little gold (`2–5 × depth`) and otherwise a material stack. That comes to eight or nine lootable things on a floor against a sixteen-slot pack. It used to be nineteen, and if every room pays then no room is worth remembering.
 
 ---
 
@@ -580,8 +614,8 @@ At most 2 prefixes and 2 suffixes, never two affixes on the same stat.
 
 | Item | Effect | Rarity | Value | Stack |
 |---|---|---|---|---|
-| Healing Draught | Restore 35% health | Common | 24 | 5 |
-| Greater Healing | Restore 75% health | Rare | 70 | 5 |
+| Healing Draught | Restore 25% health | Common | 24 | 5 |
+| Greater Healing | Restore 55% health | Rare | 70 | 5 |
 | Stamina Tonic | Refill stamina | Common | 16 | 5 |
 | Scroll of Identify | Identify one item in the pack | Uncommon | 30 | 10 |
 | Scroll of Recall | 5s channel, then a two-way town portal | Rare | 95 | 5 |
@@ -672,7 +706,7 @@ One or two run at a time, announced the day before as a rumour.
 
 | Upgrade | Effect per level | Costs |
 |---|---|---|
-| Pack Mule | +4 backpack slots | 4, 8, 14 |
+| Pack Mule | +4 backpack slots | 3, 6, 11 |
 | Toughness | +12 max health | 3, 6, 10, 15, 22 |
 | Second Wind | +15 max stamina | 3, 7, 12 |
 | Soul Pouch | Keep 3 backpack slots and 20% of carried gold on death | 5, 10, 16 |
@@ -680,9 +714,21 @@ One or two run at a time, announced the day before as a rumour.
 | Market Insider | L1 price history; L2 tomorrow's event | 5, 12 |
 | Master Smith | +6% crafted quality; L3 an extra affix | 4, 9, 15 |
 | Appraiser's Eye | L1 identify 40% cheaper; L2 Rare and lower drop identified | 5, 12 |
-| Treasure Sense | +12% loot find | 5, 10, 16 |
-| Supply Crate | Start each run with +1 Healing Draught | 3, 6, 10 |
+| Treasure Sense | +20% loot find | 6, 13, 22 |
+| Supply Crate | Start each run with +1 Healing Draught | 5, 11, 18 |
 | Lantern Wick | +1 unit of light radius (½ a tile). L1 also spots traps 3 tiles ahead instead of 2 | 3, 7, 12 |
+
+The whole tree costs **333 renown** — 30 to 40 delves for a competent player, against 8 to 14 before the balance pass. The renown *payout* is unchanged: ordinary scripted profiles simply earn less, because they turn back or die sooner. `npm run playtest` reports renown per run against this total; it does not simulate buying the whole tree across many runs.
+
+What did change is the tree's internal shape, because the dungeon moved under it. `scripts/upgrades.bench.ts` runs the same seeds with each upgrade maxed and alone, against no upgrades at all:
+
+| | before | after | why |
+|---|---|---|---|
+| Pack Mule | 4, 8, 14 | 3, 6, 11 | Measured at **exactly zero** on depth, survival and haul: with a 16-slot pack and the new loot rates it never filled. Its job came back when the base pack dropped to 12, and the price came down to match an upgrade that is now situational rather than universal. |
+| Supply Crate | 3, 6, 10 | 5, 11, 18 | The best buy in the tree by a distance — healing supply is what actually binds a deep delve, and three free draughts a run answered that for 19 renown. Still the best depth-per-renown in the tree at 34. |
+| Treasure Sense | +12%, 5/10/16 | +20%, 6/13/22 | +36% find on drop rates that had themselves been halved measured as close to nothing — and what it *did* add was almost entirely Common, because the Common band's flat weight of 100 anchored the roll. Find now divides that weight as well as multiplying the good bands, so it moves quality and not just quantity: at +60 it is +22% gear pieces and **+85% more Uncommons**. Dearer accordingly. |
+
+Five upgrades were **not** repriced, because the harness cannot see them and a number it cannot see is not evidence. Silver Tongue, Market Insider, Master Smith and Appraiser's Eye are entirely town-side, and the scripted bot never visits town. Second Wind measures at zero as well, but only because a slow weapon's stamina regeneration roughly matches its cost per swing — it binds for fast weapons, which the bot does not carry.
 
 ---
 
@@ -690,7 +736,7 @@ One or two run at a time, announced the day before as a rumour.
 
 *Files: `src/state/inventory.ts`, `src/systems/run.ts`*
 
-- **Backpack:** 16 slots (+4 per Pack Mule). Materials stack 20 per slot, consumables 5–10, gear 1.
+- **Backpack:** 12 slots (+4 per Pack Mule). Materials stack 20 per slot, consumables 5–10, gear 1. It was 16, sized against a dungeon that handed you forty items a floor; with loot cut by about sixty percent a deep delve peaks around nineteen slots, so 16 never filled and Pack Mule was worth measurably nothing.
 - **Packing before a delve:** the *Stash & Gear* tab has a **Pack** panel beside the stash. Anything you put in it goes down with you as your backpack. Clicking a stash item moves it into the pack; gear equips instead unless you flip the **Equip / Pack** switch. **Take potions** fills the pack with every consumable that fits. When a run is already open (you came home through a town portal) the panel is your actual backpack, so you can stash your haul and restock before going back.
 - Anything packed that no longer fits when you descend — the pack shrank, or the Supply Crate took the slot — goes back to the stash rather than vanishing.
 - **Stash:** unlimited, in town, and materials merge into single stacks.
@@ -734,6 +780,7 @@ A save written by a *newer* build than the one loading it is left as it is rathe
 | Want to change | File |
 |---|---|
 | Monster stats, drops, depth ranges | `src/data/enemies.ts` |
+| How monsters scale with the floor | `src/systems/dungeon.ts` (`depthPower`, `attackPower`, `defensePower`) |
 | Relics: names, effects, flavour, depths | `src/data/uniques.ts` |
 | Delve-long draught effects | `TONICS` in `src/world/world.ts` |
 | Materials, tiers, values, catalysts | `src/data/materials.ts` |
@@ -755,6 +802,14 @@ A save written by a *newer* build than the one loading it is left as it is rathe
 | Mimic odds | `src/systems/dungeon.ts` (`chestIsMimic`) |
 | Light radius and lantern levels | `src/systems/meta.ts` |
 
-**Keep this file updated** whenever those change: the tables above are meant to be the single reference for balance discussions.
+**Keep this file updated** whenever those change: the tables above are meant to be the single reference for balance discussions. The monster stat and drop tables in section 5 are *generated* — run
+
+```sh
+npx vitest run --config vitest.playtest.config.ts scripts/mechanics.bench.ts
+```
+
+and paste the result in, rather than editing seventeen rows by hand and getting one of them wrong.
+
+**Measuring a change:** `npm run playtest` writes a full report — the ladder (each floor against the gear it is meant to be reached with), floor composition, loot yield, every matchup, and scripted runs for fresh, mid-gear, endgame and prepared characters under several policies. It takes a couple of minutes. `npm run tables` alone runs in seconds and is the one to use between individual knobs.
 
 Work that is designed but not built lives in [NEXT.md](NEXT.md); the account-sync brief is in [SUPABASE_SYNC.md](SUPABASE_SYNC.md).

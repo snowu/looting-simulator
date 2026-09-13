@@ -4,4 +4,13 @@ docs/superpowers/
 node_modules/
 dist/
 .env
-scripts/
+# scripts/ is project infrastructure and tracked by default. It used to be
+# ignored wholesale, which would have left the balance harness uncommitted;
+# the first fix was an allowlist, which then silently swallowed the next script
+# anyone added. Name the one personal snippet instead.
+scripts/inject-forge-test-save.js
+
+# Harness output.
+playtest-report.txt
+balance-tables.txt
+trace.txt

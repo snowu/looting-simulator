@@ -11,7 +11,11 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "playtest": "vitest run --config vitest.playtest.config.ts scripts/balance.bench.ts",
+    "tables": "vitest run --config vitest.playtest.config.ts scripts/tables.bench.ts",
+    "upgrades": "vitest run --config vitest.playtest.config.ts scripts/upgrades.bench.ts",
+    "find": "vitest run --config vitest.playtest.config.ts scripts/find.bench.ts"
   },
   "keywords": [],
   "author": "",

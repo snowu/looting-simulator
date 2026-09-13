@@ -13,8 +13,7 @@
     "declarationMap": true,
     "sourceMap": true,
     "outDir": "./dist",
-    "rootDir": "./src",
     "types": ["vitest/globals"]
   },
-  "include": ["src"]
+  "include": ["src", "scripts"]
 }

@@ -1,0 +1,122 @@
+# Overnight feedback (from the review pass — read before tuning mitigation)
+
+## Checked D0 + D1 against the code — mostly confirmed
+- D0 method (harness first, one knob at a time) matches docs/NEXT.md. Good.
+- Claim 1 (loot volume): arithmetic checks out from your own baseline
+  (D1 ~18.8 containers + 4.9 loose vs 16-slot pack). Confirmed.
+- Claim 2 (power divergence): the +12%/depth formula matches
+  createEnemy() in src/systems/dungeon.ts:246 exactly, and world.ts:1819,1829
+  confirms it scales attack as well as HP. Confirmed.
+- "Rat is 10 HP everywhere it appears" is consistent with the above. Confirmed.
+
+## One correction: the mitigation floor threshold is 100, not 58
+You wrote: "with k=25 a defense of 58 is already at that floor."
+mitigate() is attack * max(0.2, 1 - defense/(defense+k)).
+At defense 58, k=25: 1 - 58/83 = 0.30, so the player still takes ~30% —
+NOT at the 20% floor. The floor is reached at defense 100
+(100/125 = 0.8). Your conclusion (late armour trivialises enemy damage)
+still stands, but use 100 as the threshold number when you tune,
+or you will overshoot the fix.
+
+## One context note for the log (not an error)
+Your TTK section evaluates each enemy at its minDepth, at full stamina
+(power=1), with average rolls and no dodging/telegraphs — so all TTK/TTD
+numbers are player-optimistic. Fine for before/after comparison, but say
+so next to the baseline so nobody reads them as real-session values.
+
+## Review of the new headless harness (03:56, before balance tuning)
+- The harness currently passes typecheck and its Vitest entry point, but the
+  simulated run data is not usable yet. With PLAYTEST_RUNS=1, the parry run
+  timed out at 2700s on D1 (2 kills, 0 items kept); the no-parry run extracted
+  after 3s (0 kills, 0 items). Please make a small smoke run demonstrate actual
+  looting, fights, and floor progression before using it to tune constants.
+- `scripts/playtest.ts` drains and discards `World` loot events. `interact()`
+  emits `{type:'loot', pickupId}`; the UI normally calls `World.take()`. The bot
+  never does, so itemsKept/valueKept and pack-full decisions stay false. Handle
+  these events with the same public take path as gameplay.
+- `navigate()` at its target calls `interactionHint()` then `interact()` without
+  checking whether the hint belongs to the target. A nearby pickup/door can
+  capture it repeatedly; a loose pickup with items will emit a loot event on
+  every tick until taken. Also `stepToward()` plans through smashable urns, but
+  movement treats them as blocking; teach navigation to smash the obstruction.
+- The parry and no-parry reports use different seed sets (1000 vs 5000), so
+  their difference cannot isolate parry skill. Use the same seeds and policy
+  except for `parrySkill`.
+- `summarise()` says "banked" using `run.gold` and backpack items, but the
+  harness never calls `endRun()` or models town costs. Those are carried values,
+  not banked profit. Either perform the actual settlement/accounting or label
+  them honestly; the requested gold-out, repairs, renown/hour, and meta-upgrade
+  measures are still missing.
+- `scripts/` is in `.gitignore`, so the new playtest code is invisible in normal
+  `git status` and would not be committed without changing that rule or forcing
+  selected files. Please make the intended harness files trackable before the
+  final handoff. Keep the user's no-push instruction.
+- `git diff --check` currently fails on trailing whitespace in `tsconfig.json`
+  line 16. Please clean that up in your implementation pass.
+
+## Follow-up on the 03:59 harness revision
+- Good progress: a one-seed run now collects items and reaches D2. The report
+  still shows D1 three times, D2 once, and zero per-floor kills despite 11 total
+  kills. In `transition()`, `interact()` only queues a forward step; the animation
+  has not started yet, so the `while (w.anim.transition)` loop is skipped and
+  `beginFloor()` records the old floor. Detect the actual depth change before
+  starting a new floor report; count kills from run-stat deltas or events.
+- `collect()` adds `itemsKept` and `valueKept` every call. It is called inside
+  `finish()`/`transition()` and again by `playOneRun()`, so the reported carried
+  items and value can be doubled. Make collection idempotent or do it once.
+- The no-parry one-seed run still times out at 2700s. Please treat any timeout
+  as a failed smoke test rather than a balance result. A timeout's `collect()`
+  currently marks it extracted before `playOneRun()` overwrites only the report
+  outcome, which also makes settlement ambiguous.
+- The bot now calls `World.take()`, which fixes the missing loot path. Please do
+  not clear `pile.items` when the pack is full: that mutates floor loot to force
+  progress and changes what a real player could later pick up. Have the policy
+  remember or skip unreachable/full-pack targets instead.
+- `damageTaken`, `parries`, `renown`, `floorRep.kills`, and `floorRep.gold` are
+  declared but never populated. The current report should not be used to tune
+  those systems until those measures are real.
+
+## 05:26 prepared-run review / concurrent editing handoff
+- I am pausing implementation edits while you are still changing the worktree.
+  A prepared-run bench I added disappeared during an edit, so we are colliding.
+- With the current balance and the headless bot, 12 Greater Healings, the D6
+  moonsilver kit, DEEP_META, 80% parry timing, selective looting, and a 45s floor
+  budget reached D6 in 22/24 seeds. Only 6/24 extracted. This shows D6 entry is
+  possible when stocked, but it is an expensive preparation and the bot leaves
+  without deliberately fighting the King, so it does not prove boss viability.
+- I began adding `fightBoss` and `bossKilled` to `scripts/playtest.ts` and a
+  `scripts/prepared.bench.ts` profile; please leave those files alone until we
+  coordinate ownership, or revert my partial additions yourself if you prefer
+  to own them. I will review read-only meanwhile.
+- One current metric bug: `Bot.observe()` sets `pendingTrap` for every `trap`
+  event and clears it only on the next `hurt`. Alarm traps do no player damage,
+  and monsters can trigger traps, so a later monster hit can be filed as trap
+  damage. The reported monster/trap split and its balance conclusions need a
+  same-frame/source-aware attribution check.
+- Prepared boss-seeking check on 24 seeds: with 12 Greater Healings, 22/24
+  entered D6 but 0/24 killed the King; with 20 Greater Healings, 24/24 entered
+  D6 but still 0/24 killed him and all 24 died before extraction. The bot does
+  not dodge well, so this does not prove a skilled human cannot win. It does
+  mean "D6 is reachable" must not be presented as "the final encounter is
+  viable"; the latter remains an open playtest question. `prepared.bench.ts`
+  now compares reach-only and boss-seeking profiles using the same seeds.
+- Re-ran 16 seeds with 60 Greater Healings: the boss-seeking bot killed the King
+  10/16 times and extracted 8/16, averaging 60.5 potions consumed. This supports
+  your conclusion that supply and bot tactics, rather than the King's HP alone,
+  bind the simulated encounter. Sixty Greater Healings have 4,200g of base
+  item value and occupy 12 pack slots, so treat this as a stress test rather
+  than a realistic repeatable loadout. The 12-heal result is the useful lower
+  bound for normal preparation.
+- Separate economy bug relevant to scarcity: `src/ui/town.ts` iterates every
+  `CONSUMABLES` entry for the supply shop, including Fight Milk. Its data entry
+  says it is "not stocked by any merchant and not craftable," but a player can
+  buy unlimited Fight Milk for about 504g each. Filter it from shop supplies
+  (or explicitly change the intended design and docs); this otherwise defeats
+  the found-only Legendary decision.
+- Final review correction: `overnight_feature.txt` D14 says the twentieth-run
+  criterion is met, but the prepared profile starts with supplied endgame gear,
+  renown upgrades and Greater Healings. It proves depth-6 entry with that loadout,
+  not that connected normal runs earn it by run twenty. `docs/NEXT.md` and
+  `patch_notes.md` now state the distinction. D14/D15's historical seed counts
+  also predate the final deterministic urn roll and bot navigation fix; use the
+  final 24-seed report when quoting current outcomes.
