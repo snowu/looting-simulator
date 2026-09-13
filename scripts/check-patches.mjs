@@ -55,6 +55,10 @@ const SKIP = {
   b3665fa: 'sprite redraw, cosmetic only',
   '94991ca': 'art handoff export, not in the game',
   '0f2ff8c': 'dev art sheet, a build tool nobody playing can open',
+  '0c2b95c': 'dev art sheet contents, not in the game',
+  '99a717e': 'dev art sheet contents, not in the game',
+  '4d1eb17': 'preview GIFs for a pull request, not in the game',
+  '3ae9192': 'the preview GIF generator, not in the game',
   a6a3402: 'notes pipeline rebuild, not a game change',
   // The first difficulty branch, merged and then reverted whole. The feature
   // ships from the second one instead, so these describe nothing a player can
