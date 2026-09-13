@@ -1572,9 +1572,20 @@ export class World {
     return canFit(this.run.backpack, item) || roomFor(this.run.backpack, item) > 0;
   }
 
-  drop(uid: string): void {
+  drop(uid: string, pickupId?: string): void {
     const it = removeItem(this.run.backpack, uid);
     if (!it) return;
+    if (pickupId) {
+      // Dropping while a loot pile is open puts it straight back on that
+      // pile, so a full pack can be swapped one for one without closing the
+      // panel. The pile may sit in front of you rather than underfoot.
+      const pk = this.floor.pickups.find((p) => p.id === pickupId);
+      if (pk) {
+        pk.items.push(it);
+        this.sfx('ui');
+        return;
+      }
+    }
     this.dropLoot(this.player.x, this.player.y, [it], 0);
     this.sfx('ui');
   }

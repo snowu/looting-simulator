@@ -4,6 +4,7 @@ import { enemyDef } from '../data/enemies';
 import { biomeForDepth } from '../data/biomes';
 import { itemName } from '../systems/items';
 import { equipFrom, unequipTo, defaultSlot } from '../systems/equip';
+import { sortContainer } from '../state/inventory';
 import { World } from '../world/world';
 import { drawMap } from './automap';
 import { btn, h, hideTooltip, isTouchMode, itemSlot, itemTooltip, rarityColor } from './dom';
@@ -84,6 +85,9 @@ export class DungeonOverlays {
   }
 
   toggle(mode: OverlayMode, world: World): void {
+    // The loot panel already shows the backpack beside the pile, so asking
+    // for the pack from there keeps the pile open instead of swapping away.
+    if (mode === 'inventory' && this.mode === 'loot') return;
     if (this.mode === mode) this.close();
     else this.open(mode, world);
   }
@@ -101,6 +105,9 @@ export class DungeonOverlays {
       this.afterLoot();
       return true;
     }
+    // The loot panel shows the backpack beside the pile, so [I] leaves it
+    // open — the pack is already here to swap with.
+    if (this.mode === 'loot' && (k === 'i' || k === 'tab')) return true;
     if ((this.mode === 'inventory' && (k === 'i' || k === 'tab')) || (this.mode === 'map' && k === 'm') || (this.mode === 'help' && k === 'h')) {
       this.close();
       return true;
@@ -144,6 +151,99 @@ export class DungeonOverlays {
     this.root.replaceChildren(wrap);
   }
 
+  /** Shared click behaviour for pack items: identify, equip or drink. */
+  private activatePackItem(w: World, it: Item): void {
+    const eq = w.state.equipment;
+    const pack = w.run.backpack;
+    const readingScroll = this.identifyScrollUid !== null;
+    const unid = it.kind === 'equipment' && it.identified === false;
+    if (readingScroll) {
+      if (unid) {
+        w.use(this.identifyScrollUid!, it.uid);
+        this.identifyScrollUid = null;
+        w.refreshDerived();
+      } else {
+        this.notify('That doesn\'t need identifying — pick an unidentified item.', '#888');
+      }
+      this.render();
+      return;
+    }
+    if (it.kind === 'equipment') {
+      if (unid) {
+        this.notify('Unidentified — read a Scroll of Identify first.', '#ff9070');
+      } else {
+        const err = equipFrom(eq, pack, it.uid);
+        if (err) this.notify(err, '#ff9070');
+        else audio.play('ui');
+        w.refreshDerived();
+      }
+    } else if (it.kind === 'consumable') {
+      if (consumable(it.ref).effect.type === 'identify' && w.unidentifiedItems().length > 1) {
+        // More than one candidate: let the player choose instead of
+        // spending the scroll on whatever happens to be first.
+        this.identifyScrollUid = it.uid;
+      } else {
+        w.use(it.uid);
+      }
+    }
+    this.render();
+  }
+
+  private packHint(w: World, it: Item, dropWhere: string): string {
+    const readingScroll = this.identifyScrollUid !== null;
+    const unid = it.kind === 'equipment' && it.identified === false;
+    if (readingScroll && unid) return 'Click: identify this item';
+    if (it.kind === 'equipment') return unid ? 'Unidentified — read a Scroll of Identify first' : `Click: equip · Right-click: drop ${dropWhere}`;
+    if (it.kind === 'consumable') {
+      return consumable(it.ref).effect.type === 'identify' ? 'Click: choose what to identify' : `Click: use · Right-click: drop ${dropWhere}`;
+    }
+    return `Right-click: drop ${dropWhere}`;
+  }
+
+  /** Slot grid for the pack. `dropPickupId` drops onto that pile, else to the ground. */
+  private packGrid(w: World, dropPickupId?: string): HTMLElement {
+    const eq = w.state.equipment;
+    const pack = w.run.backpack;
+    const grid = h('div', { class: 'grid-slots' });
+    for (let i = 0; i < pack.capacity; i++) {
+      const it = pack.items[i] ?? null;
+      if (!it) {
+        grid.append(itemSlot(null, { size: 44 }));
+        continue;
+      }
+      const slot = defaultSlot(it, eq);
+      const cmp = slot ? eq[slot] : null;
+      const dropWhere = dropPickupId ? 'onto the pile' : 'on the ground';
+      const el = itemSlot(it, {
+        size: 44,
+        tip: () => itemTooltip(it, { compare: cmp, hint: this.packHint(w, it, dropWhere) }),
+        onclick: () => this.activatePackItem(w, it),
+      });
+      el.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        w.drop(it.uid, dropPickupId);
+        this.notify(dropPickupId ? `Put ${itemName(it)} back on the pile.` : `Dropped ${itemName(it)}.`, '#aaa');
+        this.render();
+      });
+      grid.append(el);
+    }
+    return grid;
+  }
+
+  private sortPack(w: World): void {
+    sortContainer(w.run.backpack);
+    audio.play('ui');
+    this.render();
+  }
+
+  private identifyBanner(): HTMLElement | null {
+    if (this.identifyScrollUid === null) return null;
+    return h('div', {},
+      h('p', { class: 'gold-t small', text: 'Reading a Scroll of Identify — click which item to reveal.', style: 'margin:0 0 6px' }),
+      btn('Cancel identify', () => { this.identifyScrollUid = null; this.render(); }, 'small'),
+    );
+  }
+
   private inventory(w: World): HTMLElement {
     const eq = w.state.equipment;
     const pack = w.run.backpack;
@@ -154,74 +254,12 @@ export class DungeonOverlays {
       w.refreshDerived();
       this.render();
     });
-    const grid = h('div', { class: 'grid-slots' });
-    const readingScroll = this.identifyScrollUid !== null;
-    for (let i = 0; i < pack.capacity; i++) {
-      const it = pack.items[i] ?? null;
-      if (!it) {
-        grid.append(itemSlot(null, { size: 44 }));
-        continue;
-      }
-      const slot = defaultSlot(it, eq);
-      const cmp = slot ? eq[slot] : null;
-      const unid = it.kind === 'equipment' && it.identified === false;
-      const isScrollTarget = readingScroll && unid;
-      const hint =
-        isScrollTarget ? 'Click: identify this item'
-        : it.kind === 'equipment' ? (unid ? 'Unidentified — read a Scroll of Identify first' : 'Click: equip · Right-click: drop')
-        : it.kind === 'consumable' ? (consumable(it.ref).effect.type === 'identify' ? 'Click: choose what to identify' : 'Click: use · Right-click: drop')
-        : 'Right-click: drop';
-      const el = itemSlot(it, {
-        size: 44,
-        tip: () => itemTooltip(it, { compare: cmp, hint }),
-        onclick: () => {
-          if (readingScroll) {
-            if (unid) {
-              w.use(this.identifyScrollUid!, it.uid);
-              this.identifyScrollUid = null;
-              w.refreshDerived();
-            } else {
-              this.notify('That doesn\'t need identifying — pick an unidentified item.', '#888');
-            }
-            this.render();
-            return;
-          }
-          if (it.kind === 'equipment') {
-            if (unid) {
-              this.notify('Unidentified — read a Scroll of Identify first.', '#ff9070');
-            } else {
-              const err = equipFrom(eq, pack, it.uid);
-              if (err) this.notify(err, '#ff9070');
-              else audio.play('ui');
-              w.refreshDerived();
-            }
-          } else if (it.kind === 'consumable') {
-            if (consumable(it.ref).effect.type === 'identify' && w.unidentifiedItems().length > 1) {
-              // More than one candidate: let the player choose instead of
-              // spending the scroll on whatever happens to be first.
-              this.identifyScrollUid = it.uid;
-            } else {
-              w.use(it.uid);
-            }
-          }
-          this.render();
-        },
-      });
-      el.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        w.drop(it.uid);
-        this.notify(`Dropped ${itemName(it)}.`, '#aaa');
-        this.render();
-      });
-      grid.append(el);
-    }
     return h(
       'div',
       { class: 'modal frame' },
       btn('Close [I]', () => this.close(), 'small close'),
       h('h2', { text: 'Pack & Gear' }),
-      readingScroll ? h('p', { class: 'gold-t small', text: 'Reading a Scroll of Identify — click which item to reveal.', style: 'margin:0 0 6px' }) : null,
-      readingScroll ? btn('Cancel identify', () => { this.identifyScrollUid = null; this.render(); }, 'small') : null,
+      this.identifyBanner(),
       h(
         'div',
         { class: 'inv' },
@@ -230,7 +268,8 @@ export class DungeonOverlays {
           'div',
           {},
           h('div', { class: 'row' }, h('h3', { text: `Backpack ${pack.items.length}/${pack.capacity}` }), h('span', { class: 'gold-t right', text: `${w.run.gold}g carried` })),
-          grid,
+          h('div', { class: 'row', style: 'margin:2px 0 6px' }, btn('Sort pack', () => this.sortPack(w), 'small', pack.items.length < 2)),
+          this.packGrid(w),
           h('p', { class: 'dim small', style: 'margin-top:8px', text: 'Everything in the pack is lost if you die. Get it home.' }),
         ),
       ),
@@ -239,6 +278,7 @@ export class DungeonOverlays {
 
   private loot(w: World): HTMLElement {
     const pk = w.floor.pickups.find((p) => p.id === this.pickupId);
+    const pack = w.run.backpack;
     const list = h('div', { class: 'loot-list' });
     for (const it of pk?.items ?? []) {
       const cmpSlot = defaultSlot(it, w.state.equipment);
@@ -256,13 +296,55 @@ export class DungeonOverlays {
         ),
       );
     }
+    // The pack beside the pile, so a full bag is a swap instead of a trip
+    // back: right-click (long-press on touch) puts a slot onto the pile, and
+    // the Drop button below does the same one tap at a time.
+    const packRows = h('div', { class: 'loot-list pack-swap' });
+    for (const it of pack.items) {
+      const slot = defaultSlot(it, w.state.equipment);
+      const cmp = slot ? w.state.equipment[slot] : null;
+      packRows.append(
+        h(
+          'div',
+          { class: 'loot-row' },
+          itemSlot(it, {
+            size: 40,
+            tip: () => itemTooltip(it, { compare: cmp, hint: this.packHint(w, it, 'onto the pile') }),
+            onclick: () => this.activatePackItem(w, it),
+          }),
+          h('span', { class: 'name', text: itemName(it) + (it.qty > 1 ? ` ×${it.qty}` : ''), style: `color:${rarityColor(it)}` }),
+          btn('Drop', () => {
+            w.drop(it.uid, this.pickupId);
+            this.notify(`Put ${itemName(it)} back on the pile.`, '#aaa');
+            this.render();
+          }, 'small'),
+        ),
+      );
+    }
+    if (!pack.items.length) packRows.append(h('p', { class: 'dim small', text: 'Pack is empty.' }));
     const full = w.freeSlots <= 0;
     return h(
       'div',
-      { class: 'modal frame loot' },
+      { class: 'modal frame loot loot-wide' },
       h('h2', { text: 'Loot' }),
-      list,
-      full ? h('p', { class: 'red-t small', text: 'Your pack is full — drop something from the pack [I] to make room.' }) : null,
+      this.identifyBanner(),
+      h(
+        'div',
+        { class: 'loot-cols' },
+        h(
+          'div',
+          {},
+          h('h3', { text: `Pile (${pk?.items.length ?? 0})` }),
+          pk?.items.length ? list : h('p', { class: 'dim small', text: 'Nothing left here.' }),
+        ),
+        h(
+          'div',
+          {},
+          h('div', { class: 'row' }, h('h3', { text: `Backpack ${pack.items.length}/${pack.capacity}` }), h('span', { class: 'row right' }, btn('Sort', () => this.sortPack(w), 'small', pack.items.length < 2))),
+          packRows,
+        ),
+      ),
+      full ? h('p', { class: 'red-t small', text: 'Your pack is full — drop something onto the pile below to make room, then take what you want.' }) : null,
       h(
         'div',
         { class: 'row' },

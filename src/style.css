@@ -231,6 +231,9 @@ body.detail-mode .detail-hide { display: none; }
 .statsheet b { color: #fff; font-weight: 400; }
 
 .loot { min-width: min(90vw, 460px); }
+.loot-wide { min-width: min(94vw, 760px); }
+.loot-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+@media (max-width: 640px) { .loot-cols { grid-template-columns: 1fr; } }
 .loot-list { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; max-height: 50vh; overflow: auto; }
 .loot-row { display: flex; gap: 10px; align-items: center; padding: 2px 4px; background: #1a161e; border: 1px solid #0006; }
 .loot-row .name { flex: 1; }
