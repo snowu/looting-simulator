@@ -35,7 +35,11 @@ export function bankCarriedGold(state: GameState): number {
 }
 
 export function startRun(state: GameState, seed = randomSeed()): RunState {
-  const floor = generateFloor(seed, 1);
+  // The delve plays at the town difficulty, snapshotted here: whatever the
+  // town selector says afterwards does not touch this run.
+  const difficulty = state.difficulty === 'normal' ? 'normal' : 'hard';
+  state.difficulty = difficulty;
+  const floor = generateFloor(seed, 1, difficulty);
   const up = floor.stairs.find((s) => !s.down)!;
   const spawn = stairsFront(up);
   const d = derivePlayer(state.equipment, state.meta);
@@ -53,6 +57,7 @@ export function startRun(state: GameState, seed = randomSeed()): RunState {
     seed,
     rngState: createRng(seed ^ 0x5bd1e995).state,
     depth: 1,
+    difficulty,
     floors: [floor],
     player: { x: spawn.x, y: spawn.y, facing: spawn.facing, hp: d.maxHp, stamina: d.maxStamina },
     backpack,
