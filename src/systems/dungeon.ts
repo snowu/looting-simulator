@@ -72,6 +72,12 @@ export interface Prop {
   mimic: boolean;
   /** Which god a shrine serves. Only meaningful on `kind: 'shrine'`. */
   shrine?: ShrineKind;
+  /**
+   * Paid offerings made at a coffer shrine. Absent (not zero) until the first
+   * one, so generated floors — and the golden fixture hashed from them —
+   * never see the field.
+   */
+  offerings?: number;
 }
 
 /**

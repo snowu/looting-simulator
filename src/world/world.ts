@@ -366,6 +366,14 @@ export const TONICS: Record<string, { name: string; text: string; apply: (d: Pla
   },
 };
 
+/**
+ * How many paid offerings one stone takes, how much thirstier it gets each
+ * time, and how often it takes the coin and answers with silence.
+ */
+export const COFFER_MAX_OFFERINGS = 3;
+export const COFFER_PRICE_GROWTH = 1.75;
+export const COFFER_FIZZLE = 0.25;
+
 /** What [F] says at each shrine, so you know what you are touching. */
 export const SHRINE_PROMPT: Record<ShrineKind, (cost: number) => string> = {
   font: () => 'Drink at the font',
@@ -1835,7 +1843,15 @@ export class World {
     const p = propAt(f, t.x, t.y);
     if (p && !p.used) {
       if (p.kind === 'chest') return 'Open chest';
-      if (p.kind === 'shrine') return SHRINE_PROMPT[p.shrine ?? 'font'](this.offeringCost());
+      if (p.kind === 'shrine') {
+        // A stone that has already taken coin names its rising price and how
+        // many offerings it has left, so the second and third are decisions.
+        if ((p.shrine ?? 'font') === 'coffer' && (p.offerings ?? 0) > 0) {
+          const made = p.offerings ?? 0;
+          return `${SHRINE_PROMPT.coffer(this.offeringCost(made))} (${COFFER_MAX_OFFERINGS - made} of ${COFFER_MAX_OFFERINGS} left)`;
+        }
+        return SHRINE_PROMPT[p.shrine ?? 'font'](this.offeringCost(p.offerings ?? 0));
+      }
       if (p.kind === 'urn' || p.kind === 'barrel') return `Smash ${p.kind}`;
     }
     // A pile sharing the portal's tile wins the prompt, so loot that ended up
@@ -2088,8 +2104,10 @@ export class World {
   }
 
   /** What an offering stone asks for at this depth. */
-  offeringCost(): number {
-    return 30 + 25 * this.run.depth;
+  offeringCost(offeringsMade = 0): number {
+    // Every paid offering raises the next by 75%: the stone is a sink that
+    // gets thirstier. D1 runs 55 → 96 → 168; D6 runs 180 → 315 → 551.
+    return Math.round((30 + 25 * this.run.depth) * Math.pow(COFFER_PRICE_GROWTH, Math.max(0, offeringsMade)));
   }
 
   /**
@@ -2148,9 +2166,14 @@ export class World {
         return;
       }
 
-      // The honest one: a fixed price for a certain thing.
+      // The thirsty one: up to three paid offerings, each 75% dearer than
+      // the last, and one time in four the stone takes the coin and answers
+      // with silence — no mend, no blessing. A fizzled offering still counts:
+      // three payments is three payments.
       case 'coffer': {
-        const cost = this.offeringCost();
+        const made = p.offerings ?? 0;
+        if (made >= COFFER_MAX_OFFERINGS) return;
+        const cost = this.offeringCost(made);
         if (this.run.gold < cost) {
           // Not consumed — come back with the coin.
           p.used = false;
@@ -2159,6 +2182,19 @@ export class World {
           return;
         }
         this.run.gold -= cost;
+        p.offerings = made + 1;
+        if (p.offerings >= COFFER_MAX_OFFERINGS) {
+          // interact() already marked it used; staying used means quiet.
+          this.msg('The stone drinks deep and goes dark. It will take no more.', '#c8a060');
+        } else {
+          // Keep it touchable for the next, dearer offering.
+          p.used = false;
+        }
+        if (this.rng.chance(COFFER_FIZZLE)) {
+          this.msg('The coin vanishes into the stone. Nothing answers.', '#8888a0');
+          this.sfx('gold');
+          return;
+        }
         this.restore();
         if (!this.grantBlessing()) this.msg('The coin vanishes. Much of the hurt leaves you.', '#e8c060');
         this.sfx('gold');

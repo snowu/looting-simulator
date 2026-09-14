@@ -7,7 +7,8 @@
 > 0.5×+tier-floor repairs, broken at 15% stats; physicker heal button in the
 > market (`src/systems/heal.ts`); shrine base 55% + pity (≥1 in 1–3, ≥2 in
 > 4–6); stronger blessings/curses incl. Vitality and Brittle; chest/urn/loose
-> gold trimmed ~20–25% (vaults/secrets untouched).
+> gold trimmed ~20–25% (vaults/secrets untouched); coffer takes up to 3
+> offerings at ×1.75 each with a 25% silence chance.
 
 All numbers below are measured against the real formulas in `src/`,
 not invented. Goal: fix "gold income way too high, not enough gold sinks"

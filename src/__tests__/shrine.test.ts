@@ -117,13 +117,68 @@ describe('the hollow idol', () => {
 });
 
 describe('the offering stone', () => {
-  it('takes the coin and gives a blessing', () => {
+  it('takes the coin every time, blessing or silence', () => {
+    for (let seed = 1; seed <= 10; seed++) {
+      const { w } = atShrine('coffer', seed);
+      const cost = w.offeringCost();
+      w.run.gold = cost + 10;
+      w.player.hp = 5;
+      w.interact();
+      // The coin is always taken; what varies is whether the stone answers.
+      expect(w.run.gold).toBe(10);
+      if (w.run.blessing) expect(Object.keys(BLESSINGS)).toContain(w.run.blessing!);
+      else expect(w.player.hp).toBe(5); // silence: no mend either
+    }
+  });
+
+  it('sometimes answers, sometimes stays silent', () => {
+    let blessed = 0;
+    let silent = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+      const { w } = atShrine('coffer', seed);
+      w.run.gold = w.offeringCost() + 10;
+      w.player.hp = 5;
+      w.interact();
+      if (w.run.blessing) blessed++;
+      else {
+        silent++;
+        expect(w.player.hp).toBe(5);
+      }
+    }
+    expect(blessed).toBeGreaterThan(0);
+    expect(silent).toBeGreaterThan(0);
+  });
+
+  it('prices each offering 75% above the last: 55, 96, 168 on depth 1', () => {
     const { w } = atShrine('coffer');
-    const cost = w.offeringCost();
-    w.run.gold = cost + 10;
+    expect(w.offeringCost(0)).toBe(55);
+    expect(w.offeringCost(1)).toBe(96);
+    expect(w.offeringCost(2)).toBe(168);
+  });
+
+  it('takes up to three offerings, then goes quiet', () => {
+    const { w, shrine } = atShrine('coffer');
+    const costs = [w.offeringCost(0), w.offeringCost(1), w.offeringCost(2)];
+    w.run.gold = costs[0] + costs[1] + costs[2] + 50;
+    const purse = w.run.gold;
+    w.player.hp = 5;
     w.interact();
-    expect(w.run.gold).toBe(10);
-    expect(Object.keys(BLESSINGS)).toContain(w.run.blessing!);
+    expect(w.run.gold).toBe(purse - costs[0]);
+    expect(shrine.offerings).toBe(1);
+    expect(shrine.used).toBe(false);
+    expect(w.interactionHint()).toMatch(new RegExp(`^Offer ${costs[1]} gold at the stone \\(2 of 3 left\\)$`));
+    w.interact();
+    expect(w.run.gold).toBe(purse - costs[0] - costs[1]);
+    expect(shrine.offerings).toBe(2);
+    expect(shrine.used).toBe(false);
+    w.interact();
+    expect(w.run.gold).toBe(purse - costs[0] - costs[1] - costs[2]);
+    expect(shrine.offerings).toBe(3);
+    expect(shrine.used).toBe(true);
+    // A fourth prayer does nothing and costs nothing.
+    w.interact();
+    expect(w.run.gold).toBe(purse - costs[0] - costs[1] - costs[2]);
+    expect(shrine.offerings).toBe(3);
   });
 
   it('stays open if you cannot pay', () => {
@@ -131,13 +186,15 @@ describe('the offering stone', () => {
     w.run.gold = 0;
     w.interact();
     expect(shrine.used).toBe(false);
+    expect(shrine.offerings ?? 0).toBe(0);
     expect(w.run.blessing).toBeNull();
     expect(w.run.gold).toBe(0);
     // Come back with the coin and it still works.
     w.run.gold = w.offeringCost();
+    w.player.hp = 5;
     w.interact();
     expect(w.run.gold).toBe(0);
-    expect(w.run.blessing).toBeTruthy();
+    expect(shrine.offerings).toBe(1);
   });
 
   it('asks for more the deeper you are', () => {

@@ -308,7 +308,7 @@ A shrine serves one of three gods, fixed per floor and rolled from its own seed 
 |---|---|---|---|
 | **Font of Mending** | cold blue | *Drink at the font* | **60% of your health** and all of your stamina, and **lifts a curse**. Never harms you |
 | **Hollow Idol** | violet | *Pray at the hollow idol* | **65%**: the same mend and a blessing. **35%**: a curse for the rest of the run |
-| **Offering Stone** | gold | *Offer N gold at the stone* | Costs `30 + 25 × depth` carried gold for the same mend and a blessing. Too poor? It stays unused — come back with the coin |
+| **Offering Stone** | gold | *Offer N gold at the stone* | Up to **3 paid offerings** per stone, each costing **75% more** than the last (`30 + 25 × depth`, ×1.75 per offering made — D1: 55 → 96 → 168; D6: 180 → 315 → 551). Each offering has a **25% chance of silence**: the coin is taken and nothing answers, no mend and no blessing. Too poor? It stays unused — come back with the coin |
 
 No shrine restores you outright any more. A font that refills the bar is a save point, and a save point every other floor is the end of attrition as a mechanic — so it is a large, welcome, *partial* mend, and it does not undo the delve.
 
