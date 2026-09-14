@@ -440,25 +440,36 @@ export class DungeonRenderer {
     this.vmShared.uAmbient.value.setRGB(tc.r * 0.85 * flicker, tc.g * 0.85 * flicker, tc.b * 0.85 * flicker);
     this.vmShared.uLightCount.value = 0;
 
+    // Every viewmodel sprite is 24x40 and the scale below normalises by height,
+    // so art alone can never make one weapon read as bigger than another — a
+    // dagger and a greatsword came out the same size in the same corner of the
+    // frame. Two-handed weapons get their own pose instead: held up and across
+    // the middle of the view rather than tucked at the right hip, half again as
+    // tall, swaying harder with the walk, and winding up further because the
+    // data already says they take longer to swing. Everything a player can see
+    // about the grip, they see here.
+    const twoHanded = world.derived.twoHanded;
     const size = artSize(art.id);
-    const scale = (H * 0.5) / size.h;
+    const scale = (H * (twoHanded ? 0.74 : 0.5)) / size.h;
     const walking = a.moveT < 1 ? a.moveT : 0;
-    const bobX = Math.sin((a.steps + walking) * Math.PI) * 4;
-    const bobY = Math.abs(Math.cos((a.steps + walking) * Math.PI)) * 4;
-    let x = W * 0.74 + bobX;
+    const sway = twoHanded ? 1.7 : 1;
+    const bobX = Math.sin((a.steps + walking) * Math.PI) * 4 * sway;
+    const bobY = Math.abs(Math.cos((a.steps + walking) * Math.PI)) * 4 * sway;
+    let x = W * (twoHanded ? 0.56 : 0.74) + bobX;
     let y = H * 0.12 - bobY - 8;
-    let rot = -0.18;
+    let rot = twoHanded ? -0.05 : -0.18;
     if (a.attack === 'windup') {
       const k = a.attackT / Math.max(0.01, a.attackDur);
-      x += 22 * k;
-      y += 30 * k;
-      rot = -0.18 - 0.55 * k;
+      x += (twoHanded ? 40 : 22) * k;
+      y += (twoHanded ? 52 : 30) * k;
+      rot -= (twoHanded ? 0.95 : 0.55) * k;
     } else if (a.attack === 'recover') {
       const k = Math.min(1, a.attackT / 0.12);
       const back = Math.max(0, (a.attackT - 0.12) / Math.max(0.01, a.attackDur - 0.12));
-      x += 22 - 110 * k + 88 * back;
-      y += 30 - 60 * k + 30 * back;
-      rot = -0.73 + 1.6 * k - 1.05 * back;
+      const reach = twoHanded ? 1.5 : 1;
+      x += (22 - 110 * k + 88 * back) * reach;
+      y += (30 - 60 * k + 30 * back) * reach;
+      rot = (twoHanded ? -1.0 : -0.73) + (twoHanded ? 2.3 : 1.6) * k - (twoHanded ? 1.5 : 1.05) * back;
     }
     y -= a.blockRaise * 30;
     y -= this.deathFade * 120;

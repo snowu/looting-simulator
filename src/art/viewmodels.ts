@@ -139,13 +139,27 @@ const SPEAR = [
 
 // Two-handed models share a small forward fist above the main grip. Keeping the
 // shaft visible on both sides makes it read as a grip rather than a floating hand.
+/**
+ * The off hand, higher up the haft, for the two-handed grip.
+ *
+ * It was six rows of featureless knuckles and read as a bulge in the shaft
+ * rather than a hand — which, with every viewmodel sprite being 24x40 and the
+ * renderer normalising them all to the same height, left a greatsword looking
+ * like a long sword. This one is a whole fist with its forearm running out to
+ * the *left*, opposite the main hand at the bottom, so the two together read as
+ * a grip at a glance and at speed.
+ */
 const SECOND_HAND = rows(`
-  ........kddddk..........
-  .......kdccccdk.........
-  .......kaaaaaak.........
-  .......kbbbbbbk.........
-  ........kddddk..........
-  .........kwvk...........
+  ......kddddk............
+  .....kdccccdbk..........
+  ....kaaaaaaaak..........
+  ....kdccccdbak..........
+  ...kbaaaaaabak..........
+  ..kaabbbbbbbak..........
+  .kaaabbbbbbak...........
+  kaaaaaaaaaak............
+  kaaaaaaaak..............
+  kkkkkkkk................
 `);
 
 const MAUL = [
@@ -157,14 +171,10 @@ const MAUL = [
   '......kkkkkwvkkkkk......',
   '..........kwvvk.........',
   '..........kwvvk.........',
-  '..........kwvvk.........',
   '..........kkkkk.........',
   '..........kwvvk.........',
   '..........kwvvk.........',
-  '..........kwvvk.........',
   '..........kkkkk.........',
-  '..........kwvvk.........',
-  '..........kwvvk.........',
   '..........kwvvk.........',
   ...SECOND_HAND,
   '.........kwvvk..........',
@@ -182,7 +192,7 @@ const POLEARM = [
   '...k4332kkwvk.k11k......',
   '....kkk..kwvk..kk.......',
   '.........kwvk...........',
-  ...Array.from({ length: 9 }, () => '.........kwvk...........'),
+  ...Array.from({ length: 6 }, () => '.........kwvk...........'),
   ...SECOND_HAND,
   '.........kwvk...........',
   '.........kwvk...........',
@@ -191,32 +201,28 @@ const POLEARM = [
 ];
 
 const GREATSWORD = [
-  '.........kk4kk..........',
-  '........k4434k..........',
-  '........k4324k..........',
-  '........k4324k..........',
-  '........k4324k..........',
-  '........k4324k..........',
-  '........k4324k..........',
-  '........k4324k..........',
-  '........k4324k..........',
-  '........k4324k..........',
-  '........k4324k..........',
-  '........k4324k..........',
-  '........k4324k..........',
-  '........k4324k..........',
-  '........k4324k..........',
-  '........k4324k..........',
-  '........k4324k..........',
-  '........kk33kk..........',
-  '...kkkghhhhhhhhggkkk....',
-  '..kgggggggggggggggggk...',
-  '....kkkggkkkkggkkk......',
-  '.........kjjk...........',
-  '........kddddk..........',
-  '.......kdccccdk.........',
-  '.......kaaaaaak.........',
-  '........kwvvk...........',
+  '........kk44kk..........',
+  '.......k443344k.........',
+  '.......k432234k.........',
+  '.......k432234k.........',
+  '.......k432234k.........',
+  '.......k432234k.........',
+  '.......k432234k.........',
+  '.......k432234k.........',
+  '.......k432234k.........',
+  '.......k432234k.........',
+  '.......k432234k.........',
+  '.......k433334k.........',
+  '.......kk3223kk.........',
+  '..kkkghhhhhhhhhhggkkk...',
+  '.kggggggggggggggggggk...',
+  '..kkkggkkkkkkggkkkk.....',
+  '.........kwvvk..........',
+  '.........kwvvk..........',
+  ...SECOND_HAND,
+  '.........kwvvk..........',
+  '.........kwvvk..........',
+  '.........kwvvk..........',
   ...HAND,
 ];
 
