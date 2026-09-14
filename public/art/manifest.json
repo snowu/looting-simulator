@@ -203,10 +203,13 @@
   "dawn_atk",
   "spore_0",
   "spore_atk",
+  "vm_dagger",
+  "vm_short_sword",
   "vm_blade",
   "vm_axe",
   "vm_pick",
   "vm_blunt",
+  "vm_club",
   "vm_spear",
   "vm_maul",
   "vm_polearm",
@@ -215,5 +218,7 @@
   "vm_sigil_lit",
   "vm_fist",
   "vm_shield",
+  "vm_kite_shield",
+  "vm_tower_shield",
   "vm_hand"
 ]

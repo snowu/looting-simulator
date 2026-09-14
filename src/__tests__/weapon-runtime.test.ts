@@ -156,6 +156,10 @@ describe('two-handed runtime', () => {
    */
   it('shows each weapon its own viewmodel, overrides included', () => {
     const expected: [string, string][] = [
+      ['club', 'vm_club'],
+      ['mace', 'vm_blunt'],
+      ['dagger', 'vm_dagger'],
+      ['short_sword', 'vm_short_sword'],
       ['long_sword', 'vm_blade'],
       ['greatsword', 'vm_greatsword'],
       ['great_maul', 'vm_maul'],
@@ -205,6 +209,42 @@ describe('recoverable thrown stock', () => {
     w.state.equipment.thrown && (w.run.thrown.held[baseId] = w.derived.thrownCapacity);
     return w;
   }
+
+  it.each([
+    ['throwing_knives', 0.10], ['throwing_axes', 0.14], ['javelins', 0.18],
+  ] as const)('%s allows another action promptly after release', (base, recovery) => {
+    const w = belted(base);
+    expect(w.hurl()).toBe(true);
+    tick(w, w.derived.thrown!.windup + 0.02);
+    expect(w.anim.attack).toBe('recover');
+    expect(w.anim.attackDur).toBeCloseTo(recovery);
+    tick(w, recovery + 0.02);
+    expect(w.anim.attack).toBe('idle');
+    w.attack();
+    expect(w.anim.attack).toBe('windup');
+    expect(w.anim.attackThrow).toBe(false);
+  });
+
+  it.each([0, 0.34])('starts retrieval during the last javelin throw at %ss without waiting for landing', (delay) => {
+    const w = belted('javelins');
+    w.run.thrown.held.javelins = 1;
+    // Old saves may retain a cooldown from the previous volley.
+    w.run.thrown.retrieveCd = 6;
+    w.hurl();
+    if (delay) tick(w, delay);
+    w.player.stamina = 0;
+    expect(w.floor.thrown ?? []).toHaveLength(0);
+    expect(w.retrieve()).toBe(true);
+    tick(w, 0.7);
+    expect(w.projectiles.some(pr => pr.returning)).toBe(false);
+    tick(w, 0.06);
+    expect(w.projectiles.some(pr => pr.returning)).toBe(true);
+    w.retrieve(false);
+    tick(w, 1);
+    expect(w.run.thrown.held.javelins).toBe(1);
+    expect(w.projectiles).toHaveLength(0);
+    expect(w.floor.thrown ?? []).toHaveLength(0);
+  });
 
   it('rides its own slot alongside a weapon and a shield, and pays no stats', () => {
     const eq = emptyEquipment();
@@ -383,9 +423,8 @@ describe('recoverable thrown stock', () => {
     expect(w.thrownCounts()).toMatchObject({ floor: 0, flying: 0, calling: false });
     expect(durability(belt).cur).toBe(wearBefore - 3);
     expect(w.player.stamina).toBe(stamina);
-    // Set to 6 when the last shaft left the floor, and ticking down ever since.
-    expect(w.run.thrown.retrieveCd).toBeGreaterThan(0);
-    expect(w.run.thrown.retrieveCd).toBeLessThanOrEqual(6);
+    // The charge is the only retrieval delay; completing a volley adds none.
+    expect(w.run.thrown.retrieveCd).toBe(0);
   });
 
   it('stops the call on a blow, keeping what arrived and losing nothing', () => {
@@ -401,7 +440,7 @@ describe('recoverable thrown stock', () => {
     attacker.attackCd = 0;
     attacker.alert = 8;
     tick(w, 2.0);
-    // The blow stopped the call — no cooldown, unlike a call that runs dry —
+    // The blow stopped the call without a cooldown,
     // and the shafts still sum to three across hand, floor and air: whatever
     // was airborne when the blow landed still came home.
     expect(w.anim.retrieving).toBeNull();
@@ -424,13 +463,71 @@ describe('recoverable thrown stock', () => {
     // First shaft launched (0.75s) but not yet home (~1.1s).
     tick(w, 0.8);
     expect(w.thrownCounts()).toMatchObject({ floor: 1, flying: 1 });
-    // Tap R again: the call stops, and the shaft already in the air is not
+    // Release R: the call stops, and the shaft already in the air is not
     // lost with it — the old 0.75s-or-nothing is exactly what this pins.
-    expect(w.retrieve()).toBe(false);
+    expect(w.retrieve(false)).toBe(false);
     expect(w.anim.retrieving).toBeNull();
     tick(w, 2.0);
     expect(w.run.thrown.held.throwing_knives).toBe(held + 1);
     expect(w.thrownCounts()).toMatchObject({ floor: 1, flying: 0, calling: false });
+  });
+
+  it('release cancels a partial channel and a new hold starts a full interval', () => {
+    const w = belted('throwing_knives', 712);
+    w.hurl(); tick(w, 1.0);
+    w.retrieve();
+    tick(w, 0.5);
+    // Repeated down events must not toggle off or reset progress.
+    expect(w.retrieve()).toBe(true);
+    w.retrieve(false);
+    tick(w, 1.0);
+    expect(w.thrownCounts()).toMatchObject({ floor: 1, flying: 0, calling: false });
+    expect(w.run.thrown.retrieveCd).toBe(0);
+    w.retrieve();
+    tick(w, 0.5);
+    expect(w.thrownCounts()).toMatchObject({ floor: 1, flying: 0, calling: true });
+    tick(w, 0.3);
+    expect(w.thrownCounts()).toMatchObject({ floor: 0, flying: 1 });
+  });
+
+  it.each([false, true])('charges remote ammunition before spawning a local return (other floor: %s)', (otherFloor) => {
+    const w = belted('throwing_knives', 713);
+    const base = 'throwing_knives';
+    const held = --w.run.thrown.held[base];
+    const source = otherFloor ? structuredClone(w.floor) : w.floor;
+    source.thrown = [{ base, x: w.player.x + 20, y: w.player.y, n: 1 }];
+    if (otherFloor) w.run.floors.push(source);
+    expect(w.thrownCounts()).toMatchObject({ floor: 1, held });
+    expect(w.retrieve()).toBe(true);
+    for (let i = 0; i < 44; i++) w.update(1 / 60);
+    expect(source.thrown[0].n).toBe(1);
+    expect(w.projectiles).toHaveLength(0);
+    w.update(1 / 60);
+    expect(source.thrown).toEqual([]);
+    const returning = w.projectiles.find(p => p.returning)!;
+    expect(returning).toBeDefined();
+    expect(Math.hypot(returning.x - w.player.x - 0.5, returning.y - w.player.y - 0.5)).toBeLessThanOrEqual(2);
+    w.retrieve(false);
+    tick(w, 1);
+    expect(w.thrownCounts()).toMatchObject({ held: held + 1, floor: 0, flying: 0, calling: false });
+  });
+
+  it.each([false, true])('holds the final receiving pose until arrival unless released (cancel: %s)', (cancel) => {
+    const w = belted('javelins', 714);
+    const base = 'javelins';
+    const held = --w.run.thrown.held[base];
+    w.floor.thrown = [{ base, x: w.player.x + 7, y: w.player.y, n: 1 }];
+    w.retrieve();
+    tick(w, 0.8);
+    expect(w.anim.retrieving).toMatchObject({ left: 0, t: 0 });
+    expect(w.thrownCounts()).toMatchObject({ held, floor: 0, flying: 1, calling: true });
+    if (cancel) w.retrieve(false);
+    tick(w, 0.1);
+    expect(!!w.anim.retrieving).toBe(!cancel);
+    expect(w.thrownCounts()).toMatchObject({ held, flying: 1 });
+    tick(w, 1);
+    expect(w.thrownCounts()).toMatchObject({ held: held + 1, floor: 0, flying: 0, calling: false });
+    expect(w.anim.retrieving).toBeNull();
   });
 
   it('walking over a shaft spends the call remainder instead of duplicating it', () => {

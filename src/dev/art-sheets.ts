@@ -183,7 +183,7 @@ const plain = (ids: string[]): SheetCell[] => ids.map((id) => ({ id, label: id }
 function viewmodelCells(tier: number, materialId?: string): SheetCell[] {
   return VIEWMODELS.map((vm) => {
     const base = ITEM_BASES.find((b) =>
-      vm.id === 'vm_shield' ? b.slot === 'offhand' : b.slot === 'weapon' && viewmodelFor(b) === vm.id);
+      (b.slot === 'offhand' || b.slot === 'weapon') && viewmodelFor(b) === vm.id);
     if (!base) return { id: vm.id, label: 'Bare hands' };
     const m = materialFor(base.primary, tier, materialId);
     return { id: vm.id, label: m ? `${base.name} · ${m.name}` : base.name, ramp: m?.ramp };
@@ -218,6 +218,26 @@ function iconGroups(tier: number, materialId?: string): SheetGroup[] {
   ];
 }
 
+/**
+ * Thrown weapons have no viewmodel — the shaft leaves the hand and is a
+ * projectile from that moment — so the shaft in flight and the shaft on the
+ * floor is their only art. Both groups are derived from the bases' `thrown`
+ * profiles, so a new belt turns up here the moment it exists; the remaining
+ * props follow without duplicates.
+ */
+function propGroups(): SheetGroup[] {
+  const inFlight: SheetCell[] = ITEM_BASES.flatMap((b) =>
+    b.thrown ? [{ id: b.thrown.sprite, label: `${b.name} · in flight` }] : []);
+  const onGround: SheetCell[] = ITEM_BASES.flatMap((b) =>
+    b.thrown ? [{ id: b.thrown.groundSprite, label: `${b.name} · on the ground` }] : []);
+  const covered = new Set([...inFlight, ...onGround].map((c) => c.id));
+  return [
+    { title: 'Thrown · in flight', cells: inFlight },
+    { title: 'Thrown · on the ground', cells: onGround },
+    { title: 'Props', cells: plain(PROPS.map((p) => p.id).filter((id) => !covered.has(id))) },
+  ];
+}
+
 export function sheets(tier: number = DEFAULT_TIER, materialId?: string): ArtSheet[] {
   return [
   {
@@ -249,7 +269,7 @@ export function sheets(tier: number = DEFAULT_TIER, materialId?: string): ArtShe
     groups: [creatureGroup('Phases', 'boss')],
   },
   { id: 'biomes', title: 'Biomes', note: 'Wall, floor, ceiling and door per biome. Burrows shows its depth-1 fallback roof plus the two inherited ceilings. In-game these also carry coloured light.', cols: 6, groups: biomeGroups },
-  { id: 'props', title: 'Props', note: 'Everything the dungeon stands on the floor.', cols: 6, groups: [{ title: 'Props', cells: plain(PROPS.map((p) => p.id)) }] },
+  { id: 'props', title: 'Props', note: 'Everything the dungeon stands on the floor. Thrown weapons have no viewmodel — the shaft in flight and the shaft on the ground is their art.', cols: 6, groups: propGroups() },
   { id: 'icons', title: 'Icons', note: 'Every icon as something that exists: each piece of gear in a material its base actually allows, each material and potion in its own colours.', cols: 6, groups: iconGroups(tier, materialId) },
   { id: 'viewmodels', title: 'Viewmodels', note: 'The weapon in your own hands, in the material of a weapon that uses it. An empty hand has no material.', cols: 4, groups: [{ title: heldTitle(tier, materialId), cells: viewmodelCells(tier, materialId) }] },
   ];

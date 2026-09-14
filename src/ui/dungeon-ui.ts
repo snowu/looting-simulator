@@ -411,7 +411,7 @@ export class DungeonOverlays {
       ['Main button', 'Same as a tap; hold to keep swinging'],
       ['Shield', 'Hold to block — raise it as they strike to parry'],
       ['Throw button', 'Hurl one shaft from your belt'],
-      ['R button', 'Call shafts back — tap to start or stop, they fly to your raised hand'],
+      ['R button', 'Call shafts back — hold to call, release to stop, they fly to your raised hand'],
       ['Sigil button', 'Cast your attuned sigil when ready'],
       ['Quick slots', 'Tap to drink / read'],
       ['Pack · Map', 'Gear, backpack and the automap'],
@@ -424,7 +424,7 @@ export class DungeonOverlays {
       ['Shift / RMB', 'Hold to block — raise it as they strike to parry'],
       ['F', 'Open, search, loot, pray, push marked walls'],
       ['T', 'Throw one shaft from your belt'],
-      ['R', 'Call shafts back — tap to start or stop, they fly to your raised hand'],
+      ['R', 'Call shafts back — hold to call, release to stop, they fly to your raised hand'],
       ['G / C', 'Cast your attuned sigil'],
       ['1 – 4', 'Drink / read your first four consumables'],
       ['I / Tab', 'Pack & gear'],
@@ -443,7 +443,7 @@ export class DungeonOverlays {
         'Enemies telegraph: they lean in and flash red before striking. Step out of the tile they are aiming at, or raise your guard. ' +
           'Raise it just as the blow lands and you parry instead: no damage at all, melee attackers reel and take double, and arrows and bolts fly back the way they came. ' +
           'Your shield flashes while the window is open. Holding the guard up does not parry — you have to meet the swing. ' +
-          'Two-handed weapons leave the offhand disabled and block only 20%, but parry exactly like any other weapon. Their blow cleaves for a quarter into every tile touching the thing they hit, including the one behind it. Thrown shafts ride on their own belt slot, so you carry them alongside a weapon and a shield, and you hurl one with T rather than with the attack button. They land where they stop and stay on that floor: walk over one to collect it, or tap R to call them back — one leaves the floor every three quarters of a second and flies to your raised left hand, which is the animation for it. The call costs no stamina and stopping it never loses a shaft already in the air; it still lands. Swinging, casting, a blow, or tapping R again stops the call. Each shaft that lands back in your hand wears the belt by one. ' +
+          'Two-handed weapons leave the offhand disabled and block only 20%, but parry exactly like any other weapon. Their blow cleaves for a quarter into every tile touching the thing they hit, including the one behind it. Thrown shafts ride on their own belt slot, so you carry them alongside a weapon and a shield, and you hurl one with T rather than with the attack button. They land where they stop: walk over one to collect it, or hold R to call them back — one leaves the floor every three quarters of a second and flies to your raised left hand, which is the animation for it. Distant shafts and shafts on other floors return from nearby instead of flying across the dungeon. The call costs no stamina and stopping it never loses a shaft already in the air; it still lands. Swinging, casting, a blow, or releasing R stops the call. Each shaft that lands back in your hand wears the belt by one. ' +
           'Sigils are inscribed and attuned at the Sigils bench in the forge, and cast with G or C. Casting spends stamina and a hit interrupts it without starting the cooldown. ' +
           'Chalk X marks on a wall mean something is hidden behind it, and loose flagstones mean a trap — watch the floor ahead of you. ' +
           'The way out is the stairs you came down. A Scroll of Recall instead opens a portal you can step back through, so you can sell and restock mid-delve.',

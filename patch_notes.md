@@ -1,3 +1,35 @@
+# Weapon overhaul, continued: retrieval, hands, and redrawn gear
+
+*Unreleased, on `feat/weapon-overhaul`, on top of the notes below. Still no save break: `SAVE_VERSION` and `SAVE_REVISION` do not move.*
+
+## Retrieval is a hold, and it reaches the whole run
+
+Calling shafts back used to be a tap that only swept the floor you stood on. It is now a channel: **hold R** (or hold Call on touch) and release to stop. Shafts already in the air still land when you let go — stopping a call never loses anything.
+
+- The call reaches **every floor of the run**, not just this one. A shaft further than nine tiles away, or on another floor entirely, returns from a couple of tiles ahead of you instead of flying across the dungeon, so the animation stays honest and distant stock is never stranded.
+- The raised receiving hand **holds its pose until the last shaft lands**, with a small beckoning pulse per return; the shield stays lowered while you call.
+- The belt counters count floor stock **and** shafts already flying home, so the number beside the belt is the number you will get.
+- Throws also recover much faster — knives 0.34s → 0.10s, axes 0.46s → 0.14s, javelins 0.58s → 0.18s — so hurling one no longer locks you out of the next action.
+
+## Hands, shields, and icons redrawn
+
+Every held sprite is redrawn at twice the density (48px wide canvases; the renderer normalises by canvas height, so blade length now survives it) with one shared hand language: broad knuckles, short brown creases, diagonal brass cuff, light from the upper left.
+
+- **Dagger** and **Short Sword** get their own viewmodels instead of sharing the Long Sword's; blade length is the difference between them.
+- Each shield gets its own model — round buckler, pointed kite, broad tower — mapped per base, and the renderer draws the equipped one rather than a single `vm_shield`.
+- The retrieval hand is its own open receiving hand (`vm_hand`), and the casting stone is a round ring-carved sigil whose lit frame burns the carving.
+- Held weapons are now **recoloured by the equipped material** in the renderer, skin and brass untouched; the art-sheet Viewmodels group stages tall models at native pixels and pins the deciding crafting material per base, with `npm run art:sheet -- viewmodels --material <id>` to match.
+- Weapon icons follow one convention — thin silhouette on a diagonal, head top-right — and each sigil stone takes its own tint and shape, so the five stop being the same pebble with a scratch.
+- `npm run art:sync -- --ids vm_blade,vm_axe` regenerates just the named art without touching hand-painted PNGs.
+
+## Thrown weapons are no longer held
+
+A fistful of javelins held up through the wind-up put a second pair of hands in the frame beside the ones already holding your weapon, so the three thrown viewmodels are deleted: a throw animates nothing, and the shaft in flight plus the shaft on the floor is the whole of a belt's art. The art-sheet Props group now lists both explicitly — **Thrown · in flight** and **Thrown · on the ground**, derived from the belt data — and the orphaned handoff PNGs are gone.
+
+Validation: `npm test` passes **465/465**, `tsc --noEmit` clean.
+
+---
+
 # Weapon overhaul: two hands, thrown steel, and sigils
 
 *Unreleased, on `feat/weapon-overhaul`. Nothing here invalidates a save: `SAVE_VERSION` does not move, every new field is additive, and an existing character keeps its gear, its stash and its renown.*
@@ -30,7 +62,7 @@ The belt gives you no stats at all: it is ammunition, not gear. And a throw is s
 
 **You throw with [T].** Never with the attack button, which used to throw by itself whenever nothing was adjacent — so the weapon decided for you, you could not choose to close and stab, and stepping back from a fight spent a javelin you were saving.
 
-The stock is finite, filled once when you first carry a belt into a delve, and nothing refills it. Spent shafts land where they stop — in the thing you hit, not in front of it — and stay on that floor across a trip upstairs and back. Walk over one to collect it, or press **R** to call them all back: **one every three quarters of a second**, paying stamina and a point of belt wear for each as it arrives. A blow stops them coming, and you keep what already got home.
+The stock is finite, filled once when you first carry a belt into a delve, and nothing refills it. Spent shafts land where they stop — in the thing you hit, not in front of it — and persist across a trip upstairs and back. Walk over one to collect it, or hold **R** to call them back from anywhere in the run: **one every three quarters of a second**, paying a point of belt wear for each as it arrives. Releasing stops the call, and anything already airborne still lands.
 
 So a full belt of knives is five seconds of standing still, which a fight will not give you. The decision to throw the last one is a real decision.
 

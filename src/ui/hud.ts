@@ -194,7 +194,7 @@ export class Hud {
         : belt.calling
           ? `<div class="ward">Calling them back · ${belt.held}/${belt.cap} in hand · ${belt.floor + belt.flying} out · R to stop</div>`
           : belt.floor + belt.flying > 0
-            ? `<div class="coin">Belt ${belt.held}/${belt.cap} · ${belt.floor + belt.flying} on the ground · R to call back</div>`
+            ? `<div class="coin">Belt ${belt.held}/${belt.cap} · ${belt.floor + belt.flying} on the ground · Hold R to call back</div>`
             : `<div class="coin">Belt ${belt.held}/${belt.cap}</div>`;
       this.status.innerHTML =
         `<div class="depth">Depth ${world.run.depth}</div><div class="biome">${biome.name}</div>` +

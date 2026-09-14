@@ -50,7 +50,7 @@ describe('pixel art', () => {
     }
     // Every weapon in the game has to have something to be held as.
     for (const b of ITEM_BASES) {
-      if (b.slot === 'weapon') needed.add(viewmodelFor(b));
+      if (b.slot === 'weapon' || b.slot === 'offhand') needed.add(viewmodelFor(b));
       // A thrown belt has no viewmodel — it is never held — but it does need
       // the shaft in flight and the shaft on the floor. These moved out of the
       // weapon slot, and the check above used to be gated on `slot === 'weapon'`
@@ -64,6 +64,15 @@ describe('pixel art', () => {
     for (const id of ['trap_dart_spent', 'trap_spikes_spent', 'trap_alarm_spent']) needed.add(id);
     for (const id of SIGIL_ART_IDS) needed.add(id);
     for (const id of needed) expect(getArt(id), id).toBeDefined();
+  });
+
+  it('shows each shield base with its own equipped viewmodel in the viewer', () => {
+    const cells = sheets().find(s => s.id === 'viewmodels')!.groups.flatMap(g => g.cells);
+    for (const [baseId, id] of [['buckler', 'vm_shield'], ['kite_shield', 'vm_kite_shield'], ['tower_shield', 'vm_tower_shield']]) {
+      const base = ITEM_BASES.find(b => b.id === baseId)!;
+      expect(viewmodelFor(base)).toBe(id);
+      expect(cells.find(c => c.id === id)?.label).toContain(base.name);
+    }
   });
 
   it('gives secret walls one learned mark, tuned to their masonry', () => {

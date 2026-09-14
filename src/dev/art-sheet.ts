@@ -13,7 +13,7 @@
  * `scripts/art-sheet.mjs` writes the same sheets out as PNGs for a pull
  * request; both read `art-sheets.ts`, so they cannot drift apart.
  */
-import { artUrl } from '../render/art-cache';
+import { artSize, artUrl } from '../render/art-cache';
 import { enemyPose } from '../render/enemy-pose';
 import { Creature, DEFAULT_TIER, GEAR_MATERIALS, MATERIAL_TIERS, sheets } from './art-sheets';
 
@@ -184,7 +184,7 @@ function render(): void {
   root.append(el('div', 'art-sheet-note', `${active.note} · [ ] switch sheets, ± zoom, P play, Esc close · npm run art:sheet writes these as PNGs`));
 
   const match = (text: string) => !state.filter || text.toLowerCase().includes(state.filter.toLowerCase());
-  const cellPx = 34 * state.zoom + 24;
+  const held = active.id === 'viewmodels';
   let shown = 0;
   for (const group of active.groups) {
     // Playing collapses a creature's frames into one cell that runs the whole
@@ -194,17 +194,22 @@ function render(): void {
       : group.cells;
     const visible = cells.filter((c) => match(`${c.label} ${c.id}`));
     if (!visible.length) continue;
+    // Tall viewmodels used to be forced into a square stage, clipping the
+    // gripping hand. Here zoom means an integer multiple of native pixels.
+    const sizes = held ? visible.map(c => artSize(c.id)) : [];
+    const cellPx = (held ? Math.max(...sizes.map(s => s.w)) : 34) * state.zoom + 24;
+    const stagePx = (held ? Math.max(...sizes.map(s => s.h)) : 34) * state.zoom + (held ? 8 : 0);
     shown += visible.length;
     root.append(el('div', 'art-sheet-group', group.title));
     const grid = el('div', 'art-sheet-grid');
     grid.style.setProperty('--cell', `${cellPx}px`);
-    grid.style.setProperty('--stage', `${34 * state.zoom}px`);
+    grid.style.setProperty('--stage', `${stagePx}px`);
     for (const c of visible) {
       const cell = el('div', 'art-cell');
       const stage = el('div', 'stage');
       const img = document.createElement('img');
       img.src = artUrl(c.id, c.ramp);
-      img.style.width = `${32 * state.zoom}px`;
+      img.style.width = `${(held ? artSize(c.id).w : 32) * state.zoom}px`;
       stage.append(img);
       const cap = el('div', 'cap');
       const name = el('b', undefined, c.label);

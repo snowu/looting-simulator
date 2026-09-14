@@ -68,7 +68,7 @@ export function artCanvas(id: string, ramp?: Ramp): HTMLCanvasElement {
     canvas.width = img.naturalWidth;
     canvas.height = img.naturalHeight;
     ctx.drawImage(img, 0, 0);
-    if (ramp && id.startsWith('ic_')) {
+    if (ramp && (id.startsWith('ic_') || id.startsWith('vm_'))) {
       const def = getArt(id);
       if (def) {
         const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);

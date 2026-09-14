@@ -4,7 +4,7 @@ import { biomeForFloor, ceilingForFloor } from '../data/biomes';
 import { enemyDef, enemyView } from '../data/enemies';
 import { findMaterial } from '../data/materials';
 import { findSigil } from '../data/spells';
-import { itemBase } from '../data/items';
+import { itemBase, viewmodelFor } from '../data/items';
 import { Floor, ShrineKind } from '../systems/dungeon';
 import { itemIcon } from '../systems/items';
 import { lightIntensity } from '../systems/meta';
@@ -525,7 +525,7 @@ export class DungeonRenderer {
     this.vmShared.uAmbient.value.setRGB(tc.r * 0.85 * flicker, tc.g * 0.85 * flicker, tc.b * 0.85 * flicker);
     this.vmShared.uLightCount.value = 0;
 
-    // Every viewmodel sprite is 24x40 and the scale below normalises by height,
+    // The scale below normalises each viewmodel by its canvas height,
     // so art alone can never make one weapon read as bigger than another — a
     // dagger and a greatsword came out the same size in the same corner of the
     // frame. Two-handed weapons get their own pose instead: held up and across
@@ -584,15 +584,15 @@ export class DungeonRenderer {
     // in the pack, and a shield still sitting in the offhand of a save that
     // predates the rule must not be drawn on an arm that is holding a maul.
     // While calling shafts back the left hand comes up to meet them — the
-    // shield if one is worn, the bare hand if not — so the call reads on the
+    // bare receiving hand, with the shield lowered — so the call reads on the
     // body rather than only in the log. Shafts are collected the moment they
     // reach the player tile, which is where the raised hand is.
     const retrieving = !!a.retrieving;
-    const offhand = world.derived.hasShield ? world.state.equipment.offhand : null;
+    const offhand = !retrieving && world.derived.hasShield ? world.state.equipment.offhand : null;
     sh.mesh.visible = !!offhand || retrieving;
     if (sh.mesh.visible) {
       const sramp = offhand?.materialId ? findMaterial(offhand.materialId)?.ramp : undefined;
-      const texId = offhand ? 'vm_shield' : 'vm_hand';
+      const texId = offhand ? viewmodelFor(itemBase(offhand.ref)) : 'vm_hand';
       const tex = artTexture(texId, sramp);
       if (sh.mat.uniforms.map.value !== tex) sh.mat.uniforms.map.value = tex;
       // Sized off the art, not a constant: the box is 24 rows tall but a
@@ -604,7 +604,10 @@ export class DungeonRenderer {
       sh.mesh.scale.set(box.w * ss, box.h * ss, 1);
       // Mostly out of frame until raised.
       sh.mesh.position.set(W * 0.16 + raise * W * 0.16 - bobX * 0.5, -H * 0.12 + raise * H * 0.4 - bobY - this.deathFade * 120, 0);
-      sh.mesh.rotation.set(0, 0, 0.2 - raise * 0.2);
+      // A small beckoning pulse follows each shaft's channel timer.
+      const beckon = a.retrieving ? Math.sin((1 - a.retrieving.t / 0.75) * Math.PI) : 0;
+      sh.mesh.position.y += beckon * H * 0.008;
+      sh.mesh.rotation.set(0, 0, 0.2 - raise * 0.2 - beckon * 0.035);
       // The shield flares white while a parry would land, so the window is
       // something you learn to see rather than something you read about.
       const flare = world.parryWindow ? 0.38 : 0;

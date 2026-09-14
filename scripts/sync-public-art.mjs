@@ -22,6 +22,12 @@ const check = process.argv.includes('--check');
 // it only ids the art code gained or lost are touched, so a hand-painted PNG
 // dropped into this folder survives an ordinary sync.
 const force = process.argv.includes('--force');
+// Redraw only a named family without replacing unrelated hand-painted PNGs.
+const idsIndex = process.argv.indexOf('--ids');
+const selected = idsIndex === -1 ? null : process.argv[idsIndex + 1]?.split(',');
+if (idsIndex !== -1 && (!selected?.length || selected.some(id => !id || id.startsWith('--')))) {
+  throw new Error('--ids requires a comma-separated list of art IDs');
+}
 
 async function loadModule(path) {
   const bundle = await rolldown({ input: resolve(path) });
@@ -74,6 +80,7 @@ const { ALL_ART, getArt } = await loadModule('src/art/registry.ts');
 const listed = JSON.parse(await readFile(resolve(OUT, 'manifest.json'), 'utf8'));
 const onDisk = new Set((await readdir(OUT)).filter((f) => f.endsWith('.png')).map((f) => f.slice(0, -4)));
 const wanted = ALL_ART.map((d) => d.id);
+if (selected?.some(id => !wanted.includes(id))) throw new Error('Unknown art ID in --ids');
 
 const added = wanted.filter((id) => !onDisk.has(id));
 const stale = [...onDisk].filter((id) => !wanted.includes(id));
@@ -84,6 +91,12 @@ if (check) {
   if (added.length) problems.push(`missing PNGs: ${added.join(', ')}`);
   if (stale.length) problems.push(`orphan PNGs: ${stale.join(', ')}`);
   if (manifestDrift) problems.push('manifest.json does not match ALL_ART');
+  for (const id of selected ?? []) {
+    if (!onDisk.has(id)) continue;
+    const def = ALL_ART.find(d => d.id === id);
+    const expected = png(rasterize(def, undefined, getArt));
+    if (!(await readFile(resolve(OUT, `${id}.png`))).equals(expected)) problems.push(`${id}: PNG differs from source`);
+  }
   if (problems.length) {
     console.error(`public/art is out of date:\n  ${problems.join('\n  ')}\nRun: npm run art:sync`);
     process.exit(1);
@@ -92,7 +105,7 @@ if (check) {
 } else {
   // Hand-edited PNGs are the point of this folder, so only ids the art code
   // gained or lost are touched. Everything already present is left alone.
-  const write = force ? wanted : added;
+  const write = force ? wanted : [...new Set([...added, ...(selected ?? [])])];
   for (const id of write) {
     const def = ALL_ART.find((d) => d.id === id);
     await writeFile(resolve(OUT, `${id}.png`), png(rasterize(def, undefined, getArt)));

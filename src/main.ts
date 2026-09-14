@@ -87,7 +87,7 @@ const touch = new TouchControls(app, {
     if (d) world?.press(d);
   },
   hurl: () => world?.hurl(),
-  retrieve: () => world?.retrieve(),
+  retrieve: (held) => world?.retrieve(held),
   sigil: () => world?.castSigil(),
   tap: () => {
     if (!world) return;
@@ -668,16 +668,19 @@ function frame(now: number): void {
   last = now;
   if (mode === 'dungeon' && world) {
     const paused = overlays.isOpen;
+    if (paused) world.retrieve(false);
     touch.visible = touchMode && !paused && !ending;
     if (touchMode) {
       touch.setAction(world.contextAction());
       const belt = world.state.equipment.thrown?.ref;
       // The Call button covers the whole return trip: shafts on the floor, a
-      // call in progress (second tap stops it), and shafts already flying home.
+      // call in progress (release stops it), and shafts already flying home.
       const counts = world.thrownCounts();
       touch.setTools({
         thrown: !!world.derived.thrown,
-        landed: !!belt && ((world.floor.thrown ?? []).some((m) => m.base === belt) || (counts?.flying ?? 0) > 0),
+        landed: !!belt && ((counts?.floor ?? 0) + (counts?.flying ?? 0) > 0
+          || world.projectiles.some(pr => pr.thrownBase === belt && !pr.returning)
+          || (world.anim.attackThrow && world.anim.attack === 'windup')),
         calling: !!world.anim.retrieving,
         sigil: !!world.run.sigil && world.run.sigil.cd <= 0,
       });
@@ -780,10 +783,7 @@ window.addEventListener('keydown', (e) => {
     case 'm':
       overlays.toggle('map', world);
       break;
-    // All three are one-shot actions, and `retrieve` is a toggle — without the
-    // repeat guard, holding R started and stopped the call at the key-repeat
-    // rate, resetting the timer every time, so shafts never arrived and it felt
-    // like you had to hold the key down for something that is a tap.
+    // Start once per press; keyup releases the retrieval channel.
     case 't':
       if (!e.repeat) world.hurl();
       break;
@@ -812,6 +812,7 @@ window.addEventListener('keyup', (e) => {
   const k = e.key.toLowerCase();
   if (MOVES[k]) world.release(MOVES[k]);
   if (k === 'shift') world.setBlock(false);
+  if (k === 'r') world.retrieve(false);
 });
 
 // Mouse: LMB attack, RMB block. (Touch goes through the drag zone in TouchControls.)
@@ -826,7 +827,10 @@ window.addEventListener('mouseup', (e) => {
   if (world && e.button === 2) world.setBlock(false);
 });
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-window.addEventListener('blur', () => world?.held.clear());
+window.addEventListener('blur', () => {
+  world?.held.clear();
+  world?.retrieve(false);
+});
 window.addEventListener('resize', () => renderer.resize());
 window.addEventListener('beforeunload', () => commit());
 
@@ -837,6 +841,7 @@ function goBackground(): void {
   audio.suspend();
   world?.held.clear();
   world?.setBlock(false);
+  world?.retrieve(false);
   touchAttack = false;
   stickDir = null;
   if (mode === 'dungeon' && world && !overlays.isOpen && !ending) overlays.open('help', world);

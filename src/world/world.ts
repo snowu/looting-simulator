@@ -119,9 +119,10 @@ export interface PlayerAnim {
   attackThrow: boolean;
   /**
    * A retrieval in progress: the base being called back, how many shafts are
-   * still out on the floor (re-anchored whenever shafts are picked up on
+   * still out across the run (re-anchored whenever shafts are picked up on
    * foot, so it never counts what is already back in hand), and the seconds
-   * until the next one leaves the floor. Null when idle. Shafts already
+   * until the next one leaves the floor. Zero left holds the receiving pose
+   * until the final return arrives or the player cancels. Null when idle. Shafts already
    * flying home are not counted here — they land on their own even if the
    * call stops — but `thrownCounts` reports them alongside this.
    */
@@ -208,7 +209,6 @@ const GUARD_DOWN = 1.6;
 const GUARD_RANGE = 4;
 const GUARD_BREAK_AT = 3;
 
-const RETRIEVE_COOLDOWN = 6;
 /** Tiles per second a called shaft travels on its way back to your hand. */
 const RETURN_SPEED = 11;
 /**
@@ -225,6 +225,9 @@ const RETURN_SPEED = 11;
  * *during* one, and paid for nothing: the tension is already the standing still.
  */
 const RETRIEVE_PER_SHAFT = 0.75;
+// Fog fully hides the dungeon at 18 world units (nine two-unit tiles).
+const RETURN_VISIBLE_TILES = 9;
+const RETURN_LOCAL_TILES = 2;
 
 /**
  * Anything lighter than this is knocked out of its wind-up when you land a
@@ -776,6 +779,7 @@ export class World {
       if (pr.returning) this.collectReturn(pr.thrownBase);
       else this.landThrown(pr.thrownBase, pr.tileX, pr.tileY);
     }
+    this.retrieve(false);
     run.depth += dir === 'down' ? 1 : -1;
     if (!run.floors[run.depth - 1]) run.floors[run.depth - 1] = generateFloor(run.seed, run.depth, this.difficultyId);
     const f = this.floor;
@@ -1035,7 +1039,7 @@ export class World {
       return false;
     }
     if ((this.run.thrown?.held?.[base] ?? 0) <= 0) {
-      this.msg(`Out of ${itemBase(base).name.toLowerCase()} — press R to call them back.`, '#ff9070');
+      this.msg(`Out of ${itemBase(base).name.toLowerCase()} — hold R to call them back.`, '#ff9070');
       return false;
     }
     if (this.player.stamina < thrown.staminaCost) {
@@ -1080,37 +1084,51 @@ export class World {
   }
 
   /**
-   * Begin calling every landed shaft of the equipped base back off this floor.
+   * Begin charging returns for the equipped base across the run.
    *
-   * A tap, not a hold: each shaft takes {@link RETRIEVE_PER_SHAFT} to leave
-   * the floor and then flies home as a projectile that hits nothing and is
-   * stopped by nothing, credited when it reaches your hand. Stopping the call
-   * — R again, swinging, casting, a blow — never loses what is already
-   * airborne; it still lands. Pressing R again stops it.
+   * Hold to channel: each shaft takes RETRIEVE_PER_SHAFT to leave the
+   * floor. Release stops further launches; shafts already airborne still land.
    */
-  retrieve(): boolean {
+  retrieve(held = true): boolean {
     const a = this.anim;
-    const base = this.state.equipment.thrown?.ref;
-    const thrown = this.derived.thrown;
-    if (a.retrieving) {
+    if (!held) {
       a.retrieving = null;
-      this.msg('You stop calling them back.', '#888');
       return false;
     }
+    if (a.retrieving) return true;
+    const base = this.state.equipment.thrown?.ref;
+    const thrown = this.derived.thrown;
     if (!base || !thrown) {
       this.msg('Nothing on your belt to call back.', '#888');
       return false;
     }
-    if (this.busy || a.attack !== 'idle' || a.stunT > 0 || a.cast) return false;
-    if ((this.run.thrown.retrieveCd ?? 0) > 0) return false;
-    const count = (this.floor.thrown ?? []).filter((m) => m.base === base).reduce((n, m) => n + m.n, 0);
+    if (this.busy || (a.attack !== 'idle' && !a.attackThrow) || a.stunT > 0 || a.cast) return false;
+    const count = this.retrievableCount(base);
     if (!count) {
-      this.msg(`No ${itemBase(base).name.toLowerCase()} on this floor.`, '#888');
+      this.msg(`No ${itemBase(base).name.toLowerCase()} left to retrieve.`, '#888');
       return false;
     }
     a.retrieving = { base, left: count, t: RETRIEVE_PER_SHAFT };
-    this.msg(`You raise your hand. ${count} ${itemBase(base).name.toLowerCase()} on the way.`, '#c8b890');
+    this.msg(`You raise your hand. ${count} ${itemBase(base).name.toLowerCase()} to retrieve.`, '#c8b890');
     return true;
+  }
+
+  /** Current floor first; remote stock never needs a cross-floor projectile. */
+  private retrievalStock(base: string) {
+    const floors = [this.floor, ...this.run.floors.filter(f => f && f !== this.floor)];
+    return floors.flatMap(floor => (floor?.thrown ?? [])
+      .filter(marker => marker.base === base && marker.n > 0)
+      .map(marker => ({ floor: floor!, marker })));
+  }
+
+  private outgoingThrows(base: string): Projectile[] {
+    return this.projectiles.filter(pr => pr.thrownBase === base && !pr.returning && pr.speed > 0);
+  }
+
+  private retrievableCount(base: string): number {
+    const windingUp = this.anim.attackThrow && this.anim.attack === 'windup' && this.anim.attackBase === base ? 1 : 0;
+    return this.retrievalStock(base).reduce((n, { marker }) => n + marker.n, 0)
+      + this.outgoingThrows(base).length + windingUp;
   }
 
   /** One tick of the retrieval channel. */
@@ -1121,14 +1139,18 @@ export class World {
     // Swinging, casting and being stunned all end it; walking does not, because
     // the shafts are coming to you rather than you to them.
     const thrown = this.derived.thrown;
-    if (!thrown || this.state.equipment.thrown?.ref !== r.base || a.attack !== 'idle' || a.stunT > 0 || a.cast) {
+    if (!thrown || this.state.equipment.thrown?.ref !== r.base || (a.attack !== 'idle' && !a.attackThrow) || a.stunT > 0 || a.cast) {
       a.retrieving = null;
       return;
     }
+    // The final charge is complete: keep the receiving pose until arrival.
+    // Release/attack still cancels the pose without cancelling airborne shafts.
+    if (r.left <= 0) return;
     r.t -= dt;
-    if (r.t > 0) return;
-    const marker = (this.floor.thrown ?? []).find((m) => m.base === r.base && m.n > 0);
-    if (!marker) {
+    if (r.t > 1e-9) return;
+    const stock = this.retrievalStock(r.base)[0];
+    const outgoing = this.outgoingThrows(r.base)[0];
+    if (!stock && !outgoing) {
       // The floor ran dry without a launch spending the last of `left` — that
       // happens when shafts are picked up by walking mid-call. Walking is the
       // other cost, already paid in steps, so the call just ends: no cooldown
@@ -1140,20 +1162,29 @@ export class World {
     // when it arrives, not here. Nothing is ever in limbo: it is either a
     // marker on the floor, a projectile in the air, or in your stock, and
     // stopping the call mid-flight still lets the one already airborne land.
-    marker.n--;
-    this.floor.thrown = (this.floor.thrown ?? []).filter((m) => m.n > 0);
-    this.launchReturn(r.base, marker.x, marker.y);
+    let fromX: number, fromY: number, otherFloor = false;
+    if (stock) {
+      const { marker, floor } = stock;
+      marker.n--;
+      floor.thrown = (floor.thrown ?? []).filter(m => m.n > 0);
+      fromX = marker.x;
+      fromY = marker.y;
+      otherFloor = floor !== this.floor;
+    } else {
+      // Transfer the outgoing shaft to its return only once charging finishes.
+      fromX = outgoing.x - 0.5;
+      fromY = outgoing.y - 0.5;
+      this.projectiles = this.projectiles.filter(pr => pr !== outgoing);
+    }
+    const remote = otherFloor || Math.hypot(fromX - this.player.x, fromY - this.player.y) > RETURN_VISIBLE_TILES;
+    this.launchReturn(r.base,
+      remote ? this.player.x + DX[this.player.facing] * RETURN_LOCAL_TILES : fromX,
+      remote ? this.player.y + DY[this.player.facing] * RETURN_LOCAL_TILES : fromY);
     this.sfx('retrieve');
-    r.left--;
-    if (r.left <= 0 || !(this.floor.thrown ?? []).some((m) => m.base === r.base)) {
-      a.retrieving = null;
-      // The cooldown prices the call, not the walk: it starts when the last
-      // shaft the call itself sent home leaves the floor. Shafts picked up on
-      // foot end the call above without one.
-      if (r.left <= 0) {
-        this.run.thrown.retrieveCd = RETRIEVE_COOLDOWN;
-        this.msg(`${itemBase(r.base).name} coming back to your hand.`, '#c8b890');
-      }
+    r.left = this.retrievableCount(r.base);
+    if (r.left <= 0) {
+      r.t = 0;
+      this.msg(`${itemBase(r.base).name} coming back to your hand.`, '#c8b890');
       return;
     }
     r.t += RETRIEVE_PER_SHAFT;
@@ -1204,7 +1235,7 @@ export class World {
     const base = this.state.equipment.thrown?.ref;
     const thrown = this.derived.thrown;
     if (!base || !thrown) return null;
-    const floor = (this.floor.thrown ?? []).filter((m) => m.base === base).reduce((n, m) => n + m.n, 0);
+    const floor = this.retrievalStock(base).reduce((n, { marker }) => n + marker.n, 0);
     let flying = 0;
     for (const pr of this.projectiles) if (pr.returning && pr.thrownBase === base) flying++;
     return {
@@ -2811,6 +2842,11 @@ export class World {
       }
     }
     this.projectiles = this.projectiles.filter((pr) => pr.speed > 0);
+    const receiving = this.anim.retrieving;
+    if (receiving && receiving.left <= 0
+      && !this.projectiles.some(pr => pr.returning && pr.thrownBase === receiving.base)) {
+      this.anim.retrieving = null;
+    }
   }
 
   private throwWeapon(): void {
@@ -2891,9 +2927,12 @@ export class World {
       // with no cooldown, since the steps were the price.
       const r = this.anim.retrieving;
       if (r && r.base === base) {
-        const remaining = (this.floor.thrown ?? []).filter((m) => m.base === base).reduce((n, m) => n + m.n, 0);
+        const remaining = this.retrievableCount(base);
         r.left = remaining;
-        if (remaining <= 0) this.anim.retrieving = null;
+        if (remaining <= 0) {
+          r.t = 0;
+          if (!this.projectiles.some(pr => pr.returning && pr.thrownBase === base)) this.anim.retrieving = null;
+        }
       }
       this.msg(`You pick up ${found} ${itemBase(base).name.toLowerCase()}.`, '#c8b890');
       this.sfx('pickup');

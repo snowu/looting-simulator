@@ -18,7 +18,7 @@ export interface TouchHandlers {
   /** Hurl one shaft from the belt. */
   hurl(): void;
   /** Call every landed shaft back off this floor. */
-  retrieve(): void;
+  retrieve(held: boolean): void;
   /** Cast the attuned sigil. */
   sigil(): void;
   open(mode: 'inventory' | 'map' | 'help'): void;
@@ -192,7 +192,8 @@ export class TouchControls {
     const menu = h('div', { class: 'tmenu' }, tap('Pack', () => hd.open('inventory')), tap('Map', () => hd.open('map')), tap('☰', () => hd.open('help')));
 
     this.throwBtn = tap('Throw', () => hd.hurl());
-    this.callBtn = tap('Call', () => hd.retrieve());
+    this.callBtn = hold('small', () => hd.retrieve(true), () => hd.retrieve(false));
+    this.callBtn.textContent = 'Hold Call';
     this.sigilBtn = tap('Sigil', () => hd.sigil());
     const tools = h('div', { class: 'ttools' }, this.throwBtn, this.callBtn, this.sigilBtn);
     for (const b of [this.throwBtn, this.callBtn, this.sigilBtn]) b.hidden = true;
@@ -208,10 +209,9 @@ export class TouchControls {
     if (key === this.toolsKey) return;
     this.toolsKey = key;
     this.throwBtn.hidden = !t.thrown;
-    // Stays up while a call runs so a second tap can stop it — `retrieve` is
-    // a toggle, and hiding its button mid-call would strand it.
+    // Keep the control visible until the active call ends.
     this.callBtn.hidden = !t.thrown || (!t.landed && !t.calling);
-    this.callBtn.classList.toggle('on', t.calling);
+
     this.sigilBtn.hidden = !t.sigil;
   }
 

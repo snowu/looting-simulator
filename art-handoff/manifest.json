@@ -1632,99 +1632,139 @@
     "recolorable": false
   },
   {
+    "id": "vm_dagger",
+    "file": "viewmodels/vm_dagger.png",
+    "width": 48,
+    "height": 80,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "vm_short_sword",
+    "file": "viewmodels/vm_short_sword.png",
+    "width": 48,
+    "height": 80,
+    "base": null,
+    "recolorable": true
+  },
+  {
     "id": "vm_blade",
     "file": "viewmodels/vm_blade.png",
-    "width": 24,
-    "height": 40,
+    "width": 48,
+    "height": 80,
     "base": null,
     "recolorable": true
   },
   {
     "id": "vm_axe",
     "file": "viewmodels/vm_axe.png",
-    "width": 24,
-    "height": 40,
+    "width": 48,
+    "height": 80,
     "base": null,
     "recolorable": true
   },
   {
     "id": "vm_pick",
     "file": "viewmodels/vm_pick.png",
-    "width": 24,
-    "height": 40,
+    "width": 48,
+    "height": 80,
     "base": null,
     "recolorable": true
   },
   {
     "id": "vm_blunt",
     "file": "viewmodels/vm_blunt.png",
-    "width": 24,
-    "height": 40,
+    "width": 48,
+    "height": 80,
     "base": null,
     "recolorable": true
   },
   {
     "id": "vm_spear",
     "file": "viewmodels/vm_spear.png",
-    "width": 24,
-    "height": 40,
+    "width": 48,
+    "height": 80,
     "base": null,
     "recolorable": true
   },
   {
     "id": "vm_maul",
     "file": "viewmodels/vm_maul.png",
-    "width": 24,
-    "height": 43,
+    "width": 48,
+    "height": 88,
     "base": null,
     "recolorable": true
   },
   {
     "id": "vm_polearm",
     "file": "viewmodels/vm_polearm.png",
-    "width": 24,
-    "height": 43,
+    "width": 48,
+    "height": 88,
     "base": null,
     "recolorable": true
   },
   {
     "id": "vm_greatsword",
     "file": "viewmodels/vm_greatsword.png",
-    "width": 24,
-    "height": 43,
+    "width": 48,
+    "height": 112,
     "base": null,
     "recolorable": true
   },
   {
     "id": "vm_sigil",
     "file": "viewmodels/vm_sigil.png",
-    "width": 24,
-    "height": 40,
+    "width": 48,
+    "height": 80,
     "base": null,
     "recolorable": true
   },
   {
     "id": "vm_sigil_lit",
     "file": "viewmodels/vm_sigil_lit.png",
-    "width": 24,
-    "height": 40,
+    "width": 48,
+    "height": 80,
     "base": null,
     "recolorable": true
   },
   {
     "id": "vm_fist",
     "file": "viewmodels/vm_fist.png",
-    "width": 24,
-    "height": 40,
+    "width": 48,
+    "height": 80,
     "base": null,
     "recolorable": false
   },
   {
     "id": "vm_shield",
     "file": "viewmodels/vm_shield.png",
-    "width": 24,
-    "height": 24,
+    "width": 48,
+    "height": 48,
     "base": null,
     "recolorable": true
+  },
+  {
+    "id": "vm_kite_shield",
+    "file": "viewmodels/vm_kite_shield.png",
+    "width": 48,
+    "height": 64,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "vm_tower_shield",
+    "file": "viewmodels/vm_tower_shield.png",
+    "width": 48,
+    "height": 64,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "vm_hand",
+    "file": "viewmodels/vm_hand.png",
+    "width": 48,
+    "height": 48,
+    "base": null,
+    "recolorable": false
   }
 ]

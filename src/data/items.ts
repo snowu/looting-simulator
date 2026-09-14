@@ -12,11 +12,13 @@ export const ITEM_BASES: ItemBaseDef[] = [
   // --- Weapons ------------------------------------------------------------
   {
     id: 'dagger', name: 'Dagger', slot: 'weapon', icon: 'ic_dagger', weaponClass: 'dagger', damageType: 'pierce',
+    viewmodel: 'vm_dagger',
     base: { attack: 5, luck: 5 }, perTier: { attack: 3, luck: 1.5 }, primary: ['metal'],
     swing: { windup: 0.12, recovery: 0.26, staminaCost: 10, reach: 1, critMult: 2.4 }, value: 18, minDepth: 1, weight: 3,
   },
   {
     id: 'short_sword', name: 'Short Sword', slot: 'weapon', icon: 'ic_short_sword', weaponClass: 'blade', damageType: 'slash',
+    viewmodel: 'vm_short_sword',
     base: { attack: 12 }, perTier: { attack: 4 }, primary: ['metal'],
     swing: { windup: 0.18, recovery: 0.36, staminaCost: 16, reach: 1 }, value: 28, minDepth: 2, weight: 1.7,
   },
@@ -46,7 +48,7 @@ export const ITEM_BASES: ItemBaseDef[] = [
     swing: { windup: 0.24, recovery: 0.56, staminaCost: 17, reach: 2 }, value: 48, minDepth: 2, weight: 1.3,
   },
   {
-    id: 'club', name: 'Club', slot: 'weapon', icon: 'ic_club', weaponClass: 'blunt', damageType: 'blunt',
+    id: 'club', name: 'Club', slot: 'weapon', icon: 'ic_club', viewmodel: 'vm_club', weaponClass: 'blunt', damageType: 'blunt',
     base: { attack: 6 }, perTier: { attack: 4 }, primary: ['wood', 'bone'],
     swing: { windup: 0.22, recovery: 0.44, staminaCost: 12, reach: 1 }, value: 10, minDepth: 1, weight: 3,
   },
@@ -107,7 +109,7 @@ export const ITEM_BASES: ItemBaseDef[] = [
     id: 'throwing_knives', name: 'Throwing Knives', slot: 'thrown', icon: 'ic_throwing_knives', weaponClass: 'thrown', damageType: 'pierce',
     base: { attack: 5 }, perTier: { attack: 1.4 }, primary: ['metal'],
     thrown: {
-      stock: 6, stockPerTier: 0.5, windup: 0.16, recovery: 0.34, staminaCost: 9,
+      stock: 6, stockPerTier: 0.5, windup: 0.16, recovery: 0.10, staminaCost: 9,
       speed: 9, range: 4, power: 1.8, sprite: 'proj_knife', groundSprite: 'pickup_knives',
     },
     value: 26, minDepth: 2, weight: 1.6,
@@ -116,7 +118,7 @@ export const ITEM_BASES: ItemBaseDef[] = [
     id: 'throwing_axes', name: 'Throwing Axes', slot: 'thrown', icon: 'ic_throwing_axes', weaponClass: 'thrown', damageType: 'slash',
     base: { attack: 12 }, perTier: { attack: 2.8 }, primary: ['metal', 'wood'],
     thrown: {
-      stock: 4, stockPerTier: 0.5, windup: 0.24, recovery: 0.46, staminaCost: 15,
+      stock: 4, stockPerTier: 0.5, windup: 0.24, recovery: 0.14, staminaCost: 15,
       speed: 7, range: 5, power: 1.42, sprite: 'proj_axe_thrown', groundSprite: 'pickup_axes',
     },
     value: 58, minDepth: 3, weight: 0.9,
@@ -125,7 +127,7 @@ export const ITEM_BASES: ItemBaseDef[] = [
     id: 'javelins', name: 'Javelins', slot: 'thrown', icon: 'ic_javelins', weaponClass: 'thrown', damageType: 'pierce',
     base: { attack: 17 }, perTier: { attack: 2.9 }, primary: ['metal'],
     thrown: {
-      stock: 2, stockPerTier: 0.5, windup: 0.32, recovery: 0.58, staminaCost: 19,
+      stock: 2, stockPerTier: 0.5, windup: 0.32, recovery: 0.18, staminaCost: 19,
       speed: 8, range: 7, power: 1.54, sprite: 'proj_javelin', groundSprite: 'pickup_javelins',
     },
     value: 88, minDepth: 4, weight: 0.5,
@@ -134,16 +136,19 @@ export const ITEM_BASES: ItemBaseDef[] = [
   // --- Off-hand -----------------------------------------------------------
   {
     id: 'buckler', name: 'Buckler', slot: 'offhand', icon: 'ic_buckler',
+    viewmodel: 'vm_shield',
     base: { defense: 1, block: 35 }, perTier: { defense: 1, block: 5 }, primary: ['metal', 'wood'],
     value: 18, minDepth: 1, weight: 3,
   },
   {
     id: 'kite_shield', name: 'Kite Shield', slot: 'offhand', icon: 'ic_kite_shield',
+    viewmodel: 'vm_kite_shield',
     base: { defense: 4, block: 55 }, perTier: { defense: 1.5, block: 5 }, primary: ['wood', 'metal'],
     value: 38, minDepth: 2, weight: 1.7,
   },
   {
     id: 'tower_shield', name: 'Tower Shield', slot: 'offhand', icon: 'ic_tower_shield',
+    viewmodel: 'vm_tower_shield',
     base: { defense: 8, block: 74, speed: -10 }, perTier: { defense: 2, block: 4 }, primary: ['metal'],
     value: 60, minDepth: 3, weight: 0.85,
   },
@@ -299,15 +304,14 @@ const CONS_BY_ID = new Map(CONSUMABLES.map((c) => [c.id, c]));
  * weapon at all.
  */
 export function viewmodelFor(base: ItemBaseDef | ItemBaseDef['weaponClass']): string {
-  // Takes a base rather than a class because the three thrown weapons share one
-  // weapon class and must not share a model — a fan of knives and a cocked
-  // javelin are not the same picture. A bare class is still accepted so callers
-  // that only have one keep working.
+  // A short sword and long sword share a class but have different silhouettes.
+  // Prefer the base override; accept a bare class for callers without a base.
   if (base && typeof base === 'object') {
     if (base.viewmodel) return base.viewmodel;
     return viewmodelFor(base.weaponClass);
   }
   switch (base) {
+    case 'dagger': return 'vm_dagger';
     case 'axe': return 'vm_axe';
     case 'pick': return 'vm_pick';
     case 'blunt': return 'vm_blunt';
