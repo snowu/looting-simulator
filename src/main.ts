@@ -876,7 +876,33 @@ if (import.meta.env.DEV) {
     get world() { return world; },
     get mode() { return mode; },
     get audioState() { return audio.state; },
+    get slot() { return slot; },
     enterDungeon,
     enterTown,
+    /**
+     * Point this session at a different save slot, for dev scripts that hand
+     * out gear.
+     *
+     * Slot 1 holds the save from before slots existed, which is where anyone
+     * who has actually been playing finds their character — so a console script
+     * that maxes the Warden board must never be one autosave away from landing
+     * on it. Switching first, rather than writing to slot 3 and racing the next
+     * `commit()`, means every write after this call goes to the new slot and
+     * the old one is simply not in play any more.
+     *
+     * Refuses slot 1 for the same reason: this exists to stay off it.
+     */
+    useSlot(n: Slot) {
+      if (n === 1) throw new Error('Slot 1 is the real save. Use 2 or 3.');
+      if (!SLOTS.includes(n)) throw new Error(`No slot ${n}. Slots are ${SLOTS.join(', ')}.`);
+      slot = n;
+      setLastSlot(n);
+      slotDeleted = false;
+      devScratch = false;
+      setScratchMode(false);
+      saveGame(state, slot);
+      hadLocalSave = true;
+      return n;
+    },
   };
 }

@@ -20,18 +20,34 @@
  *   - every recipe at Rank 5 and a pile of every material, so the forge works
  *   - gold, renown and every Warden upgrade maxed
  *
- * It writes to the live save. Copy your save first if you care about it —
- * Settings → cloud save, or just do this on a throwaway character.
+ * Slot 3, always. Slot 1 holds the save from before slots existed, which is
+ * where anyone who has actually been playing finds their character, so nothing
+ * here may ever land on it. The session is switched to slot 3 *before* anything
+ * is handed out — writing the gear and then moving would leave it one autosave
+ * away from slot 1 — and the script refuses to run at all on a build without
+ * `__game.useSlot`, rather than quietly unlocking whatever slot you were in.
+ *
+ * Pass a slot to override: `__unlock(2)`. Slot 1 is refused by the game itself.
  */
-(async () => {
+window.__unlock = async (targetSlot = 3) => {
   const g = window.__game;
   if (!g) {
     console.error('[unlock] window.__game is missing. This only works on `npm run dev`, not a built copy.');
     return;
   }
+  if (typeof g.useSlot !== 'function') {
+    console.error(
+      '[unlock] This build has no __game.useSlot, so the script cannot guarantee it will stay off slot 1. ' +
+      'Refusing to run rather than risk your save. Pull the branch and restart the dev server.',
+    );
+    return;
+  }
+  const was = g.slot;
+  g.useSlot(targetSlot);
+  console.log(`[unlock] switched from slot ${was} to slot ${g.slot}; slot 1 will not be touched.`);
 
   const BASE = '/looting-simulator/src';
-  const [items, inventory, equip, spells, itemData, materialData, recipeData, metaData, types] = await Promise.all([
+  const [items, inventory, equip, spells, itemData, materialData, recipeData, metaData, types, persistence] = await Promise.all([
     import(`${BASE}/systems/items.ts`),
     import(`${BASE}/state/inventory.ts`),
     import(`${BASE}/systems/equip.ts`),
@@ -41,6 +57,7 @@
     import(`${BASE}/data/recipes.ts`),
     import(`${BASE}/systems/meta.ts`),
     import(`${BASE}/types.ts`),
+    import(`${BASE}/state/persistence.ts`),
   ]);
 
   const { makeEquipment, makeMaterial } = items;
@@ -138,12 +155,20 @@
     w.player.stamina = w.derived.maxStamina;
   }
 
+  // --- write it down --------------------------------------------------------
+  // `useSlot` saved the character as it was on the way in, so without this the
+  // unlocks live only in memory until the next autosave — reload before one
+  // fires and the slot still holds the pre-unlock copy.
+  persistence.saveGame(s, g.slot);
+
   // --- repaint --------------------------------------------------------------
   if (g.mode === 'town') g.enterTown();
 
   console.log(
-    `[unlock] ${made.size} pieces in the stash, ${s.spells.length} sigils inscribed, ` +
+    `[unlock] slot ${g.slot}: ${made.size} pieces in the stash, ${s.spells.length} sigils inscribed, ` +
     `${RECIPES.length} recipes at Rank ${MAX_RECIPE_RANK}. ` +
     (w ? 'Run state refreshed.' : 'Descend to try it.'),
   );
-})();
+};
+
+window.__unlock();
