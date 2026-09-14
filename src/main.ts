@@ -387,7 +387,10 @@ function devTitleTools(): HTMLElement | null {
     { class: 'dev-tools' },
     h('span', { class: 'dim small grow', text: 'Dev build only' }),
     btn('Art sheet', () => void openArtSheet(), 'small'),
+    btn('Lab', () => void enterLabArena(), 'small primary'),
     btn('Fight the King', () => void enterBossArena(), 'small'),
+    btn('Melee', () => void enterMeleeRoom(), 'small'),
+    btn('Archers', () => void enterArcherRoom(), 'small'),
   );
 }
 
@@ -740,6 +743,11 @@ window.addEventListener('keydown', (e) => {
     void openArtSheet();
     return;
   }
+  if (import.meta.env.DEV && e.key === 'F3') {
+    e.preventDefault();
+    void toggleLabConsole();
+    return;
+  }
   if (mode !== 'dungeon' || !world) return;
   if (overlays.handleKey(e)) {
     e.preventDefault();
@@ -772,15 +780,19 @@ window.addEventListener('keydown', (e) => {
     case 'm':
       overlays.toggle('map', world);
       break;
+    // All three are one-shot actions, and `retrieve` is a toggle — without the
+    // repeat guard, holding R started and stopped the call at the key-repeat
+    // rate, resetting the timer every time, so shafts never arrived and it felt
+    // like you had to hold the key down for something that is a tap.
     case 't':
-      world.hurl();
+      if (!e.repeat) world.hurl();
       break;
     case 'r':
-      world.retrieve();
+      if (!e.repeat) world.retrieve();
       break;
     case 'g':
     case 'c':
-      world.castSigil();
+      if (!e.repeat) world.castSigil();
       break;
     case 'escape':
     case 'h':
@@ -882,6 +894,35 @@ async function enterMeleeRoom(): Promise<void> {
 }
 
 /**
+ * Dev only: the combat lab. Throwaway game with every recipe mastered, 999 of
+ * every material in the stash, and a weapon rack in the pack — standing in a
+ * cleared room with the spawn console ready. Same scratch contract as the
+ * boss arena: nothing here is saved, reload to get your slot back.
+ */
+async function enterLabArena(): Promise<void> {
+  const dev = await import('./dev/lab-room');
+  devScratch = true;
+  setScratchMode(true);
+  state = newGame(createRng(randomSeed()));
+  dev.prepare(state);
+  enterTown();
+  enterDungeon();
+  if (!world) return;
+  const at = dev.dropIntoLab(world);
+  hud.message(`Dev lab — ${at}. F3: spawn console. I: pack & gear (weapon rack inside).`, '#c080ff');
+  hud.message('All recipes Rank 5 · 999 mats in stash (forge is town-side, recall scrolls in pack).', '#c080ff');
+  hud.message('Scratch game: nothing here is saved. Reload to get your slot back.', '#c8a060');
+  toggleLabConsole();
+}
+
+/** Dev only: the floating spawn/weapon console for the lab. F3 toggles. */
+async function toggleLabConsole(): Promise<void> {
+  if (!import.meta.env.DEV) return;
+  const { toggleLabPanel } = await import('./dev/lab-panel');
+  toggleLabPanel(app, () => world, (t, c) => hud.message(t, c));
+}
+
+/**
  * Dev only: a throwaway game, kitted for depth six, standing in the throne room.
  *
  * It swaps `state` for a fresh one and latches `devScratch`, so the gear and
@@ -913,6 +954,7 @@ if (import.meta.env.DEV && params.has('art')) void openArtSheet();
 if (params.has('autostart')) {
   const where = params.get('autostart');
   if (import.meta.env.DEV && where === 'boss') void enterBossArena();
+  else if (import.meta.env.DEV && where === 'lab') void enterLabArena();
   else if (import.meta.env.DEV && where === 'archers') void enterArcherRoom();
   else if (import.meta.env.DEV && where === 'melee') void enterMeleeRoom();
   else {
@@ -934,6 +976,8 @@ if (import.meta.env.DEV) {
     get slot() { return slot; },
     enterDungeon,
     enterTown,
+    enterLabArena,
+    toggleLabConsole,
     /**
      * Point this session at a different save slot, for dev scripts that hand
      * out gear.
