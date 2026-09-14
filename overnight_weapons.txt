@@ -1,0 +1,36 @@
+# Overnight weapon overhaul — decision log
+# Branch: feat/weapon-overhaul   Started: 2026-09-14
+# Goal (user's words): "a weapon overhaul ... keeping the feeling and progression
+# and feeling we have now in hard mode but adding more weapon variety,
+# experimenting with 2h weapons, ranged weapons (finite ammo, recoverable from
+# the world or by pressing R, like Slayer throwing axes / Handmaiden javelins in
+# Vermintide 2). Also spells with utility effects (push back 1 tile + stun, and
+# others), long cooldowns, with warden talents and item properties (including
+# crafting) that reduce the cooldown on kill."
+# Constraints: DO NOT MERGE. Open a PR. Hard mode must keep its current feel.
+# Never invalidate a save (additive migration, no SAVE_VERSION bump).
+
+## D0. Standing constraints inherited from memory + docs
+- SAVE_VERSION stays 2. Anything new is an additive MIGRATIONS step + SAVE_REVISION bump.
+- Hard mode is the reference build: every difficulty knob on `hard` stays exactly 1/0.
+- Reproducible from the seed: any new generation roll gets its own hashed stream.
+- MECHANICS.md is the single source of truth for numbers; update it with the code.
+- Commit by explicit path (a second agent may share this worktree).
+
+## D1. Baseline, before any feature work
+`npm test` on master: **405 passed, 1 failed** (406 total, 31 files).
+The failure is pre-existing on master, not caused by this branch:
+`uniques.test.ts > "The Implication banks parries and loses them to an unblocked hit"`
+asserted `hp < maxHp` after a blow thrown 0.32s after a successful parry. Commit
+0e5e0a0 ("Improve parry protection against stacked attacks") gave a parry 0.75s
+of immunity on Hard, so that blow is now *denied* rather than taken — the test was
+measuring the old behaviour. Fixed by ticking out the grace window before the
+second swing, which is what the test actually meant to do. The relic behaviour
+itself is unchanged and still asserted.
+Committed separately from the feature so the PR diff does not look like it broke it.
+
+## D2. Method
+Three design/survey agents run in parallel first, then an adversarial pass over
+their output, then implementation, then adversarial code review. Models chosen per
+job: Opus for the two design specs and the art (judgement-heavy), Sonnet for the
+code survey and the mechanical doc work.
