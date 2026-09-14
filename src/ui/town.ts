@@ -27,6 +27,8 @@ import { buildCrafted, craft, materialsForSlot, selectionError, studyBlueprint }
 import { durability, identify, identifyCost, itemIcon, itemName, itemStats, itemValue, makeConsumable, makeUnique, repairCost, repairItem, salvage, uniqueOf } from '../systems/items';
 import { Container, addItem, canFit, countOf, freeSlots, removeItem, removeOf, roomFor, sortContainer, takeQty } from '../state/inventory';
 import { syncLoadout } from '../systems/run';
+import { attuneSigil, inscribeSigil } from '../systems/spells';
+import { findSigil, sigil } from '../data/spells';
 import { derivePlayer } from '../systems/player';
 import { defaultSlot, equipFrom, unequipTo } from '../systems/equip';
 import { createRng, hashString, randomSeed } from '../core/rng';
@@ -118,6 +120,17 @@ export class Town {
   private beastTint: 'none' | 'hurt' | 'windup' | 'dead' = 'none';
   private beastBob = true;
   private beastTimer: number | null = null;
+  /**
+   * Which bench the forge's right-hand column is showing.
+   *
+   * Repairs, sigils, recipes and blueprints used to be four panes stacked in
+   * one column, so the recipe list — the thing you came to the forge to use —
+   * started a screen and a half down. They are tabs now, and the badges carry
+   * the one thing stacking them was good for: you can still see at a glance
+   * that something is broken or that a stone is waiting, without the pane
+   * itself taking the room.
+   */
+  private forgeSide: 'recipes' | 'repairs' | 'sigils' = 'recipes';
   private forgeRecipe = 'r_short_sword';
   private forgeMats: (string | null)[] = [];
   private stashFilter: 'all' | 'gear' | 'materials' | 'other' = 'all';
@@ -732,8 +745,51 @@ export class Town {
         }, 'primary', !!err), err ? h('span', { class: 'dim small', text: err }) : null),
         gear.length ? h('div', {}, h('h3', { style: 'margin-top:10px', text: 'Salvage' }), salvageGrid) : null,
       ),
-      h('div', { class: 'col' }, this.repairs(), h('div', { class: 'pane frame' }, h('h3', { text: 'Recipes' }), list), learn),
+      this.forgeBenches(list, learn),
     );
+  }
+
+  /**
+   * The forge's right-hand column: one bench at a time, with a badge on any
+   * other that wants attention.
+   */
+  private forgeBenches(list: HTMLElement, learn: HTMLElement | null): HTMLElement {
+    const s = this.s;
+    const wornCount = EQUIP_SLOTS.filter((slot) => {
+      const it = s.equipment[slot];
+      return it && repairCost(it) > 0;
+    }).length + s.stash.items.filter((it) => it.kind === 'equipment' && repairCost(it) > 0).length;
+    const stones = s.stash.items.filter((it) => it.kind === 'sigil' && findSigil(it.ref) && !(s.spells ?? []).includes(it.ref)).length;
+    const blueprints = new Map<string, number>();
+    for (const item of s.stash.items) {
+      if (item.kind === 'blueprint') blueprints.set(item.ref, (blueprints.get(item.ref) ?? 0) + item.qty);
+    }
+    const readyBlueprints = [...blueprints].filter(([id, owned]) => {
+      const rank = recipeRank(s.recipeRanks, id);
+      return rank < MAX_RECIPE_RANK && owned >= blueprintCostForNextRank(rank);
+    }).length;
+
+    const benches: [typeof this.forgeSide, string, number][] = [
+      ['recipes', 'Recipes', readyBlueprints],
+      ['repairs', 'Repairs', wornCount],
+      ['sigils', 'Sigils', stones],
+    ];
+    const bar = h(
+      'div',
+      { class: 'tabs subtabs' },
+      ...benches.map(([id, label, badge]) =>
+        h('button', {
+          class: `tab${this.forgeSide === id ? ' on' : ''}`,
+          onclick: () => { this.forgeSide = id; audio.play('ui'); this.render(); },
+        }, label, badge ? h('span', { class: 'badge', text: String(badge) }) : null),
+      ),
+    );
+    const body = this.forgeSide === 'repairs'
+      ? this.repairs()
+      : this.forgeSide === 'sigils'
+        ? this.sigils()
+        : h('div', { class: 'col' }, h('div', { class: 'pane frame' }, h('h3', { text: 'Recipes' }), list), learn);
+    return h('div', { class: 'col' }, bar, body);
   }
 
   /**
@@ -776,7 +832,7 @@ export class Town {
       'div',
       { class: 'pane frame' },
       h('div', { class: 'row' },
-        h('h3', { text: 'Repairs' }),
+        h('h3', { text: `Repairs${worn.length ? ` (${worn.length})` : ''}` }),
         worn.length
           ? h('div', { class: 'row right' }, btn(`Mend all · ${gold(total)}`, () => {
               if (s.gold < total) return;
@@ -790,6 +846,77 @@ export class Town {
       worn.length
         ? h('div', { class: 'col' }, ...rows)
         : h('p', { class: 'dim', text: 'Nothing needs the hammer. Weapons wear on every blow that lands, shields on every blow you take on them, armour when one gets through.' }),
+    );
+  }
+
+
+  /**
+   * The sigil bench. Two separate things that both belong here: cutting a
+   * recovered stone into the book, which is permanent and one-way, and
+   * choosing which one you carry down, which is the actual decision.
+   *
+   * You carry exactly one. That is the whole design — you cannot hold both the
+   * escape and the control, so a fight is played with the tool you guessed at
+   * up here. Swapping mid-delve is refused by `attuneSigil` unless a portal is
+   * open, and the note under the list says so rather than the button silently
+   * doing nothing.
+   */
+  private sigils(): HTMLElement {
+    const s = this.s;
+    const known = s.spells ?? [];
+    const stones = s.stash.items.filter((it) => it.kind === 'sigil' && findSigil(it.ref));
+    const locked = !!s.run && !s.run.portal;
+    const vigil = metaLevel(s.meta, 'attunement');
+
+    const stoneRows = stones.map((it) => {
+      const def = sigil(it.ref);
+      const already = known.includes(it.ref);
+      return h(
+        'div',
+        { class: 'row repair-row' },
+        itemSlot(it, { size: 34, tip: () => itemTooltip(it) }),
+        h('div', { class: 'grow' },
+          h('div', { style: 'color:#b89ad8', text: def.name }),
+          h('div', { class: 'dim small', text: already ? 'already inscribed — worth selling' : def.description }),
+        ),
+        btn('Inscribe', () => {
+          if (!inscribeSigil(s, s.stash, it.uid)) return;
+          this.ctx.toast(`${def.name} inscribed. It is yours for good.`, '#b89ad8');
+          this.commit('craft');
+        }, 'small', already),
+      );
+    });
+
+    const rows = known.map((id) => {
+      const def = sigil(id);
+      const on = s.attuned === id;
+      return h(
+        'div',
+        { class: `row repair-row${on ? ' gold' : ''}` },
+        artImg(def.icon, undefined, 34),
+        h('div', { class: 'grow' },
+          h('div', { style: `color:${on ? '#e0c060' : '#b89ad8'}`, text: def.name }),
+          h('div', { class: 'dim small', text: `${def.description} · ${def.cast.toFixed(2)}s cast · ${def.stamina} stamina · ${def.cooldown}s` }),
+        ),
+        btn(on ? 'Attuned' : 'Attune', () => {
+          if (!attuneSigil(s, id)) return this.ctx.toast('Not while you are down there. Step back through a portal first.', '#9ab0d8');
+          this.ctx.toast(`Attuned to the ${def.name}.`, '#b89ad8');
+          this.commit('study');
+        }, `small${on ? ' primary' : ''}`, on || locked),
+      );
+    });
+
+    return h(
+      'div',
+      { class: 'pane frame' },
+      h('h3', { text: 'Sigils' }),
+      stoneRows.length ? h('div', { class: 'col' }, ...stoneRows) : null,
+      rows.length
+        ? h('div', { class: 'col' }, ...rows)
+        : h('p', { class: 'dim', text: 'None inscribed. The stones are cut deep and rarely — the King keeps one, and the old wardens left the rest where they fell.' }),
+      known.length
+        ? h('p', { class: 'dim small', text: `You carry one at a time, cast with G or C. ${locked ? 'Attunement is fixed until you are back in town or a portal is open. ' : ''}${vigil ? `Warden's Vigil takes ${25 * vigil}% more off the cooldown on every kill, up to a fifth of it.` : "Warden's Vigil, on the Warden's board, shortens the cooldown with every kill."}` })
+        : null,
     );
   }
 

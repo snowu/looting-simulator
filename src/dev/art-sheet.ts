@@ -13,9 +13,9 @@
  * `scripts/art-sheet.mjs` writes the same sheets out as PNGs for a pull
  * request; both read `art-sheets.ts`, so they cannot drift apart.
  */
-import { artUrl } from '../render/art-cache';
+import { artSize, artUrl } from '../render/art-cache';
 import { enemyPose } from '../render/enemy-pose';
-import { Creature, DEFAULT_TIER, MATERIAL_TIERS, sheets } from './art-sheets';
+import { Creature, DEFAULT_TIER, GEAR_MATERIALS, MATERIAL_TIERS, sheets } from './art-sheets';
 
 const CSS = `
 .art-sheet { position: absolute; inset: 0; background: #0b0a0dfa; overflow: auto; z-index: 60; font-family: var(--font-ui, inherit); }
@@ -23,6 +23,7 @@ const CSS = `
   padding: 6px 10px; background: #14111a; border-bottom: 1px solid #2a2430; }
 .art-sheet-bar .sep { width: 1px; align-self: stretch; background: #2a2430; margin: 0 2px; }
 .art-sheet-bar input { background: #0a080c; border: 1px solid #2a2430; color: #e8e0d0; font: inherit; padding: 1px 6px; width: 120px; }
+.art-sheet-bar select { background: #0a080c; border: 1px solid #2a2430; color: #e8e0d0; font: inherit; padding: 1px 4px; max-width: 180px; }
 .art-sheet-note { padding: 4px 12px 0; color: #8a8296; font-size: 17px; }
 .art-sheet-group { padding: 8px 12px 2px; color: #9ac0ff; font-size: 20px; }
 .art-sheet-grid { display: grid; gap: 4px; padding: 0 8px 8px; grid-template-columns: repeat(auto-fill, minmax(var(--cell), 1fr)); }
@@ -53,7 +54,7 @@ interface Playing {
 let host: HTMLElement | null = null;
 let root: HTMLElement | null = null;
 let raf = 0;
-let state = { sheet: 'melee', zoom: 3, play: true, bg: 'dark' as Bg, filter: '', tier: DEFAULT_TIER };
+let state = { sheet: 'melee', zoom: 3, play: true, bg: 'dark' as Bg, filter: '', tier: DEFAULT_TIER, material: null as string | null };
 let playing: Playing[] = [];
 
 export const isArtSheetOpen = (): boolean => root !== null;
@@ -100,10 +101,10 @@ function onKey(e: KeyboardEvent): void {
     closeArtSheet();
     return;
   }
-  if (e.target instanceof HTMLInputElement) return;
+  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
   const step = (d: number) => {
     e.preventDefault();
-    const ids = sheets(state.tier).map((s) => s.id);
+    const ids = sheets(state.tier, state.material ?? undefined).map((s) => s.id);
     const i = ids.indexOf(state.sheet);
     state.sheet = ids[(i + d + ids.length) % ids.length];
     render();
@@ -131,7 +132,7 @@ function button(label: string, on: boolean, onclick: () => void): HTMLElement {
 
 function render(): void {
   if (!root) return;
-  const all = sheets(state.tier);
+  const all = sheets(state.tier, state.material ?? undefined);
   const active = all.find((s) => s.id === state.sheet) ?? all[0];
   playing = [];
   root.replaceChildren();
@@ -146,13 +147,29 @@ function render(): void {
   bar.append(el('div', 'sep'));
   for (const bg of Object.keys(BACKDROPS) as Bg[]) bar.append(button(bg, state.bg === bg, () => { state.bg = bg; render(); }));
   bar.append(el('div', 'sep'));
-  // Gear is drawn in a material its base allows, so the only choice worth
-  // offering is how deep you are: picking a colour outright would put a long
-  // sword in shadow silk, which is not a thing that exists.
-  if (active.id === 'icons') {
+  // Gear is drawn in a material its base allows. The tier picks the best
+  // material at that depth; the material switch pins the deciding crafting
+  // element (the primary slot) outright, falling back to the tier pick for
+  // bases that do not allow it — so a long sword never lands in shadow silk.
+  if (active.id === 'icons' || active.id === 'viewmodels') {
     for (const t of MATERIAL_TIERS) {
       bar.append(button(`T${t}`, state.tier === t, () => { state.tier = t; render(); }));
     }
+    const pick = document.createElement('select');
+    pick.title = 'Deciding crafting material';
+    const auto = document.createElement('option');
+    auto.value = '';
+    auto.textContent = 'Tier best';
+    pick.append(auto);
+    for (const m of GEAR_MATERIALS) {
+      const opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = `${m.name} · T${m.tier}`;
+      if (state.material === m.id) opt.selected = true;
+      pick.append(opt);
+    }
+    pick.addEventListener('change', () => { state.material = pick.value || null; render(); });
+    bar.append(pick);
     bar.append(el('div', 'sep'));
   }
   bar.append(button(state.play ? 'Playing' : 'Frames', state.play, () => { state.play = !state.play; render(); }));
@@ -167,7 +184,7 @@ function render(): void {
   root.append(el('div', 'art-sheet-note', `${active.note} · [ ] switch sheets, ± zoom, P play, Esc close · npm run art:sheet writes these as PNGs`));
 
   const match = (text: string) => !state.filter || text.toLowerCase().includes(state.filter.toLowerCase());
-  const cellPx = 34 * state.zoom + 24;
+  const held = active.id === 'viewmodels';
   let shown = 0;
   for (const group of active.groups) {
     // Playing collapses a creature's frames into one cell that runs the whole
@@ -177,17 +194,22 @@ function render(): void {
       : group.cells;
     const visible = cells.filter((c) => match(`${c.label} ${c.id}`));
     if (!visible.length) continue;
+    // Tall viewmodels used to be forced into a square stage, clipping the
+    // gripping hand. Here zoom means an integer multiple of native pixels.
+    const sizes = held ? visible.map(c => artSize(c.id)) : [];
+    const cellPx = (held ? Math.max(...sizes.map(s => s.w)) : 34) * state.zoom + 24;
+    const stagePx = (held ? Math.max(...sizes.map(s => s.h)) : 34) * state.zoom + (held ? 8 : 0);
     shown += visible.length;
     root.append(el('div', 'art-sheet-group', group.title));
     const grid = el('div', 'art-sheet-grid');
     grid.style.setProperty('--cell', `${cellPx}px`);
-    grid.style.setProperty('--stage', `${34 * state.zoom}px`);
+    grid.style.setProperty('--stage', `${stagePx}px`);
     for (const c of visible) {
       const cell = el('div', 'art-cell');
       const stage = el('div', 'stage');
       const img = document.createElement('img');
       img.src = artUrl(c.id, c.ramp);
-      img.style.width = `${32 * state.zoom}px`;
+      img.style.width = `${(held ? artSize(c.id).w : 32) * state.zoom}px`;
       stage.append(img);
       const cap = el('div', 'cap');
       const name = el('b', undefined, c.label);

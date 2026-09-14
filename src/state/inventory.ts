@@ -22,7 +22,7 @@ export function stackLimit(item: Item, c?: Container): number {
   if (item.kind === 'equipment') return 1;
   if (c && isUnlimited(c)) return Infinity;
   if (item.kind === 'material' || item.kind === 'blueprint') return MATERIAL_STACK;
-  if (item.kind === 'lore') return 1;
+  if (item.kind === 'lore' || item.kind === 'sigil') return 1;
   return consumable(item.ref).stack;
 }
 
@@ -119,7 +119,7 @@ export function removeOf(c: Container, kind: ItemKind, ref: string, qty: number)
   return true;
 }
 
-const KIND_ORDER: Record<ItemKind, number> = { equipment: 0, consumable: 1, blueprint: 2, lore: 3, material: 4 };
+const KIND_ORDER: Record<ItemKind, number> = { equipment: 0, consumable: 1, blueprint: 2, sigil: 3, lore: 4, material: 5 };
 
 export function sortContainer(c: Container): void {
   c.items.sort(

@@ -5,7 +5,13 @@ import { MATERIALS } from '../data/materials';
 import { CONSUMABLES, ITEM_BASES, viewmodelFor } from '../data/items';
 import { BIOMES } from '../data/biomes';
 import { ENEMIES, KING_PHASES } from '../data/enemies';
+import { SIGILS } from '../data/spells';
 import { MATERIAL_TIERS, sheets } from '../dev/art-sheets';
+
+const SIGIL_ART_IDS = [
+  'ic_sig_wardcry', 'ic_sig_snuff', 'ic_sig_sounding', 'ic_sig_threshold', 'ic_sig_temper',
+  'vm_sigil', 'vm_sigil_lit', 'ward_threshold', 'ward_threshold_dim',
+] as const;
 
 describe('pixel art', () => {
   it('every art def is well-formed and rasterises', () => {
@@ -26,6 +32,7 @@ describe('pixel art', () => {
     for (const m of MATERIALS) needed.add(m.icon);
     for (const b of ITEM_BASES) needed.add(b.icon);
     for (const c of CONSUMABLES) needed.add(c.icon);
+    for (const s of SIGILS) needed.add(s.icon);
     for (const b of BIOMES) for (const id of [b.wall, b.wallAlt, b.wallSecret, b.floor, b.ceiling, b.door]) needed.add(id);
     for (const e of ENEMIES) {
       needed.add(`${e.sprite}_0`);
@@ -42,10 +49,30 @@ describe('pixel art', () => {
       if (p.shield) needed.add(`${p.sprite}_block`);
     }
     // Every weapon in the game has to have something to be held as.
-    for (const b of ITEM_BASES) if (b.slot === 'weapon') needed.add(viewmodelFor(b.weaponClass));
-    for (const id of ['vm_blade', 'vm_axe', 'vm_pick', 'vm_blunt', 'vm_spear', 'vm_fist', 'vm_shield']) needed.add(id);
+    for (const b of ITEM_BASES) {
+      if (b.slot === 'weapon' || b.slot === 'offhand') needed.add(viewmodelFor(b));
+      // A thrown belt has no viewmodel — it is never held — but it does need
+      // the shaft in flight and the shaft on the floor. These moved out of the
+      // weapon slot, and the check above used to be gated on `slot === 'weapon'`
+      // in a way that silently stopped covering them.
+      if (b.thrown) {
+        needed.add(b.thrown.sprite);
+        needed.add(b.thrown.groundSprite);
+      }
+    }
+    for (const id of ['vm_blade', 'vm_axe', 'vm_pick', 'vm_blunt', 'vm_spear', 'vm_fist', 'vm_shield', 'vm_hand']) needed.add(id);
     for (const id of ['trap_dart_spent', 'trap_spikes_spent', 'trap_alarm_spent']) needed.add(id);
+    for (const id of SIGIL_ART_IDS) needed.add(id);
     for (const id of needed) expect(getArt(id), id).toBeDefined();
+  });
+
+  it('shows each shield base with its own equipped viewmodel in the viewer', () => {
+    const cells = sheets().find(s => s.id === 'viewmodels')!.groups.flatMap(g => g.cells);
+    for (const [baseId, id] of [['buckler', 'vm_shield'], ['kite_shield', 'vm_kite_shield'], ['tower_shield', 'vm_tower_shield']]) {
+      const base = ITEM_BASES.find(b => b.id === baseId)!;
+      expect(viewmodelFor(base)).toBe(id);
+      expect(cells.find(c => c.id === id)?.label).toContain(base.name);
+    }
   });
 
   it('gives secret walls one learned mark, tuned to their masonry', () => {

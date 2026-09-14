@@ -37,7 +37,7 @@ Dying ends the day too, but you lose the backpack.
 | Step | 0.24s per tile; backwards ×1.25; ×1.2 more if Speed < −12 |
 | Turn | 0.17s per 90°, then a 0.16s pause before a held turn repeats |
 
-**Stat list:** Attack, Defense, Health, Stamina, Block %, Speed %, Crit %, Loot Find %, Life Leech %, and four elemental damage stats (Fire, Frost, Shadow, Holy). Speed divides weapon windup and recovery (`1 + speed/100`, floor 0.5).
+**Stat list:** Attack, Defense, Health, Stamina, Block %, Speed %, Crit %, Loot Find %, Spell Focus %, Life Leech %, and four elemental damage stats (Fire, Frost, Shadow, Holy). Speed divides weapon windup and recovery (`1 + speed/100`, floor 0.5).
 
 ### Damage
 
@@ -81,7 +81,7 @@ A volley can lose up to two closely stacked bolts to one timed parry; the follow
 
 ## 3. Controls
 
-See the README table. In short: W/S step, A/D turn, Q/E strafe, Space attack, Shift block, F interact, 1–4 consumables, I pack, M map, Esc pause. On touch: drag anywhere to walk and turn, tap or press the big button for the context action, hold the shield to block.
+See the README table. In short: W/S step, A/D turn, Q/E strafe, Space attack, Shift block, F interact, T throw, R call your shafts back, G or C cast your sigil, 1–4 consumables, I pack, M map, Esc pause. On touch: drag anywhere to walk and turn, tap or press the big button for the context action, hold the shield to block.
 
 **The one-button action** (tap the view, or the big button) swings at anything in reach and otherwise does whatever **[F]** would. One exception: a loot pile **underfoot never steals the swing while something is alive within 2 tiles**, or within 4 and hunting you. Killing the first of two monsters drops loot on your tile, and without that rule every tap became the loot window instead of a hit on the second one. Doors, stairs and portals still win over the swing, because running is a legitimate answer to a fight. **[F]** is unaffected — looting on the keyboard is always deliberate.
 
@@ -414,7 +414,8 @@ The pool is `slotBase × (0.8 + 0.2 × material tier)`, so better metal lasts lo
 
 | | |
 |---|---|
-| Weapon | every blow that **lands** on a monster. Swinging at air is free |
+| Weapon | every blow that **lands** on a monster. Swinging at air is free. A two-hander's cleave costs **2** when it catches anything |
+| Thrown belt | one per shaft that **hits**, and one more per shaft **called back**. Shortest pool in the game at 90 |
 | Offhand | every hit you **absorb** on the shield. A **parry costs nothing** — one more reason to meet the swing instead of hiding behind it |
 | Armour | one worn piece, picked at random, each time a hit **gets through** unblocked |
 
@@ -559,6 +560,7 @@ Plus `1 + ⌈depth/2⌉` loose piles on the floor, each 55% a little gold (`2–
 | Emerald | gem | 3 | Rare | 110 | catalyst → of Plunder (+Loot Find) |
 | Frost Shard | gem | 3 | Rare | 96 | catalyst → Rimed (+Frost) |
 | Sunstone | gem | 3 | Rare | 104 | catalyst → Blessed (+Holy) |
+| Wardstone | gem | 3 | Rare | 98 | catalyst → of the Vigil (+Spell Focus) |
 | Flame Shard | gem | 4 | Epic | 205 | catalyst → Blazing (+Fire) |
 | Shadow Essence | gem | 4 | Epic | 230 | catalyst → of the Leech (+Leech) |
 | Bone Idol | valuable | 1 | Common | 26 | sell only |
@@ -585,6 +587,12 @@ Bases are arranged into **gear lines** (`GEAR_LINES`), each running from the cru
 | Mace | weapon | 15 atk | +4.5 atk | 0.28 / 0.52 / 17 / 1 | 45 | 2 |
 | Spear | weapon | 19 atk | +4.5 atk | 0.24 / 0.56 / 17 / **2** | 48 | 2 |
 | Club | weapon (wood/bone) | 6 atk | +4 atk | 0.22 / 0.44 / 16 / 1 | 10 | 1 |
+| Halberd | weapon **2H** | 32 atk, −7 speed | +8 atk | 0.36 / 0.70 / 27 / **2** **cleave** | 118 | 3 |
+| Great Maul | weapon **2H** | 40 atk, −12 speed | +9 atk | 0.48 / 0.78 / 31 / 1 **cleave** | 128 | 4 |
+| Greatsword | weapon **2H** | 36 atk, −8 speed | +8 atk | 0.40 / 0.64 / 29 / 1 **cleave** | 172 | 5 |
+| Throwing Knives | **thrown** | 5 atk | +1.4 atk | — (thrown only) | 26 | 2 |
+| Throwing Axes | **thrown** | 12 atk | +2.8 atk | — (thrown only) | 58 | 3 |
+| Javelins | **thrown** | 17 atk | +2.9 atk | — (thrown only) | 88 | 4 |
 | Buckler | offhand | 1 def, 35 block | +1 def, +5 block | — | 18 | 1 |
 | Kite Shield | offhand | 4 def, 55 block | +1.5 def, +5 block | — | 38 | 2 |
 | Tower Shield | offhand | 8 def, 74 block, −10 speed | +2 def, +4 block | — | 60 | 3 |
@@ -608,7 +616,9 @@ Stamina does **not** regenerate mid-combo (`world.ts` gates regen on `attack ===
 |---|---|---|
 | Blades | dagger, short sword, long sword | Highest DPS (45–58), smallest hits, shortest windup, shortest window (3.1–3.8s), worst damage per stamina (1.70–1.79) |
 | Haft | club, mace, mining pick, war axe | Biggest hits (up to 50), longest windup (to 0.36s — you are committed), longest windows (4.5–5.5s), best damage per stamina (1.83–2.27) |
-| Reach | spear | The only reach-2 weapon; mid DPS, strong efficiency, hits from outside most enemies' range |
+| Reach | spear, halberd | Reach 2; mid DPS, strong efficiency, hits from outside most enemies' range |
+| Two-handed | greatsword, great maul, halberd | The hardest hits in the game, a cleave that spills into the rank behind, two guard chips — bought with the offhand slot, your footspeed and your stamina bar. See below |
+| Thrown | throwing knives, throwing axes, javelins | A finite stock thrown at range, and a poor short weapon once it is gone. See below |
 
 The **Dagger** is the crit weapon and the one build-scaling weapon. It carries its own Crit % (5, +1.5 per material tier) and crits for ×2.4 instead of ×1.6, so the same Crit % ring is worth more than twice as much on a dagger as on anything else. Bare it is an ordinary entry weapon (50 effective DPS, below a Short Sword); with +20 Crit % from gear it is second only to a Long Sword, and a build that stacks Crit % to the 60% cap makes it the strongest weapon in the game on both burst and damage per stamina bar. `lucky` and `fox` roll on every slot, and a tier-5 Band carries 5 on its own, so the cap is reachable if you commit to it.
 
@@ -623,6 +633,158 @@ Damage type is the second axis, and it is a **triangle**, not a ladder:
 Averaged over the bestiary that lands at blunt ×1.13, slash ×0.99, pierce ×0.97, and every type now has four to six enemies weak to it. Blunt stays marginally ahead because the dungeon is undead-heavy, which is the point of the club line.
 
 Neither axis alone picks a weapon. Ranked by burst the Long Sword leads (57 effective DPS); ranked by damage from one full stamina bar the order inverts and the War Axe leads (224 against the Long Sword's 177). Short fights favour blades, long ones favour haft.
+
+Those two figures are a Rare kit with affixes. For a like-for-like comparison of the *bases* alone, `npm run tables` now prints a **weapon roster**: every base forged at tier 3 with no affixes, its average hit taken over the whole bestiary at each monster's home depth, and its DPS and damage-per-bar side by side. That is the table to read when placing a new weapon, and it is what the two-handed and thrown sections below are measured against.
+
+
+### Two-handed weapons
+
+Three bases take both hands: **Halberd**, **Great Maul**, **Greatsword**. Wearing one empties the offhand — `equipFrom` sends the shield back to whatever container the weapon came from, and refuses the swap outright if there is no room for it rather than eating the shield. `derivePlayer` applies the same rule a second time, independently, because the playtest harness and the boss arena build `Equipment` records by direct assignment and never call `equipFrom`; without it they would measure a maul *and* a tower shield and every number they print would be a build the game cannot produce.
+
+| | With a shield | Two-handed | One-handed, no offhand |
+|---|---|---|---|
+| Block absorption | `stats.block`, 35–90% | **20%** | 30% |
+| Parry | Unchanged | **Unchanged** | Unchanged |
+
+**Two-handers hit harder than anything one-handed, and the cost is weight.** `npm run tables` prints every base on one ladder, forged at tier 3 and averaged over the whole bestiary:
+
+| Base | Per hit | DPS | Damage per stamina bar | Swing cycle |
+|---|---|---|---|---|
+| **Great Maul** | **54.5** — the biggest in the game | 38.1 | **176** | 1.43s |
+| **Greatsword** | 45.8 | **40.5** — the highest | 158 | 1.13s |
+| **Halberd** | 40.6 | 35.6 | 150 | 1.14s |
+| War Axe | 37.8 | 38.5 | 172 | 0.98s |
+| Long Sword | 28.1 | 38.0 | 117 | 0.74s |
+| Spear | 23.7 | 29.6 | 139 | 0.80s |
+
+All three out-hit every one-handed weapon by a distance. What they cost is **Speed**, and that penalty is not one tax but three: `derivePlayer` divides windup and recovery by the speed factor, so the swing slows; every step you take slows; and past **−12 total speed** you tip into `encumbered` and your steps slow again by 20%. A Great Maul alone sits exactly on that line. A Great Maul over Plate Armour is well past it, and you will feel every corridor.
+
+They also drink the bar: 27–31 stamina a swing against a Long Sword's 24 and a Spear's 17, which is three swings from a full bar on the maul.
+
+This replaced an earlier rule that no two-hander could lead the table on DPS. That was the wrong knob — it kept them a rounding error behind the War Axe *while they also gave up a shield*, so there was no reason to carry one but flavour.
+
+**Where they are not the answer:** the enemy armour curve (`ENEMY_ARMOUR_K = 45`) compresses flat damage hard, and the Ashen King has the most armour in the game. Against him a moonsilver Long Sword lands 44.8 and a moonsilver Great Maul lands 53.9 — a 58% Attack advantage becomes 20% — so the faster weapon wins the damage race and the maul is the *slowest* kill in the roster at 35.5s against the Long Sword's 24.1s. Against the Hollow Knight and the Barrow Champion, where blunt is strong and armour is lower, the maul is the fastest kill by a distance: 9.7s against a War Axe's 14.7s. That is the damage triangle doing its job, and the throne room is a parry fight rather than a damage race anyway — a parry doubles a 54-damage blow.
+
+Each also pays the shield back in something a shield cannot buy:
+
+- **Cleave**, on all three, at **25%** of the blow. It is centred on **the thing you hit, not on you**: every one of the eight tiles touching the target takes a quarter — beside it, diagonally, and *behind* it. Your own tile is excluded, because a swing that wrapped back around would be free damage on whatever had already closed, which is precisely the position a two-hander is meant to be bad in; the main target is excluded because it already took the blow in full. A cleave that catches anything wears the weapon twice.
+
+  That centring is the whole difference between the cleave and a shield. A guard only ever covers the tile you face; the cleave covers the rank *behind* the tile you face, which nothing else in the game reaches. With a halberd, whose target is two tiles out, the cleave lands three tiles deep into a corridor.
+
+  Each cleaved blow is **glancing**: one guard chip, never the two a full two-handed swing is worth, and it never bashes a shield open. Walking a two-hander into a line of shieldbearers is not a shortcut through their guards.
+
+  It is deliberately a spill rather than a second swing. Against three bodies packed around the one you hit, a tier-3 Great Maul does about 42 into the target and 10 into each of the others — 72 across the group in one 1.2s cycle for 23 stamina, against a Long Sword's 28 into one of them. Better, and not remotely a reason to go looking for a crowd: it is what makes being caught by one survivable, not what makes starting one correct.
+- **Stagger** adds seconds to a struck enemy's attack cooldown — 0.5s for the halberd, 0.3s for the other two. It buys time; it does not cancel a wind-up, because cancelling wind-ups is the parry's job and stays the parry's job. Weapons with an explicit `stagger` no longer get the light-enemy wind-up interrupt, so it replaces that rather than stacking with it.
+- **Two guard chips** instead of one, so a shielded enemy's guard breaks in two blows rather than three.
+- The **halberd** keeps reach 2, the spear's trick, without a free hand for a shield.
+
+They are **lines of one** in `GEAR_LINES`, like the spear. A line *step* is required to beat the step below it forged two material tiers better on its own stats, and a two-hander's compensation is paid in a slot that comparison cannot see; appending one to the blade or haft line would force it to be strictly better than everything under it. Each is tuned laterally against the whole ladder instead.
+
+### Thrown weapons
+
+Three bases are thrown rather than swung: **Throwing Knives**, **Throwing Axes**, **Javelins**.
+
+**They are not weapons and do not take the weapon slot.** A belt of shafts has a slot of its own, so you wear one alongside whatever is in your hands — and unlike a shield, a two-hander does not displace it. A greatsword and a bandolier of javelins is a legal, and good, loadout.
+
+Two consequences follow from that and are worth stating plainly:
+
+- **The belt pays no stats.** Its Attack is what a *throw* is worth and is read separately; it never reaches your Attack, Defense or anything else. If it did, it would be a ninth gear slot and every build would wear three knives it never threw.
+- **A throw is scored on the shafts alone.** Your sword never makes your javelins hit harder and good javelins never make your sword hit harder. Everything else about you — Crit, Life Leech, elemental damage — still rides along, because those are things about *you*. One helper, `thrownView`, does this substitution for both the game and the balance harness, so the throw that is measured is the throw that happens.
+- **A throw has no animation of its own.** The shaft leaves your body and is a projectile from that moment; your hands hold their rest pose. A throw runs through the same wind-up and recovery machinery a swing does, so once thrown weapons stopped having a viewmodel there was a melee weapon left on screen for those states to animate — hurling a javelin swung your greatsword. `anim.attackThrow` holds for the whole of both states and the renderer sits the pose out.
+- **You throw with [T], never with the attack button.** Attack used to throw by itself whenever nothing was adjacent, which meant the weapon decided for you: you could not choose to close and stab, could not swing at a barrel, and stepping back from a fight spent a javelin you were saving. A throw is a decision, so it has a key. Point blank is allowed — you pressed the key, you meant it.
+
+| Base | Stock (tier 1) | Per tier | Windup / recovery / stamina | Speed | Range | Power | DPS | A full belt is worth |
+|---|---|---|---|---|---|---|---|---|
+| Throwing Knives | 6 | +0.5 | 0.16 / 0.34 / 9 | 9 tiles/s | 4 | ×1.8 | 23.9 | 84 damage |
+| Throwing Axes | 4 | +0.5 | 0.24 / 0.46 / 15 | 7 tiles/s | 5 | ×1.42 | 31.5 | 110 damage |
+| Javelins | 2 | +0.5 | 0.32 / 0.58 / 19 | 8 tiles/s | 7 | ×1.54 | 32.7 | 88 damage |
+
+DPS and belt value are measured at tier 3, averaged over the whole bestiary, by the weapon roster in `npm run tables`. A javelin thrown is about what a Long Sword swung is — but a full belt is three of them, and then it is nothing until you have walked over to get them back.
+
+`attack × thrown.power` is the number to compare against a weapon's Attack. Material and craft rank ride along, which keeps thrown weapons inside the power ladder rather than beside it: a tier-3 javelin lands near a Long Sword, and knives well under one. That is where a thing you can only do a handful of times, from outside its reach, belongs.
+
+**The stock is finite and per-delve.** It is filled once — the first time you carry that base into a delve — and nothing refills it afterwards: not descending a floor, not sleeping in town. Stock is tracked per *base*, not per item, so a second set of javelins in the pack is not a second magazine.
+
+A spent shaft flies, and where it stops — wall, enemy, or the end of its range — it lands on the floor as a marker on `Floor.thrown`, which persists with the floor: walk upstairs and back down and it is still lying where it fell. A shaft that hits something lands **on that thing's tile**, not the tile in front of it; landing it in front meant a point-blank throw fell at your own feet and was collected the same frame, so the one range at which a thrown weapon is supposed to be a bad idea was the one where it was free. Walking over a shaft collects it.
+
+**[R] calls them back, one at a time — tap, never hold.**
+
+| | |
+|---|---|
+| Rate | **One shaft leaves the floor every 0.75s**, then flies home at 11 tiles/s |
+| Stamina | None. The wait is the whole cost — charging the bar you need *during* a fight for the thing you do *after* one paid for nothing |
+| Durability | One point of belt wear per shaft, as it lands back in your hand |
+| Cooldown | 6s, started when the last shaft the call itself sent home leaves the floor |
+| Stopped by | Swinging, casting, being stunned, taking a blow, unequipping the belt — or tapping R again |
+
+Tap, because holding R re-toggled the call at the key-repeat rate and reset the timer every time, so shafts never arrived and it felt like the key had to be held down for something that is a tap. All of T, R, G and C ignore key repeats.
+
+A called shaft is never in limbo: it is a marker on the floor, a projectile in the air, or in your stock. The stock is credited when it reaches your hand, not when it leaves the floor, so stopping the call never loses what is already airborne — it still lands. Walking over a shaft collects it directly and spends the call's remainder, ending the call with no cooldown when nothing is left: the steps were the price. Changing floors keeps airborne shafts — they go into the stock rather than being dropped on the floor you walk off.
+
+While the call runs your left hand comes up to meet them — the shield if one is worn, the bare hand if not. That raised hand is the whole animation. The HUD shows all three numbers at once (`Belt 3/6 · 2 out`, and `Calling them back · R to stop` while it runs), because showing only the stock is how the call used to promise shafts it never delivered.
+
+The belt wears from both ends — once when a throw lands and again when that shaft is called home — so it has the shortest durability pool in the game (90 against a weapon's 110), and "these are getting blunt" is an honest reason to go back to town.
+
+A landed shaft is a `Pickup`, never a resting `Projectile`: `updateProjectiles` deletes anything whose speed reaches zero on the same tick, and `changeFloor` discards the whole projectile array outright, so the conversion happens synchronously in the branch that stops the shaft.
+
+---
+
+## 9a. Sigils
+
+*Files: `src/data/spells.ts`, `src/systems/spells.ts`, `src/world/world.ts` — `castSigil`, `resolveSigil`, `refundSigil`*
+
+Five sigils exist and **you carry exactly one**, chosen in Bleakmere before you descend. That single constraint is the whole design: you can never hold both the escape and the control, so a fight is played with the tool you guessed at upstairs.
+
+**There is no mana bar.** A mana bar makes the cost fungible — you top it up in town and the spell is free in the moment it matters. Instead each sigil has its own long cooldown and the cast is paid in **stamina**, out of the same bar that swings and blocks.
+
+| Sigil | Cast | Stamina | Cooldown | What it does |
+|---|---|---|---|---|
+| Wardcry | 0.35s | 30 | 70s | Shoves the enemy you face back one tile and leaves it reeling: `recover` for 1.2s, attack cooldown +1.4s, guard dropped. Against a wall it takes 10% of its max health as blunt instead, capped at 25. A boss only eats the 0.5s attack delay. **It shouts** — every enemy within 8 tiles is alerted to your position, through walls |
+| Snuff | 0.5s | 25 | 90s | Every enemy within 12 tiles that is not already mid-wind-up loses your trail and drops out of `chase`. Then you are in the dark for 8s, and unseeable for the first 3 |
+| Sounding | 0.8s | 20 | 45s | Reveals every tile within 6, finds the traps in it, and calls the bearing of any secret door in range |
+| Threshold | 0.5s | 25 | 80s | Consecrates the tile you stand on for 8s: the parry window is **doubled** (0.44s) and the parry cooldown drops to 0.45s. Step off it and it is gone |
+| Temper | 1.2s | 15 | 90s | Mends the most worn thing you are wearing by 25% of its maximum durability |
+
+**Wardcry grants no vulnerability.** A parry pays a second of doubled damage; the push pays nothing. That is what makes the spell strictly worse than a parry whenever a parry is available, which is the safety property that keeps it from replacing the guard. The push costing you the floor's attention is the second half of the same bargain.
+
+### Reading a sigil
+
+The dial sits above the quick slots: the attuned sigil's icon, a wedge of darkness that burns off as the cooldown recovers, the seconds left in the middle, and a bar underneath while a cast runs. Full colour and a slow pulse means ready.
+
+Casting holds the stone up in the middle of your view, rising as it charges (`vm_sigil`, then `vm_sigil_lit` in the back half), and landing washes the screen in the sigil's own colour with a shake, a float and a struck bell. **Every refusal says why** — no sigil attuned, still cold, moving, mid-swing, out of breath. It used to refuse in silence for six different reasons, which was indistinguishable from being broken.
+
+Threshold is the one effect with nowhere to draw itself: it consecrates the tile you are standing on, and at eye height your own tile is entirely below the view. So it shows as a warm glow rising from the bottom of the screen, plus a **Consecrated ground** line in the status block that counts down.
+
+**The cooldown runs at half speed while you are hunted** — any living enemy alerted within 8 tiles — so it recovers on the walk between fights and barely moves during one. Kills are the only thing that meaningfully shortens it mid-fight.
+
+**A hit during the cast interrupts it** ("The sigil cast is broken by the blow.") and the cooldown does **not** start — the stamina is spent, the effect is not, and you may try again immediately.
+
+### Cooldown on kill
+
+Every kill takes time off the sigil, through `killEnemy`, so the sigil is a reward for fighting rather than a timer you wait out.
+
+```
+refund   = (2 + 8 × min(1, enemy.hp / 140)) × (1 + 0.25 × Warden's Vigil + Focus%/100)
+applied  = min(refund, base cooldown × 0.20)
+```
+
+**20% of base cooldown is a hard per-kill cap**, so no build at any investment resets a sigil in fewer than five kills. Without the cap the maxed build resets Wardcry on three Hollow Knights and the throne room becomes a charge farm. A King-raised corpse pays once, not twice — `killEnemy` returns early on `e.risen`.
+
+**Spell Focus %** is the item side of the same knob: it rolls as an affix and can be forged in, and it adds to the same multiplier as Warden's Vigil before the cap applies.
+
+### Getting them
+
+Sigil stones drop only where nothing else can carry them:
+
+| Source | Chance |
+|---|---|
+| The Ashen King | Guaranteed, while any remain undiscovered |
+| Vault and secret chests | 22% |
+| Ordinary chests and chest mimics | 3%, scaled in from depth 1 to depth 5 |
+
+The roll never offers a sigil you already know or are already carrying anywhere — stash, loadout, backpack or lying in a pickup on any floor of the current delve — so a run can never hand you a duplicate. It uses its own hashed stream (`sigil:<seed>:<depth>:<stream>`), so adding it did not reshuffle any floor that already existed.
+
+A stone is **inscribed at the forge**, on its *Sigils* bench, which consumes it permanently into `state.spells`; you **attune** from the same bench. The forge's right-hand column is three tabs — Recipes, Repairs, Sigils — each badged when it wants attention, because stacking them put the recipe list a screen and a half down. Attunement cannot change mid-delve unless a town portal is open — the same rule that governs restocking.
 
 ## The bestiary codex
 
@@ -663,6 +825,7 @@ Stored as `state.bestiary`, added additively at save revision 12; an older save 
 | Rimed | prefix | Frost | 2–4 | +0.8 | weapon, jewellery | 3 |
 | Umbral | prefix | Shadow | 2–4 | +0.8 | weapon, jewellery | 5 |
 | Blessed | prefix | Holy | 2–4 | +0.8 | weapon, jewellery | 2 |
+| Graven | prefix | Spell Focus | 3–6 | +0.5 | head, ring, amulet | 4 |
 | of the Bear | suffix | Health | 6–12 | +2 | all | 2 |
 | of the Fox | suffix | Crit | 2–5 | +0.4 | all | 1 |
 | of Swiftness | suffix | Speed | 4–8 | +0.6 | weapon, hands, jewellery | 1 |
@@ -670,6 +833,7 @@ Stored as `state.bestiary`, added additively at save revision 12; an older save 
 | of Plunder | suffix | Find | 6–12 | +1.2 | all | 1 |
 | of the Wall | suffix | Block | 5–10 | +0.6 | offhand | 1 |
 | of Endurance | suffix | Stamina | 8–14 | +1.5 | all | 2 |
+| of the Vigil | suffix | Spell Focus | 4–8 | +0.6 | head, ring, amulet | 3 |
 
 At most 2 prefixes and 2 suffixes, never two affixes on the same stat.
 
@@ -780,8 +944,9 @@ One or two run at a time, announced the day before as a rumour.
 | Treasure Sense | +20% loot find | 6, 13, 22 |
 | Supply Crate | Start each run with +1 Healing Draught | 5, 11, 18 |
 | Lantern Wick | +1 unit of light radius (½ a tile). L1 also spots traps 3 tiles ahead instead of 2 | 3, 7, 12 |
+| Warden's Vigil | +25% off your sigil's cooldown per kill, capped at a fifth of it | 6, 12, 20 |
 
-The whole tree costs **333 renown** — 30 to 40 delves for a competent player, against 8 to 14 before the balance pass. The renown *payout* is unchanged: ordinary scripted profiles simply earn less, because they turn back or die sooner. `npm run playtest` reports renown per run against this total; it does not simulate buying the whole tree across many runs.
+The whole tree costs **371 renown** — 30 to 40 delves for a competent player, against 8 to 14 before the balance pass. The renown *payout* is unchanged: ordinary scripted profiles simply earn less, because they turn back or die sooner. `npm run playtest` reports renown per run against this total; it does not simulate buying the whole tree across many runs.
 
 What did change is the tree's internal shape, because the dungeon moved under it. `scripts/upgrades.bench.ts` runs the same seeds with each upgrade maxed and alone, against no upgrades at all:
 
@@ -854,6 +1019,11 @@ A save written by a *newer* build than the one loading it is left as it is rathe
 | Biomes, depth count | `src/data/biomes.ts` |
 | Damage formulas, difficulty multiplier | `src/systems/combat.ts` |
 | Parry window, stun and reflect | `src/world/world.ts` (`PARRY_*`) |
+| Sigil effects, cast times and cooldowns | `src/data/spells.ts`, `src/world/world.ts` (`resolveSigil`) |
+| Cooldown-on-kill refund and its cap | `src/world/world.ts` (`refundSigil`) |
+| Two-handed rule, cleave and stagger | `src/systems/equip.ts`, `src/systems/player.ts`, `src/data/items.ts` (`CLEAVE`), `src/world/world.ts` (`cleave`) |
+| Thrown stock, flight and retrieval | `src/data/items.ts` (`thrown`), `src/world/world.ts` (`hurl`, `RETRIEVE_*`) |
+| How a throw is scored | `src/systems/player.ts` (`thrownView`) |
 | Movement, stamina, AI, interaction | `src/world/world.ts` |
 | Layout generation, room and prop density | `src/systems/dungeon.ts` |
 | Trap damage, salvage, spotting range | `src/world/world.ts` (`TRAPS`) |

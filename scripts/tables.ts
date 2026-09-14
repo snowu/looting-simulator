@@ -6,14 +6,17 @@
  * Three questions, which are the three the balance pass is actually about:
  *   composition — how much stuff is on a floor
  *   yield       — what that stuff pays out
+ *   weapons     — every base on one ladder, so a new one can be placed
  *   matchups    — how long a fight lasts at each gear tier, both ways
  */
 import { createRng } from '../src/core/rng';
 import { generateFloor } from '../src/systems/dungeon';
 import { ENEMIES, enemyDef } from '../src/data/enemies';
 import { rollContainerLoot, rollEnemyLoot, itemValue, makeEquipment, ContainerTier } from '../src/systems/items';
+import { ITEM_BASES } from '../src/data/items';
+import { MATERIALS } from '../src/data/materials';
 import { AffixRoll, Item, Rarity, RARITY_ORDER } from '../src/types';
-import { derivePlayer, emptyEquipment, Equipment } from '../src/systems/player';
+import { derivePlayer, emptyEquipment, Equipment, thrownView } from '../src/systems/player';
 import { playerHitsEnemy, enemyHitsPlayer } from '../src/systems/combat';
 import { depthPower, attackPower, defensePower } from '../src/systems/dungeon';
 
@@ -90,6 +93,17 @@ export const LOADOUTS: [string, () => Equipment][] = [
     e.body = makeEquipment({ baseId: 'plate', materialId: 'moonsilver', rarity: Rarity.Rare, ilvl: 14 });
     e.head = makeEquipment({ baseId: 'great_helm', materialId: 'moonsilver', rarity: Rarity.Rare, ilvl: 14 });
     e.offhand = makeEquipment({ baseId: 'tower_shield', materialId: 'moonsilver', rarity: Rarity.Rare, ilvl: 14 });
+    return e;
+  }],
+  // The same kit with the shield traded for both hands on the weapon. Every
+  // other loadout here carries an offhand, so nothing in this file could see
+  // what a two-hander actually costs: the weapon roster compares bases with no
+  // armour at all, and `ttd` is where the empty offhand shows up.
+  ['deep 2H (moonsilver maul, no shield)', () => {
+    const e = emptyEquipment();
+    e.weapon = makeEquipment({ baseId: 'great_maul', materialId: 'moonsilver', rarity: Rarity.Epic, ilvl: 14, affixes: [aff('sharp', 12)] });
+    e.body = makeEquipment({ baseId: 'plate', materialId: 'moonsilver', rarity: Rarity.Rare, ilvl: 14 });
+    e.head = makeEquipment({ baseId: 'great_helm', materialId: 'moonsilver', rarity: Rarity.Rare, ilvl: 14 });
     return e;
   }],
   ['best (star-iron Epic kit)', () => {
@@ -240,6 +254,95 @@ const CAVEAT = [
   'comparison between two builds. Not a prediction of a real session.',
 ].join('\n');
 
+
+/**
+ * Every weapon base against every enemy, forged the same way, so the roster can
+ * be read as one ladder.
+ *
+ * Each base is built at the best tier-3 material its own `primary` allows — the
+ * point is to compare *bases*, so the material has to be held as constant as the
+ * data permits — and swung by a player wearing nothing else. Damage is averaged
+ * over the whole bestiary at each monster's home depth, which folds the damage
+ * triangle in: a blunt weapon is measured against how undead the dungeon
+ * actually is, not against a neutral dummy.
+ *
+ * `dps` is one unbroken cycle after another and ignores stamina. `bar` is the
+ * damage one full stamina bar buys, which is the number that actually decides a
+ * long fight, and the two disagree on purpose — that disagreement is the whole
+ * point of having both blades and haft.
+ *
+ * Two-handers are marked `2H`: the comparison cannot see what they cost, which
+ * is the offhand, so a two-hander leading on `dps` here is not evidence that it
+ * is fine. The rule the roster is held to is that no two-hander beats the Long
+ * Sword on `dps`.
+ */
+export function weapons(): string {
+  const L = ['--- weapon roster: every base at tier 3, averaged over the whole bestiary ---'];
+  const rng = createRng(23);
+  const N = 400;
+  const ILVL = 10;
+  const rows: { line: string; dps: number; name: string }[] = [];
+  for (const base of ITEM_BASES) {
+    if (base.slot !== 'weapon' && base.slot !== 'thrown') continue;
+    const mat = MATERIALS.filter((m) => base.primary.includes(m.category) && m.tier <= 3)
+      .sort((a, b) => b.tier - a.tier || b.value - a.value)[0];
+    if (!mat) continue;
+    const eq = emptyEquipment();
+    eq[base.slot === 'thrown' ? 'thrown' : 'weapon'] = makeEquipment({ baseId: base.id, materialId: mat.id, rarity: Rarity.Common, ilvl: ILVL });
+    const d = derivePlayer(eq, {});
+    let total = 0, n = 0;
+    for (const def of ENEMIES) {
+      const power = depthPower(def, Math.max(def.minDepth, 1));
+      for (let i = 0; i < N; i++) total += playerHitsEnemy(rng, d, 1, def, defensePower(power)).damage;
+      n += N;
+    }
+    // A belt has no swing of its own: only the throw below is worth printing.
+    if (base.slot === 'thrown') {
+      const t = base.thrown!;
+      // Scored exactly the way the game scores it, off the same helper.
+      const tv = thrownView(d);
+      let thrownTotal = 0, tn = 0;
+      for (const def of ENEMIES) {
+        const power = depthPower(def, Math.max(def.minDepth, 1));
+        for (let i = 0; i < N; i++) thrownTotal += playerHitsEnemy(rng, tv, t.power, def, defensePower(power)).damage;
+        tn += N;
+      }
+      const tAvg = thrownTotal / tn;
+      const tCycle = t.windup + t.recovery;
+      const stock = Math.floor(t.stock + t.stockPerTier * (mat.tier - 1));
+      rows.push({
+        name: base.name, dps: tAvg / tCycle,
+        line: `    ${base.name.padEnd(17)} ${mat.name.padEnd(14)} atk=${String(d.thrownAttack).padStart(3)} x${f2(t.power)} cycle=${f2(tCycle)}s cost=${String(t.staminaCost).padStart(2)} | hit ${String(f1(tAvg)).padStart(5)} dps ${String(f1(tAvg / tCycle)).padStart(5)} stock ${String(stock).padStart(2)} (${f1(stock * tAvg)} before you are dry) range ${t.range} [belt]`,
+      });
+      continue;
+    }
+    const avg = total / n;
+    const cycle = d.swing.windup + d.swing.recovery;
+    const dps = avg / cycle;
+    const bar = (d.maxStamina / Math.max(1, d.swing.staminaCost)) * avg;
+    const tags = [
+      d.twoHanded ? '2H' : '',
+      d.swing.cleave ? `cleave ${Math.round(d.swing.cleave * 100)}%` : '',
+      d.swing.stagger ? `stagger ${f2(d.swing.stagger)}s` : '',
+      d.swing.reach > 1 ? `reach ${d.swing.reach}` : '',
+      (d.swing.chips ?? 1) > 1 ? `${d.swing.chips} chips` : '',
+    ].filter(Boolean).join(' ');
+    rows.push({
+      name: base.name, dps,
+      line: `    ${base.name.padEnd(17)} ${mat.name.padEnd(14)} atk=${String(d.attack).padStart(3)} cycle=${f2(cycle)}s cost=${String(d.swing.staminaCost).padStart(2)} | hit ${String(f1(avg)).padStart(5)} dps ${String(f1(dps)).padStart(5)} bar ${String(f1(bar)).padStart(6)} ${tags}`,
+    });
+
+  }
+
+  rows.sort((a, b) => b.dps - a.dps);
+  L.push(...rows.map((r) => r.line));
+  const longSword = rows.find((r) => r.name === 'Long Sword');
+  const overLongSword = rows.filter((r) => longSword && r.dps > longSword.dps).map((r) => r.name);
+  L.push('');
+  L.push(`  ranked by dps. above the Long Sword: ${overLongSword.length ? overLongSword.join(', ') : 'nothing'}`);
+  return L.join('\n');
+}
+
 export function allTables(): string {
-  return [CAVEAT, '', ladder(), '', composition(), '', yields(), '', matchups()].join('\n');
+  return [CAVEAT, '', weapons(), '', ladder(), '', composition(), '', yields(), '', matchups()].join('\n');
 }

@@ -7,7 +7,7 @@ export type SfxName =
   | 'step' | 'swing' | 'hit' | 'crit' | 'hurt' | 'block' | 'door' | 'locked' | 'unlock'
   | 'pickup' | 'gold' | 'chest' | 'break' | 'death' | 'enemyDie' | 'stairs' | 'shoot'
    | 'magic' | 'study' | 'winded' | 'secret' | 'ui' | 'craft' | 'drink' | 'alert' | 'miss' | 'sell' | 'recall' | 'parry'
-  | 'kingturn' | 'snuff' | 'splash' | 'drip' | 'plop';
+  | 'kingturn' | 'snuff' | 'splash' | 'retrieve' | 'sigil' | 'sigil_land' | 'drip' | 'plop';
 
 export interface PlayOpts {
   volume?: number;
@@ -352,6 +352,22 @@ class AudioEngine {
         break;
       case 'recall':
         for (let i = 0; i < 6; i++) this.tone(o, 'sine', 400 * Math.pow(1.19, i), 400 * Math.pow(1.19, i), 0.3, 0.15, i * 0.1);
+        break;
+      case 'retrieve':
+        this.noiseBurst(o, 0.18, 'bandpass', 700 * r, 2600 * r, 0.25, 2);
+        this.tone(o, 'triangle', 260 * r, 820 * r, 0.28, 0.2);
+        break;
+      // Starting a cast: a low swell that rises, so holding still has a sound.
+      case 'sigil':
+        this.tone(o, 'sine', 150 * r, 72 * r, 0.5, 0.35);
+        this.tone(o, 'triangle', 440 * r, 330 * r, 0.4, 0.16, 0.04);
+        break;
+      // Landing: a struck bell over the swell, which is the moment itself. The
+      // cast used to have one cue for both ends and so had no moment at all.
+      case 'sigil_land':
+        this.tone(o, 'sine', 880 * r, 1320 * r, 0.7, 0.22);
+        this.tone(o, 'triangle', 587 * r, 587 * r, 0.9, 0.14, 0.02);
+        this.tone(o, 'sine', 220 * r, 110 * r, 1.1, 0.2, 0.03);
         break;
     }
   }

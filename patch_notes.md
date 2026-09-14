@@ -1,3 +1,99 @@
+# Weapon overhaul, continued: retrieval, hands, and redrawn gear
+
+*Unreleased, on `feat/weapon-overhaul`, on top of the notes below. Still no save break: `SAVE_VERSION` and `SAVE_REVISION` do not move.*
+
+## Retrieval is a hold, and it reaches the whole run
+
+Calling shafts back used to be a tap that only swept the floor you stood on. It is now a channel: **hold R** (or hold Call on touch) and release to stop. Shafts already in the air still land when you let go — stopping a call never loses anything.
+
+- The call reaches **every floor of the run**, not just this one. A shaft further than nine tiles away, or on another floor entirely, returns from a couple of tiles ahead of you instead of flying across the dungeon, so the animation stays honest and distant stock is never stranded.
+- The raised receiving hand **holds its pose until the last shaft lands**, with a small beckoning pulse per return; the shield stays lowered while you call.
+- The belt counters count floor stock **and** shafts already flying home, so the number beside the belt is the number you will get.
+- Throws also recover much faster — knives 0.34s → 0.10s, axes 0.46s → 0.14s, javelins 0.58s → 0.18s — so hurling one no longer locks you out of the next action.
+
+## Hands, shields, and icons redrawn
+
+Every held sprite is redrawn at twice the density (48px wide canvases; the renderer normalises by canvas height, so blade length now survives it) with one shared hand language: broad knuckles, short brown creases, diagonal brass cuff, light from the upper left.
+
+- **Dagger** and **Short Sword** get their own viewmodels instead of sharing the Long Sword's; blade length is the difference between them.
+- Each shield gets its own model — round buckler, pointed kite, broad tower — mapped per base, and the renderer draws the equipped one rather than a single `vm_shield`.
+- The retrieval hand is its own open receiving hand (`vm_hand`), and the casting stone is a round ring-carved sigil whose lit frame burns the carving.
+- Held weapons are now **recoloured by the equipped material** in the renderer, skin and brass untouched; the art-sheet Viewmodels group stages tall models at native pixels and pins the deciding crafting material per base, with `npm run art:sheet -- viewmodels --material <id>` to match.
+- Weapon icons follow one convention — thin silhouette on a diagonal, head top-right — and each sigil stone takes its own tint and shape, so the five stop being the same pebble with a scratch.
+- `npm run art:sync -- --ids vm_blade,vm_axe` regenerates just the named art without touching hand-painted PNGs.
+
+## Thrown weapons are no longer held
+
+A fistful of javelins held up through the wind-up put a second pair of hands in the frame beside the ones already holding your weapon, so the three thrown viewmodels are deleted: a throw animates nothing, and the shaft in flight plus the shaft on the floor is the whole of a belt's art. The art-sheet Props group now lists both explicitly — **Thrown · in flight** and **Thrown · on the ground**, derived from the belt data — and the orphaned handoff PNGs are gone.
+
+Validation: `npm test` passes **465/465**, `tsc --noEmit` clean.
+
+---
+
+# Weapon overhaul: two hands, thrown steel, and sigils
+
+*Unreleased, on `feat/weapon-overhaul`. Nothing here invalidates a save: `SAVE_VERSION` does not move, every new field is additive, and an existing character keeps its gear, its stash and its renown.*
+
+Six new weapon bases and a spell system, aimed at the one complaint the roster had — that every weapon was a stick of a different length, and the offhand was a shield in all cases because there was never a reason for it not to be.
+
+## Two-handed weapons
+
+**Halberd**, **Great Maul** and **Greatsword**. Wearing one empties your offhand: the shield goes back to the pack you drew the weapon from, and you are refused the swap outright if there is nowhere to put it. Nothing eats your gear.
+
+That is a real loss — a silver Tower Shield is +12 Defense and 82% block, and a two-hander blocks 20% — so each buys something a shield cannot:
+
+- **A cleave**, at 25% of the blow, into every tile touching the thing you hit. Beside it, diagonally, and *behind* it. A guard only ever covers the tile you face; this covers the rank behind that tile, and with a halberd's reach it lands three tiles deep into a corridor. It never spills back onto your own tile, and a cleaved blow is glancing: one guard chip, and it will not bash a shield open.
+- **Stagger**, adding to a struck enemy's attack cooldown — half a second on the halberd. It buys you time. It does not cancel a wind-up; cancelling wind-ups is the parry's job and stays the parry's job.
+- **Two guard chips** a swing, so a shieldbearer opens in two blows instead of three.
+
+**They hit harder than anything one-handed**, and the cost is weight. A Great Maul lands the biggest blow in the game, about twice a Long Sword's; the Greatsword has the highest sustained damage of any weapon.
+
+What you pay is Speed, three times over: the swing slows, every step slows, and past −12 total speed you are encumbered and your steps slow again. A Great Maul alone sits exactly on that line — put it over Plate Armour and you will feel every corridor. They drink the bar too, 27 to 31 stamina a swing, which is three swings from full on the maul.
+
+One place they are not the answer: armour compresses flat damage, and the Ashen King has the most of it. Against him a Long Sword lands 44.8 and a Great Maul lands 53.9 — most of the maul's advantage is eaten, and the faster weapon wins the race. Against the Hollow Knight and the Barrow Champion, where blunt bites, the maul kills in 9.7s against a War Axe's 14.7s.
+
+**Parrying is completely unchanged with a two-hander.** It never needed a shield and still does not.
+
+## Thrown weapons
+
+**Throwing Knives**, **Throwing Axes** and **Javelins** — and they are not weapons. A belt of shafts gets a slot of its own, worn alongside whatever is in your hands, and unlike a shield a two-hander does not displace it. A greatsword and a bandolier of javelins is a good loadout.
+
+The belt gives you no stats at all: it is ammunition, not gear. And a throw is scored on the shafts alone — your sword never makes your javelins hit harder, and good javelins never make your sword hit harder. Your Crit, leech and elemental damage still ride along, because those are things about you.
+
+**You throw with [T].** Never with the attack button, which used to throw by itself whenever nothing was adjacent — so the weapon decided for you, you could not choose to close and stab, and stepping back from a fight spent a javelin you were saving.
+
+The stock is finite, filled once when you first carry a belt into a delve, and nothing refills it. Spent shafts land where they stop — in the thing you hit, not in front of it — and persist across a trip upstairs and back. Walk over one to collect it, or hold **R** to call them back from anywhere in the run: **one every three quarters of a second**, paying a point of belt wear for each as it arrives. Releasing stops the call, and anything already airborne still lands.
+
+So a full belt of knives is five seconds of standing still, which a fight will not give you. The decision to throw the last one is a real decision.
+
+A javelin thrown is about what a Long Sword swung is. But a belt is three of them, and then it is nothing until you have walked over to get them back.
+
+## Sigils
+
+Five of them, and you carry exactly one, chosen in Bleakmere before you go down. You can never hold both the escape and the control, so a fight is played with the tool you guessed at upstairs.
+
+There is no mana bar — a mana bar is topped up in town and free in the moment it matters. Each sigil has its own long cooldown and is cast out of your stamina, with **G** or **C**.
+
+- **Wardcry** — shoves what you face back a tile and leaves it reeling, or crushes it against the wall behind. It shouts: everything within 8 tiles learns where you are, through walls.
+- **Snuff** — everything within 12 tiles loses your trail, and you are in the dark for eight seconds.
+- **Sounding** — reads six tiles of stone: the map, the traps in it, and the bearing of anything hidden.
+- **Threshold** — consecrates the tile you stand on for eight seconds. The parry window doubles. Step off it and it is gone.
+- **Temper** — mends the most worn thing you are wearing by a quarter.
+
+Wardcry grants no vulnerability window. A parry pays a second of doubled damage; the push pays nothing, which is what keeps it from replacing the guard.
+
+**Kills shorten the cooldown**, so a sigil is a reward for fighting rather than a timer you wait out — and it is capped at a fifth of the base cooldown per kill, so no build resets one in fewer than five. The cooldown also runs at half speed while anything alerted is within 8 tiles, so it recovers between fights rather than during them. **Warden's Vigil** on the Warden's board and the new **Spell Focus** stat both feed the same refund; Spell Focus rolls as *Graven* and *of the Vigil* on head, rings and amulets, and the **Wardstone** forges it in.
+
+Sigil stones drop from the Ashen King (always, while any are undiscovered), from vault and secret chests (22%), and rarely from ordinary chests. You can never be handed one you already have. A stone is **inscribed at the forge**, permanently, and attuned from the same bench.
+
+## Fixed
+
+- **Every save crashed on entering town.** Adding the Wardstone to the material table left existing saves without a price for it, and the market screen reads a price for every material the instant it draws. The repair now runs on every load rather than at one particular save revision, so adding a material can never do this again.
+- The five sigils were drawn their own icons and then shipped pointing at a placeholder gem.
+- The sigil bench did not exist. Stones dropped, the cast key worked, and there was no way to inscribe or attune one — a found stone sat in the stash for good.
+
+---
+
 # Balance pass: slower, harder, scarcer
 
 *Unreleased. The worktree is uncommitted and nothing has been pushed.*

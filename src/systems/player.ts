@@ -1,7 +1,7 @@
-import { DamageType, DEFAULT_CRIT_MULT, EquipSlot, EQUIP_SLOTS, Item, Stats, SwingProfile, WeaponClass, addStats, emptyStats } from '../types';
+import { DamageType, DEFAULT_CRIT_MULT, EquipSlot, EQUIP_SLOTS, Item, Stats, SwingProfile, ThrownProfile, WeaponClass, addStats, emptyStats } from '../types';
 import { FIST_ATTACK, FIST_SWING, itemBase } from '../data/items';
 import { DifficultyId, difficultyOf } from '../data/difficulty';
-import { itemStats, uniqueOf } from './items';
+import { isTwoHanded, itemStats, thrownCapacity, thrownProfile, uniqueOf } from './items';
 import { MetaLevels, metaLevel } from './meta';
 
 export type Equipment = Record<EquipSlot, Item | null>;
@@ -57,9 +57,10 @@ export function emptyTraits(): UniqueTraits {
 /** How many parry stacks a blade that feeds on them can hold. */
 const PARRY_FEED_STACKS = 3;
 
-function traitsOf(eq: Equipment): UniqueTraits {
+function traitsOf(eq: Equipment, twoHanded = false): UniqueTraits {
   const t = emptyTraits();
   for (const slot of EQUIP_SLOTS) {
+    if (twoHanded && slot === 'offhand') continue;
     const u = uniqueOf(eq[slot]);
     // An unidentified unique is a lump of metal like any other: you do not get
     // the effect until you know what you are holding.
@@ -109,6 +110,20 @@ export interface PlayerDerived {
   /** Fraction of damage absorbed when blocking. */
   block: number;
   hasShield: boolean;
+  /** Both hands are on the weapon, so the offhand contributes nothing. */
+  twoHanded: boolean;
+  /** Set when the equipped weapon is thrown rather than swung. */
+  thrown: ThrownProfile | null;
+  /** A full stock for that thrown weapon, or 0 when nothing is belted. */
+  thrownCapacity: number;
+  /**
+   * What a throw hits for, before {@link ThrownProfile.power}. Read off the
+   * belted shafts alone — your sword never makes your knives hit harder, and a
+   * good set of knives never makes your sword hit harder.
+   */
+  thrownAttack: number;
+  /** The shafts' own damage type, which need not match the weapon's. */
+  thrownDamageType: DamageType;
   find: number;
   traits: UniqueTraits;
 }
@@ -124,16 +139,43 @@ export const BASE_STAMINA = 100;
  */
 const FIND_PER_TREASURE_SENSE = 20;
 
+/**
+ * You, as a thrown shaft scores you.
+ *
+ * Attack and damage type come off the belt; everything else — Crit, leech,
+ * elemental damage — is still the player, because those are things about you
+ * rather than about the weapon. One helper rather than two copies: the world
+ * snapshots this at throw time and the balance harness reads it directly, and a
+ * throw measured differently from the throw that happens is worse than not
+ * measuring it.
+ */
+export function thrownView(d: PlayerDerived): PlayerDerived {
+  return { ...d, attack: d.thrownAttack, damageType: d.thrownDamageType };
+}
+
 export function derivePlayer(eq: Equipment, meta: MetaLevels, difficulty?: DifficultyId): PlayerDerived {
+  // A two-hander keeps the offhand empty. `equipFrom` enforces that on the way
+  // in, but it is not the only way an Equipment record gets built — the balance
+  // harness and the boss arena assign the fields directly — so the rule is
+  // applied here as well. Without it those two would quietly measure a maul
+  // *and* a tower shield, and every number they print would be a build the game
+  // cannot produce.
+  const twoHanded = isTwoHanded(eq.weapon);
   const stats = emptyStats();
   for (const slot of EQUIP_SLOTS) {
+    if (twoHanded && slot === 'offhand') continue;
+    // The belt of shafts is ammunition, not gear. Its Attack is what a throw
+    // is worth and is read separately below; letting it into `stats` would
+    // make it a ninth gear slot and hand every build free Attack for wearing
+    // three knives it never has to throw.
+    if (slot === 'thrown') continue;
     const it = eq[slot];
     if (it) addStats(stats, itemStats(it));
   }
   const weapon = eq.weapon ? itemBase(eq.weapon.ref) : null;
   const speedFactor = Math.max(0.5, 1 + stats.speed / 100);
   const baseSwing = weapon?.swing ?? FIST_SWING;
-  const hasShield = !!eq.offhand;
+  const hasShield = !twoHanded && !!eq.offhand;
   // Difficulty pads the health bar on Normal; Hard multiplies by exactly 1, so
   // the old number survives the round trip unchanged.
   const maxHp = Math.max(10, Math.round((BASE_HP + stats.health + 12 * metaLevel(meta, 'toughness')) * difficultyOf(difficulty).playerHp));
@@ -149,14 +191,22 @@ export function derivePlayer(eq: Equipment, meta: MetaLevels, difficulty?: Diffi
       recovery: baseSwing.recovery / speedFactor,
       staminaCost: baseSwing.staminaCost,
       reach: baseSwing.reach,
+      cleave: baseSwing.cleave,
+      stagger: baseSwing.stagger,
+      chips: baseSwing.chips,
       critMult: baseSwing.critMult ?? DEFAULT_CRIT_MULT,
     },
     // Parrying with a weapon still takes the edge off; shields do the real work.
     // Clamped at zero: a relic that spends Block can drive the stat negative,
     // and a negative absorption would turn raising your guard into taking more.
-    block: hasShield ? Math.max(0, Math.min(0.9, stats.block / 100)) : weapon ? 0.3 : 0.12,
+    block: hasShield ? Math.max(0, Math.min(0.9, stats.block / 100)) : twoHanded ? 0.2 : weapon ? 0.3 : 0.12,
     hasShield,
+    twoHanded,
+    thrown: thrownProfile(eq.thrown),
+    thrownCapacity: thrownCapacity(eq.thrown),
+    thrownAttack: eq.thrown ? Math.max(1, itemStats(eq.thrown).attack) : 0,
+    thrownDamageType: (eq.thrown ? itemBase(eq.thrown.ref).damageType : undefined) ?? 'pierce',
     find: stats.find + FIND_PER_TREASURE_SENSE * metaLevel(meta, 'treasure_sense'),
-    traits: traitsOf(eq),
+    traits: traitsOf(eq, twoHanded),
   };
 }

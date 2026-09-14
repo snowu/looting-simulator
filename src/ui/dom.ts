@@ -3,7 +3,8 @@ import { consumable, itemBase } from '../data/items';
 import { material } from '../data/materials';
 import { affix } from '../data/affixes';
 import { masteryBonus, recipe } from '../data/recipes';
-import { durability, isIdentified, itemCraftRank, itemIcon, itemName, itemRarity, itemStats, itemValue, uniqueOf } from '../systems/items';
+import { findSigil } from '../data/spells';
+import { durability, isIdentified, itemCraftRank, itemIcon, itemName, itemRarity, itemStats, itemValue, thrownCapacity, uniqueOf } from '../systems/items';
 import { artUrl } from '../render/art-cache';
 import type { Ramp } from '../art/raster';
 
@@ -265,7 +266,7 @@ export function bindTooltip(el: HTMLElement, content: () => string): void {
 // ---------------------------------------------------------------------------
 
 const SLOT_LABEL: Record<string, string> = {
-  weapon: 'Weapon', offhand: 'Shield', head: 'Head', body: 'Body', hands: 'Hands', ring: 'Ring', amulet: 'Amulet',
+  weapon: 'Weapon', offhand: 'Shield', thrown: 'Thrown', head: 'Head', body: 'Body', hands: 'Hands', ring: 'Ring', amulet: 'Amulet',
 };
 
 export function statLines(s: Stats, compare?: Stats): string[] {
@@ -306,6 +307,15 @@ export function itemTooltip(item: Item, opts: TipOpts = {}): string {
       const mat = item.materialId ? material(item.materialId) : null;
       const rank = itemCraftRank(item);
       lines.push(`<div class="tt-sub">${itemRarity(item)} ${SLOT_LABEL[base.slot]}${base.damageType ? ` · ${base.damageType}` : ''}${item.crafted ? ` · crafted Rank ${rank}` : ''}</div>`);
+      if (base.twoHanded) {
+        lines.push('<div class="tt-warn">Two-handed — your off hand must be empty.</div>');
+        lines.push('<div class="tt-dim detail-only">Block 20% (a shield gives 35–90%). Parry timing and effect are unchanged.</div>');
+      }
+      if (base.thrown) {
+        const t = base.thrown;
+        lines.push(`<div class="tt-dim">Throw ${t.range} tiles · ${(t.windup + t.recovery).toFixed(2)}s · ${t.staminaCost} stamina · stock ${thrownCapacity(item)}</div>`);
+        lines.push(`<div class="tt-dim detail-only">At point-blank or with no ammunition, uses the melee swing below. Retrieve landed ammunition with R.</div>`);
+      }
       if (mat) lines.push(`<div class="tt-dim">${mat.name}${item.secondaryId ? ` & ${material(item.secondaryId).name}` : ''} · quality ${Math.round((item.quality ?? 1) * 100)}%</div>`);
       if (item.crafted && masteryBonus(rank) > 0) lines.push(`<div class="tt-dim">Recipe mastery: +${Math.round(masteryBonus(rank) * 100)}% core stats and durability</div>`);
       if (base.swing) {
@@ -374,6 +384,15 @@ export function itemTooltip(item: Item, opts: TipOpts = {}): string {
       const r = recipe(item.ref);
       lines.push(`<div class="tt-sub">Blueprint</div><div class="tt-desc">Unlocks or advances ${itemBase(r.baseId).name} mastery up to Rank 5.</div>`);
       lines.push(`<div class="tt-dim">${r.slots.map((s) => `${s.qty}× ${s.label}${s.optional ? ' (optional)' : ''}`).join(' · ')}</div>`);
+      break;
+    }
+    case 'sigil': {
+      const s = findSigil(item.ref);
+      if (s) {
+        lines.push('<div class="tt-sub">Uninscribed sigil</div>');
+        lines.push(`<div class="tt-desc">${esc(s.description)}</div>`);
+        lines.push(`<div class="tt-dim">Cast ${s.cast.toFixed(2)}s · ${s.stamina} stamina · ${s.cooldown}s cooldown</div>`);
+      }
       break;
     }
   }

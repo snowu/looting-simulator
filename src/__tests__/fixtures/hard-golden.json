@@ -1,8 +1,13 @@
 {
-  "note": "Original Hard stats and loot stay pinned to the pre-difficulty game. Variety intentionally changed floors; varietyFloorHash pins the new layout and spawn result while floorHash retains the historical baseline.",
+  "note": "Original Hard stats, loot and player kits stay pinned to the pre-difficulty game. Intentional biome and weapon-roster results are recorded separately. weaponLootHash moved a second time when the three thrown bases left the weapon slot for their own: the weapon drop pool has three fewer entries and a new slot has three, so every roll after the first shifts. enemyHp has not moved and must not: nothing in the weapon work touches monster health, so a change there is a bug, not a rebaseline.",
   "floorHash": "b182a0fb",
   "varietyFloorHash": "fcfb15ca",
   "lootHash": "c87954b9",
+  "weaponLootHash": "c860aace",
+  "weaponPlayerHpChanges": {
+    "15": 106,
+    "50": 94
+  },
   "enemyHp": {
     "rat": [
       14,

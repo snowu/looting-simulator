@@ -3,6 +3,7 @@ import { AffixDef, Slot } from '../types';
 const WEAPON: Slot[] = ['weapon'];
 const ARMOR: Slot[] = ['head', 'body', 'hands', 'offhand'];
 const JEWEL: Slot[] = ['ring', 'amulet'];
+const WARDEN: Slot[] = ['head', 'ring', 'amulet'];
 const ALL: Slot[] = ['weapon', 'offhand', 'head', 'body', 'hands', 'ring', 'amulet'];
 
 export const AFFIXES: AffixDef[] = [
@@ -18,6 +19,7 @@ export const AFFIXES: AffixDef[] = [
   { id: 'rimed', name: 'Rimed', kind: 'prefix', stat: 'frost', min: 2, max: 4, perLevel: 0.8, slots: [...WEAPON, ...JEWEL], weight: 4, minIlvl: 3 },
   { id: 'umbral', name: 'Umbral', kind: 'prefix', stat: 'shadow', min: 2, max: 4, perLevel: 0.8, slots: [...WEAPON, ...JEWEL], weight: 3, minIlvl: 5 },
   { id: 'blessed', name: 'Blessed', kind: 'prefix', stat: 'holy', min: 2, max: 4, perLevel: 0.8, slots: [...WEAPON, ...JEWEL], weight: 3, minIlvl: 2 },
+  { id: 'graven', name: 'Graven', kind: 'prefix', stat: 'focus', min: 3, max: 6, perLevel: 0.5, slots: WARDEN, weight: 3, minIlvl: 4 },
 
   // --- Suffixes -----------------------------------------------------------
   { id: 'bear', name: 'of the Bear', kind: 'suffix', stat: 'health', min: 6, max: 12, perLevel: 2, slots: ALL, weight: 7, minIlvl: 2 },
@@ -27,6 +29,7 @@ export const AFFIXES: AffixDef[] = [
   { id: 'plunder', name: 'of Plunder', kind: 'suffix', stat: 'find', min: 6, max: 12, perLevel: 1.2, slots: ALL, weight: 5, minIlvl: 1 },
   { id: 'wall', name: 'of the Wall', kind: 'suffix', stat: 'block', min: 5, max: 10, perLevel: 0.6, slots: ['offhand'], weight: 6, minIlvl: 1 },
   { id: 'endurance', name: 'of Endurance', kind: 'suffix', stat: 'stamina', min: 8, max: 14, perLevel: 1.5, slots: ALL, weight: 5, minIlvl: 2 },
+  { id: 'vigil', name: 'of the Vigil', kind: 'suffix', stat: 'focus', min: 4, max: 8, perLevel: 0.6, slots: WARDEN, weight: 4, minIlvl: 3 },
 ];
 
 const BY_ID = new Map(AFFIXES.map((a) => [a.id, a]));

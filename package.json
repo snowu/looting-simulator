@@ -18,7 +18,9 @@
     "find": "vitest run --config vitest.playtest.config.ts scripts/find.bench.ts",
     "patches": "node scripts/check-patches.mjs",
     "art:export": "node scripts/export-art.mjs",
-    "art:sheet": "node scripts/art-sheet.mjs"
+    "art:sheet": "node scripts/art-sheet.mjs",
+    "art:sync": "node scripts/sync-public-art.mjs",
+    "art:check": "node scripts/sync-public-art.mjs --check"
   },
   "keywords": [],
   "author": "",

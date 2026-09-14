@@ -287,7 +287,10 @@ describe('the effects', () => {
     tick(w, 0.2);
     expect(w.anim.parryStacks).toBeGreaterThan(0);
     // Now take one on the chin: the guard comes down and the blow lands.
+    // Wait out the post-parry immunity first — since parries started covering
+    // stacked attacks, a swing thrown straight after one is denied, not taken.
     w.setBlock(false);
+    tick(w, 1);
     e.vuln = 0;
     e.attackCd = 0;
     windUp(w, e);

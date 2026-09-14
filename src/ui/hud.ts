@@ -2,6 +2,7 @@ import { DIR_NAMES, DX, DY, turnLeft, turnRight } from '../core/dir';
 import { biomeForFloor } from '../data/biomes';
 import { enemyDef } from '../data/enemies';
 import { consumable } from '../data/items';
+import { findSigil } from '../data/spells';
 import { EnemyState, blocksSight, enemyAt } from '../systems/dungeon';
 import { itemIcon } from '../systems/items';
 import { DungeonRenderer } from '../render/dungeon-renderer';
@@ -43,6 +44,27 @@ export class Hud {
   private lines: LogLine[] = [];
   private quickKey = '';
   private statusKey = '';
+  /**
+   * The sigil readout. It had none at all: a cast spent stamina and the only
+   * way to know whether the spell was ready, running or still cooling was to
+   * press the key and see. The dial is the whole thing — a wedge of darkness
+   * that sweeps off the icon as the cooldown burns down, so "how long" is
+   * something you glance at rather than count.
+   */
+  private sigilWrap = h('div', { class: 'sigil' });
+  private sigilIcon = h('div', { class: 'sigil-icon' });
+  private sigilDial = h('div', { class: 'sigil-dial' });
+  private sigilText = h('span', { class: 'sigil-cd' });
+  private sigilCastWrap = h('div', { class: 'sigil-cast' });
+  private sigilCastBar = h('i');
+  private sigilKey = '';
+  /**
+   * Standing in a Threshold ward. The floor sprite for it can never be seen —
+   * at eye height your own tile is below the view — so the thing you are
+   * standing in gets a glow at the bottom of the screen instead, which is the
+   * only place a tile under your feet can be shown from.
+   */
+  private wardGlow = h('div', { class: 'ward-glow' });
   private time = 0;
 
   constructor(parent: HTMLElement, private actions: { interact: () => void; quick: (i: number) => void }) {
@@ -58,8 +80,14 @@ export class Hud {
       this.stWrap,
       this.recallWrap,
     );
+    this.sigilCastWrap.append(this.sigilCastBar);
+    this.sigilWrap.append(this.sigilIcon, this.sigilDial, this.sigilText, this.sigilCastWrap);
+    this.sigilWrap.hidden = true;
+    this.wardGlow.hidden = true;
     this.root.append(
+      this.wardGlow,
       this.floatsEl,
+      this.sigilWrap,
       this.status,
       this.compass,
       this.minimap,
@@ -95,6 +123,30 @@ export class Hud {
     this.floats.push({ el, x: x + (Math.random() - 0.5) * 0.3, y: y + (Math.random() - 0.5) * 0.3, t: 0 });
   }
 
+  /** Icon, cooldown dial and cast bar for the attuned sigil. */
+  private updateSigil(world: World): void {
+    const active = world.run.sigil;
+    const def = active ? findSigil(active.id) : undefined;
+    this.sigilWrap.hidden = !def;
+    if (!def || !active) return;
+    if (this.sigilKey !== def.id) {
+      this.sigilKey = def.id;
+      this.sigilIcon.replaceChildren(artImg(def.icon, undefined, 44));
+      this.sigilWrap.title = `${def.name} — ${def.description}`;
+    }
+    const casting = world.anim.cast?.id === def.id ? world.anim.cast : null;
+    const ready = active.cd <= 0 && !casting;
+    this.sigilWrap.classList.toggle('ready', ready);
+    this.sigilWrap.classList.toggle('casting', !!casting);
+    // Wedge of darkness over the icon, unwinding anticlockwise as it recovers.
+    const left = def.cooldown > 0 ? Math.max(0, Math.min(1, active.cd / def.cooldown)) : 0;
+    this.sigilDial.hidden = left <= 0;
+    if (left > 0) this.sigilDial.style.background = `conic-gradient(#000000a0 ${left * 360}deg, transparent 0deg)`;
+    this.sigilText.textContent = active.cd > 0 ? `${Math.ceil(active.cd)}s` : '';
+    this.sigilCastWrap.hidden = !casting;
+    if (casting) this.sigilCastBar.style.width = `${(1 - casting.t / Math.max(0.01, def.cast)) * 100}%`;
+  }
+
   update(world: World, renderer: DungeonRenderer, dt: number): void {
     this.time += dt;
     const p = world.player;
@@ -120,16 +172,42 @@ export class Hud {
     const keyNames = world.run.keys.map((k) => esc(world.floor.keys.find((kd) => kd.id === k)?.name ?? 'Key'));
     const bless = world.run.blessing ? BLESSINGS[world.run.blessing]?.name ?? '' : '';
     const curse = world.run.curse ? CURSES[world.run.curse]?.name ?? '' : '';
-    const statusKey = `${world.run.depth}|${biome.id}|${world.run.gold}|${keyNames.join()}|${bless}|${curse}|${world.freeSlots}`;
+    // Threshold consecrates the tile you are standing on, which in first person
+    // is the one tile you cannot see. Without a line here the only way to know
+    // whether you were still on it was to be parrying and find out.
+    const ward = world.anim.ward ? Math.ceil(world.anim.ward.t) : 0;
+    this.wardGlow.hidden = !ward;
+    this.wardGlow.classList.toggle('fading', ward > 0 && ward <= 2);
+    const snuffed = world.anim.snuffT > 0 ? Math.ceil(world.anim.snuffT) : 0;
+    // The belt is three numbers, not one: in hand, on the floor, and flying
+    // home. The call used to show only the stock, which is how it could promise
+    // shafts it never delivered — the counter moved when one left the floor
+    // and the stock only when one arrived, and a stop between the two kept the
+    // difference. All three are read off the same helper the world uses.
+    const belt = world.thrownCounts();
+    const beltKey = belt ? `${belt.held}|${belt.floor}|${belt.flying}|${belt.calling}` : '';
+    const statusKey = `${world.run.depth}|${biome.id}|${world.run.gold}|${keyNames.join()}|${bless}|${curse}|${world.freeSlots}|${ward}|${snuffed}|${beltKey}`;
     if (statusKey !== this.statusKey) {
       this.statusKey = statusKey;
+      const beltLine = !belt
+        ? ''
+        : belt.calling
+          ? `<div class="ward">Calling them back · ${belt.held}/${belt.cap} in hand · ${belt.floor + belt.flying} out · R to stop</div>`
+          : belt.floor + belt.flying > 0
+            ? `<div class="coin">Belt ${belt.held}/${belt.cap} · ${belt.floor + belt.flying} on the ground · Hold R to call back</div>`
+            : `<div class="coin">Belt ${belt.held}/${belt.cap}</div>`;
       this.status.innerHTML =
         `<div class="depth">Depth ${world.run.depth}</div><div class="biome">${biome.name}</div>` +
         `<div class="coin">${world.run.gold}g carried · pack ${world.run.backpack.items.length}/${world.run.backpack.capacity}</div>` +
+        beltLine +
         (keyNames.length ? `<div class="keys">${keyNames.join(', ')}</div>` : '') +
         (bless ? `<div class="bless">Blessing of ${bless}</div>` : '') +
-        (curse ? `<div class="curse">${curse}</div>` : '');
+        (curse ? `<div class="curse">${curse}</div>` : '') +
+        (ward ? `<div class="ward">Consecrated ground · ${ward}s</div>` : '') +
+        (snuffed ? `<div class="ward">Snuffed · ${snuffed}s</div>` : '');
     }
+
+    this.updateSigil(world);
 
     drawMap(this.minimap, world.floor, p.x, p.y, p.facing, { cell: 6, cx: p.x, cy: p.y, radius: 12, visibleEnemies: world.visibleEnemies() }, this.time);
 

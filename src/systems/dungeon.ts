@@ -112,6 +112,14 @@ export interface Pickup {
   keyId?: string;
 }
 
+/** Recoverable thrown stock. Counts merge by base and tile. */
+export interface ThrownMarker {
+  x: number;
+  y: number;
+  base: string;
+  n: number;
+}
+
 export interface KeyDef {
   id: string;
   name: string;
@@ -200,6 +208,7 @@ export interface Floor {
   torches: Torch[];
   props: Prop[];
   pickups: Pickup[];
+  thrown?: ThrownMarker[];
   enemies: EnemyState[];
   keys: KeyDef[];
   traps: Trap[];

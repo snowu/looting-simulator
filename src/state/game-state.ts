@@ -72,6 +72,10 @@ export interface RunState {
   tonics: string[];
   /** Open town portal, if a Scroll of Recall has been read. One at a time. */
   portal: PortalState | null;
+  /** Finite thrown stock in hand; landed stock lives on its persisted Floor. */
+  thrown: { held: Record<string, number>; retrieveCd: number };
+  /** Attuned sigil and remaining cooldown, snapshotted for this delve. */
+  sigil: { id: string; cd: number } | null;
   stats: RunStats;
   outcome: RunOutcome;
   killedBy?: string;
@@ -150,6 +154,9 @@ export interface GameState {
   market: MarketState;
   contracts: Contract[];
   meta: MetaLevels;
+  /** Permanently inscribed sigils and the one selected for the next delve. */
+  spells: string[];
+  attuned: string | null;
   /** Packed in town for the next delve; becomes the backpack when you descend. */
   loadout: Container;
   run: RunState | null;
@@ -186,6 +193,8 @@ export function newGame(rng: Rng): GameState {
     market: createMarket(rng, recipeRanks),
     contracts: refreshContracts([], rng, 1),
     meta: {},
+    spells: [],
+    attuned: null,
     loadout: createContainer(BASE_BACKPACK),
     run: null,
     lifetime: { runs: 0, deaths: 0, extractions: 0, bestDepth: 0, goldEarned: 0, kills: 0, uniquesSeen: [], uniquesKnown: [] },

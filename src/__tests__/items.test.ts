@@ -188,11 +188,16 @@ describe('items', () => {
     // Short Sword in silver. Checked at every tier the two can share.
     const statOf = (baseId: string, tier: number, key: 'attack' | 'defense') => {
       const base = itemBase(baseId);
-      return (base.base[key] ?? 0) + (base.perTier[key] ?? 0) * (tier - 1);
+      const raw = (base.base[key] ?? 0) + (base.perTier[key] ?? 0) * (tier - 1);
+      return key === 'attack' ? raw * (base.thrown?.power ?? 1) : raw;
     };
     for (const line of GEAR_LINES) {
       for (let i = 1; i < line.length; i++) {
-        const key = itemBase(line[i]).slot === 'weapon' ? 'attack' : 'defense';
+        // Thrown belts are ranked on Attack like weapons are: they have no
+        // Defense, and Attack is exactly what a throw is worth now that they
+        // sit in their own slot and never touch your melee damage.
+        const slot = itemBase(line[i]).slot;
+        const key = slot === 'weapon' || slot === 'thrown' ? 'attack' : 'defense';
         for (let tier = 1; tier + 2 <= MAX_MATERIAL_TIER; tier++) {
           const next = statOf(line[i], tier, key);
           const prev = statOf(line[i - 1], tier + 2, key);

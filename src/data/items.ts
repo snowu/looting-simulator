@@ -1,14 +1,24 @@
 import { ConsumableDef, ItemBaseDef, Rarity, SwingProfile } from '../types';
 
+/**
+ * What a two-hander spills into everything touching the thing it hit. One
+ * number for all three: the cleave is what "two-handed" means in this game, so
+ * it is not a knob that distinguishes the three from each other — reach,
+ * stagger and the size of the blow do that.
+ */
+const CLEAVE = 0.25;
+
 export const ITEM_BASES: ItemBaseDef[] = [
   // --- Weapons ------------------------------------------------------------
   {
     id: 'dagger', name: 'Dagger', slot: 'weapon', icon: 'ic_dagger', weaponClass: 'dagger', damageType: 'pierce',
+    viewmodel: 'vm_dagger',
     base: { attack: 5, luck: 5 }, perTier: { attack: 3, luck: 1.5 }, primary: ['metal'],
     swing: { windup: 0.12, recovery: 0.26, staminaCost: 10, reach: 1, critMult: 2.4 }, value: 18, minDepth: 1, weight: 3,
   },
   {
     id: 'short_sword', name: 'Short Sword', slot: 'weapon', icon: 'ic_short_sword', weaponClass: 'blade', damageType: 'slash',
+    viewmodel: 'vm_short_sword',
     base: { attack: 12 }, perTier: { attack: 4 }, primary: ['metal'],
     swing: { windup: 0.18, recovery: 0.36, staminaCost: 16, reach: 1 }, value: 28, minDepth: 2, weight: 1.7,
   },
@@ -38,24 +48,107 @@ export const ITEM_BASES: ItemBaseDef[] = [
     swing: { windup: 0.24, recovery: 0.56, staminaCost: 17, reach: 2 }, value: 48, minDepth: 2, weight: 1.3,
   },
   {
-    id: 'club', name: 'Club', slot: 'weapon', icon: 'ic_club', weaponClass: 'blunt', damageType: 'blunt',
+    id: 'club', name: 'Club', slot: 'weapon', icon: 'ic_club', viewmodel: 'vm_club', weaponClass: 'blunt', damageType: 'blunt',
     base: { attack: 6 }, perTier: { attack: 4 }, primary: ['wood', 'bone'],
     swing: { windup: 0.22, recovery: 0.44, staminaCost: 12, reach: 1 }, value: 10, minDepth: 1, weight: 3,
+  },
+
+  // --- Two-handed ---------------------------------------------------------
+  // These spend the offhand, which is by a distance the most valuable slot in
+  // the game: a silver Tower Shield is +12 Defense and 82% block for a −10
+  // speed tax, and every rung of the gear ladder carries one because there was
+  // never a reason not to.
+  //
+  // So they hit harder than anything one-handed, and the whole cost is weight.
+  // Each carries a Speed penalty, which is not one tax but three: it slows the
+  // swing (`derivePlayer` divides windup and recovery by the speed factor), it
+  // slows every step you take, and past −12 total it tips you into `encumbered`
+  // and slows them again. A Great Maul alone sits exactly on that line; a Great
+  // Maul over plate is well past it, and you will feel every corridor.
+  //
+  // The earlier rule here was that no two-hander could lead the weapon table on
+  // DPS. That was the wrong knob: it kept them a rounding error behind the War
+  // Axe while they also gave up a shield, so there was no reason to carry one
+  // but flavour. They lead on damage now, and pay for it in footspeed, stamina
+  // and the guard they do not have.
+  {
+    id: 'halberd', name: 'Halberd', slot: 'weapon', icon: 'ic_halberd', weaponClass: 'halberd', damageType: 'pierce',
+    twoHanded: true, viewmodel: 'vm_polearm',
+    base: { attack: 32, speed: -7 }, perTier: { attack: 8 }, primary: ['metal'],
+    swing: { windup: 0.36, recovery: 0.70, staminaCost: 27, reach: 2, cleave: CLEAVE, stagger: 0.5, chips: 2 },
+    value: 118, minDepth: 3, weight: 0.5,
+  },
+  {
+    id: 'great_maul', name: 'Great Maul', slot: 'weapon', icon: 'ic_great_maul', weaponClass: 'maul', damageType: 'blunt',
+    twoHanded: true, viewmodel: 'vm_maul',
+    base: { attack: 40, speed: -12 }, perTier: { attack: 9 }, primary: ['metal', 'wood'],
+    swing: { windup: 0.48, recovery: 0.78, staminaCost: 31, reach: 1, cleave: CLEAVE, stagger: 0.3, chips: 2 },
+    value: 128, minDepth: 4, weight: 0.4,
+  },
+  {
+    id: 'greatsword', name: 'Greatsword', slot: 'weapon', icon: 'ic_greatsword', weaponClass: 'greatsword', damageType: 'slash',
+    twoHanded: true, viewmodel: 'vm_greatsword',
+    base: { attack: 36, speed: -8 }, perTier: { attack: 8 }, primary: ['metal'],
+    swing: { windup: 0.40, recovery: 0.64, staminaCost: 29, reach: 1, cleave: CLEAVE, stagger: 0.3, chips: 2 },
+    value: 172, minDepth: 5, weight: 0.3,
+  },
+
+  // --- Thrown -------------------------------------------------------------
+  // Their own slot, worn alongside a weapon and a shield: a belt of shafts is
+  // not the thing in your hands. So `attack` here is what a *throw* is worth on
+  // its own — it never touches your melee damage, and your sword never touches
+  // the throw. `attack x thrown.power` is the number to compare against a
+  // weapon's attack, and it lands a javelin near a Long Sword and knives well
+  // under one, which is where a thing you can only do a handful of times, from
+  // outside its reach, belongs.
+  //
+  // A finite stock that lands on the floor and has to be collected. Running dry
+  // costs you the tool until you call the shafts back, which is the price of
+  // reaching something that cannot reach you.
+  {
+    id: 'throwing_knives', name: 'Throwing Knives', slot: 'thrown', icon: 'ic_throwing_knives', weaponClass: 'thrown', damageType: 'pierce',
+    base: { attack: 5 }, perTier: { attack: 1.4 }, primary: ['metal'],
+    thrown: {
+      stock: 6, stockPerTier: 0.5, windup: 0.16, recovery: 0.10, staminaCost: 9,
+      speed: 9, range: 4, power: 1.8, sprite: 'proj_knife', groundSprite: 'pickup_knives',
+    },
+    value: 26, minDepth: 2, weight: 1.6,
+  },
+  {
+    id: 'throwing_axes', name: 'Throwing Axes', slot: 'thrown', icon: 'ic_throwing_axes', weaponClass: 'thrown', damageType: 'slash',
+    base: { attack: 12 }, perTier: { attack: 2.8 }, primary: ['metal', 'wood'],
+    thrown: {
+      stock: 4, stockPerTier: 0.5, windup: 0.24, recovery: 0.14, staminaCost: 15,
+      speed: 7, range: 5, power: 1.42, sprite: 'proj_axe_thrown', groundSprite: 'pickup_axes',
+    },
+    value: 58, minDepth: 3, weight: 0.9,
+  },
+  {
+    id: 'javelins', name: 'Javelins', slot: 'thrown', icon: 'ic_javelins', weaponClass: 'thrown', damageType: 'pierce',
+    base: { attack: 17 }, perTier: { attack: 2.9 }, primary: ['metal'],
+    thrown: {
+      stock: 2, stockPerTier: 0.5, windup: 0.32, recovery: 0.18, staminaCost: 19,
+      speed: 8, range: 7, power: 1.54, sprite: 'proj_javelin', groundSprite: 'pickup_javelins',
+    },
+    value: 88, minDepth: 4, weight: 0.5,
   },
 
   // --- Off-hand -----------------------------------------------------------
   {
     id: 'buckler', name: 'Buckler', slot: 'offhand', icon: 'ic_buckler',
+    viewmodel: 'vm_shield',
     base: { defense: 1, block: 35 }, perTier: { defense: 1, block: 5 }, primary: ['metal', 'wood'],
     value: 18, minDepth: 1, weight: 3,
   },
   {
     id: 'kite_shield', name: 'Kite Shield', slot: 'offhand', icon: 'ic_kite_shield',
+    viewmodel: 'vm_kite_shield',
     base: { defense: 4, block: 55 }, perTier: { defense: 1.5, block: 5 }, primary: ['wood', 'metal'],
     value: 38, minDepth: 2, weight: 1.7,
   },
   {
     id: 'tower_shield', name: 'Tower Shield', slot: 'offhand', icon: 'ic_tower_shield',
+    viewmodel: 'vm_tower_shield',
     base: { defense: 8, block: 74, speed: -10 }, perTier: { defense: 2, block: 4 }, primary: ['metal'],
     value: 60, minDepth: 3, weight: 0.85,
   },
@@ -159,6 +252,16 @@ export const GEAR_LINES: readonly (readonly string[])[] = [
   ['dagger', 'short_sword', 'long_sword'],
   ['club', 'mace', 'mining_pick', 'war_axe'],
   ['spear'],
+  ['throwing_knives', 'throwing_axes', 'javelins'],
+  // Two-handers are lines of one, like the spear. A line *step* is required to
+  // beat the step below it forged two material tiers better, on its own stats —
+  // and a two-hander's compensation is paid in a slot that comparison cannot
+  // see. Appending one to the blade or haft line would force it to be strictly
+  // better than everything under it, which is the new top tier this roster is
+  // not allowed to create. Each is tuned laterally against the whole ladder.
+  ['halberd'],
+  ['great_maul'],
+  ['greatsword'],
   ['buckler', 'kite_shield', 'tower_shield'],
   ['cap', 'helm', 'great_helm'],
   ['robe'],
@@ -200,12 +303,22 @@ const CONS_BY_ID = new Map(CONSUMABLES.map((c) => [c.id, c]));
  * An empty hand is `vm_fist`, decided by the caller that knows there is no
  * weapon at all.
  */
-export function viewmodelFor(weaponClass: ItemBaseDef['weaponClass']): string {
-  switch (weaponClass) {
+export function viewmodelFor(base: ItemBaseDef | ItemBaseDef['weaponClass']): string {
+  // A short sword and long sword share a class but have different silhouettes.
+  // Prefer the base override; accept a bare class for callers without a base.
+  if (base && typeof base === 'object') {
+    if (base.viewmodel) return base.viewmodel;
+    return viewmodelFor(base.weaponClass);
+  }
+  switch (base) {
+    case 'dagger': return 'vm_dagger';
     case 'axe': return 'vm_axe';
     case 'pick': return 'vm_pick';
     case 'blunt': return 'vm_blunt';
     case 'spear': return 'vm_spear';
+    case 'maul': return 'vm_maul';
+    case 'halberd': return 'vm_polearm';
+    case 'greatsword': return 'vm_greatsword';
     default: return 'vm_blade';
   }
 }

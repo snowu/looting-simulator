@@ -3,9 +3,11 @@ import { DX, DY, turnRight } from '../core/dir';
 import { biomeForFloor, ceilingForFloor } from '../data/biomes';
 import { enemyDef, enemyView } from '../data/enemies';
 import { findMaterial } from '../data/materials';
+import { findSigil } from '../data/spells';
+import { itemBase, viewmodelFor } from '../data/items';
 import { Floor, ShrineKind } from '../systems/dungeon';
 import { itemIcon } from '../systems/items';
-import { lightIntensity, lightRadius } from '../systems/meta';
+import { lightIntensity } from '../systems/meta';
 import { World } from '../world/world';
 import { artSize, artTexture } from './art-cache';
 import { enemyPose } from './enemy-pose';
@@ -162,6 +164,11 @@ export class DungeonRenderer {
     this.shake = Math.max(this.shake, amount);
   }
 
+  /** A sigil landing: a wash of its own colour, so the moment has a colour. */
+  onSigil(r: number, g: number, b: number, strength: number): void {
+    this.flash.set(r, g, b, strength);
+  }
+
   /** Let a sprung mechanism kick once, then leave its spent decal in place. */
   onTrap(id: string): void {
     this.trapTriggeredAt.set(id, this.time);
@@ -275,7 +282,7 @@ export class DungeonRenderer {
     lights.push({
       x: this.camera.position.x, y: EYE + 0.2, z: this.camera.position.z,
       // A lamp you are carrying counts on top of the one the Warden sold you.
-      r: lightRadius(meta) + world.derived.traits.light,
+      r: world.playerLightRadius,
       color: handLight,
       intensity: lightIntensity(meta) * flick(0),
     });
@@ -422,6 +429,32 @@ export class DungeonRenderer {
       this.place(s, art, tileX(pk.x), onFloor ? 0 : hover, tileZ(pk.y), onFloor ? 0.7 : 0.55, ramp);
     }
 
+    for (const marker of floor.thrown ?? []) {
+      if (!near(marker.x, marker.y)) continue;
+      const art = itemBase(marker.base).thrown?.groundSprite;
+      if (!art) continue;
+      const s = this.sprite(`th:${marker.base}:${marker.x}:${marker.y}`);
+      this.placeFlat(s, art, tileX(marker.x), tileZ(marker.y), 0.62);
+    }
+
+    if (a.ward && near(a.ward.x, a.ward.y)) {
+      const s = this.sprite('sigil:threshold');
+      // The art drawn for this, not the trap plate it was borrowing.
+      //
+      // The ward is always the tile you are standing on — step off it and it is
+      // gone — and at eye height your own tile sits entirely below the frustum:
+      // the floor only starts being visible about two tiles ahead. So this
+      // sprite is drawn every frame and cannot be seen, and widening it just
+      // spills light over tiles that are not warded. The cue a player actually
+      // reads is the glow at the bottom of the screen and the status line, both
+      // in the HUD; this stays for the moment you are knocked off the tile or
+      // the camera is ever lowered. It dims over the last two seconds.
+      const art = a.ward.t <= 2 ? 'ward_threshold_dim' : 'ward_threshold';
+      this.placeFlat(s, art, tileX(a.ward.x), tileZ(a.ward.y), 0.96);
+      const pulse = 0.4 + 0.3 * Math.sin(this.time * 6);
+      s.mat.uniforms.uTint.value.set(1, 0.88, 0.5, a.ward.t <= 2 ? pulse * 0.55 : pulse);
+    }
+
     for (const t of floor.torches) {
       if (!near(t.x, t.y)) continue;
       const wx = tileX(t.x) + DX[t.side] * (TILE / 2 - 0.02);
@@ -492,25 +525,53 @@ export class DungeonRenderer {
     this.vmShared.uAmbient.value.setRGB(tc.r * 0.85 * flicker, tc.g * 0.85 * flicker, tc.b * 0.85 * flicker);
     this.vmShared.uLightCount.value = 0;
 
+    // The scale below normalises each viewmodel by its canvas height,
+    // so art alone can never make one weapon read as bigger than another — a
+    // dagger and a greatsword came out the same size in the same corner of the
+    // frame. Two-handed weapons get their own pose instead: held up and across
+    // the middle of the view rather than tucked at the right hip, half again as
+    // tall, swaying harder with the walk, and winding up further because the
+    // data already says they take longer to swing. Everything a player can see
+    // about the grip, they see here.
+    // A cast has its own pose: the stone comes up into the centre of the view
+    // and rises as it charges, so the wind-up is something you watch rather
+    // than something you time in your head.
+    const casting = a.cast;
+    const twoHanded = !casting && world.derived.twoHanded;
     const size = artSize(art.id);
-    const scale = (H * 0.5) / size.h;
+    const scale = (H * (twoHanded ? 0.74 : casting ? 0.56 : 0.5)) / size.h;
     const walking = a.moveT < 1 ? a.moveT : 0;
-    const bobX = Math.sin((a.steps + walking) * Math.PI) * 4;
-    const bobY = Math.abs(Math.cos((a.steps + walking) * Math.PI)) * 4;
-    let x = W * 0.74 + bobX;
+    const sway = twoHanded ? 1.7 : 1;
+    const bobX = Math.sin((a.steps + walking) * Math.PI) * 4 * sway;
+    const bobY = Math.abs(Math.cos((a.steps + walking) * Math.PI)) * 4 * sway;
+    let x = W * (twoHanded ? 0.56 : casting ? 0.5 : 0.74) + bobX;
     let y = H * 0.12 - bobY - 8;
-    let rot = -0.18;
-    if (a.attack === 'windup') {
+    let rot = twoHanded ? -0.05 : casting ? 0 : -0.18;
+    // A throw runs through the same `anim.attack` states as a swing, because it
+    // is the same wind-up and recovery machinery — but a thrown weapon has no
+    // viewmodel of its own, so those states were animating whatever melee
+    // weapon happened to be in your hands. Hurling a javelin swung your
+    // greatsword. The shaft leaves the body; the hands stay where they are.
+    if (casting) {
+      // `t` counts down, so this runs 0 → 1 over the cast.
+      const total = Math.max(0.01, findSigil(casting.id)?.cast ?? 0.5);
+      const k = 1 - Math.max(0, Math.min(1, casting.t / total));
+      y += 26 * k;
+      rot = Math.sin(this.time * 22) * 0.05 * k;
+    } else if (a.attackThrow) {
+      // Deliberately nothing.
+    } else if (a.attack === 'windup') {
       const k = a.attackT / Math.max(0.01, a.attackDur);
-      x += 22 * k;
-      y += 30 * k;
-      rot = -0.18 - 0.55 * k;
+      x += (twoHanded ? 40 : 22) * k;
+      y += (twoHanded ? 52 : 30) * k;
+      rot -= (twoHanded ? 0.95 : 0.55) * k;
     } else if (a.attack === 'recover') {
       const k = Math.min(1, a.attackT / 0.12);
       const back = Math.max(0, (a.attackT - 0.12) / Math.max(0.01, a.attackDur - 0.12));
-      x += 22 - 110 * k + 88 * back;
-      y += 30 - 60 * k + 30 * back;
-      rot = -0.73 + 1.6 * k - 1.05 * back;
+      const reach = twoHanded ? 1.5 : 1;
+      x += (22 - 110 * k + 88 * back) * reach;
+      y += (30 - 60 * k + 30 * back) * reach;
+      rot = (twoHanded ? -1.0 : -0.73) + (twoHanded ? 2.3 : 1.6) * k - (twoHanded ? 1.5 : 1.05) * back;
     }
     y -= a.blockRaise * 30;
     y -= this.deathFade * 120;
@@ -519,18 +580,34 @@ export class DungeonRenderer {
     w.mesh.rotation.set(0, 0, rot);
 
     const sh = this.vmShield;
-    const offhand = world.state.equipment.offhand;
-    sh.mesh.visible = !!offhand;
-    if (offhand) {
-      const sramp = offhand.materialId ? findMaterial(offhand.materialId)?.ramp : undefined;
-      const tex = artTexture('vm_shield', sramp);
+    // Asked of the derived player, not the slot: a two-hander leaves the shield
+    // in the pack, and a shield still sitting in the offhand of a save that
+    // predates the rule must not be drawn on an arm that is holding a maul.
+    // While calling shafts back the left hand comes up to meet them — the
+    // bare receiving hand, with the shield lowered — so the call reads on the
+    // body rather than only in the log. Shafts are collected the moment they
+    // reach the player tile, which is where the raised hand is.
+    const retrieving = !!a.retrieving;
+    const offhand = !retrieving && world.derived.hasShield ? world.state.equipment.offhand : null;
+    sh.mesh.visible = !!offhand || retrieving;
+    if (sh.mesh.visible) {
+      const sramp = offhand?.materialId ? findMaterial(offhand.materialId)?.ramp : undefined;
+      const texId = offhand ? viewmodelFor(itemBase(offhand.ref)) : 'vm_hand';
+      const tex = artTexture(texId, sramp);
       if (sh.mat.uniforms.map.value !== tex) sh.mat.uniforms.map.value = tex;
-      const ss = (H * 0.42) / 24;
-      const raise = a.blockRaise;
-      sh.mesh.scale.set(24 * ss, 24 * ss, 1);
+      // Sized off the art, not a constant: the box is 24 rows tall but a
+      // denser sprite (the bare hand is drawn at 2×) rides the same pose at
+      // the same on-screen size with finer pixels.
+      const box = artSize(texId);
+      const ss = (H * 0.42) / box.h;
+      const raise = Math.max(a.blockRaise, retrieving ? 1 : 0);
+      sh.mesh.scale.set(box.w * ss, box.h * ss, 1);
       // Mostly out of frame until raised.
       sh.mesh.position.set(W * 0.16 + raise * W * 0.16 - bobX * 0.5, -H * 0.12 + raise * H * 0.4 - bobY - this.deathFade * 120, 0);
-      sh.mesh.rotation.set(0, 0, 0.2 - raise * 0.2);
+      // A small beckoning pulse follows each shaft's channel timer.
+      const beckon = a.retrieving ? Math.sin((1 - a.retrieving.t / 0.75) * Math.PI) : 0;
+      sh.mesh.position.y += beckon * H * 0.008;
+      sh.mesh.rotation.set(0, 0, 0.2 - raise * 0.2 - beckon * 0.035);
       // The shield flares white while a parry would land, so the window is
       // something you learn to see rather than something you read about.
       const flare = world.parryWindow ? 0.38 : 0;

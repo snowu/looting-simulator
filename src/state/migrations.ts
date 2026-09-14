@@ -5,6 +5,8 @@ import { BASE_BACKPACK } from '../systems/meta';
 import { newId } from '../core/id';
 import { STARTER_RECIPES } from '../data/recipes';
 import { MATERIALS } from '../data/materials';
+import { itemBase } from '../data/items';
+import { findSigil } from '../data/spells';
 
 /**
  * Additive save migrations.
@@ -21,7 +23,7 @@ import { MATERIALS } from '../data/materials';
  */
 
 /** Bump this (and push a migration) whenever a field is added to the save. */
-export const SAVE_REVISION = 17;
+export const SAVE_REVISION = 18;
 
 type AnyState = GameState & Record<string, unknown>;
 
@@ -96,18 +98,7 @@ const MIGRATIONS: ((s: AnyState) => void)[] = [
   // 9 → 10: market state is persisted, so a newly added material needs a
   // commodity row before town can render it. It starts unavailable and enters
   // ordinary restocking once the player reaches its progression depth.
-  (s) => {
-    if (!s.market) return;
-    s.market.commodities ??= {};
-    for (const material of MATERIALS) {
-      s.market.commodities[material.id] ??= {
-        price: material.value,
-        supply: 0,
-        stock: 0,
-        history: [material.value],
-      };
-    }
-  },
+  backfillCommodities,
   // 10 → 11: blueprints stack by recipe. Re-adding persisted containers folds
   // existing duplicate rows together using the same rules as future pickups.
   (s) => {
@@ -154,7 +145,77 @@ const MIGRATIONS: ((s: AnyState) => void)[] = [
       s.run.difficulty = s.difficulty;
     }
   },
+  // 17 → 18: recoverable thrown stock and sigils. Missing means the player has
+  // not discovered or equipped either system yet; existing floor state stays put.
+  (s) => {
+    s.spells ??= [];
+    s.spells = [...new Set(s.spells.filter((id) => typeof id === 'string' && findSigil(id)))];
+    s.attuned ??= null;
+    if (s.attuned !== null && (!findSigil(s.attuned) || !s.spells.includes(s.attuned))) s.attuned = null;
+    if (s.run) {
+      s.run.thrown ??= { held: {}, retrieveCd: 0 };
+      s.run.thrown.held ??= {};
+      for (const [base, held] of Object.entries(s.run.thrown.held)) {
+        s.run.thrown.held[base] = Number.isFinite(held) ? Math.max(0, Math.trunc(held)) : 0;
+      }
+      s.run.thrown.retrieveCd = Number.isFinite(s.run.thrown.retrieveCd) ? Math.max(0, s.run.thrown.retrieveCd) : 0;
+      s.run.sigil ??= null;
+      if (s.run.sigil) {
+        if (!findSigil(s.run.sigil.id)) s.run.sigil = null;
+        else s.run.sigil.cd = Number.isFinite(s.run.sigil.cd) ? Math.max(0, s.run.sigil.cd) : 0;
+      }
+      for (const f of s.run.floors ?? []) if (f) normalizeFloor(f);
+    }
+  },
 ];
+
+/**
+ * Give every material in the data a commodity row. Idempotent by design: a row
+ * that already exists is left exactly as the player traded it, and a new one
+ * starts at book value, unavailable, entering ordinary restocking once the
+ * player reaches the depth it drops at.
+ */
+function backfillCommodities(s: AnyState): void {
+  if (!s.market) return;
+  s.market.commodities ??= {};
+  for (const material of MATERIALS) {
+    s.market.commodities[material.id] ??= {
+      price: material.value,
+      supply: 0,
+      stock: 0,
+      history: [material.value],
+    };
+  }
+}
+
+/**
+ * Move a belt of shafts out of the weapon slot.
+ *
+ * Thrown weapons shipped in `weapon` and now have a slot of their own, so a
+ * character who went to bed holding javelins would wake up with them wedged in
+ * a slot that no longer accepts them: `derivePlayer` would read no swing off
+ * them and the paper doll would not draw them. They go to the belt if it is
+ * free, and to the stash if it is not, which is where an item you cannot wear
+ * belongs. Only saves written by the unreleased weapon branch can be in this
+ * state, but the rule is cheap and it is not worth being wrong about.
+ */
+function rehomeThrown(s: AnyState): void {
+  const eq = s.equipment;
+  if (!eq) return;
+  eq.thrown ??= null;
+  const worn = eq.weapon;
+  if (!worn || worn.kind !== 'equipment') return;
+  let base;
+  try {
+    base = itemBase(worn.ref);
+  } catch {
+    return;
+  }
+  if (base.slot !== 'thrown') return;
+  eq.weapon = null;
+  if (!eq.thrown) eq.thrown = worn;
+  else if (s.stash) addItem(s.stash, worn);
+}
 
 function restack(container: Container | undefined): void {
   if (!container || !Array.isArray(container.items)) return;
@@ -172,6 +233,18 @@ function normalizeFloor(f: Floor): void {
   f.torches ??= [];
   f.props ??= [];
   f.pickups ??= [];
+  f.thrown ??= [];
+  const thrown = new Map<string, NonNullable<Floor['thrown']>[number]>();
+  for (const marker of f.thrown) {
+    if (!marker || typeof marker.base !== 'string' || !Number.isFinite(marker.x) || !Number.isFinite(marker.y) || !Number.isFinite(marker.n)) continue;
+    const x = Math.trunc(marker.x), y = Math.trunc(marker.y), n = Math.max(0, Math.trunc(marker.n));
+    if (!n) continue;
+    const key = `${marker.base}:${x}:${y}`;
+    const prior = thrown.get(key);
+    if (prior) prior.n += n;
+    else thrown.set(key, { base: marker.base, x, y, n });
+  }
+  f.thrown = [...thrown.values()];
   f.enemies ??= [];
   f.keys ??= [];
   f.traps ??= [];
@@ -193,6 +266,27 @@ export function migrateSave(state: GameState): GameState {
       // defensive reads elsewhere still have to hold.
     }
     rev++;
+  }
+  // Not revision steps: repair passes that run on every load, at every
+  // revision, including ones newer than this build knows about.
+  //
+  // The Wardstone taught this. Adding a material to MATERIALS silently broke
+  // every save written since revision 10 — the 9 → 10 step that backfills a
+  // commodity row only runs for saves older than that, and the town screen
+  // reads `commodities[id].price` for every material the instant it renders,
+  // so the first trip to Bleakmere threw. A save the broken build had already
+  // stamped could not be repaired by any later step either, because a fresh
+  // one at that revision runs nothing at all.
+  //
+  // The lesson is that a *revision* step is the wrong shape for this: the
+  // problem is not "this save is old", it is "the data table grew". So it is
+  // unconditional and idempotent instead, and a material can be added from now
+  // on without anyone having to remember this file exists.
+  try {
+    backfillCommodities(s);
+    rehomeThrown(s);
+  } catch {
+    // Same contract as a migration step: never cost the player their save.
   }
   s.revision = Math.max(rev, typeof s.revision === 'number' ? s.revision : 0);
   return state;

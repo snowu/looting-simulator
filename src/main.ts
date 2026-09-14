@@ -86,6 +86,9 @@ const touch = new TouchControls(app, {
     stickDir = d;
     if (d) world?.press(d);
   },
+  hurl: () => world?.hurl(),
+  retrieve: (held) => world?.retrieve(held),
+  sigil: () => world?.castSigil(),
   tap: () => {
     if (!world) return;
     if (world.contextAction().kind === 'interact') world.interact();
@@ -384,7 +387,10 @@ function devTitleTools(): HTMLElement | null {
     { class: 'dev-tools' },
     h('span', { class: 'dim small grow', text: 'Dev build only' }),
     btn('Art sheet', () => void openArtSheet(), 'small'),
+    btn('Lab', () => void enterLabArena(), 'small primary'),
     btn('Fight the King', () => void enterBossArena(), 'small'),
+    btn('Melee', () => void enterMeleeRoom(), 'small'),
+    btn('Archers', () => void enterArcherRoom(), 'small'),
   );
 }
 
@@ -629,6 +635,9 @@ function handle(ev: WorldEvent): void {
     case 'shake':
       renderer.onShake(ev.amount);
       break;
+    case 'sigil':
+      renderer.onSigil(ev.r, ev.g, ev.b, ev.strength);
+      break;
     case 'loot':
       overlays.open('loot', w, ev.pickupId);
       break;
@@ -659,8 +668,23 @@ function frame(now: number): void {
   last = now;
   if (mode === 'dungeon' && world) {
     const paused = overlays.isOpen;
+    if (paused) world.retrieve(false);
     touch.visible = touchMode && !paused && !ending;
-    if (touchMode) touch.setAction(world.contextAction());
+    if (touchMode) {
+      touch.setAction(world.contextAction());
+      const belt = world.state.equipment.thrown?.ref;
+      // The Call button covers the whole return trip: shafts on the floor, a
+      // call in progress (release stops it), and shafts already flying home.
+      const counts = world.thrownCounts();
+      touch.setTools({
+        thrown: !!world.derived.thrown,
+        landed: !!belt && ((counts?.floor ?? 0) + (counts?.flying ?? 0) > 0
+          || world.projectiles.some(pr => pr.thrownBase === belt && !pr.returning)
+          || (world.anim.attackThrow && world.anim.attack === 'windup')),
+        calling: !!world.anim.retrieving,
+        sigil: !!world.run.sigil && world.run.sigil.cd <= 0,
+      });
+    }
     // Holding the touch attack button keeps swinging.
     if (touchAttack && !paused) world.attack();
     if (!paused) world.update(dt);
@@ -722,6 +746,11 @@ window.addEventListener('keydown', (e) => {
     void openArtSheet();
     return;
   }
+  if (import.meta.env.DEV && e.key === 'F3') {
+    e.preventDefault();
+    void toggleLabConsole();
+    return;
+  }
   if (mode !== 'dungeon' || !world) return;
   if (overlays.handleKey(e)) {
     e.preventDefault();
@@ -754,6 +783,17 @@ window.addEventListener('keydown', (e) => {
     case 'm':
       overlays.toggle('map', world);
       break;
+    // Start once per press; keyup releases the retrieval channel.
+    case 't':
+      if (!e.repeat) world.hurl();
+      break;
+    case 'r':
+      if (!e.repeat) world.retrieve();
+      break;
+    case 'g':
+    case 'c':
+      if (!e.repeat) world.castSigil();
+      break;
     case 'escape':
     case 'h':
       overlays.toggle('help', world);
@@ -772,6 +812,7 @@ window.addEventListener('keyup', (e) => {
   const k = e.key.toLowerCase();
   if (MOVES[k]) world.release(MOVES[k]);
   if (k === 'shift') world.setBlock(false);
+  if (k === 'r') world.retrieve(false);
 });
 
 // Mouse: LMB attack, RMB block. (Touch goes through the drag zone in TouchControls.)
@@ -786,7 +827,10 @@ window.addEventListener('mouseup', (e) => {
   if (world && e.button === 2) world.setBlock(false);
 });
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-window.addEventListener('blur', () => world?.held.clear());
+window.addEventListener('blur', () => {
+  world?.held.clear();
+  world?.retrieve(false);
+});
 window.addEventListener('resize', () => renderer.resize());
 window.addEventListener('beforeunload', () => commit());
 
@@ -797,6 +841,7 @@ function goBackground(): void {
   audio.suspend();
   world?.held.clear();
   world?.setBlock(false);
+  world?.retrieve(false);
   touchAttack = false;
   stickDir = null;
   if (mode === 'dungeon' && world && !overlays.isOpen && !ending) overlays.open('help', world);
@@ -813,6 +858,74 @@ setInterval(() => {
   if (!document.hidden) void checkForUpdate();
 }, 10 * 60 * 1000);
 void checkForUpdate();
+
+/**
+ * Dev only: a throwaway game, kitted for depth six, standing in the throne room.
+ *
+ * It swaps `state` for a fresh one and latches `devScratch`, so the gear and
+ * renown it hands out can never be written over the playthrough in the slot —
+ * the only way out is to reload the page, which is the honest contract for a
+ * debug button. The module is dynamically imported behind the same DEV guard,
+ * so neither it nor this path survives into a production bundle.
+ */
+async function enterArcherRoom(): Promise<void> {
+  const dev = await import('./dev/archer-room');
+  devScratch = true;
+  // Same scratch contract as the boss arena: nothing here is saved.
+  setScratchMode(true);
+  state = newGame(createRng(randomSeed()));
+  dev.prepare(state);
+  enterTown();
+  enterDungeon();
+  if (!world) return;
+  const at = dev.dropIntoArcherRoom(world);
+  hud.message(`Dev archers — ${at}. Hold block and time the raise to parry the volley.`, '#c080ff');
+  hud.message('Scratch game: nothing here is saved. Reload to get your slot back.', '#c8a060');
+}
+
+async function enterMeleeRoom(): Promise<void> {
+  const dev = await import('./dev/melee-room');
+  devScratch = true;
+  // Same scratch contract as the boss arena: nothing here is saved.
+  setScratchMode(true);
+  state = newGame(createRng(randomSeed()));
+  dev.prepare(state);
+  enterTown();
+  enterDungeon();
+  if (!world) return;
+  const at = dev.dropIntoMeleeRoom(world);
+  hud.message(`Dev melee — ${at}. Hold block as they swing: one parry staggers the pack.`, '#c080ff');
+  hud.message('Scratch game: nothing here is saved. Reload to get your slot back.', '#c8a060');
+}
+
+/**
+ * Dev only: the combat lab. Throwaway game with every recipe mastered, 999 of
+ * every material in the stash, and a weapon rack in the pack — standing in a
+ * cleared room with the spawn console ready. Same scratch contract as the
+ * boss arena: nothing here is saved, reload to get your slot back.
+ */
+async function enterLabArena(): Promise<void> {
+  const dev = await import('./dev/lab-room');
+  devScratch = true;
+  setScratchMode(true);
+  state = newGame(createRng(randomSeed()));
+  dev.prepare(state);
+  enterTown();
+  enterDungeon();
+  if (!world) return;
+  const at = dev.dropIntoLab(world);
+  hud.message(`Dev lab — ${at}. F3: spawn console. I: pack & gear (weapon rack inside).`, '#c080ff');
+  hud.message('All recipes Rank 5 · 999 mats in stash (forge is town-side, recall scrolls in pack).', '#c080ff');
+  hud.message('Scratch game: nothing here is saved. Reload to get your slot back.', '#c8a060');
+  toggleLabConsole();
+}
+
+/** Dev only: the floating spawn/weapon console for the lab. F3 toggles. */
+async function toggleLabConsole(): Promise<void> {
+  if (!import.meta.env.DEV) return;
+  const { toggleLabPanel } = await import('./dev/lab-panel');
+  toggleLabPanel(app, () => world, (t, c) => hud.message(t, c));
+}
 
 /**
  * Dev only: a throwaway game, kitted for depth six, standing in the throne room.
@@ -846,6 +959,9 @@ if (import.meta.env.DEV && params.has('art')) void openArtSheet();
 if (params.has('autostart')) {
   const where = params.get('autostart');
   if (import.meta.env.DEV && where === 'boss') void enterBossArena();
+  else if (import.meta.env.DEV && where === 'lab') void enterLabArena();
+  else if (import.meta.env.DEV && where === 'archers') void enterArcherRoom();
+  else if (import.meta.env.DEV && where === 'melee') void enterMeleeRoom();
   else {
     enterTown();
     if (where === 'dungeon') enterDungeon();
@@ -862,7 +978,35 @@ if (import.meta.env.DEV) {
     get world() { return world; },
     get mode() { return mode; },
     get audioState() { return audio.state; },
+    get slot() { return slot; },
     enterDungeon,
     enterTown,
+    enterLabArena,
+    toggleLabConsole,
+    /**
+     * Point this session at a different save slot, for dev scripts that hand
+     * out gear.
+     *
+     * Slot 1 holds the save from before slots existed, which is where anyone
+     * who has actually been playing finds their character — so a console script
+     * that maxes the Warden board must never be one autosave away from landing
+     * on it. Switching first, rather than writing to slot 3 and racing the next
+     * `commit()`, means every write after this call goes to the new slot and
+     * the old one is simply not in play any more.
+     *
+     * Refuses slot 1 for the same reason: this exists to stay off it.
+     */
+    useSlot(n: Slot) {
+      if (n === 1) throw new Error('Slot 1 is the real save. Use 2 or 3.');
+      if (!SLOTS.includes(n)) throw new Error(`No slot ${n}. Slots are ${SLOTS.join(', ')}.`);
+      slot = n;
+      setLastSlot(n);
+      slotDeleted = false;
+      devScratch = false;
+      setScratchMode(false);
+      saveGame(state, slot);
+      hadLocalSave = true;
+      return n;
+    },
   };
 }
