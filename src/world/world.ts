@@ -2702,6 +2702,6 @@ export class World {
   weaponArt(): { id: string; materialId?: string } {
     const w = this.state.equipment.weapon;
     if (!w) return { id: 'vm_fist' };
-    return { id: viewmodelFor(itemBase(w.ref).weaponClass), materialId: w.materialId };
+    return { id: viewmodelFor(itemBase(w.ref)), materialId: w.materialId };
   }
 }

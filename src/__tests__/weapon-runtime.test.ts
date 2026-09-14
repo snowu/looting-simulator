@@ -132,6 +132,33 @@ describe('two-handed runtime', () => {
     expect(cleaveDamage).toBeLessThan(mainDamage * 0.5);
   });
 
+  /**
+   * The bug this pins: `weaponArt` looked the viewmodel up from the base's
+   * *class*, and the three thrown weapons share one class while carrying their
+   * own `viewmodel` override. The override was thrown away, `'thrown'` fell
+   * through the switch to its default, and every thrown weapon rendered as a
+   * sword in the player's hands. Invisible to the art test, which asks
+   * `viewmodelFor` directly and so never saw the lossy call.
+   */
+  it('shows each weapon its own viewmodel, overrides included', () => {
+    const expected: [string, string][] = [
+      ['long_sword', 'vm_blade'],
+      ['greatsword', 'vm_greatsword'],
+      ['great_maul', 'vm_maul'],
+      ['halberd', 'vm_polearm'],
+      ['throwing_knives', 'vm_thrown_knife'],
+      ['throwing_axes', 'vm_thrown_axe'],
+      ['javelins', 'vm_javelin'],
+    ];
+    const w = arena('long_sword');
+    for (const [baseId, art] of expected) {
+      w.state.equipment.weapon = weapon(baseId);
+      expect(w.weaponArt().id, baseId).toBe(art);
+    }
+    w.state.equipment.weapon = null;
+    expect(w.weaponArt().id).toBe('vm_fist');
+  });
+
   it('leaves a one-handed weapon with no cleave at all', () => {
     const w = arena('long_sword');
     const front = place(w);
