@@ -55,30 +55,40 @@ export const ITEM_BASES: ItemBaseDef[] = [
   // These spend the offhand, which is by a distance the most valuable slot in
   // the game: a silver Tower Shield is +12 Defense and 82% block for a −10
   // speed tax, and every rung of the gear ladder carries one because there was
-  // never a reason not to. So none of the three is allowed to be the best
-  // weapon by DPS — the Long Sword keeps that — and each pays the shield back
-  // in something a shield cannot buy: reach without a guard, a swing that
-  // covers your flanks, or the biggest blunt hit in the game.
+  // never a reason not to.
+  //
+  // So they hit harder than anything one-handed, and the whole cost is weight.
+  // Each carries a Speed penalty, which is not one tax but three: it slows the
+  // swing (`derivePlayer` divides windup and recovery by the speed factor), it
+  // slows every step you take, and past −12 total it tips you into `encumbered`
+  // and slows them again. A Great Maul alone sits exactly on that line; a Great
+  // Maul over plate is well past it, and you will feel every corridor.
+  //
+  // The earlier rule here was that no two-hander could lead the weapon table on
+  // DPS. That was the wrong knob: it kept them a rounding error behind the War
+  // Axe while they also gave up a shield, so there was no reason to carry one
+  // but flavour. They lead on damage now, and pay for it in footspeed, stamina
+  // and the guard they do not have.
   {
     id: 'halberd', name: 'Halberd', slot: 'weapon', icon: 'ic_halberd', weaponClass: 'halberd', damageType: 'pierce',
     twoHanded: true, viewmodel: 'vm_polearm',
-    base: { attack: 28 }, perTier: { attack: 5.5 }, primary: ['metal'],
-    swing: { windup: 0.34, recovery: 0.66, staminaCost: 22, reach: 2, cleave: CLEAVE, stagger: 0.5, chips: 2 },
-    value: 92, minDepth: 3, weight: 0.5,
+    base: { attack: 32, speed: -7 }, perTier: { attack: 8 }, primary: ['metal'],
+    swing: { windup: 0.36, recovery: 0.70, staminaCost: 27, reach: 2, cleave: CLEAVE, stagger: 0.5, chips: 2 },
+    value: 118, minDepth: 3, weight: 0.5,
   },
   {
     id: 'great_maul', name: 'Great Maul', slot: 'weapon', icon: 'ic_great_maul', weaponClass: 'maul', damageType: 'blunt',
     twoHanded: true, viewmodel: 'vm_maul',
-    base: { attack: 32 }, perTier: { attack: 6.5 }, primary: ['metal', 'wood'],
-    swing: { windup: 0.46, recovery: 0.74, staminaCost: 23, reach: 1, cleave: CLEAVE, stagger: 0.3, chips: 2 },
-    value: 96, minDepth: 4, weight: 0.4,
+    base: { attack: 40, speed: -12 }, perTier: { attack: 9 }, primary: ['metal', 'wood'],
+    swing: { windup: 0.48, recovery: 0.78, staminaCost: 31, reach: 1, cleave: CLEAVE, stagger: 0.3, chips: 2 },
+    value: 128, minDepth: 4, weight: 0.4,
   },
   {
     id: 'greatsword', name: 'Greatsword', slot: 'weapon', icon: 'ic_greatsword', weaponClass: 'greatsword', damageType: 'slash',
     twoHanded: true, viewmodel: 'vm_greatsword',
-    base: { attack: 30 }, perTier: { attack: 6 }, primary: ['metal'],
-    swing: { windup: 0.38, recovery: 0.60, staminaCost: 24, reach: 1, cleave: CLEAVE, stagger: 0.3, chips: 2 },
-    value: 130, minDepth: 5, weight: 0.3,
+    base: { attack: 36, speed: -8 }, perTier: { attack: 8 }, primary: ['metal'],
+    swing: { windup: 0.40, recovery: 0.64, staminaCost: 29, reach: 1, cleave: CLEAVE, stagger: 0.3, chips: 2 },
+    value: 172, minDepth: 5, weight: 0.3,
   },
 
   // --- Thrown -------------------------------------------------------------

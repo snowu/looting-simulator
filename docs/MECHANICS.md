@@ -587,9 +587,9 @@ Bases are arranged into **gear lines** (`GEAR_LINES`), each running from the cru
 | Mace | weapon | 15 atk | +4.5 atk | 0.28 / 0.52 / 17 / 1 | 45 | 2 |
 | Spear | weapon | 19 atk | +4.5 atk | 0.24 / 0.56 / 17 / **2** | 48 | 2 |
 | Club | weapon (wood/bone) | 6 atk | +4 atk | 0.22 / 0.44 / 16 / 1 | 10 | 1 |
-| Halberd | weapon **2H** | 28 atk | +5.5 atk | 0.34 / 0.66 / 22 / **2** **cleave** | 92 | 3 |
-| Great Maul | weapon **2H** | 32 atk | +6.5 atk | 0.46 / 0.74 / 23 / 1 **cleave** | 96 | 4 |
-| Greatsword | weapon **2H** | 30 atk | +6 atk | 0.38 / 0.60 / 24 / 1 **cleave** | 130 | 5 |
+| Halberd | weapon **2H** | 32 atk, −7 speed | +8 atk | 0.36 / 0.70 / 27 / **2** **cleave** | 118 | 3 |
+| Great Maul | weapon **2H** | 40 atk, −12 speed | +9 atk | 0.48 / 0.78 / 31 / 1 **cleave** | 128 | 4 |
+| Greatsword | weapon **2H** | 36 atk, −8 speed | +8 atk | 0.40 / 0.64 / 29 / 1 **cleave** | 172 | 5 |
 | Throwing Knives | **thrown** | 5 atk | +1.4 atk | — (thrown only) | 26 | 2 |
 | Throwing Axes | **thrown** | 12 atk | +2.8 atk | — (thrown only) | 58 | 3 |
 | Javelins | **thrown** | 17 atk | +2.9 atk | — (thrown only) | 88 | 4 |
@@ -617,7 +617,7 @@ Stamina does **not** regenerate mid-combo (`world.ts` gates regen on `attack ===
 | Blades | dagger, short sword, long sword | Highest DPS (45–58), smallest hits, shortest windup, shortest window (3.1–3.8s), worst damage per stamina (1.70–1.79) |
 | Haft | club, mace, mining pick, war axe | Biggest hits (up to 50), longest windup (to 0.36s — you are committed), longest windows (4.5–5.5s), best damage per stamina (1.83–2.27) |
 | Reach | spear, halberd | Reach 2; mid DPS, strong efficiency, hits from outside most enemies' range |
-| Two-handed | greatsword, great maul, halberd | Best damage per stamina bar, a cleave that spills into the rank behind, two guard chips — bought with the whole offhand slot. See below |
+| Two-handed | greatsword, great maul, halberd | The hardest hits in the game, a cleave that spills into the rank behind, two guard chips — bought with the offhand slot, your footspeed and your stamina bar. See below |
 | Thrown | throwing knives, throwing axes, javelins | A finite stock thrown at range, and a poor short weapon once it is gone. See below |
 
 The **Dagger** is the crit weapon and the one build-scaling weapon. It carries its own Crit % (5, +1.5 per material tier) and crits for ×2.4 instead of ×1.6, so the same Crit % ring is worth more than twice as much on a dagger as on anything else. Bare it is an ordinary entry weapon (50 effective DPS, below a Short Sword); with +20 Crit % from gear it is second only to a Long Sword, and a build that stacks Crit % to the 60% cap makes it the strongest weapon in the game on both burst and damage per stamina bar. `lucky` and `fox` roll on every slot, and a tier-5 Band carries 5 on its own, so the cap is reachable if you commit to it.
@@ -646,20 +646,26 @@ Three bases take both hands: **Halberd**, **Great Maul**, **Greatsword**. Wearin
 | Block absorption | `stats.block`, 35–90% | **20%** | 30% |
 | Parry | Unchanged | **Unchanged** | Unchanged |
 
-The offhand is the most valuable slot in the game — a silver Tower Shield is +12 Defense and 82% block for a −10 speed tax — so the roster is held to a rule: **no two-hander may lead the weapon table on DPS.** `npm run tables` prints every base on one ladder, forged at tier 3 and averaged over the whole bestiary, which is where that gets checked:
+**Two-handers hit harder than anything one-handed, and the cost is weight.** `npm run tables` prints every base on one ladder, forged at tier 3 and averaged over the whole bestiary:
 
-| Base | DPS | Damage per stamina bar |
-|---|---|---|
-| War Axe | 38.5 | 172 |
-| Long Sword | 38.0 | 117 |
-| **Greatsword** | 37.8 | 154 |
-| **Great Maul** | 35.2 | **184** — the highest in the game |
-| **Halberd** | 33.0 | 150 |
-| Spear | 29.6 | 139 |
+| Base | Per hit | DPS | Damage per stamina bar | Swing cycle |
+|---|---|---|---|---|
+| **Great Maul** | **54.5** — the biggest in the game | 38.1 | **176** | 1.43s |
+| **Greatsword** | 45.8 | **40.5** — the highest | 158 | 1.13s |
+| **Halberd** | 40.6 | 35.6 | 150 | 1.14s |
+| War Axe | 37.8 | 38.5 | 172 | 0.98s |
+| Long Sword | 28.1 | 38.0 | 117 | 0.74s |
+| Spear | 23.7 | 29.6 | 139 | 0.80s |
 
-The rule holds — the War Axe still leads and the Greatsword is a tenth of a point behind the Long Sword — but **the honest reading is that the two-handers win the long fight**. The Great Maul buys 57% more damage out of one bar than the Long Sword does, and the Halberd is the Spear with a bigger everything. What that costs is not in the table, because the table cannot see an empty offhand: 20% absorption instead of 82%, and none of the Defense. The trade is *survivability for sustain*, and it is meant to be a real choice in both directions rather than a strictly worse option with a consolation prize.
+All three out-hit every one-handed weapon by a distance. What they cost is **Speed**, and that penalty is not one tax but three: `derivePlayer` divides windup and recovery by the speed factor, so the swing slows; every step you take slows; and past **−12 total speed** you tip into `encumbered` and your steps slow again by 20%. A Great Maul alone sits exactly on that line. A Great Maul over Plate Armour is well past it, and you will feel every corridor.
 
-Each pays the shield back in something a shield cannot buy:
+They also drink the bar: 27–31 stamina a swing against a Long Sword's 24 and a Spear's 17, which is three swings from a full bar on the maul.
+
+This replaced an earlier rule that no two-hander could lead the table on DPS. That was the wrong knob — it kept them a rounding error behind the War Axe *while they also gave up a shield*, so there was no reason to carry one but flavour.
+
+**Where they are not the answer:** the enemy armour curve (`ENEMY_ARMOUR_K = 45`) compresses flat damage hard, and the Ashen King has the most armour in the game. Against him a moonsilver Long Sword lands 44.8 and a moonsilver Great Maul lands 53.9 — a 58% Attack advantage becomes 20% — so the faster weapon wins the damage race and the maul is the *slowest* kill in the roster at 35.5s against the Long Sword's 24.1s. Against the Hollow Knight and the Barrow Champion, where blunt is strong and armour is lower, the maul is the fastest kill by a distance: 9.7s against a War Axe's 14.7s. That is the damage triangle doing its job, and the throne room is a parry fight rather than a damage race anyway — a parry doubles a 54-damage blow.
+
+Each also pays the shield back in something a shield cannot buy:
 
 - **Cleave**, on all three, at **25%** of the blow. It is centred on **the thing you hit, not on you**: every one of the eight tiles touching the target takes a quarter — beside it, diagonally, and *behind* it. Your own tile is excluded, because a swing that wrapped back around would be free damage on whatever had already closed, which is precisely the position a two-hander is meant to be bad in; the main target is excluded because it already took the blow in full. A cleave that catches anything wears the weapon twice.
 

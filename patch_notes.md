@@ -14,7 +14,11 @@ That is a real loss — a silver Tower Shield is +12 Defense and 82% block, and 
 - **Stagger**, adding to a struck enemy's attack cooldown — half a second on the halberd. It buys you time. It does not cancel a wind-up; cancelling wind-ups is the parry's job and stays the parry's job.
 - **Two guard chips** a swing, so a shieldbearer opens in two blows instead of three.
 
-They are not the new top tier. No two-hander leads the weapon table on damage per second — the War Axe still does — but they clearly win the long fight: a Great Maul buys 57% more damage out of one stamina bar than a Long Sword. Survivability for sustain, in both directions.
+**They hit harder than anything one-handed**, and the cost is weight. A Great Maul lands the biggest blow in the game, about twice a Long Sword's; the Greatsword has the highest sustained damage of any weapon.
+
+What you pay is Speed, three times over: the swing slows, every step slows, and past −12 total speed you are encumbered and your steps slow again. A Great Maul alone sits exactly on that line — put it over Plate Armour and you will feel every corridor. They drink the bar too, 27 to 31 stamina a swing, which is three swings from full on the maul.
+
+One place they are not the answer: armour compresses flat damage, and the Ashen King has the most of it. Against him a Long Sword lands 44.8 and a Great Maul lands 53.9 — most of the maul's advantage is eaten, and the faster weapon wins the race. Against the Hollow Knight and the Barrow Champion, where blunt bites, the maul kills in 9.7s against a War Axe's 14.7s.
 
 **Parrying is completely unchanged with a two-hander.** It never needed a shield and still does not.
 

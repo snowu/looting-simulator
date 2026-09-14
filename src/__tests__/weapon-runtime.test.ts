@@ -41,6 +41,20 @@ function arena(baseId: string, seed = 701): World {
   return w;
 }
 
+/**
+ * Enough health to survive anything the player can swing.
+ *
+ * A cleave test measures the ratio between the main blow and the spill, and
+ * `maxHp - hp` silently caps at `maxHp` once the target dies — so a weapon that
+ * one-shots its target reads as a cleave doing most of the damage of a hit it
+ * cannot see the true size of. Two-handers now kill a depth-1 skeleton outright,
+ * which is the balance working, not the cleave misbehaving.
+ */
+function tanky(e: EnemyState): EnemyState {
+  e.hp = e.maxHp = 100000;
+  return e;
+}
+
 /** Hold an enemy exactly where it was put, through a wind-up it can see. */
 function root(e: EnemyState): EnemyState {
   e.ai = 'recover';
@@ -80,10 +94,10 @@ describe('two-handed runtime', () => {
 
   it('cleaves everything touching the target for a quarter, never bashes, and wears twice', () => {
     const w = arena('great_maul');
-    const front = place(w);
+    const front = tanky(place(w));
     // Diagonally off the target, which is beside the player: caught by the
     // cleave because it touches the target, not because it touches the player.
-    const left = place(w, turnLeft(w.player.facing));
+    const left = tanky(place(w, turnLeft(w.player.facing)));
     const guard = place(w, turnRight(w.player.facing), 'goblin_shield');
     guard.guard = 'raising';
     guard.guardT = 99;
@@ -107,10 +121,10 @@ describe('two-handed runtime', () => {
 
   it('cleaves the rank behind the target, and never back onto your own tile', () => {
     const w = arena('great_maul');
-    const front = root(place(w));
+    const front = tanky(root(place(w)));
     // Directly behind the thing you hit — two tiles out, and unreachable by
     // any one-handed weapon in the game.
-    const behind = at(w, 2);
+    const behind = tanky(at(w, 2));
     w.attack();
     tick(w, 1.4);
     expect(front.hp).toBeLessThan(front.maxHp);
@@ -121,8 +135,8 @@ describe('two-handed runtime', () => {
     const w = arena('halberd');
     // Nothing adjacent: the halberd's target is two tiles out, so the cleave
     // centres two tiles out with it.
-    const far = at(w, 2);
-    const beyond = at(w, 3);
+    const far = tanky(at(w, 2));
+    const beyond = tanky(at(w, 3));
     w.attack();
     tick(w, 1.4);
     const mainDamage = far.maxHp - far.hp;

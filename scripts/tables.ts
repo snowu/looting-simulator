@@ -95,6 +95,17 @@ export const LOADOUTS: [string, () => Equipment][] = [
     e.offhand = makeEquipment({ baseId: 'tower_shield', materialId: 'moonsilver', rarity: Rarity.Rare, ilvl: 14 });
     return e;
   }],
+  // The same kit with the shield traded for both hands on the weapon. Every
+  // other loadout here carries an offhand, so nothing in this file could see
+  // what a two-hander actually costs: the weapon roster compares bases with no
+  // armour at all, and `ttd` is where the empty offhand shows up.
+  ['deep 2H (moonsilver maul, no shield)', () => {
+    const e = emptyEquipment();
+    e.weapon = makeEquipment({ baseId: 'great_maul', materialId: 'moonsilver', rarity: Rarity.Epic, ilvl: 14, affixes: [aff('sharp', 12)] });
+    e.body = makeEquipment({ baseId: 'plate', materialId: 'moonsilver', rarity: Rarity.Rare, ilvl: 14 });
+    e.head = makeEquipment({ baseId: 'great_helm', materialId: 'moonsilver', rarity: Rarity.Rare, ilvl: 14 });
+    return e;
+  }],
   ['best (star-iron Epic kit)', () => {
     const e = emptyEquipment();
     e.weapon = makeEquipment({ baseId: 'war_axe', materialId: 'star_iron', rarity: Rarity.Epic, ilvl: 16, affixes: [aff('sharp', 14)] });
