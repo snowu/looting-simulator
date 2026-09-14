@@ -1,6 +1,6 @@
 import { Rng, createRng, hashString } from '../core/rng';
 import { Dir, DIR_NAMES, DIRS, DX, DY, dirOf, turnAround, turnLeft, turnRight } from '../core/dir';
-import { DamageType, EnemyDef, EquipSlot, Item } from '../types';
+import { DamageType, EnemyDef, EquipSlot, EQUIP_SLOTS, Item, SwingProfile } from '../types';
 import { GameState, RunState } from '../state/game-state';
 import { addItem, canFit, findItem, removeItem, roomFor } from '../state/inventory';
 import {
@@ -19,6 +19,7 @@ import {
   doorAt,
   enemyAt,
   generateFloor,
+  inBounds,
   propAt,
   secretAt,
   stairsAt,
@@ -44,9 +45,11 @@ import {
   recordKill as recordBestiaryKill,
   unlockEntry,
 } from '../systems/bestiary';
-import { metaLevel } from '../systems/meta';
+import { lightRadius, metaLevel } from '../systems/meta';
 import { Rarity } from '../types';
 import type { SfxName } from '../audio/sfx';
+import { SigilId, sigil } from '../data/spells';
+import { makeSigil, unknownSigils } from '../systems/spells';
 
 // ---------------------------------------------------------------------------
 // Events the world emits for the renderer / UI / audio to react to.
@@ -83,6 +86,12 @@ export interface Projectile {
   sourceId?: string;
   /** Parried back at them: now it hits monsters instead of passing through. */
   reflected?: boolean;
+  /** Recoverable player throw. Its combat snapshot prevents gear swaps changing a shot in flight. */
+  thrownBase?: string;
+  thrownRange?: number;
+  traveled?: number;
+  player?: PlayerDerived;
+  weaponUid?: string;
 }
 
 type Move = 'forward' | 'back' | 'left' | 'right';
@@ -101,6 +110,11 @@ export interface PlayerAnim {
   attackT: number;
   attackDur: number;
   attackPower: number;
+  attackThrow: boolean;
+  attackRecovery: number;
+  attackBase: string | null;
+  attackWeaponUid: string | null;
+  attackSnapshot: PlayerDerived | null;
   blockRaise: number;
   /** Seconds the guard has been up, or Infinity while it is down. */
   blockT: number;
@@ -121,6 +135,10 @@ export interface PlayerAnim {
   /** Throttles the winded cue so a held attack button can't spam it. */
   windedCd: number;
   recall: number | null;
+  cast: { id: SigilId; t: number } | null;
+  snuffT: number;
+  unseenT: number;
+  ward: { x: number; y: number; t: number } | null;
   transition: { t: number; dir: 'down' | 'up'; done: boolean } | null;
 }
 
@@ -174,6 +192,11 @@ const GUARD_UP = 1.4;
 const GUARD_DOWN = 1.6;
 const GUARD_RANGE = 4;
 const GUARD_BREAK_AT = 3;
+
+/** Sweep flank damage tuning. One ships as full damage. */
+export const SWEEP_FLANK_MULT = 1;
+const RETRIEVE_COOLDOWN = 6;
+const RETRIEVE_STAMINA_MULT = 0.6;
 
 /**
  * Anything lighter than this is knocked out of its wind-up when you land a
@@ -342,9 +365,11 @@ export class World {
     this.anim = {
       fromX: this.run.player.x, fromY: this.run.player.y, moveT: 1, moveDur: STEP_TIME,
       yaw, yawFrom: yaw, yawTo: yaw, turnT: 1,
-      attack: 'idle', attackT: 0, attackDur: 0, attackPower: 1, blockRaise: 0, blockT: Infinity, parryArmed: false, parryCd: 0,
+      attack: 'idle', attackT: 0, attackDur: 0, attackPower: 1, attackThrow: false, attackRecovery: 0,
+      attackBase: null, attackWeaponUid: null, attackSnapshot: null,
+      blockRaise: 0, blockT: Infinity, parryArmed: false, parryCd: 0,
       rangedParryT: 0, parryInvulnT: 0, stunT: 0, steps: 0, parryStacks: 0,
-      sinceStamina: 10, windedCd: 0, recall: null, transition: null,
+      sinceStamina: 10, windedCd: 0, recall: null, cast: null, snuffT: 0, unseenT: 0, ward: null, transition: null,
     };
     this.reveal();
   }
@@ -383,6 +408,15 @@ export class World {
     for (const id of this.run.tonics ?? []) TONICS[id]?.apply(this.derived);
     this.player.hp = Math.min(this.player.hp, this.derived.maxHp);
     this.player.stamina = Math.min(this.player.stamina, this.derived.maxStamina);
+    this.ensureThrownStock();
+  }
+
+  private ensureThrownStock(): void {
+    const base = this.state.equipment.weapon?.ref;
+    if (!base || !this.derived.thrown) return;
+    this.run.thrown ??= { held: {}, retrieveCd: 0 };
+    this.run.thrown.held ??= {};
+    if (this.run.thrown.held[base] === undefined) this.run.thrown.held[base] = this.derived.thrownCapacity;
   }
 
   /**
@@ -427,7 +461,7 @@ export class World {
 
   /** Extra tiles of sight the floor has on you, from the Hunted curse. */
   private get sightPenalty(): number {
-    return (this.run.curse === 'hunted' ? 2 : 0) - this.derived.traits.unseen;
+    return (this.run.curse === 'hunted' ? 2 : 0) - this.derived.traits.unseen - (this.anim?.unseenT > 0 ? 99 : 0);
   }
 
   private emit(e: WorldEvent): void {
@@ -489,6 +523,19 @@ export class World {
     this.run.stats.time += dt;
     const a = this.anim;
 
+    this.run.thrown ??= { held: {}, retrieveCd: 0 };
+    this.run.thrown.retrieveCd = Math.max(0, (this.run.thrown.retrieveCd ?? 0) - dt);
+    a.snuffT = Math.max(0, a.snuffT - dt);
+    a.unseenT = Math.max(0, a.unseenT - dt);
+    if (a.ward) {
+      a.ward.t -= dt;
+      if (a.ward.t <= 0 || a.ward.x !== this.player.x || a.ward.y !== this.player.y) a.ward = null;
+    }
+    if (this.run.sigil && this.run.sigil.cd > 0) {
+      const hunted = this.floor.enemies.some((e) => e.ai !== 'dead' && e.alert > 0 && Math.abs(e.x - this.player.x) + Math.abs(e.y - this.player.y) <= 8);
+      this.run.sigil.cd = Math.max(0, this.run.sigil.cd - dt * (hunted ? 0.5 : 1));
+    }
+
     if (a.transition) {
       a.transition.t += dt;
       if (!a.transition.done && a.transition.t >= 0.45) {
@@ -516,14 +563,14 @@ export class World {
     a.stunT = Math.max(0, a.stunT - dt);
     a.rangedParryT = Math.max(0, a.rangedParryT - dt);
     a.parryInvulnT = Math.max(0, a.parryInvulnT - dt);
-    const wantBlock = this.held.has('block') && a.attack === 'idle' && a.stunT <= 0;
+    const wantBlock = this.held.has('block') && a.attack === 'idle' && !a.cast && a.stunT <= 0;
     a.parryCd = Math.max(0, a.parryCd - dt);
     if (wantBlock) {
       if (a.blockT === Infinity) {
         // Rising edge: this raise gets a window only if we're off cooldown.
         a.blockT = 0;
         a.parryArmed = a.parryCd <= 0;
-        if (a.parryArmed) a.parryCd = PARRY_COOLDOWN;
+        if (a.parryArmed) a.parryCd = a.ward ? PARRY_COOLDOWN * 0.6 : PARRY_COOLDOWN;
       } else {
         a.blockT += dt;
       }
@@ -534,7 +581,7 @@ export class World {
     a.blockRaise = Math.max(0, Math.min(1, a.blockRaise + (wantBlock ? dt : -dt) / 0.12));
 
     // Next movement, from the queue or held keys. Stun sits you out.
-    if (!this.moving && a.transition === null && a.stunT <= 0) {
+    if (!this.moving && a.transition === null && a.stunT <= 0 && !a.cast) {
       const next = this.queued ?? this.heldMove();
       this.queued = null;
       if (next) this.doAction(next);
@@ -547,9 +594,18 @@ export class World {
         this.resolvePlayerAttack();
         a.attack = 'recover';
         a.attackT = 0;
-        a.attackDur = this.derived.swing.recovery;
+        a.attackDur = a.attackRecovery;
       } else if (a.attack === 'recover' && a.attackT >= a.attackDur) {
         a.attack = 'idle';
+      }
+    }
+
+    if (a.cast) {
+      a.cast.t -= dt;
+      if (a.cast.t <= 0) {
+        const id = a.cast.id;
+        a.cast = null;
+        this.resolveSigil(id);
       }
     }
 
@@ -624,6 +680,7 @@ export class World {
     this.anim.steps++;
     this.reveal();
     const f = this.floor;
+    this.collectThrownHere();
     const trap = trapAt(f, p.x, p.y);
     if (trap && trap.armed) {
       this.springTrap(trap, null);
@@ -678,6 +735,8 @@ export class World {
 
   private changeFloor(dir: 'down' | 'up'): void {
     const run = this.run;
+    // A floor transition cannot erase a charge that was still in flight.
+    for (const pr of this.projectiles) if (pr.thrownBase) this.landThrown(pr.thrownBase, pr.tileX, pr.tileY);
     run.depth += dir === 'down' ? 1 : -1;
     if (!run.floors[run.depth - 1]) run.floors[run.depth - 1] = generateFloor(run.seed, run.depth, this.difficultyId);
     const f = this.floor;
@@ -826,7 +885,8 @@ export class World {
    */
   private parries(fromX: number, fromY: number): boolean {
     const a = this.anim;
-    if (!a.parryArmed || a.blockT > PARRY_WINDOW) return false;
+    const window = a.ward ? PARRY_WINDOW * 2 : PARRY_WINDOW;
+    if (!a.parryArmed || a.blockT > window) return false;
     return this.facingSource(fromX, fromY);
   }
 
@@ -883,14 +943,26 @@ export class World {
 
   attack(): void {
     const a = this.anim;
-    if (this.busy || a.attack !== 'idle' || a.stunT > 0) return;
+    if (this.busy || a.attack !== 'idle' || a.stunT > 0 || a.cast) return;
     // A swing has to be paid for in full. This used to clamp at zero and land
     // anyway at staminaPower's 40% floor, so a spent player could attack for
     // free forever. Gating on "any stamina at all" is not enough either: the
     // trickle of regen at the tail of each recovery is always a sliver above
     // zero, which kept the free swings coming. How tired you are still shows
     // in the damage, through staminaPower — it just is not free any more.
-    const cost = this.derived.swing.staminaCost;
+    const adjacent = this.frontTile();
+    const melee = !!enemyAt(this.floor, adjacent.x, adjacent.y);
+    const base = this.state.equipment.weapon?.ref;
+    const held = base ? (this.run.thrown?.held?.[base] ?? 0) : 0;
+    const throwing = !!this.derived.thrown && !melee && held > 0;
+    const profile: SwingProfile = throwing ? {
+      windup: this.derived.thrown!.windup,
+      recovery: this.derived.thrown!.recovery,
+      staminaCost: this.derived.thrown!.staminaCost,
+      reach: this.derived.thrown!.range,
+      critMult: this.derived.swing.critMult,
+    } : this.derived.swing;
+    const cost = profile.staminaCost;
     if (this.player.stamina < cost) {
       // Throttled hard: at the bottom of the bar almost every frame is a
       // refusal, and without this the breath loops under a held button.
@@ -905,13 +977,151 @@ export class World {
     a.sinceStamina = 0;
     a.attack = 'windup';
     a.attackT = 0;
-    a.attackDur = this.derived.swing.windup;
+    a.attackThrow = throwing;
+    a.attackBase = throwing ? base ?? null : null;
+    a.attackWeaponUid = throwing ? this.state.equipment.weapon?.uid ?? null : null;
+    a.attackSnapshot = throwing ? { ...this.derived, stats: { ...this.derived.stats }, traits: { ...this.derived.traits }, swing: { ...this.derived.swing } } : null;
+    a.attackRecovery = profile.recovery;
+    a.attackDur = profile.windup;
     a.blockRaise = 0;
     this.rockAndStone();
     if (a.recall !== null) {
       a.recall = null;
       this.msg('The recall fizzles.', '#888');
     }
+  }
+
+  /** Retrieve all recoverable stock of the equipped base on this floor. */
+  retrieve(): boolean {
+    const a = this.anim;
+    const base = this.state.equipment.weapon?.ref;
+    const thrown = this.derived.thrown;
+    if (!base || !thrown || this.busy || this.moving || a.attack !== 'idle' || a.stunT > 0 || a.cast) return false;
+    if ((this.run.thrown.retrieveCd ?? 0) > 0) return false;
+    const markers = (this.floor.thrown ?? []).filter((m) => m.base === base);
+    const count = markers.reduce((n, m) => n + m.n, 0);
+    if (!count) return false;
+    const cost = count * thrown.staminaCost * RETRIEVE_STAMINA_MULT;
+    if (this.player.stamina < cost) {
+      this.msg('Not enough breath to retrieve them.', '#ff9070');
+      return false;
+    }
+    this.player.stamina -= cost;
+    a.sinceStamina = 0;
+    this.run.thrown.held[base] = (this.run.thrown.held[base] ?? 0) + count;
+    this.floor.thrown = (this.floor.thrown ?? []).filter((m) => m.base !== base);
+    this.run.thrown.retrieveCd = RETRIEVE_COOLDOWN;
+    this.wear('weapon', count);
+    this.msg(`You retrieve ${count} ${itemBase(base).name.toLowerCase()}.`, '#c8b890');
+    this.sfx('retrieve');
+    return true;
+  }
+
+  castSigil(): boolean {
+    const active = this.run.sigil;
+    const a = this.anim;
+    if (!active || active.cd > 0 || this.busy || this.moving || a.attack !== 'idle' || a.stunT > 0 || a.cast) return false;
+    const def = sigil(active.id);
+    if (this.player.stamina < def.stamina) return false;
+    this.player.stamina -= def.stamina;
+    a.sinceStamina = 0;
+    a.blockRaise = 0;
+    a.cast = { id: def.id, t: def.cast };
+    this.sfx('sigil');
+    return true;
+  }
+
+  private resolveSigil(id: SigilId): void {
+    const def = sigil(id);
+    switch (id) {
+      case 'wardcry': this.castWardcry(); break;
+      case 'snuff': this.castSnuff(); break;
+      case 'sounding': this.castSounding(); break;
+      case 'threshold': this.anim.ward = { x: this.player.x, y: this.player.y, t: 8 }; break;
+      case 'temper': this.castTemper(); break;
+    }
+    if (this.run.sigil) this.run.sigil.cd = def.cooldown;
+    this.msg(`${def.name} answers.`, '#c8b8ff');
+  }
+
+  private castWardcry(): void {
+    for (const e of this.floor.enemies) {
+      if (e.ai === 'dead' || Math.abs(e.x - this.player.x) + Math.abs(e.y - this.player.y) > 8) continue;
+      e.alert = Math.max(e.alert, 8);
+      e.lastSeenX = this.player.x;
+      e.lastSeenY = this.player.y;
+    }
+    const front = this.frontTile();
+    const e = enemyAt(this.floor, front.x, front.y);
+    if (!e) return;
+    const enemy = this.view(e);
+    if (enemy.behavior === 'boss') {
+      e.attackCd = Math.max(e.attackCd, 0.5);
+      return;
+    }
+    e.ai = 'recover';
+    e.timer = Math.max(e.timer, 1.2);
+    e.attackCd = Math.max(e.attackCd, 1.4);
+    if (enemy.shield) { e.guard = 'down'; e.guardT = GUARD_DOWN; e.blocks = 0; }
+    const destination = this.frontTile(2);
+    const portal = this.floor.props.some((p) => (p.kind === 'portal' || p.kind === 'town_portal') && p.x === destination.x && p.y === destination.y);
+    if (this.canStep(e, destination.x, destination.y) && !portal) {
+      this.stepEnemy(e, destination.x, destination.y);
+      return;
+    }
+    const other = enemyAt(this.floor, destination.x, destination.y);
+    if (other) {
+      other.ai = 'recover';
+      other.timer = Math.max(other.timer, 0.6);
+      other.attackCd = Math.max(other.attackCd, 0.6);
+      return;
+    }
+    e.timer = Math.max(e.timer, 1.8);
+    const damage = Math.min(25, Math.round(e.maxHp * 0.1));
+    e.hp -= Math.round(damage * (enemy.resist.blunt ?? 1));
+    e.hurtT = 0.3;
+    if (e.hp <= 0) this.killEnemy(e);
+  }
+
+  private castSnuff(): void {
+    for (const e of this.floor.enemies) {
+      if (e.ai === 'dead' || e.ai === 'windup' || Math.abs(e.x - this.player.x) + Math.abs(e.y - this.player.y) > 12) continue;
+      e.alert = 0;
+      if (e.ai === 'chase') e.ai = 'idle';
+    }
+    this.anim.snuffT = 8;
+    this.anim.unseenT = 3;
+    this.sfx('snuff');
+  }
+
+  private castSounding(): void {
+    const f = this.floor;
+    for (let y = this.player.y - 6; y <= this.player.y + 6; y++) for (let x = this.player.x - 6; x <= this.player.x + 6; x++) {
+      if (!inBounds(f, x, y) || Math.abs(x - this.player.x) + Math.abs(y - this.player.y) > 6) continue;
+      f.explored[y * f.width + x] = 1;
+      const trap = trapAt(f, x, y);
+      if (trap && !trap.found) {
+        trap.found = true;
+        this.msg(TRAPS[trap.kind].spotted, '#e0c060');
+      }
+    }
+    for (const secret of f.secrets) {
+      const dx = secret.x - this.player.x, dy = secret.y - this.player.y;
+      if (secret.found || Math.abs(dx) + Math.abs(dy) > 6) continue;
+      const bearing = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'east' : 'west') : (dy > 0 ? 'south' : 'north');
+      this.msg(`Stone rings hollow to the ${bearing}.`, '#e8d8a0');
+    }
+  }
+
+  private castTemper(): void {
+    const slots = this.derived.twoHanded ? EQUIP_SLOTS.filter((s) => s !== 'offhand') : EQUIP_SLOTS;
+    const worst = slots.map((slot) => ({ slot, item: this.state.equipment[slot] }))
+      .filter((v): v is { slot: EquipSlot; item: Item } => !!v.item && durability(v.item).max > 0)
+      .sort((a, b) => durability(a.item).frac - durability(b.item).frac)[0];
+    if (!worst) return;
+    const d = durability(worst.item);
+    worst.item.dur = Math.min(d.max, (worst.item.dur ?? d.max) + Math.round(d.max * 0.25));
+    this.refreshDerived();
   }
 
   /** A separate flavor stream must never move combat, loot or dungeon RNG. */
@@ -924,12 +1134,35 @@ export class World {
 
   private resolvePlayerAttack(): void {
     const f = this.floor;
+    if (this.anim.attackThrow) {
+      this.throwWeapon();
+      return;
+    }
     this.sfx('swing');
+    if (this.derived.swing.sweep) {
+      const dirs = [this.player.facing, turnLeft(this.player.facing), turnRight(this.player.facing)];
+      const targets = dirs.map((dir, i) => ({ e: enemyAt(f, this.player.x + DX[dir], this.player.y + DY[dir]), mult: i === 0 ? 1 : SWEEP_FLANK_MULT }))
+        .filter((v): v is { e: EnemyState; mult: number } => !!v.e);
+      for (const target of targets) this.hitEnemy(target.e, true, this.derived.swing.chips ?? 1, target.mult);
+      if (targets.length) {
+        this.wear('weapon', targets.length >= 2 ? 2 : 1);
+        return;
+      }
+      const front = this.frontTile();
+      const prop = propAt(f, front.x, front.y);
+      if (prop && (prop.kind === 'urn' || prop.kind === 'barrel') && !prop.used) {
+        this.breakProp(prop);
+        return;
+      }
+      this.sfx('miss');
+      return;
+    }
     for (let d = 1; d <= this.derived.swing.reach; d++) {
       const t = this.frontTile(d);
       const e = enemyAt(f, t.x, t.y);
       if (e) {
         this.hitEnemy(e);
+        this.wear('weapon');
         return;
       }
       const p = propAt(f, t.x, t.y);
@@ -1020,14 +1253,13 @@ export class World {
    * holds. Lean on it three chips running and the arm sags, dropping the
    * guard wide open. Flank it, meet its swing, or time the drop instead.
    */
-  private shieldChip(e: EnemyState, def: EnemyDef): void {
+  private shieldChip(e: EnemyState, def: EnemyDef, chips = 1, power = this.anim.attackPower, player = this.derived): void {
     const sh = def.shield!;
-    this.wear('weapon');
     // Difficulty thins the armour on Normal; Hard multiplies by exactly 1.
-    const hit = playerHitsEnemy(this.rng, this.derived, this.anim.attackPower, def, defensePower(e.power) * this.diff.enemyDefense);
+    const hit = playerHitsEnemy(this.rng, player, power, def, defensePower(e.power) * this.diff.enemyDefense);
     const dmg = Math.max(0, Math.round(hit.damage * (1 - sh.block)));
     e.hp -= dmg;
-    e.blocks = (e.blocks ?? 0) + 1;
+    e.blocks = (e.blocks ?? 0) + chips;
     e.blockT = BLOCK_EXPIRY;
     e.hurtT = 0.3;
     e.alert = 8;
@@ -1038,8 +1270,8 @@ export class World {
     recordDamageDealt(this.state.bestiary, def.id, dmg);
     this.emit({ type: 'float', x: e.x, y: e.y, text: `${dmg}`, color: '#9a9aa8' });
     this.sfx('block', e.x, e.y);
-    if (this.derived.stats.leech > 0 && dmg > 0) {
-      const heal = Math.max(1, Math.round((dmg * this.derived.stats.leech) / 100));
+    if (player.stats.leech > 0 && dmg > 0) {
+      const heal = Math.max(1, Math.round((dmg * player.stats.leech) / 100));
       this.player.hp = Math.min(this.derived.maxHp, this.player.hp + heal);
     }
     if (e.hp <= 0) {
@@ -1076,20 +1308,19 @@ export class World {
     this.beginWindup(e, def, this.player.x, this.player.y);
   }
 
-  private hitEnemy(e: EnemyState): void {
-    this.wear('weapon');
+  private hitEnemy(e: EnemyState, neverBash = false, chips = this.derived.swing.chips ?? 1, powerMult = 1): void {
     const def = this.view(e);
     const reaction = this.guardReaction(e, def);
-    if (reaction === 'bash') {
+    if (reaction === 'bash' && !neverBash) {
       this.shieldBash(e, def);
       return;
     }
-    if (reaction === 'chip') {
-      this.shieldChip(e, def);
+    if (reaction === 'chip' || (reaction === 'bash' && neverBash)) {
+      this.shieldChip(e, def, chips, this.anim.attackPower * powerMult);
       return;
     }
     e.blocks = 0;
-    const hit = playerHitsEnemy(this.rng, this.derived, this.anim.attackPower, def, defensePower(e.power) * this.diff.enemyDefense);
+    const hit = playerHitsEnemy(this.rng, this.derived, this.anim.attackPower * powerMult, def, defensePower(e.power) * this.diff.enemyDefense);
     // Everything you land while the parry opening lasts hits twice as hard.
     const exposed = !!e.vuln && e.vuln > 0;
     if (exposed) hit.damage = Math.round(hit.damage * PARRY_VULN_MULT);
@@ -1113,7 +1344,8 @@ export class World {
       this.heal(Math.max(1, Math.round((hit.damage * this.derived.stats.leech) / 100)));
     }
     // Lighter foes are staggered out of their wind-up.
-    if (e.ai === 'windup' && def.hp < STAGGER_HP && def.behavior !== 'boss') {
+    if (this.derived.swing.stagger) e.attackCd += this.derived.swing.stagger;
+    if (!this.derived.swing.stagger && e.ai === 'windup' && def.hp < STAGGER_HP && def.behavior !== 'boss') {
       e.ai = 'recover';
       e.timer = 0.5;
     }
@@ -1137,6 +1369,7 @@ export class World {
       this.msg(`${def.name} falls still again.`, '#c8c0b0');
       return;
     }
+    this.refundSigil(def);
     this.run.stats.kills++;
     recordKill(this.state.contracts, def.id);
     recordBestiaryKill(this.state.bestiary, def.id);
@@ -1144,6 +1377,12 @@ export class World {
     const loot = e.mimicTier && e.mimicPropId
       ? rollContainerLoot(createRng(hashString(`${this.floor.seed}:${e.mimicPropId}`)), this.run.depth, this.derived.find, e.mimicTier, idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId)
       : rollEnemyLoot(this.rng, def, this.run.depth, this.derived.find, idBelow, this.state.recipeRanks, this.state.bestiary, this.seenUniques, this.difficultyId);
+    const sigilDrop = def.behavior === 'boss'
+      ? this.rollSigil(`boss:${e.id}`, 1)
+      : e.mimicTier && e.mimicPropId
+        ? this.rollSigil(`chest:${e.mimicPropId}`, e.mimicTier === 'vault' || e.mimicTier === 'secret' ? 0.22 : 0.03 * Math.max(0, Math.min(1, (this.run.depth - 1) / 4)))
+        : null;
+    if (sigilDrop) loot.items.push(sigilDrop);
     if (def.behavior === 'boss') {
       // The portal opens where the king fell, so his hoard goes beside it —
       // dropped on the same tile it would be unreachable behind the portal.
@@ -1182,6 +1421,28 @@ export class World {
   /** Relics this playthrough has identified, which is what opens a codex entry. */
   private get knownUniques(): string[] {
     return (this.state.lifetime.uniquesKnown ??= []);
+  }
+
+  private refundSigil(def: EnemyDef): void {
+    const active = this.run.sigil;
+    if (!active || active.cd <= 0) return;
+    const spell = sigil(active.id);
+    const base = 2 + 8 * Math.min(1, def.hp / 140);
+    const multiplier = 1 + 0.25 * metaLevel(this.state.meta, 'attunement') + this.derived.stats.focus / 100;
+    active.cd = Math.max(0, active.cd - Math.min(base * multiplier, spell.cooldown * 0.2));
+  }
+
+  private rollSigil(stream: string, chance: number): Item | null {
+    const carried = [
+      ...this.state.stash.items,
+      ...this.state.loadout.items,
+      ...this.run.backpack.items,
+      ...this.run.floors.flatMap((f) => f?.pickups.flatMap((p) => p.items) ?? []),
+    ].filter((i) => i.kind === 'sigil').map((i) => i.ref);
+    const unknown = unknownSigils(this.state.spells ?? [], carried);
+    if (!unknown.length) return null;
+    const rng = createRng(hashString(`sigil:${this.run.seed}:${this.run.depth}:${stream}`));
+    return rng.chance(chance) ? makeSigil(rng.pick(unknown)) : null;
   }
 
   /**
@@ -1432,6 +1693,11 @@ export class World {
         this.sfx('chest', p.x, p.y);
         const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
         const loot = rollContainerLoot(this.propRng(p), this.run.depth, this.derived.find, tier, idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId);
+        const sigilDrop = this.rollSigil(
+          `chest:${p.id}`,
+          tier === 'vault' || tier === 'secret' ? 0.22 : 0.03 * Math.max(0, Math.min(1, (this.run.depth - 1) / 4)),
+        );
+        if (sigilDrop) loot.items.push(sigilDrop);
         const pk = this.dropLoot(p.x, p.y, loot.items, 0);
         if (loot.gold) {
           this.run.gold += loot.gold;
@@ -1954,7 +2220,7 @@ export class World {
         if (e.moveT < 1) continue;
       }
       const dist = Math.abs(e.x - p.x) + Math.abs(e.y - p.y);
-      const sees = dist <= def.sight + this.sightPenalty && this.los(e.x, e.y, p.x, p.y);
+      const sees = (this.anim.unseenT > 0 && dist <= 2) || (dist <= def.sight + this.sightPenalty && this.los(e.x, e.y, p.x, p.y));
       if (sees) {
         if (e.alert <= 0 && (e.ai === 'idle' || e.ai === 'wander')) {
           this.sfx('alert', e.x, e.y);
@@ -2182,6 +2448,10 @@ export class World {
       if (this.derived.traits.parryFeedMax > 0) this.msg('The blade goes cold.', '#9a9aa8');
     }
     p.hp -= dmg;
+    if (this.anim.cast) {
+      this.anim.cast = null;
+      this.msg('The sigil cast is broken by the blow.', '#888');
+    }
     if (dmg > (this.state.lifetime.worstHit ?? 0)) this.state.lifetime.worstHit = dmg;
     if (sourceId) recordDamageTaken(this.state.bestiary, sourceId, dmg);
     this.emit({ type: 'hurt', amount: dmg, blocked });
@@ -2206,11 +2476,28 @@ export class World {
       pr.y += pr.dy * pr.speed * dt;
       const tx = Math.floor(pr.x), ty = Math.floor(pr.y);
       if (tx === pr.tileX && ty === pr.tileY) continue;
+      const previous = { x: pr.tileX, y: pr.tileY };
       pr.tileX = tx;
       pr.tileY = ty;
+      if (pr.thrownBase) pr.traveled = (pr.traveled ?? 0) + 1;
       if (blocksSight(f, tx, ty)) {
         pr.speed = 0;
-        this.sfx('break', tx, ty);
+        if (pr.thrownBase) this.landThrown(pr.thrownBase, previous.x, previous.y);
+        else this.sfx('break', tx, ty);
+        continue;
+      }
+      if (pr.thrownBase) {
+        const enemy = enemyAt(f, tx, ty);
+        if (enemy) {
+          pr.speed = 0;
+          this.thrownHit(pr, enemy);
+          this.landThrown(pr.thrownBase, previous.x, previous.y);
+          continue;
+        }
+        if ((pr.traveled ?? 0) >= (pr.thrownRange ?? 0)) {
+          pr.speed = 0;
+          this.landThrown(pr.thrownBase, tx, ty);
+        }
         continue;
       }
       // Incoming bolts fly past their own kind; a parried one is yours, and
@@ -2233,6 +2520,82 @@ export class World {
       }
     }
     this.projectiles = this.projectiles.filter((pr) => pr.speed > 0);
+  }
+
+  private throwWeapon(): void {
+    const base = this.anim.attackBase;
+    const snapshot = this.anim.attackSnapshot;
+    const thrown = snapshot?.thrown;
+    if (!base || !thrown || (this.run.thrown.held[base] ?? 0) <= 0) return;
+    this.run.thrown.held[base]--;
+    this.projectiles.push({
+      id: this.projN++, x: this.player.x + 0.5, y: this.player.y + 0.5,
+      dx: DX[this.player.facing], dy: DY[this.player.facing], speed: thrown.speed,
+      damage: this.anim.attackPower * thrown.power, type: snapshot.damageType, sprite: thrown.sprite,
+      tileX: this.player.x, tileY: this.player.y, source: 'your throw',
+      thrownBase: base, thrownRange: thrown.range, traveled: 0, player: snapshot, weaponUid: this.anim.attackWeaponUid ?? undefined,
+    });
+    this.sfx('shoot');
+  }
+
+  private thrownHit(pr: Projectile, e: EnemyState): void {
+    const player = pr.player ?? this.derived;
+    const def = this.view(e);
+    const reaction = this.guardReaction(e, def);
+    if (reaction) {
+      this.shieldChip(e, def, 1, pr.damage, player);
+      this.wearThrown(pr.weaponUid);
+      return;
+    }
+    const hit = playerHitsEnemy(this.rng, player, pr.damage, def, defensePower(e.power) * this.diff.enemyDefense);
+    e.hp -= hit.damage;
+    e.hurtT = 0.3;
+    e.alert = 8;
+    e.lastSeenX = this.player.x;
+    e.lastSeenY = this.player.y;
+    recordDamageDealt(this.state.bestiary, def.id, hit.damage);
+    this.emit({ type: 'float', x: e.x, y: e.y, text: hit.crit ? `${hit.damage}!` : `${hit.damage}`, color: hit.crit ? '#ffe040' : hit.effective === 'weak' ? '#ff9a40' : hit.effective === 'resist' ? '#9a9aa8' : '#ffffff' });
+    this.sfx(hit.crit ? 'crit' : 'hit', e.x, e.y);
+    if (player.stats.leech > 0) this.heal(Math.max(1, Math.round(hit.damage * player.stats.leech / 100)));
+    this.wearThrown(pr.weaponUid);
+    if (e.hp <= 0) this.killEnemy(e);
+  }
+
+  private landThrown(base: string, x: number, y: number): void {
+    const markers = (this.floor.thrown ??= []);
+    const marker = markers.find((m) => m.x === x && m.y === y && m.base === base);
+    if (marker) marker.n++;
+    else markers.push({ x, y, base, n: 1 });
+    if (x === this.player.x && y === this.player.y) this.collectThrownHere();
+  }
+
+  private wearThrown(uid: string | undefined): void {
+    if (!uid) return;
+    const equipped = this.state.equipment.weapon;
+    if (equipped?.uid === uid) {
+      this.wear('weapon');
+      return;
+    }
+    const item = this.run.backpack.items.find((it) => it.uid === uid);
+    if (item) wearItem(item);
+  }
+
+  private collectThrownHere(): number {
+    const base = this.state.equipment.weapon?.ref;
+    if (!base || !this.derived.thrown) return 0;
+    const markers = (this.floor.thrown ??= []);
+    let found = 0;
+    this.floor.thrown = markers.filter((m) => {
+      if (m.base !== base || m.x !== this.player.x || m.y !== this.player.y) return true;
+      found += m.n;
+      return false;
+    });
+    if (found) {
+      this.run.thrown.held[base] = (this.run.thrown.held[base] ?? 0) + found;
+      this.msg(`You pick up ${found} ${itemBase(base).name.toLowerCase()}.`, '#c8b890');
+      this.sfx('pickup');
+    }
+    return found;
   }
 
   /** Send a bolt back the way it came, now hostile to whatever shot it. */
@@ -2313,6 +2676,11 @@ export class World {
   /** Remaining free backpack slots (for the HUD). */
   get freeSlots(): number {
     return this.run.backpack.capacity - this.run.backpack.items.length;
+  }
+
+  /** Carried light after temporary sigil effects. */
+  get playerLightRadius(): number {
+    return this.anim.snuffT > 0 ? 2.5 : lightRadius(this.state.meta) + this.derived.traits.light;
   }
 
   /** Base item info for the viewmodel. */

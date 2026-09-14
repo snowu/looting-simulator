@@ -3,9 +3,10 @@ import { DX, DY, turnRight } from '../core/dir';
 import { biomeForFloor, ceilingForFloor } from '../data/biomes';
 import { enemyDef, enemyView } from '../data/enemies';
 import { findMaterial } from '../data/materials';
+import { itemBase } from '../data/items';
 import { Floor, ShrineKind } from '../systems/dungeon';
 import { itemIcon } from '../systems/items';
-import { lightIntensity, lightRadius } from '../systems/meta';
+import { lightIntensity } from '../systems/meta';
 import { World } from '../world/world';
 import { artSize, artTexture } from './art-cache';
 import { enemyPose } from './enemy-pose';
@@ -210,7 +211,7 @@ export class DungeonRenderer {
     lights.push({
       x: this.camera.position.x, y: EYE + 0.2, z: this.camera.position.z,
       // A lamp you are carrying counts on top of the one the Warden sold you.
-      r: lightRadius(meta) + world.derived.traits.light,
+      r: world.playerLightRadius,
       color: handLight,
       intensity: lightIntensity(meta) * flick(0),
     });
@@ -357,6 +358,19 @@ export class DungeonRenderer {
       this.place(s, art, tileX(pk.x), onFloor ? 0 : hover, tileZ(pk.y), onFloor ? 0.7 : 0.55, ramp);
     }
 
+    for (const marker of floor.thrown ?? []) {
+      if (!near(marker.x, marker.y)) continue;
+      const art = itemBase(marker.base).thrown?.groundSprite;
+      if (!art) continue;
+      const s = this.sprite(`th:${marker.base}:${marker.x}:${marker.y}`);
+      this.placeFlat(s, art, tileX(marker.x), tileZ(marker.y), 0.62);
+    }
+
+    if (a.ward && near(a.ward.x, a.ward.y)) {
+      const s = this.sprite('sigil:threshold');
+      this.placeFlat(s, 'trap_alarm', tileX(a.ward.x), tileZ(a.ward.y), 0.96);
+    }
+
     for (const t of floor.torches) {
       if (!near(t.x, t.y)) continue;
       const wx = tileX(t.x) + DX[t.side] * (TILE / 2 - 0.02);
@@ -453,7 +467,10 @@ export class DungeonRenderer {
     w.mesh.rotation.set(0, 0, rot);
 
     const sh = this.vmShield;
-    const offhand = world.state.equipment.offhand;
+    // Asked of the derived player, not the slot: a two-hander leaves the shield
+    // in the pack, and a shield still sitting in the offhand of a save that
+    // predates the rule must not be drawn on an arm that is holding a maul.
+    const offhand = world.derived.hasShield ? world.state.equipment.offhand : null;
     sh.mesh.visible = !!offhand;
     if (offhand) {
       const sramp = offhand.materialId ? findMaterial(offhand.materialId)?.ramp : undefined;

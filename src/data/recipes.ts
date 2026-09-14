@@ -22,6 +22,18 @@ export const RECIPES: RecipeDef[] = [
     slots: [{ label: 'Point', categories: ['metal'], qty: 2 }, { label: 'Shaft', categories: ['wood'], qty: 3 }, GEM] },
   { id: 'r_club', baseId: 'club', starter: true, value: 0,
     slots: [{ label: 'Body', categories: ['wood', 'bone'], qty: 3 }, { label: 'Binding', categories: ['hide', 'cloth'], qty: 1 }, GEM] },
+  { id: 'r_halberd', baseId: 'halberd', starter: false, blueprintWeight: 0.16, value: 240,
+    slots: [{ label: 'Head', categories: ['metal'], qty: 4 }, { label: 'Shaft', categories: ['wood'], qty: 4 }, GEM] },
+  { id: 'r_great_maul', baseId: 'great_maul', starter: false, blueprintWeight: 0.16, value: 250,
+    slots: [{ label: 'Head', categories: ['metal', 'wood'], qty: 5 }, { label: 'Haft', categories: ['wood'], qty: 4 }, GEM] },
+  { id: 'r_greatsword', baseId: 'greatsword', starter: false, blueprintWeight: 0.16, value: 340,
+    slots: [{ label: 'Blade', categories: ['metal'], qty: 7 }, { label: 'Grip', categories: ['wood', 'hide'], qty: 2 }, GEM] },
+  { id: 'r_throwing_knives', baseId: 'throwing_knives', starter: true, value: 0,
+    slots: [{ label: 'Blades', categories: ['metal'], qty: 2 }, { label: 'Bandolier', categories: ['hide', 'cloth'], qty: 1 }, GEM] },
+  { id: 'r_throwing_axes', baseId: 'throwing_axes', starter: false, value: 130,
+    slots: [{ label: 'Heads', categories: ['metal', 'wood'], qty: 3 }, { label: 'Hafts', categories: ['wood'], qty: 2 }, GEM] },
+  { id: 'r_javelins', baseId: 'javelins', starter: false, value: 210,
+    slots: [{ label: 'Heads', categories: ['metal'], qty: 3 }, { label: 'Shafts', categories: ['wood'], qty: 4 }, GEM] },
 
   // Shields
   { id: 'r_buckler', baseId: 'buckler', starter: true, value: 0,
@@ -102,7 +114,7 @@ export const RECIPE_LADDER: readonly RecipeDef[] = [...RECIPES].sort(
 
 /** Relative drop frequency: each step up a line is markedly scarcer. */
 export function blueprintDropWeight(r: RecipeDef): number {
-  return 0.4 ** gearTier(r.baseId);
+  return r.blueprintWeight ?? 0.4 ** gearTier(r.baseId);
 }
 
 export function starterRecipeRanks(): RecipeRanks {

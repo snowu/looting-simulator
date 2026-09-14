@@ -67,6 +67,8 @@ export function startRun(state: GameState, seed = randomSeed()): RunState {
     curse: null,
     tonics: [],
     portal: null,
+    thrown: { held: {}, retrieveCd: 0 },
+    sigil: state.attuned ? { id: state.attuned, cd: 0 } : null,
     stats: { kills: 0, goldFound: 0, itemsFound: 0, deepest: 1, time: 0, bossKilled: false },
     outcome: 'active',
   };

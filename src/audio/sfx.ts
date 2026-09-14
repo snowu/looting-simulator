@@ -7,7 +7,7 @@ export type SfxName =
   | 'step' | 'swing' | 'hit' | 'crit' | 'hurt' | 'block' | 'door' | 'locked' | 'unlock'
   | 'pickup' | 'gold' | 'chest' | 'break' | 'death' | 'enemyDie' | 'stairs' | 'shoot'
    | 'magic' | 'study' | 'winded' | 'secret' | 'ui' | 'craft' | 'drink' | 'alert' | 'miss' | 'sell' | 'recall' | 'parry'
-  | 'kingturn' | 'snuff' | 'splash';
+  | 'kingturn' | 'snuff' | 'splash' | 'retrieve' | 'sigil';
 
 export interface PlayOpts {
   volume?: number;
@@ -291,6 +291,14 @@ class AudioEngine {
         break;
       case 'recall':
         for (let i = 0; i < 6; i++) this.tone(o, 'sine', 400 * Math.pow(1.19, i), 400 * Math.pow(1.19, i), 0.3, 0.15, i * 0.1);
+        break;
+      case 'retrieve':
+        this.noiseBurst(o, 0.18, 'bandpass', 700 * r, 2600 * r, 0.25, 2);
+        this.tone(o, 'triangle', 260 * r, 820 * r, 0.28, 0.2);
+        break;
+      case 'sigil':
+        this.tone(o, 'sine', 150 * r, 72 * r, 0.5, 0.35);
+        this.tone(o, 'triangle', 440 * r, 330 * r, 0.4, 0.16, 0.04);
         break;
     }
   }

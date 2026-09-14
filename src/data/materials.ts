@@ -128,6 +128,11 @@ export const MATERIALS: MaterialDef[] = [
     catalystAffix: 'blessed', description: 'Catalyst: grants Blessed (+Holy damage).',
   },
   {
+    id: 'wardstone', name: 'Wardstone', category: 'gem', tier: 3, rarity: Rarity.Rare, value: 98,
+    icon: 'ic_gem', ramp: ['#1a1a24', '#3c3a56', '#6e6a96', '#c0bce0'], mods: { focus: 4 },
+    catalystAffix: 'vigil', description: 'Catalyst: grants of the Vigil (+Spell Focus).',
+  },
+  {
     id: 'flame_shard', name: 'Flame Shard', category: 'gem', tier: 4, rarity: Rarity.Epic, value: 205,
     icon: 'ic_shard', ramp: ['#6a1004', '#c03008', '#ff7a10', '#fff070'], mods: { fire: 4 },
     catalystAffix: 'blazing', description: 'Catalyst: grants Blazing (+Fire damage).',

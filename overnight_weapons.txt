@@ -34,3 +34,86 @@ Three design/survey agents run in parallel first, then an adversarial pass over
 their output, then implementation, then adversarial code review. Models chosen per
 job: Opus for the two design specs and the art (judgement-heavy), Sonnet for the
 code survey and the mechanical doc work.
+## D3. Landmine found during prep (before any agent reported)
+`src/render/art-cache.ts:loadArtOverrides()` **throws on boot** if any id in
+`ALL_ART` is absent from `public/art/manifest.json` (`missing` check). There are
+currently 192 ids and 192 PNGs. So every new sprite is a three-part change:
+the art def in `src/art/*.ts`, a PNG in `public/art/<id>.png`, and the id added
+to `public/art/manifest.json`. Miss the third and the game does not start —
+and `npm test` would still pass, because the art test only checks the defs.
+`npm run art:export` writes to `art-handoff/`, not to `public/art/`; the copy is
+manual. Adding a scripted step for this rather than doing it by hand.
+
+## D4. Second landmine: the Hard golden fixture pins the loot table
+`src/__tests__/hard-golden.test.ts` hashes 1,800 loot rolls and 60 random kits
+built by `rollEquipment`, which draws from `ITEM_BASES`. **Any new weapon base
+changes `lootHash` and `playerHp`** — not because Hard got easier or harder, but
+because the drop table has more entries in it. The biome PR hit the same wall
+with floor layouts and answered it by pinning a second hash (`varietyFloorHash`)
+beside the historical one rather than editing the original away. Doing the same
+here: keep the pre-weapon hashes in the fixture as the historical baseline, add
+the post-weapon ones next to them, and say in the fixture note exactly what
+changed and why. `enemyHp` must NOT move — nothing in this feature touches
+monster health, so if that one shifts, something is wrong.
+
+## D5. Architecture conclusions reached from the code, before the designs land
+Recording these now so they can be checked against what the design agents come
+back with rather than rationalised afterwards.
+
+- **Two-handed belongs in `src/systems/equip.ts`, not in the two UIs.**
+  `equipFrom`/`unequipTo` are the single choke point both the town screen
+  (`ui/town.ts:945`) and the dungeon pack (`ui/dungeon-ui.ts:175`) go through.
+  Put the rule there — equipping a 2H weapon moves the offhand into the same
+  container, and equipping an offhand over a 2H weapon does the reverse — and
+  both screens get it for nothing. `derivePlayer` must *additionally* ignore the
+  offhand when the weapon is 2H, as a belt-and-braces for saves that already
+  have both slots filled. That is not paranoia: every existing save does.
+- **Thrown ammo on the ground should not be an `Item`.** `Pickup.items` holds
+  real items, which would mean each thrown javelin is a copy of the weapon with
+  its own durability and affixes, landing in the pack rather than back in the
+  stock. A flat marker list on `Floor` is cleaner, saves with the floor (so it
+  survives a trip upstairs and back), and needs one `normalizeFloor` line.
+- **`killEnemy` (world.ts) is the one hook for cooldown-on-kill.** Everything
+  that dies goes through it, including reflected bolts and mimics. Note the
+  `e.risen` early return — a King-raised corpse must not pay twice.
+- **Sound is procedural** (`src/audio/sfx.ts`), so new cues are a switch case,
+  not an asset.
+
+## D6. Spell design landed (docs/design/spells.md) — accepted with edits
+Design agent's shape, which I am taking:
+- **Five sigils, and you carry exactly one**, chosen in town. That single
+  constraint is what keeps Hard honest: you can never hold both the escape and
+  the control, so a fight is played with the tool you guessed at in Bleakmere.
+- **No mana bar.** Per-spell cooldown, cast paid in stamina. The reasoning I
+  agree with most: a mana bar makes the cost *fungible* — you top it up in town
+  and the spell is free in the moment it matters. Stamina is not.
+- **Wardcry grants no `vuln`.** A parry pays a second of doubled damage; the
+  push pays nothing. That is what makes the spell strictly worse than a parry
+  whenever a parry is available, which is the whole safety property.
+- **It shouts.** 8 tiles through walls. The cost of the control spell is that it
+  tells the floor where you are.
+- **20% of base cooldown is the per-kill cap.** No build, at any investment,
+  resets a sigil in fewer than five kills. Without the cap the maxed build
+  resets Wardcry on three Hollow Knights and the throne room becomes a charge
+  farm.
+- Verified the agent's two save claims myself rather than taking them:
+  `STAT_KEYS` is iterated in `items.ts`, `dom.ts` and `town.ts` only, all live —
+  no `Stats` object is ever persisted, so a new `focus` key needs no migration.
+  `parseSave` validates `version`, affix ids and `blessing`, and never looks at
+  `Item.kind` — so a new `ItemKind` costs nothing either. Both confirmed.
+
+## D7. Integration map landed (docs/design/integration-map.md)
+Independently confirmed both landmines I had already found (the art manifest
+boot failure and the hard-golden loot fixture) and added three I had not:
+- **Projectiles are deleted the same frame they stop.** `updateProjectiles`
+  filters on `speed > 0` immediately after the collision loop sets it to 0, so
+  there is no "resting projectile" to convert later. A thrown weapon has to
+  become a `Pickup` synchronously, in the branch that stops it.
+- **`Equipment` is built by two different paths.** Real play goes through
+  `equipFrom`, but `scripts/playtest.ts` and `src/dev/boss-arena.ts` assign the
+  fields directly. So the two-handed rule has to live in `derivePlayer` as well
+  as `equipFrom`, or the balance harness quietly measures an illegal
+  weapon+shield build and every number it prints is wrong.
+- **"Recall" is already taken.** `anim.recall`, `.bar.recall`, "The recall
+  fizzles." — all the Scroll of Recall town portal. The R key must not be called
+  recall anywhere in the code or the log. Using **retrieve** throughout.

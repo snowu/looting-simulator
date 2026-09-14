@@ -1,8 +1,10 @@
 {
-  "note": "Original Hard stats and loot stay pinned to the pre-difficulty game. Variety intentionally changed floors; varietyFloorHash pins the new layout and spawn result while floorHash retains the historical baseline.",
+  "note": "Original Hard stats, loot and player kits stay pinned to the pre-difficulty game. Intentional biome and weapon-roster results are recorded separately.",
   "floorHash": "b182a0fb",
   "varietyFloorHash": "fcfb15ca",
   "lootHash": "c87954b9",
+  "weaponLootHash": "499fffe4",
+  "weaponPlayerHpChanges": { "15": 106, "50": 94 },
   "enemyHp": {
     "rat": [
       14,

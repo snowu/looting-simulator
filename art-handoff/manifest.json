@@ -520,6 +520,22 @@
     "recolorable": false
   },
   {
+    "id": "ward_threshold",
+    "file": "props/ward_threshold.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "ward_threshold_dim",
+    "file": "props/ward_threshold_dim.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": false
+  },
+  {
     "id": "trap_dart_spent",
     "file": "props/trap_dart_spent.png",
     "width": 16,
@@ -630,6 +646,54 @@
     "height": 16,
     "base": null,
     "recolorable": false
+  },
+  {
+    "id": "proj_knife",
+    "file": "props/proj_knife.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "proj_axe_thrown",
+    "file": "props/proj_axe_thrown.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "proj_javelin",
+    "file": "props/proj_javelin.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "pickup_knives",
+    "file": "props/pickup_knives.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "pickup_axes",
+    "file": "props/pickup_axes.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "pickup_javelins",
+    "file": "props/pickup_javelins.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
   },
   {
     "id": "proj_arrow_fire",
@@ -840,6 +904,54 @@
     "recolorable": true
   },
   {
+    "id": "ic_halberd",
+    "file": "icons/ic_halberd.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_great_maul",
+    "file": "icons/ic_great_maul.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_greatsword",
+    "file": "icons/ic_greatsword.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_throwing_knives",
+    "file": "icons/ic_throwing_knives.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_throwing_axes",
+    "file": "icons/ic_throwing_axes.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_javelins",
+    "file": "icons/ic_javelins.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
     "id": "ic_buckler",
     "file": "icons/ic_buckler.png",
     "width": 16,
@@ -994,6 +1106,46 @@
   {
     "id": "ic_gold",
     "file": "icons/ic_gold.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_sig_wardcry",
+    "file": "icons/ic_sig_wardcry.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_sig_snuff",
+    "file": "icons/ic_sig_snuff.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_sig_sounding",
+    "file": "icons/ic_sig_sounding.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_sig_threshold",
+    "file": "icons/ic_sig_threshold.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_sig_temper",
+    "file": "icons/ic_sig_temper.png",
     "width": 16,
     "height": 16,
     "base": null,
@@ -1516,6 +1668,70 @@
     "file": "viewmodels/vm_spear.png",
     "width": 24,
     "height": 40,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "vm_maul",
+    "file": "viewmodels/vm_maul.png",
+    "width": 24,
+    "height": 40,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "vm_polearm",
+    "file": "viewmodels/vm_polearm.png",
+    "width": 24,
+    "height": 40,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "vm_greatsword",
+    "file": "viewmodels/vm_greatsword.png",
+    "width": 24,
+    "height": 40,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "vm_thrown_knife",
+    "file": "viewmodels/vm_thrown_knife.png",
+    "width": 24,
+    "height": 40,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "vm_thrown_axe",
+    "file": "viewmodels/vm_thrown_axe.png",
+    "width": 24,
+    "height": 40,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "vm_javelin",
+    "file": "viewmodels/vm_javelin.png",
+    "width": 24,
+    "height": 40,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "vm_sigil",
+    "file": "viewmodels/vm_sigil.png",
+    "width": 24,
+    "height": 39,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "vm_sigil_lit",
+    "file": "viewmodels/vm_sigil_lit.png",
+    "width": 24,
+    "height": 39,
     "base": null,
     "recolorable": true
   },

@@ -49,6 +49,7 @@ export const STAT_KEYS = [
   'speed',
   'luck',
   'find',
+  'focus',
   'leech',
   'fire',
   'frost',
@@ -68,6 +69,7 @@ export const STAT_LABELS: Record<StatKey, string> = {
   speed: 'Speed %',
   luck: 'Crit %',
   find: 'Loot Find %',
+  focus: 'Spell Focus %',
   leech: 'Life Leech %',
   fire: 'Fire Dmg',
   frost: 'Frost Dmg',
@@ -132,7 +134,7 @@ export function slotOf(e: EquipSlot): Slot {
   return e === 'ring1' || e === 'ring2' ? 'ring' : e;
 }
 
-export type WeaponClass = 'blade' | 'dagger' | 'axe' | 'blunt' | 'spear' | 'pick';
+export type WeaponClass = 'blade' | 'dagger' | 'axe' | 'blunt' | 'spear' | 'pick' | 'greatsword' | 'maul' | 'halberd' | 'thrown';
 
 export interface SwingProfile {
   /** Seconds from button press to the hit landing. */
@@ -142,6 +144,21 @@ export interface SwingProfile {
   staminaCost: number;
   /** Tiles in front of you the swing reaches. */
   reach: number;
+  /**
+   * Resolves against the tile you face *and* the two tiles beside you. Aimed
+   * squarely at the one thing a shield cannot do: blocking only ever covers the
+   * tile you face, so three things adjacent is the situation a guard is worst
+   * at and the situation a sweep answers.
+   */
+  sweep?: boolean;
+  /**
+   * Seconds added to a struck enemy's attack cooldown. A two-hander buys time
+   * rather than cancelling a wind-up — cancelling wind-ups is the parry's job
+   * and stays the parry's job.
+   */
+  stagger?: number;
+  /** Guard chips this blow counts for. Absent means one. */
+  chips?: number;
   /**
    * Damage multiplier on a crit. Defaults to {@link DEFAULT_CRIT_MULT}; a
    * dagger sets it higher, which is what makes Crit % gear worth stacking on
@@ -153,6 +170,40 @@ export interface SwingProfile {
 /** Crit damage for anything that does not state its own. */
 export const DEFAULT_CRIT_MULT = 1.6;
 
+/**
+ * A thrown weapon's stock and flight.
+ *
+ * The stock is finite and the spent shafts land on the floor, so the loop is
+ * throw, run dry, and go and get them back — the weapon is a resource you
+ * manage across a room rather than a button you hold.
+ */
+export interface ThrownProfile {
+  /** Shafts carried at material tier 1. */
+  stock: number;
+  /** Added per material tier above 1. */
+  stockPerTier: number;
+  /** Seconds from press to release, and after it before you can act. */
+  windup: number;
+  recovery: number;
+  staminaCost: number;
+  /** Tiles per second in flight. */
+  speed: number;
+  /** Tiles it covers before it falls short. */
+  range: number;
+  /**
+   * Multiplier on your Attack for a thrown hit. The base's own `attack` is the
+   * *melee* number — a thrown weapon out of shafts is a bad short weapon — and
+   * this scales it up to what the throw does. Affixes and material ride along,
+   * which is what keeps thrown weapons inside the power ladder rather than
+   * beside it.
+   */
+  power: number;
+  /** Art id of the shaft in flight. */
+  sprite: string;
+  /** Art id of the shafts lying on the floor waiting to be picked up. */
+  groundSprite: string;
+}
+
 export interface ItemBaseDef {
   id: string;
   name: string;
@@ -160,6 +211,18 @@ export interface ItemBaseDef {
   icon: string;
   weaponClass?: WeaponClass;
   damageType?: DamageType;
+  /**
+   * Needs both hands, so the offhand stays empty while it is worn. Absent means
+   * one-handed — the same trick `dur` and `uniqueId` use, so every item ever
+   * written before two-handers existed reads as one-handed with no migration.
+   */
+  twoHanded?: boolean;
+  /**
+   * Thrown weapons only: what the stock looks like and how it flies. A base
+   * with this is thrown rather than swung, and `swing` describes the melee it
+   * falls back to when the stock is empty.
+   */
+  thrown?: ThrownProfile;
   /** Stats at material tier 1. */
   base: Partial<Stats>;
   /** Added per material tier above 1. */
@@ -168,6 +231,11 @@ export interface ItemBaseDef {
   primary: MaterialCategory[];
   swing?: SwingProfile;
   value: number;
+  /**
+   * Overrides the weaponClass → viewmodel map. The three thrown bases share one
+   * weapon class but must not share a first-person model.
+   */
+  viewmodel?: string;
   /** Shallowest depth this base drops at. */
   minDepth: number;
   /** Relative drop weight. */
@@ -213,12 +281,12 @@ export interface AffixRoll {
   value: number;
 }
 
-export type ItemKind = 'equipment' | 'consumable' | 'material' | 'blueprint' | 'lore';
+export type ItemKind = 'equipment' | 'consumable' | 'material' | 'blueprint' | 'lore' | 'sigil';
 
 /**
  * One inventory entry. `ref` points into the matching data table:
  * equipment → ITEM_BASES, consumable → CONSUMABLES, material → MATERIALS,
- * blueprint → RECIPES, lore → ENEMIES. Stats and names are derived, never
+ * blueprint → RECIPES, lore → ENEMIES, sigil → SIGILS. Stats and names are derived, never
  * stored.
  */
 export interface Item {
@@ -271,6 +339,8 @@ export interface RecipeDef {
   slots: RecipeSlot[];
   /** Known from the start (otherwise learned from a blueprint). */
   starter: boolean;
+  /** Overrides the gear-line-derived relative blueprint drop frequency. */
+  blueprintWeight?: number;
   value: number;
 }
 

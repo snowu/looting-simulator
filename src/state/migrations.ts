@@ -5,6 +5,7 @@ import { BASE_BACKPACK } from '../systems/meta';
 import { newId } from '../core/id';
 import { STARTER_RECIPES } from '../data/recipes';
 import { MATERIALS } from '../data/materials';
+import { findSigil } from '../data/spells';
 
 /**
  * Additive save migrations.
@@ -21,7 +22,7 @@ import { MATERIALS } from '../data/materials';
  */
 
 /** Bump this (and push a migration) whenever a field is added to the save. */
-export const SAVE_REVISION = 17;
+export const SAVE_REVISION = 18;
 
 type AnyState = GameState & Record<string, unknown>;
 
@@ -154,6 +155,28 @@ const MIGRATIONS: ((s: AnyState) => void)[] = [
       s.run.difficulty = s.difficulty;
     }
   },
+  // 17 → 18: recoverable thrown stock and sigils. Missing means the player has
+  // not discovered or equipped either system yet; existing floor state stays put.
+  (s) => {
+    s.spells ??= [];
+    s.spells = [...new Set(s.spells.filter((id) => typeof id === 'string' && findSigil(id)))];
+    s.attuned ??= null;
+    if (s.attuned !== null && (!findSigil(s.attuned) || !s.spells.includes(s.attuned))) s.attuned = null;
+    if (s.run) {
+      s.run.thrown ??= { held: {}, retrieveCd: 0 };
+      s.run.thrown.held ??= {};
+      for (const [base, held] of Object.entries(s.run.thrown.held)) {
+        s.run.thrown.held[base] = Number.isFinite(held) ? Math.max(0, Math.trunc(held)) : 0;
+      }
+      s.run.thrown.retrieveCd = Number.isFinite(s.run.thrown.retrieveCd) ? Math.max(0, s.run.thrown.retrieveCd) : 0;
+      s.run.sigil ??= null;
+      if (s.run.sigil) {
+        if (!findSigil(s.run.sigil.id)) s.run.sigil = null;
+        else s.run.sigil.cd = Number.isFinite(s.run.sigil.cd) ? Math.max(0, s.run.sigil.cd) : 0;
+      }
+      for (const f of s.run.floors ?? []) if (f) normalizeFloor(f);
+    }
+  },
 ];
 
 function restack(container: Container | undefined): void {
@@ -172,6 +195,18 @@ function normalizeFloor(f: Floor): void {
   f.torches ??= [];
   f.props ??= [];
   f.pickups ??= [];
+  f.thrown ??= [];
+  const thrown = new Map<string, NonNullable<Floor['thrown']>[number]>();
+  for (const marker of f.thrown) {
+    if (!marker || typeof marker.base !== 'string' || !Number.isFinite(marker.x) || !Number.isFinite(marker.y) || !Number.isFinite(marker.n)) continue;
+    const x = Math.trunc(marker.x), y = Math.trunc(marker.y), n = Math.max(0, Math.trunc(marker.n));
+    if (!n) continue;
+    const key = `${marker.base}:${x}:${y}`;
+    const prior = thrown.get(key);
+    if (prior) prior.n += n;
+    else thrown.set(key, { base: marker.base, x, y, n });
+  }
+  f.thrown = [...thrown.values()];
   f.enemies ??= [];
   f.keys ??= [];
   f.traps ??= [];

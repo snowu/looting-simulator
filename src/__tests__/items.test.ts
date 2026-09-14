@@ -188,7 +188,8 @@ describe('items', () => {
     // Short Sword in silver. Checked at every tier the two can share.
     const statOf = (baseId: string, tier: number, key: 'attack' | 'defense') => {
       const base = itemBase(baseId);
-      return (base.base[key] ?? 0) + (base.perTier[key] ?? 0) * (tier - 1);
+      const raw = (base.base[key] ?? 0) + (base.perTier[key] ?? 0) * (tier - 1);
+      return key === 'attack' ? raw * (base.thrown?.power ?? 1) : raw;
     };
     for (const line of GEAR_LINES) {
       for (let i = 1; i < line.length; i++) {

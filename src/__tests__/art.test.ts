@@ -5,7 +5,13 @@ import { MATERIALS } from '../data/materials';
 import { CONSUMABLES, ITEM_BASES, viewmodelFor } from '../data/items';
 import { BIOMES } from '../data/biomes';
 import { ENEMIES, KING_PHASES } from '../data/enemies';
+import { SIGILS } from '../data/spells';
 import { MATERIAL_TIERS, sheets } from '../dev/art-sheets';
+
+const SIGIL_ART_IDS = [
+  'ic_sig_wardcry', 'ic_sig_snuff', 'ic_sig_sounding', 'ic_sig_threshold', 'ic_sig_temper',
+  'vm_sigil', 'vm_sigil_lit', 'ward_threshold', 'ward_threshold_dim',
+] as const;
 
 describe('pixel art', () => {
   it('every art def is well-formed and rasterises', () => {
@@ -26,6 +32,7 @@ describe('pixel art', () => {
     for (const m of MATERIALS) needed.add(m.icon);
     for (const b of ITEM_BASES) needed.add(b.icon);
     for (const c of CONSUMABLES) needed.add(c.icon);
+    for (const s of SIGILS) needed.add(s.icon);
     for (const b of BIOMES) for (const id of [b.wall, b.wallAlt, b.wallSecret, b.floor, b.ceiling, b.door]) needed.add(id);
     for (const e of ENEMIES) {
       needed.add(`${e.sprite}_0`);
@@ -42,9 +49,17 @@ describe('pixel art', () => {
       if (p.shield) needed.add(`${p.sprite}_block`);
     }
     // Every weapon in the game has to have something to be held as.
-    for (const b of ITEM_BASES) if (b.slot === 'weapon') needed.add(viewmodelFor(b.weaponClass));
+    for (const b of ITEM_BASES) {
+      if (b.slot !== 'weapon') continue;
+      needed.add(viewmodelFor(b));
+      if (b.thrown) {
+        needed.add(b.thrown.sprite);
+        needed.add(b.thrown.groundSprite);
+      }
+    }
     for (const id of ['vm_blade', 'vm_axe', 'vm_pick', 'vm_blunt', 'vm_spear', 'vm_fist', 'vm_shield']) needed.add(id);
     for (const id of ['trap_dart_spent', 'trap_spikes_spent', 'trap_alarm_spent']) needed.add(id);
+    for (const id of SIGIL_ART_IDS) needed.add(id);
     for (const id of needed) expect(getArt(id), id).toBeDefined();
   });
 

@@ -1,4 +1,4 @@
-import { Rng, hashString } from '../core/rng';
+import { Rng, createRng, hashString } from '../core/rng';
 import {
   AffixRoll,
   EnemyDef,
@@ -12,6 +12,7 @@ import {
   RARITY_ORDER,
   Slot,
   Stats,
+  ThrownProfile,
   addStats,
   emptyStats,
   rarityFromOrder,
@@ -24,6 +25,7 @@ import { DifficultyId, difficultyOf } from '../data/difficulty';
 import { GEAR_UNIQUES, UniqueDef, UniqueEffectId, findUnique, tonicUnique } from '../data/uniques';
 import { MAX_RECIPE_RANK, RECIPES, blueprintDropWeight, masteryBonus, recipe, recipeRank } from '../data/recipes';
 import { BestiaryState, isKnown, loreName } from './bestiary';
+import { sigil } from '../data/spells';
 
 // ---------------------------------------------------------------------------
 // Construction
@@ -189,6 +191,8 @@ export function itemRarity(item: Item): Rarity {
       return Rarity.Uncommon;
     case 'lore':
       return Rarity.Rare;
+    case 'sigil':
+      return Rarity.Epic;
   }
 }
 
@@ -206,6 +210,8 @@ export function itemName(item: Item): string {
       return `Blueprint: ${itemBase(recipe(item.ref).baseId).name}`;
     case 'lore':
       return loreName(item.ref);
+    case 'sigil':
+      return sigil(item.ref).name;
     case 'equipment': {
       const base = itemBase(item.ref);
       const adj = item.materialId ? MATERIAL_ADJ[item.materialId] ?? findMaterial(item.materialId)?.name ?? '' : '';
@@ -236,6 +242,8 @@ export function itemIcon(item: Item): { icon: string; ramp?: [string, string, st
       return { icon: 'ic_blueprint' };
     case 'lore':
       return { icon: 'ic_lore' };
+    case 'sigil':
+      return { icon: sigil(item.ref).icon };
     case 'equipment': {
       const m = item.materialId ? findMaterial(item.materialId) : undefined;
       return { icon: itemBase(item.ref).icon, ramp: m?.ramp };
@@ -324,6 +332,51 @@ export function repairItem(item: Item): void {
   if (max > 0) item.dur = max;
 }
 
+/**
+ * Whether this weapon needs both hands, and so keeps the offhand empty.
+ *
+ * Asked of an `Item` rather than a base id because every caller has an item and
+ * because a missing or unknown `ref` should read as one-handed rather than
+ * throw — a hand-edited save must not be able to crash the equip screen.
+ */
+export function isTwoHanded(item: Item | null | undefined): boolean {
+  if (!item || item.kind !== 'equipment') return false;
+  const base = BASE_BY_REF(item.ref);
+  return !!base?.twoHanded;
+}
+
+/** The thrown profile of a weapon, or null if it is not a thrown weapon. */
+export function thrownProfile(item: Item | null | undefined): ThrownProfile | null {
+  if (!item || item.kind !== 'equipment') return null;
+  return BASE_BY_REF(item.ref)?.thrown ?? null;
+}
+
+/**
+ * How many shafts this thrown weapon carries when full: its base stock plus the
+ * per-tier gain from its metal.
+ *
+ * Floored, not rounded, and the gain is deliberately half a shaft a tier: the
+ * *metal* is about how hard a throw hits and the *base* is about rhythm. A
+ * knife-thrower has a pocketful of pinpricks and a javelin-thrower has two
+ * enormous spears and a walk. Star iron should not turn the second into the
+ * first.
+ */
+export function thrownCapacity(item: Item | null | undefined): number {
+  const p = thrownProfile(item);
+  if (!p) return 0;
+  const tier = item?.materialId ? findMaterial(item.materialId)?.tier ?? 1 : 1;
+  return Math.max(1, Math.floor(p.stock + p.stockPerTier * (tier - 1)));
+}
+
+/** A base by ref that tolerates an unknown id instead of throwing. */
+function BASE_BY_REF(ref: string): ItemBaseDef | undefined {
+  try {
+    return itemBase(ref);
+  } catch {
+    return undefined;
+  }
+}
+
 export function itemStats(item: Item): Stats {
   const s = emptyStats();
   if (item.kind !== 'equipment') return s;
@@ -385,6 +438,8 @@ export function itemValue(item: Item): number {
     // for the loot summaries that price a whole pile.
     case 'lore':
       return 40;
+    case 'sigil':
+      return 180;
     case 'equipment': {
       const base = itemBase(item.ref);
       const mat = item.materialId ? findMaterial(item.materialId) : undefined;
@@ -631,7 +686,14 @@ export function rollEnemyLoot(
   const diff = difficultyOf(difficulty);
   const effFind = find + diff.findBonus;
   const f = 1 + effFind / 200;
-  for (const e of def.loot) {
+  const wardstone = def.loot.find((e) => e.id === 'wardstone');
+  if (wardstone) {
+    // New drops get their own deterministic stream so adding Wardstones does
+    // not move the established corpse-loot sequence on Hard.
+    const wardRng = createRng(hashString(`wardstone:${rng.state}:${def.id}:${depth}`));
+    if (wardRng.chance(Math.min(1, wardstone.chance * f))) items.push(makeMaterial('wardstone', wardRng.int(wardstone.min, wardstone.max)));
+  }
+  for (const e of def.loot.filter((entry) => entry.id !== 'wardstone')) {
     if (rng.chance(Math.min(1, e.chance * f))) items.push(makeMaterial(e.id, rng.int(e.min, e.max)));
   }
   const gold = Math.round(rng.int(def.gold[0], def.gold[1]) * diff.gold);

@@ -170,7 +170,7 @@ const plain = (ids: string[]): SheetCell[] => ids.map((id) => ({ id, label: id }
 function viewmodelCells(tier: number): SheetCell[] {
   return VIEWMODELS.map((vm) => {
     const base = ITEM_BASES.find((b) =>
-      vm.id === 'vm_shield' ? b.slot === 'offhand' : b.slot === 'weapon' && viewmodelFor(b.weaponClass) === vm.id);
+      vm.id === 'vm_shield' ? b.slot === 'offhand' : b.slot === 'weapon' && viewmodelFor(b) === vm.id);
     if (!base) return { id: vm.id, label: 'Bare hands' };
     const m = materialFor(base.primary, tier);
     return { id: vm.id, label: m ? `${base.name} · ${m.name}` : base.name, ramp: m?.ramp };

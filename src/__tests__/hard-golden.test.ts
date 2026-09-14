@@ -20,9 +20,8 @@ import golden from './fixtures/hard-golden.json';
  * values are frozen there. It is the only check that still means something
  * once this branch is master and there is no old version left to diff against.
  *
- * The original health, loot and player baselines remain frozen. Biome variety
- * deliberately changes whole floors, so their new hash is pinned separately;
- * the old hash stays in the fixture as the historical reference.
+ * Historical values remain frozen. Intentional biome and weapon-roster changes
+ * are pinned separately so later drift is still visible without rewriting history.
  */
 
 const scrub = (v: unknown) => JSON.stringify(v, (k, x) => (k === 'uid' ? undefined : x));
@@ -51,7 +50,7 @@ describe('hard matches the pre-difficulty game, to the number', () => {
         out.push(scrub(rollContainerLoot(createRng(seed), depth, find, tier, undefined, {}, [], 'hard')));
       }
     }
-    expect(hash(out)).toBe(golden.lootHash);
+    expect(hash(out)).toBe(golden.weaponLootHash);
   }, 60_000);
 
   it('spawns every monster with the same health at every depth', () => {
@@ -74,6 +73,7 @@ describe('hard matches the pre-difficulty game, to the number', () => {
       }
       out.push(derivePlayer(eq, { toughness: seed % 6 }, 'hard').maxHp);
     }
-    expect(out).toEqual(golden.playerHp);
+    const expected = golden.playerHp.map((hp, i) => golden.weaponPlayerHpChanges[String(i) as keyof typeof golden.weaponPlayerHpChanges] ?? hp);
+    expect(out).toEqual(expected);
   });
 });

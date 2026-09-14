@@ -704,6 +704,13 @@ window.addEventListener('keydown', (e) => {
     case 'm':
       overlays.toggle('map', world);
       break;
+    case 'r':
+      world.retrieve();
+      break;
+    case 'g':
+    case 'c':
+      world.castSigil();
+      break;
     case 'escape':
     case 'h':
       overlays.toggle('help', world);
