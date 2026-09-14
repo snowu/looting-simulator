@@ -615,7 +615,9 @@ Stamina does **not** regenerate mid-combo (`world.ts` gates regen on `attack ===
 |---|---|---|
 | Blades | dagger, short sword, long sword | Highest DPS (45–58), smallest hits, shortest windup, shortest window (3.1–3.8s), worst damage per stamina (1.70–1.79) |
 | Haft | club, mace, mining pick, war axe | Biggest hits (up to 50), longest windup (to 0.36s — you are committed), longest windows (4.5–5.5s), best damage per stamina (1.83–2.27) |
-| Reach | spear | The only reach-2 weapon; mid DPS, strong efficiency, hits from outside most enemies' range |
+| Reach | spear, halberd | Reach 2; mid DPS, strong efficiency, hits from outside most enemies' range |
+| Two-handed | greatsword, great maul, halberd | Best damage per stamina bar, sweep or reach, two guard chips — bought with the whole offhand slot. See below |
+| Thrown | throwing knives, throwing axes, javelins | A finite stock thrown at range, and a poor short weapon once it is gone. See below |
 
 The **Dagger** is the crit weapon and the one build-scaling weapon. It carries its own Crit % (5, +1.5 per material tier) and crits for ×2.4 instead of ×1.6, so the same Crit % ring is worth more than twice as much on a dagger as on anything else. Bare it is an ordinary entry weapon (50 effective DPS, below a Short Sword); with +20 Crit % from gear it is second only to a Long Sword, and a build that stacks Crit % to the 60% cap makes it the strongest weapon in the game on both burst and damage per stamina bar. `lucky` and `fox` roll on every slot, and a tier-5 Band carries 5 on its own, so the cap is reachable if you commit to it.
 
@@ -631,6 +633,8 @@ Averaged over the bestiary that lands at blunt ×1.13, slash ×0.99, pierce ×0.
 
 Neither axis alone picks a weapon. Ranked by burst the Long Sword leads (57 effective DPS); ranked by damage from one full stamina bar the order inverts and the War Axe leads (224 against the Long Sword's 177). Short fights favour blades, long ones favour haft.
 
+Those two figures are a Rare kit with affixes. For a like-for-like comparison of the *bases* alone, `npm run tables` now prints a **weapon roster**: every base forged at tier 3 with no affixes, its average hit taken over the whole bestiary at each monster's home depth, and its DPS and damage-per-bar side by side. That is the table to read when placing a new weapon, and it is what the two-handed and thrown sections below are measured against.
+
 
 ### Two-handed weapons
 
@@ -641,9 +645,22 @@ Three bases take both hands: **Halberd**, **Great Maul**, **Greatsword**. Wearin
 | Block absorption | `stats.block`, 35–90% | **20%** | 30% |
 | Parry | Unchanged | **Unchanged** | Unchanged |
 
-The offhand is the most valuable slot in the game — a silver Tower Shield is +12 Defense and 82% block for a −10 speed tax — so **none of the three is allowed to be the best weapon by DPS**; the Long Sword keeps that. Each pays the shield back in something a shield cannot buy:
+The offhand is the most valuable slot in the game — a silver Tower Shield is +12 Defense and 82% block for a −10 speed tax — so the roster is held to a rule: **no two-hander may lead the weapon table on DPS.** `npm run tables` prints every base on one ladder, forged at tier 3 and averaged over the whole bestiary, which is where that gets checked:
 
-- **Sweep** (maul, greatsword) resolves against the tile you face *and* the two beside you, at full damage on all three. Blocking only ever covers the tile you face, so three things adjacent is exactly what a guard is worst at. A sweep that lands on two or more wears the weapon twice.
+| Base | DPS | Damage per stamina bar |
+|---|---|---|
+| War Axe | 38.5 | 172 |
+| Long Sword | 38.0 | 117 |
+| **Greatsword** | 37.8 | 154 |
+| **Great Maul** | 35.2 | **184** — the highest in the game |
+| **Halberd** | 33.0 | 150 |
+| Spear | 29.6 | 139 |
+
+The rule holds — the War Axe still leads and the Greatsword is a tenth of a point behind the Long Sword — but **the honest reading is that the two-handers win the long fight**. The Great Maul buys 57% more damage out of one bar than the Long Sword does, and the Halberd is the Spear with a bigger everything. What that costs is not in the table, because the table cannot see an empty offhand: 20% absorption instead of 82%, and none of the Defense. The trade is *survivability for sustain*, and it is meant to be a real choice in both directions rather than a strictly worse option with a consolation prize.
+
+Each pays the shield back in something a shield cannot buy:
+
+- **Sweep** (maul, greatsword) resolves against the tile you face *and* the two beside you, at **full damage on all three** (`SWEEP_FLANK_MULT = 1`). Against three adjacent bodies a tier-3 Great Maul does about 127 damage in one 1.2s cycle for 23 stamina, which is roughly 2.8× a Long Sword's output — situational, because it needs enemies on your flanks and a corridor only ever offers the one in front, but it is the largest burst in the game when the room grants it. Blocking only ever covers the tile you face, so three things adjacent is exactly what a guard is worst at. A sweep that lands on two or more wears the weapon twice.
 - **Stagger** adds seconds to a struck enemy's attack cooldown — 0.5s for the halberd, 0.3s for the other two. It buys time; it does not cancel a wind-up, because cancelling wind-ups is the parry's job and stays the parry's job. Weapons with an explicit `stagger` no longer get the light-enemy wind-up interrupt, so it replaces that rather than stacking with it.
 - **Two guard chips** instead of one, so a shielded enemy's guard breaks in two blows rather than three.
 - The **halberd** keeps reach 2, the spear's trick, without a free hand for a shield.
@@ -654,11 +671,13 @@ They are **lines of one** in `GEAR_LINES`, like the spear. A line *step* is requ
 
 Three bases are thrown rather than swung: **Throwing Knives**, **Throwing Axes**, **Javelins**. They are one-handed and keep a shield.
 
-| Base | Stock (tier 1) | Per tier | Windup / recovery / stamina | Speed | Range | Power |
-|---|---|---|---|---|---|---|
-| Throwing Knives | 6 | +0.5 | 0.16 / 0.34 / 9 | 9 tiles/s | 4 | ×1.8 |
-| Throwing Axes | 4 | +0.5 | 0.24 / 0.46 / 15 | 7 tiles/s | 5 | ×1.42 |
-| Javelins | 2 | +0.5 | 0.32 / 0.58 / 19 | 8 tiles/s | 7 | ×1.54 |
+| Base | Stock (tier 1) | Per tier | Windup / recovery / stamina | Speed | Range | Power | Thrown DPS | A full stock is worth |
+|---|---|---|---|---|---|---|---|---|
+| Throwing Knives | 6 | +0.5 | 0.16 / 0.34 / 9 | 9 tiles/s | 4 | ×1.8 | 24.4 | 85 damage |
+| Throwing Axes | 4 | +0.5 | 0.24 / 0.46 / 15 | 7 tiles/s | 5 | ×1.42 | 32.1 | 112 damage |
+| Javelins | 2 | +0.5 | 0.32 / 0.58 / 19 | 8 tiles/s | 7 | ×1.54 | 33.3 | 90 damage |
+
+DPS and stock value are measured at tier 3, averaged over the whole bestiary, by the weapon roster in `npm run tables`. Thrown, a javelin is the fourth-best weapon in the game at 33.3 DPS; in the hand it is 23.7, below a Mace. Read down the melee half of the same table and all three sit at the bottom — that gap is the weapon.
 
 The `attack` on the base is the **melee** number — what the weapon is worth once the stock is gone — and `thrown.power` scales it up to what a throw actually does. Affixes and material ride along, which keeps thrown weapons inside the power ladder rather than beside it. Every one is deliberately worse in the hand than the cheapest melee weapon of its era, so a thrown weapon is a positioning tool you pay for, never a free upgrade.
 
