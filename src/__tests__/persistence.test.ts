@@ -10,6 +10,8 @@ import { backpackCapacity } from '../systems/meta';
 import { Rarity } from '../types';
 import { GameState } from '../state/game-state';
 import { makeBlueprint, makeEquipment } from '../systems/items';
+import { MATERIALS } from '../data/materials';
+import { commoditySellPrice } from '../systems/market';
 
 /**
  * A real save captured from the build of 2026-09-12, before revisions existed.
@@ -177,6 +179,34 @@ describe('loading an old save', () => {
     const once = parseSave(LEGACY)!;
     const twice = migrateSave(JSON.parse(JSON.stringify(once)));
     expect(twice).toEqual(once);
+  });
+
+  /**
+   * The bug this pins: a material added to MATERIALS shipped without a
+   * commodity row for saves that had already passed revision 10, and the town
+   * screen reads `commodities[id].price` for every material the instant it
+   * renders. Every save in existence crashed on entering town. A save at the
+   * current revision is exactly the case the old backfill did not cover.
+   */
+  it('gives every material a commodity row, at any revision a save can be at', () => {
+    for (const revision of [0, 10, SAVE_REVISION - 1, SAVE_REVISION]) {
+      const s = newGame(createRng(3));
+      s.revision = revision;
+      delete (s.market.commodities as Record<string, unknown>).wardstone;
+      const back = migrateSave(JSON.parse(JSON.stringify(s)));
+      for (const m of MATERIALS) {
+        expect(back.market.commodities[m.id], `${m.id} at revision ${revision}`).toBeDefined();
+        expect(commoditySellPrice(back.market, m.id, 0)).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('leaves a commodity row the player has already traded exactly as it was', () => {
+    const s = newGame(createRng(4));
+    s.revision = 0;
+    s.market.commodities.iron = { price: 999, supply: 7, stock: 3, history: [1, 2, 999] };
+    const back = migrateSave(JSON.parse(JSON.stringify(s)));
+    expect(back.market.commodities.iron).toEqual({ price: 999, supply: 7, stock: 3, history: [1, 2, 999] });
   });
 
   it('round-trips a fresh game', () => {

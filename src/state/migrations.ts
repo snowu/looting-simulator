@@ -97,18 +97,7 @@ const MIGRATIONS: ((s: AnyState) => void)[] = [
   // 9 → 10: market state is persisted, so a newly added material needs a
   // commodity row before town can render it. It starts unavailable and enters
   // ordinary restocking once the player reaches its progression depth.
-  (s) => {
-    if (!s.market) return;
-    s.market.commodities ??= {};
-    for (const material of MATERIALS) {
-      s.market.commodities[material.id] ??= {
-        price: material.value,
-        supply: 0,
-        stock: 0,
-        history: [material.value],
-      };
-    }
-  },
+  backfillCommodities,
   // 10 → 11: blueprints stack by recipe. Re-adding persisted containers folds
   // existing duplicate rows together using the same rules as future pickups.
   (s) => {
@@ -179,6 +168,25 @@ const MIGRATIONS: ((s: AnyState) => void)[] = [
   },
 ];
 
+/**
+ * Give every material in the data a commodity row. Idempotent by design: a row
+ * that already exists is left exactly as the player traded it, and a new one
+ * starts at book value, unavailable, entering ordinary restocking once the
+ * player reaches the depth it drops at.
+ */
+function backfillCommodities(s: AnyState): void {
+  if (!s.market) return;
+  s.market.commodities ??= {};
+  for (const material of MATERIALS) {
+    s.market.commodities[material.id] ??= {
+      price: material.value,
+      supply: 0,
+      stock: 0,
+      history: [material.value],
+    };
+  }
+}
+
 function restack(container: Container | undefined): void {
   if (!container || !Array.isArray(container.items)) return;
   const items = container.items;
@@ -228,6 +236,26 @@ export function migrateSave(state: GameState): GameState {
       // defensive reads elsewhere still have to hold.
     }
     rev++;
+  }
+  // Not a revision step: a repair pass that runs on every load, at every
+  // revision, including ones newer than this build knows about.
+  //
+  // The Wardstone taught this. Adding a material to MATERIALS silently broke
+  // every save written since revision 10 — the 9 → 10 step that backfills a
+  // commodity row only runs for saves older than that, and the town screen
+  // reads `commodities[id].price` for every material the instant it renders,
+  // so the first trip to Bleakmere threw. A save the broken build had already
+  // stamped could not be repaired by any later step either, because a fresh
+  // one at that revision runs nothing at all.
+  //
+  // The lesson is that a *revision* step is the wrong shape for this: the
+  // problem is not "this save is old", it is "the data table grew". So it is
+  // unconditional and idempotent instead, and a material can be added from now
+  // on without anyone having to remember this file exists.
+  try {
+    backfillCommodities(s);
+  } catch {
+    // Same contract as a migration step: never cost the player their save.
   }
   s.revision = Math.max(rev, typeof s.revision === 'number' ? s.revision : 0);
   return state;
