@@ -340,10 +340,12 @@ describe('recoverable thrown stock', () => {
   /**
    * The retrieval channel. It used to snap the whole floor into your hand the
    * instant you pressed R, which made running dry cost nothing worth planning
-   * around. Now each shaft takes its own three quarters of a second and is paid
-   * for as it arrives, so an interrupted call costs exactly what it recovered.
+   * around. Now each shaft takes its own three quarters of a second to leave
+   * the floor and then flies home to your raised hand — and the wait is the
+   * whole cost: no stamina, because charging the bar you need *during* a fight
+   * for the thing you do *after* one paid for nothing.
    */
-  it('calls shafts back one at a time, charging stamina and wear per shaft', () => {
+  it('calls shafts back one at a time, wearing the belt per arrival and charging no stamina', () => {
     const w = belted('throwing_knives', 705);
     const belt = w.state.equipment.thrown!;
     for (let i = 0; i < 3; i++) { w.hurl(); tick(w, 1.0); }
@@ -353,52 +355,123 @@ describe('recoverable thrown stock', () => {
     const wearBefore = durability(belt).cur;
     w.player.stamina = w.derived.maxStamina;
     const stamina = w.player.stamina;
-    const perShaft = 0.6 * w.derived.thrown!.staminaCost;
 
     expect(w.retrieve()).toBe(true);
-    // Nothing has arrived yet: the call is not the recovery.
+    // Nothing has left the floor yet: the call is not the recovery.
     tick(w, 0.5);
     expect(w.run.thrown.held.throwing_knives).toBe(held);
+    expect(w.thrownCounts()).toMatchObject({ floor: 3, flying: 0, calling: true });
 
-    tick(w, 0.4);
+    // The first shaft is airborne: off the floor, not yet in hand. The counter
+    // moves when it leaves the floor and the stock only when it arrives, and
+    // both are visible at once — that split is what the old counter lied about.
+    tick(w, 0.5);
+    expect(w.thrownCounts()).toMatchObject({ floor: 2, flying: 1, calling: true });
+    expect(w.run.thrown.held.throwing_knives).toBe(held);
+
+    // It lands with no stamina spent and one point of belt wear.
+    tick(w, 0.6);
     expect(w.run.thrown.held.throwing_knives).toBe(held + 1);
     expect(durability(belt).cur).toBe(wearBefore - 1);
-    expect(w.player.stamina).toBeCloseTo(stamina - perShaft, 1);
+    expect(w.player.stamina).toBe(stamina);
     // Still running, so no cooldown has started.
     expect(w.run.thrown.retrieveCd).toBe(0);
 
-    tick(w, 1.6);
+    tick(w, 3.0);
     expect(w.run.thrown.held.throwing_knives).toBe(held + 3);
     expect(w.floor.thrown).toEqual([]);
+    expect(w.thrownCounts()).toMatchObject({ floor: 0, flying: 0, calling: false });
     expect(durability(belt).cur).toBe(wearBefore - 3);
-    // Set to 6 when the last shaft arrived, and ticking down ever since.
-    expect(w.run.thrown.retrieveCd).toBeGreaterThan(5);
+    expect(w.player.stamina).toBe(stamina);
+    // Set to 6 when the last shaft left the floor, and ticking down ever since.
+    expect(w.run.thrown.retrieveCd).toBeGreaterThan(0);
+    expect(w.run.thrown.retrieveCd).toBeLessThanOrEqual(6);
   });
 
-  it('stops the call on a blow, keeping only what already came back', () => {
+  it('stops the call on a blow, keeping what arrived and losing nothing', () => {
     const w = belted('throwing_knives', 706);
     for (let i = 0; i < 3; i++) { w.hurl(); tick(w, 1.0); }
     const held = w.run.thrown.held.throwing_knives;
     w.player.stamina = w.derived.maxStamina;
     w.retrieve();
-    tick(w, 0.8);
+    // First shaft home (~1.1s), second not yet sent (1.5s).
+    tick(w, 1.3);
     expect(w.run.thrown.held.throwing_knives).toBe(held + 1);
     const attacker = place(w);
     attacker.attackCd = 0;
     attacker.alert = 8;
     tick(w, 2.0);
-    // One came home before the blow; the other two are still on the floor.
-    expect(w.run.thrown.held.throwing_knives).toBe(held + 1);
-    expect(w.floor.thrown!.reduce((n, m) => n + m.n, 0)).toBe(2);
+    // The blow stopped the call — no cooldown, unlike a call that runs dry —
+    // and the shafts still sum to three across hand, floor and air: whatever
+    // was airborne when the blow landed still came home.
+    expect(w.anim.retrieving).toBeNull();
+    expect(w.run.thrown.retrieveCd).toBe(0);
+    const counts = w.thrownCounts()!;
+    expect(counts.held + counts.floor + counts.flying).toBe(held + 3);
+    expect(counts.held).toBeGreaterThanOrEqual(held + 1);
+    // And it stays stopped: nothing more leaves the floor.
+    const snap = { ...counts };
+    tick(w, 1.0);
+    expect(w.thrownCounts()).toMatchObject(snap);
   });
 
-  it('stops the call when you press R again', () => {
+  it('stopping the call mid-flight still lets the airborne shaft land', () => {
     const w = belted('throwing_knives', 707);
     for (let i = 0; i < 2; i++) { w.hurl(); tick(w, 1.0); }
+    const held = w.run.thrown.held.throwing_knives;
     w.player.stamina = w.derived.maxStamina;
     expect(w.retrieve()).toBe(true);
+    // First shaft launched (0.75s) but not yet home (~1.1s).
+    tick(w, 0.8);
+    expect(w.thrownCounts()).toMatchObject({ floor: 1, flying: 1 });
+    // Tap R again: the call stops, and the shaft already in the air is not
+    // lost with it — the old 0.75s-or-nothing is exactly what this pins.
     expect(w.retrieve()).toBe(false);
+    expect(w.anim.retrieving).toBeNull();
     tick(w, 2.0);
-    expect(w.floor.thrown!.reduce((n, m) => n + m.n, 0)).toBe(2);
+    expect(w.run.thrown.held.throwing_knives).toBe(held + 1);
+    expect(w.thrownCounts()).toMatchObject({ floor: 1, flying: 0, calling: false });
+  });
+
+  it('walking over a shaft spends the call remainder instead of duplicating it', () => {
+    const w = belted('throwing_knives', 710);
+    w.hurl();
+    tick(w, 1.0);
+    const marker = w.floor.thrown!.find((m) => m.base === 'throwing_knives')!;
+    const held = w.run.thrown.held.throwing_knives;
+    expect(w.retrieve()).toBe(true);
+    // Step onto it on foot before the first launch fires (0.75s): the call
+    // re-anchors to what is still out — nothing — and ends with no cooldown,
+    // because the steps were the price.
+    const d = w.player.facing;
+    Object.assign(w.player, { x: marker.x - DX[d], y: marker.y - DY[d] });
+    Object.assign(w.anim, { fromX: w.player.x, fromY: w.player.y, moveT: 1, turnT: 1 });
+    w.press('forward');
+    tick(w, 1.0);
+    const counts = w.thrownCounts()!;
+    expect(counts.held).toBe(held + 1);
+    expect(counts.floor + counts.flying).toBe(0);
+    expect(w.anim.retrieving).toBeNull();
+    expect(w.run.thrown.retrieveCd).toBe(0);
+  });
+
+  it('counts every shaft exactly once, wherever it is', () => {
+    const w = belted('throwing_knives', 711);
+    for (let i = 0; i < 3; i++) { w.hurl(); tick(w, 1.0); }
+    const held = w.run.thrown.held.throwing_knives;
+    const total = () => {
+      const c = w.thrownCounts()!;
+      return c.held + c.floor + c.flying;
+    };
+    expect(total()).toBe(held + 3);
+    w.retrieve();
+    for (let i = 0; i < 40; i++) {
+      tick(w, 0.25);
+      // Floor, air and hand always sum to the same three — the counter the HUD
+      // reads can never promise what the stock will not receive.
+      expect(total()).toBe(held + 3);
+      if (!w.anim.retrieving && w.thrownCounts()!.flying === 0) break;
+    }
+    expect(w.run.thrown.held.throwing_knives).toBe(held + 3);
   });
 });

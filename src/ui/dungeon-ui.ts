@@ -41,7 +41,7 @@ export function paperDoll(eq: Record<EquipSlot, Item | null>, onClick: (slot: Eq
   return doll;
 }
 
-export function statSheet(world: { derived: World['derived'] }): HTMLElement {
+export function statSheet(world: { derived: World['derived'] } & Partial<Pick<World, 'thrownCounts'>>): HTMLElement {
   const d = world.derived;
   const s = d.stats;
   const rows: [string, string][] = [
@@ -56,7 +56,15 @@ export function statSheet(world: { derived: World['derived'] }): HTMLElement {
   ];
   if (d.twoHanded) rows.push(['Guard', '2H block; parry unchanged']);
   if (d.swing.cleave) rows.push(['Cleave', `${Math.round(d.swing.cleave * 100)}% around the target`]);
-  if (d.thrown) rows.push(['Throw', `${d.thrownAttack} ${d.thrownDamageType} · ${d.thrown.range} tiles · ${d.thrownCapacity} carried`]);
+  if (d.thrown) {
+    // In a run the belt is three numbers — in hand, on the floor, flying home —
+    // and the stock alone would repeat the old lie of promising what never
+    // arrives. Out of a run (town doll) there is no stock, so capacity stands in.
+    const c = world.thrownCounts?.();
+    rows.push(['Throw', c
+      ? `${d.thrownAttack} ${d.thrownDamageType} · ${d.thrown.range} tiles · belt ${c.held}/${c.cap}${c.floor + c.flying > 0 ? ` · ${c.floor + c.flying} out` : ''}`
+      : `${d.thrownAttack} ${d.thrownDamageType} · ${d.thrown.range} tiles · ${d.thrownCapacity} carried`]);
+  }
   for (const k of ['leech', 'fire', 'frost', 'shadow', 'holy'] as const) if (s[k]) rows.push([STAT_LABELS[k], String(s[k])]);
   return h('div', { class: 'statsheet' }, ...rows.map(([k, v]) => h('div', {}, h('span', { class: 'dim', text: k }), h('b', { text: v }))));
 }
@@ -403,7 +411,7 @@ export class DungeonOverlays {
       ['Main button', 'Same as a tap; hold to keep swinging'],
       ['Shield', 'Hold to block — raise it as they strike to parry'],
       ['Throw button', 'Hurl one shaft from your belt'],
-      ['R button', 'Call every landed shaft back, one at a time'],
+      ['R button', 'Call shafts back — tap to start or stop, they fly to your raised hand'],
       ['Sigil button', 'Cast your attuned sigil when ready'],
       ['Quick slots', 'Tap to drink / read'],
       ['Pack · Map', 'Gear, backpack and the automap'],
@@ -416,7 +424,7 @@ export class DungeonOverlays {
       ['Shift / RMB', 'Hold to block — raise it as they strike to parry'],
       ['F', 'Open, search, loot, pray, push marked walls'],
       ['T', 'Throw one shaft from your belt'],
-      ['R', 'Call every landed shaft back, one at a time'],
+      ['R', 'Call shafts back — tap to start or stop, they fly to your raised hand'],
       ['G / C', 'Cast your attuned sigil'],
       ['1 – 4', 'Drink / read your first four consumables'],
       ['I / Tab', 'Pack & gear'],
@@ -435,7 +443,7 @@ export class DungeonOverlays {
         'Enemies telegraph: they lean in and flash red before striking. Step out of the tile they are aiming at, or raise your guard. ' +
           'Raise it just as the blow lands and you parry instead: no damage at all, melee attackers reel and take double, and arrows and bolts fly back the way they came. ' +
           'Your shield flashes while the window is open. Holding the guard up does not parry — you have to meet the swing. ' +
-          'Two-handed weapons leave the offhand disabled and block only 20%, but parry exactly like any other weapon. Their blow cleaves for a quarter into every tile touching the thing they hit, including the one behind it. Thrown shafts ride on their own belt slot, so you carry them alongside a weapon and a shield, and you hurl one with T rather than with the attack button. They land where they stop and stay on that floor: walk over one to collect it, or press R to call them all back, one every three quarters of a second, paying stamina and wear for each as it arrives. A blow stops them coming. ' +
+          'Two-handed weapons leave the offhand disabled and block only 20%, but parry exactly like any other weapon. Their blow cleaves for a quarter into every tile touching the thing they hit, including the one behind it. Thrown shafts ride on their own belt slot, so you carry them alongside a weapon and a shield, and you hurl one with T rather than with the attack button. They land where they stop and stay on that floor: walk over one to collect it, or tap R to call them back — one leaves the floor every three quarters of a second and flies to your raised left hand, which is the animation for it. The call costs no stamina and stopping it never loses a shaft already in the air; it still lands. Swinging, casting, a blow, or tapping R again stops the call. Each shaft that lands back in your hand wears the belt by one. ' +
           'Sigils are inscribed and attuned at the Sigils bench in the forge, and cast with G or C. Casting spends stamina and a hit interrupts it without starting the cooldown. ' +
           'Chalk X marks on a wall mean something is hidden behind it, and loose flagstones mean a trap — watch the floor ahead of you. ' +
           'The way out is the stairs you came down. A Scroll of Recall instead opens a portal you can step back through, so you can sell and restock mid-delve.',

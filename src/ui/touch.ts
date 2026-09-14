@@ -28,8 +28,10 @@ export interface TouchHandlers {
 export interface TouchTools {
   /** A belt of shafts is worn, so throwing and calling back are possible. */
   thrown: boolean;
-  /** Shafts are lying on this floor to call back. */
+  /** Shafts are lying on this floor — or flying home, or being called — so Call does something. */
   landed: boolean;
+  /** A call is in progress; Call stops it. */
+  calling: boolean;
   /** A sigil is attuned and off cooldown. */
   sigil: boolean;
 }
@@ -202,11 +204,14 @@ export class TouchControls {
 
   /** Show only the situational buttons that would do something. */
   setTools(t: TouchTools): void {
-    const key = `${t.thrown}${t.landed}${t.sigil}`;
+    const key = `${t.thrown}${t.landed}${t.calling}${t.sigil}`;
     if (key === this.toolsKey) return;
     this.toolsKey = key;
     this.throwBtn.hidden = !t.thrown;
-    this.callBtn.hidden = !t.thrown || !t.landed;
+    // Stays up while a call runs so a second tap can stop it — `retrieve` is
+    // a toggle, and hiding its button mid-call would strand it.
+    this.callBtn.hidden = !t.thrown || (!t.landed && !t.calling);
+    this.callBtn.classList.toggle('on', t.calling);
     this.sigilBtn.hidden = !t.sigil;
   }
 

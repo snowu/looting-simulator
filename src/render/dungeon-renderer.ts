@@ -517,14 +517,19 @@ export class DungeonRenderer {
     // Asked of the derived player, not the slot: a two-hander leaves the shield
     // in the pack, and a shield still sitting in the offhand of a save that
     // predates the rule must not be drawn on an arm that is holding a maul.
+    // While calling shafts back the left hand comes up to meet them — the
+    // shield if one is worn, the bare hand if not — so the call reads on the
+    // body rather than only in the log. Shafts are collected the moment they
+    // reach the player tile, which is where the raised hand is.
+    const retrieving = !!a.retrieving;
     const offhand = world.derived.hasShield ? world.state.equipment.offhand : null;
-    sh.mesh.visible = !!offhand;
-    if (offhand) {
-      const sramp = offhand.materialId ? findMaterial(offhand.materialId)?.ramp : undefined;
-      const tex = artTexture('vm_shield', sramp);
+    sh.mesh.visible = !!offhand || retrieving;
+    if (sh.mesh.visible) {
+      const sramp = offhand?.materialId ? findMaterial(offhand.materialId)?.ramp : undefined;
+      const tex = offhand ? artTexture('vm_shield', sramp) : artTexture('vm_hand');
       if (sh.mat.uniforms.map.value !== tex) sh.mat.uniforms.map.value = tex;
       const ss = (H * 0.42) / 24;
-      const raise = a.blockRaise;
+      const raise = Math.max(a.blockRaise, retrieving ? 1 : 0);
       sh.mesh.scale.set(24 * ss, 24 * ss, 1);
       // Mostly out of frame until raised.
       sh.mesh.position.set(W * 0.16 + raise * W * 0.16 - bobX * 0.5, -H * 0.12 + raise * H * 0.4 - bobY - this.deathFade * 120, 0);

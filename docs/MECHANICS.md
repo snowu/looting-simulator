@@ -707,17 +707,21 @@ DPS and belt value are measured at tier 3, averaged over the whole bestiary, by 
 
 A spent shaft flies, and where it stops — wall, enemy, or the end of its range — it lands on the floor as a marker on `Floor.thrown`, which persists with the floor: walk upstairs and back down and it is still lying where it fell. A shaft that hits something lands **on that thing's tile**, not the tile in front of it; landing it in front meant a point-blank throw fell at your own feet and was collected the same frame, so the one range at which a thrown weapon is supposed to be a bad idea was the one where it was free. Walking over a shaft collects it.
 
-**[R] calls them all back, one at a time.**
+**[R] calls them back, one at a time — tap, never hold.**
 
 | | |
 |---|---|
-| Rate | **One shaft every 0.75s** |
-| Stamina | 60% of one throw's cost, charged per shaft *as it arrives* |
-| Durability | One point of belt wear per shaft, again as it arrives |
-| Cooldown | 6s, started when the last one lands in your hand |
-| Stopped by | Swinging, casting, being stunned, taking a blow, unequipping the belt, running out of breath — or pressing R again |
+| Rate | **One shaft leaves the floor every 0.75s**, then flies home at 11 tiles/s |
+| Stamina | None. The wait is the whole cost — charging the bar you need *during* a fight for the thing you do *after* one paid for nothing |
+| Durability | One point of belt wear per shaft, as it lands back in your hand |
+| Cooldown | 6s, started when the last shaft the call itself sent home leaves the floor |
+| Stopped by | Swinging, casting, being stunned, taking a blow, unequipping the belt — or tapping R again |
 
-Paying per shaft rather than up front means an interrupted call costs exactly what it recovered. A full belt of knives is five seconds of standing still, which a fight will not give you: so the decision to throw the last one is a real decision, and running dry is a real event with a real cost to undo.
+Tap, because holding R re-toggled the call at the key-repeat rate and reset the timer every time, so shafts never arrived and it felt like the key had to be held down for something that is a tap. All of T, R, G and C ignore key repeats.
+
+A called shaft is never in limbo: it is a marker on the floor, a projectile in the air, or in your stock. The stock is credited when it reaches your hand, not when it leaves the floor, so stopping the call never loses what is already airborne — it still lands. Walking over a shaft collects it directly and spends the call's remainder, ending the call with no cooldown when nothing is left: the steps were the price. Changing floors keeps airborne shafts — they go into the stock rather than being dropped on the floor you walk off.
+
+While the call runs your left hand comes up to meet them — the shield if one is worn, the bare hand if not. That raised hand is the whole animation. The HUD shows all three numbers at once (`Belt 3/6 · 2 out`, and `Calling them back · R to stop` while it runs), because showing only the stock is how the call used to promise shafts it never delivered.
 
 The belt wears from both ends — once when a throw lands and again when that shaft is called home — so it has the shortest durability pool in the game (90 against a weapon's 110), and "these are getting blunt" is an honest reason to go back to town.
 

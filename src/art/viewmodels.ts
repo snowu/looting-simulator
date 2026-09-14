@@ -369,6 +369,14 @@ const PAL = {
   1: '#2a2a30', 2: '#55555e', 3: '#8a8a94', 4: '#c8c8d0',
 };
 
+/**
+ * The bare left hand, raised open to catch called shafts. Same fist the
+ * weapons grip with, mirrored for the left arm, sized to the 24×24 offhand
+ * box so it rides the exact pose the shield does — the call reads on the
+ * hand, not on whether you happen to wear a shield.
+ */
+const OPEN_HAND = padTop(LEFT_HAND, 24);
+
 export const VIEWMODELS: ArtDef[] = [
   { id: 'vm_blade', palette: PAL, rows: BLADE },
   { id: 'vm_axe', palette: PAL, rows: AXE },
@@ -382,4 +390,5 @@ export const VIEWMODELS: ArtDef[] = [
   { id: 'vm_sigil_lit', palette: { ...PAL, m: PAL[2], x: '#ffe8a0fa' }, rows: SIGIL_LIT },
   { id: 'vm_fist', palette: PAL, rows: FIST },
   { id: 'vm_shield', palette: PAL, rows: SHIELD },
+  { id: 'vm_hand', palette: PAL, rows: OPEN_HAND },
 ];

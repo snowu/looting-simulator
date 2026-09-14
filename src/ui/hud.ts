@@ -179,12 +179,27 @@ export class Hud {
     this.wardGlow.hidden = !ward;
     this.wardGlow.classList.toggle('fading', ward > 0 && ward <= 2);
     const snuffed = world.anim.snuffT > 0 ? Math.ceil(world.anim.snuffT) : 0;
-    const statusKey = `${world.run.depth}|${biome.id}|${world.run.gold}|${keyNames.join()}|${bless}|${curse}|${world.freeSlots}|${ward}|${snuffed}`;
+    // The belt is three numbers, not one: in hand, on the floor, and flying
+    // home. The call used to show only the stock, which is how it could promise
+    // shafts it never delivered — the counter moved when one left the floor
+    // and the stock only when one arrived, and a stop between the two kept the
+    // difference. All three are read off the same helper the world uses.
+    const belt = world.thrownCounts();
+    const beltKey = belt ? `${belt.held}|${belt.floor}|${belt.flying}|${belt.calling}` : '';
+    const statusKey = `${world.run.depth}|${biome.id}|${world.run.gold}|${keyNames.join()}|${bless}|${curse}|${world.freeSlots}|${ward}|${snuffed}|${beltKey}`;
     if (statusKey !== this.statusKey) {
       this.statusKey = statusKey;
+      const beltLine = !belt
+        ? ''
+        : belt.calling
+          ? `<div class="ward">Calling them back · ${belt.held}/${belt.cap} in hand · ${belt.floor + belt.flying} out · R to stop</div>`
+          : belt.floor + belt.flying > 0
+            ? `<div class="coin">Belt ${belt.held}/${belt.cap} · ${belt.floor + belt.flying} on the ground · R to call back</div>`
+            : `<div class="coin">Belt ${belt.held}/${belt.cap}</div>`;
       this.status.innerHTML =
         `<div class="depth">Depth ${world.run.depth}</div><div class="biome">${biome.name}</div>` +
         `<div class="coin">${world.run.gold}g carried · pack ${world.run.backpack.items.length}/${world.run.backpack.capacity}</div>` +
+        beltLine +
         (keyNames.length ? `<div class="keys">${keyNames.join(', ')}</div>` : '') +
         (bless ? `<div class="bless">Blessing of ${bless}</div>` : '') +
         (curse ? `<div class="curse">${curse}</div>` : '') +

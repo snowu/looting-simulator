@@ -87,6 +87,11 @@ export interface Projectile {
   sourceId?: string;
   /** Parried back at them: now it hits monsters instead of passing through. */
   reflected?: boolean;
+  /**
+   * Flying back to you, not at anything. Hits nothing, is stopped by nothing,
+   * and is collected the moment it reaches your tile.
+   */
+  returning?: boolean;
   /** Recoverable player throw. Its combat snapshot prevents gear swaps changing a shot in flight. */
   thrownBase?: string;
   thrownRange?: number;
@@ -114,7 +119,11 @@ export interface PlayerAnim {
   attackThrow: boolean;
   /**
    * A retrieval in progress: the base being called back, how many shafts are
-   * still out, and the seconds until the next one arrives. Null when idle.
+   * still out on the floor (re-anchored whenever shafts are picked up on
+   * foot, so it never counts what is already back in hand), and the seconds
+   * until the next one leaves the floor. Null when idle. Shafts already
+   * flying home are not counted here — they land on their own even if the
+   * call stops — but `thrownCounts` reports them alongside this.
    */
   retrieving: { base: string; left: number; t: number } | null;
   attackRecovery: number;
@@ -200,15 +209,20 @@ const GUARD_RANGE = 4;
 const GUARD_BREAK_AT = 3;
 
 const RETRIEVE_COOLDOWN = 6;
-const RETRIEVE_STAMINA_MULT = 0.6;
+/** Tiles per second a called shaft travels on its way back to your hand. */
+const RETURN_SPEED = 11;
 /**
- * Seconds for one shaft to come back.
+ * Seconds between one shaft leaving the floor and the next.
  *
  * The whole stock used to snap into your hand the instant you pressed R, which
  * made running dry cost nothing worth planning around — six knives were six
  * frames away. One at a time, a full stock is several seconds of standing
  * there, so the decision to throw the last one is a real one and a fight can
  * end before your knives get home.
+ *
+ * The waiting is the whole cost now. It used to also charge stamina per shaft,
+ * which made the one thing you do *after* a fight compete with the bar you need
+ * *during* one, and paid for nothing: the tension is already the standing still.
  */
 const RETRIEVE_PER_SHAFT = 0.75;
 
@@ -755,7 +769,13 @@ export class World {
   private changeFloor(dir: 'down' | 'up'): void {
     const run = this.run;
     // A floor transition cannot erase a charge that was still in flight.
-    for (const pr of this.projectiles) if (pr.thrownBase) this.landThrown(pr.thrownBase, pr.tileX, pr.tileY);
+    for (const pr of this.projectiles) {
+      if (!pr.thrownBase) continue;
+      // One already flying home is yours: it goes into the stock rather than
+      // being dropped on the floor you are walking off, which would lose it.
+      if (pr.returning) this.collectReturn(pr.thrownBase);
+      else this.landThrown(pr.thrownBase, pr.tileX, pr.tileY);
+    }
     run.depth += dir === 'down' ? 1 : -1;
     if (!run.floors[run.depth - 1]) run.floors[run.depth - 1] = generateFloor(run.seed, run.depth, this.difficultyId);
     const f = this.floor;
@@ -1062,9 +1082,11 @@ export class World {
   /**
    * Begin calling every landed shaft of the equipped base back off this floor.
    *
-   * They come one at a time, {@link RETRIEVE_PER_SHAFT} apart, and each is paid
-   * for as it lands in your hand rather than all up front — so an interrupted
-   * retrieval costs exactly what it recovered. Pressing R again stops it.
+   * A tap, not a hold: each shaft takes {@link RETRIEVE_PER_SHAFT} to leave
+   * the floor and then flies home as a projectile that hits nothing and is
+   * stopped by nothing, credited when it reaches your hand. Stopping the call
+   * — R again, swinging, casting, a blow — never loses what is already
+   * airborne; it still lands. Pressing R again stops it.
    */
   retrieve(): boolean {
     const a = this.anim;
@@ -1075,16 +1097,19 @@ export class World {
       this.msg('You stop calling them back.', '#888');
       return false;
     }
-    if (!base || !thrown || this.busy || a.attack !== 'idle' || a.stunT > 0 || a.cast) return false;
+    if (!base || !thrown) {
+      this.msg('Nothing on your belt to call back.', '#888');
+      return false;
+    }
+    if (this.busy || a.attack !== 'idle' || a.stunT > 0 || a.cast) return false;
     if ((this.run.thrown.retrieveCd ?? 0) > 0) return false;
     const count = (this.floor.thrown ?? []).filter((m) => m.base === base).reduce((n, m) => n + m.n, 0);
-    if (!count) return false;
-    if (this.player.stamina < thrown.staminaCost * RETRIEVE_STAMINA_MULT) {
-      this.msg('Not enough breath to call them back.', '#ff9070');
+    if (!count) {
+      this.msg(`No ${itemBase(base).name.toLowerCase()} on this floor.`, '#888');
       return false;
     }
     a.retrieving = { base, left: count, t: RETRIEVE_PER_SHAFT };
-    this.msg(`You call back ${count} ${itemBase(base).name.toLowerCase()}.`, '#c8b890');
+    this.msg(`You raise your hand. ${count} ${itemBase(base).name.toLowerCase()} on the way.`, '#c8b890');
     return true;
   }
 
@@ -1103,27 +1128,92 @@ export class World {
     r.t -= dt;
     if (r.t > 0) return;
     const marker = (this.floor.thrown ?? []).find((m) => m.base === r.base && m.n > 0);
-    const cost = thrown.staminaCost * RETRIEVE_STAMINA_MULT;
-    if (!marker || this.player.stamina < cost) {
-      if (marker) this.msg('Not enough breath to call them back.', '#ff9070');
+    if (!marker) {
+      // The floor ran dry without a launch spending the last of `left` — that
+      // happens when shafts are picked up by walking mid-call. Walking is the
+      // other cost, already paid in steps, so the call just ends: no cooldown
+      // for recovering the rest on foot.
       a.retrieving = null;
       return;
     }
-    this.player.stamina -= cost;
-    a.sinceStamina = 0;
+    // The shaft leaves the floor now and flies home; it is added to the stock
+    // when it arrives, not here. Nothing is ever in limbo: it is either a
+    // marker on the floor, a projectile in the air, or in your stock, and
+    // stopping the call mid-flight still lets the one already airborne land.
     marker.n--;
     this.floor.thrown = (this.floor.thrown ?? []).filter((m) => m.n > 0);
-    this.run.thrown.held[r.base] = (this.run.thrown.held[r.base] ?? 0) + 1;
-    this.wear('thrown');
+    this.launchReturn(r.base, marker.x, marker.y);
     this.sfx('retrieve');
     r.left--;
     if (r.left <= 0 || !(this.floor.thrown ?? []).some((m) => m.base === r.base)) {
       a.retrieving = null;
-      this.run.thrown.retrieveCd = RETRIEVE_COOLDOWN;
-      this.msg(`${itemBase(r.base).name} back in hand.`, '#c8b890');
+      // The cooldown prices the call, not the walk: it starts when the last
+      // shaft the call itself sent home leaves the floor. Shafts picked up on
+      // foot end the call above without one.
+      if (r.left <= 0) {
+        this.run.thrown.retrieveCd = RETRIEVE_COOLDOWN;
+        this.msg(`${itemBase(r.base).name} coming back to your hand.`, '#c8b890');
+      }
       return;
     }
     r.t += RETRIEVE_PER_SHAFT;
+  }
+
+  /**
+   * A called shaft has reached your hand.
+   *
+   * The stock is credited here rather than when it left the floor, so it is
+   * never in limbo — a shaft is a marker on the floor, a projectile in the air,
+   * or in your stock, and nothing can lose one in between. Stopping the call
+   * still lets whatever is already airborne land.
+   */
+  private collectReturn(base: string): void {
+    this.run.thrown ??= { held: {}, retrieveCd: 0 };
+    this.run.thrown.held[base] = (this.run.thrown.held[base] ?? 0) + 1;
+    this.wear('thrown');
+    this.emit({ type: 'float', x: this.player.x, y: this.player.y, text: `+1`, color: '#c8b890' });
+  }
+
+  /** Send one recovered shaft flying from where it lay back to your hand. */
+  private launchReturn(base: string, fromX: number, fromY: number): void {
+    const thrown = this.derived.thrown;
+    const dx = this.player.x - fromX, dy = this.player.y - fromY;
+    const len = Math.hypot(dx, dy) || 1;
+    this.projectiles.push({
+      id: this.projN++,
+      x: fromX + 0.5, y: fromY + 0.5,
+      dx: dx / len, dy: dy / len,
+      speed: RETURN_SPEED,
+      damage: 0, type: 'pierce',
+      sprite: thrown?.sprite ?? 'proj_knife',
+      tileX: fromX, tileY: fromY,
+      source: 'your hand',
+      returning: true,
+      thrownBase: base,
+    });
+  }
+
+  /**
+   * Every shaft of the belted base, wherever it is: in hand, on the floor, or
+   * flying home. The three used to be shown — and counted — separately, which
+   * is how the call could promise shafts the stock never received: the counter
+   * moved when a shaft left the floor, the stock only when one arrived, and a
+   * stop between the two lost the difference.
+   */
+  thrownCounts(): { held: number; cap: number; floor: number; flying: number; calling: boolean } | null {
+    const base = this.state.equipment.thrown?.ref;
+    const thrown = this.derived.thrown;
+    if (!base || !thrown) return null;
+    const floor = (this.floor.thrown ?? []).filter((m) => m.base === base).reduce((n, m) => n + m.n, 0);
+    let flying = 0;
+    for (const pr of this.projectiles) if (pr.returning && pr.thrownBase === base) flying++;
+    return {
+      held: this.run.thrown.held[base] ?? 0,
+      cap: this.derived.thrownCapacity,
+      floor,
+      flying,
+      calling: this.anim.retrieving?.base === base,
+    };
   }
 
   /**
@@ -2651,6 +2741,25 @@ export class World {
     for (const pr of this.projectiles) {
       pr.x += pr.dx * pr.speed * dt;
       pr.y += pr.dy * pr.speed * dt;
+      // A shaft on its way back to your hand hits nothing and is stopped by
+      // nothing: it steers at you every frame, so it still arrives if you walk
+      // while it flies, and it is collected the moment it is close enough.
+      // Checked before the tile-crossing early-out, because over a short
+      // distance it can arrive without ever leaving the tile it started in.
+      if (pr.returning) {
+        const ddx = p.x + 0.5 - pr.x, ddy = p.y + 0.5 - pr.y;
+        const dist = Math.hypot(ddx, ddy);
+        if (dist <= 0.45) {
+          pr.speed = 0;
+          if (pr.thrownBase) this.collectReturn(pr.thrownBase);
+          continue;
+        }
+        pr.dx = ddx / dist;
+        pr.dy = ddy / dist;
+        pr.tileX = Math.floor(pr.x);
+        pr.tileY = Math.floor(pr.y);
+        continue;
+      }
       const tx = Math.floor(pr.x), ty = Math.floor(pr.y);
       if (tx === pr.tileX && ty === pr.tileY) continue;
       const previous = { x: pr.tileX, y: pr.tileY };
@@ -2774,6 +2883,18 @@ export class World {
     });
     if (found) {
       this.run.thrown.held[base] = (this.run.thrown.held[base] ?? 0) + found;
+      // A call in progress counted these before you walked over them. Re-anchor
+      // its remainder to what is actually still out there rather than
+      // decrementing a snapshot: a snapshot goes stale the moment the floor
+      // holds shafts the call never counted, and the counter it shows must
+      // stay honest. Nothing is left for it to send home, the call just ends —
+      // with no cooldown, since the steps were the price.
+      const r = this.anim.retrieving;
+      if (r && r.base === base) {
+        const remaining = (this.floor.thrown ?? []).filter((m) => m.base === base).reduce((n, m) => n + m.n, 0);
+        r.left = remaining;
+        if (remaining <= 0) this.anim.retrieving = null;
+      }
       this.msg(`You pick up ${found} ${itemBase(base).name.toLowerCase()}.`, '#c8b890');
       this.sfx('pickup');
     }
