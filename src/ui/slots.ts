@@ -89,7 +89,10 @@ function card(v: SlotView, onPlay: OnPlay, actions: SlotActions): HTMLElement {
     );
     const n = note(v);
     if (n) kids.push(n);
-    kids.push(btn('Continue', () => onPlay(v.slot), 'small primary'));
+    // A save taken mid-delve resumes straight back in the dungeon, so say so:
+    // "Continue" undersells the teleport.
+    const midDelve = !!shown.run && shown.run.outcome === 'active';
+    kids.push(btn(midDelve ? 'Resume delve' : 'Continue', () => onPlay(v.slot), 'small primary'));
     if (actions.onRename || actions.onDelete) {
       kids.push(h(
         'div',

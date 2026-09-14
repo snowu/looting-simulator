@@ -70,6 +70,21 @@ export class DungeonRenderer {
   private lowW = 320;
   deathFade = 0;
 
+  // Falling water drops for the Sunken Catacombs: a small pool of billboarded
+  // streaks. main.ts spawns them next to the drip plinks; anything spawned
+  // inside wall geometry stays hidden behind it, so no layout check is needed.
+  // The plink sounds on landing through this callback, so a watched drop is
+  // heard when it hits — not while it is still falling.
+  onDripLand: (() => void) | null = null;
+  private drips: { mesh: THREE.Mesh; vel: number; active: boolean }[] = [];
+  private dripGeo = new THREE.PlaneGeometry(0.035, 1);
+  private dripMat = new THREE.MeshBasicMaterial({
+    color: new THREE.Color('#9fd8e8'),
+    transparent: true,
+    opacity: 0.5,
+    depthWrite: false,
+  });
+
   constructor(private canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(1);
@@ -152,6 +167,52 @@ export class DungeonRenderer {
     this.trapTriggeredAt.set(id, this.time);
   }
 
+  /** Drop one bead of water from the ceiling ahead of the camera. */
+  spawnDrip(): void {
+    let d = this.drips.find((d) => !d.active);
+    if (!d) {
+      if (this.drips.length >= 10) return;
+      const mesh = new THREE.Mesh(this.dripGeo, this.dripMat);
+      mesh.visible = false;
+      this.scene.add(mesh);
+      d = { mesh, vel: 0, active: false };
+      this.drips.push(d);
+    }
+    const rotY = this.camera.rotation.y;
+    const fx = -Math.sin(rotY), fz = -Math.cos(rotY);
+    // A few paces ahead with a sideways scatter, so drops land across the view.
+    const dist = 2 + Math.random() * 4;
+    const side = (Math.random() - 0.5) * 2.4;
+    d.mesh.position.set(
+      this.camera.position.x + fx * dist - fz * side,
+      WALL_H - 0.15,
+      this.camera.position.z + fz * dist + fx * side,
+    );
+    d.vel = 0.4 + Math.random() * 0.4;
+    d.active = true;
+    d.mesh.visible = true;
+    d.mesh.scale.y = 0.09;
+  }
+
+  private updateDrips(dt: number): void {
+    if (dt <= 0) return;
+    for (const d of this.drips) {
+      if (!d.active) continue;
+      d.vel += 9.8 * dt;
+      const y = d.mesh.position.y - d.vel * dt;
+      if (y <= 0.04) {
+        d.active = false;
+        d.mesh.visible = false;
+        this.onDripLand?.();
+        continue;
+      }
+      d.mesh.position.y = y;
+      // A short bead that stretches only slightly as it picks up speed.
+      d.mesh.scale.y = 0.08 + d.vel * 0.012;
+      d.mesh.rotation.y = this.camera.rotation.y;
+    }
+  }
+
   /** World (tile coords + height) → canvas pixels, or null when behind the camera. */
   project(tx: number, ty: number, height: number): { x: number; y: number } | null {
     TMP.set(tileX(tx), height, tileZ(ty)).project(this.camera);
@@ -172,6 +233,10 @@ export class DungeonRenderer {
       this.level = buildLevel(floor, this.shared, ceilingForFloor(floor, previous ?? undefined));
       this.levelFloor = floor;
       this.trapTriggeredAt.clear();
+      for (const d of this.drips) {
+        d.active = false;
+        d.mesh.visible = false;
+      }
       this.scene.add(this.level.root);
       this.shared.uFogColor.value.set(biome.fog);
       this.shared.uAmbient.value.set(biome.ambient);
@@ -388,6 +453,7 @@ export class DungeonRenderer {
     }
 
     // --- Viewmodel ---------------------------------------------------------------
+    this.updateDrips(dt);
     this.updateViewmodel(world, dt, flick(0));
 
     // --- Draw ---------------------------------------------------------------------
