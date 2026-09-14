@@ -328,6 +328,13 @@ function installCloud(save: CloudSave): void {
   saveGame(state, slot);
   cloudSlots.set(save.slot, { kind: 'save', save });
   sync.adopt(save);
+  // A snapshot taken mid-delve resumes in the dungeon, never in town: arriving
+  // in Bleakmere with a run open is a free portal trip — stash, market and all.
+  if (state.run?.outcome === 'active') {
+    enterDungeon();
+    toast('Cloud save loaded.', '#9ac0ff');
+    return;
+  }
   if (mode === 'town') {
     town.tab = 'stash';
     town.render();
@@ -498,7 +505,15 @@ function enterSlot(n: Slot, difficulty?: DifficultyId): void {
   // is why nothing is written here for an empty one until then.
   if (existing) commit();
 
-  enterTown();
+  // A save taken mid-delve resumes in the dungeon, never in town. Landing in
+  // Bleakmere with a run open is a free town portal: the stash, the market and
+  // the forge are all reachable with the backpack still on, so anything carried
+  // can be made safe before the delve gets dangerous.
+  if (state.run?.outcome === 'active') {
+    enterDungeon();
+  } else {
+    enterTown();
+  }
   void reconcile();
 }
 

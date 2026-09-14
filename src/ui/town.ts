@@ -208,7 +208,20 @@ export class Town {
       ),
     );
     let body: HTMLElement;
-    switch (this.tab) {
+    // Mid-delve with no portal open means this screen was reached without
+    // earning the trip — a reload used to land here. Town services stay shut:
+    // moving the live backpack into the stash would make everything carried
+    // safe before the delve gets dangerous. A proper portal trip keeps full
+    // access; this lock is only for the trip that never happened.
+    if (running && !s.run!.portal) {
+      body = h(
+        'div',
+        { class: 'pane frame' },
+        h('h3', { text: 'The delve is still open' }),
+        h('p', { class: 'dim', text: 'You left in the middle of a delve. Bleakmere keeps its doors shut until you go back and finish what you started — or find a Scroll of Recall to earn the trip home.' }),
+        h('div', { class: 'row' }, btn('Return to the Depths', () => this.ctx.descend(), 'primary big')),
+      );
+    } else switch (this.tab) {
       case 'market':
         body = this.market();
         break;
