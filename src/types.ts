@@ -244,8 +244,8 @@ export interface ItemBaseDef {
   swing?: SwingProfile;
   value: number;
   /**
-   * Overrides the weaponClass → viewmodel map. The three thrown bases share one
-   * weapon class but must not share a first-person model.
+   * Overrides the weaponClass → viewmodel map, for a base whose class does not
+   * pick the right model on its own.
    */
   viewmodel?: string;
   /** Shallowest depth this base drops at. */

@@ -2877,10 +2877,11 @@ export class World {
       const total = def?.cast ?? 1;
       return { id: casting.t <= total * 0.45 ? 'vm_sigil_lit' : 'vm_sigil' };
     }
-    // While a throw is in the air you are holding shafts, not your sword, so
-    // the belt wins the viewmodel for exactly as long as the throw lasts.
-    const throwing = this.anim.attackThrow ? this.state.equipment.thrown : null;
-    const w = throwing ?? this.state.equipment.weapon;
+    // A throw shows no viewmodel of its own. The shaft leaves the player and
+    // becomes a projectile; drawing a fistful of javelins for the length of the
+    // wind-up put a second pair of hands in the frame beside the ones already
+    // holding your weapon, which is not how anybody throws anything.
+    const w = this.state.equipment.weapon;
     if (!w) return { id: 'vm_fist' };
     return { id: viewmodelFor(itemBase(w.ref)), materialId: w.materialId };
   }

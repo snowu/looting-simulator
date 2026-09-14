@@ -226,117 +226,80 @@ const GREATSWORD = [
   ...HAND,
 ];
 
-// Thrown weapons sit low and angle back across the frame instead of extending
-// straight ahead like their melee counterparts.
-const THROWN_KNIFE = [
-  ...Array.from({ length: 8 }, () => '........................'),
-  '.....k..................',
-  '....k4k.....k...........',
-  '....k43k...k4k..........',
-  '.....k3k...k43k..k......',
-  '......k3k...k3k.k4k.....',
-  '.......k3k...kk.k43k....',
-  '........khk...kk.k3k....',
-  '.........khk...kk.k3k...',
-  '..........khk...kkkhk...',
-  '...........khkkkkkhk....',
-  '............khhhhhk.....',
-  '...........kdddddk......',
-  '..........kdccccdbk.....',
-  '..........kaaaaaabk.....',
-  '..........kbbbbbbak.....',
-  '...........kddddbak.....',
-  '...........kaaaaabak....',
-  '............kkkkkk......',
-  ...HAND,
-];
+// A thrown weapon has no first-person model. The shaft leaves the player and is
+// a projectile from that moment; a fistful of javelins held up through the
+// wind-up put a second pair of hands in the frame beside the ones already
+// holding your weapon. The pickup and projectile sprites in props.ts are the
+// only art a thrown weapon needs.
 
-const THROWN_AXE = [
-  ...Array.from({ length: 9 }, () => '........................'),
-  '......kkkk..............',
-  '.....k4443k.............',
-  '....k44332kk............',
-  '...k43322khk............',
-  '....k322kkhk............',
-  '.....kk..khk............',
-  '.........khk............',
-  '..........khk...........',
-  '...........khk..kkk.....',
-  '..........kddddk433k....',
-  '.........kdccccdk32k....',
-  '.........kaaaaaakkk.....',
-  '.........kbbbbbbk.......',
-  '..........kddddk........',
-  '..........kaaaaak.......',
-  '...........khhkk........',
-  '............kk..........',
-  ...HAND,
-];
 
-const JAVELIN = [
-  '..k4k...................',
-  '...k43k.................',
-  '....k3k.................',
-  '.....khk................',
-  '......khk...............',
-  '.......khk..............',
-  '........khk.............',
-  '.........khk............',
-  '..........khk...........',
-  '...........khk..........',
-  '............khk.........',
-  '.............khk........',
-  '..............khk.......',
-  '...............khk......',
-  '................khk.....',
-  '.................khk....',
-  '..................khk...',
-  '...........hhhhhhhhk....',
-  '..........hjjjjjjjhk....',
-  '.........kdddddddhhk....',
-  '........kdccccccdhk.....',
-  '........kaaaaaaakhk.....',
-  '........kbbbbbbakhk.....',
-  '.........kddddbakhk.....',
-  '.........kaaaaabkk......',
-  '..........kkkkkk........',
-  ...HAND,
-];
 
 // Casting uses the otherwise-unseen left hand, with the stone face held toward
 // the player. The lit frame changes only the graven mark and loose sparks.
+/**
+ * The stone held up to cast.
+ *
+ * It was a small grey square with a cross scratched on it, tucked at the top of
+ * the frame — at the size the cast pose draws it, that reads as a pebble with a
+ * plus sign, not as the thing a whole spell system is named after. This is a
+ * round stone with a carved rim and a mark cut through it, big enough to be the
+ * subject of the frame, gripped rather than balanced.
+ */
 const SIGIL = [
-  ...Array.from({ length: 7 }, () => '........................'),
-  '....kkkkkk..............',
-  '...k111111k.............',
-  '...k11m111k.............',
-  '...k1mmm11k.............',
-  '...k11m111k.............',
-  '...k111111k.............',
-  '....kkkkkk..............',
-  '.....kddk...............',
-  '....kdcck...............',
-  '...kdaaaak..............',
-  '..kdaaaaak..............',
-  '.kdbaaaaak..............',
-  'kdbbaaaaak..............',
-  'kabbbbbbbak.............',
-  'kaddddddbak.............',
-  'kaaaaaaabbak............',
-  'kbbbbbbbbbak............',
-  'kddddddddbak............',
+  ...Array.from({ length: 4 }, () => '........................'),
+  '......kkkkkkkkk.........',
+  '....kk1111m1111kk.......',
+  '...k11111mmm11111k......',
+  '..k11111m111m11111k.....',
+  '..k1111m11111m1111k.....',
+  '..k1111m11111m1111k.....',
+  '..k1111m11111m1111k.....',
+  '..k11111m111m11111k.....',
+  '..k111111mmm111111k.....',
+  '...k111111m111111k......',
+  '....kk1111111kk.........',
+  '......kkkkkkkkk.........',
+  '.......kdddk............',
+  '......kdccdk............',
+  '.....kdaaaadk...........',
+  '....kdbaaaaak...........',
+  '...kdbbaaaaak...........',
+  '..kabbbbbbbak...........',
+  '..kaddddddbak...........',
+  '..kaaaaaaabbak..........',
+  '..kbbbbbbbbbak..........',
+  '..kddddddddbak..........',
   ...LEFT_HAND,
 ];
 
+/**
+ * The same stone with the mark burning, and light thrown off it.
+ *
+ * The old lit frame changed one colour and scattered three loose pixels in the
+ * corner of the canvas, which looked like dirt on the screen rather than like
+ * the stone doing anything. Here the carving lights right through and the glow
+ * sits around the stone, where light would actually be.
+ */
 const SIGIL_LIT = stamp(
-  SIGIL.map((row) => row.replaceAll('m', '4')),
+  SIGIL.map((row) => row.replaceAll('m', 'x')),
   rows(`
-    ....x.
-    .x....
-    ...x..
+    ....x.......x...
+    ..x...........x.
+    x...............
+    ................
+    ................
+    ................
+    ................
+    ................
+    ................
+    ................
+    ................
+    x...............
+    ..x...........x.
+    ....x.......x...
   `),
-  17,
-  2,
+  3,
+  3,
 );
 
 const FIST = padTop(['.........kkkkkk.........', '.........kcbcbk.........', ...HAND], 40);
@@ -383,11 +346,8 @@ export const VIEWMODELS: ArtDef[] = [
   { id: 'vm_maul', palette: PAL, rows: MAUL },
   { id: 'vm_polearm', palette: PAL, rows: POLEARM },
   { id: 'vm_greatsword', palette: PAL, rows: GREATSWORD },
-  { id: 'vm_thrown_knife', palette: PAL, rows: THROWN_KNIFE },
-  { id: 'vm_thrown_axe', palette: PAL, rows: THROWN_AXE },
-  { id: 'vm_javelin', palette: PAL, rows: JAVELIN },
   { id: 'vm_sigil', palette: { ...PAL, m: PAL[2] }, rows: SIGIL },
-  { id: 'vm_sigil_lit', palette: { ...PAL, x: '#ffe8a0fa' }, rows: SIGIL_LIT },
+  { id: 'vm_sigil_lit', palette: { ...PAL, m: PAL[2], x: '#ffe8a0fa' }, rows: SIGIL_LIT },
   { id: 'vm_fist', palette: PAL, rows: FIST },
   { id: 'vm_shield', palette: PAL, rows: SHIELD },
 ];

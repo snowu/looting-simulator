@@ -68,6 +68,12 @@ const SKIP = {
   b73ccf5: 'reverted first difficulty branch',
   '0c3027b': 'merge of the reverted first difficulty branch',
   '5d91673': 'the revert itself, restoring the pre-difficulty game',
+  // The cloud-save hardening of the same day, reverted whole after it broke
+  // duplicate-save detection and new-save sync. The surviving forge-preview
+  // escape is invisible hardening, so neither commit describes anything a
+  // player can reach.
+  '30b44ad': 'reverted cloud hardening, superseded by af5354d',
+  af5354d: 'the revert itself, restoring pre-hardening sync',
 };
 
 // Commits touching only these files maintain the notes themselves and never

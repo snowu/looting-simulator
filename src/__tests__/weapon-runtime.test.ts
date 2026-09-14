@@ -146,9 +146,6 @@ describe('two-handed runtime', () => {
       ['greatsword', 'vm_greatsword'],
       ['great_maul', 'vm_maul'],
       ['halberd', 'vm_polearm'],
-      ['throwing_knives', 'vm_thrown_knife'],
-      ['throwing_axes', 'vm_thrown_axe'],
-      ['javelins', 'vm_javelin'],
     ];
     const w = arena('long_sword');
     for (const [baseId, art] of expected) {
@@ -248,12 +245,15 @@ describe('recoverable thrown stock', () => {
     expect(w.floor.thrown!.reduce((n, m) => n + m.n, 0)).toBe(1);
   });
 
-  it('puts the shafts in view for the throw, and the weapon back after', () => {
+  it('draws no viewmodel of its own for a throw', () => {
+    // The shaft leaves the player and is a projectile from that moment. Holding
+    // a fistful of javelins up through the wind-up put a second pair of hands
+    // in the frame beside the ones already holding the greatsword.
     const w = belted('javelins', 708, 'greatsword');
     expect(w.weaponArt().id).toBe('vm_greatsword');
     w.hurl();
     tick(w, 0.1);
-    expect(w.weaponArt().id).toBe('vm_javelin');
+    expect(w.weaponArt().id).toBe('vm_greatsword');
     tick(w, 2.0);
     expect(w.weaponArt().id).toBe('vm_greatsword');
   });

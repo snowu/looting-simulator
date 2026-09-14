@@ -1696,34 +1696,10 @@
     "recolorable": true
   },
   {
-    "id": "vm_thrown_knife",
-    "file": "viewmodels/vm_thrown_knife.png",
-    "width": 24,
-    "height": 40,
-    "base": null,
-    "recolorable": true
-  },
-  {
-    "id": "vm_thrown_axe",
-    "file": "viewmodels/vm_thrown_axe.png",
-    "width": 24,
-    "height": 40,
-    "base": null,
-    "recolorable": true
-  },
-  {
-    "id": "vm_javelin",
-    "file": "viewmodels/vm_javelin.png",
-    "width": 24,
-    "height": 40,
-    "base": null,
-    "recolorable": true
-  },
-  {
     "id": "vm_sigil",
     "file": "viewmodels/vm_sigil.png",
     "width": 24,
-    "height": 39,
+    "height": 40,
     "base": null,
     "recolorable": true
   },
@@ -1731,7 +1707,7 @@
     "id": "vm_sigil_lit",
     "file": "viewmodels/vm_sigil_lit.png",
     "width": 24,
-    "height": 39,
+    "height": 40,
     "base": null,
     "recolorable": true
   },

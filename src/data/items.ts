@@ -95,7 +95,6 @@ export const ITEM_BASES: ItemBaseDef[] = [
   // reaching something that cannot reach you.
   {
     id: 'throwing_knives', name: 'Throwing Knives', slot: 'thrown', icon: 'ic_throwing_knives', weaponClass: 'thrown', damageType: 'pierce',
-    viewmodel: 'vm_thrown_knife',
     base: { attack: 5 }, perTier: { attack: 1.4 }, primary: ['metal'],
     thrown: {
       stock: 6, stockPerTier: 0.5, windup: 0.16, recovery: 0.34, staminaCost: 9,
@@ -105,7 +104,6 @@ export const ITEM_BASES: ItemBaseDef[] = [
   },
   {
     id: 'throwing_axes', name: 'Throwing Axes', slot: 'thrown', icon: 'ic_throwing_axes', weaponClass: 'thrown', damageType: 'slash',
-    viewmodel: 'vm_thrown_axe',
     base: { attack: 12 }, perTier: { attack: 2.8 }, primary: ['metal', 'wood'],
     thrown: {
       stock: 4, stockPerTier: 0.5, windup: 0.24, recovery: 0.46, staminaCost: 15,
@@ -115,7 +113,6 @@ export const ITEM_BASES: ItemBaseDef[] = [
   },
   {
     id: 'javelins', name: 'Javelins', slot: 'thrown', icon: 'ic_javelins', weaponClass: 'thrown', damageType: 'pierce',
-    viewmodel: 'vm_javelin',
     base: { attack: 17 }, perTier: { attack: 2.9 }, primary: ['metal'],
     thrown: {
       stock: 2, stockPerTier: 0.5, windup: 0.32, recovery: 0.58, staminaCost: 19,

@@ -50,8 +50,11 @@ describe('pixel art', () => {
     }
     // Every weapon in the game has to have something to be held as.
     for (const b of ITEM_BASES) {
-      if (b.slot !== 'weapon') continue;
-      needed.add(viewmodelFor(b));
+      if (b.slot === 'weapon') needed.add(viewmodelFor(b));
+      // A thrown belt has no viewmodel — it is never held — but it does need
+      // the shaft in flight and the shaft on the floor. These moved out of the
+      // weapon slot, and the check above used to be gated on `slot === 'weapon'`
+      // in a way that silently stopped covering them.
       if (b.thrown) {
         needed.add(b.thrown.sprite);
         needed.add(b.thrown.groundSprite);
