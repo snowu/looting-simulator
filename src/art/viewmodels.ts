@@ -363,12 +363,65 @@ const PAL = {
 };
 
 /**
- * The bare left hand, raised open to catch called shafts. Same fist the
- * weapons grip with, mirrored for the left arm, sized to the 24×24 offhand
- * box so it rides the exact pose the shield does — the call reads on the
- * hand, not on whether you happen to wear a shield.
+ * The bare left hand, raised open to catch called shafts — drawn at 2×
+ * density (48 rows) as an experiment in buying detail with pixels. The
+ * renderer height-normalises viewmodels, so it rides the exact pose the
+ * 24-row art did, at the same on-screen size with finer pixels: round
+ * fingertip caps at staggered heights, one soft joint dash per finger, gaps
+ * that fade as fingers meet the palm, real palm creases, a thumb with a
+ * rounded tip, and a bracer with strap and buckle. If it reads better than
+ * the 1× fists in game, the hands — and then the weapons — follow it up.
  */
-const OPEN_HAND = padTop(LEFT_HAND, 24);
+const OPEN_HAND = [
+  '................................................',
+  '................................................',
+  '................................................',
+  '................kdddk...........................',
+  '..............kkdddddkk..kdddk..................',
+  '.......kdddk...kdddddckkkdddddkk................',
+  '.....kkdddddkk.kdddddck.kdddddck..kdddk.........',
+  '......kdddddckakdddddckakdddddckkkdddddk........',
+  '......kdddddckakdddddckakdddddckakddddck........',
+  '......kdddddckakdddddckakdddddckakddddck........',
+  '......kdddddckakdddddckakdddddckakddddck........',
+  '......kdddddckakdddddckakdddddckakddddck........',
+  '......kdbbbdckakdddddckakdddddckakdbbbck........',
+  '......kdddddckbkdddddckbkdbbbdckbkddddck........',
+  '......kdddddckbkdbbbdckbkdddddckbkddddck........',
+  '......kdddddckbkdddddckbkdddddckbkddddck........',
+  '......kdddddckbkdddddckbkdddddckbkddkddddk......',
+  '......kdddddckckdddddckckdddddckckdkddddddk.....',
+  '......kdddddckckdddddckckdddddckckkdddckddck....',
+  '......kdddddckckdddddckckdddddckckkdddckddck....',
+  '......kdddddckckdddddckckdddddckckdkddckddck....',
+  '.....kkdddddckdkdddddckdkdddddckdkdkddckkddck...',
+  '.....kddddddddddddddddddddddddddddddkddckddck...',
+  '.....kddddddddddddddddddddddddddddddkddckddck...',
+  '.....kddddddddddaaddaadddddddddddddddkdckdddck..',
+  '.....kddaaddaaddddddddddaadddddddddddkdckdddck..',
+  '.....kdddddddddddddddddddddaadddddddddkckdddck..',
+  '.....kddddddddddddddddddddddddaadddddddck.......',
+  '.....kccccccccccccccccccccccccccccbbcccck.......',
+  '.....kcccccccccccaaaaaaaccccccccccccbbcck.......',
+  '.....kcccaaaaaaaacccccccccccccccccccccbbk.......',
+  '.....kcccccccccccccccccccccccccccccccccck.......',
+  '.....kcccccccccccccccccccccccccccccccccck.......',
+  '.....kcccccccccccccccccccccccccccccccccck.......',
+  '.....kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk.......',
+  '.........kccccccccccccccccccccccccck............',
+  '.........kccccccccccccccccccccccccck............',
+  '..........kccccccccccccccccccccccck.............',
+  '..........kccccccccccccccccccccccck.............',
+  '..........kkkkkkkkkkkkkkkkkkkkkkkkk.............',
+  '..........khhhhhhhhhkkhhhhhhhhhhhhk.............',
+  '..........kgggggggggkkggghkhggggggk.............',
+  '..........kgggggggggkkggghhhggggggk.............',
+  '..........kgggggggggkkggggggggggggk.............',
+  '..........kkkkkkkkkkkkkkkkkkkkkkkkk.............',
+  '...........kaaaadaaaaaaaaaaabaaaak..............',
+  '...........kaaaadaaaaaaaaaaabaaaak..............',
+  '...........kaaaadaaaaaaaaaaabaaaak..............',
+];
 
 export const VIEWMODELS: ArtDef[] = [
   { id: 'vm_blade', palette: PAL, rows: BLADE },

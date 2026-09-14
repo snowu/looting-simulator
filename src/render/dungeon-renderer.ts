@@ -592,11 +592,16 @@ export class DungeonRenderer {
     sh.mesh.visible = !!offhand || retrieving;
     if (sh.mesh.visible) {
       const sramp = offhand?.materialId ? findMaterial(offhand.materialId)?.ramp : undefined;
-      const tex = offhand ? artTexture('vm_shield', sramp) : artTexture('vm_hand');
+      const texId = offhand ? 'vm_shield' : 'vm_hand';
+      const tex = artTexture(texId, sramp);
       if (sh.mat.uniforms.map.value !== tex) sh.mat.uniforms.map.value = tex;
-      const ss = (H * 0.42) / 24;
+      // Sized off the art, not a constant: the box is 24 rows tall but a
+      // denser sprite (the bare hand is drawn at 2×) rides the same pose at
+      // the same on-screen size with finer pixels.
+      const box = artSize(texId);
+      const ss = (H * 0.42) / box.h;
       const raise = Math.max(a.blockRaise, retrieving ? 1 : 0);
-      sh.mesh.scale.set(24 * ss, 24 * ss, 1);
+      sh.mesh.scale.set(box.w * ss, box.h * ss, 1);
       // Mostly out of frame until raised.
       sh.mesh.position.set(W * 0.16 + raise * W * 0.16 - bobX * 0.5, -H * 0.12 + raise * H * 0.4 - bobY - this.deathFade * 120, 0);
       sh.mesh.rotation.set(0, 0, 0.2 - raise * 0.2);
