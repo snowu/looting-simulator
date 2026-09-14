@@ -11,11 +11,11 @@ export interface SigilDef {
 }
 
 export const SIGILS: readonly SigilDef[] = [
-  { id: 'wardcry', name: 'Sigil of Wardcry', icon: 'ic_gem', cooldown: 70, cast: 0.35, stamina: 30, description: 'Shouts a foe backward and stuns it.' },
-  { id: 'snuff', name: 'Sigil of Snuff', icon: 'ic_gem', cooldown: 90, cast: 0.5, stamina: 25, description: 'Breaks pursuit, then leaves you in darkness.' },
-  { id: 'sounding', name: 'Sigil of Sounding', icon: 'ic_gem', cooldown: 45, cast: 0.8, stamina: 20, description: 'Reads nearby stone and hidden mechanisms.' },
-  { id: 'threshold', name: 'Sigil of Threshold', icon: 'ic_gem', cooldown: 80, cast: 0.5, stamina: 25, description: 'Consecrates one tile for easier parries.' },
-  { id: 'temper', name: 'Sigil of Temper', icon: 'ic_gem', cooldown: 90, cast: 1.2, stamina: 15, description: 'Mends the most worn equipped item.' },
+  { id: 'wardcry', name: 'Sigil of Wardcry', icon: 'ic_sig_wardcry', cooldown: 70, cast: 0.35, stamina: 30, description: 'Shouts a foe backward and stuns it.' },
+  { id: 'snuff', name: 'Sigil of Snuff', icon: 'ic_sig_snuff', cooldown: 90, cast: 0.5, stamina: 25, description: 'Breaks pursuit, then leaves you in darkness.' },
+  { id: 'sounding', name: 'Sigil of Sounding', icon: 'ic_sig_sounding', cooldown: 45, cast: 0.8, stamina: 20, description: 'Reads nearby stone and hidden mechanisms.' },
+  { id: 'threshold', name: 'Sigil of Threshold', icon: 'ic_sig_threshold', cooldown: 80, cast: 0.5, stamina: 25, description: 'Consecrates one tile for easier parries.' },
+  { id: 'temper', name: 'Sigil of Temper', icon: 'ic_sig_temper', cooldown: 90, cast: 1.2, stamina: 15, description: 'Mends the most worn equipped item.' },
 ];
 
 const BY_ID = new Map(SIGILS.map((s) => [s.id, s]));
