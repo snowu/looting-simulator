@@ -11,6 +11,7 @@
  *   npm run art:sheet -- guard --zoom 9     # close enough to count pixels
  *   npm run art:sheet -- --ids rat_0,rat_atk --out /tmp  # an ad-hoc sheet of any art
  *   npm run art:sheet -- viewmodels --material star_iron  # held weapons as one deciding material
+ *   npm run art:sheet -- --pr                          # curated weapon-overhaul PR sheets
  *   npm run art:sheet -- icons --tier 2                   # best material at tier 2
  */
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -198,7 +199,29 @@ const ids = flag('--ids');
 const out = resolve(flag('--out') ?? 'docs/previews');
 const values = new Set([flag('--zoom'), ids, flag('--out'), flag('--tier'), flag('--material')]);
 const wanted = args.filter((a) => !a.startsWith('--') && !values.has(a));
-const chosen = ids
+// PR images use the same cells and material choices as the in-game viewer.
+const prSheet = (source, id, title, cols, keep = () => true) => {
+  const sheet = SHEETS.find(s => s.id === source);
+  return { ...sheet, id, title, cols, groups: sheet.groups
+    .map(group => ({ ...group, cells: group.cells.filter(keep) }))
+    .filter(group => group.cells.length) };
+};
+const prIcons = new Set([
+  'ic_dagger', 'ic_short_sword', 'ic_long_sword', 'ic_axe', 'ic_mining_pick',
+  'ic_mace', 'ic_spear', 'ic_club', 'ic_halberd', 'ic_great_maul', 'ic_greatsword',
+  'ic_throwing_knives', 'ic_throwing_axes', 'ic_javelins', 'ic_buckler',
+  'ic_kite_shield', 'ic_tower_shield', 'ic_hauberk',
+  'ic_sig_wardcry', 'ic_sig_snuff', 'ic_sig_sounding', 'ic_sig_threshold', 'ic_sig_temper',
+]);
+const prProps = new Set([
+  'proj_knife', 'proj_axe_thrown', 'proj_javelin', 'pickup_knives',
+  'pickup_axes', 'pickup_javelins', 'ward_threshold', 'ward_threshold_dim',
+]);
+const chosen = args.includes('--pr') ? [
+  prSheet('icons', 'weapons-new-icons', 'Weapon overhaul icons', 6, c => prIcons.has(c.id)),
+  prSheet('viewmodels', 'weapons-new-viewmodels', 'Final held art', 6),
+  prSheet('props', 'weapons-new-props', 'Thrown weapons and wards', 4, c => prProps.has(c.id)),
+] : ids
   ? [{ id: 'scratch', title: 'Scratch', note: '', cols: Math.min(4, ids.split(',').length), groups: [{ title: 'Picked', cells: ids.split(',').map((id) => ({ id: id.trim(), label: id.trim() })) }] }]
   : wanted.length ? SHEETS.filter((s) => wanted.includes(s.id)) : SHEETS;
 if (!chosen.length) throw new Error(`No such sheet: ${wanted.join(', ')}. Known: ${SHEETS.map((s) => s.id).join(', ')}`);

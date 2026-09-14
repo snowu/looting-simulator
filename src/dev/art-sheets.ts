@@ -184,7 +184,13 @@ function viewmodelCells(tier: number, materialId?: string): SheetCell[] {
   return VIEWMODELS.map((vm) => {
     const base = ITEM_BASES.find((b) =>
       (b.slot === 'offhand' || b.slot === 'weapon') && viewmodelFor(b) === vm.id);
-    if (!base) return { id: vm.id, label: 'Bare hands' };
+    if (!base) {
+      const labels: Record<string, string> = {
+        vm_fist: 'Bare fist', vm_hand: 'Retrieval hand',
+        vm_sigil: 'Sigil stone', vm_sigil_lit: 'Sigil stone · casting',
+      };
+      return { id: vm.id, label: labels[vm.id] ?? vm.id };
+    }
     const m = materialFor(base.primary, tier, materialId);
     return { id: vm.id, label: m ? `${base.name} · ${m.name}` : base.name, ramp: m?.ramp };
   });
