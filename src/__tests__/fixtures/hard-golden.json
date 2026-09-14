@@ -1,7 +1,7 @@
 {
-  "note": "Original Hard stats, loot and player kits stay pinned to the pre-difficulty game. Intentional biome and weapon-roster results are recorded separately. weaponLootHash moved a second time when the three thrown bases left the weapon slot for their own: the weapon drop pool has three fewer entries and a new slot has three, so every roll after the first shifts. enemyHp has not moved and must not: nothing in the weapon work touches monster health, so a change there is a bug, not a rebaseline.",
+  "note": "Original Hard stats, loot and player kits stay pinned to the pre-difficulty game. Intentional biome and weapon-roster results are recorded separately. weaponLootHash moved a second time when the three thrown bases left the weapon slot for their own: the weapon drop pool has three fewer entries and a new slot has three, so every roll after the first shifts. enemyHp has not moved and must not: nothing in the weapon work touches monster health, so a change there is a bug, not a rebaseline. varietyFloorHash rebased for depth scaling (map 47→51 on D6, enemies +30-40%, 1 guaranteed secret + scaling 2nd): intentional generation change, loot/enemyHp untouched.",
   "floorHash": "b182a0fb",
-  "varietyFloorHash": "fcfb15ca",
+  "varietyFloorHash": "6691358a",
   "lootHash": "c87954b9",
   "weaponLootHash": "c860aace",
   "weaponPlayerHpChanges": {

@@ -407,7 +407,10 @@ interface Entrance {
 function tryGenerate(seed: number, depth: number, rng: Rng, diff: DifficultyDef = DIFFICULTIES.hard): Floor | null {
   const biome = biomeForDepth(depth, seed);
   const isBoss = depth >= FINAL_DEPTH;
-  const W = 31 + 4 * Math.min(depth - 1, 4);
+  // Gentle growth: 31 → 51 by depth 6. D1-D5 identical to before; only the
+  // throne floor grows 47 → 51 so deeper delves feel bigger without
+  // rebalancing the early game.
+  const W = 31 + 4 * (depth - 1);
   const H = W;
   const N = W * H;
   const tiles: number[] = new Array(N).fill(WALL);
@@ -442,7 +445,7 @@ function tryGenerate(seed: number, depth: number, rng: Rng, diff: DifficultyDef 
     }
     if (!throne) return null;
   }
-  const target = isBoss ? 8 : 9 + Math.min(depth, 5);
+  const target = isBoss ? 9 : 9 + Math.min(depth, 5);
   for (let a = 0; a < 900 && rooms.length < target; a++) {
     const big = rng.chance(0.18);
     const w = big ? rng.int(6, 9) : rng.int(3, 6);
@@ -617,27 +620,36 @@ function tryGenerate(seed: number, depth: number, rng: Rng, diff: DifficultyDef 
   }
 
   // --- Secret room behind a pushable wall ---------------------------------
+  // One secret is guaranteed; a second gets a low roll that grows with depth
+  // (20% D1 → 45% D6) so deeper floors reward searching without flooding D1.
   const secrets: Secret[] = [];
-  if (rng.chance(0.5 + depth * 0.06)) {
+  {
     const hosts = rooms.filter((r) => r.role === 'normal' || r.role === 'treasure' || r.role === 'start');
-    for (let a = 0; a < 300 && secrets.length === 0 && hosts.length; a++) {
-      const r = rng.pick(hosts);
-      const d = rng.pick(DIRS);
-      // Edge tile of the room on side d.
-      const fx = d === Dir.W ? r.x : d === Dir.E ? r.x + r.w - 1 : rng.int(r.x, r.x + r.w - 1);
-      const fy = d === Dir.N ? r.y : d === Dir.S ? r.y + r.h - 1 : rng.int(r.y, r.y + r.h - 1);
-      const sx = fx + DX[d], sy = fy + DY[d];
-      const ccx = fx + DX[d] * 3, ccy = fy + DY[d] * 3;
-      let ok = tiles[idx(sx, sy)] === WALL && !reserved[idx(sx, sy)];
-      for (let yy = ccy - 2; ok && yy <= ccy + 2; yy++) for (let xx = ccx - 2; ok && xx <= ccx + 2; xx++) {
-        if (!inner(xx, yy) || tiles[idx(xx, yy)] !== WALL || roomOf[idx(xx, yy)] !== -1 || reserved[idx(xx, yy)]) ok = false;
+    const tryPlaceOne = (): boolean => {
+      for (let a = 0; a < 300 && hosts.length; a++) {
+        const r = rng.pick(hosts);
+        const d = rng.pick(DIRS);
+        // Edge tile of the room on side d.
+        const fx = d === Dir.W ? r.x : d === Dir.E ? r.x + r.w - 1 : rng.int(r.x, r.x + r.w - 1);
+        const fy = d === Dir.N ? r.y : d === Dir.S ? r.y + r.h - 1 : rng.int(r.y, r.y + r.h - 1);
+        const sx = fx + DX[d], sy = fy + DY[d];
+        const ccx = fx + DX[d] * 3, ccy = fy + DY[d] * 3;
+        let ok = tiles[idx(sx, sy)] === WALL && !reserved[idx(sx, sy)];
+        for (let yy = ccy - 2; ok && yy <= ccy + 2; yy++) for (let xx = ccx - 2; ok && xx <= ccx + 2; xx++) {
+          if (!inner(xx, yy) || tiles[idx(xx, yy)] !== WALL || roomOf[idx(xx, yy)] !== -1 || reserved[idx(xx, yy)]) ok = false;
+        }
+        if (!ok) continue;
+        const sr = addRoom(ccx - 1, ccy - 1, 3, 3, 'secret');
+        void sr;
+        secrets.push({ x: sx, y: sy, found: false });
+        reserved[idx(sx, sy)] = true;
+        return true;
       }
-      if (!ok) continue;
-      const sr = addRoom(ccx - 1, ccy - 1, 3, 3, 'secret');
-      void sr;
-      secrets.push({ x: sx, y: sy, found: false });
-      reserved[idx(sx, sy)] = true;
-    }
+      return false;
+    };
+    // First secret: always attempted. Second: low scaling chance, only if the
+    // first landed (spacing check inside tryPlaceOne keeps them apart).
+    if (tryPlaceOne() && rng.chance(0.15 + depth * 0.05)) tryPlaceOne();
   }
 
   // --- Stairs in wall alcoves ------------------------------------------------
@@ -864,7 +876,9 @@ function tryGenerate(seed: number, depth: number, rng: Rng, diff: DifficultyDef 
   // would turn a floor into a queue. Fewer and deadlier is the trade.
   // Difficulty thins the crowd on Normal; Hard multiplies by exactly 1, so the
   // count — and therefore every RNG draw after it — is unchanged there.
-  const wanted = Math.max(1, Math.round((3 + Math.round(depth * 1.2) + Math.floor(rooms.length / 4)) * diff.enemyCount));
+  // Depth scaling: steeper slope (1.2 → 1.6) plus denser rooms (/4 → /3) for
+  // roughly +30-40% more bodies deep while keeping D1 readable.
+  const wanted = Math.max(1, Math.round((3 + Math.round(depth * 1.6) + Math.floor(rooms.length / 3)) * diff.enemyCount));
   const hostRooms = rooms.filter((r) => r.role !== 'start' && r.role !== 'secret' && r.role !== 'throne');
   for (let guard = 0; enemies.length < wanted + (throne ? 3 : 0) && guard < 200; guard++) {
     const def = rng.weighted(pool.map((e) => [e,
