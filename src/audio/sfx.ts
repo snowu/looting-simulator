@@ -17,13 +17,52 @@ export interface PlayOpts {
   rate?: number;
 }
 
+const VOLUME_KEY = 'looting-simulator-audio-volume';
+const MUTED_KEY = 'looting-simulator-audio-muted';
+
+function loadStoredVolume(): number {
+  try {
+    const raw = localStorage.getItem(VOLUME_KEY);
+    if (raw === null) return 0.7;
+    const v = Number(raw);
+    return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0.7;
+  } catch {
+    return 0.7;
+  }
+}
+
+function loadStoredMuted(): boolean {
+  try {
+    return localStorage.getItem(MUTED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
 class AudioEngine {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
   private noise: AudioBuffer | null = null;
   private ambient: { stop: () => void } | null = null;
-  muted = false;
-  volume = 0.7;
+  muted = loadStoredMuted();
+  volume = loadStoredVolume();
+
+  /** Persist the current volume/mute choice; device preference, not save data. */
+  private persist(): void {
+    try {
+      localStorage.setItem(VOLUME_KEY, String(this.volume));
+      localStorage.setItem(MUTED_KEY, this.muted ? '1' : '0');
+    } catch {
+      // Storage blocked: the game keeps running, the choice just won't stick.
+    }
+  }
+
+  /** Re-read stored prefs (e.g. after boot before first unlock). */
+  loadPrefs(): void {
+    this.muted = loadStoredMuted();
+    this.volume = loadStoredVolume();
+    if (this.master) this.master.gain.value = this.muted ? 0 : this.volume;
+  }
 
   /** Call from a user gesture. Safe to call repeatedly. */
   unlock(): void {
@@ -35,7 +74,7 @@ class AudioEngine {
     if (!Ctx) return;
     this.ctx = new Ctx();
     this.master = this.ctx.createGain();
-    this.master.gain.value = this.volume;
+    this.master.gain.value = this.muted ? 0 : this.volume;
     this.master.connect(this.ctx.destination);
     const len = this.ctx.sampleRate;
     this.noise = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
@@ -57,14 +96,20 @@ class AudioEngine {
   }
 
   setVolume(v: number): void {
-    this.volume = v;
-    if (this.master) this.master.gain.value = this.muted ? 0 : v;
+    this.volume = Math.min(1, Math.max(0, v));
+    if (this.master) this.master.gain.value = this.muted ? 0 : this.volume;
+    this.persist();
+  }
+
+  setMuted(m: boolean): boolean {
+    this.muted = m;
+    if (this.master) this.master.gain.value = this.muted ? 0 : this.volume;
+    this.persist();
+    return this.muted;
   }
 
   toggleMute(): boolean {
-    this.muted = !this.muted;
-    this.setVolume(this.volume);
-    return this.muted;
+    return this.setMuted(!this.muted);
   }
 
   private out(opts: PlayOpts): { ctx: AudioContext; dest: AudioNode; t: number; rate: number } | null {

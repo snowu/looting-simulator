@@ -790,6 +790,7 @@ async function enterBossArena(): Promise<void> {
 }
 
 // --- Boot ------------------------------------------------------------------------
+audio.loadPrefs();
 const params = new URLSearchParams(location.search);
 if (import.meta.env.DEV && params.has('art')) void openArtSheet();
 if (params.has('autostart')) {

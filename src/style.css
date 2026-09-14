@@ -97,6 +97,13 @@ h3 { font-size: 26px; color: var(--ink); margin-bottom: 6px; }
 .diff-row { display: flex; gap: 10px; align-items: baseline; margin: 5px 0; }
 .diff-row .btn { flex: none; min-width: 78px; }
 
+/* Settings: volume slider sits beside the mute toggle, percentage pinned right
+   so dragging never shoves the row around. */
+.audio-row { display: flex; gap: 10px; align-items: center; margin: 5px 0; }
+.audio-row .btn { flex: none; min-width: 110px; }
+.audio-slider { flex: 1; min-width: 80px; accent-color: var(--gold); cursor: pointer; }
+.audio-pct { flex: none; min-width: 52px; text-align: right; font-variant-numeric: tabular-nums; }
+
 /* Slots */
 .slot {
   --sz: 40px;
