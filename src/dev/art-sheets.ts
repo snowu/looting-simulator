@@ -53,8 +53,21 @@ const TIERS = [...new Set(MATERIALS.map((m) => m.tier))].sort((a, b) => a - b);
 export const MATERIAL_TIERS: number[] = TIERS;
 export const DEFAULT_TIER = TIERS[Math.floor(TIERS.length / 2)];
 
+/**
+ * Materials that can decide crafted gear colour: the primary slot of a recipe
+ * never takes gems or valuables, so those would never change a viewmodel or a
+ * gear icon and are left out of the art sheet's material switch.
+ */
+export const GEAR_MATERIALS: MaterialDef[] = MATERIALS.filter((m) =>
+  ['metal', 'wood', 'hide', 'cloth', 'bone'].includes(m.category),
+);
+
 /** The best material a base is allowed at this tier, or the cheapest it allows. */
-function materialFor(categories: readonly string[], tier: number): MaterialDef | undefined {
+function materialFor(categories: readonly string[], tier: number, materialId?: string): MaterialDef | undefined {
+  if (materialId) {
+    const picked = MATERIALS.find((m) => m.id === materialId);
+    if (picked && categories.includes(picked.category)) return picked;
+  }
   const allowed = MATERIALS.filter((m) => categories.includes(m.category));
   const atTier = allowed.filter((m) => m.tier <= tier);
   const pool = atTier.length ? atTier : allowed;
@@ -167,17 +180,17 @@ const plain = (ids: string[]): SheetCell[] => ids.map((id) => ({ id, label: id }
  * weapon made of nothing. Each model is shown in the material of a real base
  * that is held as it — `vm_fist` excepted, which is a hand.
  */
-function viewmodelCells(tier: number): SheetCell[] {
+function viewmodelCells(tier: number, materialId?: string): SheetCell[] {
   return VIEWMODELS.map((vm) => {
     const base = ITEM_BASES.find((b) =>
       vm.id === 'vm_shield' ? b.slot === 'offhand' : b.slot === 'weapon' && viewmodelFor(b) === vm.id);
     if (!base) return { id: vm.id, label: 'Bare hands' };
-    const m = materialFor(base.primary, tier);
+    const m = materialFor(base.primary, tier, materialId);
     return { id: vm.id, label: m ? `${base.name} · ${m.name}` : base.name, ramp: m?.ramp };
   });
 }
 
-function iconGroups(tier: number): SheetGroup[] {
+function iconGroups(tier: number, materialId?: string): SheetGroup[] {
   const covered = new Set<string>();
   const materials: SheetCell[] = MATERIALS.map((m) => {
     covered.add(m.icon);
@@ -185,7 +198,7 @@ function iconGroups(tier: number): SheetGroup[] {
   });
   const gear: SheetCell[] = ITEM_BASES.map((b) => {
     covered.add(b.icon);
-    const m = materialFor(b.primary, tier);
+    const m = materialFor(b.primary, tier, materialId);
     return { id: b.icon, label: m ? `${b.name} · ${m.name}` : b.name, ramp: m?.ramp };
   });
   const consumables: SheetCell[] = CONSUMABLES.map((c) => {
@@ -195,15 +208,17 @@ function iconGroups(tier: number): SheetGroup[] {
   // Whatever no item claims — the key, the coin, the settings gear. These have
   // no ramp in the game either, so they are drawn exactly as they ship.
   const fixed: SheetCell[] = ICONS.filter((i) => !covered.has(i.id)).map((i) => ({ id: i.id, label: i.id }));
+  const picked = materialId ? MATERIALS.find((m) => m.id === materialId) : undefined;
+  const gearTitle = picked ? `Gear · ${picked.name} where allowed, else best at tier ${tier}` : `Gear · best material at tier ${tier}`;
   return [
-    { title: `Gear · best material at tier ${tier}`, cells: gear },
+    { title: gearTitle, cells: gear },
     { title: 'Materials', cells: materials },
     { title: 'Consumables', cells: consumables },
     ...(fixed.length ? [{ title: 'Never recoloured', cells: fixed }] : []),
   ];
 }
 
-export function sheets(tier: number = DEFAULT_TIER): ArtSheet[] {
+export function sheets(tier: number = DEFAULT_TIER, materialId?: string): ArtSheet[] {
   return [
   {
     id: 'melee',
@@ -235,9 +250,14 @@ export function sheets(tier: number = DEFAULT_TIER): ArtSheet[] {
   },
   { id: 'biomes', title: 'Biomes', note: 'Wall, floor, ceiling and door per biome. Burrows shows its depth-1 fallback roof plus the two inherited ceilings. In-game these also carry coloured light.', cols: 6, groups: biomeGroups },
   { id: 'props', title: 'Props', note: 'Everything the dungeon stands on the floor.', cols: 6, groups: [{ title: 'Props', cells: plain(PROPS.map((p) => p.id)) }] },
-  { id: 'icons', title: 'Icons', note: 'Every icon as something that exists: each piece of gear in a material its base actually allows, each material and potion in its own colours.', cols: 6, groups: iconGroups(tier) },
-  { id: 'viewmodels', title: 'Viewmodels', note: 'The weapon in your own hands, in the material of a weapon that uses it. An empty hand has no material.', cols: 4, groups: [{ title: `Held · best material at tier ${tier}`, cells: viewmodelCells(tier) }] },
+  { id: 'icons', title: 'Icons', note: 'Every icon as something that exists: each piece of gear in a material its base actually allows, each material and potion in its own colours.', cols: 6, groups: iconGroups(tier, materialId) },
+  { id: 'viewmodels', title: 'Viewmodels', note: 'The weapon in your own hands, in the material of a weapon that uses it. An empty hand has no material.', cols: 4, groups: [{ title: heldTitle(tier, materialId), cells: viewmodelCells(tier, materialId) }] },
   ];
 }
 
-export const sheet = (id: string, tier?: number): ArtSheet | undefined => sheets(tier).find((s) => s.id === id);
+function heldTitle(tier: number, materialId?: string): string {
+  const picked = materialId ? MATERIALS.find((m) => m.id === materialId) : undefined;
+  return picked ? `Held · ${picked.name} where allowed, else best at tier ${tier}` : `Held · best material at tier ${tier}`;
+}
+
+export const sheet = (id: string, tier?: number, materialId?: string): ArtSheet | undefined => sheets(tier, materialId).find((s) => s.id === id);

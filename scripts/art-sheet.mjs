@@ -10,6 +10,8 @@
  *   npm run art:sheet -- melee              # just one
  *   npm run art:sheet -- guard --zoom 9     # close enough to count pixels
  *   npm run art:sheet -- --ids rat_0,rat_atk --out /tmp  # an ad-hoc sheet of any art
+ *   npm run art:sheet -- viewmodels --material star_iron  # held weapons as one deciding material
+ *   npm run art:sheet -- icons --tier 2                   # best material at tier 2
  */
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
@@ -181,18 +183,20 @@ function draw(sheet, cells) {
 
 const { rasterize } = await loadModule('src/art/raster.ts');
 const { getArt } = await loadModule('src/art/registry.ts');
-const { sheets } = await loadModule('src/dev/art-sheets.ts');
-const SHEETS = sheets();
+const { sheets, DEFAULT_TIER } = await loadModule('src/dev/art-sheets.ts');
 
 const args = process.argv.slice(2);
 const flag = (name) => {
   const i = args.indexOf(name);
   return i === -1 ? null : args[i + 1];
 };
+const tier = Number(flag('--tier') ?? DEFAULT_TIER);
+const material = flag('--material') ?? undefined;
+const SHEETS = sheets(tier, material);
 const ZOOM = Number(flag('--zoom') ?? 5);
 const ids = flag('--ids');
 const out = resolve(flag('--out') ?? 'docs/previews');
-const values = new Set([flag('--zoom'), ids, flag('--out')]);
+const values = new Set([flag('--zoom'), ids, flag('--out'), flag('--tier'), flag('--material')]);
 const wanted = args.filter((a) => !a.startsWith('--') && !values.has(a));
 const chosen = ids
   ? [{ id: 'scratch', title: 'Scratch', note: '', cols: Math.min(4, ids.split(',').length), groups: [{ title: 'Picked', cells: ids.split(',').map((id) => ({ id: id.trim(), label: id.trim() })) }] }]
