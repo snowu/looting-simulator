@@ -145,12 +145,17 @@ export interface SwingProfile {
   /** Tiles in front of you the swing reaches. */
   reach: number;
   /**
-   * Resolves against the tile you face *and* the two tiles beside you. Aimed
-   * squarely at the one thing a shield cannot do: blocking only ever covers the
-   * tile you face, so three things adjacent is the situation a guard is worst
-   * at and the situation a sweep answers.
+   * Fraction of the blow carried into every tile touching the one you hit —
+   * beside it, behind it and diagonally, but never back onto your own tile.
+   *
+   * Aimed squarely at the one thing a shield cannot do. A guard only ever
+   * covers the tile you face, so a press of bodies is what it is worst at; a
+   * cleave answers it by spending the swing past the first rank instead of
+   * into it. It is deliberately a *spill*, not a second swing — the numbers
+   * are small enough that cleaving is never the reason to pick a fight with
+   * three things at once, only what makes it survivable when one picks you.
    */
-  sweep?: boolean;
+  cleave?: number;
   /**
    * Seconds added to a struck enemy's attack cooldown. A two-hander buys time
    * rather than cancelling a wind-up — cancelling wind-ups is the parry's job

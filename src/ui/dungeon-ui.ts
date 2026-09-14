@@ -54,6 +54,7 @@ export function statSheet(world: { derived: World['derived'] }): HTMLElement {
     ['Loot find', `${d.find}%`],
   ];
   if (d.twoHanded) rows.push(['Guard', '2H block; parry unchanged']);
+  if (d.swing.cleave) rows.push(['Cleave', `${Math.round(d.swing.cleave * 100)}% around the target`]);
   for (const k of ['leech', 'fire', 'frost', 'shadow', 'holy'] as const) if (s[k]) rows.push([STAT_LABELS[k], String(s[k])]);
   return h('div', { class: 'statsheet' }, ...rows.map(([k, v]) => h('div', {}, h('span', { class: 'dim', text: k }), h('b', { text: v }))));
 }
@@ -430,7 +431,7 @@ export class DungeonOverlays {
         'Enemies telegraph: they lean in and flash red before striking. Step out of the tile they are aiming at, or raise your guard. ' +
           'Raise it just as the blow lands and you parry instead: no damage at all, melee attackers reel and take double, and arrows and bolts fly back the way they came. ' +
           'Your shield flashes while the window is open. Holding the guard up does not parry — you have to meet the swing. ' +
-          'Two-handed weapons leave the offhand disabled and block only 20%, but parry exactly like any other weapon. Thrown ammunition can be collected by walking over it or retrieved from anywhere on the current floor with R; retrieval costs stamina, durability, and has a cooldown. ' +
+          'Two-handed weapons leave the offhand disabled and block only 20%, but parry exactly like any other weapon. Their blow cleaves for a quarter into every tile touching the thing they hit, including the one behind it. Thrown ammunition can be collected by walking over it or retrieved from anywhere on the current floor with R; retrieval costs stamina, durability, and has a cooldown. ' +
           'Sigils are inscribed at the forge, attuned in town, and cast with G or C. Casting spends stamina and a hit interrupts it without starting the cooldown. ' +
           'Chalk X marks on a wall mean something is hidden behind it, and loose flagstones mean a trap — watch the floor ahead of you. ' +
           'The way out is the stairs you came down. A Scroll of Recall instead opens a portal you can step back through, so you can sell and restock mid-delve.',

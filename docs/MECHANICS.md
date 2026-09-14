@@ -414,7 +414,7 @@ The pool is `slotBase × (0.8 + 0.2 × material tier)`, so better metal lasts lo
 
 | | |
 |---|---|
-| Weapon | every blow that **lands** on a monster. Swinging at air is free |
+| Weapon | every blow that **lands** on a monster. Swinging at air is free. A two-hander's cleave costs **2** when it catches anything, and a thrown weapon costs one per shaft that hits and one per shaft retrieved |
 | Offhand | every hit you **absorb** on the shield. A **parry costs nothing** — one more reason to meet the swing instead of hiding behind it |
 | Armour | one worn piece, picked at random, each time a hit **gets through** unblocked |
 
@@ -586,9 +586,9 @@ Bases are arranged into **gear lines** (`GEAR_LINES`), each running from the cru
 | Mace | weapon | 15 atk | +4.5 atk | 0.28 / 0.52 / 17 / 1 | 45 | 2 |
 | Spear | weapon | 19 atk | +4.5 atk | 0.24 / 0.56 / 17 / **2** | 48 | 2 |
 | Club | weapon (wood/bone) | 6 atk | +4 atk | 0.22 / 0.44 / 16 / 1 | 10 | 1 |
-| Halberd | weapon **2H** | 28 atk | +5.5 atk | 0.34 / 0.66 / 22 / **2** | 92 | 3 |
-| Great Maul | weapon **2H** | 32 atk | +6.5 atk | 0.46 / 0.74 / 23 / 1 **sweep** | 96 | 4 |
-| Greatsword | weapon **2H** | 30 atk | +6 atk | 0.38 / 0.60 / 24 / 1 **sweep** | 130 | 5 |
+| Halberd | weapon **2H** | 28 atk | +5.5 atk | 0.34 / 0.66 / 22 / **2** **cleave** | 92 | 3 |
+| Great Maul | weapon **2H** | 32 atk | +6.5 atk | 0.46 / 0.74 / 23 / 1 **cleave** | 96 | 4 |
+| Greatsword | weapon **2H** | 30 atk | +6 atk | 0.38 / 0.60 / 24 / 1 **cleave** | 130 | 5 |
 | Throwing Knives | weapon *thrown* | 5 atk | +1.4 atk | 0.14 / 0.30 / 8 / 1 in the hand | 26 | 2 |
 | Throwing Axes | weapon *thrown* | 12 atk | +2.8 atk | 0.20 / 0.42 / 13 / 1 in the hand | 58 | 3 |
 | Javelins | weapon *thrown* | 17 atk | +2.9 atk | 0.26 / 0.56 / 17 / **2** in the hand | 88 | 4 |
@@ -616,7 +616,7 @@ Stamina does **not** regenerate mid-combo (`world.ts` gates regen on `attack ===
 | Blades | dagger, short sword, long sword | Highest DPS (45–58), smallest hits, shortest windup, shortest window (3.1–3.8s), worst damage per stamina (1.70–1.79) |
 | Haft | club, mace, mining pick, war axe | Biggest hits (up to 50), longest windup (to 0.36s — you are committed), longest windows (4.5–5.5s), best damage per stamina (1.83–2.27) |
 | Reach | spear, halberd | Reach 2; mid DPS, strong efficiency, hits from outside most enemies' range |
-| Two-handed | greatsword, great maul, halberd | Best damage per stamina bar, sweep or reach, two guard chips — bought with the whole offhand slot. See below |
+| Two-handed | greatsword, great maul, halberd | Best damage per stamina bar, a cleave that spills into the rank behind, two guard chips — bought with the whole offhand slot. See below |
 | Thrown | throwing knives, throwing axes, javelins | A finite stock thrown at range, and a poor short weapon once it is gone. See below |
 
 The **Dagger** is the crit weapon and the one build-scaling weapon. It carries its own Crit % (5, +1.5 per material tier) and crits for ×2.4 instead of ×1.6, so the same Crit % ring is worth more than twice as much on a dagger as on anything else. Bare it is an ordinary entry weapon (50 effective DPS, below a Short Sword); with +20 Crit % from gear it is second only to a Long Sword, and a build that stacks Crit % to the 60% cap makes it the strongest weapon in the game on both burst and damage per stamina bar. `lucky` and `fox` roll on every slot, and a tier-5 Band carries 5 on its own, so the cap is reachable if you commit to it.
@@ -660,7 +660,13 @@ The rule holds — the War Axe still leads and the Greatsword is a tenth of a po
 
 Each pays the shield back in something a shield cannot buy:
 
-- **Sweep** (maul, greatsword) resolves against the tile you face *and* the two beside you, at **full damage on all three** (`SWEEP_FLANK_MULT = 1`). Against three adjacent bodies a tier-3 Great Maul does about 127 damage in one 1.2s cycle for 23 stamina, which is roughly 2.8× a Long Sword's output — situational, because it needs enemies on your flanks and a corridor only ever offers the one in front, but it is the largest burst in the game when the room grants it. Blocking only ever covers the tile you face, so three things adjacent is exactly what a guard is worst at. A sweep that lands on two or more wears the weapon twice.
+- **Cleave**, on all three, at **25%** of the blow. It is centred on **the thing you hit, not on you**: every one of the eight tiles touching the target takes a quarter — beside it, diagonally, and *behind* it. Your own tile is excluded, because a swing that wrapped back around would be free damage on whatever had already closed, which is precisely the position a two-hander is meant to be bad in; the main target is excluded because it already took the blow in full. A cleave that catches anything wears the weapon twice.
+
+  That centring is the whole difference between the cleave and a shield. A guard only ever covers the tile you face; the cleave covers the rank *behind* the tile you face, which nothing else in the game reaches. With a halberd, whose target is two tiles out, the cleave lands three tiles deep into a corridor.
+
+  Each cleaved blow is **glancing**: one guard chip, never the two a full two-handed swing is worth, and it never bashes a shield open. Walking a two-hander into a line of shieldbearers is not a shortcut through their guards.
+
+  It is deliberately a spill rather than a second swing. Against three bodies packed around the one you hit, a tier-3 Great Maul does about 42 into the target and 10 into each of the others — 72 across the group in one 1.2s cycle for 23 stamina, against a Long Sword's 28 into one of them. Better, and not remotely a reason to go looking for a crowd: it is what makes being caught by one survivable, not what makes starting one correct.
 - **Stagger** adds seconds to a struck enemy's attack cooldown — 0.5s for the halberd, 0.3s for the other two. It buys time; it does not cancel a wind-up, because cancelling wind-ups is the parry's job and stays the parry's job. Weapons with an explicit `stagger` no longer get the light-enemy wind-up interrupt, so it replaces that rather than stacking with it.
 - **Two guard chips** instead of one, so a shielded enemy's guard breaks in two blows rather than three.
 - The **halberd** keeps reach 2, the spear's trick, without a free hand for a shield.
@@ -980,7 +986,7 @@ A save written by a *newer* build than the one loading it is left as it is rathe
 | Parry window, stun and reflect | `src/world/world.ts` (`PARRY_*`) |
 | Sigil effects, cast times and cooldowns | `src/data/spells.ts`, `src/world/world.ts` (`resolveSigil`) |
 | Cooldown-on-kill refund and its cap | `src/world/world.ts` (`refundSigil`) |
-| Two-handed rule, sweep and stagger | `src/systems/equip.ts`, `src/systems/player.ts`, `src/world/world.ts` (`SWEEP_FLANK_MULT`) |
+| Two-handed rule, cleave and stagger | `src/systems/equip.ts`, `src/systems/player.ts`, `src/data/items.ts` (`CLEAVE`), `src/world/world.ts` (`cleave`) |
 | Thrown stock, flight and retrieval | `src/data/items.ts` (`thrown`), `src/world/world.ts` (`RETRIEVE_*`) |
 | Movement, stamina, AI, interaction | `src/world/world.ts` |
 | Layout generation, room and prop density | `src/systems/dungeon.ts` |

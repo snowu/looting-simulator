@@ -193,8 +193,6 @@ const GUARD_DOWN = 1.6;
 const GUARD_RANGE = 4;
 const GUARD_BREAK_AT = 3;
 
-/** Sweep flank damage tuning. One ships as full damage. */
-export const SWEEP_FLANK_MULT = 1;
 const RETRIEVE_COOLDOWN = 6;
 const RETRIEVE_STAMINA_MULT = 0.6;
 
@@ -1139,30 +1137,12 @@ export class World {
       return;
     }
     this.sfx('swing');
-    if (this.derived.swing.sweep) {
-      const dirs = [this.player.facing, turnLeft(this.player.facing), turnRight(this.player.facing)];
-      const targets = dirs.map((dir, i) => ({ e: enemyAt(f, this.player.x + DX[dir], this.player.y + DY[dir]), mult: i === 0 ? 1 : SWEEP_FLANK_MULT }))
-        .filter((v): v is { e: EnemyState; mult: number } => !!v.e);
-      for (const target of targets) this.hitEnemy(target.e, true, this.derived.swing.chips ?? 1, target.mult);
-      if (targets.length) {
-        this.wear('weapon', targets.length >= 2 ? 2 : 1);
-        return;
-      }
-      const front = this.frontTile();
-      const prop = propAt(f, front.x, front.y);
-      if (prop && (prop.kind === 'urn' || prop.kind === 'barrel') && !prop.used) {
-        this.breakProp(prop);
-        return;
-      }
-      this.sfx('miss');
-      return;
-    }
     for (let d = 1; d <= this.derived.swing.reach; d++) {
       const t = this.frontTile(d);
       const e = enemyAt(f, t.x, t.y);
       if (e) {
         this.hitEnemy(e);
-        this.wear('weapon');
+        this.wear('weapon', this.cleave(t.x, t.y) ? 2 : 1);
         return;
       }
       const p = propAt(f, t.x, t.y);
@@ -1173,6 +1153,41 @@ export class World {
       if (blocksSight(f, t.x, t.y)) break;
     }
     this.sfx('miss');
+  }
+
+  /**
+   * Spill a two-hander's blow into everything touching the thing it landed on.
+   *
+   * The cleave is centred on the *target*, not on you, which is the whole
+   * difference between it and a shield: a guard covers the tile you face, and
+   * this covers the rank behind that tile. With a halberd's reach the centre is
+   * two tiles out, so the cleave lands entirely among the things you cannot
+   * touch with anything else in the game.
+   *
+   * Your own tile is excluded — you are standing on it, and a swing that
+   * wrapped all the way back around would be free damage on anything that had
+   * already closed, which is exactly the position a two-hander is supposed to
+   * be bad in. The main target is excluded because it already took the blow in
+   * full.
+   *
+   * Returns whether anything was caught, which is all the caller wants: a
+   * cleave that bit costs the weapon a second point of wear.
+   */
+  private cleave(cx: number, cy: number): boolean {
+    const mult = this.derived.swing.cleave;
+    if (!mult) return false;
+    const caught: EnemyState[] = [];
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (!dx && !dy) continue;
+      const x = cx + dx, y = cy + dy;
+      if (x === this.player.x && y === this.player.y) continue;
+      const e = enemyAt(this.floor, x, y);
+      if (e) caught.push(e);
+    }
+    // Every cleaved blow is a glancing one: one guard chip, never the two a
+    // two-hander's full swing is worth, and never the bash that opens a shield.
+    for (const e of caught) this.hitEnemy(e, true, 1, mult);
+    return caught.length > 0;
   }
 
   /**

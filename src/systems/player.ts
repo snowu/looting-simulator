@@ -164,7 +164,7 @@ export function derivePlayer(eq: Equipment, meta: MetaLevels, difficulty?: Diffi
       recovery: baseSwing.recovery / speedFactor,
       staminaCost: baseSwing.staminaCost,
       reach: baseSwing.reach,
-      sweep: baseSwing.sweep,
+      cleave: baseSwing.cleave,
       stagger: baseSwing.stagger,
       chips: baseSwing.chips,
       critMult: baseSwing.critMult ?? DEFAULT_CRIT_MULT,

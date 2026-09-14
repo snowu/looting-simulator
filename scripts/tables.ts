@@ -291,7 +291,7 @@ export function weapons(): string {
     const bar = (d.maxStamina / Math.max(1, d.swing.staminaCost)) * avg;
     const tags = [
       d.twoHanded ? '2H' : '',
-      d.swing.sweep ? 'sweep' : '',
+      d.swing.cleave ? `cleave ${Math.round(d.swing.cleave * 100)}%` : '',
       d.swing.stagger ? `stagger ${f2(d.swing.stagger)}s` : '',
       d.swing.reach > 1 ? `reach ${d.swing.reach}` : '',
       (d.swing.chips ?? 1) > 1 ? `${d.swing.chips} chips` : '',

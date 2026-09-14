@@ -1,5 +1,13 @@
 import { ConsumableDef, ItemBaseDef, Rarity, SwingProfile } from '../types';
 
+/**
+ * What a two-hander spills into everything touching the thing it hit. One
+ * number for all three: the cleave is what "two-handed" means in this game, so
+ * it is not a knob that distinguishes the three from each other — reach,
+ * stagger and the size of the blow do that.
+ */
+const CLEAVE = 0.25;
+
 export const ITEM_BASES: ItemBaseDef[] = [
   // --- Weapons ------------------------------------------------------------
   {
@@ -55,21 +63,21 @@ export const ITEM_BASES: ItemBaseDef[] = [
     id: 'halberd', name: 'Halberd', slot: 'weapon', icon: 'ic_halberd', weaponClass: 'halberd', damageType: 'pierce',
     twoHanded: true, viewmodel: 'vm_polearm',
     base: { attack: 28 }, perTier: { attack: 5.5 }, primary: ['metal'],
-    swing: { windup: 0.34, recovery: 0.66, staminaCost: 22, reach: 2, stagger: 0.5, chips: 2 },
+    swing: { windup: 0.34, recovery: 0.66, staminaCost: 22, reach: 2, cleave: CLEAVE, stagger: 0.5, chips: 2 },
     value: 92, minDepth: 3, weight: 0.5,
   },
   {
     id: 'great_maul', name: 'Great Maul', slot: 'weapon', icon: 'ic_great_maul', weaponClass: 'maul', damageType: 'blunt',
     twoHanded: true, viewmodel: 'vm_maul',
     base: { attack: 32 }, perTier: { attack: 6.5 }, primary: ['metal', 'wood'],
-    swing: { windup: 0.46, recovery: 0.74, staminaCost: 23, reach: 1, sweep: true, stagger: 0.3, chips: 2 },
+    swing: { windup: 0.46, recovery: 0.74, staminaCost: 23, reach: 1, cleave: CLEAVE, stagger: 0.3, chips: 2 },
     value: 96, minDepth: 4, weight: 0.4,
   },
   {
     id: 'greatsword', name: 'Greatsword', slot: 'weapon', icon: 'ic_greatsword', weaponClass: 'greatsword', damageType: 'slash',
     twoHanded: true, viewmodel: 'vm_greatsword',
     base: { attack: 30 }, perTier: { attack: 6 }, primary: ['metal'],
-    swing: { windup: 0.38, recovery: 0.60, staminaCost: 24, reach: 1, sweep: true, stagger: 0.3, chips: 2 },
+    swing: { windup: 0.38, recovery: 0.60, staminaCost: 24, reach: 1, cleave: CLEAVE, stagger: 0.3, chips: 2 },
     value: 130, minDepth: 5, weight: 0.3,
   },
 
