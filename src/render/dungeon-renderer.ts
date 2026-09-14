@@ -3,6 +3,7 @@ import { DX, DY, turnRight } from '../core/dir';
 import { biomeForFloor, ceilingForFloor } from '../data/biomes';
 import { enemyDef, enemyView } from '../data/enemies';
 import { findMaterial } from '../data/materials';
+import { findSigil } from '../data/spells';
 import { itemBase } from '../data/items';
 import { Floor, ShrineKind } from '../systems/dungeon';
 import { itemIcon } from '../systems/items';
@@ -146,6 +147,11 @@ export class DungeonRenderer {
 
   onShake(amount: number): void {
     this.shake = Math.max(this.shake, amount);
+  }
+
+  /** A sigil landing: a wash of its own colour, so the moment has a colour. */
+  onSigil(r: number, g: number, b: number, strength: number): void {
+    this.flash.set(r, g, b, strength);
   }
 
   /** Let a sprung mechanism kick once, then leave its spent decal in place. */
@@ -368,7 +374,20 @@ export class DungeonRenderer {
 
     if (a.ward && near(a.ward.x, a.ward.y)) {
       const s = this.sprite('sigil:threshold');
-      this.placeFlat(s, 'trap_alarm', tileX(a.ward.x), tileZ(a.ward.y), 0.96);
+      // The art drawn for this, not the trap plate it was borrowing.
+      //
+      // The ward is always the tile you are standing on — step off it and it is
+      // gone — and at eye height your own tile sits entirely below the frustum:
+      // the floor only starts being visible about two tiles ahead. So this
+      // sprite is drawn every frame and cannot be seen, and widening it just
+      // spills light over tiles that are not warded. The cue a player actually
+      // reads is the glow at the bottom of the screen and the status line, both
+      // in the HUD; this stays for the moment you are knocked off the tile or
+      // the camera is ever lowered. It dims over the last two seconds.
+      const art = a.ward.t <= 2 ? 'ward_threshold_dim' : 'ward_threshold';
+      this.placeFlat(s, art, tileX(a.ward.x), tileZ(a.ward.y), 0.96);
+      const pulse = 0.4 + 0.3 * Math.sin(this.time * 6);
+      s.mat.uniforms.uTint.value.set(1, 0.88, 0.5, a.ward.t <= 2 ? pulse * 0.55 : pulse);
     }
 
     for (const t of floor.torches) {
@@ -448,17 +467,27 @@ export class DungeonRenderer {
     // tall, swaying harder with the walk, and winding up further because the
     // data already says they take longer to swing. Everything a player can see
     // about the grip, they see here.
-    const twoHanded = world.derived.twoHanded;
+    // A cast has its own pose: the stone comes up into the centre of the view
+    // and rises as it charges, so the wind-up is something you watch rather
+    // than something you time in your head.
+    const casting = a.cast;
+    const twoHanded = !casting && world.derived.twoHanded;
     const size = artSize(art.id);
-    const scale = (H * (twoHanded ? 0.74 : 0.5)) / size.h;
+    const scale = (H * (twoHanded ? 0.74 : casting ? 0.56 : 0.5)) / size.h;
     const walking = a.moveT < 1 ? a.moveT : 0;
     const sway = twoHanded ? 1.7 : 1;
     const bobX = Math.sin((a.steps + walking) * Math.PI) * 4 * sway;
     const bobY = Math.abs(Math.cos((a.steps + walking) * Math.PI)) * 4 * sway;
-    let x = W * (twoHanded ? 0.56 : 0.74) + bobX;
+    let x = W * (twoHanded ? 0.56 : casting ? 0.5 : 0.74) + bobX;
     let y = H * 0.12 - bobY - 8;
-    let rot = twoHanded ? -0.05 : -0.18;
-    if (a.attack === 'windup') {
+    let rot = twoHanded ? -0.05 : casting ? 0 : -0.18;
+    if (casting) {
+      // `t` counts down, so this runs 0 → 1 over the cast.
+      const total = Math.max(0.01, findSigil(casting.id)?.cast ?? 0.5);
+      const k = 1 - Math.max(0, Math.min(1, casting.t / total));
+      y += 26 * k;
+      rot = Math.sin(this.time * 22) * 0.05 * k;
+    } else if (a.attack === 'windup') {
       const k = a.attackT / Math.max(0.01, a.attackDur);
       x += (twoHanded ? 40 : 22) * k;
       y += (twoHanded ? 52 : 30) * k;

@@ -736,6 +736,14 @@ Five sigils exist and **you carry exactly one**, chosen in Bleakmere before you 
 
 **Wardcry grants no vulnerability.** A parry pays a second of doubled damage; the push pays nothing. That is what makes the spell strictly worse than a parry whenever a parry is available, which is the safety property that keeps it from replacing the guard. The push costing you the floor's attention is the second half of the same bargain.
 
+### Reading a sigil
+
+The dial sits above the quick slots: the attuned sigil's icon, a wedge of darkness that burns off as the cooldown recovers, the seconds left in the middle, and a bar underneath while a cast runs. Full colour and a slow pulse means ready.
+
+Casting holds the stone up in the middle of your view, rising as it charges (`vm_sigil`, then `vm_sigil_lit` in the back half), and landing washes the screen in the sigil's own colour with a shake, a float and a struck bell. **Every refusal says why** — no sigil attuned, still cold, moving, mid-swing, out of breath. It used to refuse in silence for six different reasons, which was indistinguishable from being broken.
+
+Threshold is the one effect with nowhere to draw itself: it consecrates the tile you are standing on, and at eye height your own tile is entirely below the view. So it shows as a warm glow rising from the bottom of the screen, plus a **Consecrated ground** line in the status block that counts down.
+
 **The cooldown runs at half speed while you are hunted** — any living enemy alerted within 8 tiles — so it recovers on the walk between fights and barely moves during one. Kills are the only thing that meaningfully shortens it mid-fight.
 
 **A hit during the cast interrupts it** ("The sigil cast is broken by the blow.") and the cooldown does **not** start — the stamina is spent, the effect is not, and you may try again immediately.

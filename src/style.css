@@ -196,10 +196,47 @@ body.detail-mode .detail-hide { display: none; }
 .status .keys { color: #ffe08a; }
 .status .bless { color: var(--blue); }
 .status .curse { color: var(--violet); }
+.status .ward { color: #c8b8ff; }
+
+/* Consecrated ground. You are standing in it and cannot look down at it, so it
+   is shown as light coming up off the floor at the bottom of the frame. */
+.ward-glow {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 30vh;
+  pointer-events: none;
+  background: radial-gradient(150% 95% at 50% 114%, #ffd06aaa 0%, #ffb84066 26%, #ffa42022 46%, transparent 66%);
+  animation: ward-breathe 3.2s ease-in-out infinite;
+}
+.ward-glow.fading { opacity: 0.45; animation-duration: 1s; }
+@keyframes ward-breathe {
+  0%, 100% { opacity: 0.75; }
+  50% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) { .ward-glow { animation: none; } }
 
 .minimap { position: absolute; right: 16px; top: 14px; border: 2px solid #000; box-shadow: 0 0 0 2px #3a3040, 0 4px 12px #000a; border-radius: 50%; pointer-events: none; }
 
 .quick { position: absolute; right: 16px; bottom: 16px; display: flex; gap: 6px; }
+
+/* The sigil dial: icon, a wedge of darkness that burns off as the cooldown
+   recovers, the seconds left, and a cast bar under it. Sits above the quick
+   slots on the same side, where the thumb and the eye already are. */
+.sigil { position: absolute; right: 16px; bottom: 100px; width: 52px; height: 52px; display: grid; place-items: center; }
+.sigil-icon { position: absolute; inset: 4px; display: grid; place-items: center; filter: grayscale(0.45) brightness(0.8); transition: filter 0.18s; }
+.sigil-icon img { width: 44px; height: 44px; }
+.sigil-dial { position: absolute; inset: 0; border-radius: 50%; pointer-events: none; }
+.sigil-cd { position: absolute; inset: 0; display: grid; place-items: center; font-size: 19px; color: #fff; text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 0 0 6px #000; pointer-events: none; }
+/* Ready: full colour, and a slow pulse so it catches the eye without nagging. */
+.sigil.ready .sigil-icon { filter: none; animation: sigil-pulse 2.4s ease-in-out infinite; }
+.sigil.casting .sigil-icon { filter: brightness(1.6) saturate(1.3); }
+@keyframes sigil-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+.sigil-cast { position: absolute; left: 0; right: 0; bottom: -9px; height: 4px; background: #0a080c; border: 1px solid #2a2430; }
+.sigil-cast > i { display: block; height: 100%; background: linear-gradient(90deg, #7a5ad8, #c8b8ff); }
+@media (prefers-reduced-motion: reduce) { .sigil.ready .sigil-icon { animation: none; } }
 .quick .qs { display: flex; flex-direction: column; align-items: center; gap: 1px; }
 .quick .key { font-size: 15px; color: var(--dim); }
 
@@ -504,6 +541,7 @@ body.touch #hud .minimap { right: max(12px, env(safe-area-inset-right)); width: 
 body.touch #hud .bars { left: 50%; transform: translateX(-50%); bottom: calc(max(12px, env(safe-area-inset-bottom)) + 54px); width: min(34vw, 280px); }
 body.touch #hud .bar-label { font-size: 15px; }
 body.touch #hud .quick { right: auto; left: 50%; transform: translateX(-50%); bottom: max(8px, env(safe-area-inset-bottom)); }
+body.touch #hud .sigil { right: auto; left: max(12px, env(safe-area-inset-left)); bottom: max(76px, calc(env(safe-area-inset-bottom) + 76px)); }
 body.touch #hud .quick .key { display: none; }
 body.touch #hud .prompt {
   bottom: calc(max(12px, env(safe-area-inset-bottom)) + 142px);

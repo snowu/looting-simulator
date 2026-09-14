@@ -111,6 +111,55 @@ describe('sigil state', () => {
     expect(worn.dur).toBe(1 + Math.round(max * 0.25));
   });
 
+  /**
+   * The whole chain, through the key rather than by calling resolveSigil.
+   * Every effect test above reaches straight into the private, so all five
+   * could have worked while the path a player actually takes was broken.
+   */
+  it('carries a key press through the cast to the effect, the cooldown and the feedback', () => {
+    const w = worldWith('sounding');
+    w.floor.explored.fill(0);
+    const events: string[] = [];
+    expect(w.castSigil()).toBe(true);
+    expect(w.anim.cast).toMatchObject({ id: 'sounding' });
+    // Mid-cast the sigil is what you are holding, which is the only tell there
+    // is that anything is happening.
+    expect(w.weaponArt().id).toMatch(/^vm_sigil/);
+    w.drainEvents();
+    for (let t = 0; t < 1.2; t += 1 / 60) w.update(1 / 60);
+    for (const ev of w.drainEvents()) events.push(ev.type);
+    expect(w.anim.cast).toBeNull();
+    expect(w.run.sigil!.cd).toBeGreaterThan(44);
+    expect(w.run.sigil!.cd).toBeLessThanOrEqual(45);
+    expect(w.floor.explored[10 * w.floor.width + 11]).toBe(1);
+    // And it is visible when it lands: a wash of colour, a shake, a float and
+    // a line in the log. Without these a sigil was a key that spent stamina.
+    expect(events).toContain('sigil');
+    expect(events).toContain('shake');
+    expect(events).toContain('float');
+    expect(w.weaponArt().id).not.toMatch(/^vm_sigil/);
+  });
+
+  it('says why it will not cast, instead of doing nothing', () => {
+    const none = worldWith('wardcry');
+    none.run.sigil = null;
+    none.drainEvents();
+    expect(none.castSigil()).toBe(false);
+    expect(none.drainEvents().some((e) => e.type === 'msg' && /No sigil attuned/.test(e.text))).toBe(true);
+
+    const cold = worldWith('wardcry');
+    cold.run.sigil!.cd = 30;
+    cold.drainEvents();
+    expect(cold.castSigil()).toBe(false);
+    expect(cold.drainEvents().some((e) => e.type === 'msg' && /still cold/.test(e.text))).toBe(true);
+
+    const spent = worldWith('wardcry');
+    spent.player.stamina = 1;
+    spent.drainEvents();
+    expect(spent.castSigil()).toBe(false);
+    expect(spent.drainEvents().some((e) => e.type === 'msg' && /breath/.test(e.text))).toBe(true);
+  });
+
   it('slows cooldown near an alert enemy and interruption keeps the charge', () => {
     const w = worldWith('wardcry');
     w.run.sigil!.cd = 20;

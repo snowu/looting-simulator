@@ -601,6 +601,9 @@ function handle(ev: WorldEvent): void {
     case 'shake':
       renderer.onShake(ev.amount);
       break;
+    case 'sigil':
+      renderer.onSigil(ev.r, ev.g, ev.b, ev.strength);
+      break;
     case 'loot':
       overlays.open('loot', w, ev.pickupId);
       break;

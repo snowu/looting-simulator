@@ -48,7 +48,7 @@ import {
 import { lightRadius, metaLevel } from '../systems/meta';
 import { Rarity } from '../types';
 import type { SfxName } from '../audio/sfx';
-import { SigilId, sigil } from '../data/spells';
+import { SigilId, findSigil, sigil } from '../data/spells';
 import { makeSigil, unknownSigils } from '../systems/spells';
 
 // ---------------------------------------------------------------------------
@@ -61,6 +61,7 @@ export type WorldEvent =
   | { type: 'hurt'; amount: number; blocked: boolean }
   | { type: 'float'; x: number; y: number; text: string; color: string }
   | { type: 'shake'; amount: number }
+  | { type: 'sigil'; r: number; g: number; b: number; strength: number }
   | { type: 'loot'; pickupId: string }
   | { type: 'floor' }
   | { type: 'end'; outcome: 'dead' | 'extracted' }
@@ -1125,19 +1126,60 @@ export class World {
     r.t += RETRIEVE_PER_SHAFT;
   }
 
+  /**
+   * Begin a cast.
+   *
+   * Every refusal says why. It used to return false in silence for six
+   * different reasons — no sigil attuned, still cooling, walking, mid-swing,
+   * stunned, out of breath — so pressing the key and having nothing at all
+   * happen was the normal experience of the feature, and indistinguishable
+   * from it being broken.
+   */
   castSigil(): boolean {
     const active = this.run.sigil;
     const a = this.anim;
-    if (!active || active.cd > 0 || this.busy || this.moving || a.attack !== 'idle' || a.stunT > 0 || a.cast) return false;
+    if (!active) {
+      this.msg('No sigil attuned. Inscribe and attune one at the forge.', '#888');
+      return false;
+    }
     const def = sigil(active.id);
-    if (this.player.stamina < def.stamina) return false;
+    if (a.cast) return false;
+    if (active.cd > 0) {
+      this.msg(`${def.name} is still cold — ${Math.ceil(active.cd)}s.`, '#888');
+      return false;
+    }
+    if (this.busy || this.moving || a.attack !== 'idle' || a.stunT > 0) {
+      this.msg('You must stand still to cast.', '#888');
+      return false;
+    }
+    if (this.player.stamina < def.stamina) {
+      this.msg(`Not enough breath for the ${def.name} — ${def.stamina} needed.`, '#ff9070');
+      return false;
+    }
     this.player.stamina -= def.stamina;
     a.sinceStamina = 0;
     a.blockRaise = 0;
     a.cast = { id: def.id, t: def.cast };
+    this.msg(`You raise the ${def.name}...`, '#9a8fd8');
     this.sfx('sigil');
     return true;
   }
+
+  /**
+   * Each sigil's own colour for the wash that plays when it lands.
+   *
+   * Casting had no moment: the stamina went, the cooldown started, and unless
+   * you happened to be looking at the one thing that got pushed there was
+   * nothing to tell you it had worked. Four of the five do something you cannot
+   * see from where you stand.
+   */
+  private static readonly SIGIL_FLASH: Record<SigilId, [number, number, number, number]> = {
+    wardcry: [0.95, 0.85, 0.55, 0.5],
+    snuff: [0.05, 0.04, 0.10, 0.6],
+    sounding: [0.55, 0.75, 1.0, 0.38],
+    threshold: [1.0, 0.82, 0.45, 0.42],
+    temper: [0.75, 0.95, 0.7, 0.36],
+  };
 
   private resolveSigil(id: SigilId): void {
     const def = sigil(id);
@@ -1149,6 +1191,11 @@ export class World {
       case 'temper': this.castTemper(); break;
     }
     if (this.run.sigil) this.run.sigil.cd = def.cooldown;
+    const [r, g, b, strength] = World.SIGIL_FLASH[id];
+    this.emit({ type: 'sigil', r, g, b, strength });
+    this.emit({ type: 'shake', amount: id === 'wardcry' ? 0.5 : 0.2 });
+    this.emit({ type: 'float', x: this.player.x, y: this.player.y, text: def.name.replace('Sigil of ', ''), color: '#c8b8ff' });
+    this.sfx('sigil_land');
     this.msg(`${def.name} answers.`, '#c8b8ff');
   }
 
@@ -2820,6 +2867,16 @@ export class World {
 
   /** Base item info for the viewmodel. */
   weaponArt(): { id: string; materialId?: string } {
+    // Casting holds the sigil up in front of you. It is the only tell that a
+    // cast is happening at all from inside the view, and the lit frame in the
+    // back half is what makes the moment it lands readable — without it a
+    // sigil was a key that spent stamina and nothing more.
+    const casting = this.anim.cast;
+    if (casting) {
+      const def = findSigil(casting.id);
+      const total = def?.cast ?? 1;
+      return { id: casting.t <= total * 0.45 ? 'vm_sigil_lit' : 'vm_sigil' };
+    }
     // While a throw is in the air you are holding shafts, not your sword, so
     // the belt wins the viewmodel for exactly as long as the throw lasts.
     const throwing = this.anim.attackThrow ? this.state.equipment.thrown : null;
