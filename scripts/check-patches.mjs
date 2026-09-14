@@ -74,6 +74,21 @@ const SKIP = {
   // player can reach.
   '30b44ad': 'reverted cloud hardening, superseded by af5354d',
   af5354d: 'the revert itself, restoring pre-hardening sync',
+  // Weapon-overhaul branch scaffolding: docs, tooling, previews and dev
+  // rooms. The gameplay itself is curated as Patch 42 (hash 9c99288).
+  '9be384c': 'docs-only MECHANICS write-up, not in the game',
+  '8a2542c': 'README controls table, not in the game',
+  '7ab99ec': 'balance harness numbers + docs, no game change',
+  '70b0af3': 'patch_notes.md draft, not loaded by the game',
+  '35142c1': 'preview PNGs for a pull request, not in the game',
+  '3f2745a': 'dev combat rooms + tests, not in the game',
+  '4b9df45': 'dev console unlock script, not in the game',
+  '6f47e36': 'dev unlock script wiring behind DEV, not in the game',
+  e044123: 'dev lab arena behind DEV, not in the game',
+  f9c9e56: 'art-handoff staging + PR previews, not yet in the game',
+  a029e9d: 'preview sheets + dev art-sheet tool for the PR, not in the game',
+  '10ef6ff': 'art sync build tool, not in the game',
+  a297375: 'test-only parry assumption fix + notes file, not gameplay',
 };
 
 // Commits touching only these files maintain the notes themselves and never
