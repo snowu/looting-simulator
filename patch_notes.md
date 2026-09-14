@@ -1,3 +1,57 @@
+# Weapon overhaul: two hands, thrown steel, and sigils
+
+*Unreleased, on `feat/weapon-overhaul`. Nothing here invalidates a save: `SAVE_VERSION` does not move, every new field is additive, and an existing character keeps its gear, its stash and its renown.*
+
+Six new weapon bases and a spell system, aimed at the one complaint the roster had — that every weapon was a stick of a different length, and the offhand was a shield in all cases because there was never a reason for it not to be.
+
+## Two-handed weapons
+
+**Halberd**, **Great Maul** and **Greatsword**. Wearing one empties your offhand: the shield goes back to the pack you drew the weapon from, and you are refused the swap outright if there is nowhere to put it. Nothing eats your gear.
+
+That is a real loss — a silver Tower Shield is +12 Defense and 82% block, and a two-hander blocks 20% — so each buys something a shield cannot:
+
+- **A cleave**, at 25% of the blow, into every tile touching the thing you hit. Beside it, diagonally, and *behind* it. A guard only ever covers the tile you face; this covers the rank behind that tile, and with a halberd's reach it lands three tiles deep into a corridor. It never spills back onto your own tile, and a cleaved blow is glancing: one guard chip, and it will not bash a shield open.
+- **Stagger**, adding to a struck enemy's attack cooldown — half a second on the halberd. It buys you time. It does not cancel a wind-up; cancelling wind-ups is the parry's job and stays the parry's job.
+- **Two guard chips** a swing, so a shieldbearer opens in two blows instead of three.
+
+They are not the new top tier. No two-hander leads the weapon table on damage per second — the War Axe still does — but they clearly win the long fight: a Great Maul buys 57% more damage out of one stamina bar than a Long Sword. Survivability for sustain, in both directions.
+
+**Parrying is completely unchanged with a two-hander.** It never needed a shield and still does not.
+
+## Thrown weapons
+
+**Throwing Knives**, **Throwing Axes** and **Javelins**. One-handed, so the shield stays.
+
+The stock is finite, filled once when you first carry them into a delve, and nothing refills it — not descending, not going home. Spent shafts land where they stop and stay there, on that floor, across a trip upstairs and back. Walk over them to pick them up, or press **R** to call every shaft on the floor back at once, which costs stamina per shaft, a point of weapon wear per shaft, and has a six-second cooldown.
+
+Thrown, a javelin is the fourth-hardest-hitting weapon in the game at seven tiles. In the hand it is worse than a Mace. That gap is the weapon.
+
+## Sigils
+
+Five of them, and you carry exactly one, chosen in Bleakmere before you go down. You can never hold both the escape and the control, so a fight is played with the tool you guessed at upstairs.
+
+There is no mana bar — a mana bar is topped up in town and free in the moment it matters. Each sigil has its own long cooldown and is cast out of your stamina, with **G** or **C**.
+
+- **Wardcry** — shoves what you face back a tile and leaves it reeling, or crushes it against the wall behind. It shouts: everything within 8 tiles learns where you are, through walls.
+- **Snuff** — everything within 12 tiles loses your trail, and you are in the dark for eight seconds.
+- **Sounding** — reads six tiles of stone: the map, the traps in it, and the bearing of anything hidden.
+- **Threshold** — consecrates the tile you stand on for eight seconds. The parry window doubles. Step off it and it is gone.
+- **Temper** — mends the most worn thing you are wearing by a quarter.
+
+Wardcry grants no vulnerability window. A parry pays a second of doubled damage; the push pays nothing, which is what keeps it from replacing the guard.
+
+**Kills shorten the cooldown**, so a sigil is a reward for fighting rather than a timer you wait out — and it is capped at a fifth of the base cooldown per kill, so no build resets one in fewer than five. The cooldown also runs at half speed while anything alerted is within 8 tiles, so it recovers between fights rather than during them. **Warden's Vigil** on the Warden's board and the new **Spell Focus** stat both feed the same refund; Spell Focus rolls as *Graven* and *of the Vigil* on head, rings and amulets, and the **Wardstone** forges it in.
+
+Sigil stones drop from the Ashen King (always, while any are undiscovered), from vault and secret chests (22%), and rarely from ordinary chests. You can never be handed one you already have. A stone is **inscribed at the forge**, permanently, and attuned from the same bench.
+
+## Fixed
+
+- **Every save crashed on entering town.** Adding the Wardstone to the material table left existing saves without a price for it, and the market screen reads a price for every material the instant it draws. The repair now runs on every load rather than at one particular save revision, so adding a material can never do this again.
+- The five sigils were drawn their own icons and then shipped pointing at a placeholder gem.
+- The sigil bench did not exist. Stones dropped, the cast key worked, and there was no way to inscribe or attune one — a found stone sat in the stash for good.
+
+---
+
 # Balance pass: slower, harder, scarcer
 
 *Unreleased. The worktree is uncommitted and nothing has been pushed.*
