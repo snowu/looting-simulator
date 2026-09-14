@@ -12,6 +12,7 @@ import * as THREE from 'three';
 export const MAX_LIGHTS = 12;
 
 export interface Shared {
+  uTime: { value: number };
   uLightPos: { value: THREE.Vector4[] };
   uLightColor: { value: THREE.Vector3[] };
   uLightCount: { value: number };
@@ -25,6 +26,7 @@ export interface Shared {
 
 export function createShared(): Shared {
   return {
+    uTime: { value: 0 },
     uLightPos: { value: Array.from({ length: MAX_LIGHTS }, () => new THREE.Vector4()) },
     uLightColor: { value: Array.from({ length: MAX_LIGHTS }, () => new THREE.Vector3()) },
     uLightCount: { value: 0 },
@@ -76,6 +78,8 @@ const FRAG = /* glsl */ `
   uniform float uFogFar;
   uniform float uAffine;
   uniform float uUnlit;
+  uniform float uTime;
+  uniform vec2 uPulse;
   uniform vec4 uTint;
   uniform float uOpacity;
   varying vec2 vUv;
@@ -99,7 +103,9 @@ const FRAG = /* glsl */ `
       float lam = max(dot(n, d / max(dist, 0.0001)), 0.0) * 0.75 + 0.25;
       light += uLightColor[i] * att * mix(lam, 1.0, uUnlit);
     }
-    vec3 col = tex.rgb * mix(min(light, vec3(1.3)), vec3(1.0), emissive);
+    float phase = uTime * uPulse.y + dot(vWorld.xz, vec2(0.7, 1.3));
+    float glow = 1.0 + uPulse.x * (sin(phase) * 0.5 + 0.5);
+    vec3 col = tex.rgb * mix(min(light, vec3(1.3)), vec3(glow), emissive);
     col = mix(col, uTint.rgb, uTint.a);
     float fog = smoothstep(uFogNear, uFogFar, vDepth);
     col = mix(col, uFogColor, fog * (1.0 - emissive * 0.7));
@@ -108,6 +114,7 @@ const FRAG = /* glsl */ `
 `;
 
 export interface PS1MaterialOptions {
+  pulse?: [number, number];
   unlit?: boolean;
   transparent?: boolean;
   side?: THREE.Side;
@@ -120,6 +127,7 @@ export type PS1Material = THREE.ShaderMaterial & {
     uTint: { value: THREE.Vector4 };
     uUnlit: { value: number };
     uOpacity: { value: number };
+    uPulse: { value: THREE.Vector2 };
   };
 };
 
@@ -131,6 +139,7 @@ export function ps1Material(shared: Shared, map: THREE.Texture, opts: PS1Materia
       uTint: { value: new THREE.Vector4(0, 0, 0, 0) },
       uUnlit: { value: opts.unlit ? 1 : 0 },
       uOpacity: { value: 1 },
+      uPulse: { value: new THREE.Vector2(...(opts.pulse ?? [0, 0])) },
     },
     vertexShader: VERT,
     fragmentShader: FRAG,

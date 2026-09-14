@@ -68,29 +68,6 @@ const CATACOMB_WALL_ROWS = stamp(
   CATACOMB_ALGAE, 12, 27,
 );
 
-// The Frost Vault keeps the same brick silhouette, but cold fissures catch
-// the blue light and a small ice bloom hangs over one course.
-const FROST_FISSURE = rows(`
-  s......
-  sq.....
-  .q.....
-  .qq....
-  ..q....
-  ...qq..
-  ....q..
-`);
-const FROST_BLOOM = rows(`
-  ..r...
-  .rr...
-  rrr...
-  .rr...
-  ..r...
-`);
-const FROST_WALL_ROWS = stamp(
-  stamp(stamp(EMPTY_WALL_ROWS, FROST_FISSURE, 3, 3), FROST_FISSURE, 21, 18),
-  FROST_BLOOM, 12, 13,
-);
-
 /** Rubble masonry: rounded stones of uneven width in three courses. */
 const RUBBLE_ROWS = rows(`
   mdddddddddmmmddddddddmmmddddddmm
@@ -298,7 +275,6 @@ const BURROW_SECRET = { s: '#28190f9c', q: '#b58d6488' };
 const EMBERWORKS_SECRET = { s: '#21110e9c', q: '#df7b5488' };
 const CATACOMB_WALL = { s: '#17383b98', q: '#428b8c98', r: '#75c4ba88' };
 const CATACOMB_SECRET = { s: '#17383b9c', q: '#75c4ba88' };
-const FROST_WALL = { s: '#1c334198', q: '#6c9db5a8', r: '#d2f3ff98' };
 const FROST_SECRET = { s: '#1c33419c', q: '#b7eaff88' };
 
 // Ossuary niches: a skull cell and a bone-stack cell.
@@ -445,20 +421,8 @@ const CHECKER_ROWS = [0, 1, 2, 3].flatMap((band) =>
   TILE_A.map((_, i) => (band % 2 === 0 ? TILE_A[i] + TILE_B[i] : TILE_B[i] + TILE_A[i]).repeat(2)),
 );
 
-// Frost Vault has fractured blue flagstones rather than the throne checker.
-// Emberworks has charcoal dirt split by hot seams. Both keep the 32px tile
-// cadence of the existing floor art, but their patterns read apart at a glance.
-const ICE_FISSURE = rows(`
-  q...........
-  .q..........
-  ..qq........
-  ....q.......
-  .....qq.....
-  .......q....
-  ........qq..
-  ..........q.
-`);
-const FROST_FLOOR_ROWS = stamp(stamp(FLAG_ROWS, ICE_FISSURE, 2, 2), ICE_FISSURE, 17, 19);
+// Emberworks ground keeps charcoal dirt split by hot seams.
+// Frost rock and glaze are authored separately in frost-textures.ts.
 const EMBER_SEAM = rows(`
   .....r..........
   ....rqr.........
@@ -501,18 +465,49 @@ const BURROW_FLOOR_ROWS = stamp(stamp(DIRT_ROWS, BURROW_TRACK, 2, 4), BURROW_TRA
 // The Burrows' own roof: packed earth slabs with roots hanging through. This is
 // only the depth-1 fallback — deeper Burrows floors inherit the floor above.
 const BURROW_CEIL_ROWS = stamp(stamp(SLAB_ROWS, BURROW_ROOT, 3, 4), BURROW_ROOT, 18, 22);
-const FURNACE_VENT = rows(`
-  rrrrrrrrrrrrrr
-  rqqqqqqqqqqqqr
-  rqrrrrrrrrrrqr
-  rqrqqqqqqrqrqr
-  rqrqqqqqqrqrqr
-  rqrrrrrrrrrrqr
-  rqqqqqqqqqqqqr
-  rrrrrrrrrrrrrr
+// Heat follows the staggered mortar; each opening dies inside the tile.
+const EMBER_MORTAR = rows(`
+  ....srs....
+  ....srs....
+  ...srors...
+  ...srors...
+  ...sroors..
+  ...sroCors..
+  ..srrooors.
+  srrroorrs..
+  sroorrss...
+  srors......
+  srs........
+  .s.........
 `);
-const EMBER_WALL_ROWS = stamp(BRICK_ROWS, EMBER_SEAM, 8, 9);
-const EMBER_WALL_ALT_ROWS = stamp(EMBER_WALL_ROWS, FURNACE_VENT, 9, 11);
+const EMBER_POOL = rows(`
+  ........srs.............
+  .......srors............
+  ..ss..srroors.....sss...
+  .srrssroCoorrssssrrrs...
+  srroooCoCoooorrrroors..
+  sroCoCoooCooooooCoors..
+  .srrooooooorroooorrs...
+  ..ssrrrrrssssrrrss.....
+  ....sssss....sss.......
+`);
+const EMBER_GRATE = rows(`
+  ....ssssssssssssss....
+  ..ssrrrrrrrrrrrrrrss..
+  .srroorioriorioroorrs.
+  .sroCoIooIooIooICoors.
+  .srooCIoCIoCIoCIooors.
+  .sroCoIooIooIooICoors.
+  .srooCIoCIoCIoCIooors.
+  .sroooIooIooIooIooors.
+  .srrooIooIooIooIoorrs.
+  ..ssrrirrirrirrirrss..
+  ....ssssssssssssss....
+`);
+const EMBER_WALL_ROWS = BRICK_ROWS;
+const EMBER_WALL_SEAM_ROWS = stamp(EMPTY_WALL_ROWS, EMBER_MORTAR, 11, 9);
+const EMBER_WALL_POOL_ROWS = stamp(EMPTY_WALL_ROWS, EMBER_POOL, 4, 21);
+const EMBER_WALL_GRATE_ROWS = stamp(EMPTY_WALL_ROWS, EMBER_GRATE, 5, 12);
 
 // Doors -------------------------------------------------------------------------
 const DOOR_WOOD_ROWS = rows(`
@@ -627,12 +622,12 @@ const CATACOMB_WATER = { q: '#286b78', r: '#75c2bf' };
 const THRONE = { m: '#7a2410fa', e: '#1a1218', a: '#241a22', b: '#30232c', c: '#3e2e38', d: '#4e3a46' };
 const THRONE_FLOOR = { r: '#b03c18fa', d: '#3a2c34', b: '#1e161c', f: '#2a2026', g: '#3a2e36', a: '#100a0e', c: '#2a2028' };
 const THRONE_CEIL = { m: '#4a160afa', e: '#0e0a0c', a: '#140e12', b: '#1a1318', c: '#20181e', d: '#281e26' };
-const FROST_VAULT_FLOOR = { m: '#102333', e: '#284459', a: '#35556a', b: '#496b80', c: '#7294a6', q: '#b7eafffa' };
 const EMBERWORKS_FLOOR = { e: '#100d0d', a: '#241b1a', b: '#352523', c: '#50332b', d: '#714534', p: '#96644b', q: '#ff9a30fa', r: '#b95222fa' };
 const BURROW_WALL = { e: '#2a1c12', a: '#49301b', b: '#61432a', c: '#806044', d: '#977555', p: '#af8860', r: '#281709' };
 const BURROW_FLOOR = { e: '#1c140d', a: '#342417', b: '#4b3320', c: '#63452b', d: '#80593b', p: '#a47751', q: '#bc9368' };
 const BURROW_CEIL = { m: '#100b06', e: '#20140c', a: '#2f1e12', b: '#3f2a18', c: '#503522', d: '#64452e', r: '#281709' };
-const EMBERWORKS_WALL = { m: '#130b09', e: '#261410', a: '#3b2119', b: '#513027', c: '#704334', d: '#8a5440', q: '#ef6626fa', r: '#190e0c' };
+const EMBERWORKS_WALL = { m: '#100d0c', e: '#161313', a: '#211b19', b: '#2c2421', c: '#3a2e29', d: '#483830' };
+const EMBERWORKS_HEAT = { s: '#3a1a1080', r: '#b03a1098', o: '#ff8a20fa', C: '#fff0c0fa', i: '#171416', I: '#252126' };
 const EMBERWORKS_CEILING = { r: '#6d251798', q: '#e85d2e98' };
 
 const WOOD_DOOR = { w: '#5a3a1c', x: '#6e4824', y: '#3a240e', z: '#24160a', i: '#2a2a30', j: '#4a4a54', k: '#15151a', n: '#8a8a94' };
@@ -674,8 +669,9 @@ export const TEXTURES: ArtDef[] = [
   { id: 'wall_catacombs', base: 'wall_crypt', palette: CATACOMB_WALL, rows: CATACOMB_WALL_ROWS },
   { id: 'wall_catacombs_b', base: 'wall_crypt_b', palette: CATACOMB_WALL, rows: CATACOMB_WALL_ROWS },
   { id: 'wall_catacombs_s', base: 'wall_catacombs', palette: CATACOMB_SECRET, rows: SECRET_MARK_ROWS },
-  { id: 'wall_frostvault', base: 'wall_crypt', palette: FROST_WALL, rows: FROST_WALL_ROWS },
-  { id: 'wall_frostvault_b', base: 'wall_crypt_b', palette: FROST_WALL, rows: FROST_WALL_ROWS },
+  { id: 'wall_frostvault_brick', palette: { m: '#638799', e: '#22333f', a: '#2b414f', b: '#3c5665', c: '#5b7989', d: '#91aeb9' }, rows: BRICK_ROWS },
+  { id: 'wall_frostvault', base: 'wall_frostvault_brick', palette: {}, rows: EMPTY_WALL_ROWS },
+  { id: 'wall_frostvault_b', base: 'wall_frostvault_glaze', palette: {}, rows: EMPTY_WALL_ROWS },
   { id: 'wall_frostvault_s', base: 'wall_frostvault', palette: FROST_SECRET, rows: SECRET_MARK_ROWS },
 
   // Throne
@@ -686,7 +682,6 @@ export const TEXTURES: ArtDef[] = [
   { id: 'ceil_throne', palette: THRONE_CEIL, rows: SLAB_ROWS },
 
   // Alternate mid-depth floors
-  { id: 'floor_frostvault', palette: FROST_VAULT_FLOOR, rows: FROST_FLOOR_ROWS },
   { id: 'floor_emberworks', palette: EMBERWORKS_FLOOR, rows: EMBER_FLOOR_ROWS },
   { id: 'ceil_emberworks', base: 'ceil_mine', palette: EMBERWORKS_CEILING, rows: EMBER_CEILING_ROWS },
 
@@ -697,7 +692,10 @@ export const TEXTURES: ArtDef[] = [
   { id: 'floor_burrows', palette: BURROW_FLOOR, rows: BURROW_FLOOR_ROWS },
   { id: 'ceil_burrows', palette: BURROW_CEIL, rows: BURROW_CEIL_ROWS },
   { id: 'wall_emberworks', palette: EMBERWORKS_WALL, rows: EMBER_WALL_ROWS },
-  { id: 'wall_emberworks_b', palette: EMBERWORKS_WALL, rows: EMBER_WALL_ALT_ROWS },
+  { id: 'wall_emberworks_seam', base: 'wall_emberworks', palette: EMBERWORKS_HEAT, rows: EMBER_WALL_SEAM_ROWS },
+  { id: 'wall_emberworks_pool', base: 'wall_emberworks', palette: EMBERWORKS_HEAT, rows: EMBER_WALL_POOL_ROWS },
+  { id: 'wall_emberworks_grate', base: 'wall_emberworks', palette: EMBERWORKS_HEAT, rows: EMBER_WALL_GRATE_ROWS },
+  { id: 'wall_emberworks_b', base: 'wall_emberworks_grate', palette: {}, rows: EMPTY_WALL_ROWS },
   { id: 'wall_emberworks_s', base: 'wall_emberworks', palette: EMBERWORKS_SECRET, rows: SECRET_MARK_ROWS },
 
   // Doors

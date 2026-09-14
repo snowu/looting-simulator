@@ -1,0 +1,123 @@
+import { ArtDef } from './raster';
+import { rows, stamp, sym } from './helpers';
+import { ENEMY_ART_A } from './enemies-a';
+import { ENEMY_ART_B } from './enemies-b';
+import { ELEMENTAL_VARIANTS } from '../data/elemental-variants';
+
+const originals = [...ENEMY_ART_A, ...ENEMY_ART_B];
+const prefixes: Record<string, string> = { skeleton: 'skeleton', skeleton_shield: 'skelshield', spider: 'spider', ghoul: 'ghoul', bat: 'bat', goblin_shield: 'gobshield' };
+const coal = { k: '#171112', w: '#8c7267', v: '#57453e', u: '#352b29', r: '#ff8b32fa' };
+const rime = { k: '#172c3e', w: '#e4f5fc', v: '#91bbd0', u: '#4e738d', r: '#87d8fffa' };
+const ribHeat = rows(`
+  .X.X.X.
+  XHXHXHX
+  .XHXHX.
+  XHXHXHX
+  .X.X.X.
+`);
+const iceShoulder = rows(`
+  ..H..H....H..
+  .HCHHCH..HCH.
+  HCCCCCCCCHCCB
+  .BCBCBCCBCBB.
+  ..B..B..B.B..
+`);
+const hotShell = rows(`
+  ...X....X...
+  ..XHX..XHX..
+  .XHXXHXHXX..
+  XHX..XHX..X.
+`);
+const boss = rows(`
+  ..XXX..
+  .XHHHX.
+  XHXXXHX
+  XHXHXHX
+  XHXXXHX
+  .XHHHX.
+  ..XXX..
+`);
+function themed(source: ArtDef, variant: typeof ELEMENTAL_VARIANTS[number], pose: string): ArtDef {
+  const hot = variant.element === 'fire';
+  let palette = { ...source.palette };
+  if (variant.base.startsWith('skeleton')) Object.assign(palette, hot ? coal : rime);
+  if (variant.base === 'ghoul') Object.assign(palette, hot
+    ? { k: '#170e0d', g: '#644238', h: '#95654a', f: '#392926', y: '#ffb13bfa' }
+    : { k: '#142939', g: '#7495aa', h: '#c0dae6', f: '#405f79', y: '#a7e6fffa' });
+  if (variant.base === 'spider') Object.assign(palette, { a: '#291817', b: '#52332a', c: '#85513a', r: '#ff8c20fa', y: '#ffe9a9fa' });
+  if (variant.base === 'bat') Object.assign(palette, { a: '#45627c', b: '#80a9c3', c: '#aecfdf', d: '#e0f1f9', r: '#8ddbfffa', m: '#28465b' });
+  if (variant.base === 'goblin_shield') Object.assign(palette, { g: '#739ba3', h: '#abcbd2', f: '#416977', t: '#b0cddc', u: '#51738f', r: '#9ee5fffa', y: '#d3f4fffa' });
+  Object.assign(palette, hot ? { X: '#ff7624fa', H: '#ffe5a0fa' } : { X: '#638eac', H: '#f0fbff', C: '#b2d9e9', B: '#537c9b' });
+  let pixels = source.rows;
+  if (variant.base.includes('shield')) pixels = stamp(pixels, hot ? boss : iceShoulder,
+    pose === 'block' ? 10 : 1, pose === 'block' ? 18 : pose === 'atk' ? 17 : 19);
+  else if (variant.base === 'spider') pixels = stamp(pixels, hotShell, 10, 12);
+  else if (variant.base === 'ghoul') pixels = stamp(pixels, hot ? hotShell : iceShoulder, 4, pose === 'atk' ? 8 : 16);
+  else if (variant.base === 'bat') pixels = stamp(pixels, iceShoulder, 1, 12);
+  else pixels = stamp(pixels, hot ? ribHeat : iceShoulder, hot ? 12 : 9, 16);
+  return { id: `${variant.sprite}_${pose}`, palette, rows: pixels };
+}
+const moleHalf = rows(`
+  ................
+  ................
+  ................
+  ................
+  ................
+  ................
+  ............kkkk
+  ..........kkbbbb
+  ........kkbbbccc
+  .......kbbbccccc
+  ......kbbbcccccc
+  .....kbbbcccccbb
+  ....kbbbccccbbbb
+  ...kbbbccckkbbpp
+  ...kbbbcckwwkppp
+  ..kbbbbccckkpppp
+  ..kbbbbccccbpppp
+  .kbbbbbbccccbppp
+  .kbbbbbbcccccbkk
+  .kbbbbbcccccccbb
+  kbbbbcccccccccbb
+  kbbbccccccccbbbb
+  kbbbcccccccbbbbb
+  kbbbccccccbbbbbb
+  .kbbccccccbbbbbb
+  .kbbbbcccbbbbbbb
+  ..kbbbbbbbbbbbbb
+  ...kbbbbbbbbbbbb
+  ....kkbbbbbbbbbb
+  .....kbbbaaakbbb
+  ....kwwkwwkkkwww
+  ....kkkkkkkkkkkk
+`);
+const claw = rows(`
+  ..kkbbkk..
+  .kbbbbbbk.
+  kbbccccbbk
+  kcccccccck
+  .kcccccck.
+  kwkwkwkwk.
+  kwkwkwkwk.
+  .w.w.w.w..
+  .w.w.w.w..
+`);
+const molePal = { k: '#201712', a: '#423024', b: '#66503b', c: '#937455', p: '#c58b80', w: '#ede0bd' };
+const body = sym(moleHalf);
+const raisedArms = Array.from({ length: 32 }, (_, y) => {
+  const row = Array.from('.'.repeat(32));
+  if (y >= 10 && y <= 23) {
+    const x = 3 + Math.floor((y - 10) / 3);
+    for (let n = 0; n < 5; n++) row[x + n] = row[31 - x - n] = n === 0 || n === 4 ? 'k' : 'b';
+  }
+  return row.join('');
+});
+export const ENEMY_ART_BIOMES: ArtDef[] = [
+  ...ELEMENTAL_VARIANTS.flatMap((variant) => ['0', 'atk', ...(variant.base.includes('shield') ? ['block'] : [])].map((pose) => {
+    const source = originals.find((a) => a.id === `${prefixes[variant.base]}_${pose}`)!;
+    return themed(source, variant, pose);
+  })),
+  { id: 'mole_0', palette: molePal, rows: stamp(stamp(body, claw, 1, 22), claw, 21, 22) },
+  { id: 'mole_block', palette: molePal, rows: stamp(stamp(body, claw, 6, 12), claw, 16, 12) },
+  { id: 'mole_atk', palette: molePal, rows: stamp(stamp(stamp(body, raisedArms), claw, 0, 3), claw, 22, 3) },
+];

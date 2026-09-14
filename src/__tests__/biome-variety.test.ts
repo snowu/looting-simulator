@@ -42,9 +42,27 @@ describe('run biome variety', () => {
   it('gives the Catacombs and Frost Vault their own detailed wall variants', () => {
     const base = rasterize(getArt('wall_crypt')!, undefined, getArt).data;
     const walls = ['wall_catacombs', 'wall_frostvault'].map((id) => getArt(id)!);
-    expect(walls.map((wall) => wall.base)).toEqual(['wall_crypt', 'wall_crypt']);
+    expect(walls.map((wall) => wall.base)).toEqual(['wall_crypt', 'wall_frostvault_brick']);
     for (const wall of walls) {
       expect(Array.from(rasterize(wall, undefined, getArt).data)).not.toEqual(Array.from(base));
+    }
+  });
+
+  it('mixes four distinct Emberworks walls with two unlit hash slots', () => {
+    const biome = BIOMES.find((b) => b.id === 'emberworks')!;
+    const variants = biome.wallVariants!;
+    expect(variants).toHaveLength(5);
+    expect(variants.filter((id) => id === biome.wall)).toHaveLength(2);
+    const unique = [...new Set(variants)];
+    expect(unique).toHaveLength(4);
+    const pixels = unique.map((id) => rasterize(getArt(id)!, undefined, getArt).data);
+    expect(new Set(pixels.map((data) => Array.from(data).join(','))).size).toBe(4);
+    for (let i = 0; i < unique.length; i++) {
+      const glow = pixels[i].filter((v, index) => index % 4 === 3 && v === 250).length;
+      if (unique[i] === biome.wall) expect(glow).toBe(0);
+      else expect(glow).toBeGreaterThan(0);
+      // The translucent rim must blend into opaque masonry, not cut holes in it.
+      expect(pixels[i].every((v, index) => index % 4 !== 3 || v >= 250)).toBe(true);
     }
   });
 

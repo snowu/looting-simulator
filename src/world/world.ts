@@ -1424,7 +1424,7 @@ export class World {
         return;
       }
       const p = propAt(f, t.x, t.y);
-      if (p && d === 1 && (p.kind === 'urn' || p.kind === 'barrel') && !p.used) {
+      if (p && d === 1 && (p.kind === 'urn' || p.kind === 'barrel' || p.kind === 'root_cache') && !p.used) {
         this.breakProp(p);
         return;
       }
@@ -1803,7 +1803,7 @@ export class World {
     if (p && !p.used) {
       if (p.kind === 'chest') return 'Open chest';
       if (p.kind === 'shrine') return SHRINE_PROMPT[p.shrine ?? 'font'](this.offeringCost());
-      if (p.kind === 'urn' || p.kind === 'barrel') return `Smash ${p.kind}`;
+      if (p.kind === 'urn' || p.kind === 'barrel' || p.kind === 'root_cache') return `Smash ${p.kind === 'root_cache' ? 'root cache' : p.kind}`;
     }
     // A pile sharing the portal's tile wins the prompt, so loot that ended up
     // under a portal (as boss drops used to) can still be picked up.
@@ -1961,7 +1961,7 @@ export class World {
 
     const p = propAt(f, t.x, t.y);
     if (p && !p.used) {
-      if (p.kind === 'urn' || p.kind === 'barrel') {
+      if (p.kind === 'urn' || p.kind === 'barrel' || p.kind === 'root_cache') {
         this.breakProp(p);
         return;
       }

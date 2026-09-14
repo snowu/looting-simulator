@@ -138,7 +138,8 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
         continue;
       }
 
-      B(biome.floor).quad([x0, 0, z0], [x1, 0, z0], [x1, 0, z1], [x0, 0, z1], [0, 1, 0]);
+      const floorTex = biome.floorVariants?.length ? biome.floorVariants[hash3(x, y, 4) % biome.floorVariants.length] : biome.floor;
+      B(floorTex).quad([x0, 0, z0], [x1, 0, z0], [x1, 0, z1], [x0, 0, z1], [0, 1, 0]);
       B(ceiling).quad([x0, WALL_H, z0], [x1, WALL_H, z0], [x1, WALL_H, z1], [x0, WALL_H, z1], [0, -1, 0]);
       if (biome.id === 'catacombs') {
         B('water_catacombs').quad(
@@ -149,7 +150,9 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
       if (t === PILLAR) {
         const p = 0.42 * TILE;
         // Outward-facing column faces.
-        const tex = hash3(x, y, 9) < 50 ? biome.wall : biome.wallAlt;
+        const tex = biome.wallVariants?.length
+          ? biome.wallVariants[hash3(x, y, 9) % biome.wallVariants.length]
+          : hash3(x, y, 9) < 50 ? biome.wall : biome.wallAlt;
         for (const d of DIRS) {
           const fx = DX[d], fz = DY[d];
           const r = turnRight(d);
@@ -170,7 +173,9 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
       for (const d of DIRS) {
         const nx = x + DX[d], ny = y + DY[d];
         if (tileAt(floor, nx, ny) !== WALL || secretAtTile(nx, ny)) continue;
-        const tex = hash3(nx, ny, d) < 12 ? biome.wallAlt : biome.wall;
+        const tex = biome.wallVariants?.length
+          ? biome.wallVariants[hash3(nx, ny, d) % biome.wallVariants.length]
+          : hash3(nx, ny, d) < 12 ? biome.wallAlt : biome.wall;
         wallQuad(tex, cx, cz, d, 0, WALL_H);
       }
     }
@@ -182,7 +187,7 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
     const water = tex === 'water_catacombs';
     const mat = ps1Material(shared, artTexture(tex), water
       ? { transparent: true, depthWrite: false, side: THREE.DoubleSide }
-      : undefined);
+      : { pulse: biome.id === 'emberworks' ? [0.35, 3.8] : biome.id === 'frostvault' && tex !== ceiling ? [0.15, 1.1] : undefined });
     if (water) mat.uniforms.uOpacity.value = 0.16;
     geometries.push(geo);
     materials.push(mat);

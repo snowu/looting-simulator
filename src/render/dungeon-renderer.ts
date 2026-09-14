@@ -229,6 +229,7 @@ export class DungeonRenderer {
 
   render(world: World, dt: number): void {
     this.time += dt;
+    this.shared.uTime.value = this.time;
     const floor = world.floor;
     const biome = biomeForFloor(floor);
     if (this.levelFloor !== floor) {
@@ -249,6 +250,10 @@ export class DungeonRenderer {
       this.shared.uAmbient.value.set(biome.ambient);
       this.shared.uFogNear.value = 4;
       this.shared.uFogFar.value = 18;
+    }
+    this.shared.uAmbient.value.set(biome.ambient);
+    if (biome.id === 'emberworks') {
+      this.shared.uAmbient.value.multiplyScalar(1 + 0.08 * Math.sin(this.time * Math.PI * 0.8 + 1.7));
     }
     this.level!.update(dt);
 
@@ -382,6 +387,17 @@ export class DungeonRenderer {
       switch (pr.kind) {
         case 'chest':
           this.place(s, pr.used ? 'chest_open' : pr.mimic ? 'chest_mimic' : 'chest', wx, 0, wz, 1.5);
+          break;
+        case 'icicle': {
+          const c = pr.ceiling;
+          if (c) {
+            this.place(s, c.sprite, wx + c.dx, WALL_H - c.height, wz + c.dz, c.height);
+            s.mat.uniforms.uTint.value.set(torchColor.r, torchColor.g, torchColor.b, 0.08);
+          } else s.mesh.visible = false;
+          break;
+        }
+        case 'root_cache':
+          this.place(s, pr.used ? 'root_cache_broken' : 'root_cache', wx, 0, wz, 1.2);
           break;
         case 'urn':
           this.place(s, pr.used ? 'urn_broken' : 'urn', wx, 0, wz, 1.4);
