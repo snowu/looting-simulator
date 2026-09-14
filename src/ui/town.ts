@@ -30,6 +30,7 @@ import { syncLoadout } from '../systems/run';
 import { attuneSigil, inscribeSigil } from '../systems/spells';
 import { findSigil, sigil } from '../data/spells';
 import { derivePlayer } from '../systems/player';
+import { quoteHeal } from '../systems/heal';
 import { defaultSlot, equipFrom, unequipTo } from '../systems/equip';
 import { createRng, hashString, randomSeed } from '../core/rng';
 import { artImg, bothRegisters, btn, gold, h, hideTooltip, isTouchMode, itemSlot, itemTooltip, rarityColor, sparkline, statLines, toggleDetailed } from './dom';
@@ -482,6 +483,7 @@ export class Town {
       h(
         'div',
         { class: 'col' },
+        this.physicker(),
         h(
           'div',
           { class: 'pane frame' },
@@ -497,6 +499,56 @@ export class Town {
         h('div', { class: 'pane frame' }, h('h3', { text: 'Merchant\'s wares' }), m.wares.length ? wares : h('p', { class: 'dim', text: 'Sold out until tomorrow.' })),
         h('div', { class: 'pane frame' }, h('h3', { text: 'Supplies' }), supplies),
       ),
+    );
+  }
+
+  /**
+   * The Bleakmere physicker: a paid full mend in town, the gold sink for
+   * players who portal home bleeding. Priced on max health, worn gear value
+   * and curse (x1.5 when cursed), plus depth — see `quoteHeal`. Curses
+   * persist through the mend, so fonts keep their job; the button only
+   * shows while a delve is open, because between delves you walk in whole.
+   */
+  private physicker(): HTMLElement {
+    const s = this.s;
+    const run = s.run && s.run.outcome === 'active' ? s.run : null;
+    if (!run) {
+      return h(
+        'div',
+        { class: 'pane frame' },
+        h('h3', { text: 'Physicker' }),
+        h('p', { class: 'dim small', text: 'No delve open — you walk in whole. Come back bleeding through a portal and she will name a price.' }),
+      );
+    }
+    const derived = derivePlayer(s.equipment, s.meta, this.difficultyId);
+    const q = quoteHeal({
+      equipment: s.equipment,
+      maxHp: derived.maxHp,
+      hp: run.player.hp,
+      cursed: !!run.curse,
+      depth: run.depth,
+    });
+    const whole = q.missing <= 0;
+    const afford = s.gold >= q.cost;
+    const why = whole
+      ? 'You are whole already.'
+      : `Mends ${q.missing} of ${q.maxHp} HP · gear ${Math.round(q.gearScore * 10)} value${q.cursed ? ' · cursed ×1.5' : ''} · depth ${q.depth}`;
+    return h(
+      'div',
+      { class: 'pane frame' },
+      h('div', { class: 'row' }, h('h3', { text: `Physicker · ${run.player.hp}/${q.maxHp} HP` }), btn(
+        whole ? 'Whole already' : `Heal to full · ${gold(q.cost)}`,
+        () => {
+          if (whole || s.gold < q.cost) return;
+          s.gold -= q.cost;
+          run.player.hp = q.maxHp;
+          this.ctx.toast(`Mended to full for ${gold(q.cost)}. The curse, if any, stays.`, '#9ac09a');
+          this.commit('drink');
+        },
+        'small primary right',
+        whole || !afford,
+      )),
+      h('p', { class: 'dim small', text: whole ? 'You are whole already.' : afford ? why : `${why} — not enough gold.` }),
     );
   }
 
@@ -845,7 +897,7 @@ export class Town {
       ),
       worn.length
         ? h('div', { class: 'col' }, ...rows)
-        : h('p', { class: 'dim', text: 'Nothing needs the hammer. Weapons wear on every blow that lands, shields on every blow you take on them, armour when one gets through.' }),
+        : h('p', { class: 'dim', text: 'Nothing needs the hammer. Weapons wear 2 on every blow that lands (3 on a cleave), shields 2 on every blow taken, armour 2 when one gets through — and every third swing at air dulls the edge.' }),
     );
   }
 

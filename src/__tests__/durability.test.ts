@@ -152,13 +152,20 @@ describe('wear in the dungeon', () => {
     expect(durability(weapon).cur).toBeLessThan(before);
   });
 
-  it('costs nothing to swing at empty air', () => {
+  it('dulls the edge slowly on empty air: 1 wear per 3 whiffs', () => {
     const w = arena(4);
     const weapon = w.state.equipment.weapon!;
     const before = durability(weapon).cur;
     w.attack();
     tick(w, 1);
+    // One or two whiffs cost nothing; the third takes a point.
     expect(durability(weapon).cur).toBe(before);
+    w.attack();
+    tick(w, 1);
+    expect(durability(weapon).cur).toBe(before);
+    w.attack();
+    tick(w, 1);
+    expect(durability(weapon).cur).toBeLessThan(before);
   });
 
   it('grinds the shield down when it takes a hit', () => {

@@ -103,13 +103,13 @@ Floors are generated from `hash(runSeed, depth)`, so the same seed always gives 
 | Doors | 45% of eligible room entrances (a 1-tile gap flanked by wall) |
 | Vault | One dead-end room per floor, locked; its key is placed in a room reachable without it |
 | Secret room | `50% + 6% × depth`: a 3×3 room behind a pushable wall, marked with a faint local-stone arch and keystone |
-| Shrine | 45% of floors |
+| Shrine | 55% of floors, at most one shrine room per floor; pity guarantees ≥1 in depths 1–3 and ≥2 in depths 4–6 |
 | Pillars | Rooms of at least 6×5 get pillars, never blocking a route |
 | Stairs | Carved as alcoves — up in the start room, down in the farthest room; the boss floor has no down stairs |
 | Torches | Placed on room walls, at least 5 tiles apart, density per biome; always one at the arrival point |
 | Props | See the room-by-room table under [Containers](#containers). Eight or nine lootable things per floor |
 | Enemies | `3 + 1.2 × depth + rooms/4`, never within 7 tiles of the arrival point; 15% spawn wandering in corridors instead of rooms. About a third fewer than before: fights are three to seven swings now instead of one, so the old count turned a floor into a queue |
-| Loose loot | `1 + ⌈depth/2⌉` piles: 55% coins (`2–5 × depth`), otherwise a material stack |
+| Loose loot | `1 + ⌈depth/2⌉` piles: 55% coins (`2–4 × depth`), otherwise a material stack |
 | Traps | `2 + 1.5 × depth`, 70% in corridors, at least 4 tiles apart, never within 3 of the arrival tile; 70% of treasure/vault/secret rooms also get one inside |
 
 Every generated floor is checked: all walkable tiles reachable, keys reachable without their own vault, stairs present. Failed layouts are regenerated (up to 40 attempts).
@@ -307,23 +307,26 @@ A shrine serves one of three gods, fixed per floor and rolled from its own seed 
 | | Colour | Prompt | What it does |
 |---|---|---|---|
 | **Font of Mending** | cold blue | *Drink at the font* | **60% of your health** and all of your stamina, and **lifts a curse**. Never harms you |
-| **Hollow Idol** | violet | *Pray at the hollow idol* | **60%**: the same mend and a blessing. **40%**: a curse for the rest of the run |
+| **Hollow Idol** | violet | *Pray at the hollow idol* | **65%**: the same mend and a blessing. **35%**: a curse for the rest of the run |
 | **Offering Stone** | gold | *Offer N gold at the stone* | Costs `30 + 25 × depth` carried gold for the same mend and a blessing. Too poor? It stays unused — come back with the coin |
 
 No shrine restores you outright any more. A font that refills the bar is a save point, and a save point every other floor is the end of attrition as a mechanic — so it is a large, welcome, *partial* mend, and it does not undo the delve.
 
-**Blessings** (one per run): Fortune (+30% loot find), Fury (+25% damage), Warding (+5 defense).
+At most one shrine room per floor at a 55% base rate, with pity guarantees: at least one shrine across depths 1–3 and at least two across depths 4–6 of a run. Droughts are capped at two floors.
+
+**Blessings** (one per run, scaling with the depth prayed at): Fortune (+40 loot find, +5 per depth past 2), Fury (+30% damage), Warding (+6 defense, +1 per 2 depths), Vitality (+20% maximum health, healing the gained amount on pickup).
 
 **Curses** (one per run, independent of your blessing — you can carry both):
 
 | Curse | Effect |
 |---|---|
-| Frailty | −15% maximum health |
-| Leaden Limbs | −12 speed |
-| Dulled Edge | −20% damage |
-| Hunted | monsters see you 2 tiles further |
+| Frailty | −20% maximum health |
+| Leaden Limbs | −15 speed |
+| Dulled Edge | −25% damage |
+| Hunted | monsters see you 3 tiles further |
+| Brittle Bones | worn gear takes +1 wear per event |
 
-A curse lasts until a **font** washes it off or the run ends, which is what makes crossing a floor for a blue light worth doing. Once you already hold a blessing an idol has little left to give you and the same 40% to take — so the second idol of a run is usually a worse bet than the first, and leaving it alone is a legitimate play.
+A curse lasts until a **font** washes it off or the run ends, which is what makes crossing a floor for a blue light worth doing. Once you already hold a blessing an idol has little left to give you and the same 35% to take — so the second idol of a run is usually a worse bet than the first, and leaving it alone is a legitimate play.
 
 **Scroll of Recall:** 5 seconds of standing still, then a **town portal** tears open on the tile in front of you. Moving, attacking or being hit cancels the reading.
 
@@ -336,6 +339,12 @@ Diablo's, in short: a two-way door that costs one scroll for the round trip.
 - In town the Descend button becomes **Step back through the portal**. It drops you on the portal's own tile, at the depth you left from, and the portal **closes behind you**.
 - **One at a time.** Reading a second scroll collapses the first portal and opens a new one where you stand.
 - The portal is part of the save, so closing the browser in the middle of a portal trip and coming back still works.
+
+### The physicker (market heal)
+
+Bleakmere's physicker mends you to full in town for gold — the gold sink for players who portal home bleeding. She only takes patients while a delve is open (between delves you walk in whole); the mend never lifts curses, so fonts keep their job.
+
+Price: `ceil((8 + maxHp × 0.9 + gearScore × 0.5) × curseMult × depthMult)`, where `gearScore` is worn item value ÷ 10, `curseMult` is 1.5 when cursed, and `depthMult` is `1 + 0.08 × (depth − 1)`. Roughly ~80g early, ~600g late, ~900g cursed late — deliberately steep at the top, so healing every run competes with gear and potions instead of being automatic.
 
 
 ---
@@ -414,14 +423,16 @@ The pool is `slotBase × (0.8 + 0.2 × material tier)`, so better metal lasts lo
 
 | | |
 |---|---|
-| Weapon | every blow that **lands** on a monster. Swinging at air is free. A two-hander's cleave costs **2** when it catches anything |
+| Weapon | **2** per blow that **lands** on a monster (**3** on a two-hander's cleave). Every third swing at empty air costs **1** |
 | Thrown belt | one per shaft that **hits**, and one more per shaft **called back**. Shortest pool in the game at 90 |
-| Offhand | every hit you **absorb** on the shield. A **parry costs nothing** — one more reason to meet the swing instead of hiding behind it |
-| Armour | one worn piece, picked at random, each time a hit **gets through** unblocked |
+| Offhand | **2** per hit you **absorb** on the shield. A **parry costs nothing** — one more reason to meet the swing instead of hiding behind it |
+| Armour | **2** on one worn piece, picked at random, each time a hit **gets through** unblocked |
 
-**Breaking** is not a cliff you fall off blind: gear says so once when it drops under 25% ("close to failing") and once when it goes. Broken gear stays equipped and still gives **25% of its stats** — crippled, not naked.
+The Brittle Bones curse adds **+1** to every wear event. Rings, amulets and `never_dulls` gear never wear.
 
-**Repairs** are at the forge, in the *Repairs* pane: `ceil(value × 0.3 × (1 − condition))` gold per piece, broken gear listed first, with a *Mend all*. Repair cost uses the item's **sound** value, so letting something rot is never the cheaper play. Buyers can see wear, though: worn gear sells for `0.45 + 0.55 × condition` of its price.
+**Breaking** is not a cliff you fall off blind: gear says so once when it drops under 25% ("close to failing") and once when it goes. Broken gear stays equipped and still gives **15% of its stats** — an emergency backup, not a build.
+
+**Repairs** are at the forge, in the *Repairs* pane: `ceil(value × 0.5 × (1 − condition))` gold per piece plus a tier floor (T1 4g … T5 50g, pro-rated to missing durability), broken gear listed first, with a *Mend all*. Repair cost uses the item's **sound** value, so letting something rot is never the cheaper play. Buyers can see wear, though: worn gear sells for `0.45 + 0.55 × condition` of its price.
 
 A 6-floor delve runs 150–350 landed blows, so a weapon that starts the run at full will not always finish it. That is what the pack loadout and the town portal are for: carry a spare, or go home and mend.
 
@@ -507,8 +518,8 @@ Each newly generated chest has a deterministic **12% chance to be a mimic**. It 
 
 | Source | Contents |
 |---|---|
-| Urn / barrel | 40% a material (1–2), 30% gold `2 – (6 + 3×depth)`, 3% potion, 5% valuable |
-| Chest | `10–22 × depth` gold, 1–2 material stacks, 17% gear, 12% potion, 18% valuable, 10% gem, 7% identify scroll, 5% blueprint, 0.8%×depth Fight Milk. Loot find scales the gear, valuable and gem rolls |
+| Urn / barrel | 40% a material (1–2), 30% gold `2 – (5 + 2×depth)`, 3% potion, 5% valuable |
+| Chest | `8–18 × depth` gold, 1–2 material stacks, 17% gear, 12% potion, 18% valuable, 10% gem, 7% identify scroll, 5% blueprint, 0.8%×depth Fight Milk. Loot find scales the gear, valuable and gem rolls |
 | Vault / secret chest | `40–75 × depth` gold, an Uncommon+ item (Rare+ from depth 4; 25% a second Uncommon+), a valuable, a gem, 35%/70% blueprint, 35% a good consumable, 3%×depth Fight Milk |
 
 Vault rooms contain one premium chest. Special chests roll at the current depth rather than advancing every reward table by one floor.

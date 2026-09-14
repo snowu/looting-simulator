@@ -1,9 +1,9 @@
 {
-  "note": "Original Hard stats, loot and player kits stay pinned to the pre-difficulty game. Intentional biome and weapon-roster results are recorded separately. weaponLootHash moved a second time when the three thrown bases left the weapon slot for their own: the weapon drop pool has three fewer entries and a new slot has three, so every roll after the first shifts. enemyHp has not moved and must not: nothing in the weapon work touches monster health, so a change there is a bug, not a rebaseline.",
+  "note": "Original Hard stats, loot and player kits stay pinned to the pre-difficulty game. Intentional biome and weapon-roster results are recorded separately. weaponLootHash moved a second time when the three thrown bases left the weapon slot for their own: the weapon drop pool has three fewer entries and a new slot has three, so every roll after the first shifts. gold_reward_heal_blessing_curses moved varietyFloorHash (shrine 45%->55%, loose gold 2-5->2-4 per depth) and weaponLootHash (urn 6+3/depth->5+2/depth, chest 10-22->8-18 per depth) a third time; enemyHp and playerHp did not move and must not. enemyHp has not moved and must not: nothing in the economy work touches monster health, so a change there is a bug, not a rebaseline.",
   "floorHash": "b182a0fb",
-  "varietyFloorHash": "fcfb15ca",
+  "varietyFloorHash": "67f746d7",
   "lootHash": "c87954b9",
-  "weaponLootHash": "c860aace",
+  "weaponLootHash": "a527665e",
   "weaponPlayerHpChanges": {
     "15": 106,
     "50": 94

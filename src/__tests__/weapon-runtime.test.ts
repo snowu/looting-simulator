@@ -92,7 +92,7 @@ describe('two-handed runtime', () => {
     expect(d.swing).toMatchObject({ cleave: 0.25, stagger: 0.3, chips: 2 });
   });
 
-  it('cleaves everything touching the target for a quarter, never bashes, and wears twice', () => {
+  it('cleaves everything touching the target for a quarter, never bashes, and wears three times', () => {
     const w = arena('great_maul');
     const front = tanky(place(w));
     // Diagonally off the target, which is beside the player: caught by the
@@ -116,7 +116,7 @@ describe('two-handed runtime', () => {
     // worth, and it never bashes the guard open.
     expect(guard.blocks).toBe(1);
     expect(w.anim.stunT).toBe(0);
-    expect(durability(item).cur).toBe(before - 2);
+    expect(durability(item).cur).toBe(before - 3);
   });
 
   it('cleaves the rank behind the target, and never back onto your own tile', () => {

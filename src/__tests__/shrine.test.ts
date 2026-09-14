@@ -4,7 +4,8 @@ import { DIRS, DX, DY } from '../core/dir';
 import { newGame } from '../state/game-state';
 import { startRun } from '../systems/run';
 import { BLESSINGS, CURSES, World } from '../world/world';
-import { FLOOR, Prop, ShrineKind, generateFloor, shrineKindFor } from '../systems/dungeon';
+import { FLOOR, Floor, Prop, ShrineKind, generateFloor, shrineKindFor, shrinePityFor } from '../systems/dungeon';
+import { durability } from '../systems/items';
 
 /** The player facing a shrine of the given flavour, one tile away. */
 function atShrine(kind: ShrineKind, seed = 1): { w: World; shrine: Prop } {
@@ -169,7 +170,7 @@ describe('curses', () => {
     const speed = w.derived.stats.speed;
     w.run.curse = 'leaden';
     w.refreshDerived();
-    expect(w.derived.stats.speed).toBe(speed - 12);
+    expect(w.derived.stats.speed).toBe(speed - 15);
   });
 
   it('cannot drop your health below one', () => {
@@ -179,5 +180,83 @@ describe('curses', () => {
     w.refreshDerived();
     expect(w.derived.maxHp).toBeGreaterThan(0);
     expect(w.player.hp).toBeGreaterThan(0);
+  });
+
+  it('brittle makes every wear event worse', () => {
+    const { w } = atShrine('font');
+    const weapon = w.state.equipment.weapon!;
+
+    w.run.curse = null;
+    const clean = durability(weapon).cur;
+    (w as unknown as { wear: (s: string, n?: number) => void }).wear('weapon', 1);
+    const afterClean = durability(weapon).cur;
+    weapon.dur = clean;
+    w.run.curse = 'brittle';
+    (w as unknown as { wear: (s: string, n?: number) => void }).wear('weapon', 1);
+    const afterBrittle = durability(weapon).cur;
+    expect(clean - afterBrittle).toBe((clean - afterClean) + 1);
+  });
+
+  it('hunted costs three tiles of sight now', () => {
+    const { w } = atShrine('font');
+    w.run.curse = 'hunted';
+    expect((w as unknown as { sightPenalty: number }).sightPenalty).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('new blessings', () => {
+  it('vitality raises the ceiling by a fifth', () => {
+    const { w } = atShrine('font');
+    const full = w.derived.maxHp;
+    w.run.blessing = 'vitality';
+    w.refreshDerived();
+    expect(w.derived.maxHp).toBe(Math.round(full * 1.2));
+  });
+
+  it('fortune and ward scale with depth', () => {
+    const { w } = atShrine('font');
+    w.run.blessing = 'fortune';
+    w.run.depth = 6;
+    w.refreshDerived();
+    expect(w.derived.find).toBeGreaterThanOrEqual(60);
+    w.run.blessing = 'ward';
+    w.refreshDerived();
+    expect(w.derived.stats.defense).toBeGreaterThanOrEqual(9);
+  });
+});
+
+describe('shrine pity', () => {
+  const noShrine = (seed: number, depth: number): Floor => {
+    const f = generateFloor(seed, depth);
+    for (const r of f.rooms) if (r.role === 'shrine') r.role = 'normal';
+    return f;
+  };
+
+  it('forces a shrine on depth 3 when 1–2 are dry', () => {
+    const floors: (Floor | null)[] = [noShrine(1, 1), noShrine(1, 2)];
+    expect(shrinePityFor(floors, 3)).toBe(true);
+  });
+
+  it('does not force on depth 3 when the block already has one', () => {
+    const floors: (Floor | null)[] = [generateFloor(7, 1), noShrine(7, 2)];
+    // Seed 7 depth 1 may or may not have a shrine; force the question both ways.
+    floors[0] = generateFloor(7, 1);
+    const has = floors[0]!.rooms.some((r) => r.role === 'shrine');
+    expect(shrinePityFor(floors, 3)).toBe(!has && !floors[1]!.rooms.some((r) => r.role === 'shrine'));
+  });
+
+  it('forces depth 5 when depth 4 missed, and depth 6 until the block holds 2', () => {
+    const floors: (Floor | null)[] = [null, null, null, noShrine(2, 4)];
+    expect(shrinePityFor(floors, 5)).toBe(true);
+    const withOne: (Floor | null)[] = [null, null, null, generateFloor(3, 4), noShrine(3, 5)];
+    const count = [withOne[3], withOne[4]].filter((f) => f!.rooms.some((r) => r.role === 'shrine')).length;
+    expect(shrinePityFor(withOne, 6)).toBe(count < 2);
+  });
+
+  it('a forced floor actually places a shrine when a normal room exists', () => {
+    for (let seed = 0; seed < 30; seed++) {
+      const f = generateFloor(seed, 3, 'hard', true);
+      expect(f.rooms.some((r) => r.role === 'shrine')).toBe(true);
+    }
   });
 });

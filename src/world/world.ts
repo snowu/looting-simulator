@@ -22,6 +22,7 @@ import {
   inBounds,
   propAt,
   secretAt,
+  shrinePityFor,
   stairsAt,
   stairsFront,
   Trap,
@@ -329,9 +330,10 @@ export const TRAPS: Record<
 };
 
 export const BLESSINGS: Record<string, { name: string; text: string }> = {
-  fortune: { name: 'Fortune', text: '+30% loot find this run.' },
-  fury: { name: 'Fury', text: '+25% damage this run.' },
-  ward: { name: 'Warding', text: '+5 defense this run.' },
+  fortune: { name: 'Fortune', text: '+40 loot find this run, more the deeper you pray.' },
+  fury: { name: 'Fury', text: '+30% damage this run.' },
+  ward: { name: 'Warding', text: '+6 defense this run, more the deeper you pray.' },
+  vitality: { name: 'Vitality', text: '+20% maximum health this run.' },
 };
 
 /**
@@ -340,10 +342,11 @@ export const BLESSINGS: Record<string, { name: string; text: string }> = {
  * one, which is what makes finding a font worth something once you are cursed.
  */
 export const CURSES: Record<string, { name: string; text: string }> = {
-  frailty: { name: 'Frailty', text: '−15% maximum health this run.' },
-  leaden: { name: 'Leaden Limbs', text: '−12 speed this run.' },
-  dulled: { name: 'Dulled Edge', text: '−20% damage this run.' },
-  hunted: { name: 'Hunted', text: 'Monsters see you two tiles further this run.' },
+  frailty: { name: 'Frailty', text: '−20% maximum health this run.' },
+  leaden: { name: 'Leaden Limbs', text: '−15 speed this run.' },
+  dulled: { name: 'Dulled Edge', text: '−25% damage this run.' },
+  hunted: { name: 'Hunted', text: 'Monsters see you three tiles further this run.' },
+  brittle: { name: 'Brittle Bones', text: 'Your gear wears faster this run.' },
 };
 
 /**
@@ -430,12 +433,17 @@ export class World {
 
   refreshDerived(): void {
     this.derived = derivePlayer(this.state.equipment, this.state.meta, this.difficultyId);
-    if (this.run.blessing === 'fury') this.derived.attack = Math.round(this.derived.attack * 1.25);
-    if (this.run.blessing === 'fortune') this.derived.find += 30;
-    if (this.run.blessing === 'ward') this.derived.stats.defense += 5;
-    if (this.run.curse === 'frailty') this.derived.maxHp = Math.max(1, Math.round(this.derived.maxHp * 0.85));
-    if (this.run.curse === 'leaden') this.derived.stats.speed -= 12;
-    if (this.run.curse === 'dulled') this.derived.attack = Math.max(1, Math.round(this.derived.attack * 0.8));
+    // Blessings scale with the depth prayed at: a D6 blessing should feel
+    // like a D6 blessing. Fortune +40 +5/depth past 2, Ward +6 +1 per 2 depths.
+    const depth = this.run.depth;
+    if (this.run.blessing === 'fury') this.derived.attack = Math.round(this.derived.attack * 1.3);
+    if (this.run.blessing === 'fortune') this.derived.find += 40 + 5 * Math.max(0, depth - 2);
+    if (this.run.blessing === 'ward') this.derived.stats.defense += 6 + Math.floor(depth / 2);
+    if (this.run.blessing === 'vitality') this.derived.maxHp = Math.round(this.derived.maxHp * 1.2);
+    if (this.run.curse === 'frailty') this.derived.maxHp = Math.max(1, Math.round(this.derived.maxHp * 0.8));
+    if (this.run.curse === 'leaden') this.derived.stats.speed -= 15;
+    if (this.run.curse === 'dulled') this.derived.attack = Math.max(1, Math.round(this.derived.attack * 0.75));
+    // hunted is read in sightPenalty (+3); brittle is read in wear (+1).
     for (const id of this.run.tonics ?? []) TONICS[id]?.apply(this.derived);
     this.player.hp = Math.min(this.player.hp, this.derived.maxHp);
     this.player.stamina = Math.min(this.player.stamina, this.derived.maxStamina);
@@ -462,13 +470,20 @@ export class World {
     return healed;
   }
 
+  /** Swings into empty air since the last scuff: every third one wears the edge. */
+  private whiffs = 0;
+
   /**
    * Wear a piece of equipment and say something only when it crosses a line:
    * once when it is nearly gone, once when it goes. A message per swing would
    * be noise, and noise is how a player learns to stop reading the log.
+   *
+   * The Brittle curse adds +1 to every wear event, which is what makes
+   * finding a font urgent rather than theoretical.
    */
   private wear(slot: EquipSlot, amount = 1): void {
     const it = this.state.equipment[slot];
+    if (this.run.curse === 'brittle') amount += 1;
     const crossed = wearItem(it, amount);
     if (crossed === 'none' || !it) return;
     const name = itemName(it);
@@ -487,12 +502,22 @@ export class World {
       const it = this.state.equipment[s];
       return it && !durability(it).broken;
     });
-    if (worn.length) this.wear(this.rng.pick(worn));
+    // 2 per unblocked hit (was 1): armour is a consumable now, not furniture.
+    if (worn.length) this.wear(this.rng.pick(worn), 2);
+  }
+
+  /** A swing that hit nothing still dulls the edge, slowly: 1 wear per 3 whiffs. */
+  private wearWhiff(): void {
+    this.whiffs += 1;
+    if (this.whiffs >= 3) {
+      this.whiffs = 0;
+      this.wear('weapon', 1);
+    }
   }
 
   /** Extra tiles of sight the floor has on you, from the Hunted curse. */
   private get sightPenalty(): number {
-    return (this.run.curse === 'hunted' ? 2 : 0) - this.derived.traits.unseen - (this.anim?.unseenT > 0 ? 99 : 0);
+    return (this.run.curse === 'hunted' ? 3 : 0) - this.derived.traits.unseen - (this.anim?.unseenT > 0 ? 99 : 0);
   }
 
   private emit(e: WorldEvent): void {
@@ -781,7 +806,12 @@ export class World {
     }
     this.retrieve(false);
     run.depth += dir === 'down' ? 1 : -1;
-    if (!run.floors[run.depth - 1]) run.floors[run.depth - 1] = generateFloor(run.seed, run.depth, this.difficultyId);
+    if (!run.floors[run.depth - 1]) {
+      // Pity guarantees: ≥1 shrine in depths 1–3, ≥2 in 4–6. Natural rolls
+      // cover most runs; the force only bites on a drought.
+      const force = shrinePityFor(run.floors, run.depth);
+      run.floors[run.depth - 1] = generateFloor(run.seed, run.depth, this.difficultyId, force);
+    }
     const f = this.floor;
     const arrive = f.stairs.find((s) => s.down === (dir === 'up'))!;
     const spot = stairsFront(arrive);
@@ -1420,7 +1450,9 @@ export class World {
       const e = enemyAt(f, t.x, t.y);
       if (e) {
         this.hitEnemy(e);
-        this.wear('weapon', this.cleave(t.x, t.y) ? 2 : 1);
+        // 2 per landed blow, 3 on a cleave (was 1/2): ~55 hits to break a
+        // weapon, roughly a floor and a half of fighting, not four floors.
+        this.wear('weapon', this.cleave(t.x, t.y) ? 3 : 2);
         return;
       }
       const p = propAt(f, t.x, t.y);
@@ -1430,6 +1462,7 @@ export class World {
       }
       if (blocksSight(f, t.x, t.y)) break;
     }
+    this.wearWhiff();
     this.sfx('miss');
   }
 
@@ -2072,8 +2105,12 @@ export class World {
   private grantBlessing(): boolean {
     if (this.run.blessing) return false;
     const id = this.rng.pick(Object.keys(BLESSINGS));
+    const before = this.derived.maxHp;
     this.run.blessing = id;
     this.refreshDerived();
+    // Vitality raises the ceiling: heal the gained amount on pickup, so the
+    // blessing feels like a gift rather than a larger empty bar.
+    if (id === 'vitality') this.player.hp = Math.min(this.derived.maxHp, this.player.hp + Math.max(0, this.derived.maxHp - before));
     this.msg(`Blessing of ${BLESSINGS[id].name}: ${BLESSINGS[id].text}`, '#a0c8ff');
     return true;
   }
@@ -2093,10 +2130,11 @@ export class World {
         return;
       }
 
-      // The gamble. Six times in ten it gives; the rest of the time it takes,
-      // and what it takes lasts the rest of the run.
+      // The gamble. Thirteen times in twenty it gives; the rest of the time
+      // it takes, and what it takes lasts the rest of the run. Slightly
+      // kinder than before (was 60/40) to compensate stronger curses.
       case 'idol': {
-        if (this.rng.chance(0.6)) {
+        if (this.rng.chance(0.65)) {
           this.restore();
           if (!this.grantBlessing()) this.msg('The idol is satisfied. Much of the hurt leaves you.', '#a0c8ff');
           return;
@@ -2717,9 +2755,10 @@ export class World {
         p.stamina -= cost;
         dmg = Math.round(dmg - absorbed);
         blocked = true;
-        // Blocking grinds the shield down; a parry costs it nothing, which is
-        // one more reason to meet the swing instead of hiding behind it.
-        if (this.derived.hasShield) this.wear('offhand');
+        // Blocking grinds the shield down (2 per block, was 1); a parry
+        // costs it nothing, which is one more reason to meet the swing
+        // instead of hiding behind it.
+        if (this.derived.hasShield) this.wear('offhand', 2);
       } else {
         const frac = p.stamina / cost;
         p.stamina = 0;
