@@ -17,7 +17,7 @@ brass and cool faceted metal. Author the motifs in `src/art/viewmodels.ts`.
   uses a separate cupped hand; the retrieval hand shows its back and side,
   open with slightly curled fingers and its thumb separated to receive shafts.
 - Keep weapon identities in their silhouettes: swept axe edge, curved pick,
-  flanged mace, leaf spear, rectangular maul, hooked halberd and slim sword.
+  flanged mace, tapered club, leaf spear, rectangular maul, hooked halberd and slim sword.
   Dagger, short sword and long sword have separate viewmodel IDs. Keep their
   canvas heights and grip positions identical so blade length survives the
   renderer's height normalisation.
@@ -25,7 +25,7 @@ brass and cool faceted metal. Author the motifs in `src/art/viewmodels.ts`.
   terminals. Shields use separate per-base viewmodels: round buckler, pointed
   kite and broad rectangular tower. The viewer and renderer use the same mapping.
 - Reserve palette indices 1–4 for recolorable metal. Skin, wood and brass stay
-  fixed. Alpha 250 is reserved for the lit sigil carving and sparks.
+  fixed, except the club body, whose ramp follows its wood or bone material. Alpha 250 is reserved for the lit sigil carving and sparks.
 
 After editing, regenerate just the affected overrides:
 

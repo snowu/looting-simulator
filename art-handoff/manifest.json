@@ -1680,6 +1680,14 @@
     "recolorable": true
   },
   {
+    "id": "vm_club",
+    "file": "viewmodels/vm_club.png",
+    "width": 48,
+    "height": 80,
+    "base": null,
+    "recolorable": true
+  },
+  {
     "id": "vm_spear",
     "file": "viewmodels/vm_spear.png",
     "width": 48,
