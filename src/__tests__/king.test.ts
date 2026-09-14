@@ -4,8 +4,11 @@ import { DIRS, DX, DY, turnAround } from '../core/dir';
 import { newGame } from '../state/game-state';
 import { startRun } from '../systems/run';
 import { World } from '../world/world';
-import { EnemyState, FLOOR, Room, createEnemy, generateFloor } from '../systems/dungeon';
+import { EnemyState, FLOOR, Room, blocksSight, createEnemy, generateFloor, isBossDoor } from '../systems/dungeon';
 import { BOSS_ID, KING_PHASES, enemyDef, enemyView, kingPhase, phaseForHp } from '../data/enemies';
+import { makeConsumable } from '../systems/items';
+import { addItem } from '../state/inventory';
+import { Dir, dirOf } from '../core/dir';
 import { uniqueOf } from '../systems/items';
 
 function tick(w: World, seconds: number): void {
@@ -252,5 +255,77 @@ describe('an older save', () => {
     expect(() => tick(w, 0.1)).not.toThrow();
     expect(e.phase).toBe(2);
     expect(kingPhase(e.phase!).sprite).toBe('king_dark');
+  });
+});
+
+describe('the fog gate', () => {
+  it('marks exactly one boss-only door on every depth-six floor', () => {
+    for (let seed = 0; seed < 12; seed++) {
+      const f = generateFloor(seed, 6);
+      const gates = f.doors.filter((d) => isBossDoor(f, d));
+      expect(gates, `seed ${seed}`).toHaveLength(1);
+      expect(gates[0].boss).toBe(true);
+      expect(gates[0].iron).toBe(true);
+    }
+    // Ordinary floors have no throne and no gate.
+    for (let seed = 0; seed < 6; seed++) {
+      const f = generateFloor(seed, 3);
+      expect(f.doors.filter((d) => isBossDoor(f, d))).toHaveLength(0);
+    }
+  });
+
+  it('recognises pre-flag saves by position', () => {
+    const f = generateFloor(77, 6);
+    const gate = f.doors.find((d) => d.boss)!;
+    expect(gate).toBeDefined();
+    delete gate.boss; // written before the flag existed
+    expect(isBossDoor(f, gate)).toBe(true);
+    const other = f.doors.find((d) => d !== gate)!;
+    if (other) expect(isBossDoor(f, other)).toBe(false);
+  });
+
+  it('seals when you enter and reopens when he falls', () => {
+    const { w, boss } = throne(77);
+    const gates = w.floor.doors.filter((d) => isBossDoor(w.floor, d));
+    expect(gates.length).toBe(1);
+    expect(gates[0].locked).toBe(false);
+    // Already standing inside the throne room: one tick slams it.
+    tick(w, 0.1);
+    expect(gates[0].locked).toBe(true);
+    expect(gates[0].open).toBe(false);
+    // No cheese through the crack: a shut gate blocks sight, which is what
+    // stops bolts (updateProjectiles) and pathing (blocksMove) both ways.
+    expect(blocksSight(w.floor, gates[0].x, gates[0].y)).toBe(true);
+    (w as unknown as { killEnemy(x: EnemyState): void }).killEnemy(boss);
+    expect(gates[0].locked).toBe(false);
+    expect(gates[0].open).toBe(true);
+  });
+
+  it('refuses the gate and the way home while sealed', () => {
+    const { w, room } = throne(78);
+    tick(w, 0.1);
+    const gate = w.floor.doors.find((d) => isBossDoor(w.floor, d))!;
+    expect(gate.locked).toBe(true);
+    // Stand on the inside tile beside the gate, facing it.
+    const inside = [0, 1, 2, 3].map((d) => ({ x: gate.x + DX[d as Dir], y: gate.y + DY[d as Dir] }))
+      .find((t) => inRoom(room, t.x, t.y) && w.floor.tiles[t.y * w.floor.width + t.x] === FLOOR);
+    expect(inside).toBeDefined();
+    Object.assign(w.player, { x: inside!.x, y: inside!.y, facing: dirOf(gate.x - inside!.x, gate.y - inside!.y) ?? 0 });
+    expect(w.interactionHint()).toBe('Sealed by fog');
+    w.interact();
+    expect(gate.locked).toBe(true);
+    expect(gate.open).toBe(false);
+    // A recall scroll will not spend itself against the fog.
+    addItem(w.run.backpack, makeConsumable('scroll_recall', 1));
+    const scroll = w.run.backpack.items.find((i) => i.ref === 'scroll_recall')!;
+    w.use(scroll.uid);
+    expect(w.anim.recall).toBeNull();
+    expect(w.run.backpack.items.some((i) => i.ref === 'scroll_recall')).toBe(true);
+    // Nor will a town portal already underfoot open the way out.
+    w.floor.props.push({ id: 'sealed_town', kind: 'town_portal', x: w.player.x, y: w.player.y, used: false, tier: 'none', blocking: false, mimic: false });
+    w.drainEvents();
+    w.interact();
+    expect(w.drainEvents().some((e) => e.type === 'town')).toBe(false);
+    expect(w.run.outcome).toBe('active');
   });
 });

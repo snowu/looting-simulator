@@ -20,6 +20,7 @@ import {
   enemyAt,
   generateFloor,
   inBounds,
+  isBossDoor,
   propAt,
   secretAt,
   stairsAt,
@@ -28,7 +29,7 @@ import {
   TrapKind,
   trapAt,
 } from '../systems/dungeon';
-import { enemyDef, enemyView, kingPhase, phaseForHp } from '../data/enemies';
+import { BOSS_ID, enemyDef, enemyView, kingPhase, phaseForHp } from '../data/enemies';
 import { consumable, itemBase, viewmodelFor } from '../data/items';
 import { biomeForFloor, FINAL_DEPTH } from '../data/biomes';
 import { PlayerDerived, derivePlayer, thrownView } from '../systems/player';
@@ -268,6 +269,7 @@ export function shortLabel(hint: string): string {
   if (hint.startsWith('Step through')) return 'Enter';
   if (hint.startsWith('Unlock')) return 'Unlock';
   if (hint.startsWith('Open')) return 'Open';
+  if (hint === 'Sealed by fog') return 'Sealed';
   return hint;
 }
 
@@ -665,6 +667,8 @@ export class World {
     this.updateRetrieve(dt);
     this.updateEnemies(dt);
     this.updateProjectiles(dt);
+    // Covers teleports that never pass through arrive() (dev boss room).
+    this.checkBossSeal();
     this.run.rngState = this.rng.state;
   }
 
@@ -715,6 +719,7 @@ export class World {
     const p = this.player;
     this.anim.steps++;
     this.reveal();
+    this.checkBossSeal();
     const f = this.floor;
     this.collectThrownHere();
     const trap = trapAt(f, p.x, p.y);
@@ -1684,6 +1689,7 @@ export class World {
       this.dropLoot(spot.x, spot.y, loot.items, loot.gold);
       this.run.stats.bossKilled = true;
       this.msg('The Ashen King crumbles to cinders. A portal tears open.', '#c080ff');
+      this.unsealBossDoors();
       this.floor.props.push({ id: `portal${this.time}`, kind: 'portal', x: e.x, y: e.y, used: false, tier: 'none', blocking: false, mimic: false });
     } else {
       this.dropLoot(e.x, e.y, loot.items, loot.gold);
@@ -1792,6 +1798,7 @@ export class World {
     const t = this.frontTile();
     const door = doorAt(f, t.x, t.y);
     if (door) {
+      if (isBossDoor(f, door) && door.locked && this.bossAlive()) return 'Sealed by fog';
       if (door.open) return enemyAt(f, t.x, t.y) ? null : 'Close door';
       if (door.locked) return this.run.keys.includes(door.keyId!) ? 'Unlock door' : 'Locked';
       return 'Open door';
@@ -1918,6 +1925,11 @@ export class World {
 
     const door = doorAt(f, t.x, t.y);
     if (door) {
+      if (isBossDoor(f, door) && door.locked && this.bossAlive()) {
+        this.msg('Sealed by fog. The King must fall.', '#c0a0ff');
+        this.sfx('locked', t.x, t.y);
+        return;
+      }
       if (door.open) {
         if (enemyAt(f, t.x, t.y)) return;
         door.open = false;
@@ -2013,6 +2025,14 @@ export class World {
     const portal = this.portalHere();
     const town = this.townPortalHere();
     if (portal || town) {
+      // No slipping out of the throne fight through a town portal: the fog
+      // holds you until the King falls. His own exit portal only exists
+      // after that, so it is never blocked.
+      if (town && this.playerInThrone() && this.bossAlive()) {
+        this.msg('The fog smothers the portal. No way out but through him.', '#c0a0ff');
+        this.sfx('locked');
+        return;
+      }
       const loose = this.pickupNear();
       if (loose) {
         this.emit({ type: 'loot', pickupId: loose.id });
@@ -2255,6 +2275,11 @@ export class World {
       }
       case 'recall':
         if (this.anim.recall !== null) return;
+        if (this.playerInThrone() && this.bossAlive()) {
+          this.msg('The fog smothers the scroll. No way out but through him.', '#c0a0ff');
+          this.sfx('locked');
+          return;
+        }
         this.anim.recall = e.seconds;
         this.msg(
           this.run.portal ? 'You read the scroll. The old portal will collapse...' : 'You read the scroll. Stand still...',
@@ -2411,6 +2436,52 @@ export class World {
 
   private inRoom(r: Room, x: number, y: number): boolean {
     return x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
+  }
+
+  /** The King, if he still stands on this floor. */
+  private bossAlive(): boolean {
+    return this.floor.enemies.some((e) => e.def === BOSS_ID && e.ai !== 'dead');
+  }
+
+  /** Fog-gate doors on this floor (usually exactly one, at the throne). */
+  private bossDoors() {
+    return this.floor.doors.filter((d) => isBossDoor(this.floor, d));
+  }
+
+  private playerInThrone(): boolean {
+    const r = this.throneRoom();
+    return !!r && this.inRoom(r, this.player.x, this.player.y);
+  }
+
+  /**
+   * The fog wall. The moment you step into the throne room with the King
+   * alive, every gate slams and seals — no ducking back out to bleed him
+   * through the doorway, no bolts through the crack either, since a shut
+   * door blocks sight both ways.
+   */
+  private checkBossSeal(): void {
+    if (!this.bossAlive() || !this.playerInThrone()) return;
+    const open = this.bossDoors().filter((d) => !d.locked);
+    if (!open.length) return;
+    for (const g of open) {
+      g.open = false;
+      g.locked = true;
+    }
+    this.msg('The fog closes behind you. The King must fall.', '#c0a0ff');
+    this.sfx('door');
+    this.emit({ type: 'shake', amount: 0.4 });
+  }
+
+  /** His death thins the fog: the way out stands open. */
+  private unsealBossDoors(): void {
+    const shut = this.bossDoors().filter((d) => d.locked || !d.open);
+    if (!shut.length) return;
+    for (const g of shut) {
+      g.locked = false;
+      g.open = true;
+    }
+    this.msg('The fog thins. The way out stands open.', '#c0a0ff');
+    this.sfx('door');
   }
 
   /**

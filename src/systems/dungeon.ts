@@ -34,6 +34,29 @@ export interface Door {
   locked: boolean;
   keyId?: string;
   iron: boolean;
+  /**
+   * Throne fog gate. Set at generation for the throne-room entrance; older
+   * saves predate the flag and are detected by position in `isBossDoor`.
+   * While the King lives the gate seals (locked) behind anyone who enters
+   * and only his death unseals it — no key, no cheese through the doorway.
+   */
+  boss?: boolean;
+}
+
+/**
+ * Whether this door is the throne-room fog gate. New floors carry the flag;
+ * floors generated before it existed are recognised by position: the throne
+ * entrance is the one door tile sitting exactly one outside the throne rect.
+ */
+export function isBossDoor(f: Floor, d: Door): boolean {
+  if (d.boss !== undefined) return d.boss;
+  const throne = f.rooms.find((r) => r.role === 'throne');
+  if (!throne) return false;
+  const onEdge =
+    (d.x === throne.x - 1 || d.x === throne.x + throne.w) && d.y >= throne.y - 1 && d.y <= throne.y + throne.h;
+  const onSide =
+    (d.y === throne.y - 1 || d.y === throne.y + throne.h) && d.x >= throne.x - 1 && d.x <= throne.x + throne.w;
+  return onEdge || onSide;
 }
 
 export interface Secret {
@@ -611,7 +634,7 @@ function tryGenerate(seed: number, depth: number, rng: Rng, diff: DifficultyDef 
         keys.push(key);
         doors.push({ x: e.x, y: e.y, ns, open: false, locked: true, keyId: key.id, iron: true });
       } else if (r === throne) {
-        doors.push({ x: e.x, y: e.y, ns, open: false, locked: false, iron: true });
+        doors.push({ x: e.x, y: e.y, ns, open: false, locked: false, iron: true, boss: true });
       } else if (rng.chance(0.45)) {
         doors.push({ x: e.x, y: e.y, ns, open: false, locked: false, iron });
       }

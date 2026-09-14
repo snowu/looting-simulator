@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { Dir, DIRS, DX, DY, turnRight } from '../core/dir';
 import { biomeForFloor } from '../data/biomes';
-import { Door, Floor, FLOOR, PILLAR, Secret, WALL, stairsAt, tileAt } from '../systems/dungeon';
+import { Door, Floor, FLOOR, PILLAR, Secret, WALL, isBossDoor, stairsAt, tileAt } from '../systems/dungeon';
 import { artTexture } from './art-cache';
 import { PS1Material, Shared, ps1Material } from './ps1';
 
@@ -207,8 +207,11 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
     if (!door.ns) frame.rotation.y = Math.PI / 2;
     const pivot = new THREE.Group();
     pivot.position.set(-(TILE - 0.08) / 2, 0, 0);
-    const openTex = artTexture(door.iron ? 'door_iron' : biome.door);
-    const lockedTex = artTexture('door_locked');
+    // The throne gate keeps its iron frame but wears wall-fog instead of iron,
+    // sealed or not — closed it reads as a fog wall, open the way is clear.
+    const boss = isBossDoor(floor, door);
+    const openTex = artTexture(boss ? 'door_boss' : door.iron ? 'door_iron' : biome.door);
+    const lockedTex = artTexture(boss ? 'door_boss' : 'door_locked');
     const mat = ps1Material(shared, door.locked ? lockedTex : openTex);
     materials.push(mat);
     pivot.add(new THREE.Mesh(doorGeo, mat));
