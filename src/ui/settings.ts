@@ -87,6 +87,50 @@ export function openSettings(ctx: SettingsCtx): void {
     });
   }
 
+  /**
+   * Volume slider plus mute toggle. Dragging the slider above zero unmutes —
+   * a slider at 60 that stays silent is a bug report waiting to happen — and
+   * the preview blip fires on release, not on every tick, so dragging does
+   * not stutter the very thing being adjusted.
+   */
+  function audioBox(): HTMLElement {
+    const muteBtn = btn(audio.muted ? '🔇 Muted' : '🔊 Sound on', () => {
+      audio.unlock();
+      audio.toggleMute();
+      syncAudio();
+      audio.play('ui');
+    }, 'small');
+    const pct = h('span', { class: 'dim small audio-pct' });
+    const slider = h('input', {
+      class: 'audio-slider',
+      attrs: { type: 'range', min: '0', max: '100', step: '1', value: String(Math.round(audio.volume * 100)) },
+    }) as HTMLInputElement;
+    slider.title = 'Volume';
+    slider.setAttribute('aria-label', 'Volume');
+
+    function syncAudio(): void {
+      slider.value = String(Math.round(audio.volume * 100));
+      pct.textContent = audio.muted ? 'Muted' : `${slider.value}%`;
+      muteBtn.textContent = audio.muted ? '🔇 Muted' : '🔊 Sound on';
+      muteBtn.classList.toggle('primary', !audio.muted);
+    }
+
+    slider.addEventListener('input', () => {
+      audio.unlock();
+      audio.setVolume(Number(slider.value) / 100);
+      if (Number(slider.value) > 0 && audio.muted) audio.setMuted(false);
+      syncAudio();
+    });
+    slider.addEventListener('change', () => audio.play('ui'));
+    syncAudio();
+    return h(
+      'div',
+      {},
+      h('h3', { style: 'margin-top:10px', text: 'Audio' }),
+      h('div', { class: 'audio-row' }, muteBtn, slider, pct),
+    );
+  }
+
   const modal = h(
     'div',
     { class: 'modal frame gold settings-modal' },
@@ -97,6 +141,7 @@ export function openSettings(ctx: SettingsCtx): void {
       btn('Close', () => closeSettings(), 'small'),
     ),
     difficultyBox,
+    audioBox(),
     h('h3', { style: 'margin-top:10px', text: 'Cloud saves' }),
     h('p', { class: 'dim small', text: 'Optional. Signed out, the game plays exactly as it always has.' }),
     accountBox,

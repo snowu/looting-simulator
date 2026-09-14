@@ -45,6 +45,9 @@ let cloudSlots = new Map<Slot, CloudFetch>();
 let world: World | null = null;
 let mode: Mode = 'title';
 let saveTimer = 0;
+// Next cave drip in the Sunken Catacombs. Reckoned in real seconds so the
+// roof keeps dripping while a panel is open — ambience does not pause.
+let dripTimer = 3;
 let ending: { outcome: 'dead' | 'extracted'; t: number } | null = null;
 
 // --- DOM -----------------------------------------------------------------------
@@ -58,6 +61,19 @@ document.documentElement.style.setProperty('--frame-gold', `url(${artUrl('ui_fra
 const canvas = h('canvas', { attrs: { id: 'view' } });
 app.append(canvas);
 const renderer = new DungeonRenderer(canvas);
+// A watched drop is heard when it lands, not while it is still falling.
+// Drops only ever fall in the catacombs (the pool clears on floor changes),
+// so a landing always means water below — and it gets the wet impact voice,
+// not the glassy distant plink.
+renderer.onDripLand = () => {
+  if (mode !== 'dungeon' || !world) return;
+  if (biomeForFloor(world.floor).id !== 'catacombs') return;
+  audio.play('plop', {
+    volume: 0.35 + Math.random() * 0.45,
+    pan: Math.random() * 1.2 - 0.6,
+    rate: 0.9 + Math.random() * 0.3,
+  });
+};
 const hud = new Hud(app, { interact: () => world?.interact(), quick: (i) => world?.quickUse(i) });
 
 let touchMode = isTouchDevice();
@@ -331,6 +347,13 @@ function installCloud(save: CloudSave): void {
   saveGame(state, slot);
   cloudSlots.set(save.slot, { kind: 'save', save });
   sync.adopt(save);
+  // A snapshot taken mid-delve resumes in the dungeon, never in town: arriving
+  // in Bleakmere with a run open is a free portal trip — stash, market and all.
+  if (state.run?.outcome === 'active') {
+    enterDungeon();
+    toast('Cloud save loaded.', '#9ac0ff');
+    return;
+  }
   if (mode === 'town') {
     town.tab = 'stash';
     town.render();
@@ -501,7 +524,15 @@ function enterSlot(n: Slot, difficulty?: DifficultyId): void {
   // is why nothing is written here for an empty one until then.
   if (existing) commit();
 
-  enterTown();
+  // A save taken mid-delve resumes in the dungeon, never in town. Landing in
+  // Bleakmere with a run open is a free town portal: the stash, the market and
+  // the forge are all reachable with the backpack still on, so anything carried
+  // can be made safe before the delve gets dangerous.
+  if (state.run?.outcome === 'active') {
+    enterDungeon();
+  } else {
+    enterTown();
+  }
   void reconcile();
 }
 
@@ -638,9 +669,13 @@ function frame(now: number): void {
     if (touchMode) {
       touch.setAction(world.contextAction());
       const belt = world.state.equipment.thrown?.ref;
+      // The Call button covers the whole return trip: shafts on the floor, a
+      // call in progress (second tap stops it), and shafts already flying home.
+      const counts = world.thrownCounts();
       touch.setTools({
         thrown: !!world.derived.thrown,
-        landed: !!belt && (world.floor.thrown ?? []).some((m) => m.base === belt),
+        landed: !!belt && ((world.floor.thrown ?? []).some((m) => m.base === belt) || (counts?.flying ?? 0) > 0),
+        calling: !!world.anim.retrieving,
         sigil: !!world.run.sigil && world.run.sigil.cd <= 0,
       });
     }
@@ -666,6 +701,25 @@ function frame(now: number): void {
       if (saveTimer > 15) {
         saveTimer = 0;
         commit();
+      }
+      // The Sunken Catacombs drip: an irregular plink from somewhere in the
+      // dark every few seconds. Sometimes it is a drop falling through the
+      // lamplight ahead — heard when it lands — and sometimes just a distant
+      // plink out of sight. Volume and pan vary so each one reads as a
+      // different distance, not a louder or quieter same drop.
+      dripTimer -= dt;
+      if (dripTimer <= 0) {
+        dripTimer = 2.5 + Math.random() * 6;
+        if (biomeForFloor(world.floor).id === 'catacombs') {
+          if (Math.random() < 0.45) renderer.spawnDrip();
+          else {
+            audio.play('drip', {
+              volume: 0.2 + Math.random() * 0.4,
+              pan: Math.random() * 1.6 - 0.8,
+              rate: 0.85 + Math.random() * 0.35,
+            });
+          }
+        }
       }
     }
   }
@@ -853,6 +907,7 @@ async function enterBossArena(): Promise<void> {
 }
 
 // --- Boot ------------------------------------------------------------------------
+audio.loadPrefs();
 const params = new URLSearchParams(location.search);
 if (import.meta.env.DEV && params.has('art')) void openArtSheet();
 if (params.has('autostart')) {

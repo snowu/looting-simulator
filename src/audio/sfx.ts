@@ -7,7 +7,7 @@ export type SfxName =
   | 'step' | 'swing' | 'hit' | 'crit' | 'hurt' | 'block' | 'door' | 'locked' | 'unlock'
   | 'pickup' | 'gold' | 'chest' | 'break' | 'death' | 'enemyDie' | 'stairs' | 'shoot'
    | 'magic' | 'study' | 'winded' | 'secret' | 'ui' | 'craft' | 'drink' | 'alert' | 'miss' | 'sell' | 'recall' | 'parry'
-  | 'kingturn' | 'snuff' | 'splash' | 'retrieve' | 'sigil' | 'sigil_land';
+  | 'kingturn' | 'snuff' | 'splash' | 'retrieve' | 'sigil' | 'sigil_land' | 'drip' | 'plop';
 
 export interface PlayOpts {
   volume?: number;
@@ -17,13 +17,52 @@ export interface PlayOpts {
   rate?: number;
 }
 
+const VOLUME_KEY = 'looting-simulator-audio-volume';
+const MUTED_KEY = 'looting-simulator-audio-muted';
+
+function loadStoredVolume(): number {
+  try {
+    const raw = localStorage.getItem(VOLUME_KEY);
+    if (raw === null) return 0.7;
+    const v = Number(raw);
+    return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0.7;
+  } catch {
+    return 0.7;
+  }
+}
+
+function loadStoredMuted(): boolean {
+  try {
+    return localStorage.getItem(MUTED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
 class AudioEngine {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
   private noise: AudioBuffer | null = null;
   private ambient: { stop: () => void } | null = null;
-  muted = false;
-  volume = 0.7;
+  muted = loadStoredMuted();
+  volume = loadStoredVolume();
+
+  /** Persist the current volume/mute choice; device preference, not save data. */
+  private persist(): void {
+    try {
+      localStorage.setItem(VOLUME_KEY, String(this.volume));
+      localStorage.setItem(MUTED_KEY, this.muted ? '1' : '0');
+    } catch {
+      // Storage blocked: the game keeps running, the choice just won't stick.
+    }
+  }
+
+  /** Re-read stored prefs (e.g. after boot before first unlock). */
+  loadPrefs(): void {
+    this.muted = loadStoredMuted();
+    this.volume = loadStoredVolume();
+    if (this.master) this.master.gain.value = this.muted ? 0 : this.volume;
+  }
 
   /** Call from a user gesture. Safe to call repeatedly. */
   unlock(): void {
@@ -35,7 +74,7 @@ class AudioEngine {
     if (!Ctx) return;
     this.ctx = new Ctx();
     this.master = this.ctx.createGain();
-    this.master.gain.value = this.volume;
+    this.master.gain.value = this.muted ? 0 : this.volume;
     this.master.connect(this.ctx.destination);
     const len = this.ctx.sampleRate;
     this.noise = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
@@ -57,14 +96,20 @@ class AudioEngine {
   }
 
   setVolume(v: number): void {
-    this.volume = v;
-    if (this.master) this.master.gain.value = this.muted ? 0 : v;
+    this.volume = Math.min(1, Math.max(0, v));
+    if (this.master) this.master.gain.value = this.muted ? 0 : this.volume;
+    this.persist();
+  }
+
+  setMuted(m: boolean): boolean {
+    this.muted = m;
+    if (this.master) this.master.gain.value = this.muted ? 0 : this.volume;
+    this.persist();
+    return this.muted;
   }
 
   toggleMute(): boolean {
-    this.muted = !this.muted;
-    this.setVolume(this.volume);
-    return this.muted;
+    return this.setMuted(!this.muted);
   }
 
   private out(opts: PlayOpts): { ctx: AudioContext; dest: AudioNode; t: number; rate: number } | null {
@@ -268,10 +313,26 @@ class AudioEngine {
       // Water reads as a surface break plus the small rising plinks of
       // entrained air bubbles, not as one envelope of white noise.
       case 'splash':
-        this.noiseBurst(o, 0.11, 'bandpass', 1900 * r, 420, 0.28, 1.3);
-        this.noiseBurst(o, 0.045, 'highpass', 5200 * r, 1700, 0.12, 1, 0.012);
-        this.tone(o, 'sine', 760 * r, 1240 * r, 0.14, 0.11, 0.028);
-        this.tone(o, 'sine', 1180 * r, 1960 * r, 0.09, 0.07, 0.06);
+        this.noiseBurst(o, 0.11, 'bandpass', 1900 * r, 420, 0.11, 1.3);
+        this.noiseBurst(o, 0.045, 'highpass', 5200 * r, 1700, 0.05, 1, 0.012);
+        this.tone(o, 'sine', 760 * r, 1240 * r, 0.14, 0.045, 0.028);
+        this.tone(o, 'sine', 1180 * r, 1960 * r, 0.09, 0.03, 0.06);
+        break;
+      // A cave drip: a short glassy plink as the drop necks off. Kept quiet
+      // on purpose — the call site spreads volume and pan so distance, not
+      // loudness, is what varies from drip to drip. Distant drips only.
+      case 'drip':
+        this.tone(o, 'sine', 1900 * r, 760 * r, 0.07, 0.09);
+        this.tone(o, 'sine', 2900 * r, 1450 * r, 0.045, 0.04, 0.008);
+        break;
+      // A drop landing in shallow water up close: the soft impact transient
+      // plus the bubble it leaves behind, ringing as a short rising blip.
+      // The rise is the tell — impact noise alone reads as a click, a falling
+      // tone alone reads as glass, but noise into a rising ring reads as wet.
+      case 'plop':
+        this.noiseBurst(o, 0.05, 'bandpass', 2600 * r, 700, 0.10, 1.2);
+        this.tone(o, 'sine', 820 * r, 1420 * r, 0.10, 0.09, 0.012);
+        this.tone(o, 'sine', 1640 * r, 2500 * r, 0.05, 0.03, 0.02);
         break;
       case 'ui':
         this.tone(o, 'square', 700, 700, 0.03, 0.08);
