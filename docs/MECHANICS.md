@@ -81,7 +81,7 @@ A volley can lose up to two closely stacked bolts to one timed parry; the follow
 
 ## 3. Controls
 
-See the README table. In short: W/S step, A/D turn, Q/E strafe, Space attack, Shift block, F interact, R retrieve thrown stock, G or C cast your sigil, 1–4 consumables, I pack, M map, Esc pause. On touch: drag anywhere to walk and turn, tap or press the big button for the context action, hold the shield to block.
+See the README table. In short: W/S step, A/D turn, Q/E strafe, Space attack, Shift block, F interact, T throw, R call your shafts back, G or C cast your sigil, 1–4 consumables, I pack, M map, Esc pause. On touch: drag anywhere to walk and turn, tap or press the big button for the context action, hold the shield to block.
 
 **The one-button action** (tap the view, or the big button) swings at anything in reach and otherwise does whatever **[F]** would. One exception: a loot pile **underfoot never steals the swing while something is alive within 2 tiles**, or within 4 and hunting you. Killing the first of two monsters drops loot on your tile, and without that rule every tap became the loot window instead of a hit on the second one. Doors, stairs and portals still win over the swing, because running is a legitimate answer to a fight. **[F]** is unaffected — looting on the keyboard is always deliberate.
 
@@ -414,7 +414,8 @@ The pool is `slotBase × (0.8 + 0.2 × material tier)`, so better metal lasts lo
 
 | | |
 |---|---|
-| Weapon | every blow that **lands** on a monster. Swinging at air is free. A two-hander's cleave costs **2** when it catches anything, and a thrown weapon costs one per shaft that hits and one per shaft retrieved |
+| Weapon | every blow that **lands** on a monster. Swinging at air is free. A two-hander's cleave costs **2** when it catches anything |
+| Thrown belt | one per shaft that **hits**, and one more per shaft **called back**. Shortest pool in the game at 90 |
 | Offhand | every hit you **absorb** on the shield. A **parry costs nothing** — one more reason to meet the swing instead of hiding behind it |
 | Armour | one worn piece, picked at random, each time a hit **gets through** unblocked |
 
@@ -589,9 +590,9 @@ Bases are arranged into **gear lines** (`GEAR_LINES`), each running from the cru
 | Halberd | weapon **2H** | 28 atk | +5.5 atk | 0.34 / 0.66 / 22 / **2** **cleave** | 92 | 3 |
 | Great Maul | weapon **2H** | 32 atk | +6.5 atk | 0.46 / 0.74 / 23 / 1 **cleave** | 96 | 4 |
 | Greatsword | weapon **2H** | 30 atk | +6 atk | 0.38 / 0.60 / 24 / 1 **cleave** | 130 | 5 |
-| Throwing Knives | weapon *thrown* | 5 atk | +1.4 atk | 0.14 / 0.30 / 8 / 1 in the hand | 26 | 2 |
-| Throwing Axes | weapon *thrown* | 12 atk | +2.8 atk | 0.20 / 0.42 / 13 / 1 in the hand | 58 | 3 |
-| Javelins | weapon *thrown* | 17 atk | +2.9 atk | 0.26 / 0.56 / 17 / **2** in the hand | 88 | 4 |
+| Throwing Knives | **thrown** | 5 atk | +1.4 atk | — (thrown only) | 26 | 2 |
+| Throwing Axes | **thrown** | 12 atk | +2.8 atk | — (thrown only) | 58 | 3 |
+| Javelins | **thrown** | 17 atk | +2.9 atk | — (thrown only) | 88 | 4 |
 | Buckler | offhand | 1 def, 35 block | +1 def, +5 block | — | 18 | 1 |
 | Kite Shield | offhand | 4 def, 55 block | +1.5 def, +5 block | — | 38 | 2 |
 | Tower Shield | offhand | 8 def, 74 block, −10 speed | +2 def, +4 block | — | 60 | 3 |
@@ -675,28 +676,43 @@ They are **lines of one** in `GEAR_LINES`, like the spear. A line *step* is requ
 
 ### Thrown weapons
 
-Three bases are thrown rather than swung: **Throwing Knives**, **Throwing Axes**, **Javelins**. They are one-handed and keep a shield.
+Three bases are thrown rather than swung: **Throwing Knives**, **Throwing Axes**, **Javelins**.
 
-| Base | Stock (tier 1) | Per tier | Windup / recovery / stamina | Speed | Range | Power | Thrown DPS | A full stock is worth |
+**They are not weapons and do not take the weapon slot.** A belt of shafts has a slot of its own, so you wear one alongside whatever is in your hands — and unlike a shield, a two-hander does not displace it. A greatsword and a bandolier of javelins is a legal, and good, loadout.
+
+Two consequences follow from that and are worth stating plainly:
+
+- **The belt pays no stats.** Its Attack is what a *throw* is worth and is read separately; it never reaches your Attack, Defense or anything else. If it did, it would be a ninth gear slot and every build would wear three knives it never threw.
+- **A throw is scored on the shafts alone.** Your sword never makes your javelins hit harder and good javelins never make your sword hit harder. Everything else about you — Crit, Life Leech, elemental damage — still rides along, because those are things about *you*. One helper, `thrownView`, does this substitution for both the game and the balance harness, so the throw that is measured is the throw that happens.
+- **You throw with [T], never with the attack button.** Attack used to throw by itself whenever nothing was adjacent, which meant the weapon decided for you: you could not choose to close and stab, could not swing at a barrel, and stepping back from a fight spent a javelin you were saving. A throw is a decision, so it has a key. Point blank is allowed — you pressed the key, you meant it.
+
+| Base | Stock (tier 1) | Per tier | Windup / recovery / stamina | Speed | Range | Power | DPS | A full belt is worth |
 |---|---|---|---|---|---|---|---|---|
-| Throwing Knives | 6 | +0.5 | 0.16 / 0.34 / 9 | 9 tiles/s | 4 | ×1.8 | 24.4 | 85 damage |
-| Throwing Axes | 4 | +0.5 | 0.24 / 0.46 / 15 | 7 tiles/s | 5 | ×1.42 | 32.1 | 112 damage |
-| Javelins | 2 | +0.5 | 0.32 / 0.58 / 19 | 8 tiles/s | 7 | ×1.54 | 33.3 | 90 damage |
+| Throwing Knives | 6 | +0.5 | 0.16 / 0.34 / 9 | 9 tiles/s | 4 | ×1.8 | 23.9 | 84 damage |
+| Throwing Axes | 4 | +0.5 | 0.24 / 0.46 / 15 | 7 tiles/s | 5 | ×1.42 | 31.5 | 110 damage |
+| Javelins | 2 | +0.5 | 0.32 / 0.58 / 19 | 8 tiles/s | 7 | ×1.54 | 32.7 | 88 damage |
 
-DPS and stock value are measured at tier 3, averaged over the whole bestiary, by the weapon roster in `npm run tables`. Thrown, a javelin is the fourth-best weapon in the game at 33.3 DPS; in the hand it is 23.7, below a Mace. Read down the melee half of the same table and all three sit at the bottom — that gap is the weapon.
+DPS and belt value are measured at tier 3, averaged over the whole bestiary, by the weapon roster in `npm run tables`. A javelin thrown is about what a Long Sword swung is — but a full belt is three of them, and then it is nothing until you have walked over to get them back.
 
-The `attack` on the base is the **melee** number — what the weapon is worth once the stock is gone — and `thrown.power` scales it up to what a throw actually does. Affixes and material ride along, which keeps thrown weapons inside the power ladder rather than beside it. Every one is deliberately worse in the hand than the cheapest melee weapon of its era, so a thrown weapon is a positioning tool you pay for, never a free upgrade.
+`attack × thrown.power` is the number to compare against a weapon's Attack. Material and craft rank ride along, which keeps thrown weapons inside the power ladder rather than beside it: a tier-3 javelin lands near a Long Sword, and knives well under one. That is where a thing you can only do a handful of times, from outside its reach, belongs.
 
-**The stock is finite and per-delve.** It is filled once — the first time you carry that base into a delve — and nothing refills it afterwards: not descending a floor, not sleeping in town. A spent shaft flies, and where it stops — wall, enemy, or the end of its range — it lands on the floor as a marker on `Floor.thrown`, which persists with the floor: walk upstairs and back down and it is still lying where it fell. Walking over it collects it. **[R]** retrieves *every* landed shaft of the equipped base on the current floor from anywhere, and costs:
+**The stock is finite and per-delve.** It is filled once — the first time you carry that base into a delve — and nothing refills it afterwards: not descending a floor, not sleeping in town. Stock is tracked per *base*, not per item, so a second set of javelins in the pack is not a second magazine.
+
+A spent shaft flies, and where it stops — wall, enemy, or the end of its range — it lands on the floor as a marker on `Floor.thrown`, which persists with the floor: walk upstairs and back down and it is still lying where it fell. A shaft that hits something lands **on that thing's tile**, not the tile in front of it; landing it in front meant a point-blank throw fell at your own feet and was collected the same frame, so the one range at which a thrown weapon is supposed to be a bad idea was the one where it was free. Walking over a shaft collects it.
+
+**[R] calls them all back, one at a time.**
 
 | | |
 |---|---|
-| Stamina | 60% of one throw's cost, per shaft recovered |
-| Durability | One point of weapon wear per shaft recovered |
-| Cooldown | 6s |
-| Refused when | Busy, moving, stunned, mid-cast, or short of the stamina |
+| Rate | **One shaft every 0.75s** |
+| Stamina | 60% of one throw's cost, charged per shaft *as it arrives* |
+| Durability | One point of belt wear per shaft, again as it arrives |
+| Cooldown | 6s, started when the last one lands in your hand |
+| Stopped by | Swinging, casting, being stunned, taking a blow, unequipping the belt, running out of breath — or pressing R again |
 
-So running dry is a real event with a real cost to undo, and the loop is throw, run dry, and go and get them back — the weapon is a resource you manage across a room rather than a button you hold. Stock is tracked per *base*, not per item, so a second set of javelins in the pack is not a second magazine.
+Paying per shaft rather than up front means an interrupted call costs exactly what it recovered. A full belt of knives is five seconds of standing still, which a fight will not give you: so the decision to throw the last one is a real decision, and running dry is a real event with a real cost to undo.
+
+The belt wears from both ends — once when a throw lands and again when that shaft is called home — so it has the shortest durability pool in the game (90 against a weapon's 110), and "these are getting blunt" is an honest reason to go back to town.
 
 A landed shaft is a `Pickup`, never a resting `Projectile`: `updateProjectiles` deletes anything whose speed reaches zero on the same tick, and `changeFloor` discards the whole projectile array outright, so the conversion happens synchronously in the branch that stops the shaft.
 
@@ -987,7 +1003,8 @@ A save written by a *newer* build than the one loading it is left as it is rathe
 | Sigil effects, cast times and cooldowns | `src/data/spells.ts`, `src/world/world.ts` (`resolveSigil`) |
 | Cooldown-on-kill refund and its cap | `src/world/world.ts` (`refundSigil`) |
 | Two-handed rule, cleave and stagger | `src/systems/equip.ts`, `src/systems/player.ts`, `src/data/items.ts` (`CLEAVE`), `src/world/world.ts` (`cleave`) |
-| Thrown stock, flight and retrieval | `src/data/items.ts` (`thrown`), `src/world/world.ts` (`RETRIEVE_*`) |
+| Thrown stock, flight and retrieval | `src/data/items.ts` (`thrown`), `src/world/world.ts` (`hurl`, `RETRIEVE_*`) |
+| How a throw is scored | `src/systems/player.ts` (`thrownView`) |
 | Movement, stamina, AI, interaction | `src/world/world.ts` |
 | Layout generation, room and prop density | `src/systems/dungeon.ts` |
 | Trap damage, salvage, spotting range | `src/world/world.ts` (`TRAPS`) |

@@ -5,6 +5,7 @@ import { BASE_BACKPACK } from '../systems/meta';
 import { newId } from '../core/id';
 import { STARTER_RECIPES } from '../data/recipes';
 import { MATERIALS } from '../data/materials';
+import { itemBase } from '../data/items';
 import { findSigil } from '../data/spells';
 
 /**
@@ -187,6 +188,35 @@ function backfillCommodities(s: AnyState): void {
   }
 }
 
+/**
+ * Move a belt of shafts out of the weapon slot.
+ *
+ * Thrown weapons shipped in `weapon` and now have a slot of their own, so a
+ * character who went to bed holding javelins would wake up with them wedged in
+ * a slot that no longer accepts them: `derivePlayer` would read no swing off
+ * them and the paper doll would not draw them. They go to the belt if it is
+ * free, and to the stash if it is not, which is where an item you cannot wear
+ * belongs. Only saves written by the unreleased weapon branch can be in this
+ * state, but the rule is cheap and it is not worth being wrong about.
+ */
+function rehomeThrown(s: AnyState): void {
+  const eq = s.equipment;
+  if (!eq) return;
+  eq.thrown ??= null;
+  const worn = eq.weapon;
+  if (!worn || worn.kind !== 'equipment') return;
+  let base;
+  try {
+    base = itemBase(worn.ref);
+  } catch {
+    return;
+  }
+  if (base.slot !== 'thrown') return;
+  eq.weapon = null;
+  if (!eq.thrown) eq.thrown = worn;
+  else if (s.stash) addItem(s.stash, worn);
+}
+
 function restack(container: Container | undefined): void {
   if (!container || !Array.isArray(container.items)) return;
   const items = container.items;
@@ -237,7 +267,7 @@ export function migrateSave(state: GameState): GameState {
     }
     rev++;
   }
-  // Not a revision step: a repair pass that runs on every load, at every
+  // Not revision steps: repair passes that run on every load, at every
   // revision, including ones newer than this build knows about.
   //
   // The Wardstone taught this. Adding a material to MATERIALS silently broke
@@ -254,6 +284,7 @@ export function migrateSave(state: GameState): GameState {
   // on without anyone having to remember this file exists.
   try {
     backfillCommodities(s);
+    rehomeThrown(s);
   } catch {
     // Same contract as a migration step: never cost the player their save.
   }

@@ -262,6 +262,12 @@ export function itemIcon(item: Item): { icon: string; ramp?: [string, string, st
 const DURABILITY_BY_SLOT: Partial<Record<Slot, number>> = {
   weapon: 110,
   offhand: 130,
+  // A belt of shafts wears twice over: once when a throw lands, and again when
+  // the shaft is dug out of whatever it hit and called home. Deliberately the
+  // shortest pool in the game, because it is the only one that takes two points
+  // out of a single use, and because "these are getting blunt" is the honest
+  // reason to go home rather than an arbitrary one.
+  thrown: 90,
   body: 150,
   head: 120,
   hands: 110,

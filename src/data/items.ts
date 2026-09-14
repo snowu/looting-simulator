@@ -82,16 +82,21 @@ export const ITEM_BASES: ItemBaseDef[] = [
   },
 
   // --- Thrown -------------------------------------------------------------
-  // A finite stock that lands on the floor and has to be collected. `attack`
-  // here is the *melee* number — what the weapon is worth once the stock is
-  // gone — and `thrown.power` scales it up to what a throw does. Every one is
-  // deliberately worse in the hand than the cheapest melee weapon of its era,
-  // so a thrown weapon is a positioning tool you pay for, never a free upgrade.
+  // Their own slot, worn alongside a weapon and a shield: a belt of shafts is
+  // not the thing in your hands. So `attack` here is what a *throw* is worth on
+  // its own — it never touches your melee damage, and your sword never touches
+  // the throw. `attack x thrown.power` is the number to compare against a
+  // weapon's attack, and it lands a javelin near a Long Sword and knives well
+  // under one, which is where a thing you can only do a handful of times, from
+  // outside its reach, belongs.
+  //
+  // A finite stock that lands on the floor and has to be collected. Running dry
+  // costs you the tool until you call the shafts back, which is the price of
+  // reaching something that cannot reach you.
   {
-    id: 'throwing_knives', name: 'Throwing Knives', slot: 'weapon', icon: 'ic_throwing_knives', weaponClass: 'thrown', damageType: 'pierce',
+    id: 'throwing_knives', name: 'Throwing Knives', slot: 'thrown', icon: 'ic_throwing_knives', weaponClass: 'thrown', damageType: 'pierce',
     viewmodel: 'vm_thrown_knife',
     base: { attack: 5 }, perTier: { attack: 1.4 }, primary: ['metal'],
-    swing: { windup: 0.14, recovery: 0.30, staminaCost: 8, reach: 1 },
     thrown: {
       stock: 6, stockPerTier: 0.5, windup: 0.16, recovery: 0.34, staminaCost: 9,
       speed: 9, range: 4, power: 1.8, sprite: 'proj_knife', groundSprite: 'pickup_knives',
@@ -99,10 +104,9 @@ export const ITEM_BASES: ItemBaseDef[] = [
     value: 26, minDepth: 2, weight: 1.6,
   },
   {
-    id: 'throwing_axes', name: 'Throwing Axes', slot: 'weapon', icon: 'ic_throwing_axes', weaponClass: 'thrown', damageType: 'slash',
+    id: 'throwing_axes', name: 'Throwing Axes', slot: 'thrown', icon: 'ic_throwing_axes', weaponClass: 'thrown', damageType: 'slash',
     viewmodel: 'vm_thrown_axe',
     base: { attack: 12 }, perTier: { attack: 2.8 }, primary: ['metal', 'wood'],
-    swing: { windup: 0.20, recovery: 0.42, staminaCost: 13, reach: 1 },
     thrown: {
       stock: 4, stockPerTier: 0.5, windup: 0.24, recovery: 0.46, staminaCost: 15,
       speed: 7, range: 5, power: 1.42, sprite: 'proj_axe_thrown', groundSprite: 'pickup_axes',
@@ -110,10 +114,9 @@ export const ITEM_BASES: ItemBaseDef[] = [
     value: 58, minDepth: 3, weight: 0.9,
   },
   {
-    id: 'javelins', name: 'Javelins', slot: 'weapon', icon: 'ic_javelins', weaponClass: 'thrown', damageType: 'pierce',
+    id: 'javelins', name: 'Javelins', slot: 'thrown', icon: 'ic_javelins', weaponClass: 'thrown', damageType: 'pierce',
     viewmodel: 'vm_javelin',
     base: { attack: 17 }, perTier: { attack: 2.9 }, primary: ['metal'],
-    swing: { windup: 0.26, recovery: 0.56, staminaCost: 17, reach: 2 },
     thrown: {
       stock: 2, stockPerTier: 0.5, windup: 0.32, recovery: 0.58, staminaCost: 19,
       speed: 8, range: 7, power: 1.54, sprite: 'proj_javelin', groundSprite: 'pickup_javelins',

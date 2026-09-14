@@ -20,11 +20,17 @@ They are not the new top tier. No two-hander leads the weapon table on damage pe
 
 ## Thrown weapons
 
-**Throwing Knives**, **Throwing Axes** and **Javelins**. One-handed, so the shield stays.
+**Throwing Knives**, **Throwing Axes** and **Javelins** — and they are not weapons. A belt of shafts gets a slot of its own, worn alongside whatever is in your hands, and unlike a shield a two-hander does not displace it. A greatsword and a bandolier of javelins is a good loadout.
 
-The stock is finite, filled once when you first carry them into a delve, and nothing refills it — not descending, not going home. Spent shafts land where they stop and stay there, on that floor, across a trip upstairs and back. Walk over them to pick them up, or press **R** to call every shaft on the floor back at once, which costs stamina per shaft, a point of weapon wear per shaft, and has a six-second cooldown.
+The belt gives you no stats at all: it is ammunition, not gear. And a throw is scored on the shafts alone — your sword never makes your javelins hit harder, and good javelins never make your sword hit harder. Your Crit, leech and elemental damage still ride along, because those are things about you.
 
-Thrown, a javelin is the fourth-hardest-hitting weapon in the game at seven tiles. In the hand it is worse than a Mace. That gap is the weapon.
+**You throw with [T].** Never with the attack button, which used to throw by itself whenever nothing was adjacent — so the weapon decided for you, you could not choose to close and stab, and stepping back from a fight spent a javelin you were saving.
+
+The stock is finite, filled once when you first carry a belt into a delve, and nothing refills it. Spent shafts land where they stop — in the thing you hit, not in front of it — and stay on that floor across a trip upstairs and back. Walk over one to collect it, or press **R** to call them all back: **one every three quarters of a second**, paying stamina and a point of belt wear for each as it arrives. A blow stops them coming, and you keep what already got home.
+
+So a full belt of knives is five seconds of standing still, which a fight will not give you. The decision to throw the last one is a real decision.
+
+A javelin thrown is about what a Long Sword swung is. But a belt is three of them, and then it is nothing until you have walked over to get them back.
 
 ## Sigils
 

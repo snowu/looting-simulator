@@ -266,7 +266,7 @@ export function bindTooltip(el: HTMLElement, content: () => string): void {
 // ---------------------------------------------------------------------------
 
 const SLOT_LABEL: Record<string, string> = {
-  weapon: 'Weapon', offhand: 'Shield', head: 'Head', body: 'Body', hands: 'Hands', ring: 'Ring', amulet: 'Amulet',
+  weapon: 'Weapon', offhand: 'Shield', thrown: 'Thrown', head: 'Head', body: 'Body', hands: 'Hands', ring: 'Ring', amulet: 'Amulet',
 };
 
 export function statLines(s: Stats, compare?: Stats): string[] {

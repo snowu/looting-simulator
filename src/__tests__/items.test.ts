@@ -193,7 +193,11 @@ describe('items', () => {
     };
     for (const line of GEAR_LINES) {
       for (let i = 1; i < line.length; i++) {
-        const key = itemBase(line[i]).slot === 'weapon' ? 'attack' : 'defense';
+        // Thrown belts are ranked on Attack like weapons are: they have no
+        // Defense, and Attack is exactly what a throw is worth now that they
+        // sit in their own slot and never touch your melee damage.
+        const slot = itemBase(line[i]).slot;
+        const key = slot === 'weapon' || slot === 'thrown' ? 'attack' : 'defense';
         for (let tier = 1; tier + 2 <= MAX_MATERIAL_TIER; tier++) {
           const next = statOf(line[i], tier, key);
           const prev = statOf(line[i - 1], tier + 2, key);

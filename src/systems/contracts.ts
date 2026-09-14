@@ -40,7 +40,7 @@ const GIVERS = [
 ];
 
 const SLOT_NAMES: Record<Slot, string> = {
-  weapon: 'weapon', offhand: 'shield', head: 'helmet', body: 'body armour', hands: 'pair of gloves', ring: 'ring', amulet: 'amulet',
+  weapon: 'weapon', offhand: 'shield', thrown: 'belt of shafts', head: 'helmet', body: 'body armour', hands: 'pair of gloves', ring: 'ring', amulet: 'amulet',
 };
 
 export function contractTitle(c: Contract): string {

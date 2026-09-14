@@ -486,6 +486,17 @@ body.touch #hud .quick, body.touch #hud .prompt { z-index: 3; }
   gap: 6px;
 }
 
+/* Throw, Call and Sigil: stacked above the main buttons on the same side as
+   the thumb that uses them, and hidden entirely when they would do nothing. */
+.ttools {
+  position: absolute;
+  right: max(12px, env(safe-area-inset-right));
+  bottom: 84px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 body.touch .hint-keys { display: none; }
 body.touch #hud .status { left: max(14px, env(safe-area-inset-left)); top: max(10px, env(safe-area-inset-top)); font-size: 17px; }
 body.touch #hud .status .depth { font-size: 24px; }
@@ -621,6 +632,7 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
 /* Landscape phones: menu buttons in a row across the top. */
 @media (max-height: 500px) {
   body.touch .tmenu { flex-direction: row; right: auto; left: 50%; transform: translateX(-50%); top: max(4px, env(safe-area-inset-top)); gap: 4px; }
+  body.touch .ttools { flex-direction: row; bottom: max(78px, calc(env(safe-area-inset-bottom) + 78px)); gap: 4px; }
   body.touch #hud .compass { top: 30px; }
   body.touch #hud .target { top: 52px; }
   body.touch #hud .log { top: 84px; width: min(50vw, 380px); }
@@ -629,6 +641,7 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
 /* Portrait phones: menu column under the minimap. */
 @media (max-width: 560px) and (min-height: 501px) {
   body.touch .tmenu { top: 132px; gap: 4px; }
+  body.touch .ttools { bottom: 96px; gap: 4px; }
   body.touch #hud .log { top: 70px; width: 60vw; }
   body.touch #hud .compass { top: 8px; }
   body.touch #hud .target { top: 36px; }

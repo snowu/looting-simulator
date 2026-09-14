@@ -15,7 +15,23 @@ export interface TouchHandlers {
   /** Main button pressed / released: swing or interact depending on what's ahead. */
   action(on: boolean): void;
   block(on: boolean): void;
+  /** Hurl one shaft from the belt. */
+  hurl(): void;
+  /** Call every landed shaft back off this floor. */
+  retrieve(): void;
+  /** Cast the attuned sigil. */
+  sigil(): void;
   open(mode: 'inventory' | 'map' | 'help'): void;
+}
+
+/** Which of the situational buttons are worth showing right now. */
+export interface TouchTools {
+  /** A belt of shafts is worn, so throwing and calling back are possible. */
+  thrown: boolean;
+  /** Shafts are lying on this floor to call back. */
+  landed: boolean;
+  /** A sigil is attuned and off cooldown. */
+  sigil: boolean;
 }
 
 export function isTouchDevice(): boolean {
@@ -122,6 +138,13 @@ export class TouchControls {
   private mainImg: HTMLImageElement;
   private mainLabel = h('span', { class: 'act-label' });
   private actionKey = '';
+  // The three situational buttons. They are hidden rather than disabled: a
+  // phone has no room to spend on a control that cannot do anything, and the
+  // help screen has been promising these since the feature landed.
+  private throwBtn: HTMLButtonElement;
+  private callBtn: HTMLButtonElement;
+  private sigilBtn: HTMLButtonElement;
+  private toolsKey = '';
 
   constructor(parent: HTMLElement, hd: TouchHandlers) {
     // A button that stays "held" for as long as the finger is down.
@@ -166,9 +189,25 @@ export class TouchControls {
     };
     const menu = h('div', { class: 'tmenu' }, tap('Pack', () => hd.open('inventory')), tap('Map', () => hd.open('map')), tap('☰', () => hd.open('help')));
 
+    this.throwBtn = tap('Throw', () => hd.hurl());
+    this.callBtn = tap('Call', () => hd.retrieve());
+    this.sigilBtn = tap('Sigil', () => hd.sigil());
+    const tools = h('div', { class: 'ttools' }, this.throwBtn, this.callBtn, this.sigilBtn);
+    for (const b of [this.throwBtn, this.callBtn, this.sigilBtn]) b.hidden = true;
+
     // The drag zone sits underneath; buttons (later in the DOM) take their own touches.
-    this.root.append(this.pad.zone, actions, menu);
+    this.root.append(this.pad.zone, tools, actions, menu);
     parent.append(this.root);
+  }
+
+  /** Show only the situational buttons that would do something. */
+  setTools(t: TouchTools): void {
+    const key = `${t.thrown}${t.landed}${t.sigil}`;
+    if (key === this.toolsKey) return;
+    this.toolsKey = key;
+    this.throwBtn.hidden = !t.thrown;
+    this.callBtn.hidden = !t.thrown || !t.landed;
+    this.sigilBtn.hidden = !t.sigil;
   }
 
   /** Show a sword when the main button will swing, or a word when it will interact. */

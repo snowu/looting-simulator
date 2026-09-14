@@ -114,8 +114,16 @@ export interface PlayerDerived {
   twoHanded: boolean;
   /** Set when the equipped weapon is thrown rather than swung. */
   thrown: ThrownProfile | null;
-  /** A full stock for that thrown weapon, or 0 when it is not one. */
+  /** A full stock for that thrown weapon, or 0 when nothing is belted. */
   thrownCapacity: number;
+  /**
+   * What a throw hits for, before {@link ThrownProfile.power}. Read off the
+   * belted shafts alone — your sword never makes your knives hit harder, and a
+   * good set of knives never makes your sword hit harder.
+   */
+  thrownAttack: number;
+  /** The shafts' own damage type, which need not match the weapon's. */
+  thrownDamageType: DamageType;
   find: number;
   traits: UniqueTraits;
 }
@@ -131,6 +139,20 @@ export const BASE_STAMINA = 100;
  */
 const FIND_PER_TREASURE_SENSE = 20;
 
+/**
+ * You, as a thrown shaft scores you.
+ *
+ * Attack and damage type come off the belt; everything else — Crit, leech,
+ * elemental damage — is still the player, because those are things about you
+ * rather than about the weapon. One helper rather than two copies: the world
+ * snapshots this at throw time and the balance harness reads it directly, and a
+ * throw measured differently from the throw that happens is worse than not
+ * measuring it.
+ */
+export function thrownView(d: PlayerDerived): PlayerDerived {
+  return { ...d, attack: d.thrownAttack, damageType: d.thrownDamageType };
+}
+
 export function derivePlayer(eq: Equipment, meta: MetaLevels, difficulty?: DifficultyId): PlayerDerived {
   // A two-hander keeps the offhand empty. `equipFrom` enforces that on the way
   // in, but it is not the only way an Equipment record gets built — the balance
@@ -142,6 +164,11 @@ export function derivePlayer(eq: Equipment, meta: MetaLevels, difficulty?: Diffi
   const stats = emptyStats();
   for (const slot of EQUIP_SLOTS) {
     if (twoHanded && slot === 'offhand') continue;
+    // The belt of shafts is ammunition, not gear. Its Attack is what a throw
+    // is worth and is read separately below; letting it into `stats` would
+    // make it a ninth gear slot and hand every build free Attack for wearing
+    // three knives it never has to throw.
+    if (slot === 'thrown') continue;
     const it = eq[slot];
     if (it) addStats(stats, itemStats(it));
   }
@@ -175,8 +202,10 @@ export function derivePlayer(eq: Equipment, meta: MetaLevels, difficulty?: Diffi
     block: hasShield ? Math.max(0, Math.min(0.9, stats.block / 100)) : twoHanded ? 0.2 : weapon ? 0.3 : 0.12,
     hasShield,
     twoHanded,
-    thrown: thrownProfile(eq.weapon),
-    thrownCapacity: thrownCapacity(eq.weapon),
+    thrown: thrownProfile(eq.thrown),
+    thrownCapacity: thrownCapacity(eq.thrown),
+    thrownAttack: eq.thrown ? Math.max(1, itemStats(eq.thrown).attack) : 0,
+    thrownDamageType: (eq.thrown ? itemBase(eq.thrown.ref).damageType : undefined) ?? 'pierce',
     find: stats.find + FIND_PER_TREASURE_SENSE * metaLevel(meta, 'treasure_sense'),
     traits: traitsOf(eq, twoHanded),
   };

@@ -21,6 +21,7 @@ const DOLL: { slot: EquipSlot; area: string; label: string }[] = [
   { slot: 'offhand', area: '2 / 3', label: 'Shield' },
   { slot: 'ring2', area: '3 / 1', label: 'Ring' },
   { slot: 'hands', area: '3 / 2', label: 'Hands' },
+  { slot: 'thrown', area: '3 / 3', label: 'Belt' },
 ];
 
 export function paperDoll(eq: Record<EquipSlot, Item | null>, onClick: (slot: EquipSlot) => void): HTMLElement {
@@ -55,6 +56,7 @@ export function statSheet(world: { derived: World['derived'] }): HTMLElement {
   ];
   if (d.twoHanded) rows.push(['Guard', '2H block; parry unchanged']);
   if (d.swing.cleave) rows.push(['Cleave', `${Math.round(d.swing.cleave * 100)}% around the target`]);
+  if (d.thrown) rows.push(['Throw', `${d.thrownAttack} ${d.thrownDamageType} · ${d.thrown.range} tiles · ${d.thrownCapacity} carried`]);
   for (const k of ['leech', 'fire', 'frost', 'shadow', 'holy'] as const) if (s[k]) rows.push([STAT_LABELS[k], String(s[k])]);
   return h('div', { class: 'statsheet' }, ...rows.map(([k, v]) => h('div', {}, h('span', { class: 'dim', text: k }), h('b', { text: v }))));
 }
@@ -400,7 +402,8 @@ export class DungeonOverlays {
       ['Tap view', 'Swing — or Loot / Open / Pray / Descend when facing something'],
       ['Main button', 'Same as a tap; hold to keep swinging'],
       ['Shield', 'Hold to block — raise it as they strike to parry'],
-      ['R button', 'Retrieve all landed ammunition on this floor'],
+      ['Throw button', 'Hurl one shaft from your belt'],
+      ['R button', 'Call every landed shaft back, one at a time'],
       ['Sigil button', 'Cast your attuned sigil when ready'],
       ['Quick slots', 'Tap to drink / read'],
       ['Pack · Map', 'Gear, backpack and the automap'],
@@ -412,7 +415,8 @@ export class DungeonOverlays {
       ['Space / LMB', 'Swing — hits harder with stamina above half'],
       ['Shift / RMB', 'Hold to block — raise it as they strike to parry'],
       ['F', 'Open, search, loot, pray, push marked walls'],
-      ['R', 'Retrieve all landed ammunition on this floor'],
+      ['T', 'Throw one shaft from your belt'],
+      ['R', 'Call every landed shaft back, one at a time'],
       ['G / C', 'Cast your attuned sigil'],
       ['1 – 4', 'Drink / read your first four consumables'],
       ['I / Tab', 'Pack & gear'],
@@ -431,7 +435,7 @@ export class DungeonOverlays {
         'Enemies telegraph: they lean in and flash red before striking. Step out of the tile they are aiming at, or raise your guard. ' +
           'Raise it just as the blow lands and you parry instead: no damage at all, melee attackers reel and take double, and arrows and bolts fly back the way they came. ' +
           'Your shield flashes while the window is open. Holding the guard up does not parry — you have to meet the swing. ' +
-          'Two-handed weapons leave the offhand disabled and block only 20%, but parry exactly like any other weapon. Their blow cleaves for a quarter into every tile touching the thing they hit, including the one behind it. Thrown ammunition can be collected by walking over it or retrieved from anywhere on the current floor with R; retrieval costs stamina, durability, and has a cooldown. ' +
+          'Two-handed weapons leave the offhand disabled and block only 20%, but parry exactly like any other weapon. Their blow cleaves for a quarter into every tile touching the thing they hit, including the one behind it. Thrown shafts ride on their own belt slot, so you carry them alongside a weapon and a shield, and you hurl one with T rather than with the attack button. They land where they stop and stay on that floor: walk over one to collect it, or press R to call them all back, one every three quarters of a second, paying stamina and wear for each as it arrives. A blow stops them coming. ' +
           'Sigils are inscribed at the forge, attuned in town, and cast with G or C. Casting spends stamina and a hit interrupts it without starting the cooldown. ' +
           'Chalk X marks on a wall mean something is hidden behind it, and loose flagstones mean a trap — watch the floor ahead of you. ' +
           'The way out is the stairs you came down. A Scroll of Recall instead opens a portal you can step back through, so you can sell and restock mid-delve.',

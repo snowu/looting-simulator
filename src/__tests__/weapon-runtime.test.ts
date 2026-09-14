@@ -185,43 +185,174 @@ describe('two-handed runtime', () => {
 });
 
 describe('recoverable thrown stock', () => {
-  it('throws at range, melees point blank, lands synchronously, and survives save/load', () => {
-    const w = arena('throwing_knives');
-    expect(w.run.thrown.held.throwing_knives).toBe(6);
-    w.attack();
-    tick(w, 0.2);
-    expect(w.run.thrown.held.throwing_knives).toBe(5);
-    tick(w, 0.8);
-    expect(w.floor.thrown?.reduce((n, m) => n + m.n, 0)).toBe(1);
-    const loaded = parseSave(serializeSave(w.state))!;
-    expect(loaded.run!.thrown.held.throwing_knives).toBe(5);
-    expect(loaded.run!.floors[0]!.thrown?.reduce((n, m) => n + m.n, 0)).toBe(1);
+  /** A belt of shafts is worn alongside whatever is in your hands. */
+  function belted(baseId: string, seed = 701, weaponId = 'long_sword'): World {
+    const w = arena(weaponId, seed);
+    w.state.equipment.thrown = weapon(baseId);
+    w.refreshDerived();
+    w.run.thrown = { held: {}, retrieveCd: 0 };
+    w.state.equipment.thrown && (w.run.thrown.held[baseId] = w.derived.thrownCapacity);
+    return w;
+  }
 
-    const close = arena('throwing_knives', 702);
-    place(close);
-    close.attack();
-    expect(close.run.thrown.held.throwing_knives).toBe(6);
-    expect(close.projectiles).toHaveLength(0);
+  it('rides its own slot alongside a weapon and a shield, and pays no stats', () => {
+    const eq = emptyEquipment();
+    eq.weapon = weapon('long_sword');
+    eq.offhand = weapon('kite_shield');
+    const bare = derivePlayer(eq, {});
+    eq.thrown = weapon('javelins');
+    const belted = derivePlayer(eq, {});
+    // The belt changes nothing about the player except that a throw exists.
+    expect(belted.stats).toEqual(bare.stats);
+    expect(belted.attack).toBe(bare.attack);
+    expect(belted.swing).toEqual(bare.swing);
+    expect(belted.hasShield).toBe(true);
+    expect(belted.thrown).toBeTruthy();
+    expect(belted.thrownAttack).toBeGreaterThan(0);
   });
 
-  it('applies a real player hit, then retrieves the floor at full aggregate cost with wear and cooldown', () => {
-    const w = arena('javelins', 703);
-    const target = place(w);
-    target.x += DX[w.player.facing] * 2;
-    target.y += DY[w.player.facing] * 2;
-    const item = w.state.equipment.weapon!;
-    const wearBefore = durability(item).cur;
+  it('is not displaced by a two-hander, the way a shield is', () => {
+    const eq = emptyEquipment();
+    eq.thrown = weapon('javelins');
+    eq.weapon = weapon('greatsword');
+    const d = derivePlayer(eq, {});
+    expect(d.twoHanded).toBe(true);
+    expect(d.thrown).toBeTruthy();
+    expect(d.thrownCapacity).toBeGreaterThan(0);
+  });
+
+  it('throws only on its own key, never on the attack button', () => {
+    const w = belted('throwing_knives');
+    const full = w.derived.thrownCapacity;
+    // Attack swings the sword even with nothing in front and a full belt.
     w.attack();
     tick(w, 1.2);
+    expect(w.run.thrown.held.throwing_knives).toBe(full);
+    expect(w.projectiles).toHaveLength(0);
+    // And a deliberate throw spends exactly one.
+    expect(w.hurl()).toBe(true);
+    tick(w, 0.2);
+    expect(w.run.thrown.held.throwing_knives).toBe(full - 1);
+  });
+
+  it('throws point blank too, because the key means you meant it', () => {
+    const w = belted('throwing_knives', 704);
+    const foe = place(w);
+    const full = w.derived.thrownCapacity;
+    expect(w.hurl()).toBe(true);
+    tick(w, 0.4);
+    expect(foe.hp).toBeLessThan(foe.maxHp);
+    // And it costs a shaft, which it did not when a point blank hit dropped the
+    // knife on the thrower's own tile to be collected the same frame.
+    expect(w.run.thrown.held.throwing_knives).toBe(full - 1);
+    expect(w.floor.thrown!.reduce((n, m) => n + m.n, 0)).toBe(1);
+  });
+
+  it('puts the shafts in view for the throw, and the weapon back after', () => {
+    const w = belted('javelins', 708, 'greatsword');
+    expect(w.weaponArt().id).toBe('vm_greatsword');
+    w.hurl();
+    tick(w, 0.1);
+    expect(w.weaponArt().id).toBe('vm_javelin');
+    tick(w, 2.0);
+    expect(w.weaponArt().id).toBe('vm_greatsword');
+  });
+
+  it('lands the shaft on the floor synchronously, and it survives save and load', () => {
+    const w = belted('throwing_knives');
+    w.hurl();
+    tick(w, 1.0);
+    expect(w.floor.thrown?.reduce((n, m) => n + m.n, 0)).toBe(1);
+    const loaded = parseSave(serializeSave(w.state))!;
+    expect(loaded.run!.floors[0]!.thrown?.reduce((n, m) => n + m.n, 0)).toBe(1);
+    expect(loaded.equipment.thrown?.ref).toBe('throwing_knives');
+  });
+
+  it('scores the throw on the shafts, not on the weapon in your other hand', () => {
+    const knives = derivePlayer({ ...emptyEquipment(), weapon: weapon('long_sword'), thrown: weapon('throwing_knives') }, {});
+    const javelins = derivePlayer({ ...emptyEquipment(), weapon: weapon('dagger'), thrown: weapon('javelins') }, {});
+    // A dagger-carrier's javelins outhit a swordsman's knives: the belt decides.
+    expect(javelins.thrownAttack).toBeGreaterThan(knives.thrownAttack);
+    expect(knives.thrownDamageType).toBe('pierce');
+    expect(derivePlayer({ ...emptyEquipment(), thrown: weapon('throwing_axes') }, {}).thrownDamageType).toBe('slash');
+  });
+
+  it('hits a real enemy at range and wears the belt, not the weapon', () => {
+    const w = belted('javelins', 703);
+    const target = at(w, 3);
+    const belt = w.state.equipment.thrown!;
+    const sword = w.state.equipment.weapon!;
+    const beltBefore = durability(belt).cur;
+    const swordBefore = durability(sword).cur;
+    w.hurl();
+    tick(w, 1.4);
     expect(target.hp).toBeLessThan(target.maxHp);
-    expect(durability(item).cur).toBe(wearBefore - 1);
-    expect(w.floor.thrown).toHaveLength(1);
+    expect(durability(belt).cur).toBe(beltBefore - 1);
+    expect(durability(sword).cur).toBe(swordBefore);
+  });
+
+  /**
+   * The retrieval channel. It used to snap the whole floor into your hand the
+   * instant you pressed R, which made running dry cost nothing worth planning
+   * around. Now each shaft takes its own three quarters of a second and is paid
+   * for as it arrives, so an interrupted call costs exactly what it recovered.
+   */
+  it('calls shafts back one at a time, charging stamina and wear per shaft', () => {
+    const w = belted('throwing_knives', 705);
+    const belt = w.state.equipment.thrown!;
+    for (let i = 0; i < 3; i++) { w.hurl(); tick(w, 1.0); }
+    const landed = w.floor.thrown!.reduce((n, m) => n + m.n, 0);
+    expect(landed).toBe(3);
+    const held = w.run.thrown.held.throwing_knives;
+    const wearBefore = durability(belt).cur;
     w.player.stamina = w.derived.maxStamina;
     const stamina = w.player.stamina;
+    const perShaft = 0.6 * w.derived.thrown!.staminaCost;
+
     expect(w.retrieve()).toBe(true);
-    expect(w.player.stamina).toBeCloseTo(stamina - 0.6 * w.derived.thrown!.staminaCost);
-    expect(w.run.thrown.retrieveCd).toBe(6);
+    // Nothing has arrived yet: the call is not the recovery.
+    tick(w, 0.5);
+    expect(w.run.thrown.held.throwing_knives).toBe(held);
+
+    tick(w, 0.4);
+    expect(w.run.thrown.held.throwing_knives).toBe(held + 1);
+    expect(durability(belt).cur).toBe(wearBefore - 1);
+    expect(w.player.stamina).toBeCloseTo(stamina - perShaft, 1);
+    // Still running, so no cooldown has started.
+    expect(w.run.thrown.retrieveCd).toBe(0);
+
+    tick(w, 1.6);
+    expect(w.run.thrown.held.throwing_knives).toBe(held + 3);
     expect(w.floor.thrown).toEqual([]);
-    expect(durability(item).cur).toBe(wearBefore - 2);
+    expect(durability(belt).cur).toBe(wearBefore - 3);
+    // Set to 6 when the last shaft arrived, and ticking down ever since.
+    expect(w.run.thrown.retrieveCd).toBeGreaterThan(5);
+  });
+
+  it('stops the call on a blow, keeping only what already came back', () => {
+    const w = belted('throwing_knives', 706);
+    for (let i = 0; i < 3; i++) { w.hurl(); tick(w, 1.0); }
+    const held = w.run.thrown.held.throwing_knives;
+    w.player.stamina = w.derived.maxStamina;
+    w.retrieve();
+    tick(w, 0.8);
+    expect(w.run.thrown.held.throwing_knives).toBe(held + 1);
+    const attacker = place(w);
+    attacker.attackCd = 0;
+    attacker.alert = 8;
+    tick(w, 2.0);
+    // One came home before the blow; the other two are still on the floor.
+    expect(w.run.thrown.held.throwing_knives).toBe(held + 1);
+    expect(w.floor.thrown!.reduce((n, m) => n + m.n, 0)).toBe(2);
+  });
+
+  it('stops the call when you press R again', () => {
+    const w = belted('throwing_knives', 707);
+    for (let i = 0; i < 2; i++) { w.hurl(); tick(w, 1.0); }
+    w.player.stamina = w.derived.maxStamina;
+    expect(w.retrieve()).toBe(true);
+    expect(w.retrieve()).toBe(false);
+    tick(w, 2.0);
+    expect(w.floor.thrown!.reduce((n, m) => n + m.n, 0)).toBe(2);
   });
 });

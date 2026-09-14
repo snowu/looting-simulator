@@ -70,6 +70,9 @@ const touch = new TouchControls(app, {
     stickDir = d;
     if (d) world?.press(d);
   },
+  hurl: () => world?.hurl(),
+  retrieve: () => world?.retrieve(),
+  sigil: () => world?.castSigil(),
   tap: () => {
     if (!world) return;
     if (world.contextAction().kind === 'interact') world.interact();
@@ -629,7 +632,15 @@ function frame(now: number): void {
   if (mode === 'dungeon' && world) {
     const paused = overlays.isOpen;
     touch.visible = touchMode && !paused && !ending;
-    if (touchMode) touch.setAction(world.contextAction());
+    if (touchMode) {
+      touch.setAction(world.contextAction());
+      const belt = world.state.equipment.thrown?.ref;
+      touch.setTools({
+        thrown: !!world.derived.thrown,
+        landed: !!belt && (world.floor.thrown ?? []).some((m) => m.base === belt),
+        sigil: !!world.run.sigil && world.run.sigil.cd <= 0,
+      });
+    }
     // Holding the touch attack button keeps swinging.
     if (touchAttack && !paused) world.attack();
     if (!paused) world.update(dt);
@@ -703,6 +714,9 @@ window.addEventListener('keydown', (e) => {
       break;
     case 'm':
       overlays.toggle('map', world);
+      break;
+    case 't':
+      world.hurl();
       break;
     case 'r':
       world.retrieve();

@@ -126,9 +126,16 @@ export interface MaterialDef {
 // Items
 // ---------------------------------------------------------------------------
 
-export type Slot = 'weapon' | 'offhand' | 'head' | 'body' | 'hands' | 'ring' | 'amulet';
-export type EquipSlot = 'weapon' | 'offhand' | 'head' | 'body' | 'hands' | 'ring1' | 'ring2' | 'amulet';
-export const EQUIP_SLOTS: EquipSlot[] = ['weapon', 'offhand', 'head', 'body', 'hands', 'ring1', 'ring2', 'amulet'];
+/**
+ * `thrown` is a belt of shafts, not a weapon. It has its own slot because a
+ * bandolier of knives is not the thing in your hands — you carry it *and* a
+ * sword, and a two-hander does not displace it the way it displaces a shield.
+ * It contributes nothing to your stats while worn: it is ammunition, and if it
+ * paid Defense it would just be a ninth gear slot.
+ */
+export type Slot = 'weapon' | 'offhand' | 'thrown' | 'head' | 'body' | 'hands' | 'ring' | 'amulet';
+export type EquipSlot = 'weapon' | 'offhand' | 'thrown' | 'head' | 'body' | 'hands' | 'ring1' | 'ring2' | 'amulet';
+export const EQUIP_SLOTS: EquipSlot[] = ['weapon', 'offhand', 'thrown', 'head', 'body', 'hands', 'ring1', 'ring2', 'amulet'];
 
 export function slotOf(e: EquipSlot): Slot {
   return e === 'ring1' || e === 'ring2' ? 'ring' : e;
@@ -223,9 +230,9 @@ export interface ItemBaseDef {
    */
   twoHanded?: boolean;
   /**
-   * Thrown weapons only: what the stock looks like and how it flies. A base
-   * with this is thrown rather than swung, and `swing` describes the melee it
-   * falls back to when the stock is empty.
+   * What the stock looks like and how it flies. Only bases in the `thrown`
+   * slot carry one, and they have no `swing` at all — a belt of javelins is
+   * never something you stab with, and you have a real weapon in hand for that.
    */
   thrown?: ThrownProfile;
   /** Stats at material tier 1. */

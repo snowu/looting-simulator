@@ -31,7 +31,7 @@ import {
 import { enemyDef, enemyView, kingPhase, phaseForHp } from '../data/enemies';
 import { consumable, itemBase, viewmodelFor } from '../data/items';
 import { biomeForFloor, FINAL_DEPTH } from '../data/biomes';
-import { PlayerDerived, derivePlayer } from '../systems/player';
+import { PlayerDerived, derivePlayer, thrownView } from '../systems/player';
 import { DifficultyId, DifficultyDef, difficultyOf } from '../data/difficulty';
 import { enemyHitsPlayer, playerHitsEnemy, staminaPower } from '../systems/combat';
 import { durability, identify, isIdentified, itemName, makeMaterial, rollContainerLoot, rollEnemyLoot, uniqueOf, wearItem } from '../systems/items';
@@ -111,6 +111,11 @@ export interface PlayerAnim {
   attackDur: number;
   attackPower: number;
   attackThrow: boolean;
+  /**
+   * A retrieval in progress: the base being called back, how many shafts are
+   * still out, and the seconds until the next one arrives. Null when idle.
+   */
+  retrieving: { base: string; left: number; t: number } | null;
   attackRecovery: number;
   attackBase: string | null;
   attackWeaponUid: string | null;
@@ -195,6 +200,16 @@ const GUARD_BREAK_AT = 3;
 
 const RETRIEVE_COOLDOWN = 6;
 const RETRIEVE_STAMINA_MULT = 0.6;
+/**
+ * Seconds for one shaft to come back.
+ *
+ * The whole stock used to snap into your hand the instant you pressed R, which
+ * made running dry cost nothing worth planning around — six knives were six
+ * frames away. One at a time, a full stock is several seconds of standing
+ * there, so the decision to throw the last one is a real one and a fight can
+ * end before your knives get home.
+ */
+const RETRIEVE_PER_SHAFT = 0.75;
 
 /**
  * Anything lighter than this is knocked out of its wind-up when you land a
@@ -363,7 +378,7 @@ export class World {
     this.anim = {
       fromX: this.run.player.x, fromY: this.run.player.y, moveT: 1, moveDur: STEP_TIME,
       yaw, yawFrom: yaw, yawTo: yaw, turnT: 1,
-      attack: 'idle', attackT: 0, attackDur: 0, attackPower: 1, attackThrow: false, attackRecovery: 0,
+      attack: 'idle', attackT: 0, attackDur: 0, attackPower: 1, attackThrow: false, retrieving: null, attackRecovery: 0,
       attackBase: null, attackWeaponUid: null, attackSnapshot: null,
       blockRaise: 0, blockT: Infinity, parryArmed: false, parryCd: 0,
       rangedParryT: 0, parryInvulnT: 0, stunT: 0, steps: 0, parryStacks: 0,
@@ -410,7 +425,7 @@ export class World {
   }
 
   private ensureThrownStock(): void {
-    const base = this.state.equipment.weapon?.ref;
+    const base = this.state.equipment.thrown?.ref;
     if (!base || !this.derived.thrown) return;
     this.run.thrown ??= { held: {}, retrieveCd: 0 };
     this.run.thrown.held ??= {};
@@ -595,6 +610,10 @@ export class World {
         a.attackDur = a.attackRecovery;
       } else if (a.attack === 'recover' && a.attackT >= a.attackDur) {
         a.attack = 'idle';
+        // The belt only holds the viewmodel for the length of the throw. Left
+        // set, one javelin put shafts in your hands for the rest of the delve
+        // and your sword was never seen again.
+        a.attackThrow = false;
       }
     }
 
@@ -625,6 +644,7 @@ export class World {
       }
     }
 
+    this.updateRetrieve(dt);
     this.updateEnemies(dt);
     this.updateProjectiles(dt);
     this.run.rngState = this.rng.state;
@@ -948,18 +968,7 @@ export class World {
     // trickle of regen at the tail of each recovery is always a sliver above
     // zero, which kept the free swings coming. How tired you are still shows
     // in the damage, through staminaPower — it just is not free any more.
-    const adjacent = this.frontTile();
-    const melee = !!enemyAt(this.floor, adjacent.x, adjacent.y);
-    const base = this.state.equipment.weapon?.ref;
-    const held = base ? (this.run.thrown?.held?.[base] ?? 0) : 0;
-    const throwing = !!this.derived.thrown && !melee && held > 0;
-    const profile: SwingProfile = throwing ? {
-      windup: this.derived.thrown!.windup,
-      recovery: this.derived.thrown!.recovery,
-      staminaCost: this.derived.thrown!.staminaCost,
-      reach: this.derived.thrown!.range,
-      critMult: this.derived.swing.critMult,
-    } : this.derived.swing;
+    const profile: SwingProfile = this.derived.swing;
     const cost = profile.staminaCost;
     if (this.player.stamina < cost) {
       // Throttled hard: at the bottom of the bar almost every frame is a
@@ -975,44 +984,145 @@ export class World {
     a.sinceStamina = 0;
     a.attack = 'windup';
     a.attackT = 0;
-    a.attackThrow = throwing;
-    a.attackBase = throwing ? base ?? null : null;
-    a.attackWeaponUid = throwing ? this.state.equipment.weapon?.uid ?? null : null;
-    a.attackSnapshot = throwing ? { ...this.derived, stats: { ...this.derived.stats }, traits: { ...this.derived.traits }, swing: { ...this.derived.swing } } : null;
+    a.attackThrow = false;
+    a.attackBase = null;
+    a.attackWeaponUid = null;
+    a.attackSnapshot = null;
     a.attackRecovery = profile.recovery;
     a.attackDur = profile.windup;
     a.blockRaise = 0;
     this.rockAndStone();
+    this.breakChannels();
+  }
+
+  /**
+   * Throw one shaft of the equipped thrown weapon.
+   *
+   * On its own key, not on the attack button. Attack used to throw by itself
+   * whenever nothing was adjacent, which meant the weapon decided for you: you
+   * could not choose to close and stab, you could not swing at a barrel, and
+   * stepping back from a fight spent a javelin you were saving. A throw is a
+   * decision, so it gets a key.
+   */
+  hurl(): boolean {
+    const a = this.anim;
+    if (this.busy || a.attack !== 'idle' || a.stunT > 0 || a.cast) return false;
+    const thrown = this.derived.thrown;
+    const base = this.state.equipment.thrown?.ref;
+    if (!thrown || !base) {
+      this.msg('Nothing on your belt to throw.', '#888');
+      return false;
+    }
+    if ((this.run.thrown?.held?.[base] ?? 0) <= 0) {
+      this.msg(`Out of ${itemBase(base).name.toLowerCase()} — press R to call them back.`, '#ff9070');
+      return false;
+    }
+    if (this.player.stamina < thrown.staminaCost) {
+      if (a.windedCd <= 0) {
+        a.windedCd = 1.6;
+        this.sfx('winded');
+      }
+      return false;
+    }
+    a.attackPower = staminaPower(this.player.stamina, this.derived.maxStamina);
+    this.player.stamina = Math.max(0, this.player.stamina - thrown.staminaCost);
+    a.sinceStamina = 0;
+    a.attack = 'windup';
+    a.attackT = 0;
+    a.attackThrow = true;
+    a.attackBase = base;
+    a.attackWeaponUid = this.state.equipment.thrown?.uid ?? null;
+    a.attackSnapshot = {
+      ...thrownView(this.derived),
+      stats: { ...this.derived.stats },
+      traits: { ...this.derived.traits },
+      swing: { ...this.derived.swing },
+    };
+    a.attackRecovery = thrown.recovery;
+    a.attackDur = thrown.windup;
+    a.blockRaise = 0;
+    this.breakChannels();
+    return true;
+  }
+
+  /** Everything that a deliberate action of your own cancels. */
+  private breakChannels(): void {
+    const a = this.anim;
     if (a.recall !== null) {
       a.recall = null;
       this.msg('The recall fizzles.', '#888');
     }
+    if (a.retrieving) {
+      a.retrieving = null;
+      this.msg('You stop calling them back.', '#888');
+    }
   }
 
-  /** Retrieve all recoverable stock of the equipped base on this floor. */
+  /**
+   * Begin calling every landed shaft of the equipped base back off this floor.
+   *
+   * They come one at a time, {@link RETRIEVE_PER_SHAFT} apart, and each is paid
+   * for as it lands in your hand rather than all up front — so an interrupted
+   * retrieval costs exactly what it recovered. Pressing R again stops it.
+   */
   retrieve(): boolean {
     const a = this.anim;
-    const base = this.state.equipment.weapon?.ref;
+    const base = this.state.equipment.thrown?.ref;
     const thrown = this.derived.thrown;
-    if (!base || !thrown || this.busy || this.moving || a.attack !== 'idle' || a.stunT > 0 || a.cast) return false;
-    if ((this.run.thrown.retrieveCd ?? 0) > 0) return false;
-    const markers = (this.floor.thrown ?? []).filter((m) => m.base === base);
-    const count = markers.reduce((n, m) => n + m.n, 0);
-    if (!count) return false;
-    const cost = count * thrown.staminaCost * RETRIEVE_STAMINA_MULT;
-    if (this.player.stamina < cost) {
-      this.msg('Not enough breath to retrieve them.', '#ff9070');
+    if (a.retrieving) {
+      a.retrieving = null;
+      this.msg('You stop calling them back.', '#888');
       return false;
+    }
+    if (!base || !thrown || this.busy || a.attack !== 'idle' || a.stunT > 0 || a.cast) return false;
+    if ((this.run.thrown.retrieveCd ?? 0) > 0) return false;
+    const count = (this.floor.thrown ?? []).filter((m) => m.base === base).reduce((n, m) => n + m.n, 0);
+    if (!count) return false;
+    if (this.player.stamina < thrown.staminaCost * RETRIEVE_STAMINA_MULT) {
+      this.msg('Not enough breath to call them back.', '#ff9070');
+      return false;
+    }
+    a.retrieving = { base, left: count, t: RETRIEVE_PER_SHAFT };
+    this.msg(`You call back ${count} ${itemBase(base).name.toLowerCase()}.`, '#c8b890');
+    return true;
+  }
+
+  /** One tick of the retrieval channel. */
+  private updateRetrieve(dt: number): void {
+    const a = this.anim;
+    const r = a.retrieving;
+    if (!r) return;
+    // Swinging, casting and being stunned all end it; walking does not, because
+    // the shafts are coming to you rather than you to them.
+    const thrown = this.derived.thrown;
+    if (!thrown || this.state.equipment.thrown?.ref !== r.base || a.attack !== 'idle' || a.stunT > 0 || a.cast) {
+      a.retrieving = null;
+      return;
+    }
+    r.t -= dt;
+    if (r.t > 0) return;
+    const marker = (this.floor.thrown ?? []).find((m) => m.base === r.base && m.n > 0);
+    const cost = thrown.staminaCost * RETRIEVE_STAMINA_MULT;
+    if (!marker || this.player.stamina < cost) {
+      if (marker) this.msg('Not enough breath to call them back.', '#ff9070');
+      a.retrieving = null;
+      return;
     }
     this.player.stamina -= cost;
     a.sinceStamina = 0;
-    this.run.thrown.held[base] = (this.run.thrown.held[base] ?? 0) + count;
-    this.floor.thrown = (this.floor.thrown ?? []).filter((m) => m.base !== base);
-    this.run.thrown.retrieveCd = RETRIEVE_COOLDOWN;
-    this.wear('weapon', count);
-    this.msg(`You retrieve ${count} ${itemBase(base).name.toLowerCase()}.`, '#c8b890');
+    marker.n--;
+    this.floor.thrown = (this.floor.thrown ?? []).filter((m) => m.n > 0);
+    this.run.thrown.held[r.base] = (this.run.thrown.held[r.base] ?? 0) + 1;
+    this.wear('thrown');
     this.sfx('retrieve');
-    return true;
+    r.left--;
+    if (r.left <= 0 || !(this.floor.thrown ?? []).some((m) => m.base === r.base)) {
+      a.retrieving = null;
+      this.run.thrown.retrieveCd = RETRIEVE_COOLDOWN;
+      this.msg(`${itemBase(r.base).name} back in hand.`, '#c8b890');
+      return;
+    }
+    r.t += RETRIEVE_PER_SHAFT;
   }
 
   castSigil(): boolean {
@@ -1305,6 +1415,7 @@ export class World {
   private shieldBash(e: EnemyState, def: EnemyDef): void {
     const a = this.anim;
     a.attack = 'idle';
+    a.attackThrow = false;
     a.attackT = 0;
     a.blockRaise = 0;
     a.blockT = Infinity;
@@ -2455,6 +2566,10 @@ export class World {
       this.anim.recall = null;
       this.msg('The recall is broken by the blow.', '#888');
     }
+    if (this.anim.retrieving) {
+      this.anim.retrieving = null;
+      this.msg('The blow scatters your aim; they stop coming.', '#888');
+    }
     if (dmg > 0 && !blocked) this.wearArmour();
     // An unblocked hit empties whatever the blade had banked. Blocking keeps it:
     // the point of the thing is that you have to keep meeting the swing.
@@ -2506,7 +2621,12 @@ export class World {
         if (enemy) {
           pr.speed = 0;
           this.thrownHit(pr, enemy);
-          this.landThrown(pr.thrownBase, previous.x, previous.y);
+          // The shaft drops where it struck, not on the tile behind. Landing it
+          // behind meant a point blank throw fell at your own feet and was
+          // collected the same frame, so throwing into something adjacent cost
+          // no ammunition at all — the one range at which a thrown weapon is
+          // supposed to be a bad idea was the one where it was free.
+          this.landThrown(pr.thrownBase, tx, ty);
           continue;
         }
         if ((pr.traveled ?? 0) >= (pr.thrownRange ?? 0)) {
@@ -2586,9 +2706,9 @@ export class World {
 
   private wearThrown(uid: string | undefined): void {
     if (!uid) return;
-    const equipped = this.state.equipment.weapon;
+    const equipped = this.state.equipment.thrown;
     if (equipped?.uid === uid) {
-      this.wear('weapon');
+      this.wear('thrown');
       return;
     }
     const item = this.run.backpack.items.find((it) => it.uid === uid);
@@ -2596,7 +2716,7 @@ export class World {
   }
 
   private collectThrownHere(): number {
-    const base = this.state.equipment.weapon?.ref;
+    const base = this.state.equipment.thrown?.ref;
     if (!base || !this.derived.thrown) return 0;
     const markers = (this.floor.thrown ??= []);
     let found = 0;
@@ -2700,7 +2820,10 @@ export class World {
 
   /** Base item info for the viewmodel. */
   weaponArt(): { id: string; materialId?: string } {
-    const w = this.state.equipment.weapon;
+    // While a throw is in the air you are holding shafts, not your sword, so
+    // the belt wins the viewmodel for exactly as long as the throw lasts.
+    const throwing = this.anim.attackThrow ? this.state.equipment.thrown : null;
+    const w = throwing ?? this.state.equipment.weapon;
     if (!w) return { id: 'vm_fist' };
     return { id: viewmodelFor(itemBase(w.ref)), materialId: w.materialId };
   }

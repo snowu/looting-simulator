@@ -35,7 +35,8 @@ Progress saves locally in your browser. Passwordless sign-in lets you sync saves
 | Space or left click | Attack |
 | Shift or hold right click | Block; time the raise to parry |
 | F | Interact |
-| R | Retrieve every thrown shaft on this floor |
+| T | Throw one shaft from your belt |
+| R | Call every landed shaft back, one at a time |
 | G / C | Cast your attuned sigil |
 | 1–4 | Quick-use consumables |
 | I / Tab | Pack and gear |
