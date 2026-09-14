@@ -137,93 +137,125 @@ const SPEAR = [
   ...HAND,
 ];
 
-// Two-handed models share a small forward fist above the main grip. Keeping the
-// shaft visible on both sides makes it read as a grip rather than a floating hand.
 /**
- * The off hand, higher up the haft, for the two-handed grip.
+ * The two-handed grip: a fist above, a span of haft, a fist below.
  *
- * It was six rows of featureless knuckles and read as a bulge in the shaft
- * rather than a hand — which, with every viewmodel sprite being 24x40 and the
- * renderer normalising them all to the same height, left a greatsword looking
- * like a long sword. This one is a whole fist with its forearm running out to
- * the *left*, opposite the main hand at the bottom, so the two together read as
- * a grip at a glance and at speed.
+ * It used to be the one-handed hand — fourteen rows of fist and forearm — with
+ * a second one stacked on top, which ate more than half the sprite and left the
+ * weapon squeezed into what was left. A greatsword came out with a stubby blade
+ * under an enormous pair of arms. These are the same hands drawn to the size a
+ * grip actually needs, so the weapon gets the frame back.
+ *
+ * The upper fist's forearm exits left and the lower one's exits right, which is
+ * what makes the pair read as one grip on one shaft rather than two hands.
  */
-const SECOND_HAND = rows(`
-  ......kddddk............
+/**
+ * The two-handed grip: the near hand in full, the far hand as knuckles.
+ *
+ * Two equal fists stacked on the shaft read as one tapering cone, whatever the
+ * finger banding does — and two *full* hands are twenty-eight of the sprite's
+ * forty rows, which is what left the greatsword with a stubby blade. This is
+ * how the grip actually looks from behind it: the near hand is {@link HAND},
+ * the same one every other weapon uses, and the far hand is smaller and further
+ * up, mostly behind the shaft, with just enough forearm running out to the left
+ * to read as a hand rather than a swelling in the haft.
+ */
+const GRIP_UPPER = rows(`
+  ......kdddddk...........
   .....kdccccdbk..........
   ....kaaaaaaaak..........
-  ....kdccccdbak..........
-  ...kbaaaaaabak..........
-  ..kaabbbbbbbak..........
-  .kaaabbbbbbak...........
-  kaaaaaaaaaak............
-  kaaaaaaaak..............
-  kkkkkkkk................
+  ...kabbdcccdbk..........
+  ..kaabbaaaaak...........
+  ..kkkbbbbbk.............
+  .....kkkkk..............
 `);
+const GRIP_LOWER = HAND.slice(0, 12);
 
 const MAUL = [
-  '.......kkkkkkkkkk.......',
-  '......k4444444443k......',
-  '.....k444433333332k.....',
-  '.....k433333322222k.....',
-  '.....k433332222211k.....',
-  '......kkkkkwvkkkkk......',
-  '..........kwvvk.........',
-  '..........kwvvk.........',
-  '..........kkkkk.........',
-  '..........kwvvk.........',
-  '..........kwvvk.........',
-  '..........kkkkk.........',
-  '..........kwvvk.........',
-  ...SECOND_HAND,
-  '.........kwvvk..........',
-  '.........kwvvk..........',
-  '.........kwvvk..........',
-  ...HAND,
+  '......kkkkkkkkkkk.......',
+  '.....k44444444443k......',
+  '....k4444433333332k.....',
+  '....k4333333322222k.....',
+  '....k4333322222211k.....',
+  '.....kkkkkkwvkkkkkk.....',
+  '..........kwvk..........',
+  '..........kwvk..........',
+  '..........kkkk..........',
+  '..........kwvk..........',
+  '..........kwvk..........',
+  '..........kkkk..........',
+  '..........kwvk..........',
+  '..........kwvk..........',
+  '..........kwvk..........',
+  '..........kkkk..........',
+  '..........kwvk..........',
+  '..........kwvk..........',
+  '..........kwvk..........',
+  '..........kwvk..........',
+  '..........kwvk..........',
+  '..........kwvk..........',
+  ...GRIP_UPPER,
+  '..........kwvk..........',
+  '..........kwvk..........',
+  ...GRIP_LOWER,
 ];
 
 const POLEARM = [
-  '..........k4k...........',
+  '..........kk............',
+  '.........k44k...........',
+  '.........k443k..........',
+  '.........k443k..........',
   '..........k43k..........',
-  '....kkk..k443k..kk......',
-  '...k444kkk433kkk21k.....',
-  '..k443333343322211k.....',
-  '...k4332kkwvk.k11k......',
-  '....kkk..kwvk..kk.......',
-  '.........kwvk...........',
-  ...Array.from({ length: 6 }, () => '.........kwvk...........'),
-  ...SECOND_HAND,
-  '.........kwvk...........',
-  '.........kwvk...........',
-  '.........kwvk...........',
-  ...HAND,
+  '...kkkkkkkk43k..........',
+  '...k444443k43k..........',
+  '..k4444333k43k..........',
+  '..k4433333k43k..........',
+  '..k4333333k43k..........',
+  '...k433333k43k..........',
+  '....k33333k43k..........',
+  '.....kkkkkk43k..........',
+  '..........k43k..........',
+  '..........kwvk..........',
+  '..........kwvk..........',
+  '..........kwvk..........',
+  '..........kwvk..........',
+  '..........kwvk..........',
+  '..........kwvk..........',
+  '..........kwvk..........',
+  '..........kwvk..........',
+  ...GRIP_UPPER,
+  '..........kwvk..........',
+  '..........kwvk..........',
+  ...GRIP_LOWER,
 ];
 
 const GREATSWORD = [
-  '........kk44kk..........',
-  '.......k443344k.........',
-  '.......k432234k.........',
-  '.......k432234k.........',
-  '.......k432234k.........',
-  '.......k432234k.........',
-  '.......k432234k.........',
-  '.......k432234k.........',
-  '.......k432234k.........',
-  '.......k432234k.........',
-  '.......k432234k.........',
-  '.......k433334k.........',
-  '.......kk3223kk.........',
-  '..kkkghhhhhhhhhhggkkk...',
-  '.kggggggggggggggggggk...',
-  '..kkkggkkkkkkggkkkk.....',
-  '.........kwvvk..........',
-  '.........kwvvk..........',
-  ...SECOND_HAND,
-  '.........kwvvk..........',
-  '.........kwvvk..........',
-  '.........kwvvk..........',
-  ...HAND,
+  '..........kk............',
+  '.........k44k...........',
+  '.........k43k...........',
+  '.........k443k..........',
+  '.........k433k..........',
+  '.........k443k..........',
+  '.........k433k..........',
+  '.........k443k..........',
+  '.........k433k..........',
+  '.........k443k..........',
+  '.........k433k..........',
+  '.........k443k..........',
+  '.........k433k..........',
+  '.........k443k..........',
+  '.........k433k..........',
+  '.........k443k..........',
+  '.........k433k..........',
+  '.........kk33kk.........',
+  '....kghhhhhhhhhhhgk.....',
+  '....kgggggggggggggk.....',
+  '.....kkggkkkkkggkk......',
+  '..........kwvk..........',
+  ...GRIP_UPPER,
+  '..........kwvk..........',
+  '..........kwvk..........',
+  ...GRIP_LOWER,
 ];
 
 // A thrown weapon has no first-person model. The shaft leaves the player and is
