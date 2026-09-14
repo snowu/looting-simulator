@@ -779,7 +779,7 @@ Sigil stones drop only where nothing else can carry them:
 
 The roll never offers a sigil you already know or are already carrying anywhere — stash, loadout, backpack or lying in a pickup on any floor of the current delve — so a run can never hand you a duplicate. It uses its own hashed stream (`sigil:<seed>:<depth>:<stream>`), so adding it did not reshuffle any floor that already existed.
 
-A stone is **inscribed at the forge**, which consumes it permanently into `state.spells`, and **attuned** from the same bench. Attunement cannot change mid-delve unless a town portal is open — the same rule that governs restocking.
+A stone is **inscribed at the forge**, on its *Sigils* bench, which consumes it permanently into `state.spells`; you **attune** from the same bench. The forge's right-hand column is three tabs — Recipes, Repairs, Sigils — each badged when it wants attention, because stacking them put the recipe list a screen and a half down. Attunement cannot change mid-delve unless a town portal is open — the same rule that governs restocking.
 
 ## The bestiary codex
 

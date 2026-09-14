@@ -304,6 +304,12 @@ body.detail-mode .detail-hide { display: none; }
 .tab.on { color: var(--gold); border-bottom-color: var(--gold); }
 .tab .badge { font-family: var(--font-body); font-size: 16px; color: #fff; background: var(--red); border-radius: 8px; padding: 0 5px; margin-left: 4px; vertical-align: top; }
 
+/* Benches inside a tab, so they read as subordinate to the town's own tabs
+   rather than competing with them. */
+.subtabs { margin-bottom: 6px; border-bottom-width: 1px; }
+.subtabs .tab { font-size: 20px; padding: 1px 10px; border-bottom-width: 2px; }
+.subtabs .tab .badge { font-size: 14px; }
+
 .news { padding: 4px 8px; margin-bottom: 10px; }
 .news .event { color: var(--gold); }
 .news .rumour { color: var(--violet); }

@@ -120,6 +120,17 @@ export class Town {
   private beastTint: 'none' | 'hurt' | 'windup' | 'dead' = 'none';
   private beastBob = true;
   private beastTimer: number | null = null;
+  /**
+   * Which bench the forge's right-hand column is showing.
+   *
+   * Repairs, sigils, recipes and blueprints used to be four panes stacked in
+   * one column, so the recipe list — the thing you came to the forge to use —
+   * started a screen and a half down. They are tabs now, and the badges carry
+   * the one thing stacking them was good for: you can still see at a glance
+   * that something is broken or that a stone is waiting, without the pane
+   * itself taking the room.
+   */
+  private forgeSide: 'recipes' | 'repairs' | 'sigils' = 'recipes';
   private forgeRecipe = 'r_short_sword';
   private forgeMats: (string | null)[] = [];
   private stashFilter: 'all' | 'gear' | 'materials' | 'other' = 'all';
@@ -721,8 +732,51 @@ export class Town {
         }, 'primary', !!err), err ? h('span', { class: 'dim small', text: err }) : null),
         gear.length ? h('div', {}, h('h3', { style: 'margin-top:10px', text: 'Salvage' }), salvageGrid) : null,
       ),
-      h('div', { class: 'col' }, this.repairs(), this.sigils(), h('div', { class: 'pane frame' }, h('h3', { text: 'Recipes' }), list), learn),
+      this.forgeBenches(list, learn),
     );
+  }
+
+  /**
+   * The forge's right-hand column: one bench at a time, with a badge on any
+   * other that wants attention.
+   */
+  private forgeBenches(list: HTMLElement, learn: HTMLElement | null): HTMLElement {
+    const s = this.s;
+    const wornCount = EQUIP_SLOTS.filter((slot) => {
+      const it = s.equipment[slot];
+      return it && repairCost(it) > 0;
+    }).length + s.stash.items.filter((it) => it.kind === 'equipment' && repairCost(it) > 0).length;
+    const stones = s.stash.items.filter((it) => it.kind === 'sigil' && findSigil(it.ref) && !(s.spells ?? []).includes(it.ref)).length;
+    const blueprints = new Map<string, number>();
+    for (const item of s.stash.items) {
+      if (item.kind === 'blueprint') blueprints.set(item.ref, (blueprints.get(item.ref) ?? 0) + item.qty);
+    }
+    const readyBlueprints = [...blueprints].filter(([id, owned]) => {
+      const rank = recipeRank(s.recipeRanks, id);
+      return rank < MAX_RECIPE_RANK && owned >= blueprintCostForNextRank(rank);
+    }).length;
+
+    const benches: [typeof this.forgeSide, string, number][] = [
+      ['recipes', 'Recipes', readyBlueprints],
+      ['repairs', 'Repairs', wornCount],
+      ['sigils', 'Sigils', stones],
+    ];
+    const bar = h(
+      'div',
+      { class: 'tabs subtabs' },
+      ...benches.map(([id, label, badge]) =>
+        h('button', {
+          class: `tab${this.forgeSide === id ? ' on' : ''}`,
+          onclick: () => { this.forgeSide = id; audio.play('ui'); this.render(); },
+        }, label, badge ? h('span', { class: 'badge', text: String(badge) }) : null),
+      ),
+    );
+    const body = this.forgeSide === 'repairs'
+      ? this.repairs()
+      : this.forgeSide === 'sigils'
+        ? this.sigils()
+        : h('div', { class: 'col' }, h('div', { class: 'pane frame' }, h('h3', { text: 'Recipes' }), list), learn);
+    return h('div', { class: 'col' }, bar, body);
   }
 
   /**
@@ -765,7 +819,7 @@ export class Town {
       'div',
       { class: 'pane frame' },
       h('div', { class: 'row' },
-        h('h3', { text: 'Repairs' }),
+        h('h3', { text: `Repairs${worn.length ? ` (${worn.length})` : ''}` }),
         worn.length
           ? h('div', { class: 'row right' }, btn(`Mend all · ${gold(total)}`, () => {
               if (s.gold < total) return;
