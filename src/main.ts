@@ -797,6 +797,45 @@ void checkForUpdate();
  * debug button. The module is dynamically imported behind the same DEV guard,
  * so neither it nor this path survives into a production bundle.
  */
+async function enterArcherRoom(): Promise<void> {
+  const dev = await import('./dev/archer-room');
+  devScratch = true;
+  // Same scratch contract as the boss arena: nothing here is saved.
+  setScratchMode(true);
+  state = newGame(createRng(randomSeed()));
+  dev.prepare(state);
+  enterTown();
+  enterDungeon();
+  if (!world) return;
+  const at = dev.dropIntoArcherRoom(world);
+  hud.message(`Dev archers — ${at}. Hold block and time the raise to parry the volley.`, '#c080ff');
+  hud.message('Scratch game: nothing here is saved. Reload to get your slot back.', '#c8a060');
+}
+
+async function enterMeleeRoom(): Promise<void> {
+  const dev = await import('./dev/melee-room');
+  devScratch = true;
+  // Same scratch contract as the boss arena: nothing here is saved.
+  setScratchMode(true);
+  state = newGame(createRng(randomSeed()));
+  dev.prepare(state);
+  enterTown();
+  enterDungeon();
+  if (!world) return;
+  const at = dev.dropIntoMeleeRoom(world);
+  hud.message(`Dev melee — ${at}. Hold block as they swing: one parry staggers the pack.`, '#c080ff');
+  hud.message('Scratch game: nothing here is saved. Reload to get your slot back.', '#c8a060');
+}
+
+/**
+ * Dev only: a throwaway game, kitted for depth six, standing in the throne room.
+ *
+ * It swaps `state` for a fresh one and latches `devScratch`, so the gear and
+ * renown it hands out can never be written over the playthrough in the slot —
+ * the only way out is to reload the page, which is the honest contract for a
+ * debug button. The module is dynamically imported behind the same DEV guard,
+ * so neither it nor this path survives into a production bundle.
+ */
 async function enterBossArena(): Promise<void> {
   const dev = await import('./dev/boss-arena');
   devScratch = true;
@@ -819,6 +858,8 @@ if (import.meta.env.DEV && params.has('art')) void openArtSheet();
 if (params.has('autostart')) {
   const where = params.get('autostart');
   if (import.meta.env.DEV && where === 'boss') void enterBossArena();
+  else if (import.meta.env.DEV && where === 'archers') void enterArcherRoom();
+  else if (import.meta.env.DEV && where === 'melee') void enterMeleeRoom();
   else {
     enterTown();
     if (where === 'dungeon') enterDungeon();
