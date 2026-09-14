@@ -259,6 +259,38 @@ describe('recoverable thrown stock', () => {
     expect(w.floor.thrown!.reduce((n, m) => n + m.n, 0)).toBe(1);
   });
 
+  /**
+   * What the renderer keys the "do not animate" branch off. A throw runs
+   * through the same wind-up and recovery states as a swing, so without this
+   * flag holding for the whole of both, hurling a javelin swings whatever melee
+   * weapon is in your hands — which it did, once the thrown viewmodel was
+   * removed and there was a greatsword left on screen to swing.
+   */
+  it('flags the whole throw, and never a swing', () => {
+    const w = belted('javelins', 709, 'greatsword');
+    expect(w.anim.attackThrow).toBe(false);
+    w.hurl();
+    const seen: boolean[] = [];
+    for (let t = 0; t < 1.4; t += 1 / 60) {
+      w.update(1 / 60);
+      if (w.anim.attack !== 'idle') seen.push(w.anim.attackThrow);
+    }
+    expect(seen.length).toBeGreaterThan(20);
+    expect(seen.every(Boolean)).toBe(true);
+    // And it is cleared once the throw is over, so the next swing animates.
+    expect(w.anim.attack).toBe('idle');
+    expect(w.anim.attackThrow).toBe(false);
+
+    w.attack();
+    const swinging: boolean[] = [];
+    for (let t = 0; t < 1.4; t += 1 / 60) {
+      w.update(1 / 60);
+      if (w.anim.attack !== 'idle') swinging.push(w.anim.attackThrow);
+    }
+    expect(swinging.length).toBeGreaterThan(20);
+    expect(swinging.some(Boolean)).toBe(false);
+  });
+
   it('draws no viewmodel of its own for a throw', () => {
     // The shaft leaves the player and is a projectile from that moment. Holding
     // a fistful of javelins up through the wind-up put a second pair of hands

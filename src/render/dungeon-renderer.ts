@@ -481,12 +481,19 @@ export class DungeonRenderer {
     let x = W * (twoHanded ? 0.56 : casting ? 0.5 : 0.74) + bobX;
     let y = H * 0.12 - bobY - 8;
     let rot = twoHanded ? -0.05 : casting ? 0 : -0.18;
+    // A throw runs through the same `anim.attack` states as a swing, because it
+    // is the same wind-up and recovery machinery — but a thrown weapon has no
+    // viewmodel of its own, so those states were animating whatever melee
+    // weapon happened to be in your hands. Hurling a javelin swung your
+    // greatsword. The shaft leaves the body; the hands stay where they are.
     if (casting) {
       // `t` counts down, so this runs 0 → 1 over the cast.
       const total = Math.max(0.01, findSigil(casting.id)?.cast ?? 0.5);
       const k = 1 - Math.max(0, Math.min(1, casting.t / total));
       y += 26 * k;
       rot = Math.sin(this.time * 22) * 0.05 * k;
+    } else if (a.attackThrow) {
+      // Deliberately nothing.
     } else if (a.attack === 'windup') {
       const k = a.attackT / Math.max(0.01, a.attackDur);
       x += (twoHanded ? 40 : 22) * k;
