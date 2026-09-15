@@ -280,9 +280,24 @@ potions/identifies, tune sink prices first.
 
 ## 4. Numbers to verify before implementation
 
+Measured on the branch (scratch benches over 60 seeds, Hard, since removed —
+method: per-floor landed blows from the real combat maths, wear at §3.1
+rates, bills via the real `repairCost`):
+
 1. Repair-tax calibration: run `scripts/tables.ts` loot-yield harness +
    wear counters over 60 seeds with §3.1 rates; target §3.1 "80–150g per
-   D3–D4 run".
+   D3–D4 run". **Measured:** D3-capped run bills med 146g / p90 215g;
+   D4-capped med 323g / p90 375g (starter kit floors 1–2, mid-iron 3–4,
+   1H, block share 0.3–0.6 barely matters). Sink share 12–16% of raw
+   income (single digits once sales count — income itself is ~30% above
+   the §1.1 table after the map-expansion merge). Breakage is
+   weapon-only: ~40% of floor-runs break a fresh weapon *when the 25%
+   warning is ignored* — the bill is path-independent (repair cost is
+   linear in missing fraction), so these numbers are the engaged-player
+   tax, while true neglect costs far more via 15%-damage fighting. No
+   tripwire tripped (D2–D3 medians under 200g); D4 overshoots the old
+   absolute target but the pre-expansion target no longer matches
+   post-expansion income. **Verdict: accept, revisit with §5 telemetry.**
 2. Heal-button curve: compute `gearScore` distribution at each depth from
    real worn sets (not catalogue maxes) — adjust `0.25` coefficient so D1
    cost lands 60–120g, D6 600–900g uncursed.
@@ -291,7 +306,17 @@ potions/identifies, tune sink prices first.
    `normal` room exists, same guard as today).
 4. Blessing balance: fury +30% vs ward +8 at D6 TTK — re-run matchups table
    (`balance-tables.txt:123+` method) with each blessing to confirm no
-   one-pick meta.
+   one-pick meta. **Measured** (mid kit D1–3, deep kit D4–6, all enemies
+   at every legal depth): fury cuts TTK to 85–90% of base on average,
+   improving ~half the matchups (asymptotic −23%; no-op wherever the
+   target already dies in ~1 hit); ward extends TTD to ~105% (improves
+   only 8–15 of ~40 — armour mitigate has diminishing returns and ceil
+   quantization eats the rest); vitality extends TTD to ~117–120%
+   (improves nearly everywhere). So ward is nearly dominated by vitality
+   as a pure survival pick — but blessings are *randomly assigned* (idol /
+   coffer pick for you), so no pick-meta can form; fury stays the only
+   speed pick and fortune the only economy pick. **Verdict: accept as-is;
+   buffing ward is optional polish, not a meta fix.**
 
 ## 5. Telemetry / follow-up
 

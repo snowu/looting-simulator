@@ -427,7 +427,7 @@ The pool is `slotBase × (0.8 + 0.2 × material tier)`, so better metal lasts lo
 
 The Brittle Bones curse adds **+1** to every wear event. Rings, amulets and `never_dulls` gear never wear.
 
-**Breaking** is not a cliff you fall off blind: gear says so once when it drops under 25% ("close to failing") and once when it goes. Broken gear stays equipped and still gives **15% of its stats** — an emergency backup, not a build.
+**Breaking** is not a cliff you fall off blind: gear says so once when it drops under 25% ("close to failing") and once when it goes. Broken gear stays equipped and still gives **15% of its stats** — an emergency backup, not a build. But a broken shield cannot guard at all, and a broken edge cannot cleave: holding block with a broken guard earns you a warning, not a guard.
 
 **Repairs** are at the forge, in the *Repairs* pane: `ceil(value × 0.5 × (1 − condition))` gold per piece plus a tier floor (T1 4g … T5 50g, pro-rated to missing durability), broken gear listed first, with a *Mend all*. Repair cost uses the item's **sound** value, so letting something rot is never the cheaper play. Buyers can see wear, though: worn gear sells for `0.45 + 0.55 × condition` of its price.
 

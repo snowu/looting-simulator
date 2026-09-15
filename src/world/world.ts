@@ -485,6 +485,8 @@ export class World {
 
   /** Swings into empty air since the last scuff: every third one wears the edge. */
   private whiffs = 0;
+  /** Throttles the broken-guard refusal so holding block can't spam it. */
+  private guardWarnCd = 0;
 
   /**
    * Wear a piece of equipment and say something only when it crosses a line:
@@ -632,7 +634,9 @@ export class World {
     a.stunT = Math.max(0, a.stunT - dt);
     a.rangedParryT = Math.max(0, a.rangedParryT - dt);
     a.parryInvulnT = Math.max(0, a.parryInvulnT - dt);
-    const wantBlock = this.held.has('block') && a.attack === 'idle' && !a.cast && a.stunT <= 0;
+    const wantGuard = this.held.has('block') && a.attack === 'idle' && !a.cast && a.stunT <= 0;
+    const brokenGuard = wantGuard ? this.brokenGuardGear() : null;
+    const wantBlock = wantGuard && !brokenGuard;
     a.parryCd = Math.max(0, a.parryCd - dt);
     if (wantBlock) {
       if (a.blockT === Infinity) {
@@ -648,6 +652,14 @@ export class World {
       a.parryArmed = false;
     }
     a.blockRaise = Math.max(0, Math.min(1, a.blockRaise + (wantBlock ? dt : -dt) / 0.12));
+
+    // Refusing the guard says why, throttled like the winded cue: holding
+    // block with a broken shield would otherwise fail in silence.
+    this.guardWarnCd = Math.max(0, this.guardWarnCd - dt);
+    if (brokenGuard && this.guardWarnCd <= 0) {
+      this.guardWarnCd = 1.6;
+      this.msg(`Your broken ${itemName(brokenGuard)} cannot guard — mend it at the forge.`, '#ff9070');
+    }
 
     // Next movement, from the queue or held keys. Stun sits you out.
     if (!this.moving && a.transition === null && a.stunT <= 0 && !a.cast) {
@@ -991,6 +1003,19 @@ export class World {
       (fromX === front.x && fromY === front.y) ||
       (Math.sign(fromX - p.x) === DX[p.facing] && Math.sign(fromY - p.y) === DY[p.facing] && (fromX === p.x || fromY === p.y))
     );
+  }
+
+  /**
+   * The gear your guard is raised with — the shield if you carry one, else
+   * the weapon — when it is broken and guards nothing. At 15% stats a
+   * cracked guard would barely turn a blow anyway, and a guard that
+   * sometimes works teaches you to trust it right up until it doesn't.
+   * Fists cannot break, so an unarmed guard always holds.
+   */
+  private brokenGuardGear(): Item | null {
+    const eq = this.state.equipment;
+    const g = this.derived.hasShield ? eq.offhand : eq.weapon;
+    return g && durability(g).broken ? g : null;
   }
 
   /** Shared feedback for any parry: it should feel like a moment. */
@@ -1503,6 +1528,10 @@ export class World {
   private cleave(cx: number, cy: number): boolean {
     const mult = this.derived.swing.cleave;
     if (!mult) return false;
+    // A broken edge spills nothing: the blow still lands single-target at
+    // 15%, but there is no splash into its neighbours.
+    const w = this.state.equipment.weapon;
+    if (w && durability(w).broken) return false;
     const caught: EnemyState[] = [];
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
       if (!dx && !dy) continue;
