@@ -273,8 +273,14 @@ const DURABILITY_BY_SLOT: Partial<Record<Slot, number>> = {
   hands: 110,
 };
 
-/** What a piece of gear that is worn out is still worth to you. */
-export const BROKEN_STAT_FRACTION = 0.25;
+/**
+ * What a piece of gear that is worn out is still worth to you.
+ *
+ * 0.15 (was 0.25): a broken piece is an emergency backup, not a build.
+ * Breakage should mean "extract or die", which is what makes the repair
+ * bill before it a decision worth paying.
+ */
+export const BROKEN_STAT_FRACTION = 0.15;
 
 export function itemCraftRank(item: Item): number {
   if (item.kind !== 'equipment' || !item.crafted) return 1;
@@ -326,11 +332,22 @@ export function wearItem(item: Item | null, amount = 1): 'none' | 'warn' | 'brok
   return before > warnAt && after <= warnAt ? 'warn' : 'none';
 }
 
-/** Gold to make it whole again. Free for gear that is already fine. */
+/**
+ * Gold to make it whole again. Free for gear that is already fine.
+ *
+ * 0.5 of value pro-rated to missing durability (was 0.3), plus a tier
+ * floor so deep gear always costs real money even when lightly scuffed:
+ * T1 4g, T2 9g, T3 18g, T4 32g, T5 50g. Repairs are the steady per-run
+ * gold tax that keeps the late-game purse from going infinite.
+ */
+const REPAIR_TIER_FLOOR = [0, 4, 9, 18, 32, 50];
+
 export function repairCost(item: Item): number {
   const d = durability(item);
   if (!d.wears || d.frac >= 1) return 0;
-  return Math.max(1, Math.ceil(itemValue(item) * 0.3 * (1 - d.frac)));
+  const tier = item.kind === 'equipment' && item.materialId ? (findMaterial(item.materialId)?.tier ?? 1) : 1;
+  const floor = REPAIR_TIER_FLOOR[Math.max(0, Math.min(5, tier))] ?? 0;
+  return Math.max(1, Math.ceil(itemValue(item) * 0.5 * (1 - d.frac)) + Math.ceil(floor * (1 - d.frac)));
 }
 
 export function repairItem(item: Item): void {
@@ -756,7 +773,8 @@ export function rollContainerLoot(
       // An urn is a handful of something, or nothing. Most of them are nothing,
       // which is what makes the one with a gem in it worth the swing.
       if (rng.chance(0.4)) items.push(makeMaterial(materialForDepth(rng, depth, cats).id, rng.int(1, 2)));
-      if (rng.chance(0.3)) gold += Math.round(rng.int(2, 6 + depth * 3) * diff.gold);
+      // Trimmed 6+3/depth → 5+2/depth: urns stay frequent but pay ~25% less.
+      if (rng.chance(0.3)) gold += Math.round(rng.int(2, 5 + depth * 2) * diff.gold);
       if (rng.chance(0.03)) items.push(makeConsumable('healing_draught'));
       if (rng.chance(0.05 * f)) items.push(makeMaterial(rollValuable(rng, depth).id, 1));
       break;
@@ -765,7 +783,9 @@ export function rollContainerLoot(
       // coin per chest is up; the gear chance is less than half what it was,
       // because a chest that hands you a weapon every other time is a vending
       // machine and you stop reading the room it is standing in.
-      gold += Math.round(rng.int(10, 22) * depth * diff.gold);
+      // Trimmed 10–22 → 8–18 per depth (~20% less): chests stay exciting,
+      // vaults/secrets (untouched) stay the real paydays.
+      gold += Math.round(rng.int(8, 18) * depth * diff.gold);
       for (let i = rng.int(1, 2); i > 0; i--) items.push(makeMaterial(materialForDepth(rng, depth, cats).id, rng.int(1, 3)));
       if (rng.chance(0.17 * (1 + effFind / 100) * diff.dropChance)) items.push(rollEquipment(rng, depth, effFind, { identifyBelow, seenUniques }));
       if (rng.chance(0.12)) items.push(makeConsumable(rng.pick(['healing_draught', 'stamina_tonic'])));

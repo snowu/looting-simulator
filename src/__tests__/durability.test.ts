@@ -152,13 +152,20 @@ describe('wear in the dungeon', () => {
     expect(durability(weapon).cur).toBeLessThan(before);
   });
 
-  it('costs nothing to swing at empty air', () => {
+  it('dulls the edge slowly on empty air: 1 wear per 3 whiffs', () => {
     const w = arena(4);
     const weapon = w.state.equipment.weapon!;
     const before = durability(weapon).cur;
     w.attack();
     tick(w, 1);
+    // One or two whiffs cost nothing; the third takes a point.
     expect(durability(weapon).cur).toBe(before);
+    w.attack();
+    tick(w, 1);
+    expect(durability(weapon).cur).toBe(before);
+    w.attack();
+    tick(w, 1);
+    expect(durability(weapon).cur).toBeLessThan(before);
   });
 
   it('grinds the shield down when it takes a hit', () => {
@@ -215,5 +222,50 @@ describe('wear in the dungeon', () => {
       tick(w, 1.2);
     }
     expect(durability(body).cur).toBeLessThan(before);
+  });
+});
+
+describe('broken gear', () => {
+  it('cannot guard with a broken shield: the blow lands in full', () => {
+    const w = arena(20);
+    const shield = w.state.equipment.offhand!;
+    wearItem(shield, 99999);
+    expect(durability(shield).broken).toBe(true);
+    const t = w.frontTile(1);
+    const e = createEnemy(enemyDef('skeleton'), t.x, t.y, turnAround(w.player.facing), 'hitter', 1);
+    w.floor.enemies.push(e);
+    w.setBlock(true);
+    tick(w, 1.2); // a whole shield would be up by now — this one never rises
+    expect(w.anim.blockRaise).toBe(0);
+    const hpBefore = w.player.hp;
+    e.ai = 'windup';
+    e.timer = 0.05;
+    e.alert = 6;
+    e.lastSeenX = w.player.x;
+    e.lastSeenY = w.player.y;
+    tick(w, 0.3);
+    const brokenLoss = hpBefore - w.player.hp;
+    expect(brokenLoss).toBeGreaterThan(0);
+
+    // Same seed, guard honestly down: identical damage. The broken shield
+    // absorbs nothing rather than its listed fraction. The control sits
+    // through the same 1.2s first, so both RNG streams are in step.
+    const plain = arena(20);
+    const t2 = plain.frontTile(1);
+    const e2 = createEnemy(enemyDef('skeleton'), t2.x, t2.y, turnAround(plain.player.facing), 'hitter', 1);
+    plain.floor.enemies.push(e2);
+    tick(plain, 1.2);
+    const hp0 = plain.player.hp;
+    e2.ai = 'windup';
+    e2.timer = 0.05;
+    e2.alert = 6;
+    e2.lastSeenX = plain.player.x;
+    e2.lastSeenY = plain.player.y;
+    tick(plain, 0.3);
+    expect(brokenLoss).toBe(hp0 - plain.player.hp);
+
+    // And the refusal says why instead of failing in silence.
+    const msgs = w.drainEvents().filter((ev) => ev.type === 'msg').map((ev) => (ev as { text: string }).text);
+    expect(msgs.some((m) => m.includes('cannot guard'))).toBe(true);
   });
 });

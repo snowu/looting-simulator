@@ -95,6 +95,12 @@ export interface Prop {
   mimic: boolean;
   /** Which god a shrine serves. Only meaningful on `kind: 'shrine'`. */
   shrine?: ShrineKind;
+  /**
+   * Paid offerings made at a coffer shrine. Absent (not zero) until the first
+   * one, so generated floors — and the golden fixture hashed from them —
+   * never see the field.
+   */
+  offerings?: number;
 }
 
 /**
@@ -102,9 +108,9 @@ export interface Prop {
  * touch it: the flame and the light it throws are a different colour, and the
  * prompt names it. Praying is then a decision rather than a coin toss.
  */
-export type ShrineKind = 'font' | 'idol' | 'coffer';
+export type ShrineKind = 'font' | 'idol' | 'coffer' | 'blood' | 'combat';
 
-export const SHRINE_KINDS: ShrineKind[] = ['font', 'idol', 'coffer'];
+export const SHRINE_KINDS: ShrineKind[] = ['font', 'idol', 'coffer', 'blood', 'combat'];
 
 /**
  * Floor hazards. Every trap is hidden until you spot the seam in the flagstones
@@ -352,7 +358,7 @@ export function chestIsMimic(floorSeed: number, propId: string): boolean {
 /** Likewise for shrines, so an old save's shrine is the one a new one would be. */
 export function shrineKindFor(floorSeed: number, propId: string): ShrineKind {
   const rng = createRng(hashString(`shrine:${floorSeed}:${propId}`));
-  return rng.weighted<ShrineKind>([['font', 4], ['idol', 4], ['coffer', 3]]);
+  return rng.weighted<ShrineKind>([['font', 4], ['idol', 4], ['coffer', 3], ['blood', 2], ['combat', 2]]);
 }
 
 const KEY_NAMES: Record<string, string> = {
@@ -364,17 +370,48 @@ const KEY_NAMES: Record<string, string> = {
 const FAVORED_ENEMY_WEIGHT = 4;
 const ELEMENTAL_ENEMY_WEIGHT = 4;
 
-export function generateFloor(runSeed: number, depth: number, difficulty?: DifficultyId): Floor {
+export function generateFloor(
+  runSeed: number,
+  depth: number,
+  difficulty?: DifficultyId,
+  forceShrine = false,
+): Floor {
   const seed = hashString(`floor:${runSeed}:${depth}`);
   // Difficulty deliberately stays out of the seed: a Hard floor is generated
   // exactly as before, and Normal only changes *how many* things spawn, never
   // *which* walls stand where.
   const diff = difficultyOf(difficulty);
   for (let attempt = 0; attempt < 40; attempt++) {
-    const f = tryGenerate(seed, depth, createRng((seed + Math.imul(attempt + 1, 0x9e3779b1)) >>> 0), diff);
+    const f = tryGenerate(seed, depth, createRng((seed + Math.imul(attempt + 1, 0x9e3779b1)) >>> 0), diff, forceShrine);
     if (f) return f;
   }
   throw new Error(`dungeon generation failed for depth ${depth}`);
+}
+
+/**
+ * Pity guarantee for shrine droughts: at least 1 shrine in depths 1–3 and
+ * at least 2 in depths 4–6. Called when generating a new floor; counts
+ * shrines already placed in the block and forces one on the block's last
+ * floors if the quota is unmet. Returns whether to force a shrine.
+ */
+export function shrinePityFor(floors: (Floor | null)[], depth: number): boolean {
+  const hasShrine = (f: Floor | null | undefined): boolean =>
+    !!f && f.rooms.some((r) => r.role === 'shrine');
+  // Block 1 (depths 1–3) needs ≥1: force on the last floor if dry so far.
+  if (depth === 3) {
+    return !hasShrine(floors[0]) && !hasShrine(floors[1]);
+  }
+  // Block 2 (depths 4–6) needs ≥2: force on 5 if 4 missed, so the block has
+  // at least 1 going into the last floor; force on 6 unless 4–5 already
+  // hold 2. Together the two forces guarantee the quota.
+  if (depth === 5) {
+    return !hasShrine(floors[3]);
+  }
+  if (depth === 6) {
+    const count = [floors[3], floors[4]].filter((f) => hasShrine(f)).length;
+    return count < 2;
+  }
+  return false;
 }
 
 class MinHeap {
@@ -427,7 +464,13 @@ interface Entrance {
   doorable: boolean;
 }
 
-function tryGenerate(seed: number, depth: number, rng: Rng, diff: DifficultyDef = DIFFICULTIES.hard): Floor | null {
+function tryGenerate(
+  seed: number,
+  depth: number,
+  rng: Rng,
+  diff: DifficultyDef = DIFFICULTIES.hard,
+  forceShrine = false,
+): Floor | null {
   const biome = biomeForDepth(depth, seed);
   const isBoss = depth >= FINAL_DEPTH;
   // Expand every depth: 39 → 59 tiles per side, with extra rooms below
@@ -615,7 +658,10 @@ function tryGenerate(seed: number, depth: number, rng: Rng, diff: DifficultyDef 
   const vault = leaves.shift() ?? null;
   if (vault) vault.role = 'vault';
   for (const r of leaves.slice(0, 2)) r.role = 'treasure';
-  if (rng.chance(0.45)) {
+  // 55% base (was 45%), plus a forced placement when the run's pity
+  // guarantee calls for it — see `shrinePityFor` in world.ts. Still at most
+  // one shrine room per floor, and never guaranteed on any single level.
+  if (forceShrine || rng.chance(0.55)) {
     const cand = rooms.filter((r) => r.role === 'normal');
     if (cand.length) rng.pick(cand).role = 'shrine';
   }
@@ -939,7 +985,9 @@ function tryGenerate(seed: number, depth: number, rng: Rng, diff: DifficultyDef 
     for (let n = 1 + Math.ceil(depth / 2); n > 0 && spots.length; n--) {
       const [x, y] = spots.pop()!;
       if (rng.chance(0.55)) {
-        pickups.push({ id: `k${pickN++}`, x, y, items: [], gold: rng.int(2, 5) * depth });
+        // Trimmed 2–5 → 2–4 per depth: loose coin was the largest painless
+        // income line, and it scaled without any decision attached.
+        pickups.push({ id: `k${pickN++}`, x, y, items: [], gold: rng.int(2, 4) * depth });
       } else {
         const m = materialForDepth(rng, depth, ['metal', 'wood', 'hide', 'cloth', 'bone']);
         pickups.push({ id: `k${pickN++}`, x, y, items: [makeMaterial(m.id, rng.int(1, 2))], gold: 0 });

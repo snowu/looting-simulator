@@ -189,7 +189,7 @@ export const UNIQUES: UniqueDef[] = [
     effect: 'unseen',
     power: 2,
     rule: 'The floor notices you late.',
-    detail: '-2 tiles from every creature\'s sight radius: a skeleton that sees 7 tiles notices you at 5. The Hunted curse adds 2 back.',
+    detail: '-2 tiles from every creature\'s sight radius: a skeleton that sees 7 tiles notices you at 5. The Hunted curse adds 3 back.',
     flavour: 'Shadow silk, stitched for a burglar\'s soft tread. The maker swore blind they were for muffling cats.',
     stats: { defense: 3, shadow: 4 },
     minDepth: 3,

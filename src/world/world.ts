@@ -23,13 +23,14 @@ import {
   isBossDoor,
   propAt,
   secretAt,
+  shrinePityFor,
   stairsAt,
   stairsFront,
   Trap,
   TrapKind,
   trapAt,
 } from '../systems/dungeon';
-import { BOSS_ID, enemyDef, enemyView, kingPhase, phaseForHp } from '../data/enemies';
+import { BOSS_ID, ENEMIES, enemyDef, enemyView, kingPhase, phaseForHp } from '../data/enemies';
 import { consumable, itemBase, viewmodelFor } from '../data/items';
 import { biomeForFloor, FINAL_DEPTH } from '../data/biomes';
 import { PlayerDerived, derivePlayer, thrownView } from '../systems/player';
@@ -332,9 +333,10 @@ export const TRAPS: Record<
 };
 
 export const BLESSINGS: Record<string, { name: string; text: string }> = {
-  fortune: { name: 'Fortune', text: '+30% loot find this run.' },
-  fury: { name: 'Fury', text: '+25% damage this run.' },
-  ward: { name: 'Warding', text: '+5 defense this run.' },
+  fortune: { name: 'Fortune', text: '+40 loot find this run, more the deeper you pray.' },
+  fury: { name: 'Fury', text: '+30% damage this run.' },
+  ward: { name: 'Warding', text: '+6 defense this run, more the deeper you pray.' },
+  vitality: { name: 'Vitality', text: '+20% maximum health this run.' },
 };
 
 /**
@@ -343,10 +345,11 @@ export const BLESSINGS: Record<string, { name: string; text: string }> = {
  * one, which is what makes finding a font worth something once you are cursed.
  */
 export const CURSES: Record<string, { name: string; text: string }> = {
-  frailty: { name: 'Frailty', text: '−15% maximum health this run.' },
-  leaden: { name: 'Leaden Limbs', text: '−12 speed this run.' },
-  dulled: { name: 'Dulled Edge', text: '−20% damage this run.' },
-  hunted: { name: 'Hunted', text: 'Monsters see you two tiles further this run.' },
+  frailty: { name: 'Frailty', text: '−20% maximum health this run.' },
+  leaden: { name: 'Leaden Limbs', text: '−15 speed this run.' },
+  dulled: { name: 'Dulled Edge', text: '−25% damage this run.' },
+  hunted: { name: 'Hunted', text: 'Monsters see you three tiles further this run.' },
+  brittle: { name: 'Brittle Bones', text: 'Your gear wears faster this run.' },
 };
 
 /**
@@ -366,11 +369,21 @@ export const TONICS: Record<string, { name: string; text: string; apply: (d: Pla
   },
 };
 
+/**
+ * How many paid offerings one stone takes, how much thirstier it gets each
+ * time, and how often it takes the coin and answers with silence.
+ */
+export const COFFER_MAX_OFFERINGS = 3;
+export const COFFER_PRICE_GROWTH = 1.75;
+export const COFFER_FIZZLE = 0.25;
+
 /** What [F] says at each shrine, so you know what you are touching. */
 export const SHRINE_PROMPT: Record<ShrineKind, (cost: number) => string> = {
   font: () => 'Drink at the font',
   idol: () => 'Pray at the hollow idol',
   coffer: (cost) => `Offer ${cost} gold at the stone`,
+  blood: () => 'Bleed at the red altar',
+  combat: () => 'Challenge the ember shrine',
 };
 
 export class World {
@@ -433,12 +446,17 @@ export class World {
 
   refreshDerived(): void {
     this.derived = derivePlayer(this.state.equipment, this.state.meta, this.difficultyId);
-    if (this.run.blessing === 'fury') this.derived.attack = Math.round(this.derived.attack * 1.25);
-    if (this.run.blessing === 'fortune') this.derived.find += 30;
-    if (this.run.blessing === 'ward') this.derived.stats.defense += 5;
-    if (this.run.curse === 'frailty') this.derived.maxHp = Math.max(1, Math.round(this.derived.maxHp * 0.85));
-    if (this.run.curse === 'leaden') this.derived.stats.speed -= 12;
-    if (this.run.curse === 'dulled') this.derived.attack = Math.max(1, Math.round(this.derived.attack * 0.8));
+    // Blessings scale with the depth prayed at: a D6 blessing should feel
+    // like a D6 blessing. Fortune +40 +5/depth past 2, Ward +6 +1 per 2 depths.
+    const depth = this.run.depth;
+    if (this.run.blessing === 'fury') this.derived.attack = Math.round(this.derived.attack * 1.3);
+    if (this.run.blessing === 'fortune') this.derived.find += 40 + 5 * Math.max(0, depth - 2);
+    if (this.run.blessing === 'ward') this.derived.stats.defense += 6 + Math.floor(depth / 2);
+    if (this.run.blessing === 'vitality') this.derived.maxHp = Math.round(this.derived.maxHp * 1.2);
+    if (this.run.curse === 'frailty') this.derived.maxHp = Math.max(1, Math.round(this.derived.maxHp * 0.8));
+    if (this.run.curse === 'leaden') this.derived.stats.speed -= 15;
+    if (this.run.curse === 'dulled') this.derived.attack = Math.max(1, Math.round(this.derived.attack * 0.75));
+    // hunted is read in sightPenalty (+3); brittle is read in wear (+1).
     for (const id of this.run.tonics ?? []) TONICS[id]?.apply(this.derived);
     this.player.hp = Math.min(this.player.hp, this.derived.maxHp);
     this.player.stamina = Math.min(this.player.stamina, this.derived.maxStamina);
@@ -465,13 +483,22 @@ export class World {
     return healed;
   }
 
+  /** Swings into empty air since the last scuff: every third one wears the edge. */
+  private whiffs = 0;
+  /** Throttles the broken-guard refusal so holding block can't spam it. */
+  private guardWarnCd = 0;
+
   /**
    * Wear a piece of equipment and say something only when it crosses a line:
    * once when it is nearly gone, once when it goes. A message per swing would
    * be noise, and noise is how a player learns to stop reading the log.
+   *
+   * The Brittle curse adds +1 to every wear event, which is what makes
+   * finding a font urgent rather than theoretical.
    */
   private wear(slot: EquipSlot, amount = 1): void {
     const it = this.state.equipment[slot];
+    if (this.run.curse === 'brittle') amount += 1;
     const crossed = wearItem(it, amount);
     if (crossed === 'none' || !it) return;
     const name = itemName(it);
@@ -490,12 +517,22 @@ export class World {
       const it = this.state.equipment[s];
       return it && !durability(it).broken;
     });
-    if (worn.length) this.wear(this.rng.pick(worn));
+    // 2 per unblocked hit (was 1): armour is a consumable now, not furniture.
+    if (worn.length) this.wear(this.rng.pick(worn), 2);
+  }
+
+  /** A swing that hit nothing still dulls the edge, slowly: 1 wear per 3 whiffs. */
+  private wearWhiff(): void {
+    this.whiffs += 1;
+    if (this.whiffs >= 3) {
+      this.whiffs = 0;
+      this.wear('weapon', 1);
+    }
   }
 
   /** Extra tiles of sight the floor has on you, from the Hunted curse. */
   private get sightPenalty(): number {
-    return (this.run.curse === 'hunted' ? 2 : 0) - this.derived.traits.unseen - (this.anim?.unseenT > 0 ? 99 : 0);
+    return (this.run.curse === 'hunted' ? 3 : 0) - this.derived.traits.unseen - (this.anim?.unseenT > 0 ? 99 : 0);
   }
 
   private emit(e: WorldEvent): void {
@@ -597,7 +634,9 @@ export class World {
     a.stunT = Math.max(0, a.stunT - dt);
     a.rangedParryT = Math.max(0, a.rangedParryT - dt);
     a.parryInvulnT = Math.max(0, a.parryInvulnT - dt);
-    const wantBlock = this.held.has('block') && a.attack === 'idle' && !a.cast && a.stunT <= 0;
+    const wantGuard = this.held.has('block') && a.attack === 'idle' && !a.cast && a.stunT <= 0;
+    const brokenGuard = wantGuard ? this.brokenGuardGear() : null;
+    const wantBlock = wantGuard && !brokenGuard;
     a.parryCd = Math.max(0, a.parryCd - dt);
     if (wantBlock) {
       if (a.blockT === Infinity) {
@@ -613,6 +652,14 @@ export class World {
       a.parryArmed = false;
     }
     a.blockRaise = Math.max(0, Math.min(1, a.blockRaise + (wantBlock ? dt : -dt) / 0.12));
+
+    // Refusing the guard says why, throttled like the winded cue: holding
+    // block with a broken shield would otherwise fail in silence.
+    this.guardWarnCd = Math.max(0, this.guardWarnCd - dt);
+    if (brokenGuard && this.guardWarnCd <= 0) {
+      this.guardWarnCd = 1.6;
+      this.msg(`Your broken ${itemName(brokenGuard)} cannot guard — mend it at the forge.`, '#ff9070');
+    }
 
     // Next movement, from the queue or held keys. Stun sits you out.
     if (!this.moving && a.transition === null && a.stunT <= 0 && !a.cast) {
@@ -786,7 +833,12 @@ export class World {
     }
     this.retrieve(false);
     run.depth += dir === 'down' ? 1 : -1;
-    if (!run.floors[run.depth - 1]) run.floors[run.depth - 1] = generateFloor(run.seed, run.depth, this.difficultyId);
+    if (!run.floors[run.depth - 1]) {
+      // Pity guarantees: ≥1 shrine in depths 1–3, ≥2 in 4–6. Natural rolls
+      // cover most runs; the force only bites on a drought.
+      const force = shrinePityFor(run.floors, run.depth);
+      run.floors[run.depth - 1] = generateFloor(run.seed, run.depth, this.difficultyId, force);
+    }
     const f = this.floor;
     const arrive = f.stairs.find((s) => s.down === (dir === 'up'))!;
     const spot = stairsFront(arrive);
@@ -951,6 +1003,19 @@ export class World {
       (fromX === front.x && fromY === front.y) ||
       (Math.sign(fromX - p.x) === DX[p.facing] && Math.sign(fromY - p.y) === DY[p.facing] && (fromX === p.x || fromY === p.y))
     );
+  }
+
+  /**
+   * The gear your guard is raised with — the shield if you carry one, else
+   * the weapon — when it is broken and guards nothing. At 15% stats a
+   * cracked guard would barely turn a blow anyway, and a guard that
+   * sometimes works teaches you to trust it right up until it doesn't.
+   * Fists cannot break, so an unarmed guard always holds.
+   */
+  private brokenGuardGear(): Item | null {
+    const eq = this.state.equipment;
+    const g = this.derived.hasShield ? eq.offhand : eq.weapon;
+    return g && durability(g).broken ? g : null;
   }
 
   /** Shared feedback for any parry: it should feel like a moment. */
@@ -1426,7 +1491,9 @@ export class World {
       const e = enemyAt(f, t.x, t.y);
       if (e) {
         this.hitEnemy(e);
-        this.wear('weapon', this.cleave(t.x, t.y) ? 2 : 1);
+        // 2 per landed blow, 3 on a cleave (was 1/2): ~55 hits to break a
+        // weapon, roughly a floor and a half of fighting, not four floors.
+        this.wear('weapon', this.cleave(t.x, t.y) ? 3 : 2);
         return;
       }
       const p = propAt(f, t.x, t.y);
@@ -1436,6 +1503,7 @@ export class World {
       }
       if (blocksSight(f, t.x, t.y)) break;
     }
+    this.wearWhiff();
     this.sfx('miss');
   }
 
@@ -1460,6 +1528,10 @@ export class World {
   private cleave(cx: number, cy: number): boolean {
     const mult = this.derived.swing.cleave;
     if (!mult) return false;
+    // A broken edge spills nothing: the blow still lands single-target at
+    // 15%, but there is no splash into its neighbours.
+    const w = this.state.equipment.weapon;
+    if (w && durability(w).broken) return false;
     const caught: EnemyState[] = [];
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
       if (!dx && !dy) continue;
@@ -1698,6 +1770,7 @@ export class World {
       this.dropLoot(e.x, e.y, loot.items, loot.gold);
       this.msg(`${def.name} slain.`, '#c8c0b0');
     }
+    this.trialKill(e.id);
   }
 
   /**
@@ -1813,7 +1886,15 @@ export class World {
     const p = propAt(f, t.x, t.y);
     if (p && !p.used) {
       if (p.kind === 'chest') return 'Open chest';
-      if (p.kind === 'shrine') return SHRINE_PROMPT[p.shrine ?? 'font'](this.offeringCost());
+      if (p.kind === 'shrine') {
+        // A stone that has already taken coin names its rising price and how
+        // many offerings it has left, so the second and third are decisions.
+        if ((p.shrine ?? 'font') === 'coffer' && (p.offerings ?? 0) > 0) {
+          const made = p.offerings ?? 0;
+          return `${SHRINE_PROMPT.coffer(this.offeringCost(made))} (${COFFER_MAX_OFFERINGS - made} of ${COFFER_MAX_OFFERINGS} left)`;
+        }
+        return SHRINE_PROMPT[p.shrine ?? 'font'](this.offeringCost(p.offerings ?? 0));
+      }
       if (p.kind === 'urn' || p.kind === 'barrel') return `Smash ${p.kind}`;
     }
     // A pile sharing the portal's tile wins the prompt, so loot that ended up
@@ -2079,8 +2160,10 @@ export class World {
   }
 
   /** What an offering stone asks for at this depth. */
-  offeringCost(): number {
-    return 30 + 25 * this.run.depth;
+  offeringCost(offeringsMade = 0): number {
+    // Every paid offering raises the next by 75%: the stone is a sink that
+    // gets thirstier. D1 runs 55 → 96 → 168; D6 runs 180 → 315 → 551.
+    return Math.round((30 + 25 * this.run.depth) * Math.pow(COFFER_PRICE_GROWTH, Math.max(0, offeringsMade)));
   }
 
   /**
@@ -2096,8 +2179,12 @@ export class World {
   private grantBlessing(): boolean {
     if (this.run.blessing) return false;
     const id = this.rng.pick(Object.keys(BLESSINGS));
+    const before = this.derived.maxHp;
     this.run.blessing = id;
     this.refreshDerived();
+    // Vitality raises the ceiling: heal the gained amount on pickup, so the
+    // blessing feels like a gift rather than a larger empty bar.
+    if (id === 'vitality') this.player.hp = Math.min(this.derived.maxHp, this.player.hp + Math.max(0, this.derived.maxHp - before));
     this.msg(`Blessing of ${BLESSINGS[id].name}: ${BLESSINGS[id].text}`, '#a0c8ff');
     return true;
   }
@@ -2117,10 +2204,11 @@ export class World {
         return;
       }
 
-      // The gamble. Six times in ten it gives; the rest of the time it takes,
-      // and what it takes lasts the rest of the run.
+      // The gamble. Thirteen times in twenty it gives; the rest of the time
+      // it takes, and what it takes lasts the rest of the run. Slightly
+      // kinder than before (was 60/40) to compensate stronger curses.
       case 'idol': {
-        if (this.rng.chance(0.6)) {
+        if (this.rng.chance(0.65)) {
           this.restore();
           if (!this.grantBlessing()) this.msg('The idol is satisfied. Much of the hurt leaves you.', '#a0c8ff');
           return;
@@ -2134,9 +2222,14 @@ export class World {
         return;
       }
 
-      // The honest one: a fixed price for a certain thing.
+      // The thirsty one: up to three paid offerings, each 75% dearer than
+      // the last, and one time in four the stone takes the coin and answers
+      // with silence — no mend, no blessing. A fizzled offering still counts:
+      // three payments is three payments.
       case 'coffer': {
-        const cost = this.offeringCost();
+        const made = p.offerings ?? 0;
+        if (made >= COFFER_MAX_OFFERINGS) return;
+        const cost = this.offeringCost(made);
         if (this.run.gold < cost) {
           // Not consumed — come back with the coin.
           p.used = false;
@@ -2145,12 +2238,123 @@ export class World {
           return;
         }
         this.run.gold -= cost;
+        p.offerings = made + 1;
+        if (p.offerings >= COFFER_MAX_OFFERINGS) {
+          // interact() already marked it used; staying used means quiet.
+          this.msg('The stone drinks deep and goes dark. It will take no more.', '#c8a060');
+        } else {
+          // Keep it touchable for the next, dearer offering.
+          p.used = false;
+        }
+        if (this.rng.chance(COFFER_FIZZLE)) {
+          this.msg('The coin vanishes into the stone. Nothing answers.', '#8888a0');
+          this.sfx('gold');
+          return;
+        }
         this.restore();
         if (!this.grantBlessing()) this.msg('The coin vanishes. Much of the hurt leaves you.', '#e8c060');
         this.sfx('gold');
         return;
       }
+
+      // The red one. Half your current health, rounded down, for gold that
+      // scales with depth and with what you paid. It cannot kill you: at 1 HP
+      // it refuses. Single use — HP is a currency now, and the font
+      // and the draughts are where you buy it back.
+      case 'blood': {
+        if (this.player.hp <= 1) {
+          p.used = false;
+          this.msg('You have nothing left to give.', '#c8a060');
+          return;
+        }
+        const pay = Math.floor(this.player.hp / 2);
+        const prize = 40 + 30 * this.run.depth + pay;
+        this.player.hp -= pay;
+        this.run.gold += prize;
+        this.run.stats.goldFound += prize;
+        this.emit({ type: 'float', x: p.x, y: p.y, text: `+${prize}g`, color: '#ffd24a' });
+        this.msg(`Your blood runs into the brass bowl. +${prize} gold.`, '#ff8090');
+        this.sfx('hurt');
+        return;
+      }
+
+      // The trial. Free to invoke, paid in nerve: depth-appropriate enemies
+      // rise around the shrine, already looking at you. They drop their
+      // ordinary loot, and the last trial-marked kill pays the prize.
+      // One trial at a time — a second challenge waits its turn.
+      case 'combat': {
+        if (this.run.trial && this.run.trial.ids.length > 0) {
+          p.used = false;
+          this.msg('The yard is already bloodied. Finish the trial first.', '#c8a060');
+          return;
+        }
+        const ids = this.raiseTrial(p);
+        if (!ids.length) {
+          p.used = false;
+          this.msg('The embers stir, then settle. No room to bleed here.', '#8888a0');
+          return;
+        }
+        this.run.trial = { propId: p.id, ids };
+        this.msg(`The ember shrine catches. ${ids.length} rise for the trial!`, '#ff9a50');
+        this.emit({ type: 'shake', amount: 0.5 });
+        this.sfx('alert');
+        return;
+      }
     }
+  }
+
+  /**
+   * Raise a strife trial around a shrine: 2 + ceil(depth/2) enemies from the
+   * same pool the floor itself draws on (never the boss), on free tiles near
+   * the stone, already alerted. Returns the marked ids (empty when the room
+   * is too cramped to bleed in).
+   */
+  private raiseTrial(p: Prop): string[] {
+    const f = this.floor;
+    const biome = biomeForFloor(f);
+    const depth = this.run.depth;
+    const pool = ENEMIES.filter((e) =>
+      e.weight > 0 && e.behavior !== 'boss' && e.minDepth <= depth && depth <= e.maxDepth &&
+      !(biome.element && e.element && e.element !== biome.element));
+    if (!pool.length) return [];
+    const want = 2 + Math.ceil(depth / 2);
+    const ids: string[] = [];
+    let n = 0;
+    outer: for (let r = 1; r <= 4 && ids.length < want; r++) {
+      for (let dy = -r; dy <= r && ids.length < want; dy++) {
+        for (let dx = -r; dx <= r && ids.length < want; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          const x = p.x + dx, y = p.y + dy;
+          if (!inBounds(f, x, y) || blocksMove(f, x, y)) continue;
+          if (x === this.player.x && y === this.player.y) continue;
+          if (enemyAt(f, x, y)) continue;
+          if (f.props.some((q) => q.blocking && q.x === x && q.y === y)) continue;
+          const def = this.rng.weighted(pool.map((e) => [e, e.weight] as const));
+          const id = `trial_${p.id}_${n++}`;
+          const e = createEnemy(def, x, y, this.rng.pick(DIRS), id, depth, this.difficultyId);
+          e.alert = 8;
+          e.lastSeenX = this.player.x;
+          e.lastSeenY = this.player.y;
+          f.enemies.push(e);
+          ids.push(id);
+        }
+      }
+    }
+    return ids;
+  }
+
+  /** A trial-marked kill: strike it from the roll, and pay the prize when the roll is empty. */
+  private trialKill(id: string): void {
+    const trial = this.run.trial;
+    if (!trial) return;
+    trial.ids = trial.ids.filter((t) => t !== id);
+    if (trial.ids.length > 0) return;
+    this.run.trial = null;
+    const prize = 60 + 40 * this.run.depth;
+    this.dropLoot(this.player.x, this.player.y, [], prize);
+    this.emit({ type: 'float', x: this.player.x, y: this.player.y, text: `+${prize}g`, color: '#ffd24a' });
+    this.msg('The trial is survived. The shrine pays its prize.', '#ffb050');
+    this.sfx('gold');
   }
 
   /** Move items from a pickup into the backpack. Returns how many stacks moved. */
@@ -2803,9 +3007,10 @@ export class World {
         p.stamina -= cost;
         dmg = Math.round(dmg - absorbed);
         blocked = true;
-        // Blocking grinds the shield down; a parry costs it nothing, which is
-        // one more reason to meet the swing instead of hiding behind it.
-        if (this.derived.hasShield) this.wear('offhand');
+        // Blocking grinds the shield down (2 per block, was 1); a parry
+        // costs it nothing, which is one more reason to meet the swing
+        // instead of hiding behind it.
+        if (this.derived.hasShield) this.wear('offhand', 2);
       } else {
         const frac = p.stamina / cost;
         p.stamina = 0;

@@ -341,7 +341,7 @@ export function itemTooltip(item: Item, opts: TipOpts = {}): string {
         );
       }
       lines.push(...statLines(itemStats(item), opts.compare ? itemStats(opts.compare) : undefined));
-      if (d.broken) lines.push(`<div class="tt-warn">Worn out — a quarter of its worth until the smith sees it.</div>`);
+      if (d.broken) lines.push(`<div class="tt-warn">Worn out — 15% of its stats until the smith sees it.</div>`);
       if (unique && !d.wears) lines.push(`<div class="tt-dim">Never needs mending.</div>`);
       if (!isIdentified(item)) {
         lines.push(`<div class="tt-warn">Unidentified — ${item.affixes?.length ?? 0} hidden propert${item.affixes?.length === 1 ? 'y' : 'ies'}. Its powers are unknown and it cannot be worn.</div>`);
