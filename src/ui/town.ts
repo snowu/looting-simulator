@@ -200,7 +200,6 @@ export class Town {
         h('span', { class: 'gold-t', text: `◆ ${gold(s.gold)}` }),
         h('span', { class: 'violet-t', text: `✦ ${s.renown} renown` }),
         h('span', { class: 'dim', text: `pack ${backpackCapacity(s.meta)} slots` }),
-        running ? this.healthChip() : null,
       ),
       btn(
         s.run?.portal ? 'Step back through the portal' : running ? 'Return to the Depths' : 'Descend',
@@ -331,24 +330,6 @@ export class Town {
   // ---------------------------------------------------------------------------
   // Market
   // ---------------------------------------------------------------------------
-
-  /**
-   * Health readout in the town header, shown while a delve is open. There is
-   * no paid healing in town any more: this is information only. Full health
-   * returns with a new delve — the hero rests when the day turns — so a
-   * portal trip home never mends you; fonts, draughts and leech do.
-   */
-  private healthChip(): HTMLElement {
-    const s = this.s;
-    const run = s.run!;
-    const maxHp = derivePlayer(s.equipment, s.meta, this.difficultyId).maxHp;
-    const whole = run.player.hp >= maxHp;
-    return h('span', {
-      class: whole ? 'green-t' : 'red-t',
-      text: `♥ ${run.player.hp}/${maxHp}`,
-      title: whole ? 'Whole. The Depths will fix that.' : 'Wounded. Fonts, draughts and leech mend you down there — town only watches.',
-    });
-  }
 
   private market(): HTMLElement {
     const s = this.s;

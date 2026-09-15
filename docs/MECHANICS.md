@@ -341,7 +341,7 @@ Diablo's, in short: a two-way door that costs one scroll for the round trip.
 - In town the Descend button becomes **Step back through the portal**. It drops you on the portal's own tile, at the depth you left from, and the portal **closes behind you**.
 - **One at a time.** Reading a second scroll collapses the first portal and opens a new one where you stand.
 - The portal is part of the save, so closing the browser in the middle of a portal trip and coming back still works.
-- A portal trip never heals you: Bleakmere watches, it does not mend. Full health returns only with a new delve — the day turns, the hero rests. Your wounds are visible in the town header while the run is open.
+- A portal trip never heals you: Bleakmere watches, it does not mend. Full health returns only with a new delve — the day turns, the hero rests.
 
 
 ---
