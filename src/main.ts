@@ -22,7 +22,7 @@ import { CloudFetch, CloudSave, deleteCloudSave, fetchCloudSave, fetchCloudSlots
 import { h, setTouchMode } from './ui/dom';
 import { TouchControls, TouchMove, isTouchDevice } from './ui/touch';
 import { FULLSCREEN_HELP, fullscreenSupported, isFullscreen, isStandalone, mountFullscreenButton, toggleFullscreen, wasButtonExit } from './ui/fullscreen';
-import { BUILD_ID, newerBuild, reloadToLatest } from './ui/update';
+import { APP_VERSION, BUILD_ID, newerBuild, reloadToLatest, shouldAttemptReload } from './ui/update';
 import { btn } from './ui/dom';
 import { audio } from './audio/sfx';
 import { closeSettings, isSettingsOpen, openSettings } from './ui/settings';
@@ -137,30 +137,62 @@ mountFullscreenButton(
 );
 
 // --- Updates (installed apps have no reload button) ----------------------------
+// A new build re-downloads everything: hashed JS/CSS change filenames, the
+// reload below busts the cached page URL, and unhashed art carries ?v=BUILD_ID.
+// Never interrupt a run to do it — the banner waits (and auto-reloads) once
+// the player is back in town, on the title, or past the run summary.
+const AUTO_RELOAD_MS = 8000;
 let pendingUpdate: string | null = null;
+let autoUpdateTimer: number | null = null;
 const updateBanner = h('div', { class: 'update-banner frame gold' });
 updateBanner.hidden = true;
 app.append(updateBanner);
+
+function cancelAutoUpdate(): void {
+  if (autoUpdateTimer !== null) {
+    window.clearTimeout(autoUpdateTimer);
+    autoUpdateTimer = null;
+  }
+}
+
+/** Save, then load the new build. Guarded so a half-propagated deploy reloads once. */
+function applyUpdate(id: string): void {
+  if (!shouldAttemptReload(id)) return;
+  commit();
+  cancelAutoUpdate();
+  void reloadToLatest(id);
+}
+
+function scheduleAutoUpdate(): void {
+  cancelAutoUpdate();
+  if (!pendingUpdate || mode === 'dungeon' || !shouldAttemptReload(pendingUpdate)) return;
+  const id = pendingUpdate;
+  autoUpdateTimer = window.setTimeout(() => applyUpdate(id), AUTO_RELOAD_MS);
+}
 
 function renderUpdateBanner(): void {
   // Never interrupt a run; the banner waits for town or the title screen.
   updateBanner.hidden = !pendingUpdate || mode === 'dungeon';
   if (!pendingUpdate) return;
   const id = pendingUpdate;
+  const secs = Math.ceil(AUTO_RELOAD_MS / 1000);
   updateBanner.replaceChildren(
-    h('span', { text: 'A new version is out.' }),
-    btn('Update now', () => {
-      commit();
-      void reloadToLatest(id);
-    }, 'small primary'),
+    h('span', { text: `A new version is out — updating in ~${secs}s so you never play stale.` }),
+    btn('Update now', () => applyUpdate(id), 'small primary'),
   );
 }
 
 async function checkForUpdate(): Promise<void> {
   const id = await newerBuild();
-  if (!id || id === pendingUpdate) return;
+  if (!id) return;
+  if (id === pendingUpdate) {
+    // Still waiting out a run: keep the banner, (re)arm the timer if safe now.
+    if (mode !== 'dungeon') scheduleAutoUpdate();
+    return;
+  }
   pendingUpdate = id;
   renderUpdateBanner();
+  if (mode !== 'dungeon') scheduleAutoUpdate();
 }
 
 const town = new Town(screen, {
@@ -267,6 +299,10 @@ function show(m: Mode): void {
   town.visible = m === 'town';
   if (m !== 'dungeon') overlays.close();
   renderUpdateBanner();
+  // Leaving a run with an update waiting: the save already landed (commit on
+  // floor/end/portal), so roll into the new build without asking again.
+  if (m === 'dungeon') cancelAutoUpdate();
+  else if (pendingUpdate) scheduleAutoUpdate();
 }
 
 const sync = new CloudSync({
@@ -450,7 +486,7 @@ function enterTitle(): void {
   screen.replaceChildren(titleScreen(slotPicker(slotViews(), enterSlot, {
     onRename: (n, name) => void renameSlot(n, name),
     onDelete: (n) => void deleteSlot(n),
-  }), BUILD_ID, account.el, devTitleTools(), () => openTitleSettings()));
+  }), `v${APP_VERSION} (${BUILD_ID})`, account.el, devTitleTools(), () => openTitleSettings()));
   askAboutSaves();
 }
 
@@ -920,7 +956,7 @@ document.addEventListener('fullscreenchange', () => { if (!isFullscreen()) pause
 document.addEventListener('webkitfullscreenchange', () => { if (!isFullscreen()) pauseOnFullscreenExit(); });
 setInterval(() => {
   if (!document.hidden) void checkForUpdate();
-}, 10 * 60 * 1000);
+}, 2 * 60 * 1000);
 void checkForUpdate();
 
 /**

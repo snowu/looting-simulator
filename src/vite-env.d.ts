@@ -1,5 +1,8 @@
 /// <reference types="vite/client" />
 
+declare const __BUILD_ID__: string;
+declare const __APP_VERSION__: string;
+
 interface ImportMetaEnv {
   /** True under `vite dev`, statically false in a production build. */
   readonly DEV: boolean;

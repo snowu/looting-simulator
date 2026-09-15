@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { ALL_ART, getArt } from '../art/registry';
 import { Ramp, rasterize } from '../art/raster';
 import { recolorIcon } from './recolor-icon';
+import { BUILD_ID, versionedAssetUrl } from '../ui/update';
 
 /**
  * Browser-side cache turning art defs into canvases, textures and CSS URLs.
@@ -20,8 +21,10 @@ const keyOf = (id: string, ramp?: Ramp) => (ramp ? `${id}|${ramp.join(',')}` : i
 
 export async function loadArtOverrides(): Promise<number> {
   const base = import.meta.env.BASE_URL;
-  const manifestUrl = `${base}art/manifest.json`;
-  const res = await fetch(manifestUrl);
+  // Versioned so a new game version re-downloads art instead of serving the
+  // previous version's PNGs from HTTP cache (same filenames across builds).
+  const manifestUrl = versionedAssetUrl(`${base}art/manifest.json`, BUILD_ID);
+  const res = await fetch(manifestUrl, { cache: 'no-store' });
   if (!res.ok) throw new Error(`Failed to load art manifest ${manifestUrl}: HTTP ${res.status}`);
 
   const ids: unknown = await res.json();
@@ -50,7 +53,7 @@ export async function loadArtOverrides(): Promise<number> {
             resolve();
           };
           img.onerror = () => reject(new Error(`Failed to load art asset ${base}art/${id}.png`));
-          img.src = `${base}art/${id}.png`;
+          img.src = versionedAssetUrl(`${base}art/${id}.png`, BUILD_ID);
         }),
     ),
   );
