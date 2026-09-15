@@ -17,6 +17,7 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 
 // Commits that must never become patch notes. Short hash -> reason.
 const SKIP = {
+  '53f1d86': 'merge only; original changes are already curated',
   '38727b0': 'dev art-sheet information only',
   '83affdc': 'settings access and fullscreen UI; no gameplay or balance change',
   '01b87d8': 'merge only; map expansion and fog gate covered by original commits',
