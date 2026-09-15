@@ -1,9 +1,11 @@
 import * as THREE from 'three';
 import { EMBER_VENTS, emberFloorIndex, EMBER_CEILING_VENTS, emberCeilingIndex } from '../art/ember-floor';
 import { createRng, hashString } from '../core/rng';
-import { Floor, FLOOR, tileAt } from '../systems/dungeon';
+import { Floor, FLOOR, WALL, PILLAR, tileAt } from '../systems/dungeon';
 import { Shared, ps1Material } from './ps1';
 import { TILE, WALL_H } from './level-mesh';
+
+export interface LavaSound { name: 'lava_drop' | 'lava_land' | 'lava_burst'; x: number; z: number }
 
 interface Site { x: number; z: number; phase: number }
 interface Drop {
@@ -15,6 +17,10 @@ interface Spark { mesh: THREE.Mesh; age: number; life: number; vx: number; vy: n
 /** Decorative only: owns a separate RNG and no World reference or gameplay callbacks. */
 export class LavaEffects {
   readonly root = new THREE.Group();
+  onSound: ((event: LavaSound) => void) | null = null;
+  private floor: Floor | null = null;
+  private blockers = new Set<number>();
+  private projected = new THREE.Vector3();
   private rng = createRng(0);
   private sites: Site[] = [];
   private ceilingSites: Site[] = [];
@@ -50,6 +56,7 @@ export class LavaEffects {
   }
 
   reset(floor: Floor): void {
+    this.floor = floor;
     this.sites = []; this.ceilingSites = []; this.near = []; this.clock = 0;
     this.nextDrop = 0.5; this.nextBurst = 3; this.burstSite = null;
     this.bubble.visible = false;
@@ -70,12 +77,12 @@ export class LavaEffects {
     }
   }
 
-  private spray(x: number, z: number, count: number, strength: number): void {
+  private spray(x: number, z: number, count: number, strength: number, size = 1): void {
     for (const s of this.sparks.filter(s => s.life <= 0).slice(0, count)) {
       const angle = this.rng.float(0, Math.PI * 2), speed = this.rng.float(0.2, 0.65) * strength;
       s.vx = Math.cos(angle) * speed; s.vz = Math.sin(angle) * speed;
       s.vy = this.rng.float(1.2, 2.1) * strength;
-      s.age = 0; s.life = 1.8; s.size = this.rng.float(0.035, 0.075);
+      s.age = 0; s.life = 1.8; s.size = this.rng.float(0.035, 0.075) * size;
       s.mesh.position.set(x, 0.07, z); s.mesh.visible = true;
     }
   }
@@ -88,13 +95,26 @@ export class LavaEffects {
       .sort((a, b) => (a.x-camera.position.x)**2+(a.z-camera.position.z)**2 - (b.x-camera.position.x)**2-(b.z-camera.position.z)**2);
     if (step === 0) return;
     this.nextDrop -= step; this.nextBurst -= step;
+    this.blockers.clear();
+    if (this.floor) {
+      for (const d of this.floor.doors) if (!d.open) this.blockers.add(d.y * this.floor.width + d.x);
+      for (const p of this.floor.props) if (p.blocking) this.blockers.add(p.y * this.floor.width + p.x);
+    }
+    camera.updateMatrixWorld();
     camera.getWorldDirection(this.forward);
     const inView = (s: Site) => {
       const dx = s.x - camera.position.x, dz = s.z - camera.position.z;
       const distance = Math.hypot(dx, dz);
-      return distance > 1.7 && distance < 9 && (dx * this.forward.x + dz * this.forward.z) / distance > 0.45;
+      return distance > 1.7 && distance < 9 && (dx * this.forward.x + dz * this.forward.z) / distance > 0.45
+        && this.clearSight(camera.position.x, camera.position.z, s);
     };
-    const candidates = this.near.filter(inView);
+    const floorVisible = (s: Site) => {
+      if (!inView(s)) return false;
+      this.projected.set(s.x, 0.18, s.z).project(camera);
+      return Math.abs(this.projected.x) < 0.8 && Math.abs(this.projected.y) < 0.78
+        && this.projected.z > -1 && this.projected.z < 1;
+    };
+    const candidates = this.near.filter(floorVisible).slice(0, 8);
     const ceilingCandidates = this.ceilingSites.filter(inView);
     if (this.nextDrop <= 0 && ceilingCandidates.length) {
       this.nextDrop = this.rng.float(2.0, 3.7);
@@ -106,6 +126,7 @@ export class LavaEffects {
     }
     for (const d of this.drops) {
       if (!d.active) continue;
+      if (d.age <= d.hold && d.age + step > d.hold) this.onSound?.({ name: 'lava_drop', x: d.x, z: d.z });
       d.age += step;
       const t = Math.min(1, d.age / d.hold), falling = Math.max(0, d.age - d.hold);
       // A swelling bulb hangs from a thinning thread, repeatedly sagging and
@@ -116,6 +137,7 @@ export class LavaEffects {
       const y = WALL_H - stretch - radius - falling * 0.3 - 1.65 * falling * falling;
       if (y <= radius * 0.4) {
         this.spray(d.x, d.z, 4, 0.6);
+        this.onSound?.({ name: 'lava_land', x: d.x, z: d.z });
         d.active = false; d.body.visible = d.neck.visible = d.core.visible = false;
         continue;
       }
@@ -133,14 +155,18 @@ export class LavaEffects {
       this.burstSite = this.rng.pick(candidates); this.burstAge = 0;
       this.nextBurst = this.rng.float(6, 10);
     }
+    if (this.burstSite && !floorVisible(this.burstSite)) {
+      this.burstSite = null; this.bubble.visible = false; this.nextBurst = 0.5;
+    }
     if (this.burstSite) {
       this.burstAge += step;
       const t = this.burstAge / 1.25;
       this.bubble.visible = true;
       this.bubble.position.set(this.burstSite.x, 0.015, this.burstSite.z);
-      this.bubble.scale.set(0.13 + t * 0.12, 0.02 + t * 0.16 + Math.sin(t * 18) * 0.012, 0.13 + t * 0.12);
+      this.bubble.scale.set(0.13 + t * 0.12, 0.02 + t * 0.26 + Math.sin(t * 18) * 0.012, 0.13 + t * 0.12);
       if (t >= 1) {
-        this.spray(this.burstSite.x, this.burstSite.z, 9, 1.15);
+        this.spray(this.burstSite.x, this.burstSite.z, 12, 1.5, 1.35);
+        this.onSound?.({ name: 'lava_burst', x: this.burstSite.x, z: this.burstSite.z });
         this.burstSite = null; this.bubble.visible = false;
       }
     }
@@ -151,6 +177,21 @@ export class LavaEffects {
       if (s.mesh.position.y <= 0.025 || s.age >= s.life) { s.life = 0; s.mesh.visible = false; continue; }
       s.mesh.scale.setScalar(s.size * (1 - s.age / s.life * 0.6));
     }
+  }
+
+  /** Reject nearby sites in another room or behind a closed door. */
+  private clearSight(x: number, z: number, site: Site): boolean {
+    const floor = this.floor;
+    if (!floor) return false;
+    const steps = Math.ceil(Math.hypot(site.x - x, site.z - z) / 0.2);
+    for (let i = 1; i <= steps; i++) {
+      const tx = Math.floor((x + (site.x - x) * i / steps) / TILE);
+      const ty = Math.floor((z + (site.z - z) * i / steps) / TILE);
+      const tile = tileAt(floor, tx, ty);
+      if (tile === WALL || tile === PILLAR
+        || this.blockers.has(ty * floor.width + tx)) return false;
+    }
+    return true;
   }
 
   /** A few low lights make the undersides read as hot without filling the light budget. */

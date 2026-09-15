@@ -74,6 +74,13 @@ renderer.onDripLand = () => {
     rate: 0.9 + Math.random() * 0.3,
   });
 };
+renderer.onLavaSound = ({ name, x, z }) => {
+  if (mode !== 'dungeon' || !world || world.floor.biome !== 'emberworks') return;
+  const dx = x - renderer.camera.position.x, dz = z - renderer.camera.position.z;
+  const distance = Math.hypot(dx, dz);
+  const pan = (dx * Math.cos(world.anim.yaw) + dz * Math.sin(world.anim.yaw)) / Math.max(1, distance);
+  audio.play(name, { volume: 0.75 / (1 + distance * 0.16), pan: pan * 0.8 });
+};
 const hud = new Hud(app, { interact: () => world?.interact(), quick: (i) => world?.quickUse(i) });
 
 let touchMode = isTouchDevice();

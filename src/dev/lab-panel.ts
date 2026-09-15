@@ -9,6 +9,7 @@
  * in-lab forge (town forge without the trip), quick weapon giver, utility.
  */
 import { World } from '../world/world';
+import { BIOMES } from '../data/biomes';
 import { ENEMIES } from '../data/enemies';
 import { ITEM_BASES, itemBase } from '../data/items';
 import { MATERIALS } from '../data/materials';
@@ -21,7 +22,7 @@ import { equipFrom } from '../systems/equip';
 import { createRng, randomSeed } from '../core/rng';
 import { Rarity } from '../types';
 import {
-  LAB_ILVL, clearLabMobs, killLabMobs, refurbish, restockLabMats, spawnLabConfig, spawnLabMob,
+  LAB_ILVL, loadLabLevel, clearLabMobs, killLabMobs, refurbish, restockLabMats, spawnLabConfig, spawnLabMob,
 } from './lab-room';
 import {
   LabConfig, LabMobEntry, deleteLabConfig, exportLabConfig, isBuiltinLabConfig,
@@ -104,6 +105,7 @@ function openLabPanel(
     text: 'I / Tab: pack & gear · all recipes Rank 5 · 999 mats in stash · forge below, no town trip needed.',
   }));
 
+  buildLevelSection(wrap, getWorld, notify);
   buildSpawnSection(wrap, getWorld, notify);
   buildConfigSection(wrap, getWorld, notify);
   buildForgeSection(wrap, getWorld, notify);
@@ -119,6 +121,51 @@ function openLabPanel(
   wrap.addEventListener('mousedown', (e) => e.stopPropagation());
   parent.append(wrap);
   el = wrap;
+}
+
+function buildLevelSection(
+  wrap: HTMLElement,
+  getWorld: () => World | null,
+  notify: (text: string, color?: string) => void,
+): void {
+  wrap.append(h('h3', { text: 'Map', style: 'margin:6px 0 4px' }));
+  const world = getWorld();
+  const biomeSelect = h('select', { attrs: { 'aria-label': 'Lab biome' }, style: 'width:100%;margin-bottom:4px' }) as HTMLSelectElement;
+  for (const biome of BIOMES) {
+    const option = h('option', { attrs: { value: biome.id }, text: biome.name }) as HTMLOptionElement;
+    option.selected = biome.id === world?.floor.biome;
+    biomeSelect.append(option);
+  }
+  const depthSelect = h('select', { attrs: { 'aria-label': 'Lab level' }, style: 'width:100%;margin-bottom:4px' }) as HTMLSelectElement;
+  const refreshDepths = (): void => {
+    const previous = Number(depthSelect.value) || getWorld()?.run.depth;
+    depthSelect.replaceChildren();
+    for (const depth of BIOMES.find((b) => b.id === biomeSelect.value)!.depths) {
+      const option = h('option', { attrs: { value: String(depth) }, text: `Depth ${depth}` }) as HTMLOptionElement;
+      option.selected = depth === previous;
+      depthSelect.append(option);
+    }
+  };
+  biomeSelect.addEventListener('change', refreshDepths);
+  refreshDepths();
+  const seed = h('input', { attrs: { type: 'number', min: '0', max: '4294967295', step: '1', value: String((world?.run.seed ?? 0) >>> 0), 'aria-label': 'Lab map seed' }, style: 'width:100%;box-sizing:border-box;margin-bottom:4px' }) as HTMLInputElement;
+  wrap.append(biomeSelect, depthSelect, h('label', { text: 'Map seed', class: 'small' }, seed));
+  wrap.append(h('div', { class: 'row', style: 'gap:4px;margin-bottom:4px' },
+    btn('Load map', () => {
+      const world = getWorld();
+      if (!world) return;
+      const value = Number(seed.value);
+      if (!seed.value.trim() || !Number.isInteger(value) || value < 0 || value > 0xffffffff) {
+        notify('Enter a whole-number seed from 0 to 4294967295.', '#ff9070');
+        return;
+      }
+      notify(loadLabLevel(world, biomeSelect.value, Number(depthSelect.value), value), '#c080ff');
+    }, 'small primary'),
+    btn('Random seed', () => { seed.value = String(randomSeed() >>> 0); }, 'small'),
+  ));
+  wrap.append(h('p', { class: 'dim small', style: 'margin:0 0 8px',
+    text: 'Load a fresh map of the chosen biome. Same biome, depth and seed reproduce the layout. Gear stays with you.',
+  }));
 }
 
 // ---------------------------------------------------------------------------

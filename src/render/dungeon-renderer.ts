@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { LavaEffects } from './lava-effects';
+import { LavaEffects, LavaSound } from './lava-effects';
 import { DX, DY, turnRight } from '../core/dir';
 import { biomeForFloor, ceilingForFloor } from '../data/biomes';
 import { enemyDef, enemyView } from '../data/enemies';
@@ -79,6 +79,7 @@ export class DungeonRenderer {
   // inside wall geometry stays hidden behind it, so no layout check is needed.
   // The plink sounds on landing through this callback, so a watched drop is
   // heard when it hits — not while it is still falling.
+  onLavaSound: ((event: LavaSound) => void) | null = null;
   onDripLand: (() => void) | null = null;
   private drips: { mesh: THREE.Mesh; vel: number; active: boolean }[] = [];
   private dripGeo = new THREE.PlaneGeometry(0.035, 1);
@@ -101,6 +102,7 @@ export class DungeonRenderer {
     this.vmWeapon = this.makeSprite(this.vmShared, this.vmScene);
     this.vmShield = this.makeSprite(this.vmShared, this.vmScene);
     this.scene.add(this.lava.root);
+    this.lava.onSound = event => this.onLavaSound?.(event);
     this.resize();
   }
 

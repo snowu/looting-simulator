@@ -147,7 +147,11 @@ palette is dimmer than the floor. Emberworks doors use warped hot iron, with
 matching locked art and a gentle **0.18/0.8** pulse.
 Ceiling beads grow and wobble for **2.8–4.3 seconds** before detaching, then fall
 with slower acceleration than Catacombs water. Floor bubbles swell for **1.25 s**
-and burst at intervals of **6–10 s** near the view. Both use a renderer-only
+and burst at intervals of **6–10 s** at clear, on-screen floor sites. A burst
+sprays 12 larger droplets; sites hidden by walls, pillars, closed doors or blocking
+props are excluded. Moving out of view cancels the bubble and retries nearby.
+Detaching beads glug, landings plop, and floor eruptions crack and thump, with
+distance attenuation and stereo positioning. Both use a renderer-only
 `lava-decor:seed:depth` stream, a pool capped at **5 beads / 28 particles**, and
 at most two low orange lights. They freeze on pause and clear on floor changes.
 Lava decoration has **no damage, collision, interaction or persisted state**;
