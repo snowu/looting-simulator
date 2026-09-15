@@ -353,6 +353,16 @@ const SHRINE_COFFER_PAL = {
   d: '#7a6c4a', c: '#60543a', b: '#48402c', a: '#2e2a1c',
   f: '#ffb040fa', y: '#fff0c0fa', o: '#ffd060fa',
 };
+const SHRINE_BLOOD_PAL = {
+  ...SHRINE_PAL,
+  d: '#7a3a44', c: '#602e38', b: '#48222c', a: '#2e161c',
+  f: '#ff4a5afa', y: '#ffc0c8fa', o: '#ff8090fa',
+};
+const SHRINE_COMBAT_PAL = {
+  ...SHRINE_PAL,
+  d: '#7a4c2e', c: '#603c24', b: '#482e1c', a: '#2e1e12',
+  f: '#ff7a30fa', y: '#ffd8a8fa', o: '#ffa050fa',
+};
 
 const FUNGUS = rows(`
   ................
@@ -828,6 +838,10 @@ export const PROPS: ArtDef[] = [
   { id: 'shrine_idol_used', palette: SHRINE_IDOL_PAL, rows: stamp(SHRINE, SHRINE_OFF) },
   { id: 'shrine_coffer', palette: SHRINE_COFFER_PAL, rows: SHRINE },
   { id: 'shrine_coffer_used', palette: SHRINE_COFFER_PAL, rows: stamp(SHRINE, SHRINE_OFF) },
+  { id: 'shrine_blood', palette: SHRINE_BLOOD_PAL, rows: SHRINE },
+  { id: 'shrine_blood_used', palette: SHRINE_BLOOD_PAL, rows: stamp(SHRINE, SHRINE_OFF) },
+  { id: 'shrine_combat', palette: SHRINE_COMBAT_PAL, rows: SHRINE },
+  { id: 'shrine_combat_used', palette: SHRINE_COMBAT_PAL, rows: stamp(SHRINE, SHRINE_OFF) },
   { id: 'fungus', palette: { k: '#0a1614', s: '#b8c8c0', c: '#28b0a0fa', d: '#90fff0fa' }, rows: FUNGUS },
   { id: 'trap_dart', palette: TRAP_PAL, rows: TRAP_PLATE },
   { id: 'trap_spikes', palette: { p: '#08070a', k: '#14121a', w: '#8e8878', W: '#dcd4be' }, rows: TRAP_SPIKES },

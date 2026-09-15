@@ -5,7 +5,7 @@ import { enemyDef } from '../data/enemies';
 import { newGame } from '../state/game-state';
 import { parseSave, serializeSave } from '../state/save-format';
 import { createEnemy, EnemyState, FLOOR } from '../systems/dungeon';
-import { durability, makeEquipment } from '../systems/items';
+import { durability, makeEquipment, wearItem } from '../systems/items';
 import { derivePlayer, emptyEquipment } from '../systems/player';
 import { startRun } from '../systems/run';
 import { Rarity } from '../types';
@@ -92,7 +92,7 @@ describe('two-handed runtime', () => {
     expect(d.swing).toMatchObject({ cleave: 0.25, stagger: 0.3, chips: 2 });
   });
 
-  it('cleaves everything touching the target for a quarter, never bashes, and wears twice', () => {
+  it('cleaves everything touching the target for a quarter, never bashes, and wears three times', () => {
     const w = arena('great_maul');
     const front = tanky(place(w));
     // Diagonally off the target, which is beside the player: caught by the
@@ -116,7 +116,23 @@ describe('two-handed runtime', () => {
     // worth, and it never bashes the guard open.
     expect(guard.blocks).toBe(1);
     expect(w.anim.stunT).toBe(0);
-    expect(durability(item).cur).toBe(before - 2);
+    expect(durability(item).cur).toBe(before - 3);
+  });
+
+  it('lands single-target with a broken edge: no splash into its neighbours', () => {
+    const w = arena('great_maul');
+    const front = tanky(place(w));
+    const left = tanky(place(w, turnLeft(w.player.facing)));
+    const item = w.state.equipment.weapon!;
+    wearItem(item, 99999);
+    expect(durability(item).broken).toBe(true);
+    w.attack();
+    tick(w, 1.4);
+    // The primary still takes the blow, at 15%.
+    expect(front.hp).toBeLessThan(front.maxHp);
+    // The neighbour never felt it, and the broken edge wore no further.
+    expect(left.hp).toBe(left.maxHp);
+    expect(durability(item).cur).toBe(0);
   });
 
   it('cleaves the rank behind the target, and never back onto your own tile', () => {

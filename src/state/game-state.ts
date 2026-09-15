@@ -65,6 +65,11 @@ export interface RunState {
   /** Shrine curse active for the rest of the run; a font will lift it. */
   curse: string | null;
   /**
+   * An open strife-shrine trial: enemy ids that must die for the prize.
+   * Absent until the first challenge, so old saves and fixtures never see it.
+   */
+  trial?: { propId: string; ids: string[] } | null;
+  /**
    * Legendary draughts drunk this delve, which last until it ends. Kept apart
    * from `blessing` on purpose: a tonic you found should never cost you the
    * shrine blessing you prayed for.

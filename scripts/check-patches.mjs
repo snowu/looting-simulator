@@ -105,6 +105,10 @@ const SKIP = {
   a029e9d: 'preview sheets + dev art-sheet tool for the PR, not in the game',
   '10ef6ff': 'art sync build tool, not in the game',
   a297375: 'test-only parry assumption fix + notes file, not gameplay',
+  // This branch's own scaffolding: PR preview art and the master merge.
+// The gameplay ships as Patch 44 (hash 4e0a343).
+  '9e0f01b': 'preview PNGs for a pull request, not in the game',
+  '51b33a9': 'merge of master into the branch; its commits are curated or warned individually',
   e09cdc1: 'preview PNG for a pull request, not in the game',
   ef582f5: 'preview PNG move for a pull request, not in the game',
 };

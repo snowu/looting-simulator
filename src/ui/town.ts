@@ -842,7 +842,7 @@ export class Town {
       ),
       worn.length
         ? h('div', { class: 'col' }, ...rows)
-        : h('p', { class: 'dim', text: 'Nothing needs the hammer. Weapons wear on every blow that lands, shields on every blow you take on them, armour when one gets through.' }),
+        : h('p', { class: 'dim', text: 'Nothing needs the hammer. Weapons wear 2 on every blow that lands (3 on a cleave), shields 2 on every blow taken, armour 2 when one gets through — and every third swing at air dulls the edge.' }),
     );
   }
 

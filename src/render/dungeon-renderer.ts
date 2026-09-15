@@ -22,6 +22,8 @@ const SHRINE_LIGHT: Record<ShrineKind, string> = {
   font: '#58c8ff',
   idol: '#b070ff',
   coffer: '#ffc45a',
+  blood: '#ff4a5a',
+  combat: '#ff7a30',
 };
 const LOW_H = 240;
 

@@ -1,10 +1,10 @@
 {
-  "note": "Original Hard stats, loot and player kits stay pinned to the pre-difficulty game. Intentional biome and weapon-roster results are recorded separately. weaponLootHash moved a second time when the three thrown bases left the weapon slot for their own: the weapon drop pool has three fewer entries and a new slot has three, so every roll after the first shifts. enemyHp has not moved and must not: nothing in the weapon work touches monster health, so a change there is a bug, not a rebaseline. varietyFloorHash rebased for depth scaling (map 47→51 on D6, enemies +30-40%, 1 guaranteed secret + scaling 2nd): intentional generation change, loot/enemyHp untouched. Rebasing again for the throne fog gate (boss:true on the throne door): same reason, loot/enemyHp untouched. elementalFloorHash records the elemental biome pass (new residents, root caches, decorative icicles) on pre-expansion maps. expandedFloorHash is the merge of both (expanded bounds/rooms/enemies/secrets + elemental residents/props).",
+  "note": "Original Hard stats, loot and player kits stay pinned to the pre-difficulty game. Intentional biome and weapon-roster results are recorded separately. weaponLootHash moved a second time when the three thrown bases left the weapon slot for their own: the weapon drop pool has three fewer entries and a new slot has three, so every roll after the first shifts. enemyHp has not moved and must not: nothing in the weapon work touches monster health, so a change there is a bug, not a rebaseline. varietyFloorHash rebased for depth scaling (map 47\u219251 on D6, enemies +30-40%, 1 guaranteed secret + scaling 2nd): intentional generation change, loot/enemyHp untouched. Rebasing again for the throne fog gate (boss:true on the throne door): same reason, loot/enemyHp untouched. elementalFloorHash records the elemental biome pass (new residents, root caches, decorative icicles) on pre-expansion maps. expandedFloorHash is the merge of both (expanded bounds/rooms/enemies/secrets + elemental residents/props). Economy integration reduces shrine/gold generation and urn/chest gold, and adds blood/combat shrines. weaponLootHash uses the economy value; expandedFloorHash is recomputed for elemental content plus those generation changes. Historical hashes and monster/player health remain unchanged. preEconomyExpandedFloorHash preserves the prior elemental-plus-expanded-map result.",
   "floorHash": "b182a0fb",
   "varietyFloorHash": "8a5ac64a",
-  "expandedFloorHash": "ec3faf4b",
+  "expandedFloorHash": "834c3ca2",
   "lootHash": "c87954b9",
-  "weaponLootHash": "c860aace",
+  "weaponLootHash": "a527665e",
   "weaponPlayerHpChanges": {
     "15": 106,
     "50": 94
@@ -209,5 +209,6 @@
     118,
     130
   ],
-  "elementalFloorHash": "dc3d307a"
+  "elementalFloorHash": "dc3d307a",
+  "preEconomyExpandedFloorHash": "ec3faf4b"
 }

@@ -74,7 +74,7 @@ describe('loading an old save', () => {
     // Curses and shrine flavours both arrived after this save was written.
     expect(s.run!.curse).toBeNull();
     for (const f of s.run!.floors) {
-      for (const p of f!.props) if (p.kind === 'shrine') expect(['font', 'idol', 'coffer']).toContain(p.shrine);
+      for (const p of f!.props) if (p.kind === 'shrine') expect(['font', 'idol', 'coffer', 'blood', 'combat']).toContain(p.shrine);
     }
     expect(s.market.commodities.sunstone).toEqual({ price: 104, supply: 0, stock: 0, history: [104] });
   });

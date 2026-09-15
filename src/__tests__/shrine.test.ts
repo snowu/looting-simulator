@@ -4,7 +4,8 @@ import { DIRS, DX, DY } from '../core/dir';
 import { newGame } from '../state/game-state';
 import { startRun } from '../systems/run';
 import { BLESSINGS, CURSES, World } from '../world/world';
-import { FLOOR, Prop, ShrineKind, generateFloor, shrineKindFor } from '../systems/dungeon';
+import { FLOOR, Floor, Prop, ShrineKind, generateFloor, shrineKindFor, shrinePityFor } from '../systems/dungeon';
+import { durability } from '../systems/items';
 
 /** The player facing a shrine of the given flavour, one tile away. */
 function atShrine(kind: ShrineKind, seed = 1): { w: World; shrine: Prop } {
@@ -50,10 +51,18 @@ describe('shrine flavours', () => {
     for (let seed = 0; seed < 20; seed++) {
       for (const depth of [1, 3, 6]) {
         for (const p of generateFloor(seed, depth).props) {
-          if (p.kind === 'shrine') expect(['font', 'idol', 'coffer']).toContain(p.shrine);
+          if (p.kind === 'shrine') expect(['font', 'idol', 'coffer', 'blood', 'combat']).toContain(p.shrine);
         }
       }
     }
+  });
+
+  it('deals all five flavours across many floors', () => {
+    const seen = new Set<string>();
+    for (let seed = 0; seed < 40; seed++) {
+      for (let i = 0; i < 8; i++) seen.add(shrineKindFor(seed, `p${i}`));
+    }
+    expect(seen).toEqual(new Set(['font', 'idol', 'coffer', 'blood', 'combat']));
   });
 });
 
@@ -116,13 +125,68 @@ describe('the hollow idol', () => {
 });
 
 describe('the offering stone', () => {
-  it('takes the coin and gives a blessing', () => {
+  it('takes the coin every time, blessing or silence', () => {
+    for (let seed = 1; seed <= 10; seed++) {
+      const { w } = atShrine('coffer', seed);
+      const cost = w.offeringCost();
+      w.run.gold = cost + 10;
+      w.player.hp = 5;
+      w.interact();
+      // The coin is always taken; what varies is whether the stone answers.
+      expect(w.run.gold).toBe(10);
+      if (w.run.blessing) expect(Object.keys(BLESSINGS)).toContain(w.run.blessing!);
+      else expect(w.player.hp).toBe(5); // silence: no mend either
+    }
+  });
+
+  it('sometimes answers, sometimes stays silent', () => {
+    let blessed = 0;
+    let silent = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+      const { w } = atShrine('coffer', seed);
+      w.run.gold = w.offeringCost() + 10;
+      w.player.hp = 5;
+      w.interact();
+      if (w.run.blessing) blessed++;
+      else {
+        silent++;
+        expect(w.player.hp).toBe(5);
+      }
+    }
+    expect(blessed).toBeGreaterThan(0);
+    expect(silent).toBeGreaterThan(0);
+  });
+
+  it('prices each offering 75% above the last: 55, 96, 168 on depth 1', () => {
     const { w } = atShrine('coffer');
-    const cost = w.offeringCost();
-    w.run.gold = cost + 10;
+    expect(w.offeringCost(0)).toBe(55);
+    expect(w.offeringCost(1)).toBe(96);
+    expect(w.offeringCost(2)).toBe(168);
+  });
+
+  it('takes up to three offerings, then goes quiet', () => {
+    const { w, shrine } = atShrine('coffer');
+    const costs = [w.offeringCost(0), w.offeringCost(1), w.offeringCost(2)];
+    w.run.gold = costs[0] + costs[1] + costs[2] + 50;
+    const purse = w.run.gold;
+    w.player.hp = 5;
     w.interact();
-    expect(w.run.gold).toBe(10);
-    expect(Object.keys(BLESSINGS)).toContain(w.run.blessing!);
+    expect(w.run.gold).toBe(purse - costs[0]);
+    expect(shrine.offerings).toBe(1);
+    expect(shrine.used).toBe(false);
+    expect(w.interactionHint()).toMatch(new RegExp(`^Offer ${costs[1]} gold at the stone \\(2 of 3 left\\)$`));
+    w.interact();
+    expect(w.run.gold).toBe(purse - costs[0] - costs[1]);
+    expect(shrine.offerings).toBe(2);
+    expect(shrine.used).toBe(false);
+    w.interact();
+    expect(w.run.gold).toBe(purse - costs[0] - costs[1] - costs[2]);
+    expect(shrine.offerings).toBe(3);
+    expect(shrine.used).toBe(true);
+    // A fourth prayer does nothing and costs nothing.
+    w.interact();
+    expect(w.run.gold).toBe(purse - costs[0] - costs[1] - costs[2]);
+    expect(shrine.offerings).toBe(3);
   });
 
   it('stays open if you cannot pay', () => {
@@ -130,13 +194,15 @@ describe('the offering stone', () => {
     w.run.gold = 0;
     w.interact();
     expect(shrine.used).toBe(false);
+    expect(shrine.offerings ?? 0).toBe(0);
     expect(w.run.blessing).toBeNull();
     expect(w.run.gold).toBe(0);
     // Come back with the coin and it still works.
     w.run.gold = w.offeringCost();
+    w.player.hp = 5;
     w.interact();
     expect(w.run.gold).toBe(0);
-    expect(w.run.blessing).toBeTruthy();
+    expect(shrine.offerings).toBe(1);
   });
 
   it('asks for more the deeper you are', () => {
@@ -144,6 +210,82 @@ describe('the offering stone', () => {
     const shallow = w.offeringCost();
     w.run.depth = 5;
     expect(w.offeringCost()).toBeGreaterThan(shallow);
+  });
+});
+
+describe('the sanguine altar', () => {
+  it('says which one it is before you touch it', () => {
+    expect(atShrine('blood').w.interactionHint()).toBe('Bleed at the red altar');
+  });
+
+  it('trades half your current health for gold', () => {
+    const { w, shrine } = atShrine('blood');
+    const hp = w.player.hp;
+    const pay = Math.floor(hp / 2);
+    w.run.gold = 0;
+    w.interact();
+    expect(w.player.hp).toBe(hp - pay);
+    expect(w.run.gold).toBe(40 + 30 * w.run.depth + pay);
+    expect(shrine.used).toBe(true);
+  });
+
+  it('cannot kill you: refused at 1 HP and stays open', () => {
+    const { w, shrine } = atShrine('blood');
+    w.player.hp = 1;
+    w.run.gold = 0;
+    w.interact();
+    expect(w.player.hp).toBe(1);
+    expect(w.run.gold).toBe(0);
+    expect(shrine.used).toBe(false);
+  });
+});
+
+describe('the shrine of strife', () => {
+  it('says which one it is before you touch it', () => {
+    expect(atShrine('combat').w.interactionHint()).toBe('Challenge the ember shrine');
+  });
+
+  it('raises a trial of depth-appropriate enemies, already alerted', () => {
+    const { w, shrine } = atShrine('combat', 11);
+    const before = w.floor.enemies.length;
+    w.interact();
+    const trial = w.run.trial;
+    expect(trial).toBeTruthy();
+    // Depth 1: 2 + ceil(1/2) = 3 risers.
+    expect(trial!.ids).toHaveLength(3);
+    expect(w.floor.enemies.length).toBe(before + 3);
+    for (const id of trial!.ids) {
+      const e = w.floor.enemies.find((x) => x.id === id);
+      expect(e).toBeTruthy();
+      expect(e!.alert).toBeGreaterThan(0);
+    }
+    expect(shrine.used).toBe(true);
+  });
+
+  it('refuses a second trial while one is open, and stays usable', () => {
+    const { w, shrine } = atShrine('combat', 11);
+    w.interact();
+    const ids = [...w.run.trial!.ids];
+    const count = w.floor.enemies.length;
+    shrine.used = false;
+    w.interact();
+    expect(w.run.trial!.ids).toEqual(ids);
+    expect(w.floor.enemies.length).toBe(count);
+    expect(shrine.used).toBe(false);
+  });
+
+  it('pays the prize into your purse when the last trial-marked kill lands', () => {
+    const { w } = atShrine('combat', 11);
+    w.interact();
+    // The prize drops at your feet, and feet pickups auto-collect.
+    const purse = w.run.gold;
+    const kill = (w as unknown as { killEnemy(e: unknown): void }).killEnemy.bind(w);
+    for (const id of [...w.run.trial!.ids]) {
+      const e = w.floor.enemies.find((x) => x.id === id)!;
+      kill(e);
+    }
+    expect(w.run.trial).toBeNull();
+    expect(w.run.gold).toBe(purse + 60 + 40 * w.run.depth);
   });
 });
 
@@ -169,7 +311,7 @@ describe('curses', () => {
     const speed = w.derived.stats.speed;
     w.run.curse = 'leaden';
     w.refreshDerived();
-    expect(w.derived.stats.speed).toBe(speed - 12);
+    expect(w.derived.stats.speed).toBe(speed - 15);
   });
 
   it('cannot drop your health below one', () => {
@@ -179,5 +321,83 @@ describe('curses', () => {
     w.refreshDerived();
     expect(w.derived.maxHp).toBeGreaterThan(0);
     expect(w.player.hp).toBeGreaterThan(0);
+  });
+
+  it('brittle makes every wear event worse', () => {
+    const { w } = atShrine('font');
+    const weapon = w.state.equipment.weapon!;
+
+    w.run.curse = null;
+    const clean = durability(weapon).cur;
+    (w as unknown as { wear: (s: string, n?: number) => void }).wear('weapon', 1);
+    const afterClean = durability(weapon).cur;
+    weapon.dur = clean;
+    w.run.curse = 'brittle';
+    (w as unknown as { wear: (s: string, n?: number) => void }).wear('weapon', 1);
+    const afterBrittle = durability(weapon).cur;
+    expect(clean - afterBrittle).toBe((clean - afterClean) + 1);
+  });
+
+  it('hunted costs three tiles of sight now', () => {
+    const { w } = atShrine('font');
+    w.run.curse = 'hunted';
+    expect((w as unknown as { sightPenalty: number }).sightPenalty).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('new blessings', () => {
+  it('vitality raises the ceiling by a fifth', () => {
+    const { w } = atShrine('font');
+    const full = w.derived.maxHp;
+    w.run.blessing = 'vitality';
+    w.refreshDerived();
+    expect(w.derived.maxHp).toBe(Math.round(full * 1.2));
+  });
+
+  it('fortune and ward scale with depth', () => {
+    const { w } = atShrine('font');
+    w.run.blessing = 'fortune';
+    w.run.depth = 6;
+    w.refreshDerived();
+    expect(w.derived.find).toBeGreaterThanOrEqual(60);
+    w.run.blessing = 'ward';
+    w.refreshDerived();
+    expect(w.derived.stats.defense).toBeGreaterThanOrEqual(9);
+  });
+});
+
+describe('shrine pity', () => {
+  const noShrine = (seed: number, depth: number): Floor => {
+    const f = generateFloor(seed, depth);
+    for (const r of f.rooms) if (r.role === 'shrine') r.role = 'normal';
+    return f;
+  };
+
+  it('forces a shrine on depth 3 when 1–2 are dry', () => {
+    const floors: (Floor | null)[] = [noShrine(1, 1), noShrine(1, 2)];
+    expect(shrinePityFor(floors, 3)).toBe(true);
+  });
+
+  it('does not force on depth 3 when the block already has one', () => {
+    const floors: (Floor | null)[] = [generateFloor(7, 1), noShrine(7, 2)];
+    // Seed 7 depth 1 may or may not have a shrine; force the question both ways.
+    floors[0] = generateFloor(7, 1);
+    const has = floors[0]!.rooms.some((r) => r.role === 'shrine');
+    expect(shrinePityFor(floors, 3)).toBe(!has && !floors[1]!.rooms.some((r) => r.role === 'shrine'));
+  });
+
+  it('forces depth 5 when depth 4 missed, and depth 6 until the block holds 2', () => {
+    const floors: (Floor | null)[] = [null, null, null, noShrine(2, 4)];
+    expect(shrinePityFor(floors, 5)).toBe(true);
+    const withOne: (Floor | null)[] = [null, null, null, generateFloor(3, 4), noShrine(3, 5)];
+    const count = [withOne[3], withOne[4]].filter((f) => f!.rooms.some((r) => r.role === 'shrine')).length;
+    expect(shrinePityFor(withOne, 6)).toBe(count < 2);
+  });
+
+  it('a forced floor actually places a shrine when a normal room exists', () => {
+    for (let seed = 0; seed < 30; seed++) {
+      const f = generateFloor(seed, 3, 'hard', true);
+      expect(f.rooms.some((r) => r.role === 'shrine')).toBe(true);
+    }
   });
 });
