@@ -17,6 +17,7 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 
 // Commits that must never become patch notes. Short hash -> reason.
 const SKIP = {
+  'ea2f867': 'dev lab map controls and cosmetic lava visibility/audio; no gameplay or system changes',
   'ee5397d': 'cosmetic biome lighting, vent spacing and prop art; no gameplay or system changes',
   '64cff4f': 'cosmetic lava animation and enemy-art refinement; no gameplay or system changes',
   '03f006f': 'merge only; player-facing changes are covered by their original commits',
