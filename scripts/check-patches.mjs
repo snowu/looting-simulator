@@ -89,6 +89,8 @@ const SKIP = {
   a029e9d: 'preview sheets + dev art-sheet tool for the PR, not in the game',
   '10ef6ff': 'art sync build tool, not in the game',
   a297375: 'test-only parry assumption fix + notes file, not gameplay',
+  e09cdc1: 'preview PNG for a pull request, not in the game',
+  ef582f5: 'preview PNG move for a pull request, not in the game',
 };
 
 // Commits touching only these files maintain the notes themselves and never
