@@ -309,7 +309,7 @@ A shrine serves one of five gods, fixed per floor and rolled from its own seed s
 | **Font of Mending** | cold blue | *Drink at the font* | **60% of your health** and all of your stamina, and **lifts a curse**. Never harms you |
 | **Hollow Idol** | violet | *Pray at the hollow idol* | **65%**: the same mend and a blessing. **35%**: a curse for the rest of the run |
 | **Offering Stone** | gold | *Offer N gold at the stone* | Up to **3 paid offerings** per stone, each costing **75% more** than the last (`30 + 25 × depth`, ×1.75 per offering made — D1: 55 → 96 → 168; D6: 180 → 315 → 551). Each offering has a **25% chance of silence**: the coin is taken and nothing answers, no mend and no blessing. Too poor? It stays unused — come back with the coin |
-| **Sanguine Altar** | crimson | *Bleed at the red altar* | Pay **half your current HP** (rounded down, single use, refused at 1 HP — it cannot kill you) for `40 + 30 × depth + pay` gold. HP is a currency: bleed here, mend at a font or pay the physicker |
+| **Sanguine Altar** | crimson | *Bleed at the red altar* | Pay **half your current HP** (rounded down, single use, refused at 1 HP — it cannot kill you) for `40 + 30 × depth + pay` gold. HP is a currency: bleed here, mend at a font |
 | **Shrine of Strife** | ember orange | *Challenge the ember shrine* | Free to invoke, single use: `2 + ⌈depth/2⌉` depth-appropriate enemies rise around the shrine already alerted (never the boss). They drop ordinary loot, and the last trial-marked kill pays `60 + 40 × depth` gold. One trial at a time per run |
 
 No shrine restores you outright any more. A font that refills the bar is a save point, and a save point every other floor is the end of attrition as a mechanic — so it is a large, welcome, *partial* mend, and it does not undo the delve.
@@ -341,12 +341,7 @@ Diablo's, in short: a two-way door that costs one scroll for the round trip.
 - In town the Descend button becomes **Step back through the portal**. It drops you on the portal's own tile, at the depth you left from, and the portal **closes behind you**.
 - **One at a time.** Reading a second scroll collapses the first portal and opens a new one where you stand.
 - The portal is part of the save, so closing the browser in the middle of a portal trip and coming back still works.
-
-### The physicker (market heal)
-
-Bleakmere's physicker mends you to full in town for gold — the gold sink for players who portal home bleeding. She only takes patients while a delve is open (between delves you walk in whole); the mend never lifts curses, so fonts keep their job.
-
-Price: `ceil((8 + maxHp × 0.9 + gearScore × 0.5) × curseMult × depthMult)`, where `gearScore` is worn item value ÷ 10, `curseMult` is 1.5 when cursed, and `depthMult` is `1 + 0.08 × (depth − 1)`. Roughly ~80g early, ~600g late, ~900g cursed late — deliberately steep at the top, so healing every run competes with gear and potions instead of being automatic.
+- A portal trip never heals you: Bleakmere watches, it does not mend. Full health returns only with a new delve — the day turns, the hero rests. Your wounds are visible in the town header while the run is open.
 
 
 ---

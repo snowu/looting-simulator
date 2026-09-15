@@ -32,8 +32,10 @@ scene, one rejected on philosophy. That is a healthy ratio for one PR.
 - **Prize:** `40 + 30 × depth + pay` gold, straight into the purse. D1 at full
   70 HP: pay 35 → 105g. D6 at 135: pay 67 → 287g.
 - **Why it works here:** it turns HP into a currency, which plugs straight
-  into the rest of this branch — bleed at the altar, mend at the font, or pay
-  the physicker in town. The loop is the content.
+  into the rest of this branch — bleed at the altar, mend at the font.
+  (A paid town heal was tried and scrapped: with the other sinks in place it
+  was unnecessary, and a mid-delve full mend for gold would have ended
+  attrition as a mechanic.) The loop is the content.
 
 ## 3. Shipped: Shrine of Strife (Shrine of Combat)
 

@@ -30,7 +30,6 @@ import { syncLoadout } from '../systems/run';
 import { attuneSigil, inscribeSigil } from '../systems/spells';
 import { findSigil, sigil } from '../data/spells';
 import { derivePlayer } from '../systems/player';
-import { quoteHeal } from '../systems/heal';
 import { defaultSlot, equipFrom, unequipTo } from '../systems/equip';
 import { createRng, hashString, randomSeed } from '../core/rng';
 import { artImg, bothRegisters, btn, gold, h, hideTooltip, isTouchMode, itemSlot, itemTooltip, rarityColor, sparkline, statLines, toggleDetailed } from './dom';
@@ -201,6 +200,7 @@ export class Town {
         h('span', { class: 'gold-t', text: `◆ ${gold(s.gold)}` }),
         h('span', { class: 'violet-t', text: `✦ ${s.renown} renown` }),
         h('span', { class: 'dim', text: `pack ${backpackCapacity(s.meta)} slots` }),
+        running ? this.healthChip() : null,
       ),
       btn(
         s.run?.portal ? 'Step back through the portal' : running ? 'Return to the Depths' : 'Descend',
@@ -331,6 +331,24 @@ export class Town {
   // ---------------------------------------------------------------------------
   // Market
   // ---------------------------------------------------------------------------
+
+  /**
+   * Health readout in the town header, shown while a delve is open. There is
+   * no paid healing in town any more: this is information only. Full health
+   * returns with a new delve — the hero rests when the day turns — so a
+   * portal trip home never mends you; fonts, draughts and leech do.
+   */
+  private healthChip(): HTMLElement {
+    const s = this.s;
+    const run = s.run!;
+    const maxHp = derivePlayer(s.equipment, s.meta, this.difficultyId).maxHp;
+    const whole = run.player.hp >= maxHp;
+    return h('span', {
+      class: whole ? 'green-t' : 'red-t',
+      text: `♥ ${run.player.hp}/${maxHp}`,
+      title: whole ? 'Whole. The Depths will fix that.' : 'Wounded. Fonts, draughts and leech mend you down there — town only watches.',
+    });
+  }
 
   private market(): HTMLElement {
     const s = this.s;
@@ -483,7 +501,6 @@ export class Town {
       h(
         'div',
         { class: 'col' },
-        this.physicker(),
         h(
           'div',
           { class: 'pane frame' },
@@ -499,56 +516,6 @@ export class Town {
         h('div', { class: 'pane frame' }, h('h3', { text: 'Merchant\'s wares' }), m.wares.length ? wares : h('p', { class: 'dim', text: 'Sold out until tomorrow.' })),
         h('div', { class: 'pane frame' }, h('h3', { text: 'Supplies' }), supplies),
       ),
-    );
-  }
-
-  /**
-   * The Bleakmere physicker: a paid full mend in town, the gold sink for
-   * players who portal home bleeding. Priced on max health, worn gear value
-   * and curse (x1.5 when cursed), plus depth — see `quoteHeal`. Curses
-   * persist through the mend, so fonts keep their job; the button only
-   * shows while a delve is open, because between delves you walk in whole.
-   */
-  private physicker(): HTMLElement {
-    const s = this.s;
-    const run = s.run && s.run.outcome === 'active' ? s.run : null;
-    if (!run) {
-      return h(
-        'div',
-        { class: 'pane frame' },
-        h('h3', { text: 'Physicker' }),
-        h('p', { class: 'dim small', text: 'No delve open — you walk in whole. Come back bleeding through a portal and she will name a price.' }),
-      );
-    }
-    const derived = derivePlayer(s.equipment, s.meta, this.difficultyId);
-    const q = quoteHeal({
-      equipment: s.equipment,
-      maxHp: derived.maxHp,
-      hp: run.player.hp,
-      cursed: !!run.curse,
-      depth: run.depth,
-    });
-    const whole = q.missing <= 0;
-    const afford = s.gold >= q.cost;
-    const why = whole
-      ? 'You are whole already.'
-      : `Mends ${q.missing} of ${q.maxHp} HP · gear ${Math.round(q.gearScore * 10)} value${q.cursed ? ' · cursed ×1.5' : ''} · depth ${q.depth}`;
-    return h(
-      'div',
-      { class: 'pane frame' },
-      h('div', { class: 'row' }, h('h3', { text: `Physicker · ${run.player.hp}/${q.maxHp} HP` }), btn(
-        whole ? 'Whole already' : `Heal to full · ${gold(q.cost)}`,
-        () => {
-          if (whole || s.gold < q.cost) return;
-          s.gold -= q.cost;
-          run.player.hp = q.maxHp;
-          this.ctx.toast(`Mended to full for ${gold(q.cost)}. The curse, if any, stays.`, '#9ac09a');
-          this.commit('drink');
-        },
-        'small primary right',
-        whole || !afford,
-      )),
-      h('p', { class: 'dim small', text: whole ? 'You are whole already.' : afford ? why : `${why} — not enough gold.` }),
     );
   }
 

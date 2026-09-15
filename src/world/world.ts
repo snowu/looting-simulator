@@ -2230,8 +2230,8 @@ export class World {
 
       // The red one. Half your current health, rounded down, for gold that
       // scales with depth and with what you paid. It cannot kill you: at 1 HP
-      // it refuses. Single use — HP is a currency now, and the font,
-      // the physicker and the draughts are where you buy it back.
+      // it refuses. Single use — HP is a currency now, and the font
+      // and the draughts are where you buy it back.
       case 'blood': {
         if (this.player.hp <= 1) {
           p.used = false;

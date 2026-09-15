@@ -4,11 +4,12 @@
 
 > **Implemented** on branch `gold_reward_heal_blessing_curses` (see MECHANICS
 > §§5–7 for the landed numbers): durability wears 2/hit with whiff tax and
-> 0.5×+tier-floor repairs, broken at 15% stats; physicker heal button in the
-> market (`src/systems/heal.ts`); shrine base 55% + pity (≥1 in 1–3, ≥2 in
+> 0.5×+tier-floor repairs, broken at 15% stats; shrine base 55% + pity (≥1 in 1–3, ≥2 in
 > 4–6); stronger blessings/curses incl. Vitality and Brittle; chest/urn/loose
 > gold trimmed ~20–25% (vaults/secrets untouched); coffer takes up to 3
-> offerings at ×1.75 each with a 25% silence chance.
+> offerings at ×1.75 each with a 25% silence chance. (A paid town heal was
+> tried and scrapped — unnecessary next to the other sinks, and a mid-delve
+> full mend would have ended attrition.)
 
 All numbers below are measured against the real formulas in `src/`,
 not invented. Goal: fix "gold income way too high, not enough gold sinks"
@@ -191,7 +192,14 @@ Alternatives rejected: per-swing degradation regardless of hit (feels
 random); jewellery wear (book-keeping); crafting gold fees (conflicts with
 materials-only design).
 
-### 3.2 Market "Heal" button (paid full heal in town)
+### 3.2 Market "Heal" button (paid full heal in town) — SCRAPPED
+
+Tried on this branch (`src/systems/heal.ts`, "Physicker" pane) and removed:
+with trimmed gold income and the repair tax in place the extra sink was
+unnecessary, and a mid-delve full mend for gold — portal home, heal, step
+back — would have ended attrition as a mechanic. Fonts, draughts and leech
+stay the only mid-delve healing; full health returns only with a new delve.
+The spec below is kept for the record.
 
 New town service next to repair bench, e.g. `src/ui/town.ts` "Physicker":
 
