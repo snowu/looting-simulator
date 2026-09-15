@@ -15,7 +15,7 @@
  */
 import { artSize, artUrl } from '../render/art-cache';
 import { enemyPose } from '../render/enemy-pose';
-import { Creature, DEFAULT_TIER, GEAR_MATERIALS, MATERIAL_TIERS, sheets } from './art-sheets';
+import { Creature, DEFAULT_TIER, GEAR_MATERIALS, MATERIAL_TIERS, creatureStatLines, sheets } from './art-sheets';
 
 const CSS = `
 .art-sheet { position: absolute; inset: 0; background: #0b0a0dfa; overflow: auto; z-index: 60; font-family: var(--font-ui, inherit); }
@@ -32,6 +32,10 @@ const CSS = `
 .art-cell img { image-rendering: pixelated; }
 .art-cell .cap { font-size: 15px; color: #b8b0c0; text-align: center; line-height: 1.05; }
 .art-cell .cap b { color: #e8e0d0; font-weight: normal; }
+.art-cell .stats { font-size: 12px; color: #8a8296; text-align: center; line-height: 1.25; word-break: break-word; max-width: 100%; }
+.art-cell .stats .weak { color: #ff9a7a; }
+.art-cell .stats .res { color: #9ac0ff; }
+.art-cell .stats .imm { color: #e8e0d0; }
 .art-sheet-empty { padding: 20px; color: #8a8296; }
 `;
 
@@ -192,12 +196,16 @@ function render(): void {
     const cells = state.play
       ? dedupeCreatures(group.cells)
       : group.cells;
-    const visible = cells.filter((c) => match(`${c.label} ${c.id}`));
+    const visible = cells.filter((c) => match(`${c.label} ${c.id} ${c.creature ? creatureStatLines(c.creature).join(' ') : ''}`));
     if (!visible.length) continue;
     // Tall viewmodels used to be forced into a square stage, clipping the
     // gripping hand. Here zoom means an integer multiple of native pixels.
     const sizes = held ? visible.map(c => artSize(c.id)) : [];
-    const cellPx = (held ? Math.max(...sizes.map(s => s.w)) : 34) * state.zoom + 24;
+    const hasStats = visible.some((c) => c.creature);
+    const basePx = (held ? Math.max(...sizes.map(s => s.w)) : 34) * state.zoom + 24;
+    // Stat lines do not scale with zoom, so creature cells get a floor width
+    // that fits `HP 135 · ATK 21 · DEF 20` without wrapping every other word.
+    const cellPx = hasStats && !held ? Math.max(basePx, 210) : basePx;
     const stagePx = (held ? Math.max(...sizes.map(s => s.h)) : 34) * state.zoom + (held ? 8 : 0);
     shown += visible.length;
     root.append(el('div', 'art-sheet-group', group.title));
@@ -213,8 +221,12 @@ function render(): void {
       stage.append(img);
       const cap = el('div', 'cap');
       const name = el('b', undefined, c.label);
-      cap.append(name, document.createElement('br'), document.createTextNode(c.creature && state.play ? playLabel(c.creature) : c.id));
+      cap.append(name, document.createElement('br'), document.createTextNode(c.id));
       cell.append(stage, cap);
+      if (c.creature) {
+        if (c.creature.description) cell.title = c.creature.description;
+        for (const line of creatureStatLines(c.creature)) cell.append(statLine(line));
+      }
       grid.append(cell);
       if (state.play && c.creature) playing.push({ el: img, creature: c.creature, offset: playing.length * 0.37 });
     }
@@ -223,7 +235,29 @@ function render(): void {
   if (!shown) root.append(el('div', 'art-sheet-empty', `Nothing matches “${state.filter}”.`));
 }
 
-const playLabel = (c: Creature) => `${c.windup}s wind-up · ${c.recovery}s recovery${c.hasShield ? ' · shield' : ''}`;
+/**
+ * One stat line, with the resist/weak/immune segment tinted so a weakness
+ * reads at a glance. Plain lines pass through as a single text node.
+ */
+function statLine(line: string): HTMLElement {
+  const n = el('div', 'stats');
+  const parts = line.split(' · ');
+  // A plain `·`-joined line with no RES/WEAK/IMM marker needs no spans.
+  if (!/^(RES|WEAK|IMM) /.test(line) && parts.length <= 1) {
+    n.textContent = line;
+    return n;
+  }
+  parts.forEach((p, i) => {
+    if (i > 0) n.append(document.createTextNode(' · '));
+    const m = /^(RES|WEAK|IMM) /.exec(p);
+    if (!m) n.append(document.createTextNode(p));
+    else {
+      const s = el('span', m[1] === 'WEAK' ? 'weak' : m[1] === 'RES' ? 'res' : 'imm', p);
+      n.append(s);
+    }
+  });
+  return n;
+}
 
 /** One cell per creature when playing, keyed off the idle frame. */
 function dedupeCreatures<T extends { id: string; creature?: Creature }>(cells: T[]): T[] {
