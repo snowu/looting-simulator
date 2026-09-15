@@ -112,7 +112,7 @@ function passable(f: Floor, x: number, y: number, keys: string[]): boolean {
   if (d && !d.open && d.locked && !(d.keyId && keys.includes(d.keyId))) return false;
   const p = propAt(f, x, y);
   // Urns and barrels are smashed through; chests and shrines are walked around.
-  if (p && p.blocking && p.kind !== 'urn' && p.kind !== 'barrel') return false;
+  if (p && p.blocking && p.kind !== 'urn' && p.kind !== 'barrel' && p.kind !== 'root_cache') return false;
   return true;
 }
 
@@ -527,7 +527,7 @@ class Bot {
     // them — by breaking them. Movement still refuses, so the step has to
     // become a swing or the bot stands there until the stuck counter fires.
     const block = propAt(w.floor, next[0], next[1]);
-    if (block && !block.used && (block.kind === 'urn' || block.kind === 'barrel')) {
+    if (block && !block.used && (block.kind === 'urn' || block.kind === 'barrel' || block.kind === 'root_cache')) {
       if (p.stamina >= w.derived.swing.staminaCost) w.attack();
       else this.stuck++;
       return true;

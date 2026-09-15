@@ -28,7 +28,9 @@ import { MATERIALS } from '../data/materials';
 import { MAX_RECIPE_RANK, RECIPES } from '../data/recipes';
 import { META_UPGRADES } from '../systems/meta';
 import { ENEMIES, enemyDef } from '../data/enemies';
-import { Room, blocksMove, createEnemy } from '../systems/dungeon';
+import { Room, blocksMove, createEnemy, generateFloor } from '../systems/dungeon';
+import { BIOMES, biomeForDepth } from '../data/biomes';
+import { hashString } from '../core/rng';
 import { Dir, dirOf } from '../core/dir';
 import { LabMobEntry } from './lab-configs';
 
@@ -257,4 +259,22 @@ export function refurbish(world: World): void {
     const probe = makeEquipment({ baseId: base.id, materialId: bestMaterialFor(base.id), rarity: Rarity.Epic, ilvl: LAB_ILVL });
     world.run.thrown.held[base.id] = thrownCapacity(probe);
   }
+}
+
+/** Pick a seed that naturally generates the requested biome, including its residents. */
+export function loadLabLevel(world: World, biomeId: string, depth: number, seed: number): string {
+  const biome = BIOMES.find((b) => b.id === biomeId);
+  if (!biome || !biome.depths.includes(depth) || !Number.isInteger(seed)) throw new Error('Invalid lab map selection');
+  let mapSeed = seed >>> 0;
+  while (biomeForDepth(depth, hashString(`floor:${mapSeed}:${depth}`)).id !== biomeId) mapSeed = (mapSeed + 1) >>> 0;
+  const floor = generateFloor(mapSeed, depth, world.difficultyId);
+  // Use normal transitions for projectile recovery, path-cache cleanup and renderer events.
+  if (world.run.depth === depth) world.changeFloorForTest(depth === 1 ? 'down' : 'up');
+  world.run.floors[depth - 1] = floor;
+  while (world.run.depth !== depth) world.changeFloorForTest(world.run.depth < depth ? 'down' : 'up');
+  world.anim.transition = null;
+  world.anim.recall = null;
+  world.anim.cast = null;
+  const stage = dropIntoLab(world);
+  return `${biome.name} · depth ${depth} · seed ${seed}: ${stage}`;
 }

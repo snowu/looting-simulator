@@ -10,6 +10,7 @@
  */
 import { ENEMIES, KING_PHASES } from '../data/enemies';
 import { BIOMES } from '../data/biomes';
+import { ELEMENTAL_VARIANTS } from '../data/elemental-variants';
 import { ICONS } from '../art/icons';
 import { MATERIALS } from '../data/materials';
 import { CONSUMABLES, ITEM_BASES, viewmodelFor } from '../data/items';
@@ -223,13 +224,32 @@ function creatureGroup(title: string, cls: CreatureClass): SheetGroup {
   };
 }
 
+const residentGroups: SheetGroup[] = [
+  { title: 'Emberworks', sprites: ELEMENTAL_VARIANTS.filter((v) => v.element === 'fire').map((v) => v.sprite) },
+  { title: 'Frost Vault', sprites: ELEMENTAL_VARIANTS.filter((v) => v.element === 'frost').map((v) => v.sprite) },
+  { title: 'Burrows', sprites: ['mole'] },
+].map(({ title, sprites }) => ({
+  title,
+  cells: sprites.flatMap((sprite) => {
+    const c = CREATURES.find((c) => c.sprite === sprite)!;
+    return creaturePoses(c).map((pose) => ({
+      id: `${sprite}_${pose}`, label: `${c.name}${pose === '0' ? '' : pose === 'atk' ? ' · attack' : ' · guard'}`, creature: c,
+    }));
+  }),
+}));
+
 const biomeGroups: SheetGroup[] = BIOMES.map((b) => ({
   title: b.name,
   cells: [
     { id: b.wall, label: 'wall' },
-    { id: b.wallAlt, label: 'wall alt' },
+    ...(b.wallVariants
+      ? [...new Set(b.wallVariants)].filter((id) => id !== b.wall).map((id) => ({ id, label: id.replace('wall_' + b.id + '_', '') }))
+      : [{ id: b.wallAlt, label: 'wall alt' }]),
     { id: b.wallSecret, label: 'secret' },
     { id: b.floor, label: 'floor' },
+    ...(b.floorVariants ?? []).filter((id) => id !== b.floor).map((id) => ({ id, label: b.id === 'emberworks' ? 'lava crust' : 'ice floor' })),
+    ...(b.id === 'frostvault' ? ['icicle_stub', 'icicle_spike', 'icicle_fang'].map((id) => ({ id, label: id })) : []),
+    ...(b.id === 'burrows' ? ['root_cache', 'root_cache_broken'].map((id) => ({ id, label: id })) : []),
     ...(b.id === 'catacombs' ? [{ id: 'water_catacombs', label: 'water' }] : []),
     // Burrows inherits the preceding floor's ground texture at runtime, falling
     // back to its own packed-earth roof on depth 1. The sheet shows both so the
@@ -240,7 +260,7 @@ const biomeGroups: SheetGroup[] = BIOMES.map((b) => ({
         { id: 'floor_crypt', label: 'ceiling <- crypt floor' },
         { id: 'floor_cave', label: 'ceiling <- catacombs floor' },
       ]
-      : [{ id: b.ceiling, label: 'ceiling' }]),
+      : (b.ceilingVariants ?? [b.ceiling]).map(id => ({ id, label: 'ceiling' }))),
     { id: b.door, label: 'door' },
   ],
 }));
@@ -346,6 +366,7 @@ export function sheets(tier: number = DEFAULT_TIER, materialId?: string): ArtShe
     cols: 3,
     groups: [creatureGroup('Phases', 'boss')],
   },
+  { id: 'residents', title: 'Elemental residents', note: 'New residents: inherited combat timing, elemental skins and the Burrows mole.', cols: 3, groups: residentGroups },
   { id: 'biomes', title: 'Biomes', note: 'Wall, floor, ceiling and door per biome. Burrows shows its depth-1 fallback roof plus the two inherited ceilings. In-game these also carry coloured light.', cols: 6, groups: biomeGroups },
   { id: 'props', title: 'Props', note: 'Everything the dungeon stands on the floor. Thrown weapons have no viewmodel — the shaft in flight and the shaft on the ground is their art.', cols: 6, groups: propGroups() },
   { id: 'icons', title: 'Icons', note: 'Every icon as something that exists: each piece of gear in a material its base actually allows, each material and potion in its own colours.', cols: 6, groups: iconGroups(tier, materialId) },

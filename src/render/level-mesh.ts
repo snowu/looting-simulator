@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { emberWallTexture } from './ember-wall';
+import { EMBER_FLOOR_IDS, EMBER_CEILING_IDS } from '../art/ember-floor';
 import { Dir, DIRS, DX, DY, turnRight } from '../core/dir';
 import { biomeForFloor } from '../data/biomes';
 import { Door, Floor, FLOOR, PILLAR, Secret, WALL, isBossDoor, stairsAt, tileAt } from '../systems/dungeon';
@@ -11,6 +13,7 @@ export const WALL_H = 2.6;
 export const DOOR_H = 2.1;
 const STEP_DROP = 0.24;
 const STEPS = 6;
+const CRUST_PULSES: [number, number][] = [[0.55, 0.65], [0.3, 0.95], [0.7, 1.25], [0.9, 0.48]];
 
 export const tileX = (x: number) => x * TILE + TILE / 2;
 export const tileZ = (y: number) => y * TILE + TILE / 2;
@@ -139,8 +142,11 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
         continue;
       }
 
-      B(biome.floor).quad([x0, 0, z0], [x1, 0, z0], [x1, 0, z1], [x0, 0, z1], [0, 1, 0]);
-      B(ceiling).quad([x0, WALL_H, z0], [x1, WALL_H, z0], [x1, WALL_H, z1], [x0, WALL_H, z1], [0, -1, 0]);
+      const floorTex = biome.floorVariants?.length ? biome.floorVariants[hash3(x, y, 4) % biome.floorVariants.length] : biome.floor;
+      B(floorTex).quad([x0, 0, z0], [x1, 0, z0], [x1, 0, z1], [x0, 0, z1], [0, 1, 0]);
+      const ceilingTex = ceiling === biome.ceiling && biome.ceilingVariants?.length
+        ? biome.ceilingVariants[hash3(x, y, 6) % biome.ceilingVariants.length] : ceiling;
+      B(ceilingTex).quad([x0, WALL_H, z0], [x1, WALL_H, z0], [x1, WALL_H, z1], [x0, WALL_H, z1], [0, -1, 0]);
       if (biome.id === 'catacombs') {
         B('water_catacombs').quad(
           [x0, 0.018, z0], [x1, 0.018, z0], [x1, 0.018, z1], [x0, 0.018, z1], [0, 1, 0],
@@ -150,7 +156,10 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
       if (t === PILLAR) {
         const p = 0.42 * TILE;
         // Outward-facing column faces.
-        const tex = hash3(x, y, 9) < 50 ? biome.wall : biome.wallAlt;
+        const tex = biome.id === 'emberworks' ? biome.wall
+          : biome.wallVariants?.length
+          ? biome.wallVariants[hash3(x, y, 9) % biome.wallVariants.length]
+          : hash3(x, y, 9) < 50 ? biome.wall : biome.wallAlt;
         for (const d of DIRS) {
           const fx = DX[d], fz = DY[d];
           const r = turnRight(d);
@@ -171,7 +180,10 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
       for (const d of DIRS) {
         const nx = x + DX[d], ny = y + DY[d];
         if (tileAt(floor, nx, ny) !== WALL || secretAtTile(nx, ny)) continue;
-        const tex = hash3(nx, ny, d) < 12 ? biome.wallAlt : biome.wall;
+        const tex = biome.id === 'emberworks' ? emberWallTexture(nx, ny, d)
+          : biome.wallVariants?.length
+          ? biome.wallVariants[hash3(nx, ny, d) % biome.wallVariants.length]
+          : hash3(nx, ny, d) < 12 ? biome.wallAlt : biome.wall;
         wallQuad(tex, cx, cz, d, 0, WALL_H);
       }
     }
@@ -181,9 +193,13 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
     if (!b.idx.length) continue;
     const geo = b.build();
     const water = tex === 'water_catacombs';
+    const roof = EMBER_CEILING_IDS.indexOf(tex);
+    const crust = EMBER_FLOOR_IDS.indexOf(tex);
+    const heat: [number, number] = crust >= 0 ? CRUST_PULSES[crust]
+      : roof >= 0 ? [0.20 + roof * 0.06, 0.5 + roof * 0.27] : [0.35, 3.8];
     const mat = ps1Material(shared, artTexture(tex), water
       ? { transparent: true, depthWrite: false, side: THREE.DoubleSide }
-      : undefined);
+      : { fillLight: crust >= 0 || roof >= 0 ? [0.48, 0.32, 0.26] : undefined, pulse: biome.id === 'emberworks' ? heat : biome.id === 'frostvault' && tex !== ceiling ? [0.15, 1.1] : undefined });
     if (water) mat.uniforms.uOpacity.value = 0.16;
     geometries.push(geo);
     materials.push(mat);
@@ -230,9 +246,10 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
     }
     const pivot = new THREE.Group();
     pivot.position.set(-(TILE - 0.08) / 2, 0, 0);
-    const openTex = artTexture(door.iron ? 'door_iron' : biome.door);
-    const lockedTex = artTexture('door_locked');
-    const mat = ps1Material(shared, door.locked ? lockedTex : openTex);
+    const hotIron = biome.id === 'emberworks';
+    const openTex = artTexture(hotIron ? 'door_emberworks' : door.iron ? 'door_iron' : biome.door);
+    const lockedTex = artTexture(hotIron ? 'door_emberworks_locked' : 'door_locked');
+    const mat = ps1Material(shared, door.locked ? lockedTex : openTex, hotIron ? { pulse: [0.18, 0.8] } : {});
     materials.push(mat);
     pivot.add(new THREE.Mesh(doorGeo, mat));
     frame.add(pivot);

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { LavaEffects, LavaSound } from './lava-effects';
 import { DX, DY, turnRight } from '../core/dir';
 import { biomeForFloor, ceilingForFloor } from '../data/biomes';
 import { enemyDef, enemyView } from '../data/enemies';
@@ -52,6 +53,7 @@ export class DungeonRenderer {
   readonly camera = new THREE.PerspectiveCamera(64, 4 / 3, 0.05, 60);
   private scene = new THREE.Scene();
   private shared: Shared = createShared();
+  private lava = new LavaEffects(this.shared);
   private target: THREE.WebGLRenderTarget;
   private post = new PostPass();
   private level: LevelView | null = null;
@@ -79,6 +81,7 @@ export class DungeonRenderer {
   // inside wall geometry stays hidden behind it, so no layout check is needed.
   // The plink sounds on landing through this callback, so a watched drop is
   // heard when it hits — not while it is still falling.
+  onLavaSound: ((event: LavaSound) => void) | null = null;
   onDripLand: (() => void) | null = null;
   private drips: { mesh: THREE.Mesh; vel: number; active: boolean }[] = [];
   private dripGeo = new THREE.PlaneGeometry(0.035, 1);
@@ -100,6 +103,8 @@ export class DungeonRenderer {
     this.vmShared.uAffine.value = 0;
     this.vmWeapon = this.makeSprite(this.vmShared, this.vmScene);
     this.vmShield = this.makeSprite(this.vmShared, this.vmScene);
+    this.scene.add(this.lava.root);
+    this.lava.onSound = event => this.onLavaSound?.(event);
     this.resize();
   }
 
@@ -231,6 +236,7 @@ export class DungeonRenderer {
 
   render(world: World, dt: number): void {
     this.time += dt;
+    this.shared.uTime.value = this.time;
     const floor = world.floor;
     const biome = biomeForFloor(floor);
     if (this.levelFloor !== floor) {
@@ -241,6 +247,7 @@ export class DungeonRenderer {
       const previous = world.run.floors[world.run.depth - 2];
       this.level = buildLevel(floor, this.shared, ceilingForFloor(floor, previous ?? undefined));
       this.levelFloor = floor;
+      this.lava.reset(floor);
       this.trapTriggeredAt.clear();
       for (const d of this.drips) {
         d.active = false;
@@ -251,6 +258,10 @@ export class DungeonRenderer {
       this.shared.uAmbient.value.set(biome.ambient);
       this.shared.uFogNear.value = 4;
       this.shared.uFogFar.value = 18;
+    }
+    this.shared.uAmbient.value.set(biome.ambient);
+    if (biome.id === 'emberworks') {
+      this.shared.uAmbient.value.multiplyScalar(1 + 0.08 * Math.sin(this.time * Math.PI * 0.8 + 1.7));
     }
     this.level!.update(dt);
 
@@ -274,6 +285,8 @@ export class DungeonRenderer {
     );
     this.camera.rotation.set(0, -a.yaw, this.deathFade * 0.5);
 
+    this.lava.update(biome.id === 'emberworks' ? dt : 0, this.camera);
+
     // --- Lights ---------------------------------------------------------------
     const flick = (seed: number) => 0.9 + Math.sin(this.time * 11 + seed) * 0.06 + Math.sin(this.time * 23.7 + seed * 3) * 0.04;
     const lights: LightCand[] = [];
@@ -288,6 +301,7 @@ export class DungeonRenderer {
       color: handLight,
       intensity: lightIntensity(meta) * flick(0),
     });
+    lights.push(...this.lava.lights());
     for (const t of floor.torches) {
       const wx = tileX(t.x) + DX[t.side] * (TILE / 2 - 0.3);
       const wz = tileZ(t.y) + DY[t.side] * (TILE / 2 - 0.3);
@@ -384,6 +398,17 @@ export class DungeonRenderer {
       switch (pr.kind) {
         case 'chest':
           this.place(s, pr.used ? 'chest_open' : pr.mimic ? 'chest_mimic' : 'chest', wx, 0, wz, 1.5);
+          break;
+        case 'icicle': {
+          const c = pr.ceiling;
+          if (c) {
+            this.place(s, c.sprite, wx + c.dx, WALL_H - c.height, wz + c.dz, c.height);
+            s.mat.uniforms.uTint.value.set(torchColor.r, torchColor.g, torchColor.b, 0.08);
+          } else s.mesh.visible = false;
+          break;
+        }
+        case 'root_cache':
+          this.place(s, pr.used ? 'root_cache_broken' : 'root_cache', wx, 0, wz, 1.2);
           break;
         case 'urn':
           this.place(s, pr.used ? 'urn_broken' : 'urn', wx, 0, wz, 1.4);
@@ -618,6 +643,7 @@ export class DungeonRenderer {
   }
 
   dispose(): void {
+    this.lava.dispose();
     this.level?.dispose();
     for (const s of this.sprites.values()) s.mat.dispose();
     this.target.dispose();

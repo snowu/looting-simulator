@@ -1,3 +1,5 @@
+import { ELEMENTAL_VARIANT_IDS } from '../data/elemental-variants';
+import { iciclesFor } from './ceiling-decor';
 import { Rng, createRng, hashString } from '../core/rng';
 import { Dir, DIRS, DX, DY, turnAround, turnLeft, turnRight } from '../core/dir';
 import { biomeForDepth, FINAL_DEPTH } from '../data/biomes';
@@ -80,7 +82,7 @@ export interface Torch {
   side: Dir;
 }
 
-export type PropKind = 'chest' | 'urn' | 'barrel' | 'bones' | 'shrine' | 'fungus' | 'portal' | 'town_portal';
+export type PropKind = 'icicle' | 'root_cache' | 'chest' | 'urn' | 'barrel' | 'bones' | 'shrine' | 'fungus' | 'portal' | 'town_portal';
 
 export interface Prop {
   id: string;
@@ -95,6 +97,8 @@ export interface Prop {
   mimic: boolean;
   /** Which god a shrine serves. Only meaningful on `kind: 'shrine'`. */
   shrine?: ShrineKind;
+  /** Optional roof decoration; absent on all older props and saves. */
+  ceiling?: { height: number; dx: number; dz: number; sprite: string };
   /**
    * Paid offerings made at a coffer shrine. Absent (not zero) until the first
    * one, so generated floors — and the golden fixture hashed from them —
@@ -272,7 +276,7 @@ export function trapAt(f: Floor, x: number, y: number): Trap | undefined {
 }
 
 export function propAt(f: Floor, x: number, y: number): Prop | undefined {
-  return f.props.find((p) => p.x === x && p.y === y && p.kind !== 'fungus' && p.kind !== 'bones');
+  return f.props.find((p) => p.x === x && p.y === y && p.kind !== 'fungus' && p.kind !== 'bones' && p.kind !== 'icicle');
 }
 
 export function enemyAt(f: Floor, x: number, y: number): EnemyState | undefined {
@@ -291,7 +295,7 @@ export function blocksSight(f: Floor, x: number, y: number): boolean {
 export function blocksMove(f: Floor, x: number, y: number): boolean {
   if (blocksSight(f, x, y)) return true;
   const p = propAt(f, x, y);
-  return !!p && p.blocking && !(p.kind === 'urn' || p.kind === 'barrel' ? p.used : false);
+  return !!p && p.blocking && !(p.kind === 'urn' || p.kind === 'barrel' || p.kind === 'root_cache' ? p.used : false);
 }
 
 /** The tile in front of a staircase — where you stand when you arrive. */
@@ -830,7 +834,7 @@ function tryGenerate(
     });
     return true;
   };
-  const vessel: PropKind = biome.id === 'mines' || biome.id === 'caverns' || biome.id === 'sporegrove' ? 'barrel' : 'urn';
+  const vessel: PropKind = biome.id === 'burrows' ? 'root_cache' : biome.id === 'mines' || biome.id === 'caverns' || biome.id === 'sporegrove' ? 'barrel' : 'urn';
   for (const r of rooms) {
     const spots = edgeTiles(r);
     const take = () => spots.pop();
@@ -925,6 +929,8 @@ function tryGenerate(
     enemies.push(createEnemy(def, x, y, rng.pick(DIRS), `e${enemyN++}`, depth, diff.id));
   };
   const pool = ENEMIES.filter((e) => e.weight > 0 && e.minDepth <= depth && depth <= e.maxDepth
+    && (e.id !== 'mole' || biome.id === 'burrows')
+    && (!ELEMENTAL_VARIANT_IDS.has(e.id) || e.element === biome.element)
     && !(biome.element && e.element && e.element !== biome.element));
   const roomTiles = (r: Room) => {
     const out: [number, number][] = [];
@@ -1066,6 +1072,8 @@ function tryGenerate(
       if (add(pickKind(), spot[0], spot[1])) n++;
     }
   }
+
+  if (biome.id === 'frostvault') props.push(...iciclesFor(seed, depth, tiles, W, [...stairs, ...doors]));
 
   return {
     depth, seed, biome: biome.id, width: W, height: H, tiles, explored: new Array(N).fill(0),
