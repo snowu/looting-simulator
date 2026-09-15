@@ -28,12 +28,13 @@ const scrub = (v: unknown) => JSON.stringify(v, (k, x) => (k === 'uid' ? undefin
 const hash = (parts: string[]) => hashString(parts.join(' ')).toString(16);
 
 describe('hard matches the pre-difficulty game, to the number', () => {
-  it('generates the same 1,200 floors', () => {
+  it('generates the pinned 1,200 expanded floors', () => {
     const out: string[] = [];
     for (let seed = 0; seed < 200; seed++) {
       for (let depth = 1; depth <= 6; depth++) out.push(scrub(generateFloor(seed, depth, 'hard')));
     }
-    expect(hash(out)).toBe(golden.elementalFloorHash);
+    // Eight extra tiles per side and four extra rooms at every depth.
+    expect(hash(out)).toBe(golden.expandedFloorHash);
     // Generating 1,200 floors outruns the default 5s budget when the suite
     // runs its files in parallel.
   }, 60_000);

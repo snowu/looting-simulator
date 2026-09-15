@@ -22,12 +22,15 @@ describe('dev melee room', () => {
       prepare(state);
       startRun(state, seed);
       const w = new World(state);
-      dropIntoMeleeRoom(w);
-      if (w.floor.enemies.length === 5) found = w;
+      const at = dropIntoMeleeRoom(w);
+      // Denser floors often leave wanderers outside the cleared room, so look
+      // for the 5-brute squad itself rather than an empty rest of the floor.
+      if (w.floor.enemies.filter((e) => e.id.startsWith('brute')).length === 5 && at.includes('5 brutes')) found = w;
     }
     expect(found).not.toBeNull();
     const w = found!;
-    const adjacent = w.floor.enemies.filter(
+    const squad = w.floor.enemies.filter((e) => e.id.startsWith('brute'));
+    const adjacent = squad.filter(
       (e) => Math.abs(e.x - w.player.x) + Math.abs(e.y - w.player.y) === 1,
     );
     expect(adjacent.length).toBeGreaterThanOrEqual(3);
@@ -39,7 +42,7 @@ describe('dev melee room', () => {
     // The first swing through the window is parried; the pile behind it lands
     // on immunity and splash stagger instead of on the player.
     expect(w.player.hp).toBe(hp);
-    expect(w.floor.enemies.filter((e) => (e.vuln ?? 0) > 0)).toHaveLength(1);
+    expect(squad.filter((e) => (e.vuln ?? 0) > 0)).toHaveLength(1);
     for (const e of adjacent) {
       if ((e.vuln ?? 0) > 0) continue;
       expect(e.ai).toBe('recover');
