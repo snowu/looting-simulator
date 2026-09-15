@@ -37,6 +37,8 @@ describe('generateFloor', () => {
     for (let depth = 1; depth <= FINAL_DEPTH; depth++) {
       it(`seed ${seed} depth ${depth} is well-formed`, () => {
         const f = generateFloor(seed, depth);
+        expect(f.width).toBe(31 + 4 * (depth - 1));
+        expect(f.height).toBe(f.width);
         const up = f.stairs.filter((s) => !s.down);
         const down = f.stairs.filter((s) => s.down);
         expect(up).toHaveLength(1);

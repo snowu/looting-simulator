@@ -274,6 +274,37 @@ describe('the fog gate', () => {
     }
   });
 
+  it('blocks corridor attacks and aggro through an open entrance', () => {
+    const { w, room, boss } = throne(77);
+    const gate = w.floor.doors.find(d => d.boss)!;
+    gate.open = true;
+    const inside = DIRS.map(d => ({ x: gate.x + DX[d], y: gate.y + DY[d] }))
+      .find(t => inRoom(room, t.x, t.y))!;
+    Object.assign(w.player, { x: gate.x, y: gate.y });
+    Object.assign(boss, { x: inside.x, y: inside.y, fromX: inside.x, fromY: inside.y, moveT: 1 });
+    const hp = boss.hp;
+    expect(w.los(gate.x, gate.y, boss.x, boss.y)).toBe(false);
+    const combat = w as unknown as {
+      hitEnemy(e: EnemyState): void;
+      reflectedHit(pr: { damage: number; type: string }, e: EnemyState): void;
+    };
+    const dx = inside.x - gate.x, dy = inside.y - gate.y;
+    w.projectiles.push({ id: 999, x: gate.x + 0.5, y: gate.y + 0.5,
+      tileX: gate.x, tileY: gate.y, dx, dy, speed: 6, damage: 9999,
+      type: 'fire', sprite: 'bolt_fire', source: 'your own parry', reflected: true });
+    combat.hitEnemy(boss);
+    combat.reflectedHit({ damage: 9999, type: 'fire' }, boss);
+    tick(w, 2);
+    expect(boss.hp).toBe(hp);
+    expect(w.projectiles).toHaveLength(0);
+    expect([boss.x, boss.y]).toEqual([inside.x, inside.y]);
+    expect(gate.locked).toBe(false);
+    Object.assign(w.player, inside);
+    tick(w, 0.1);
+    expect(gate.locked).toBe(true);
+    expect(gate.open).toBe(false);
+  });
+
   it('recognises pre-flag saves by position', () => {
     const f = generateFloor(77, 6);
     const gate = f.doors.find((d) => d.boss)!;
