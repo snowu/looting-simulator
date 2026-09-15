@@ -488,6 +488,38 @@
     "recolorable": false
   },
   {
+    "id": "shrine_blood",
+    "file": "props/shrine_blood.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "shrine_blood_used",
+    "file": "props/shrine_blood_used.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "shrine_combat",
+    "file": "props/shrine_combat.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "shrine_combat_used",
+    "file": "props/shrine_combat_used.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
     "id": "fungus",
     "file": "props/fungus.png",
     "width": 16,

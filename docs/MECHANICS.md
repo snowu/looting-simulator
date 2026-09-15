@@ -302,13 +302,15 @@ Every kill also has a 2.5% chance of a Healing Draught and `0.6% × depth` of a 
 
 ### Shrines
 
-A shrine serves one of three gods, fixed per floor and rolled from its own seed stream. **You can tell which before you pray**: the flame, the orb and the light it throws across the room are a different colour, and the prompt names it. Praying is a decision, not a coin toss. Weights are font 4, idol 4, stone 3.
+A shrine serves one of five gods, fixed per floor and rolled from its own seed stream. **You can tell which before you pray**: the flame, the orb and the light it throws across the room are a different colour, and the prompt names it. Praying is a decision, not a coin toss. Weights are font 4, idol 4, stone 3, blood 2, strife 2.
 
 | | Colour | Prompt | What it does |
 |---|---|---|---|
 | **Font of Mending** | cold blue | *Drink at the font* | **60% of your health** and all of your stamina, and **lifts a curse**. Never harms you |
 | **Hollow Idol** | violet | *Pray at the hollow idol* | **65%**: the same mend and a blessing. **35%**: a curse for the rest of the run |
 | **Offering Stone** | gold | *Offer N gold at the stone* | Up to **3 paid offerings** per stone, each costing **75% more** than the last (`30 + 25 × depth`, ×1.75 per offering made — D1: 55 → 96 → 168; D6: 180 → 315 → 551). Each offering has a **25% chance of silence**: the coin is taken and nothing answers, no mend and no blessing. Too poor? It stays unused — come back with the coin |
+| **Sanguine Altar** | crimson | *Bleed at the red altar* | Pay **half your current HP** (rounded down, single use, refused at 1 HP — it cannot kill you) for `40 + 30 × depth + pay` gold. HP is a currency: bleed here, mend at a font or pay the physicker |
+| **Shrine of Strife** | ember orange | *Challenge the ember shrine* | Free to invoke, single use: `2 + ⌈depth/2⌉` depth-appropriate enemies rise around the shrine already alerted (never the boss). They drop ordinary loot, and the last trial-marked kill pays `60 + 40 × depth` gold. One trial at a time per run |
 
 No shrine restores you outright any more. A font that refills the bar is a save point, and a save point every other floor is the end of attrition as a mechanic — so it is a large, welcome, *partial* mend, and it does not undo the delve.
 

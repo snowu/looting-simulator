@@ -29,7 +29,7 @@ import {
   TrapKind,
   trapAt,
 } from '../systems/dungeon';
-import { enemyDef, enemyView, kingPhase, phaseForHp } from '../data/enemies';
+import { ENEMIES, enemyDef, enemyView, kingPhase, phaseForHp } from '../data/enemies';
 import { consumable, itemBase, viewmodelFor } from '../data/items';
 import { biomeForFloor, FINAL_DEPTH } from '../data/biomes';
 import { PlayerDerived, derivePlayer, thrownView } from '../systems/player';
@@ -379,6 +379,8 @@ export const SHRINE_PROMPT: Record<ShrineKind, (cost: number) => string> = {
   font: () => 'Drink at the font',
   idol: () => 'Pray at the hollow idol',
   coffer: (cost) => `Offer ${cost} gold at the stone`,
+  blood: () => 'Bleed at the red altar',
+  combat: () => 'Challenge the ember shrine',
 };
 
 export class World {
@@ -1730,6 +1732,7 @@ export class World {
       this.dropLoot(e.x, e.y, loot.items, loot.gold);
       this.msg(`${def.name} slain.`, '#c8c0b0');
     }
+    this.trialKill(e.id);
   }
 
   /**
@@ -2200,7 +2203,105 @@ export class World {
         this.sfx('gold');
         return;
       }
+
+      // The red one. Half your current health, rounded down, for gold that
+      // scales with depth and with what you paid. It cannot kill you: at 1 HP
+      // it refuses. Single use — HP is a currency now, and the font,
+      // the physicker and the draughts are where you buy it back.
+      case 'blood': {
+        if (this.player.hp <= 1) {
+          p.used = false;
+          this.msg('You have nothing left to give.', '#c8a060');
+          return;
+        }
+        const pay = Math.floor(this.player.hp / 2);
+        const prize = 40 + 30 * this.run.depth + pay;
+        this.player.hp -= pay;
+        this.run.gold += prize;
+        this.run.stats.goldFound += prize;
+        this.emit({ type: 'float', x: p.x, y: p.y, text: `+${prize}g`, color: '#ffd24a' });
+        this.msg(`Your blood runs into the brass bowl. +${prize} gold.`, '#ff8090');
+        this.sfx('hurt');
+        return;
+      }
+
+      // The trial. Free to invoke, paid in nerve: depth-appropriate enemies
+      // rise around the shrine, already looking at you. They drop their
+      // ordinary loot, and the last trial-marked kill pays the prize.
+      // One trial at a time — a second challenge waits its turn.
+      case 'combat': {
+        if (this.run.trial && this.run.trial.ids.length > 0) {
+          p.used = false;
+          this.msg('The yard is already bloodied. Finish the trial first.', '#c8a060');
+          return;
+        }
+        const ids = this.raiseTrial(p);
+        if (!ids.length) {
+          p.used = false;
+          this.msg('The embers stir, then settle. No room to bleed here.', '#8888a0');
+          return;
+        }
+        this.run.trial = { propId: p.id, ids };
+        this.msg(`The ember shrine catches. ${ids.length} rise for the trial!`, '#ff9a50');
+        this.emit({ type: 'shake', amount: 0.5 });
+        this.sfx('alert');
+        return;
+      }
     }
+  }
+
+  /**
+   * Raise a strife trial around a shrine: 2 + ceil(depth/2) enemies from the
+   * same pool the floor itself draws on (never the boss), on free tiles near
+   * the stone, already alerted. Returns the marked ids (empty when the room
+   * is too cramped to bleed in).
+   */
+  private raiseTrial(p: Prop): string[] {
+    const f = this.floor;
+    const biome = biomeForFloor(f);
+    const depth = this.run.depth;
+    const pool = ENEMIES.filter((e) =>
+      e.weight > 0 && e.behavior !== 'boss' && e.minDepth <= depth && depth <= e.maxDepth &&
+      !(biome.element && e.element && e.element !== biome.element));
+    if (!pool.length) return [];
+    const want = 2 + Math.ceil(depth / 2);
+    const ids: string[] = [];
+    let n = 0;
+    outer: for (let r = 1; r <= 4 && ids.length < want; r++) {
+      for (let dy = -r; dy <= r && ids.length < want; dy++) {
+        for (let dx = -r; dx <= r && ids.length < want; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          const x = p.x + dx, y = p.y + dy;
+          if (!inBounds(f, x, y) || blocksMove(f, x, y)) continue;
+          if (x === this.player.x && y === this.player.y) continue;
+          if (enemyAt(f, x, y)) continue;
+          if (f.props.some((q) => q.blocking && q.x === x && q.y === y)) continue;
+          const def = this.rng.weighted(pool.map((e) => [e, e.weight] as const));
+          const id = `trial_${p.id}_${n++}`;
+          const e = createEnemy(def, x, y, this.rng.pick(DIRS), id, depth, this.difficultyId);
+          e.alert = 8;
+          e.lastSeenX = this.player.x;
+          e.lastSeenY = this.player.y;
+          f.enemies.push(e);
+          ids.push(id);
+        }
+      }
+    }
+    return ids;
+  }
+
+  /** A trial-marked kill: strike it from the roll, and pay the prize when the roll is empty. */
+  private trialKill(id: string): void {
+    const trial = this.run.trial;
+    if (!trial) return;
+    trial.ids = trial.ids.filter((t) => t !== id);
+    if (trial.ids.length > 0) return;
+    this.run.trial = null;
+    const prize = 60 + 40 * this.run.depth;
+    this.dropLoot(this.player.x, this.player.y, [], prize);
+    this.emit({ type: 'float', x: this.player.x, y: this.player.y, text: `+${prize}g`, color: '#ffd24a' });
+    this.msg('The trial is survived. The shrine pays its prize.', '#ffb050');
+    this.sfx('gold');
   }
 
   /** Move items from a pickup into the backpack. Returns how many stacks moved. */

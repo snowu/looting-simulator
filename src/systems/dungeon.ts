@@ -85,9 +85,9 @@ export interface Prop {
  * touch it: the flame and the light it throws are a different colour, and the
  * prompt names it. Praying is then a decision rather than a coin toss.
  */
-export type ShrineKind = 'font' | 'idol' | 'coffer';
+export type ShrineKind = 'font' | 'idol' | 'coffer' | 'blood' | 'combat';
 
-export const SHRINE_KINDS: ShrineKind[] = ['font', 'idol', 'coffer'];
+export const SHRINE_KINDS: ShrineKind[] = ['font', 'idol', 'coffer', 'blood', 'combat'];
 
 /**
  * Floor hazards. Every trap is hidden until you spot the seam in the flagstones
@@ -335,7 +335,7 @@ export function chestIsMimic(floorSeed: number, propId: string): boolean {
 /** Likewise for shrines, so an old save's shrine is the one a new one would be. */
 export function shrineKindFor(floorSeed: number, propId: string): ShrineKind {
   const rng = createRng(hashString(`shrine:${floorSeed}:${propId}`));
-  return rng.weighted<ShrineKind>([['font', 4], ['idol', 4], ['coffer', 3]]);
+  return rng.weighted<ShrineKind>([['font', 4], ['idol', 4], ['coffer', 3], ['blood', 2], ['combat', 2]]);
 }
 
 const KEY_NAMES: Record<string, string> = {

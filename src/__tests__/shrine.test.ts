@@ -51,10 +51,18 @@ describe('shrine flavours', () => {
     for (let seed = 0; seed < 20; seed++) {
       for (const depth of [1, 3, 6]) {
         for (const p of generateFloor(seed, depth).props) {
-          if (p.kind === 'shrine') expect(['font', 'idol', 'coffer']).toContain(p.shrine);
+          if (p.kind === 'shrine') expect(['font', 'idol', 'coffer', 'blood', 'combat']).toContain(p.shrine);
         }
       }
     }
+  });
+
+  it('deals all five flavours across many floors', () => {
+    const seen = new Set<string>();
+    for (let seed = 0; seed < 40; seed++) {
+      for (let i = 0; i < 8; i++) seen.add(shrineKindFor(seed, `p${i}`));
+    }
+    expect(seen).toEqual(new Set(['font', 'idol', 'coffer', 'blood', 'combat']));
   });
 });
 
@@ -202,6 +210,82 @@ describe('the offering stone', () => {
     const shallow = w.offeringCost();
     w.run.depth = 5;
     expect(w.offeringCost()).toBeGreaterThan(shallow);
+  });
+});
+
+describe('the sanguine altar', () => {
+  it('says which one it is before you touch it', () => {
+    expect(atShrine('blood').w.interactionHint()).toBe('Bleed at the red altar');
+  });
+
+  it('trades half your current health for gold', () => {
+    const { w, shrine } = atShrine('blood');
+    const hp = w.player.hp;
+    const pay = Math.floor(hp / 2);
+    w.run.gold = 0;
+    w.interact();
+    expect(w.player.hp).toBe(hp - pay);
+    expect(w.run.gold).toBe(40 + 30 * w.run.depth + pay);
+    expect(shrine.used).toBe(true);
+  });
+
+  it('cannot kill you: refused at 1 HP and stays open', () => {
+    const { w, shrine } = atShrine('blood');
+    w.player.hp = 1;
+    w.run.gold = 0;
+    w.interact();
+    expect(w.player.hp).toBe(1);
+    expect(w.run.gold).toBe(0);
+    expect(shrine.used).toBe(false);
+  });
+});
+
+describe('the shrine of strife', () => {
+  it('says which one it is before you touch it', () => {
+    expect(atShrine('combat').w.interactionHint()).toBe('Challenge the ember shrine');
+  });
+
+  it('raises a trial of depth-appropriate enemies, already alerted', () => {
+    const { w, shrine } = atShrine('combat', 11);
+    const before = w.floor.enemies.length;
+    w.interact();
+    const trial = w.run.trial;
+    expect(trial).toBeTruthy();
+    // Depth 1: 2 + ceil(1/2) = 3 risers.
+    expect(trial!.ids).toHaveLength(3);
+    expect(w.floor.enemies.length).toBe(before + 3);
+    for (const id of trial!.ids) {
+      const e = w.floor.enemies.find((x) => x.id === id);
+      expect(e).toBeTruthy();
+      expect(e!.alert).toBeGreaterThan(0);
+    }
+    expect(shrine.used).toBe(true);
+  });
+
+  it('refuses a second trial while one is open, and stays usable', () => {
+    const { w, shrine } = atShrine('combat', 11);
+    w.interact();
+    const ids = [...w.run.trial!.ids];
+    const count = w.floor.enemies.length;
+    shrine.used = false;
+    w.interact();
+    expect(w.run.trial!.ids).toEqual(ids);
+    expect(w.floor.enemies.length).toBe(count);
+    expect(shrine.used).toBe(false);
+  });
+
+  it('pays the prize into your purse when the last trial-marked kill lands', () => {
+    const { w } = atShrine('combat', 11);
+    w.interact();
+    // The prize drops at your feet, and feet pickups auto-collect.
+    const purse = w.run.gold;
+    const kill = (w as unknown as { killEnemy(e: unknown): void }).killEnemy.bind(w);
+    for (const id of [...w.run.trial!.ids]) {
+      const e = w.floor.enemies.find((x) => x.id === id)!;
+      kill(e);
+    }
+    expect(w.run.trial).toBeNull();
+    expect(w.run.gold).toBe(purse + 60 + 40 * w.run.depth);
   });
 });
 
