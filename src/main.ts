@@ -21,10 +21,11 @@ import { CloudSync } from './cloud/sync';
 import { CloudFetch, CloudSave, deleteCloudSave, fetchCloudSave, fetchCloudSlots, uploadSave } from './cloud/cloud-save';
 import { h, setTouchMode } from './ui/dom';
 import { TouchControls, TouchMove, isTouchDevice } from './ui/touch';
-import { FULLSCREEN_HELP, fullscreenSupported, isFullscreen, isStandalone, mountFullscreenButton, toggleFullscreen } from './ui/fullscreen';
+import { FULLSCREEN_HELP, fullscreenSupported, isFullscreen, isStandalone, mountFullscreenButton, toggleFullscreen, wasButtonExit } from './ui/fullscreen';
 import { BUILD_ID, newerBuild, reloadToLatest } from './ui/update';
 import { btn } from './ui/dom';
 import { audio } from './audio/sfx';
+import { closeSettings, isSettingsOpen, openSettings } from './ui/settings';
 
 type Mode = 'title' | 'town' | 'dungeon' | 'summary';
 
@@ -81,7 +82,7 @@ renderer.onLavaSound = ({ name, x, z }) => {
   const pan = (dx * Math.cos(world.anim.yaw) + dz * Math.sin(world.anim.yaw)) / Math.max(1, distance);
   audio.play(name, { volume: 0.75 / (1 + distance * 0.16), pan: pan * 0.8 });
 };
-const hud = new Hud(app, { interact: () => world?.interact(), quick: (i) => world?.quickUse(i) });
+const hud = new Hud(app, { interact: () => world?.interact(), quick: (i) => world?.quickUse(i), settings: () => openDungeonSettings() });
 
 let touchMode = isTouchDevice();
 let touchAttack = false;
@@ -126,10 +127,14 @@ window.addEventListener('touchstart', () => {
 const toastLayer = h('div', { class: 'layer', style: 'pointer-events:none' });
 const screen = h('div', { class: 'layer' });
 app.append(screen);
-const overlays = new DungeonOverlays(app, (t, c) => hud.message(t, c));
+const overlays = new DungeonOverlays(app, (t, c) => hud.message(t, c), { settings: () => openDungeonSettings() });
 app.append(toastLayer);
 // Always-available fullscreen toggle, pinned above every screen and panel.
-mountFullscreenButton(app, () => toast(FULLSCREEN_HELP));
+mountFullscreenButton(
+  app,
+  () => toast(FULLSCREEN_HELP),
+  () => toast('That is browser (F11) fullscreen — the button cannot leave it. Press F11.'),
+);
 
 // --- Updates (installed apps have no reload button) ----------------------------
 let pendingUpdate: string | null = null;
@@ -222,6 +227,33 @@ function toast(text: string, color = '#e8dcc4'): void {
   const life = Math.max(2200, text.length * 55);
   setTimeout(() => (el.style.opacity = '0'), life);
   setTimeout(() => el.remove(), life + 600);
+}
+
+/**
+ * Settings outside Bleakmere: audio + login only. Difficulty can only be
+ * changed from Bleakmere, between delves — never here, never mid-run.
+ */
+function openDungeonSettings(): void {
+  openSettings({
+    state: () => state,
+    save: () => commit(),
+    toast,
+    account: () => account.el,
+    onClose: () => undefined,
+    showDifficulty: false,
+  });
+}
+
+/** Same restriction on the title screen: sound and saves, no difficulty. */
+function openTitleSettings(): void {
+  openSettings({
+    state: () => state,
+    save: () => commit(),
+    toast,
+    account: () => account.el,
+    onClose: () => enterTitle(),
+    showDifficulty: false,
+  });
 }
 
 // --- Modes ---------------------------------------------------------------------
@@ -413,11 +445,12 @@ async function openArtSheet(): Promise<void> {
 }
 
 function enterTitle(): void {
+  closeSettings();
   show('title');
   screen.replaceChildren(titleScreen(slotPicker(slotViews(), enterSlot, {
     onRename: (n, name) => void renameSlot(n, name),
     onDelete: (n) => void deleteSlot(n),
-  }), BUILD_ID, account.el, devTitleTools()));
+  }), BUILD_ID, account.el, devTitleTools(), () => openTitleSettings()));
   askAboutSaves();
 }
 
@@ -547,6 +580,7 @@ function enterSlot(n: Slot, difficulty?: DifficultyId): void {
 }
 
 function enterTown(): void {
+  closeSettings();
   audio.stopAmbient();
   screen.replaceChildren(town.root);
   show('town');
@@ -561,6 +595,7 @@ function startAmbient(): void {
 }
 
 function enterDungeon(): void {
+  closeSettings();
   audio.unlock();
   if (!state.run || state.run.outcome !== 'active') startRun(state);
   const portal = state.run!.portal;
@@ -605,6 +640,7 @@ function returnToTown(): void {
 }
 
 function finishRun(outcome: 'dead' | 'extracted'): void {
+  closeSettings();
   const summary = endRun(state, outcome);
   commit();
   flushSync();
@@ -674,7 +710,9 @@ function frame(now: number): void {
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
   if (mode === 'dungeon' && world) {
-    const paused = overlays.isOpen;
+    // Settings pauses like any other overlay: the dungeon keeps rendering
+    // behind it, but nothing moves and nothing can hurt you while it is open.
+    const paused = overlays.isOpen || isSettingsOpen();
     if (paused) world.retrieve(false);
     touch.visible = touchMode && !paused && !ending;
     if (touchMode) {
@@ -759,6 +797,10 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (mode !== 'dungeon' || !world) return;
+  // Settings sits above the dungeon and pauses it: movement and swings go
+  // nowhere while it is open. Escape still reaches the modal itself — it
+  // listens in the capture phase, before this handler.
+  if (isSettingsOpen()) return;
   if (overlays.handleKey(e)) {
     e.preventDefault();
     return;
@@ -825,7 +867,7 @@ window.addEventListener('keyup', (e) => {
 // Mouse: LMB attack, RMB block. (Touch goes through the drag zone in TouchControls.)
 canvas.addEventListener('pointerdown', (e) => {
   audio.unlock();
-  if (!world || overlays.isOpen || e.pointerType !== 'mouse') return;
+  if (!world || overlays.isOpen || isSettingsOpen() || e.pointerType !== 'mouse') return;
   if (e.button === 0) world.attack();
   if (e.button === 2) world.setBlock(true);
 });
@@ -851,7 +893,7 @@ function goBackground(): void {
   world?.retrieve(false);
   touchAttack = false;
   stickDir = null;
-  if (mode === 'dungeon' && world && !overlays.isOpen && !ending) overlays.open('help', world);
+  if (mode === 'dungeon' && world && !overlays.isOpen && !isSettingsOpen() && !ending) overlays.open('help', world);
 }
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) goBackground();
@@ -861,6 +903,21 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 window.addEventListener('pagehide', goBackground);
+/**
+ * Leaving element fullscreen mid-delve pauses, for the same reason
+ * backgrounding does — but only for Esc-driven exits. A deliberate click on
+ * the fullscreen button leaves cleanly. Browsers reserve Esc as "leave
+ * fullscreen" and eat the keypress, so without this the Esc you meant as
+ * "pause" would drop you to windowed mode with the fight still running. Where
+ * keyboard lock holds Esc this never fires; elsewhere one Esc press still ends
+ * paused.
+ */
+function pauseOnFullscreenExit(): void {
+  if (wasButtonExit()) return;
+  if (mode === 'dungeon' && world && !ending && !overlays.isOpen && !isSettingsOpen()) overlays.open('help', world);
+}
+document.addEventListener('fullscreenchange', () => { if (!isFullscreen()) pauseOnFullscreenExit(); });
+document.addEventListener('webkitfullscreenchange', () => { if (!isFullscreen()) pauseOnFullscreenExit(); });
 setInterval(() => {
   if (!document.hidden) void checkForUpdate();
 }, 10 * 60 * 1000);

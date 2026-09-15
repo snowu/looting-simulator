@@ -9,6 +9,7 @@ import { DungeonRenderer } from '../render/dungeon-renderer';
 import { BLESSINGS, CURSES, World } from '../world/world';
 import { drawMap } from './automap';
 import { artImg, esc, h } from './dom';
+import { settingsGearButton } from './settings';
 
 interface Float {
   el: HTMLElement;
@@ -67,10 +68,12 @@ export class Hud {
   private wardGlow = h('div', { class: 'ward-glow' });
   private time = 0;
 
-  constructor(parent: HTMLElement, private actions: { interact: () => void; quick: (i: number) => void }) {
+  constructor(parent: HTMLElement, private actions: { interact: () => void; quick: (i: number) => void; settings: () => void }) {
     this.recallWrap.append(this.recallBar);
     // Tappable on touch screens.
     this.prompt.addEventListener('click', () => this.actions.interact());
+    const gear = settingsGearButton(() => this.actions.settings(), 'Settings — sound, cloud saves', 22);
+    gear.classList.add('hud-gear');
     const bars = h(
       'div',
       { class: 'bars' },
@@ -91,6 +94,7 @@ export class Hud {
       this.status,
       this.compass,
       this.minimap,
+      gear,
       this.target,
       this.prompt,
       this.log,

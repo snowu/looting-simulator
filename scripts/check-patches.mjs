@@ -17,6 +17,11 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 
 // Commits that must never become patch notes. Short hash -> reason.
 const SKIP = {
+  '38727b0': 'dev art-sheet information only',
+  '83affdc': 'settings access and fullscreen UI; no gameplay or balance change',
+  '01b87d8': 'merge only; map expansion and fog gate covered by original commits',
+  'ef582f5': 'preview file housekeeping only',
+  'e09cdc1': 'PR preview only',
   'ea2f867': 'dev lab map controls and cosmetic lava visibility/audio; no gameplay or system changes',
   'ee5397d': 'cosmetic biome lighting, vent spacing and prop art; no gameplay or system changes',
   '64cff4f': 'cosmetic lava animation and enemy-art refinement; no gameplay or system changes',
@@ -99,6 +104,8 @@ const SKIP = {
   a029e9d: 'preview sheets + dev art-sheet tool for the PR, not in the game',
   '10ef6ff': 'art sync build tool, not in the game',
   a297375: 'test-only parry assumption fix + notes file, not gameplay',
+  e09cdc1: 'preview PNG for a pull request, not in the game',
+  ef582f5: 'preview PNG move for a pull request, not in the game',
 };
 
 // Commits touching only these files maintain the notes themselves and never

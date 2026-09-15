@@ -1,6 +1,7 @@
 import { RunSummary } from '../state/game-state';
 import { gold, h, itemSlot, btn } from './dom';
 import { patchNotesButton } from './patch-notes';
+import { settingsGearButton } from './settings';
 
 const titleTaglines = [
   'Every treasure has a body count',
@@ -9,7 +10,7 @@ const titleTaglines = [
 ];
 const titleTagline = titleTaglines[Math.floor(Math.random() * titleTaglines.length)];
 
-export function titleScreen(slots: HTMLElement, build = '', account?: HTMLElement, dev?: HTMLElement | null): HTMLElement {
+export function titleScreen(slots: HTMLElement, build = '', account?: HTMLElement, dev?: HTMLElement | null, onSettings?: () => void): HTMLElement {
   return h(
     'div',
     { class: 'title-screen' },
@@ -36,6 +37,11 @@ export function titleScreen(slots: HTMLElement, build = '', account?: HTMLElemen
       dev ?? null,
       build ? h('p', { class: 'faint small', text: `build ${build}` }) : null,
     ),
+    // Same corner as the in-game gear: pinned top-right beside the fullscreen
+    // button, not down by the patch notes.
+    onSettings
+      ? h('div', { class: 'title-gear' }, settingsGearButton(onSettings, 'Settings — sound, cloud saves', 22))
+      : null,
     h('div', { class: 'patch-corner' }, patchNotesButton()),
   );
 }

@@ -78,7 +78,7 @@ export class DungeonOverlays {
   /** Uid of the Scroll of Identify currently being read, awaiting a target choice. */
   private identifyScrollUid: string | null = null;
 
-  constructor(parent: HTMLElement, private notify: (text: string, color?: string) => void) {
+  constructor(parent: HTMLElement, private notify: (text: string, color?: string) => void, private opts: { settings?: () => void } = {}) {
     parent.append(this.root);
   }
 
@@ -436,6 +436,7 @@ export class DungeonOverlays {
       { class: 'modal frame' },
       btn('Resume [Esc]', () => this.close(), 'small close'),
       h('h2', { text: 'Paused' }),
+      this.opts.settings ? h('div', { class: 'row', style: 'margin-bottom:8px' }, btn('⚙ Settings — sound, saves', () => this.opts.settings!(), 'small')) : null,
       h('div', { class: 'help' }, ...rows.map(([k, v]) => h('div', {}, h('kbd', { text: k }), v))),
       h(
         'p',

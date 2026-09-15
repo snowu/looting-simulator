@@ -20,7 +20,7 @@ import { PROPS } from '../art/props';
 import { VIEWMODELS } from '../art/viewmodels';
 import { EnemyDef } from '../types';
 
-/** Everything the pose model needs to play a creature's attack, plus its name. */
+/** Everything the sheet shows for a creature: the pose model plus the stat block. */
 export interface Creature {
   name: string;
   sprite: string;
@@ -30,6 +30,24 @@ export interface Creature {
   hasShield: boolean;
   floats: boolean;
   scale: number;
+  hp: number;
+  attack: number;
+  defense: number;
+  damageType: string;
+  resist: Partial<Record<string, number>>;
+  behavior: string;
+  step: number;
+  sight: number;
+  range?: number;
+  shots?: number;
+  projectile?: string;
+  shieldBlock?: number;
+  shieldStun?: number;
+  undead: boolean;
+  element?: string;
+  minDepth: number;
+  maxDepth: number;
+  description: string;
 }
 
 export interface SheetCell {
@@ -109,6 +127,24 @@ function creatureOf(def: EnemyDef): Creature {
     hasShield: !!def.shield,
     floats: !!def.floats,
     scale: def.scale,
+    hp: def.hp,
+    attack: def.attack,
+    defense: def.defense,
+    damageType: def.damageType,
+    resist: { ...def.resist },
+    behavior: def.behavior,
+    step: def.step,
+    sight: def.sight,
+    range: def.range,
+    shots: def.volley?.length ?? (def.projectile ? 1 : undefined),
+    projectile: def.projectile ? `${def.projectile.damageType} SPD ${def.projectile.speed}` : undefined,
+    shieldBlock: def.shield?.block,
+    shieldStun: def.shield?.stun,
+    undead: !!def.undead,
+    element: def.element,
+    minDepth: def.minDepth,
+    maxDepth: def.maxDepth,
+    description: def.description,
   };
 }
 
@@ -123,6 +159,9 @@ export const CREATURES: Creature[] = [
       windup: phase.windup,
       recovery: phase.recovery,
       hasShield: !!phase.shield,
+      shieldBlock: phase.shield?.block,
+      shieldStun: phase.shield?.stun,
+      shots: phase.shots.length,
     })),
   ),
 ];
@@ -137,6 +176,39 @@ export const creatureClassOf = (sprite: string): CreatureClass => CLASS_OF.get(s
 /** Idle, attack, and the guard for anything that carries a shield. */
 export function creaturePoses(c: Creature): string[] {
   return c.hasShield ? ['0', 'atk', 'block'] : ['0', 'atk'];
+}
+
+/**
+ * Every line of the stat block under a creature cell, in one place so the
+ * in-game sheet and the PNG exporter cannot drift apart.
+ *
+ * Lines use only the PNG sheet's bitmap-font charset (A-Z 0-9 and `· . - _ :
+ * / ' !` plus space): no `x`-as-cross, no commas, no parens, no percent sign.
+ * Multipliers print as `X0.5`; the DOM sheet shows the same strings.
+ */
+export function creatureStatLines(c: Creature): string[] {
+  const lines: string[] = [];
+  lines.push(`HP ${c.hp} · ATK ${c.attack} · DEF ${c.defense} · ${c.damageType.toUpperCase()}`);
+  let cadence = `W ${c.windup} · R ${c.recovery} · STEP ${c.step} · SIGHT ${c.sight}`;
+  if (c.range !== undefined) cadence += ` · RNG ${c.range}`;
+  if (c.shots !== undefined && c.shots > 1) cadence += ` · SHOTS ${c.shots}`;
+  lines.push(cadence);
+  const entries = Object.entries(c.resist).sort(([a], [b]) => (a < b ? -1 : 1));
+  const weak = entries.filter(([, m]) => (m ?? 1) > 1).map(([t, m]) => `${t.toUpperCase()} X${m}`);
+  const res = entries.filter(([, m]) => (m ?? 1) < 1 && (m ?? 1) > 0).map(([t, m]) => `${t.toUpperCase()} X${m}`);
+  const imm = entries.filter(([, m]) => m === 0).map(([t]) => `${t.toUpperCase()}`);
+  const parts: string[] = [];
+  if (imm.length) parts.push(`IMM ${imm.join(' ')}`);
+  if (res.length) parts.push(`RES ${res.join(' ')}`);
+  if (weak.length) parts.push(`WEAK ${weak.join(' ')}`);
+  lines.push(parts.length ? parts.join(' · ') : 'RES -');
+  const tags = [c.behavior.toUpperCase(), `D${c.minDepth}-${c.maxDepth}`];
+  if (c.hasShield && c.shieldBlock !== undefined) tags.push(`SHIELD ${Math.round(c.shieldBlock * 100)}`);
+  if (c.floats) tags.push('FLIES');
+  if (c.undead) tags.push('UNDEAD');
+  if (c.projectile) tags.push(c.projectile.toUpperCase());
+  lines.push(tags.join(' · '));
+  return lines;
 }
 
 function creatureGroup(title: string, cls: CreatureClass): SheetGroup {

@@ -144,11 +144,13 @@ function blit(buf, W, H, raster, ox, oy, zoom) {
 
 function draw(sheet, cells) {
   const cols = sheet.cols;
+  const linesOf = (c) => 2 + (c.stats?.length ?? 0);
+  const maxLines = Math.max(...cells.map(linesOf));
   const cellW = Math.max(
     Math.max(...cells.map((c) => c.raster.w)) * ZOOM + PAD * 2,
-    ...cells.map((c) => textWidth(c.cell.label, 1) + 12),
+    ...cells.flatMap((c) => [c.cell.label, ...(c.stats ?? [])].map((l) => textWidth(l, 1) + 12)),
   );
-  const cellH = Math.max(...cells.map((c) => c.raster.h)) * ZOOM + PAD + LABEL_H * 2;
+  const cellH = Math.max(...cells.map((c) => c.raster.h)) * ZOOM + PAD + LABEL_H * maxLines;
   const rowsOf = sheet.groups.map((g) => Math.ceil(g.cells.length / cols));
   const W = cellW * cols;
   const H = sheet.groups.reduce((a, _, i) => a + HEADER_H + rowsOf[i] * cellH + 6, HEADER_H + 10);
@@ -163,18 +165,28 @@ function draw(sheet, cells) {
     text(buf, W, H, group.title, 10, y + 4, 2, [154, 192, 255]);
     y += HEADER_H;
     group.cells.forEach((cell, i) => {
-      const { raster } = cells[k++];
+      const { raster, stats } = cells[k++];
+      const lines = [
+        { line: cell.label, color: [224, 216, 200] },
+        { line: cell.id, color: [130, 124, 142] },
+        ...(stats ?? []).map((line) => ({
+          line,
+          color: line.includes('WEAK') ? [255, 154, 122]
+            : line.startsWith('RES') || line.includes(' RES ') ? [154, 192, 255]
+            : [138, 130, 150],
+        })),
+      ];
       const cx = (i % cols) * cellW, cy = y + Math.floor(i / cols) * cellH;
       blit(buf, W, H, raster,
         cx + Math.round((cellW - raster.w * ZOOM) / 2),
-        cy + Math.round((cellH - LABEL_H * 2 - raster.h * ZOOM) / 2), ZOOM);
-      [cell.label, cell.id].forEach((line, li) => {
+        cy + Math.round((cellH - LABEL_H * maxLines - raster.h * ZOOM) / 2), ZOOM);
+      lines.forEach(({ line, color }, li) => {
         // Long creature names get the small font rather than the next cell's space.
         const scale = textWidth(line, 2) <= cellW - 6 ? 2 : 1;
         const clipped = line.slice(0, Math.max(1, Math.floor((cellW - 6) / (6 * scale))));
         text(buf, W, H, clipped, cx + Math.round((cellW - textWidth(clipped, scale)) / 2),
-          cy + cellH - LABEL_H * 2 + li * LABEL_H + (scale === 1 ? 3 : 0),
-          scale, li === 0 ? [224, 216, 200] : [130, 124, 142]);
+          cy + cellH - LABEL_H * maxLines + li * LABEL_H + (scale === 1 ? 3 : 0),
+          scale, color);
       });
     });
     y += rowsOf[gi] * cellH + 6;
@@ -184,7 +196,7 @@ function draw(sheet, cells) {
 
 const { rasterize } = await loadModule('src/art/raster.ts');
 const { getArt } = await loadModule('src/art/registry.ts');
-const { sheets, DEFAULT_TIER } = await loadModule('src/dev/art-sheets.ts');
+const { sheets, DEFAULT_TIER, creatureStatLines } = await loadModule('src/dev/art-sheets.ts');
 
 const args = process.argv.slice(2);
 const flag = (name) => {
@@ -232,7 +244,8 @@ for (const sheet of chosen) {
       const def = getArt(cell.id);
       if (!def) throw new Error(`${sheet.id}: missing art ${cell.id}`);
       // A cell carries the material ramp the game would draw it through, if any.
-      return { cell, raster: rasterize(def, cell.ramp, getArt) };
+      // Creature cells also carry the full stat block for the caption.
+      return { cell, raster: rasterize(def, cell.ramp, getArt), stats: cell.creature ? creatureStatLines(cell.creature) : [] };
     }),
   );
   const file = resolve(out, `${sheet.id}.png`);
