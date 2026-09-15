@@ -430,10 +430,9 @@ interface Entrance {
 function tryGenerate(seed: number, depth: number, rng: Rng, diff: DifficultyDef = DIFFICULTIES.hard): Floor | null {
   const biome = biomeForDepth(depth, seed);
   const isBoss = depth >= FINAL_DEPTH;
-  // Gentle growth: 31 → 51 by depth 6. D1-D5 identical to before; only the
-  // throne floor grows 47 → 51 so deeper delves feel bigger without
-  // rebalancing the early game.
-  const W = 31 + 4 * (depth - 1);
+  // Expand every depth: 39 → 59 tiles per side, with extra rooms below
+  // so the larger bounds also provide more playable space.
+  const W = 39 + 4 * (depth - 1);
   const H = W;
   const N = W * H;
   const tiles: number[] = new Array(N).fill(WALL);
@@ -468,7 +467,7 @@ function tryGenerate(seed: number, depth: number, rng: Rng, diff: DifficultyDef 
     }
     if (!throne) return null;
   }
-  const target = isBoss ? 9 : 9 + Math.min(depth, 5);
+  const target = isBoss ? 13 : 13 + Math.min(depth, 5);
   for (let a = 0; a < 900 && rooms.length < target; a++) {
     const big = rng.chance(0.18);
     const w = big ? rng.int(6, 9) : rng.int(3, 6);
