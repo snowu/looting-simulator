@@ -20,6 +20,7 @@ import {
   enemyAt,
   generateFloor,
   inBounds,
+  isBossDoor,
   propAt,
   secretAt,
   shrinePityFor,
@@ -29,7 +30,7 @@ import {
   TrapKind,
   trapAt,
 } from '../systems/dungeon';
-import { ENEMIES, enemyDef, enemyView, kingPhase, phaseForHp } from '../data/enemies';
+import { BOSS_ID, ENEMIES, enemyDef, enemyView, kingPhase, phaseForHp } from '../data/enemies';
 import { consumable, itemBase, viewmodelFor } from '../data/items';
 import { biomeForFloor, FINAL_DEPTH } from '../data/biomes';
 import { PlayerDerived, derivePlayer, thrownView } from '../systems/player';
@@ -269,6 +270,8 @@ export function shortLabel(hint: string): string {
   if (hint.startsWith('Step through')) return 'Enter';
   if (hint.startsWith('Unlock')) return 'Unlock';
   if (hint.startsWith('Open')) return 'Open';
+  if (hint === 'Part the fog') return 'Enter';
+  if (hint === 'Sealed by fog') return 'Sealed';
   return hint;
 }
 
@@ -697,6 +700,7 @@ export class World {
       }
     }
 
+    this.checkBossSeal();
     this.updateRetrieve(dt);
     this.updateEnemies(dt);
     this.updateProjectiles(dt);
@@ -750,6 +754,7 @@ export class World {
     const p = this.player;
     this.anim.steps++;
     this.reveal();
+    this.checkBossSeal();
     const f = this.floor;
     this.collectThrownHere();
     const trap = trapAt(f, p.x, p.y);
@@ -1000,6 +1005,7 @@ export class World {
   /** Grid line of sight (Bresenham). `inclusive` lets the target itself be opaque. */
   los(x0: number, y0: number, x1: number, y1: number, inclusive = false): boolean {
     const f = this.floor;
+    if (this.crossesBossBoundary(x0, y0, x1, y1)) return false;
     let dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0);
     const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
     let err = dx + dy;
@@ -1590,6 +1596,7 @@ export class World {
    * guard wide open. Flank it, meet its swing, or time the drop instead.
    */
   private shieldChip(e: EnemyState, def: EnemyDef, chips = 1, power = this.anim.attackPower, player = this.derived): void {
+    if (this.protectedByFog(e)) return;
     const sh = def.shield!;
     // Difficulty thins the armour on Normal; Hard multiplies by exactly 1.
     const hit = playerHitsEnemy(this.rng, player, power, def, defensePower(e.power) * this.diff.enemyDefense);
@@ -1646,6 +1653,7 @@ export class World {
   }
 
   private hitEnemy(e: EnemyState, neverBash = false, chips = this.derived.swing.chips ?? 1, powerMult = 1): void {
+    if (this.protectedByFog(e)) return;
     const def = this.view(e);
     const reaction = this.guardReaction(e, def);
     if (reaction === 'bash' && !neverBash) {
@@ -1727,6 +1735,7 @@ export class World {
       this.dropLoot(spot.x, spot.y, loot.items, loot.gold);
       this.run.stats.bossKilled = true;
       this.msg('The Ashen King crumbles to cinders. A portal tears open.', '#c080ff');
+      this.unsealBossDoors();
       this.floor.props.push({ id: `portal${this.time}`, kind: 'portal', x: e.x, y: e.y, used: false, tier: 'none', blocking: false, mimic: false });
     } else {
       this.dropLoot(e.x, e.y, loot.items, loot.gold);
@@ -1836,6 +1845,8 @@ export class World {
     const t = this.frontTile();
     const door = doorAt(f, t.x, t.y);
     if (door) {
+      if (isBossDoor(f, door) && door.locked && this.bossAlive()) return 'Sealed by fog';
+      if (isBossDoor(f, door) && !door.open && !door.locked) return 'Part the fog';
       if (door.open) return enemyAt(f, t.x, t.y) ? null : 'Close door';
       if (door.locked) return this.run.keys.includes(door.keyId!) ? 'Unlock door' : 'Locked';
       return 'Open door';
@@ -1970,6 +1981,11 @@ export class World {
 
     const door = doorAt(f, t.x, t.y);
     if (door) {
+      if (isBossDoor(f, door) && door.locked && this.bossAlive()) {
+        this.msg('Sealed by fog. The King must fall.', '#c0a0ff');
+        this.sfx('locked', t.x, t.y);
+        return;
+      }
       if (door.open) {
         if (enemyAt(f, t.x, t.y)) return;
         door.open = false;
@@ -2065,6 +2081,14 @@ export class World {
     const portal = this.portalHere();
     const town = this.townPortalHere();
     if (portal || town) {
+      // No slipping out of the throne fight through a town portal: the fog
+      // holds you until the King falls. His own exit portal only exists
+      // after that, so it is never blocked.
+      if (town && this.playerInThrone() && this.bossAlive()) {
+        this.msg('The fog smothers the portal. No way out but through him.', '#c0a0ff');
+        this.sfx('locked');
+        return;
+      }
       const loose = this.pickupNear();
       if (loose) {
         this.emit({ type: 'loot', pickupId: loose.id });
@@ -2430,6 +2454,11 @@ export class World {
       }
       case 'recall':
         if (this.anim.recall !== null) return;
+        if (this.playerInThrone() && this.bossAlive()) {
+          this.msg('The fog smothers the scroll. No way out but through him.', '#c0a0ff');
+          this.sfx('locked');
+          return;
+        }
         this.anim.recall = e.seconds;
         this.msg(
           this.run.portal ? 'You read the scroll. The old portal will collapse...' : 'You read the scroll. Stand still...',
@@ -2588,6 +2617,62 @@ export class World {
     return x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
   }
 
+  /** The living throne is a combat boundary even while its entrance is open. */
+  private crossesBossBoundary(x0: number, y0: number, x1: number, y1: number): boolean {
+    const room = this.throneRoom();
+    return !!room && this.bossAlive() && this.inRoom(room, x0, y0) !== this.inRoom(room, x1, y1);
+  }
+
+  private protectedByFog(e: EnemyState): boolean {
+    return this.crossesBossBoundary(this.player.x, this.player.y, e.x, e.y);
+  }
+
+  /** The King, if he still stands on this floor. */
+  private bossAlive(): boolean {
+    return this.floor.enemies.some((e) => e.def === BOSS_ID && e.ai !== 'dead');
+  }
+
+  /** Fog-gate doors on this floor (usually exactly one, at the throne). */
+  private bossDoors() {
+    return this.floor.doors.filter((d) => isBossDoor(this.floor, d));
+  }
+
+  private playerInThrone(): boolean {
+    const r = this.throneRoom();
+    return !!r && this.inRoom(r, this.player.x, this.player.y);
+  }
+
+  /**
+   * The fog wall. The moment you step into the throne room with the King
+   * alive, every gate slams and seals — no ducking back out to bleed him
+   * through the doorway, no bolts through the crack either, since a shut
+   * door blocks sight both ways.
+   */
+  private checkBossSeal(): void {
+    if (!this.bossAlive() || !this.playerInThrone()) return;
+    const open = this.bossDoors().filter((d) => !d.locked);
+    if (!open.length) return;
+    for (const g of open) {
+      g.open = false;
+      g.locked = true;
+    }
+    this.msg('The fog closes behind you. The King must fall.', '#c0a0ff');
+    this.sfx('door');
+    this.emit({ type: 'shake', amount: 0.4 });
+  }
+
+  /** His death thins the fog: the way out stands open. */
+  private unsealBossDoors(): void {
+    const shut = this.bossDoors().filter((d) => d.locked || !d.open);
+    if (!shut.length) return;
+    for (const g of shut) {
+      g.locked = false;
+      g.open = true;
+    }
+    this.msg('The fog thins. The way out stands open.', '#c0a0ff');
+    this.sfx('door');
+  }
+
   /**
    * He puts the room out.
    *
@@ -2674,6 +2759,7 @@ export class World {
         e.deadT += dt;
         continue;
       }
+      if (this.protectedByFog(e)) continue;
       const def = this.view(e);
       if (def.behavior === 'boss') this.checkBossPhase(e);
       e.hurtT = Math.max(0, e.hurtT - dt);
@@ -2973,7 +3059,7 @@ export class World {
       pr.tileX = tx;
       pr.tileY = ty;
       if (pr.thrownBase) pr.traveled = (pr.traveled ?? 0) + 1;
-      if (blocksSight(f, tx, ty)) {
+      if (blocksSight(f, tx, ty) || this.crossesBossBoundary(previous.x, previous.y, tx, ty)) {
         pr.speed = 0;
         if (pr.thrownBase) this.landThrown(pr.thrownBase, previous.x, previous.y);
         else this.sfx('break', tx, ty);
@@ -3042,6 +3128,7 @@ export class World {
   }
 
   private thrownHit(pr: Projectile, e: EnemyState): void {
+    if (this.protectedByFog(e)) return;
     const player = pr.player ?? this.derived;
     const def = this.view(e);
     const reaction = this.guardReaction(e, def);
@@ -3141,6 +3228,7 @@ export class World {
    * coming back — the shield returns the blow, it does not translate it.
    */
   private reflectOntoAttacker(e: EnemyState, attack: number, type: DamageType): void {
+    if (this.protectedByFog(e)) return;
     const def = enemyDef(e.def);
     const mult = def.resist[type] ?? 1;
     const damage = Math.max(mult > 0 ? 1 : 0, Math.round(attack * mult));
@@ -3156,6 +3244,7 @@ export class World {
 
   /** A reflected bolt landing on a monster: its own damage, its own element. */
   private reflectedHit(pr: Projectile, e: EnemyState): void {
+    if (this.protectedByFog(e)) return;
     const def = enemyDef(e.def);
     const mult = def.resist[pr.type] ?? 1;
     const damage = Math.max(mult > 0 ? 1 : 0, Math.round(pr.damage * mult));

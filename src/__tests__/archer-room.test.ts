@@ -19,20 +19,23 @@ describe('dev archer room', () => {
       startRun(state, seed);
       const w = new World(state);
       const at = dropIntoArcherRoom(w);
-      if (w.floor.enemies.length === 5) found = w;
+      // Denser floors often leave wanderers outside the cleared room, so look
+      // for the 5-archer squad itself rather than an empty rest of the floor.
+      if (w.floor.enemies.filter((e) => e.id.startsWith('archer')).length === 5) found = w;
       else expect(at).toContain('archers');
     }
     expect(found).not.toBeNull();
     const w = found!;
-    expect(w.floor.enemies).toHaveLength(5);
-    for (const e of w.floor.enemies) {
+    const squad = w.floor.enemies.filter((e) => e.id.startsWith('archer'));
+    expect(squad).toHaveLength(5);
+    for (const e of squad) {
       expect(e.ai).not.toBe('dead');
       expect(e.lastSeenX).toBe(w.player.x);
       expect(e.lastSeenY).toBe(w.player.y);
     }
     // The volley starts without the player doing anything.
     tick(w, 6);
-    const acted = w.floor.enemies.some((e) => e.ai === 'windup' || e.ai === 'recover')
+    const acted = squad.some((e) => e.ai === 'windup' || e.ai === 'recover')
       || w.projectiles.length > 0;
     expect(acted).toBe(true);
   });

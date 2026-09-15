@@ -37,6 +37,8 @@ describe('generateFloor', () => {
     for (let depth = 1; depth <= FINAL_DEPTH; depth++) {
       it(`seed ${seed} depth ${depth} is well-formed`, () => {
         const f = generateFloor(seed, depth);
+        expect(f.width).toBe([39, 43, 47, 51, 55, 59][depth - 1]);
+        expect(f.height).toBe(f.width);
         const up = f.stairs.filter((s) => !s.down);
         const down = f.stairs.filter((s) => s.down);
         expect(up).toHaveLength(1);
@@ -85,6 +87,17 @@ describe('generateFloor', () => {
       });
     }
   }
+
+  it('adds playable space at every depth compared with the original maps', () => {
+    // Total open tiles across SEEDS before expansion; bounds alone can grow
+    // without creating any additional rooms or exploration.
+    const originalOpenTiles = [1503, 1671, 2040, 2200, 2324, 2131];
+    for (let depth = 1; depth <= FINAL_DEPTH; depth++) {
+      const openTiles = SEEDS.reduce((total, seed) => total +
+        generateFloor(seed, depth).tiles.filter(tile => tile === FLOOR).length, 0);
+      expect(openTiles).toBeGreaterThan(originalOpenTiles[depth - 1] * 1.2);
+    }
+  });
 
   it('is deterministic per run seed and depth', () => {
     const a = generateFloor(42, 3);

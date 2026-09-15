@@ -42,6 +42,7 @@
   "door_wood",
   "door_iron",
   "door_locked",
+  "door_boss",
   "chest",
   "chest_mimic",
   "chest_open",

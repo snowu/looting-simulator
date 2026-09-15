@@ -590,6 +590,47 @@ const DOOR_IRON_ROWS = [
   K32,
 ];
 
+/**
+ * Throne fog gate. An overlay over the iron leaf (`base: 'door_iron'`), so
+ * `.` stays transparent and the gate reads as iron behind a wall of ash-fog.
+ * Pale bands drift across the middle; the top and bottom stay open so the
+ * iron frame shows through and it never becomes a flat slab.
+ */
+const FOG_ROWS = [
+  '................................',
+  '................................',
+  '................................',
+  '................................',
+  '................................',
+  'hhhgf........f........ghhhhgf..f',
+  'hhhg........f........ghhhhhg....',
+  'g.......f.........gghhgg..f.gghh',
+  '.gghhg..........g..f....ghhhhh..',
+  'f.ggggf........gggg..f..ghhhhgf.',
+  '.....f..........ghhhhg.f..fggg..',
+  '.........ggggg..f.gghhhg........',
+  'f........fghhhhgg....f.gf.......',
+  '..f......gghhhhg.......f........',
+  '.......ghhhggf..fgggg..........g',
+  '...fggg.....gghhhhg........f....',
+  '....ggggf..fgghhhg...........f..',
+  '....ghhhhgg.....gg.f........gggg',
+  'hggf..fgghhgg........f..f.....gh',
+  'hhhhgf.....f..........gghhgg.f..',
+  'hhhhg........f........ghhhhgf..f',
+  'g..f..gggg........fgggg.f..fghhh',
+  '.ghhhhg..........f.......ghhhhg.',
+  '.gghhgg.........f.......ghhhhhgf',
+  '......f..........ghhgg..f.gghhg.',
+  'g..........f.....f.ghhhhg.......',
+  '................................',
+  '................................',
+  '................................',
+  '................................',
+  '................................',
+  '................................',
+];
+
 const d12 = '............';
 const LOCK_ROWS = [
   ...Array.from({ length: 12 }, () => '.'.repeat(32)),
@@ -638,6 +679,8 @@ const EMBERWORKS_CEILING = { r: '#6d251798', q: '#e85d2e98' };
 const WOOD_DOOR = { w: '#5a3a1c', x: '#6e4824', y: '#3a240e', z: '#24160a', i: '#2a2a30', j: '#4a4a54', k: '#15151a', n: '#8a8a94' };
 const IRON_DOOR = { i: '#34343c', j: '#50505a', k: '#1c1c22', n: '#7a7a86', r: '#5a2a1a', s: '#40201a' };
 const BRASS = { o: '#503810', g: '#a07a2a', h: '#d0a848', k: '#08080a' };
+/** Ash-fog wash for the throne gate: pale lavender over dark iron. */
+const BOSS_FOG = { f: '#6a6285', g: '#8a80a8', h: '#c8bce8', k: '#08080a' };
 
 // MINE_CEIL 'm' should be opaque.
 MINE_CEIL.m = '#080604';
@@ -704,4 +747,5 @@ export const TEXTURES: ArtDef[] = [
   { id: 'door_wood', palette: WOOD_DOOR, rows: DOOR_WOOD_ROWS },
   { id: 'door_iron', palette: IRON_DOOR, rows: DOOR_IRON_ROWS },
   { id: 'door_locked', base: 'door_iron', palette: BRASS, rows: LOCK_ROWS },
+  { id: 'door_boss', base: 'door_iron', palette: BOSS_FOG, rows: FOG_ROWS },
 ];
