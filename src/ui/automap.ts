@@ -1,5 +1,5 @@
 import { Dir } from '../core/dir';
-import { Floor, FLOOR, PILLAR, WALL } from '../systems/dungeon';
+import { Floor, FLOOR, PILLAR, WALL, isBossDoor } from '../systems/dungeon';
 import { enemyDef } from '../data/enemies';
 
 export interface MapView {
@@ -22,6 +22,7 @@ const C = {
   edge: '#8a7a64',
   door: '#b07840',
   locked: '#e0b040',
+  boss: '#c0a0ff',
   up: '#e0d070',
   down: '#50d0d0',
   loot: '#ffd24a',
@@ -78,7 +79,11 @@ export function drawMap(canvas: HTMLCanvasElement, f: Floor, px: number, py: num
     ctx.fillRect(ox + x * cell + Math.round((cell - s) / 2), oy + y * cell + Math.round((cell - s) / 2), s, s);
   };
 
-  for (const d of f.doors) if (seen(d.x, d.y)) dot(d.x, d.y, d.locked ? C.locked : C.door, d.open ? 0.35 : 0.7);
+  for (const d of f.doors) {
+    if (!seen(d.x, d.y)) continue;
+    const boss = isBossDoor(f, d);
+    dot(d.x, d.y, d.locked ? C.locked : boss ? C.boss : C.door, d.open ? 0.35 : 0.7);
+  }
   for (const s of f.stairs) if (seen(s.x, s.y)) dot(s.x, s.y, s.down ? C.down : C.up, 0.9);
   for (const s of f.secrets) if (s.found) dot(s.x, s.y, C.secret, 0.5);
   for (const p of f.props) if (p.kind === 'chest' && seen(p.x, p.y)) dot(p.x, p.y, p.used ? C.floorDim : C.chest, 0.6);

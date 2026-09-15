@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { Dir, DIRS, DX, DY, turnRight } from '../core/dir';
 import { biomeForFloor } from '../data/biomes';
-import { Door, Floor, FLOOR, PILLAR, Secret, WALL, stairsAt, tileAt } from '../systems/dungeon';
+import { Door, Floor, FLOOR, PILLAR, Secret, WALL, isBossDoor, stairsAt, tileAt } from '../systems/dungeon';
+import { fogGateMaterial } from './fog-gate';
 import { artTexture } from './art-cache';
 import { PS1Material, Shared, ps1Material } from './ps1';
 
@@ -191,6 +192,7 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
 
   // --- Doors -----------------------------------------------------------------
   const doors: DoorView[] = [];
+  const fogs: { door: Door; mesh: THREE.Mesh; material: THREE.ShaderMaterial }[] = [];
   const doorGeo = new THREE.BoxGeometry(TILE - 0.08, DOOR_H, 0.14);
   doorGeo.translate((TILE - 0.08) / 2, DOOR_H / 2, 0);
   geometries.push(doorGeo);
@@ -205,6 +207,27 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
     frame.position.set(cx, 0, cz);
     // Door leaf spans x when the passage runs north–south.
     if (!door.ns) frame.rotation.y = Math.PI / 2;
+    if (isBossDoor(floor, door)) {
+      const geo = new THREE.PlaneGeometry(TILE - 0.20, DOOR_H);
+      const material = fogGateMaterial(shared);
+      material.uniforms.uOpacity.value = door.open ? 0 : 1;
+      const mesh = new THREE.Mesh(geo, material);
+      mesh.position.y = DOOR_H / 2;
+      frame.add(mesh);
+      // Heavy stone jambs anchor the otherwise weightless curtain.
+      const jamb = new THREE.BoxGeometry(0.16, DOOR_H, 0.42);
+      for (const side of [-1, 1]) {
+        const post = new THREE.Mesh(jamb, lintelMat);
+        post.position.set(side * (TILE / 2 - 0.08), DOOR_H / 2, 0);
+        frame.add(post);
+      }
+      frame.add(new THREE.Mesh(lintelGeo, lintelMat));
+      root.add(frame);
+      geometries.push(geo, jamb);
+      materials.push(material);
+      fogs.push({ door, mesh, material });
+      continue;
+    }
     const pivot = new THREE.Group();
     pivot.position.set(-(TILE - 0.08) / 2, 0, 0);
     const openTex = artTexture(door.iron ? 'door_iron' : biome.door);
@@ -240,6 +263,13 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
     doors,
     secrets,
     update(dt: number) {
+      for (const fog of fogs) {
+        const u = fog.material.uniforms;
+        u.uTime.value += dt;
+        const target = fog.door.open ? 0 : 1;
+        u.uOpacity.value += Math.sign(target - u.uOpacity.value) * Math.min(Math.abs(target - u.uOpacity.value), dt * 3);
+        fog.mesh.visible = u.uOpacity.value > 0;
+      }
       for (const dv of doors) {
         const target = dv.door.open ? -1.75 : 0;
         dv.angle += Math.sign(target - dv.angle) * Math.min(Math.abs(target - dv.angle), dt * 4.5);
