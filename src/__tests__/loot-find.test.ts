@@ -67,7 +67,7 @@ describe('loot find formula', () => {
     const reps = playtest({
       runs: 6,
       seed: 9000,
-      prepare: (s) => geared(gearAt(4), MID_META)(s, 0),
+      prepare: (s) => geared(gearAt(4), MID_META)(s),
       policy: { parrySkill: 0.55, drinkAt: 0.6, fleeAt: 0.45, targetDepth: 4 },
     });
     expect(reps.filter((r) => r.outcome === 'timeout')).toHaveLength(0);
