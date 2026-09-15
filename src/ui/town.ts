@@ -39,7 +39,7 @@ import { paperDoll, statSheet } from './dungeon-ui';
 import { audio } from '../audio/sfx';
 import { difficultyOf } from '../data/difficulty';
 import { AccountSummary } from './account';
-import { openSettings } from './settings';
+import { openSettings, settingsGearButton } from './settings';
 
 export type TownTab = 'market' | 'forge' | 'guild' | 'stash' | 'bestiary' | 'warden';
 
@@ -207,11 +207,7 @@ export class Town {
         'primary big',
       ),
       this.syncCompact(),
-      h('button', {
-        class: 'btn small icon-btn',
-        title: 'Settings — difficulty, cloud saves',
-        onclick: () => this.openSettings(),
-      }, artImg('ic_gear', undefined, 28)),
+      settingsGearButton(() => this.openSettings(), 'Settings — difficulty, sound, cloud saves', 28),
     );
     const tabBar = h(
       'div',
@@ -298,6 +294,7 @@ export class Town {
       toast: (t, c) => this.ctx.toast(t, c),
       account: () => this.ctx.account?.() ?? null,
       onClose: () => this.render(),
+      showDifficulty: true,
     });
   }
 

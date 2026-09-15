@@ -1,16 +1,18 @@
 import { GameState } from '../state/game-state';
 import { DIFFICULTIES, DIFFICULTY_IDS, difficultyOf } from '../data/difficulty';
 import { audio } from '../audio/sfx';
-import { btn, h } from './dom';
+import { artImg, btn, h } from './dom';
 
 /**
- * Settings, behind the gear in the town header.
+ * Settings, behind the gear in the town header, on the title screen, and in
+ * the dungeon HUD.
  *
- * Two things live here rather than in town itself: the difficulty switch,
- * which does not need to be visible on every visit, and the full account
- * panel, whose sign-in flow wants room the header never had. The header keeps
- * only the compact sync status (or a Connect button). Same overlay pattern as
- * the patch notes: backdrop or Escape closes it.
+ * Bleakmere shows everything: the difficulty switch, audio, and the full
+ * account panel. The title screen and the dungeon show only audio and login —
+ * difficulty lives in Bleakmere alone, so it can only be changed between
+ * delves, never mid-run or before a save exists. The header keeps only the
+ * compact sync status (or a Connect button). Same overlay pattern as the
+ * patch notes: backdrop or Escape closes it.
  */
 
 export interface SettingsCtx {
@@ -21,11 +23,35 @@ export interface SettingsCtx {
   account: () => HTMLElement | null;
   /** Town refreshes behind the modal (e.g. the header sync status). */
   onClose: () => void;
+  /**
+   * Show the difficulty switch. True in Bleakmere, false everywhere else —
+   * the title screen and the dungeon get audio + login only.
+   */
+  showDifficulty?: boolean;
+}
+
+/** True while the settings modal is open. The dungeon loop uses it to pause. */
+export function isSettingsOpen(): boolean {
+  return document.querySelector('.settings-wrap') !== null;
+}
+
+/**
+ * The gear button, shared by town, title and dungeon so all three open the
+ * same modal. The icon comes from the sprite sheet, not an emoji, so it reads
+ * at 28px without blurring.
+ */
+export function settingsGearButton(onOpen: () => void, title: string, size = 28): HTMLButtonElement {
+  const el = btn('', onOpen, 'small icon-btn');
+  el.title = title;
+  el.setAttribute('aria-label', title);
+  el.append(artImg('ic_gear', undefined, size));
+  return el;
 }
 
 export function openSettings(ctx: SettingsCtx): void {
   closeSettings();
   audio.play('ui');
+  const showDifficulty = ctx.showDifficulty ?? true;
   const wrap = h('div', { class: 'modal-wrap settings-wrap' });
   const difficultyBox = h('div', {});
   const accountBox = h('div', {});
@@ -140,7 +166,7 @@ export function openSettings(ctx: SettingsCtx): void {
       h('h2', { class: 'grow', text: 'Settings' }),
       btn('Close', () => closeSettings(), 'small'),
     ),
-    difficultyBox,
+    ...(showDifficulty ? [difficultyBox] : []),
     audioBox(),
     h('h3', { style: 'margin-top:10px', text: 'Cloud saves' }),
     h('p', { class: 'dim small', text: 'Optional. Signed out, the game plays exactly as it always has.' }),
@@ -167,12 +193,16 @@ export function openSettings(ctx: SettingsCtx): void {
   if (acc) accountBox.append(acc);
   wrap.append(modal);
   document.getElementById('app')?.append(wrap) ?? document.body.append(wrap);
-  renderDifficulty();
+  if (showDifficulty) renderDifficulty();
 }
 
 export function closeSettings(): void {
   for (const el of document.querySelectorAll('.settings-wrap')) {
-    (el as unknown as Record<string, (() => void) | undefined>).__close?.();
+    // Remove first, then run the close callback: on the title screen onClose
+    // re-enters the title, which itself calls closeSettings — if the wrap were
+    // still attached that would recurse forever and the modal would never go
+    // away.
     el.remove();
+    (el as unknown as Record<string, (() => void) | undefined>).__close?.();
   }
 }

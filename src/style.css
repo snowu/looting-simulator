@@ -416,6 +416,26 @@ table.market .market-owned { color: var(--gold); font-weight: 700; }
   right: max(14px, env(safe-area-inset-right));
   bottom: max(14px, env(safe-area-inset-bottom));
 }
+/* Gear buttons pinned top-right beside the fullscreen toggle: one fixed
+   (title screen), one in the HUD layer (dungeon). Same spot in both, so the
+   muscle memory carries over. The 42px offset clears the 34px fullscreen
+   button plus its gap. */
+.title-gear {
+  position: fixed;
+  top: max(8px, env(safe-area-inset-top));
+  right: calc(max(8px, env(safe-area-inset-right)) + 42px);
+  z-index: 50;
+}
+.title-gear .icon-btn img, .hud-gear img { display: block; }
+/* In-game gear: left of the fullscreen button, clear of the minimap below it
+   and the compass beside it. */
+.hud-gear {
+  position: absolute;
+  top: max(8px, env(safe-area-inset-top));
+  right: calc(max(16px, env(safe-area-inset-right)) + 42px);
+  z-index: 3;
+  background: #16121bd9;
+}
 .help { font-size: 19px; text-align: left; columns: 2; column-gap: 30px; }
 .help div { break-inside: avoid; }
 .help kbd { font-family: inherit; color: var(--gold); display: inline-block; min-width: 118px; padding-right: 8px; }
