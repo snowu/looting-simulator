@@ -17,6 +17,8 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 
 // Commits that must never become patch notes. Short hash -> reason.
 const SKIP = {
+  'c5e5389': 'merge only; economy and altar changes covered by Patch 46',
+  'a818fc6': 'merge only; original changes already curated',
   '53f1d86': 'merge only; original changes are already curated',
   '38727b0': 'dev art-sheet information only',
   '83affdc': 'settings access and fullscreen UI; no gameplay or balance change',
