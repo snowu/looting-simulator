@@ -1,3 +1,4 @@
+import { EMBER_DOOR } from './ember-door';
 import { EMBER_FLOORS, EMBER_CEILINGS } from './ember-floor';
 import { ArtDef } from './raster';
 import { rows, stamp } from './helpers';
@@ -473,22 +474,25 @@ const EMBER_POOL = rows(`
   ....sssss....sss.......
 `);
 const EMBER_GRATE = rows(`
-  ....ssssssssssssss....
-  ..ssrrrrrrrrrrrrrrss..
-  .srroorioriorioroorrs.
-  .sroCoIooIooIooICoors.
-  .srooCIoCIoCIoCIooors.
-  .sroCoIooIooIooICoors.
-  .srooCIoCIoCIoCIooors.
-  .sroooIooIooIooIooors.
-  .srrooIooIooIooIoorrs.
-  ..ssrrirrirrirrirrss..
-  ....ssssssssssssss....
+  ........ii..............
+  .....iiiIiiii...........
+  ...iiIIiiiirriii........
+  ..iIIirrroorrrii........
+  .iIIirooIooroorrii.......
+  .iIiroooIooorooorii.....
+  iIIiroooIoorIoooorIi....
+  iIirooorIoooIooooriIi...
+  iIirooorIoooIooorriIii..
+  .iIIirooorooIoorriiIiii.
+  ..iIIirroooorrrriIIii...
+  ...iIIIirrrriiIIIii....
+  ....iiIIIIIIIiii.......
+  ......iiiiiiii.........
 `);
 const EMBER_WALL_ROWS = BRICK_ROWS;
 const EMBER_WALL_SEAM_ROWS = stamp(EMPTY_WALL_ROWS, EMBER_MORTAR, 11, 9);
 const EMBER_WALL_POOL_ROWS = stamp(EMPTY_WALL_ROWS, EMBER_POOL, 4, 21);
-const EMBER_WALL_GRATE_ROWS = stamp(EMPTY_WALL_ROWS, EMBER_GRATE, 5, 12);
+const EMBER_WALL_GRATE_ROWS = stamp(EMPTY_WALL_ROWS, EMBER_GRATE, 4, 13);
 
 // Doors -------------------------------------------------------------------------
 const DOOR_WOOD_ROWS = rows(`
@@ -679,6 +683,8 @@ export const TEXTURES: ArtDef[] = [
 
   // Doors
   { id: 'door_wood', palette: WOOD_DOOR, rows: DOOR_WOOD_ROWS },
+  EMBER_DOOR,
+  { id: 'door_emberworks_locked', base: 'door_emberworks', palette: BRASS, rows: LOCK_ROWS },
   { id: 'door_iron', palette: IRON_DOOR, rows: DOOR_IRON_ROWS },
   { id: 'door_locked', base: 'door_iron', palette: BRASS, rows: LOCK_ROWS },
 ];

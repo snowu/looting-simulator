@@ -135,12 +135,16 @@ Every generated floor is checked: all walkable tiles reachable, keys reachable w
 
 Wall choices use a position hash, without generation RNG. Emberworks uses five
 slots: two soot-only walls, one split mortar seam, one molten bottom course and
-one iron grate. Wall emissive pixels breathe at amplitude **0.35**, speed **3.8 rad/s**,
+one recessed furnace opening. Furnace candidates within two wall tiles of a
+higher-priority candidate become soot brick, preventing adjacent grates. Pillars
+use soot brick. Wall emissive pixels breathe at amplitude **0.35**, speed **3.8 rad/s**,
 with phases offset by world position. Ambient light varies **±8% at 0.4 Hz**.
 Floor and ceiling each have four separately hashed broken-basalt textures.
 Floor glow uses amplitude/speed pairs **0.55/0.65**, **0.30/0.95**, **0.70/1.25**,
-and **0.90/0.48** (speeds in rad/s); ceiling pairs range from **0.35/0.50** to
-**0.71/1.31**. Warm residual light keeps the dry crust readable around the gaps.
+and **0.90/0.48** (speeds in rad/s); ceiling pairs range from **0.20/0.50** to
+**0.38/1.31**. Warm residual light keeps the dry crust readable around the gaps. The ceiling
+palette is dimmer than the floor. Emberworks doors use warped hot iron, with
+matching locked art and a gentle **0.18/0.8** pulse.
 Ceiling beads grow and wobble for **2.8–4.3 seconds** before detaching, then fall
 with slower acceleration than Catacombs water. Floor bubbles swell for **1.25 s**
 and burst at intervals of **6–10 s** near the view. Both use a renderer-only

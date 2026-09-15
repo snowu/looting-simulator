@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { emberWallTexture } from './ember-wall';
 import { EMBER_FLOOR_IDS, EMBER_CEILING_IDS } from '../art/ember-floor';
 import { Dir, DIRS, DX, DY, turnRight } from '../core/dir';
 import { biomeForFloor } from '../data/biomes';
@@ -154,7 +155,8 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
       if (t === PILLAR) {
         const p = 0.42 * TILE;
         // Outward-facing column faces.
-        const tex = biome.wallVariants?.length
+        const tex = biome.id === 'emberworks' ? biome.wall
+          : biome.wallVariants?.length
           ? biome.wallVariants[hash3(x, y, 9) % biome.wallVariants.length]
           : hash3(x, y, 9) < 50 ? biome.wall : biome.wallAlt;
         for (const d of DIRS) {
@@ -177,7 +179,8 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
       for (const d of DIRS) {
         const nx = x + DX[d], ny = y + DY[d];
         if (tileAt(floor, nx, ny) !== WALL || secretAtTile(nx, ny)) continue;
-        const tex = biome.wallVariants?.length
+        const tex = biome.id === 'emberworks' ? emberWallTexture(nx, ny, d)
+          : biome.wallVariants?.length
           ? biome.wallVariants[hash3(nx, ny, d) % biome.wallVariants.length]
           : hash3(nx, ny, d) < 12 ? biome.wallAlt : biome.wall;
         wallQuad(tex, cx, cz, d, 0, WALL_H);
@@ -192,7 +195,7 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
     const roof = EMBER_CEILING_IDS.indexOf(tex);
     const crust = EMBER_FLOOR_IDS.indexOf(tex);
     const heat: [number, number] = crust >= 0 ? CRUST_PULSES[crust]
-      : roof >= 0 ? [0.35 + roof * 0.12, 0.5 + roof * 0.27] : [0.35, 3.8];
+      : roof >= 0 ? [0.20 + roof * 0.06, 0.5 + roof * 0.27] : [0.35, 3.8];
     const mat = ps1Material(shared, artTexture(tex), water
       ? { transparent: true, depthWrite: false, side: THREE.DoubleSide }
       : { fillLight: crust >= 0 || roof >= 0 ? [0.48, 0.32, 0.26] : undefined, pulse: biome.id === 'emberworks' ? heat : biome.id === 'frostvault' && tex !== ceiling ? [0.15, 1.1] : undefined });
@@ -220,9 +223,10 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
     if (!door.ns) frame.rotation.y = Math.PI / 2;
     const pivot = new THREE.Group();
     pivot.position.set(-(TILE - 0.08) / 2, 0, 0);
-    const openTex = artTexture(door.iron ? 'door_iron' : biome.door);
-    const lockedTex = artTexture('door_locked');
-    const mat = ps1Material(shared, door.locked ? lockedTex : openTex);
+    const hotIron = biome.id === 'emberworks';
+    const openTex = artTexture(hotIron ? 'door_emberworks' : door.iron ? 'door_iron' : biome.door);
+    const lockedTex = artTexture(hotIron ? 'door_emberworks_locked' : 'door_locked');
+    const mat = ps1Material(shared, door.locked ? lockedTex : openTex, hotIron ? { pulse: [0.18, 0.8] } : {});
     materials.push(mat);
     pivot.add(new THREE.Mesh(doorGeo, mat));
     frame.add(pivot);

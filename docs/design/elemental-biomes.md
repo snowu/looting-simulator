@@ -517,3 +517,24 @@ Validation: 475 tests, production build and static balance tables pass. The
 8-run-per-profile playtest completes 56 delves without timeouts; all eight
 prepared expeditions reach depth 6. Headless Chromium reports no runtime or
 WebGL errors during the three-biome capture.
+
+
+## Spec audit and subsequent art refinements
+
+All four planned phases are implemented. The Delver Mole, root cache, eight
+variants, bestiary entries, inherited-stat tests, weighted biome spawns, separate
+icicle RNG, frozen surfaces and clustered ceiling sprites are present. Saves
+keep their schema. The idle/attack/guard poses follow the live animation system;
+an unused second idle frame was not added. The mole follows the current timed
+guard rules. The explicitly parked tunneller, falling-icicle hazard and icicle
+line-of-sight mechanics remain unimplemented.
+
+Later visual feedback extends the original Emberworks scope: four lava-crust
+floor and ceiling layouts, independent pulse rates, heavy hanging lava beads,
+and harmless floor bubbles/bursts. The ceiling has a dimmer palette and gentler
+pulse than the floor. Recessed furnace openings have chipped masonry and bent
+bars, and a deterministic spacing rule leaves at least two ordinary wall panels
+between them; pillars use solid soot brick. A warped iron door glows along its
+sagging lower edge, including a matching locked variant. The root cache is a
+low mound of earth with branching roots and an exposed buried shard. None of
+these visual refinements change loot, damage or generation RNG.

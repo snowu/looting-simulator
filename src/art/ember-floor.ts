@@ -46,7 +46,7 @@ export function emberFloorIndex(x: number, y: number): number {
 export const EMBER_CEILING_IDS = ['ceil_emberworks', 'ceil_emberworks_shelf', 'ceil_emberworks_blister', 'ceil_emberworks_split'];
 export const EMBER_CEILINGS: ArtDef[] = LAYOUTS.map((points, i) => ({
   id: EMBER_CEILING_IDS[i],
-  palette: { ...PALETTE, a: '#211c20', b: '#30252a', c: '#413034', d: '#634336', r: '#813118', s: '#b84418fa' },
+  palette: { ...PALETTE, a: '#211c20', b: '#30252a', c: '#413034', d: '#634336', r: '#813118', s: '#813012fa', h: '#a13a12fa', o: '#be571bfa', y: '#df953cfa' },
   rows: crust(points.map(([x, y]) => [(y + 7) % 32, (x + 11) % 32]), i + 4),
 }));
 export function emberCeilingIndex(x: number, y: number): number {

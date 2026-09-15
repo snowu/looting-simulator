@@ -3,8 +3,8 @@
 ## Emberworks
 
 Four walls place heat differently: unlit soot brick, an opened mortar joint,
-a molten lower course, and an iron grille silhouetted against furnace light.
-The unlit wall occupies two of five hash slots. Heat pulses out of phase between
+a molten lower course, and a rare recessed vent with broken brick and bent bars.
+The unlit wall occupies two of five hash slots; nearby vent candidates also become soot brick. Heat pulses out of phase between
 surfaces and the room has a slower ambient pulse.
 
 Floor and ceiling now each mix four broken-basalt layouts, with dry plates
@@ -62,7 +62,7 @@ The GIF samples the real renderer, including existing torch flicker.
 
 ## Validation
 
-- 477 tests pass, including inherited stats, spawn restrictions, neutral spawns,
+- 478 tests pass, including inherited stats, spawn restrictions, neutral spawns,
   mole flanking, root-cache interaction, save round trips and icicle RNG isolation.
 - Production build, typecheck and art-manifest validation pass.
 - 56 scripted delves (8 per profile): no timeouts; all 8 prepared expeditions
@@ -80,3 +80,9 @@ uses the normal game renderer and real-time effects; the animation is sampled.
 The lava checks cover pool limits, pause, floor transitions, and unchanged floor data.
 The resident sheet uses the registered idle/attack sprites, including PNGs
 regenerated for the game. No player save was changed.
+
+## Recessed vents and refreshed props
+
+The ceiling is dimmer, and rare broken-brick vents have bent bars and at least two ordinary panels between openings. Emberworks doors have warped iron and hot lower edges. Root caches are low soil mounds bound by tangled roots.
+
+![Hot iron doors, recessed vent and root cache](emberworks-props.png)

@@ -28,7 +28,7 @@ describe('pixel art', () => {
   });
 
   it('everything the data references exists', () => {
-    const needed = new Set<string>(['ic_blueprint', 'ic_key', 'ic_gold', 'door_locked', 'ui_frame', 'water_catacombs']);
+    const needed = new Set<string>(['ic_blueprint', 'ic_key', 'ic_gold', 'door_locked', 'door_emberworks_locked', 'ui_frame', 'water_catacombs']);
     for (const m of MATERIALS) needed.add(m.icon);
     for (const b of ITEM_BASES) needed.add(b.icon);
     for (const c of CONSUMABLES) needed.add(c.icon);
