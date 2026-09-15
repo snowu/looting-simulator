@@ -930,6 +930,7 @@ function tryGenerate(
   };
   const pool = ENEMIES.filter((e) => e.weight > 0 && e.minDepth <= depth && depth <= e.maxDepth
     && (e.id !== 'mole' || biome.id === 'burrows')
+    && (e.id !== 'bog_seraph' || biome.id === 'sporegrove')
     && (!ELEMENTAL_VARIANT_IDS.has(e.id) || e.element === biome.element)
     && !(biome.element && e.element && e.element !== biome.element));
   const roomTiles = (r: Room) => {

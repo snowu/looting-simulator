@@ -54,6 +54,83 @@ const RAT_BITE = rows(`
 `);
 const RAT_PAL = { k: '#140e0c', a: '#3a2c24', b: '#5e4a3c', c: '#7e6654', p: '#c88080', r: '#ff3020fa', w: '#f0e8d8', m: '#6a0c0c' };
 
+// --- Bog Seraph ---------------------------------------------------------------
+// A frog in a halo: matted-fur wings radiating three to a side with eyes on
+// them, a bone tail-ring for a halo, and a wide-grinning frog face in the
+// middle with bulging white eyes and buck teeth. Half-sprite; the mirror
+// completes the choir.
+const SERAPH_HALF = rows(`
+  .........kkkkkk.
+  .........kbbbbbk
+  .........kbbbbkr
+  .kkk......kbbbbk
+  kbbbk.....kbbbbk
+  kbbbkkk...kbbbbk
+  ..kkrbk.k..kbbk.
+  ...kbbbk.kkbbk..
+  ....kbbbkbbbk...
+  ....kbbbbbbbbk..
+  ....kbbbk..www..
+  kbbbk.....ffffff
+  kkrrkk...fffwwrw
+  kbbbbbb...fwwwww
+  kbbbbbbb...fffff
+  kbbbbf...fffmmmm
+  kbbbf...fffwmwmm
+  kbff...ffffmmmmm
+  kbbk....ffwwff..
+  kbrbkk...ww..ww.
+  kbbbbbk...wwww..
+  kbbbbbbk...www..
+  kbbbbk.....w....
+  kbbk.k..........
+  ....kbbbk.......
+  ....kbrrbk......
+  ....kbbbbk......
+  .....kbbk.......
+  ......kbbkppk...
+  .......kbkppk...
+  .......kkkpk....
+  ................
+`);
+// The castigation: the grin gapes ear to ear, the brow-eyes bulge, the halo
+// ignites bone-to-white and the lower wings droop while the upper holds.
+const SERAPH_ATK_HALF = rows(`
+  .........kkkkkk.
+  .........kbbbbbk
+  .........kbbbwrr
+  kkkk......kbbbbk
+  kkbbk.....kbbbbk
+  kbbbkkk...kbbbbk
+  ..kkrbk.k..kbbk.
+  ...kbbbk.kkbbk..
+  ....kbbbkbbbk...
+  ....kbbbbbbbbk..
+  ....kbbbk..eee..
+  kbbbk.....fwwfff
+  kkrrkk...fwwwwrw
+  kbbbbbb...fwwwww
+  kbbbbbbb...fffff
+  kbbbbf...mmmmmmm
+  kbbbf...mmmmmmmm
+  kbff...ffffmmmmm
+  kbbk....ffeffe..
+  .....k...ee..ee.
+  kk....k...eeee..
+  kbrrbk...ee..ee.
+  kbbbbbk...eeee..
+  kbbbbbbk...eee..
+  kbbbbk.....e....
+  kbbk.k....kbbbk.
+  ....kbbbk.......
+  ....kbrrbk......
+  ....kbbbbk......
+  .....kbbk..ppk..
+  ......kbbkppk...
+  .......kbkppk...
+`);
+const SERAPH_PAL = { k: '#140e0c', a: '#2c2018', b: '#4a382c', c: '#6a5848', p: '#c88080', r: '#ff3020fa', w: '#f0e8d8', m: '#6a0c0c', e: '#fffffffa', f: '#8ac858' };
+
 // --- Goblin cutpurse ---------------------------------------------------------
 const GOBLIN_HALF = rows(`
   ................
@@ -565,6 +642,9 @@ const archerBones = stamp(stamp(SKELETON_BASE, ARCHER_TRIM_ARMS, 5, 20), ARCHER_
 export const ENEMY_ART_A: ArtDef[] = [
   { id: 'rat_0', palette: RAT_PAL, rows: sym(RAT_HALF) },
   { id: 'rat_atk', palette: RAT_PAL, rows: sym(stamp(RAT_HALF, RAT_BITE, 0, 22)) },
+
+  { id: 'bogseraph_0', palette: SERAPH_PAL, rows: sym(SERAPH_HALF) },
+  { id: 'bogseraph_atk', palette: SERAPH_PAL, rows: sym(SERAPH_ATK_HALF) },
 
   { id: 'goblin_0', palette: GOBLIN_PAL, rows: stamp(GOBLIN_BASE, GOBLIN_DAGGER, 28, 15) },
   {

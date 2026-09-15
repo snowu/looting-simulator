@@ -93,6 +93,19 @@ export const ENEMIES: EnemyDef[] = [
     description: 'Big as a dog, twice as hungry.',
   },
   {
+    id: 'bog_seraph', name: 'Bog Seraph', sprite: 'bogseraph', scale: 1.0,
+    hp: 145, attack: 21, defense: 13, damageType: 'pierce', resist: { slash: 1.5, blunt: 0.85 },
+    behavior: 'melee', step: 0.65, windup: 0.7, recovery: 1.0, sight: 6,
+    minDepth: 3, maxDepth: 5, weight: 0.6,
+    loot: [
+      { id: 'leather', chance: 0.5, min: 1, max: 2 },
+      { id: 'bone', chance: 0.35, min: 1, max: 2 },
+      { id: 'crystal', chance: 0.15, min: 1, max: 1 },
+    ],
+    gold: [8, 22], itemChance: 0.08,
+    description: 'Be not afraid. It is, in the end, a frog.',
+  },
+  {
     id: 'goblin', name: 'Goblin Cutpurse', sprite: 'goblin', scale: 0.8,
     hp: 28, attack: 8, defense: 2, damageType: 'slash', resist: { slash: 1.4, pierce: 1.25 },
     behavior: 'skittish', step: 0.4, windup: 0.45, recovery: 0.7, sight: 7,

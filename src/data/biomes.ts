@@ -90,7 +90,7 @@ export const BIOMES: BiomeDef[] = [
     floor: 'floor_cave', ceiling: 'ceil_cave', door: 'door_wood',
     fog: '#071007', ambient: '#293c22', torch: '#b8dc78', torchDensity: 0.025,
     glow: { color: '#9acf65', density: 0.085, sprite: 'fungus' },
-    favoredEnemies: ['spider', 'ghoul', 'bat', 'spore_hunter'],
+    favoredEnemies: ['spider', 'ghoul', 'bat', 'spore_hunter', 'bog_seraph'],
   },
 ];
 
