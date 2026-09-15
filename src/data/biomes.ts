@@ -12,6 +12,7 @@ export interface BiomeDef {
   floor: string;
   floorVariants?: string[];
   ceiling: string;
+  ceilingVariants?: string[];
   door: string;
   fog: string;
   ambient: string;
@@ -77,6 +78,8 @@ export const BIOMES: BiomeDef[] = [
     id: 'emberworks', name: 'The Emberworks', depths: [3, 4, 5],
     wall: 'wall_emberworks', wallAlt: 'wall_emberworks_b', wallSecret: 'wall_emberworks_s',
     wallVariants: ['wall_emberworks', 'wall_emberworks', 'wall_emberworks_seam', 'wall_emberworks_pool', 'wall_emberworks_grate'],
+    ceilingVariants: ['ceil_emberworks', 'ceil_emberworks_shelf', 'ceil_emberworks_blister', 'ceil_emberworks_split'],
+    floorVariants: ['floor_emberworks', 'floor_emberworks_shelf', 'floor_emberworks_shards', 'floor_emberworks_vent'],
     floor: 'floor_emberworks', ceiling: 'ceil_emberworks', door: 'door_iron',
     fog: '#160603', ambient: '#483022', torch: '#ff7848', torchDensity: 0.09, element: 'fire',
     favoredEnemies: ['ember_wisp', 'flame_wraith', 'goblin_shield', 'cinder_raider'],

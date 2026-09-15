@@ -175,7 +175,7 @@ const biomeGroups: SheetGroup[] = BIOMES.map((b) => ({
       : [{ id: b.wallAlt, label: 'wall alt' }]),
     { id: b.wallSecret, label: 'secret' },
     { id: b.floor, label: 'floor' },
-    ...(b.floorVariants ?? []).filter((id) => id !== b.floor).map((id) => ({ id, label: 'ice floor' })),
+    ...(b.floorVariants ?? []).filter((id) => id !== b.floor).map((id) => ({ id, label: b.id === 'emberworks' ? 'lava crust' : 'ice floor' })),
     ...(b.id === 'frostvault' ? ['icicle_stub', 'icicle_spike', 'icicle_fang'].map((id) => ({ id, label: id })) : []),
     ...(b.id === 'burrows' ? ['root_cache', 'root_cache_broken'].map((id) => ({ id, label: id })) : []),
     ...(b.id === 'catacombs' ? [{ id: 'water_catacombs', label: 'water' }] : []),
@@ -188,7 +188,7 @@ const biomeGroups: SheetGroup[] = BIOMES.map((b) => ({
         { id: 'floor_crypt', label: 'ceiling <- crypt floor' },
         { id: 'floor_cave', label: 'ceiling <- catacombs floor' },
       ]
-      : [{ id: b.ceiling, label: 'ceiling' }]),
+      : (b.ceilingVariants ?? [b.ceiling]).map(id => ({ id, label: 'ceiling' }))),
     { id: b.door, label: 'door' },
   ],
 }));

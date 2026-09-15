@@ -22,6 +22,26 @@ const iceShoulder = rows(`
   .BCBCBCCBCBB.
   ..B..B..B.B..
 `);
+// Short frost ridges follow the wing bones; neither overlaps the face or maw.
+const batRime = rows(`
+  .HC..
+  HCCB.
+  .B...
+`);
+// Torso details stay below the collar in BOTH poses. The raised arms do not
+// carry the chest crust up beside the head.
+const frozenChest = rows(`
+  .HC...HC..
+  HCCBHCCCB.
+  .BCBBCBCB.
+  ..B...B...
+`);
+const moltenChest = rows(`
+  .X....X...
+  XHX..XHX..
+  .XXHXHX...
+  ...X..X...
+`);
 const hotShell = rows(`
   ...X....X...
   ..XHX..XHX..
@@ -52,8 +72,8 @@ function themed(source: ArtDef, variant: typeof ELEMENTAL_VARIANTS[number], pose
   if (variant.base.includes('shield')) pixels = stamp(pixels, hot ? boss : iceShoulder,
     pose === 'block' ? 10 : 1, pose === 'block' ? 18 : pose === 'atk' ? 17 : 19);
   else if (variant.base === 'spider') pixels = stamp(pixels, hotShell, 10, 12);
-  else if (variant.base === 'ghoul') pixels = stamp(pixels, hot ? hotShell : iceShoulder, 4, pose === 'atk' ? 8 : 16);
-  else if (variant.base === 'bat') pixels = stamp(pixels, iceShoulder, 1, 12);
+  else if (variant.base === 'ghoul') pixels = stamp(pixels, hot ? moltenChest : frozenChest, 11, 17);
+  else if (variant.base === 'bat') pixels = stamp(stamp(pixels, batRime, 5, 10), batRime.map(row => [...row].reverse().join('')), 22, 10);
   else pixels = stamp(pixels, hot ? ribHeat : iceShoulder, hot ? 12 : 9, 16);
   return { id: `${variant.sprite}_${pose}`, palette, rows: pixels };
 }

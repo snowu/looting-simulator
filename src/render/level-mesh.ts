@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { EMBER_FLOOR_IDS, EMBER_CEILING_IDS } from '../art/ember-floor';
 import { Dir, DIRS, DX, DY, turnRight } from '../core/dir';
 import { biomeForFloor } from '../data/biomes';
 import { Door, Floor, FLOOR, PILLAR, Secret, WALL, stairsAt, tileAt } from '../systems/dungeon';
@@ -10,6 +11,7 @@ export const WALL_H = 2.6;
 export const DOOR_H = 2.1;
 const STEP_DROP = 0.24;
 const STEPS = 6;
+const CRUST_PULSES: [number, number][] = [[0.55, 0.65], [0.3, 0.95], [0.7, 1.25], [0.9, 0.48]];
 
 export const tileX = (x: number) => x * TILE + TILE / 2;
 export const tileZ = (y: number) => y * TILE + TILE / 2;
@@ -140,7 +142,9 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
 
       const floorTex = biome.floorVariants?.length ? biome.floorVariants[hash3(x, y, 4) % biome.floorVariants.length] : biome.floor;
       B(floorTex).quad([x0, 0, z0], [x1, 0, z0], [x1, 0, z1], [x0, 0, z1], [0, 1, 0]);
-      B(ceiling).quad([x0, WALL_H, z0], [x1, WALL_H, z0], [x1, WALL_H, z1], [x0, WALL_H, z1], [0, -1, 0]);
+      const ceilingTex = ceiling === biome.ceiling && biome.ceilingVariants?.length
+        ? biome.ceilingVariants[hash3(x, y, 6) % biome.ceilingVariants.length] : ceiling;
+      B(ceilingTex).quad([x0, WALL_H, z0], [x1, WALL_H, z0], [x1, WALL_H, z1], [x0, WALL_H, z1], [0, -1, 0]);
       if (biome.id === 'catacombs') {
         B('water_catacombs').quad(
           [x0, 0.018, z0], [x1, 0.018, z0], [x1, 0.018, z1], [x0, 0.018, z1], [0, 1, 0],
@@ -185,9 +189,13 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
     if (!b.idx.length) continue;
     const geo = b.build();
     const water = tex === 'water_catacombs';
+    const roof = EMBER_CEILING_IDS.indexOf(tex);
+    const crust = EMBER_FLOOR_IDS.indexOf(tex);
+    const heat: [number, number] = crust >= 0 ? CRUST_PULSES[crust]
+      : roof >= 0 ? [0.35 + roof * 0.12, 0.5 + roof * 0.27] : [0.35, 3.8];
     const mat = ps1Material(shared, artTexture(tex), water
       ? { transparent: true, depthWrite: false, side: THREE.DoubleSide }
-      : { pulse: biome.id === 'emberworks' ? [0.35, 3.8] : biome.id === 'frostvault' && tex !== ceiling ? [0.15, 1.1] : undefined });
+      : { fillLight: crust >= 0 || roof >= 0 ? [0.48, 0.32, 0.26] : undefined, pulse: biome.id === 'emberworks' ? heat : biome.id === 'frostvault' && tex !== ceiling ? [0.15, 1.1] : undefined });
     if (water) mat.uniforms.uOpacity.value = 0.16;
     geometries.push(geo);
     materials.push(mat);

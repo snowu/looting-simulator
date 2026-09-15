@@ -1,3 +1,4 @@
+import { EMBER_FLOORS, EMBER_CEILINGS } from './ember-floor';
 import { ArtDef } from './raster';
 import { rows, stamp } from './helpers';
 
@@ -421,26 +422,6 @@ const CHECKER_ROWS = [0, 1, 2, 3].flatMap((band) =>
   TILE_A.map((_, i) => (band % 2 === 0 ? TILE_A[i] + TILE_B[i] : TILE_B[i] + TILE_A[i]).repeat(2)),
 );
 
-// Emberworks ground keeps charcoal dirt split by hot seams.
-// Frost rock and glaze are authored separately in frost-textures.ts.
-const EMBER_SEAM = rows(`
-  .....r..........
-  ....rqr.........
-  ...rqqr.........
-  ....rqr.........
-  .....rqr........
-  ......rqqr......
-  .......rqr......
-  ........rqr.....
-  .........rqqr...
-  ..........rqr...
-  ...........r....
-`);
-const EMBER_FLOOR_ROWS = stamp(stamp(DIRT_ROWS, EMBER_SEAM, 1, 1), EMBER_SEAM, 15, 18);
-const EMBER_CEILING_ROWS = stamp(
-  stamp(EMPTY_WALL_ROWS, EMBER_SEAM, 2, 2),
-  EMBER_SEAM, 14, 18,
-);
 const BURROW_ROOT = rows(`
   r.............
   .r............
@@ -622,13 +603,11 @@ const CATACOMB_WATER = { q: '#286b78', r: '#75c2bf' };
 const THRONE = { m: '#7a2410fa', e: '#1a1218', a: '#241a22', b: '#30232c', c: '#3e2e38', d: '#4e3a46' };
 const THRONE_FLOOR = { r: '#b03c18fa', d: '#3a2c34', b: '#1e161c', f: '#2a2026', g: '#3a2e36', a: '#100a0e', c: '#2a2028' };
 const THRONE_CEIL = { m: '#4a160afa', e: '#0e0a0c', a: '#140e12', b: '#1a1318', c: '#20181e', d: '#281e26' };
-const EMBERWORKS_FLOOR = { e: '#100d0d', a: '#241b1a', b: '#352523', c: '#50332b', d: '#714534', p: '#96644b', q: '#ff9a30fa', r: '#b95222fa' };
 const BURROW_WALL = { e: '#2a1c12', a: '#49301b', b: '#61432a', c: '#806044', d: '#977555', p: '#af8860', r: '#281709' };
 const BURROW_FLOOR = { e: '#1c140d', a: '#342417', b: '#4b3320', c: '#63452b', d: '#80593b', p: '#a47751', q: '#bc9368' };
 const BURROW_CEIL = { m: '#100b06', e: '#20140c', a: '#2f1e12', b: '#3f2a18', c: '#503522', d: '#64452e', r: '#281709' };
 const EMBERWORKS_WALL = { m: '#100d0c', e: '#161313', a: '#211b19', b: '#2c2421', c: '#3a2e29', d: '#483830' };
 const EMBERWORKS_HEAT = { s: '#3a1a1080', r: '#b03a1098', o: '#ff8a20fa', C: '#fff0c0fa', i: '#171416', I: '#252126' };
-const EMBERWORKS_CEILING = { r: '#6d251798', q: '#e85d2e98' };
 
 const WOOD_DOOR = { w: '#5a3a1c', x: '#6e4824', y: '#3a240e', z: '#24160a', i: '#2a2a30', j: '#4a4a54', k: '#15151a', n: '#8a8a94' };
 const IRON_DOOR = { i: '#34343c', j: '#50505a', k: '#1c1c22', n: '#7a7a86', r: '#5a2a1a', s: '#40201a' };
@@ -682,8 +661,8 @@ export const TEXTURES: ArtDef[] = [
   { id: 'ceil_throne', palette: THRONE_CEIL, rows: SLAB_ROWS },
 
   // Alternate mid-depth floors
-  { id: 'floor_emberworks', palette: EMBERWORKS_FLOOR, rows: EMBER_FLOOR_ROWS },
-  { id: 'ceil_emberworks', base: 'ceil_mine', palette: EMBERWORKS_CEILING, rows: EMBER_CEILING_ROWS },
+  ...EMBER_FLOORS,
+  ...EMBER_CEILINGS,
 
   // Packed-earth burrows and soot-black furnace masonry
   { id: 'wall_burrows', palette: BURROW_WALL, rows: BURROW_WALL_ROWS },

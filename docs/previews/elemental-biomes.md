@@ -7,9 +7,18 @@ a molten lower course, and an iron grille silhouetted against furnace light.
 The unlit wall occupies two of five hash slots. Heat pulses out of phase between
 surfaces and the room has a slower ambient pulse.
 
-![Emberworks in the game](emberworks-ingame.png)
+Floor and ceiling now each mix four broken-basalt layouts, with dry plates
+above molten gaps and separate pulse rates. Ceiling beads swell and wobble
+before detaching; floor bubbles occasionally burst into harmless lava droplets.
 
-![Live heat pulse](emberworks-heat.gif)
+![Emberworks crust floor and ceiling](emberworks-lava.png)
+
+[Watch the lava drips and bursts](emberworks-lava.mp4)
+
+The Hoarfrost Bat has small ridges along both wings. Frozen Wretch and Slagborn
+chest details stay on their torsos when their arms rise.
+
+![Revised frost and fire details](elemental-details.png)
 
 ## Frost Vault
 
@@ -53,12 +62,21 @@ The GIF samples the real renderer, including existing torch flicker.
 
 ## Validation
 
-- 475 tests pass, including inherited stats, spawn restrictions, neutral spawns,
+- 477 tests pass, including inherited stats, spawn restrictions, neutral spawns,
   mole flanking, root-cache interaction, save round trips and icicle RNG isolation.
-- Production build and static balance tables pass.
+- Production build, typecheck and art-manifest validation pass.
 - 56 scripted delves (8 per profile): no timeouts; all 8 prepared expeditions
   reach depth 6. This is a runtime and reachability check, not a balance retune.
 - No JavaScript or WebGL errors reported during browser capture.
 
 Existing saved floors keep their stored residents and props. New floors get the
 new content. Tunnelling AI and falling/colliding icicles remain outside this pass.
+
+## Lava and resident refinement validation
+
+The new Emberworks capture uses a seed-2 depth-3 room in a disposable
+lab session, with enemies/props removed and pillars cleared for the view. It
+uses the normal game renderer and real-time effects; the animation is sampled.
+The lava checks cover pool limits, pause, floor transitions, and unchanged floor data.
+The resident sheet uses the registered idle/attack sprites, including PNGs
+regenerated for the game. No player save was changed.

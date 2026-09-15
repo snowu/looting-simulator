@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { LavaEffects } from './lava-effects';
 import { DX, DY, turnRight } from '../core/dir';
 import { biomeForFloor, ceilingForFloor } from '../data/biomes';
 import { enemyDef, enemyView } from '../data/enemies';
@@ -50,6 +51,7 @@ export class DungeonRenderer {
   readonly camera = new THREE.PerspectiveCamera(64, 4 / 3, 0.05, 60);
   private scene = new THREE.Scene();
   private shared: Shared = createShared();
+  private lava = new LavaEffects(this.shared);
   private target: THREE.WebGLRenderTarget;
   private post = new PostPass();
   private level: LevelView | null = null;
@@ -98,6 +100,7 @@ export class DungeonRenderer {
     this.vmShared.uAffine.value = 0;
     this.vmWeapon = this.makeSprite(this.vmShared, this.vmScene);
     this.vmShield = this.makeSprite(this.vmShared, this.vmScene);
+    this.scene.add(this.lava.root);
     this.resize();
   }
 
@@ -240,6 +243,7 @@ export class DungeonRenderer {
       const previous = world.run.floors[world.run.depth - 2];
       this.level = buildLevel(floor, this.shared, ceilingForFloor(floor, previous ?? undefined));
       this.levelFloor = floor;
+      this.lava.reset(floor);
       this.trapTriggeredAt.clear();
       for (const d of this.drips) {
         d.active = false;
@@ -277,6 +281,8 @@ export class DungeonRenderer {
     );
     this.camera.rotation.set(0, -a.yaw, this.deathFade * 0.5);
 
+    this.lava.update(biome.id === 'emberworks' ? dt : 0, this.camera);
+
     // --- Lights ---------------------------------------------------------------
     const flick = (seed: number) => 0.9 + Math.sin(this.time * 11 + seed) * 0.06 + Math.sin(this.time * 23.7 + seed * 3) * 0.04;
     const lights: LightCand[] = [];
@@ -291,6 +297,7 @@ export class DungeonRenderer {
       color: handLight,
       intensity: lightIntensity(meta) * flick(0),
     });
+    lights.push(...this.lava.lights());
     for (const t of floor.torches) {
       const wx = tileX(t.x) + DX[t.side] * (TILE / 2 - 0.3);
       const wz = tileZ(t.y) + DY[t.side] * (TILE / 2 - 0.3);
@@ -632,6 +639,7 @@ export class DungeonRenderer {
   }
 
   dispose(): void {
+    this.lava.dispose();
     this.level?.dispose();
     for (const s of this.sprites.values()) s.mat.dispose();
     this.target.dispose();

@@ -73,6 +73,7 @@ const FRAG = /* glsl */ `
   uniform vec3 uLightColor[MAX_LIGHTS];
   uniform int uLightCount;
   uniform vec3 uAmbient;
+  uniform vec3 uFillLight;
   uniform vec3 uFogColor;
   uniform float uFogNear;
   uniform float uFogFar;
@@ -93,7 +94,7 @@ const FRAG = /* glsl */ `
     if (tex.a < 0.5) discard;
     float emissive = (tex.a > 0.96 && tex.a < 0.99) ? 1.0 : 0.0;
     vec3 n = normalize(vNormalW);
-    vec3 light = uAmbient;
+    vec3 light = max(uAmbient, uFillLight);
     for (int i = 0; i < MAX_LIGHTS; i++) {
       if (i >= uLightCount) break;
       vec3 d = uLightPos[i].xyz - vWorld;
@@ -115,6 +116,8 @@ const FRAG = /* glsl */ `
 
 export interface PS1MaterialOptions {
   pulse?: [number, number];
+  /** Local residual heat; zero keeps ordinary materials unchanged. */
+  fillLight?: [number, number, number];
   unlit?: boolean;
   transparent?: boolean;
   side?: THREE.Side;
@@ -139,6 +142,7 @@ export function ps1Material(shared: Shared, map: THREE.Texture, opts: PS1Materia
       uTint: { value: new THREE.Vector4(0, 0, 0, 0) },
       uUnlit: { value: opts.unlit ? 1 : 0 },
       uOpacity: { value: 1 },
+      uFillLight: { value: new THREE.Vector3(...(opts.fillLight ?? [0, 0, 0])) },
       uPulse: { value: new THREE.Vector2(...(opts.pulse ?? [0, 0])) },
     },
     vertexShader: VERT,

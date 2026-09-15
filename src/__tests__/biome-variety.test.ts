@@ -70,7 +70,8 @@ describe('run biome variety', () => {
     const ember = rasterize(getArt('ceil_emberworks')!, undefined, getArt);
     const mine = rasterize(getArt('ceil_mine')!, undefined, getArt);
     expect(Array.from(ember.data)).not.toEqual(Array.from(mine.data));
-    expect(getArt('ceil_emberworks')!.base).toBe('ceil_mine');
+    expect(getArt('ceil_emberworks')!.base).toBeUndefined();
+    expect(BIOMES.find(b => b.id === 'emberworks')!.ceilingVariants).toHaveLength(4);
   });
 
   it('carries whatever preceding floor texture exists into the burrows roof', () => {
