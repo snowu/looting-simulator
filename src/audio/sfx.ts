@@ -7,7 +7,7 @@ export type SfxName =
   | 'step' | 'swing' | 'hit' | 'crit' | 'hurt' | 'block' | 'door' | 'locked' | 'unlock'
   | 'pickup' | 'gold' | 'chest' | 'break' | 'death' | 'enemyDie' | 'stairs' | 'shoot'
    | 'magic' | 'study' | 'winded' | 'secret' | 'ui' | 'craft' | 'drink' | 'alert' | 'miss' | 'sell' | 'recall' | 'parry'
-  | 'kingturn' | 'snuff' | 'splash' | 'retrieve' | 'sigil' | 'sigil_land' | 'drip' | 'plop';
+  | 'kingturn' | 'snuff' | 'splash' | 'retrieve' | 'sigil' | 'sigil_land' | 'drip' | 'plop' | 'lava_drop' | 'lava_land' | 'lava_burst';
 
 export interface PlayOpts {
   volume?: number;
@@ -321,6 +321,23 @@ class AudioEngine {
       // A cave drip: a short glassy plink as the drop necks off. Kept quiet
       // on purpose — the call site spreads volume and pan so distance, not
       // loudness, is what varies from drip to drip. Distant drips only.
+      case 'lava_drop':
+        // A thick neck stretching, then releasing with a rounded glug.
+        this.tone(o, 'sine', 150 * r, 65 * r, 0.27, 0.22);
+        this.tone(o, 'sine', 85 * r, 210 * r, 0.18, 0.15, 0.09);
+        this.noiseBurst(o, 0.24, 'lowpass', 520, 180, 0.12);
+        break;
+      case 'lava_land':
+        this.tone(o, 'sine', 115 * r, 48 * r, 0.23, 0.25);
+        this.noiseBurst(o, 0.3, 'lowpass', 850, 140, 0.22);
+        this.tone(o, 'sine', 180 * r, 290 * r, 0.09, 0.07, 0.06);
+        break;
+      case 'lava_burst':
+        // Short crust-breaking crack, low pressure thump, then hot spray.
+        this.noiseBurst(o, 0.07, 'highpass', 1800, 700, 0.34);
+        this.tone(o, 'sine', 175 * r, 42 * r, 0.2, 0.38);
+        this.noiseBurst(o, 0.32, 'lowpass', 2600, 220, 0.28, 1, 0.015);
+        break;
       case 'drip':
         this.tone(o, 'sine', 1900 * r, 760 * r, 0.07, 0.09);
         this.tone(o, 'sine', 2900 * r, 1450 * r, 0.045, 0.04, 0.008);

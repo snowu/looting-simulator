@@ -1,3 +1,4 @@
+import { ELEMENTAL_VARIANTS, elementalVariant } from './elemental-variants';
 import { EnemyDef } from '../types';
 
 /*
@@ -325,6 +326,27 @@ export const ENEMIES: EnemyDef[] = [
     description: 'He rules what is left.',
   },
 ];
+
+// Added after the base roster so balancing a base updates every themed relative.
+ENEMIES.push(...ELEMENTAL_VARIANTS.map((variant) => {
+  const base = ENEMIES.find((e) => e.id === variant.base)!;
+  const shard = variant.element === 'fire' ? 'flame_shard' : 'frost_shard';
+  return elementalVariant(base, {
+    id: variant.id, name: variant.name, sprite: variant.sprite, element: variant.element,
+    damageType: variant.element, description: variant.description,
+    resist: { ...base.resist, [variant.element]: 0.45, [variant.element === 'fire' ? 'frost' : 'fire']: 1.6 },
+    loot: base.loot.map((drop, i) => i === 0 ? { ...drop, id: shard } : { ...drop }),
+  });
+}));
+ENEMIES.push({
+  id: 'mole', name: 'Delver Mole', sprite: 'mole', scale: 0.75,
+  hp: 32, attack: 9, defense: 3, damageType: 'blunt', resist: { blunt: 0.65, pierce: 1.4, slash: 1.3 },
+  behavior: 'skittish', step: 0.65, windup: 0.8, recovery: 1, sight: 5,
+  shield: { block: 0.55, stun: 0.6 }, minDepth: 1, maxDepth: 3, weight: 1,
+  loot: [{ id: 'rat_hide', chance: 0.42, min: 1, max: 2 }, { id: 'bone', chance: 0.35, min: 1, max: 1 }, { id: 'copper', chance: 0.25, min: 1, max: 2 }],
+  gold: [0, 4], itemChance: 0.02,
+  description: 'It folds its digging claws over its snout when threatened. Strike from behind; those shovels were made to split rock.',
+});
 
 // ---------------------------------------------------------------------------
 // The King's phases

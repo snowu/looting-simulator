@@ -5,10 +5,14 @@ export interface BiomeDef {
   wall: string;
   /** Alternate wall texture, mixed in for variety. */
   wallAlt: string;
+  /** Position-hashed wall choices; repeated IDs provide weighting. */
+  wallVariants?: string[];
   /** Wall texture hinting at a secret passage. */
   wallSecret: string;
   floor: string;
+  floorVariants?: string[];
   ceiling: string;
+  ceilingVariants?: string[];
   door: string;
   fog: string;
   ambient: string;
@@ -59,18 +63,23 @@ export const BIOMES: BiomeDef[] = [
     // Keep a packed-earth roof as the depth-1 fallback, where no preceding floor exists.
     floor: 'floor_burrows', ceiling: 'ceil_burrows', door: 'door_wood',
     fog: '#0e0904', ambient: '#3a2b1a', torch: '#ffbb70', torchDensity: 0.055,
-    favoredEnemies: ['rat', 'bat', 'spider', 'goblin', 'tunnel_stalker'],
+    favoredEnemies: ['rat', 'bat', 'spider', 'goblin', 'tunnel_stalker', 'mole'],
   },
   {
     id: 'frostvault', name: 'The Frost Vault', depths: [3, 4, 5],
     wall: 'wall_frostvault', wallAlt: 'wall_frostvault_b', wallSecret: 'wall_frostvault_s',
-    floor: 'floor_frostvault', ceiling: 'ceil_crypt', door: 'door_iron',
+    wallVariants: ['wall_frostvault', 'wall_frostvault_glaze', 'wall_frostvault_fall', 'wall_frostvault_split', 'wall_frostvault_grate'],
+    floorVariants: ['floor_frostvault', 'floor_frostvault_ice'],
+    floor: 'floor_frostvault', ceiling: 'ceil_frostvault', door: 'door_iron',
     fog: '#050b17', ambient: '#23344c', torch: '#a9d5ff', torchDensity: 0.04, element: 'frost',
     favoredEnemies: ['frost_wisp', 'skeleton_archer', 'skeleton_shield', 'icebound_guard', 'elemental_frost'],
   },
   {
     id: 'emberworks', name: 'The Emberworks', depths: [3, 4, 5],
     wall: 'wall_emberworks', wallAlt: 'wall_emberworks_b', wallSecret: 'wall_emberworks_s',
+    wallVariants: ['wall_emberworks', 'wall_emberworks', 'wall_emberworks_seam', 'wall_emberworks_pool', 'wall_emberworks_grate'],
+    ceilingVariants: ['ceil_emberworks', 'ceil_emberworks_shelf', 'ceil_emberworks_blister', 'ceil_emberworks_split'],
+    floorVariants: ['floor_emberworks', 'floor_emberworks_shelf', 'floor_emberworks_shards', 'floor_emberworks_vent'],
     floor: 'floor_emberworks', ceiling: 'ceil_emberworks', door: 'door_iron',
     fog: '#160603', ambient: '#483022', torch: '#ff7848', torchDensity: 0.09, element: 'fire',
     favoredEnemies: ['ember_wisp', 'flame_wraith', 'goblin_shield', 'cinder_raider'],

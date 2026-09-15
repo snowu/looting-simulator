@@ -28,12 +28,12 @@ describe('pixel art', () => {
   });
 
   it('everything the data references exists', () => {
-    const needed = new Set<string>(['ic_blueprint', 'ic_key', 'ic_gold', 'door_locked', 'ui_frame', 'water_catacombs']);
+    const needed = new Set<string>(['ic_blueprint', 'ic_key', 'ic_gold', 'door_locked', 'door_emberworks_locked', 'ui_frame', 'water_catacombs']);
     for (const m of MATERIALS) needed.add(m.icon);
     for (const b of ITEM_BASES) needed.add(b.icon);
     for (const c of CONSUMABLES) needed.add(c.icon);
     for (const s of SIGILS) needed.add(s.icon);
-    for (const b of BIOMES) for (const id of [b.wall, b.wallAlt, b.wallSecret, b.floor, b.ceiling, b.door]) needed.add(id);
+    for (const b of BIOMES) for (const id of [b.wall, b.wallAlt, ...(b.wallVariants ?? []), ...(b.floorVariants ?? []), ...(b.ceilingVariants ?? []), b.wallSecret, b.floor, b.ceiling, b.door]) needed.add(id);
     for (const e of ENEMIES) {
       needed.add(`${e.sprite}_0`);
       needed.add(`${e.sprite}_atk`);

@@ -33,7 +33,7 @@ describe('hard matches the pre-difficulty game, to the number', () => {
     for (let seed = 0; seed < 200; seed++) {
       for (let depth = 1; depth <= 6; depth++) out.push(scrub(generateFloor(seed, depth, 'hard')));
     }
-    // Eight extra tiles per side and four extra rooms at every depth.
+    // Expanded maps plus elemental residents and the economy/shrine generation pass.
     expect(hash(out)).toBe(golden.expandedFloorHash);
     // Generating 1,200 floors outruns the default 5s budget when the suite
     // runs its files in parallel.

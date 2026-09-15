@@ -123,13 +123,79 @@ Every generated floor is checked: all walkable tiles reachable, keys reachable w
 | 1–2 | The Ossuary | Wood | Stone brickwork, bone niches, warm torchlight |
 | 3–4 | The Deep Mines | Wood | Rubble walls, timber supports, dirt floors |
 | 1–3 | The Sunken Catacombs | Wood | Wet stone, shallow water that splashes underfoot, cold fungus, drowned dead |
-| 1–3 | The Vermin Burrows | Wood | Packed earth, roots, vermin and stalkers |
-| 3–5 | The Frost Vault | Iron | Blue stone, fractured ice, frostbound guards; frost creatures are favored and fire creatures do not spawn |
-| 3–5 | The Emberworks | Iron | Soot-black masonry, hot seams, fire creatures; fire creatures are favored and frost creatures do not spawn |
+| 1–3 | The Vermin Burrows | Wood | Packed earth, root caches, vermin, stalkers and Delver Moles |
+| 3–5 | The Frost Vault | Iron | Rimed masonry, five ice wall variants, two broken-rock-and-ice floors, clustered ceiling icicles; frost creatures are favored and fire creatures do not spawn |
+| 3–5 | The Emberworks | Iron | Four soot-and-molten wall variants, iron grates, pulsing heat, fire creatures; fire creatures are favored and frost creatures do not spawn |
 | 3–5 | The Sporegrove | Wood | Green stone, luminous fungus, spore hunters |
 | 6 | The Ashen Throne | Iron | Obsidian with glowing mortar, banners, the boss |
 
 ---
+
+### Elemental surfaces and residents
+
+Wall choices use a position hash, without generation RNG. Emberworks uses five
+slots: two soot-only walls, one split mortar seam, one molten bottom course and
+one recessed furnace opening. Furnace candidates within two wall tiles of a
+higher-priority candidate become soot brick, preventing adjacent grates. Pillars
+use soot brick. Wall emissive pixels breathe at amplitude **0.35**, speed **3.8 rad/s**,
+with phases offset by world position. Ambient light varies **±8% at 0.4 Hz**.
+Floor and ceiling each have four separately hashed broken-basalt textures.
+Floor glow uses amplitude/speed pairs **0.55/0.65**, **0.30/0.95**, **0.70/1.25**,
+and **0.90/0.48** (speeds in rad/s); ceiling pairs range from **0.20/0.50** to
+**0.38/1.31**. Warm residual light keeps the dry crust readable around the gaps. The ceiling
+palette is dimmer than the floor. Emberworks doors use warped hot iron, with
+matching locked art and a gentle **0.18/0.8** pulse.
+Ceiling beads grow and wobble for **2.8–4.3 seconds** before detaching, then fall
+with slower acceleration than Catacombs water. Floor bubbles swell for **1.25 s**
+and burst at intervals of **6–10 s** at clear, on-screen floor sites. A burst
+sprays 12 larger droplets; sites hidden by walls, pillars, closed doors or blocking
+props are excluded. Moving out of view cancels the bubble and retries nearby.
+Detaching beads glug, landings plop, and floor eruptions crack and thump, with
+distance attenuation and stereo positioning. Both use a renderer-only
+`lava-decor:seed:depth` stream, a pool capped at **5 beads / 28 particles**, and
+at most two low orange lights. They freeze on pause and clear on floor changes.
+Lava decoration has **no damage, collision, interaction or persisted state**;
+texture changes also appear on existing saved floors.
+
+The Frost Vault has five equally weighted wall textures and two floor textures;
+only deep ice cracks glow (amplitude **0.15**, **1.1 rad/s**). Most ice is opaque
+highlight or translucent glaze over stone. Other materials do not pulse.
+
+Frost ceilings have **8–14 cluster centres**, at least four Manhattan tiles apart,
+with **2–5 icicles** per centre where space permits. Height is **0.35–0.9 m**, with
+sub-tile jitter up to **0.55 m**. Decoration uses `icicles:seed:depth`, its own
+random stream. Icicles do not block movement, sight or interaction, emit no point
+lights, and avoid stairs and doors. Existing saved floors stay as stored; newly
+generated frost floors receive the clusters.
+
+| Biome | Resident | Inherits all combat stats and scaling from |
+|---|---|---|
+| Emberworks | Scorched Bones | Skeleton |
+| Emberworks | Cinder Guard | Skeleton Shieldguard |
+| Emberworks | Emberback | Cave Spider |
+| Emberworks | Slagborn | Ghoul |
+| Frost Vault | Rimebound | Skeleton |
+| Frost Vault | Hoarfrost Bat | Cave Bat |
+| Frost Vault | Frozen Wretch | Ghoul |
+| Frost Vault | Glacier Goblin | Goblin Shieldbearer |
+
+These eight variants only spawn in their matching biome and keep their base's
+minimum/maximum depth. Their element becomes their damage type, with **×0.45**
+resistance to that element and **×1.6** vulnerability to the opposite. Every
+other resistance is inherited. Base weight is halved, then the existing aligned
+**×4** multiplier applies; variants never receive the favored-family multiplier.
+The first material drop becomes the corresponding elemental shard, retaining its
+chance and quantity; other drops, gold and item chance are unchanged.
+
+**Delver Mole:** Burrows only, depths 1–3; HP 32, attack 9, defense 3, blunt;
+step 0.65 s, windup 0.8 s, recovery 1 s, sight 5, scale 0.75, base weight 1
+(and Burrows' favored-family multiplier). Skittish AI, ordinary depth scaling.
+Raised digging claws use the existing frontal guard: **55% absorption**, **0.6 s
+bash stun**, the same raise/hold/drop rhythm and guard-break rules as shields.
+Blunt ×0.65, pierce ×1.4, slash ×1.3; flank it while its claws are raised.
+Drops: rat hide 42% (1–2), bone 35% (1), copper 25% (1–2), gold 0–4,
+item chance 2%. Burrows containers are **root caches**, with the same loot and
+smash/open-tile behavior as urns.
 
 ### Depth 6 — The Ashen Throne (the boss floor)
 
