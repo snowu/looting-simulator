@@ -17,6 +17,7 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 
 // Commits that must never become patch notes. Short hash -> reason.
 const SKIP = {
+  '64cff4f': 'cosmetic lava animation and enemy-art refinement; no gameplay or system changes',
   '03f006f': 'merge only; player-facing changes are covered by their original commits',
   a0df8e0: 'merge only; player-facing changes are covered by their original commits',
   ecd94ef: 'water footsteps and catacomb ambience, no gameplay or system change',
