@@ -17,6 +17,13 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 
 // Commits that must never become patch notes. Short hash -> reason.
 const SKIP = {
+  '03f006f': 'merge only; player-facing changes are covered by their original commits',
+  a0df8e0: 'merge only; player-facing changes are covered by their original commits',
+  ecd94ef: 'water footsteps and catacomb ambience, no gameplay or system change',
+  '4c01267': 'volume and mute settings, outside gameplay/system patch notes',
+  '30ecca9': 'item-icon material colors, visual fix only',
+  caf74bb: 'PNG asset validation, internal tooling rather than gameplay',
+  '425c867': 'exported PNG loading pipeline, no gameplay or system change',
   b469c89: 'prototype scaffolding before the game existed',
   '9aa976a': 'gitignore',
   b609499: 'pre-overhaul prototype mechanics',
