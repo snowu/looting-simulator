@@ -29,6 +29,7 @@ import {
   loadLabConfigs, parseLabConfig, saveLabConfig, summarizeLabConfig,
 } from './lab-configs';
 import { btn, h } from '../ui/dom';
+import { giveMaterials } from './give-materials';
 
 let el: HTMLElement | null = null;
 let godTimer = 0;
@@ -527,6 +528,13 @@ function buildForgeSection(
     box.append(h('div', { class: 'row', style: 'gap:4px' },
       btn('Forge & Equip', () => forge(true), 'small primary', !!err),
       btn('To pack', () => forge(false), 'small', !!err),
+      btn('Give all materials (+99)', () => {
+        const ww = getWorld();
+        if (!ww) return;
+        const count = giveMaterials(ww.state);
+        renderForge();
+        notify(`Added 99 each of ${count} materials to the stash.`, '#9ac0ff');
+      }, 'small'),
       btn('Restock', () => {
         const ww = getWorld();
         if (!ww) return;
