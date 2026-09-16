@@ -65,6 +65,8 @@ export interface EquipmentSpec {
   ilvl: number;
   affixes?: AffixRoll[];
   identified?: boolean;
+  autoIdentified?: boolean;
+  lootDepth?: number;
   quality?: number;
   crafted?: boolean;
   craftRank?: number;
@@ -84,6 +86,8 @@ export function makeEquipment(spec: EquipmentSpec): Item {
     ilvl: spec.ilvl,
     affixes: spec.affixes ?? [],
     identified: spec.identified ?? true,
+    autoIdentified: spec.autoIdentified,
+    lootDepth: spec.lootDepth,
     quality: spec.quality ?? 1,
     crafted: spec.crafted,
     craftRank: spec.craftRank,
@@ -635,14 +639,30 @@ export function rollEquipment(rng: Rng, depth: number, find: number, opts: RollE
     ilvl,
     affixes: rollAffixes(rng, base.slot, ilvl, order),
     identified: order < autoId,
+    lootDepth: depth,
+    autoIdentified: order >= RARITY_ORDER[Rarity.Uncommon] && order < autoId,
     quality: Math.round((rng.float(0.86, 1.08) + order * 0.04) * 100) / 100,
   });
 }
 
-function rollGem(rng: Rng, depth: number): MaterialDef {
+function rollGem(rng: Rng, depth: number): MaterialDef | undefined {
   const gems = MATERIALS.filter((m) => m.category === 'gem');
   const available = gems.filter((g) => materialAvailableAtDepth(g, depth));
-  return rng.weighted((available.length ? available : gems).map((g) => [g, materialRarityWeight(g)] as const));
+  return available.length ? rng.weighted(available.map((g) => [g, materialRarityWeight(g)] as const)) : undefined;
+}
+
+/** Empty early pools defer the gem rather than bypassing material gates. */
+function addGem(items: Item[], rng: Rng, depth: number): void {
+  const gem = rollGem(rng, depth);
+  if (gem) items.push(makeMaterial(gem.id, 1));
+}
+
+/** Authored structural exceptions remain; elemental catalysts obey depth gates. */
+function enemyMaterial(id: string, depth: number): string | undefined {
+  const mat = material(id);
+  if (mat.category !== 'gem' || materialAvailableAtDepth(mat, depth)) return id;
+  // Dormant elemental residue grants stamina, without premature damage affixes.
+  return materialAvailableAtDepth(material('crystal'), depth) ? 'crystal' : undefined;
 }
 
 function rollValuable(rng: Rng, depth: number): MaterialDef {
@@ -718,10 +738,18 @@ export function rollEnemyLoot(
     // New drops get their own deterministic stream so adding Wardstones does
     // not move the established corpse-loot sequence on Hard.
     const wardRng = createRng(hashString(`wardstone:${rng.state}:${def.id}:${depth}`));
-    if (wardRng.chance(Math.min(1, wardstone.chance * f))) items.push(makeMaterial('wardstone', wardRng.int(wardstone.min, wardstone.max)));
+    if (wardRng.chance(Math.min(1, wardstone.chance * f))) {
+      const qty = wardRng.int(wardstone.min, wardstone.max);
+      const id = enemyMaterial('wardstone', depth);
+      if (id) items.push(makeMaterial(id, qty));
+    }
   }
   for (const e of def.loot.filter((entry) => entry.id !== 'wardstone')) {
-    if (rng.chance(Math.min(1, e.chance * f))) items.push(makeMaterial(e.id, rng.int(e.min, e.max)));
+    if (rng.chance(Math.min(1, e.chance * f))) {
+      const qty = rng.int(e.min, e.max);
+      const id = enemyMaterial(e.id, depth);
+      if (id) items.push(makeMaterial(id, qty));
+    }
   }
   const gold = Math.round(rng.int(def.gold[0], def.gold[1]) * diff.gold);
   if (def.behavior === 'boss') {
@@ -751,6 +779,16 @@ const FIGHT_MILK_CHANCE = { chest: 0.008, vault: 0.03 };
 /** Scales a find with depth: nothing at the top, full odds at the bottom. */
 function depthFactor(depth: number): number {
   return Math.max(0, Math.min(1, (depth - 1) / 4));
+}
+
+/** Hard bonuses ramp separately from natural rarity; Normal keeps its floors. */
+function specialContainerRarity(rng: Rng, depth: number, difficulty?: DifficultyId): Rarity {
+  if (difficultyOf(difficulty).id !== 'hard') return depth >= 4 ? Rarity.Rare : Rarity.Uncommon;
+  const roll = rng.next();
+  const rareChance = depth < 3 ? 0 : Math.min(1, (depth - 2) * 0.15);
+  const uncommonChance = Math.min(1, 0.2 + (depth - 1) * 0.15);
+  if (roll < rareChance) return Rarity.Rare;
+  return roll < uncommonChance ? Rarity.Uncommon : Rarity.Common;
 }
 
 export function rollContainerLoot(
@@ -796,20 +834,18 @@ export function rollContainerLoot(
       if (rng.chance(0.12)) items.push(makeConsumable(rng.pick(['healing_draught', 'stamina_tonic'])));
       if (rng.chance(0.07)) items.push(makeConsumable('scroll_identify'));
       if (rng.chance(0.18 * f)) items.push(makeMaterial(rollValuable(rng, depth).id, 1));
-      if (rng.chance(0.1 * f)) items.push(makeMaterial(rollGem(rng, depth).id, 1));
+      if (rng.chance(0.1 * f)) addGem(items, rng, depth);
       if (rng.chance(0.12 + 0.02 * Math.min(6, depth))) items.push(rollBlueprint(rng, depth, ranks));
       if (rng.chance(FIGHT_MILK_CHANCE.chest * depthFactor(depth))) items.push(makeConsumable('fight_milk'));
       break;
     case 'vault':
     case 'secret':
-      // Untouched on purpose. A vault is behind a key and a secret is behind a
-      // wall you had to read: they are the two places in the dungeon that are
-      // supposed to pay, and they are rarer than everything else by design.
+      // Guaranteed gear and secret blueprints remain the reward for exploration.
       gold += Math.round(rng.int(40, 75) * depth * diff.gold);
-      items.push(rollEquipment(rng, depth, effFind, { minRarity: depth >= 4 ? Rarity.Rare : Rarity.Uncommon, identifyBelow, seenUniques }));
-      if (rng.chance(0.25)) items.push(rollEquipment(rng, depth, effFind, { minRarity: Rarity.Uncommon, identifyBelow, seenUniques }));
+      items.push(rollEquipment(rng, depth, effFind, { minRarity: specialContainerRarity(rng, depth, difficulty), identifyBelow, seenUniques }));
+      if (rng.chance(0.25)) items.push(rollEquipment(rng, depth, effFind, { minRarity: difficultyOf(difficulty).id === 'hard' ? Rarity.Common : Rarity.Uncommon, identifyBelow, seenUniques }));
       items.push(makeMaterial(rollValuable(rng, depth).id, rng.int(1, 2)));
-      items.push(makeMaterial(rollGem(rng, depth).id, 1));
+      addGem(items, rng, depth);
       if (tier === 'secret' || rng.chance(0.35 + 0.03 * Math.min(6, depth))) items.push(rollBlueprint(rng, depth, ranks));
       if (rng.chance(0.35)) items.push(makeConsumable(rng.pick(['greater_healing', 'scroll_recall', 'scroll_identify'])));
       if (rng.chance(FIGHT_MILK_CHANCE.vault * depthFactor(depth))) items.push(makeConsumable('fight_milk'));
@@ -827,7 +863,7 @@ export function salvage(item: Item, rng: Rng): Item[] {
   if (item.materialId) out.push(makeMaterial(item.materialId, Math.max(1, Math.floor(primaryQty / 2))));
   if (item.secondaryId && rng.chance(0.5)) out.push(makeMaterial(item.secondaryId, 1));
   const order = RARITY_ORDER[item.rarity ?? Rarity.Common];
-  if (order > 0 && rng.chance(0.2 * order)) out.push(makeMaterial(rollGem(rng, (item.ilvl ?? 2) / 2).id, 1));
+  if (order > 0 && rng.chance(0.2 * order)) addGem(out, rng, item.lootDepth ?? Math.max(1, ((item.ilvl ?? 2) - 2) / 2));
   return out;
 }
 

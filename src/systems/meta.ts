@@ -14,7 +14,7 @@ export const META_UPGRADES: MetaUpgrade[] = [
   { id: 'haggler', name: 'Silver Tongue', description: 'Merchants pay 4% more and charge 4% less per level.', costs: [4, 8, 13, 20] },
   { id: 'insider', name: 'Market Insider', description: 'L1: price history and trends. L2: hear rumours of tomorrow\'s market event.', costs: [5, 12] },
   { id: 'master_smith', name: 'Master Smith', description: '+6% crafted quality per level. L3: crafted gear rolls an extra affix.', costs: [4, 9, 15] },
-  { id: 'appraiser', name: 'Appraiser\'s Eye', description: 'L1: identifying costs 40% less. L2: Rare and lower drops come identified.', costs: [5, 12] },
+  { id: 'appraiser', name: 'Appraiser\'s Eye', description: 'L1: identifying costs 40% less. L2: Rare and lower drops come identified, preserving salvage mastery.', costs: [5, 12] },
   { id: 'treasure_sense', name: 'Treasure Sense', description: '+20% loot find per level. Find raises how much drops and how good it is.', costs: [6, 13, 22] },
   { id: 'supply_crate', name: 'Supply Crate', description: 'Start each run with +1 Healing Draught per level.', costs: [5, 11, 18] },
   { id: 'lantern', name: 'Lantern Wick', description: '+1 light radius per level, 9.5 to 12.5 at L3, against fog that starts at 4. L1 also reads the floor for traps 3 tiles ahead instead of 2.', costs: [3, 7, 12] },

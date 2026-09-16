@@ -124,7 +124,7 @@ export function salvageForNextRank(rank: number): number {
 }
 
 export function studySalvagedWeapon(item: Item, ranks: RecipeRanks, progress: Record<string, number>): string | null {
-  if (item.kind !== 'equipment' || item.identified !== false || item.crafted) return null;
+  if (item.kind !== 'equipment' || (item.identified !== false && !item.autoIdentified) || item.crafted) return null;
   const base = itemBase(item.ref);
   if (base.slot !== 'weapon' && base.slot !== 'thrown') return null;
   const r = recipeForBase(base.id);

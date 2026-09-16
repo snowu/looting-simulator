@@ -6,20 +6,15 @@
  * and loot — and so reviewing a balance change means reading this file, not a
  * diff scattered over five systems.
  *
- * The contract that matters: **Hard is the game as it was.** Every multiplier
- * on the Hard entry is exactly 1 and every bonus exactly 0, and every call
- * site applies difficulty as `value * mult` (or `value + bonus`), so Hard
- * computes byte-for-byte the numbers the old constants produced. Normal is the
- * only entry allowed to move, and it is deliberately a first pass to iterate
- * on: enemies hit softer and fall faster, traps sting less, the player mends
- * faster, and drops are slightly kinder. Nothing else — pacing, mechanics,
- * prices, progression — differs.
+ * Hard uses neutral combat/economy multipliers. Normal softens combat and
+ * improves loot. Special-container rarity has an explicit Hard progression
+ * ramp; Normal retains its guaranteed rarity floors.
  *
  * Threading rule: difficulty is read from the *run* (`RunState.difficulty`,
  * snapshotted when the delve starts), never from live town state, so switching
  * mid-delve cannot soften a boss fight. Every function that takes a difficulty
  * accepts it as an optional trailing `DifficultyId` defaulting to `'hard'`,
- * which keeps old saves, tests and headless harnesses on the exact old path.
+ * which keeps old saves, tests and headless harnesses on Hard.
  */
 
 export type DifficultyId = 'normal' | 'hard';

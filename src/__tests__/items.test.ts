@@ -132,7 +132,7 @@ describe('items', () => {
       expect(equipment.length).toBeGreaterThanOrEqual(1);
       expect(equipment.length).toBeLessThanOrEqual(2);
       for (const item of equipment) {
-        expect(item.rarity).toBe(Rarity.Uncommon);
+        expect([Rarity.Common, Rarity.Uncommon]).toContain(item.rarity);
         expect(item.ilvl).toBeLessThanOrEqual(4);
         expect(itemBase(item.ref).minDepth).toBe(1);
       }
