@@ -51,7 +51,7 @@ describe('hard matches the pre-difficulty game, to the number', () => {
         out.push(scrub(rollContainerLoot(createRng(seed), depth, find, tier, undefined, {}, [], 'hard')));
       }
     }
-    expect(hash(out)).toBe(golden.craftingLootHash);
+    expect(hash(out)).toBe(golden.progressionLootHash);
   }, 60_000);
 
   it('spawns every monster with the same health at every depth', () => {

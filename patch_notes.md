@@ -1,3 +1,57 @@
+# Learn from broken blades, earn the better steel
+
+*Unreleased, on `fix/hard-progression-gates`. No save break: existing recipes, gear, mastery and renown carry over (save revision 19 adds per-recipe salvage counts, nothing resets).*
+
+Crafting mastery used to hinge on rare duplicate blueprints while wood, hide, cloth and bone ladders dead-ended before the deep tiers. This spreads single-copy plans through the dungeon, lets salvaging an unidentified weapon teach its recipe, completes the material ladders, and paces late merchant stock by game day and depth. On top of that, Hard closes two early power shortcuts — depth-1 gems pulling from the whole catalyst catalog, and guaranteed special-chest rarity making Uncommon the whole early game — and smooths the reward curve without slowing everything down.
+
+## Blueprints, one at a time
+
+- Every blueprint drop is a **single plan**; no bundles. Secret chests always hold one.
+- Depth 1 → 6 chances: urns **2.5% → 5%**, chests **14% → 24%**, vaults **38% → 53%**, enemy bonus rolls **1.2% → 3.2%**. The boss keeps its guaranteed plan. Across 1,200 generated Hard floors, full clears average **1.98 / 2.31 / 2.62 / 2.94 / 3.44 / 4.29** plans on depths 1–6 — yields, not promised take-home loot.
+- Plans never arrive before their base's minimum depth. Early plans retire three floors after debut (daggers: depths 1–3); depth-4+ plans stay in the endgame pool. Merchant blueprint wares follow the same pool using best depth.
+- Relevant weapon plans get easier to find deeper down (softer gear-ladder scarcity, weapon weighting 1× → 2.5×). Unknown plans keep their preference; fully capped pools still yield sellable spares.
+
+## Salvage teaches the recipe
+
+Found unidentified melee and thrown weapons teach their matching recipe as well as giving materials: **4** salvages to unlock, then **5 / 6 / 7 / 8** for ranks 2–5. The forge shows progress and reports gains; blueprint upgrades keep earned salvage progress. Crafted, identified and armour pieces teach nothing; rank 5 stays capped. Blueprint costs stay 1/2/3/4/5.
+
+## Materials and a slow merchant
+
+Nine additions complete tiers 1–5 for every structural category: Deep Yew, Starwood, Troll Hide, Wool, Astral Silk, Dense Bone, Fossil Bone, Wyrm Bone and Titan Bone. Recipe quantities, material gates, mastery bonuses and catalyst power are unchanged.
+
+Late structural merchant stock is deliberately small, including on Hard (both day *and* depth gates must be met; only a finished delve past depth 1 advances the day):
+
+| Tier | Depth needed | First shipment | Refill | Shelf cap |
+| --- | ---: | ---: | --- | --- |
+| 4 | 5 | Day 6 | 1 every 3 days | 1, then 2 at day 12 |
+| 5 | 6 | Day 18 | 1 every 6 days | 1, then 2 at day 30 |
+
+Buying every Star Iron shipment on days 18/24/30 supplies three units over that span: exploration remains the primary source.
+
+## Hard: catalysts stay deep, rarity ramps gradually
+
+- Empty gem pools now yield **no gem** instead of widening to the entire catalog — no more tier-4 catalysts from a depth-1 chest. Found gear records its source floor so a lucky +0–2 item-level roll cannot unlock next-floor salvage gems.
+- Authored monster catalysts obey the same gates in both difficulties: premature Frost Shards, Sunstones, Wardstones, Flame Shards and Shadow Essence become **Crystal Shards** at depths 2+, deferred entirely at depth 1. Early iron, leather and spider-silk drops remain as documented exceptions.
+- Hard vaults/secrets still guarantee gear, but the first piece now rolls a minimum-rarity *chance* that grows with depth instead of a universal floor (second piece uses natural rarity; Normal keeps its previous guarantees; boss guarantees unchanged):
+
+| Depth | Uncommon-or-better | of which Rare |
+| --- | ---: | ---: |
+| 1 | 20% | 0% |
+| 2 | 35% | 0% |
+| 3 | 50% | 15% |
+| 4 | 65% | 30% |
+| 5 | 80% | 45% |
+| 6 | 95% | 60% |
+
+At zero Find this takes depth-1/2 Uncommon from 82–83% to **26.5% / 40.0%**, and replaces the depth-3→4 Rare cliff (7.9% → 59.8%) with **14.0% → 21.0% → 26.8%** across depths 3–5. No premature gems remain in the 2,400-floor sample.
+- **Appraiser II no longer costs you mastery**: auto-identified Uncommon/Rare weapons keep salvage eligibility (including after saving); manually identified weapons still spend it. Previously identified weapons in old saves lack provenance and cannot be retroactively classified.
+
+Fewer enchanted early drops also means fewer salvage-eligible weapons (depth 1: 0.58 → 0.23 per clear). That is documented rather than offset with a mastery buff — multi-day playtesting is still needed to judge time to rank 5.
+
+Validation: `npm test` passes **545/545** (48 files), `npm run build` passes, 2,400-floor progression benchmark passes, `git diff --check` clean. Historical golden fixtures retained; a separate progression hash pins the intentional distribution change.
+
+---
+
 # Weapon overhaul, continued: retrieval, hands, and redrawn gear
 
 *Unreleased, on `feat/weapon-overhaul`, on top of the notes below. Still no save break: `SAVE_VERSION` and `SAVE_REVISION` do not move.*

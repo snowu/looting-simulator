@@ -314,6 +314,10 @@ export interface Item {
   ilvl?: number;
   affixes?: AffixRoll[];
   identified?: boolean;
+  /** Appraiser identification preserves otherwise-unidentified salvage mastery. */
+  autoIdentified?: boolean;
+  /** Source floor keeps salvage gems inside the original drop’s material band. */
+  lootDepth?: number;
   /** Multiplier on base stats, ~0.85–1.25. */
   quality?: number;
   crafted?: boolean;

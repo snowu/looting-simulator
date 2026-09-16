@@ -712,7 +712,7 @@ export class Town {
       salvageGrid.append(
         itemSlot(it, {
           size: 44,
-          tip: () => itemTooltip(it, { hint: it.identified === false && !it.crafted && ['weapon', 'thrown'].includes(itemBase(it.ref).slot) ? 'Salvage into materials and advance this weapon’s recipe mastery' : 'Click to salvage into materials' }),
+          tip: () => itemTooltip(it, { hint: (it.identified === false || it.autoIdentified) && !it.crafted && ['weapon', 'thrown'].includes(itemBase(it.ref).slot) ? 'Salvage into materials and advance this weapon’s recipe mastery' : 'Click to salvage into materials' }),
           onclick: () => {
             removeItem(s.stash, it.uid);
             const mastery = studySalvagedWeapon(it, s.recipeRanks, s.recipeSalvage);

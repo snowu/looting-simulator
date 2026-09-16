@@ -212,6 +212,7 @@
   "elementalFloorHash": "dc3d307a",
   "preEconomyExpandedFloorHash": "ec3faf4b",
   "craftingFloorHash": "739fa948",
+  "progressionLootHash": "3bdc33ea",
   "craftingLootHash": "c47f4237",
   "craftingPlayerHp": [
     70,
