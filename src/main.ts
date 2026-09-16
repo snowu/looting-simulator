@@ -21,6 +21,7 @@ import { CloudSync } from './cloud/sync';
 import { CloudFetch, CloudSave, deleteCloudSave, fetchCloudSave, fetchCloudSlots, uploadSave } from './cloud/cloud-save';
 import { h, setTouchMode } from './ui/dom';
 import { TouchControls, TouchMove, isTouchDevice } from './ui/touch';
+import { GamepadController, type PadContext } from './ui/gamepad';
 import { FULLSCREEN_HELP, fullscreenSupported, isFullscreen, isStandalone, mountFullscreenButton, toggleFullscreen, wasButtonExit } from './ui/fullscreen';
 import { APP_VERSION, BUILD_ID, newerBuild, reloadToLatest, shouldAttemptReload } from './ui/update';
 import { btn } from './ui/dom';
@@ -128,6 +129,120 @@ const toastLayer = h('div', { class: 'layer', style: 'pointer-events:none' });
 const screen = h('div', { class: 'layer' });
 app.append(screen);
 const overlays = new DungeonOverlays(app, (t, c) => hud.message(t, c), { settings: () => openDungeonSettings() });
+
+// --- Gamepad (PC + mobile Bluetooth/USB controllers via the Gamepad API) ------
+// One polling controller covers both: desktop browsers and mobile browsers
+// expose paired pads through navigator.getGamepads(). Touch stays as-is.
+function activeMenuRoot(): HTMLElement | null {
+  const settings = document.querySelector('.settings-wrap .modal') as HTMLElement | null;
+  if (settings) return settings;
+  if (overlays.isOpen) return overlays.root;
+  // Title / town / summary all render into `screen`.
+  if (mode !== 'dungeon') return screen;
+  return null;
+}
+
+function focusablesIn(root: HTMLElement): HTMLElement[] {
+  const els = [...root.querySelectorAll<HTMLElement>('button:not(:disabled), .slot:not(.empty)')];
+  return els.filter((el) => {
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  });
+}
+
+function padMenuNav(dir: 'next' | 'prev'): boolean {
+  const root = activeMenuRoot();
+  if (!root) return false;
+  const items = focusablesIn(root);
+  if (!items.length) return false;
+  const cur = document.activeElement as HTMLElement | null;
+  const i = cur ? items.indexOf(cur) : -1;
+  const next = i < 0 ? (dir === 'next' ? 0 : items.length - 1) : (i + (dir === 'next' ? 1 : -1) + items.length) % items.length;
+  items[next].focus();
+  try {
+    items[next].scrollIntoView({ block: 'nearest' });
+  } catch {
+    // Headless DOM — focus is enough.
+  }
+  audio.play('ui');
+  return true;
+}
+
+function padMenuActivate(): boolean {
+  const root = activeMenuRoot();
+  if (!root) return false;
+  const cur = document.activeElement as HTMLElement | null;
+  if (cur && root.contains(cur) && (cur.tagName === 'BUTTON' || cur.classList.contains('slot'))) {
+    cur.click();
+    return true;
+  }
+  // Nothing focused: focus the first control so the next press activates it.
+  // Returns false so the loot panel can fall back to Take-all.
+  const items = focusablesIn(root);
+  if (items.length) items[0].focus();
+  return false;
+}
+
+let padQuickIdx = 0;
+const padCtx: PadContext = {
+  paused: false,
+  overlayOpen: false,
+  contextKind: () => world?.contextAction().kind ?? 'attack',
+  attack: () => world?.attack(),
+  interact: () => world?.interact(),
+  hurl: () => world?.hurl(),
+  setRetrieve: (held) => world?.retrieve(held),
+  setBlock: (on) => world?.setBlock(on),
+  castSigil: () => world?.castSigil(),
+  press: (m) => world?.press(m),
+  release: (m) => world?.release(m),
+  toggleInventory: () => {
+    if (mode !== 'dungeon' || !world) return;
+    overlays.toggle('inventory', world);
+  },
+  toggleMap: () => {
+    if (mode !== 'dungeon' || !world) return;
+    overlays.toggle('map', world);
+  },
+  toggleHelp: () => {
+    if (mode !== 'dungeon' || !world) return;
+    overlays.toggle('help', world);
+  },
+  takeAll: () => {
+    overlays.takeAll();
+  },
+  closeOverlay: () => {
+    if (isSettingsOpen()) closeSettings();
+    else if (overlays.isOpen) overlays.close();
+  },
+  quickUseNext: () => {
+    if (!world) return;
+    const refs = world.quickRefs();
+    for (let k = 0; k < 4; k++) {
+      const i = (padQuickIdx + k) % 4;
+      if (refs[i]) {
+        padQuickIdx = (i + 1) % 4;
+        world.quickUse(i);
+        return;
+      }
+    }
+  },
+  menuNav: (dir) => padMenuNav(dir),
+  menuActivate: () => padMenuActivate(),
+};
+const pad = new GamepadController(padCtx);
+pad.onFirstSeen = () => {
+  toast('Controller connected — left stick moves, A swings, LT blocks, Start pauses.', '#9ac0ff');
+  audio.play('ui');
+};
+window.addEventListener('gamepadconnected', (e) => {
+  audio.unlock();
+  toast(`Controller connected${e.gamepad.id ? ` — ${e.gamepad.id.slice(0, 32)}` : ''}.`, '#9ac0ff');
+});
+window.addEventListener('gamepaddisconnected', () => {
+  pad.reset();
+  toast('Controller disconnected.', '#e8c060');
+});
 app.append(toastLayer);
 // Always-available fullscreen toggle, pinned above every screen and panel.
 mountFullscreenButton(
@@ -295,6 +410,7 @@ function show(m: Mode): void {
   touch.visible = m === 'dungeon' && touchMode;
   touchAttack = false;
   stickDir = null;
+  pad.reset();
   canvas.style.visibility = m === 'dungeon' ? 'visible' : 'hidden';
   town.visible = m === 'town';
   if (m !== 'dungeon') overlays.close();
@@ -707,6 +823,7 @@ function handle(ev: WorldEvent): void {
     }
     case 'hurt':
       renderer.onHurt(ev.amount, ev.blocked);
+      pad.rumble(ev.blocked ? 0.35 : 0.7, ev.blocked ? 80 : 160);
       break;
     case 'float':
       hud.float(ev.x, ev.y, ev.text, ev.color);
@@ -745,6 +862,11 @@ let last = performance.now();
 function frame(now: number): void {
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
+  // Gamepad polls every frame, in every mode: dungeon holds live, while town,
+  // title, summary and open overlays navigate focus instead.
+  padCtx.paused = mode !== 'dungeon' || overlays.isOpen || isSettingsOpen() || !!ending;
+  padCtx.overlayOpen = overlays.isOpen;
+  pad.update(dt);
   if (mode === 'dungeon' && world) {
     // Settings pauses like any other overlay: the dungeon keeps rendering
     // behind it, but nothing moves and nothing can hurt you while it is open.
@@ -915,6 +1037,8 @@ canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 window.addEventListener('blur', () => {
   world?.held.clear();
   world?.retrieve(false);
+  world?.setBlock(false);
+  pad.reset();
 });
 window.addEventListener('resize', () => renderer.resize());
 window.addEventListener('beforeunload', () => commit());
@@ -929,6 +1053,7 @@ function goBackground(): void {
   world?.retrieve(false);
   touchAttack = false;
   stickDir = null;
+  pad.reset();
   if (mode === 'dungeon' && world && !overlays.isOpen && !isSettingsOpen() && !ending) overlays.open('help', world);
 }
 document.addEventListener('visibilitychange', () => {
