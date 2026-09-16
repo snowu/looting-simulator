@@ -9,6 +9,7 @@ import { World } from '../world/world';
 import { drawMap } from './automap';
 import { btn, h, hideTooltip, isTouchMode, itemSlot, itemTooltip, rarityColor } from './dom';
 import { audio } from '../audio/sfx';
+import { GAMEPAD_HELP_ROWS } from './gamepad';
 
 export type OverlayMode = 'inventory' | 'loot' | 'map' | 'help';
 
@@ -108,6 +109,14 @@ export class DungeonOverlays {
     if (mode === 'inventory' && this.mode === 'loot') return;
     if (this.mode === mode) this.close();
     else this.open(mode, world);
+  }
+
+  /** Gamepad: take everything from the open loot pile, if any. */
+  takeAll(): boolean {
+    if (this.mode !== 'loot' || !this.world) return false;
+    this.world.take(this.pickupId);
+    this.afterLoot();
+    return true;
   }
 
   /** Returns true if the key was consumed. */
@@ -438,6 +447,8 @@ export class DungeonOverlays {
       h('h2', { text: 'Paused' }),
       this.opts.settings ? h('div', { class: 'row', style: 'margin-bottom:8px' }, btn('⚙ Settings — sound, saves', () => this.opts.settings!(), 'small')) : null,
       h('div', { class: 'help' }, ...rows.map(([k, v]) => h('div', {}, h('kbd', { text: k }), v))),
+      h('h3', { text: 'Controller (PC & mobile)', style: 'margin-top:10px' }),
+      h('div', { class: 'help' }, ...GAMEPAD_HELP_ROWS.map(([k, v]) => h('div', {}, h('kbd', { text: k }), v))),
       h(
         'p',
         { class: 'dim', style: 'margin-top:10px;max-width:640px' },
