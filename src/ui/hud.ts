@@ -104,7 +104,7 @@ export class Hud {
       this.log,
       bars,
       this.quick,
-      h('div', { class: 'hint-keys', text: 'W/S step · A/D turn · Q/E strafe · Space/LMB attack · Shift/RMB block & parry · F interact · I pack · M map · 1–4 use · Esc menu' }),
+      h('div', { class: 'hint-keys', text: 'W/S step · A/D turn · Q/E strafe · Space/LMB attack · Shift/RMB block & parry · F interact · I pack · M map · 1–4 use · Esc menu · Pad: stick move, A attack, LT block, Start menu' }),
     );
     parent.append(this.root);
   }
