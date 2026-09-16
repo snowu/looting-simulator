@@ -20,21 +20,21 @@ import golden from './fixtures/hard-golden.json';
  * values are frozen there. It is the only check that still means something
  * once this branch is master and there is no old version left to diff against.
  *
- * Historical values remain frozen. Intentional crafting, biome and weapon-roster changes
+ * Historical values remain frozen. Intentional material-identity, crafting, biome and weapon-roster changes
  * are pinned separately so later drift is still visible without rewriting history.
  */
 
 const scrub = (v: unknown) => JSON.stringify(v, (k, x) => (k === 'uid' ? undefined : x));
 const hash = (parts: string[]) => hashString(parts.join(' ')).toString(16);
 
-describe('hard matches the pre-difficulty game, to the number', () => {
+describe('Hard generation, loot and stats have explicit balance baselines', () => {
   it('generates the pinned 1,200 expanded floors', () => {
     const out: string[] = [];
     for (let seed = 0; seed < 200; seed++) {
       for (let depth = 1; depth <= 6; depth++) out.push(scrub(generateFloor(seed, depth, 'hard')));
     }
-    // Material rolls embedded in pickups change with the completed crafting ladders.
-    expect(hash(out)).toBe(golden.craftingFloorHash);
+    // Material rolls embedded in pickups now use consistent family tier weights.
+    expect(hash(out)).toBe(golden.materialFloorHash);
     // Generating 1,200 floors outruns the default 5s budget when the suite
     // runs its files in parallel.
   }, 60_000);
@@ -51,7 +51,7 @@ describe('hard matches the pre-difficulty game, to the number', () => {
         out.push(scrub(rollContainerLoot(createRng(seed), depth, find, tier, undefined, {}, [], 'hard')));
       }
     }
-    expect(hash(out)).toBe(golden.progressionLootHash);
+    expect(hash(out)).toBe(golden.materialLootHash);
   }, 60_000);
 
   it('spawns every monster with the same health at every depth', () => {
@@ -62,7 +62,7 @@ describe('hard matches the pre-difficulty game, to the number', () => {
     expect(table).toEqual(golden.enemyHp);
   });
 
-  it('gives the player the same health in the same gear', () => {
+  it('pins player health after the material identity changes', () => {
     // Fractional stats would have made the new Math.round() move a number that
     // the old bare addition left alone; sixty random kits say it does not.
     const out: number[] = [];
@@ -74,7 +74,7 @@ describe('hard matches the pre-difficulty game, to the number', () => {
       }
       out.push(derivePlayer(eq, { toughness: seed % 6 }, 'hard').maxHp);
     }
-    const expected = golden.craftingPlayerHp;
+    const expected = golden.materialPowerPlayerHp;
     expect(out).toEqual(expected);
   });
 });

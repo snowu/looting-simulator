@@ -89,6 +89,7 @@ export function materialStockTarget(mat: (typeof MATERIALS)[number], day = 1): n
   if (mat.category !== 'gem' && mat.category !== 'valuable') {
     if (mat.tier === 5) return day < 18 ? 0 : day < 30 ? 1 : 2;
     if (mat.tier === 4) return day < 6 ? 0 : day < 12 ? 1 : 2;
+    return mat.tier <= 2 ? 40 : 14;
   }
   return STOCK_TARGET[mat.rarity];
 }

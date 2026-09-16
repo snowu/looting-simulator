@@ -76,13 +76,13 @@ describe('loot find formula', () => {
     const value = avg(reps.map((r) => r.valueKept));
     const deepest = avg(reps.map((r) => r.deepest));
     const kills = avg(reps.map((r) => r.kills));
-    // Measured ~111g / ~190 value / 3.0 depth / ~23 kills; bands are wide
+    // Material-identity pass: ~610 kept value in this six-seed sample; bands are wide
     // on purpose — they catch breakage, not tuning.
     expect(deepest).toBeGreaterThanOrEqual(2.5);
     expect(gold).toBeGreaterThanOrEqual(20);
     expect(gold).toBeLessThanOrEqual(400);
     expect(value).toBeGreaterThanOrEqual(40);
-    expect(value).toBeLessThanOrEqual(600);
+    expect(value).toBeLessThanOrEqual(700);
     expect(kills).toBeGreaterThanOrEqual(10);
     expect(reps.filter((r) => r.outcome === 'extracted').length).toBeGreaterThanOrEqual(1);
   }, 120000);

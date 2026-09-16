@@ -357,6 +357,10 @@ export function itemTooltip(item: Item, opts: TipOpts = {}): string {
       const m = material(item.ref);
       lines.push(`<div class="tt-sub">${m.rarity} ${m.category} · tier ${m.tier}</div>`);
       lines.push(`<div class="tt-desc">${esc(m.description)}</div>`);
+      if (m.category !== 'gem' && m.category !== 'valuable') {
+        const bonus = STAT_KEYS.filter(k => m.mods[k]).map(k => `+${m.mods[k]} ${STAT_LABELS[k]}`).join(', ');
+        lines.push(`<div class="tt-affix">Material bonus: ${esc(bonus)} · primary or secondary</div>`);
+      }
       if (opts.forgeEffect) {
         const [name, tier, ...effects] = opts.forgeEffect.split(' · ');
         const effectLines = effects.flatMap((effect) => effect.split(', '));

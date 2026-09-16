@@ -40,7 +40,8 @@ describe('items', () => {
     const copper = makeEquipment({ baseId: 'long_sword', materialId: 'copper', rarity: Rarity.Common, ilvl: 1 });
     const star = makeEquipment({ baseId: 'long_sword', materialId: 'star_iron', rarity: Rarity.Common, ilvl: 1 });
     expect(itemStats(star).attack).toBeGreaterThan(itemStats(copper).attack * 2);
-    expect(itemStats(star).shadow).toBeGreaterThan(0);
+    expect(itemStats(star).defense).toBeGreaterThan(itemStats(copper).defense);
+    expect(itemStats(star).shadow).toBe(10);
     expect(itemValue(star)).toBeGreaterThan(itemValue(copper));
   });
 
@@ -93,19 +94,15 @@ describe('items', () => {
     expect(MATERIALS.filter((m) => materialAvailableAtDepth(m, 1)).map((m) => m.id)).not.toContain('gold');
   });
 
-  it('makes rarer materials scarcer than commoner ones of the same tier', () => {
+  it('gives same-tier structural alternatives equal supply weight', () => {
     const counts: Record<string, number> = {};
-    // Silver and gold are both tier 3, so the tier-distance weighting cancels
-    // and only the rarity weight is left — which is the thing under test. The
-    // old version compared gold against iron, a tier apart, and so measured
-    // the two weightings multiplied together. Depth 4 is the first floor
-    // either of them can drop on.
-    for (let seed = 0; seed < 1000; seed++) {
+    for (let seed = 0; seed < 4000; seed++) {
       const id = materialForDepth(createRng(seed), 4, ['metal']).id;
       counts[id] = (counts[id] ?? 0) + 1;
     }
-    expect(counts.silver).toBeGreaterThan(0);
-    expect(counts.gold ?? 0).toBeLessThan(counts.silver / 2);
+    expect(counts.silver).toBeGreaterThan(100);
+    expect(counts.gold / counts.silver).toBeGreaterThan(0.8);
+    expect(counts.gold / counts.silver).toBeLessThan(1.2);
   });
 
   it('makes loot find raise quality, not just quantity', () => {
@@ -281,13 +278,13 @@ describe('items', () => {
       baseId: 'short_sword', materialId: 'iron', secondaryId, rarity: Rarity.Common, ilvl: 4, quality: 1, crafted: true,
     }));
     const plain = make();
-    expect(make('bone').attack - plain.attack).toBe(2);
+    expect(make('bone').attack - plain.attack).toBe(1);
     expect(make('rat_hide').health).toBe(3);
-    expect(make('timber').speed).toBe(2);
-    expect(make('leather').health).toBe(5);
-    expect(make('dragon_scale').health).toBe(41);
+    expect(make('timber').speed).toBe(1);
+    expect(make('leather').health).toBe(6);
+    expect(make('dragon_scale').health).toBe(40);
     expect(make('dragon_scale').fire).toBe(10);
-    expect(make('dragon_scale').defense).toBe(4);
+    expect(make('dragon_scale').defense).toBe(plain.defense);
   });
 
   it('the boss always drops a legendary', () => {

@@ -1,4 +1,4 @@
-import { it } from 'vitest';
+import { expect, it } from 'vitest';
 import { writeFileSync } from 'node:fs';
 import { createRng } from '../src/core/rng';
 import { generateFloor } from '../src/systems/dungeon';
@@ -13,13 +13,19 @@ it('audits Hard loot quality and crafting progression', () => {
   const samples = 200;
   const lines = ['# Hard loot progression sample', '', '200 generated floors per depth and Find setting. Every non-mimic container and initial enemy is looted; loose pickups included. Fresh recipe/unique history; boss rewards included at depth 6. Full-clear supply, before backpack limits, deaths, identification costs or crafting choices.', ''];
   const leaks = new Map<string, number>();
+  const catalystRows: string[] = [];
   for (const find of [0, 60]) {
     lines.push(`## Find ${find}`, '', '| Depth | Gear/floor | Common | Uncommon | Rare | Epic | Legendary | Mean material tier | BP/floor | Unidentified weapons/floor | Early materials/floor |', '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |');
     for (let depth = 1; depth <= 6; depth++) {
       const rar = [0, 0, 0, 0, 0];
       let gear = 0, tier = 0, bp = 0, weapons = 0, early = 0;
+      const gems = [0, 0, 0, 0, 0];
       const take = (items: Item[], source: string): void => {
         for (const item of items) {
+          if (item.kind === 'material' && material(item.ref).category === 'gem') {
+            expect(materialAvailableAtDepth(material(item.ref), depth), `${source}: ${item.ref} at depth ${depth}`).toBe(true);
+            gems[material(item.ref).tier] += item.qty;
+          }
           if (item.kind === 'blueprint') bp += item.qty;
           if (item.kind === 'equipment') {
             gear++;
@@ -44,9 +50,11 @@ it('audits Hard loot quality and crafting progression', () => {
         for (const pickup of floor.pickups) take(pickup.items, 'loose');
       }
       lines.push(`| ${depth} | ${(gear / samples).toFixed(2)} | ${rar.map(n => (100 * n / gear).toFixed(1) + '%').join(' | ')} | ${(tier / gear).toFixed(2)} | ${(bp / samples).toFixed(2)} | ${(weapons / samples).toFixed(2)} | ${(early / samples).toFixed(2)} |`);
+      catalystRows.push(`| ${find} | ${depth} | ${[2, 3, 4].map(t => (gems[t] / samples).toFixed(2)).join(' | ')} |`);
     }
     lines.push('');
   }
+  lines.push('## Direct catalyst supply', '', 'Units per full clear, excluding salvage and merchant purchases. Tier 2 unlocks at depth 2, tier 3 at depth 4, tier 4 at depth 5. Every sampled gem is checked against its depth gate.', '', '| Find | Depth | Tier 2 | Tier 3 | Tier 4 |', '| --- | ---: | ---: | ---: | ---: |', ...catalystRows, '');
   lines.push('## Materials arriving before their generic depth gate (Find 0)', '', '| Source | Units per floor |', '| --- | ---: |');
   for (const [source, units] of [...leaks].sort()) lines.push(`| ${source} | ${(units / samples).toFixed(3)} |`);
   lines.push('', '## Controlled craft comparison', '', 'Same dagger base and iron primary, timber grip; median preview quality. Attack includes physical attack only. Flame Shard is a tier-4 catalyst; this illustrates what an early catalyst can enable, not how often the whole recipe is affordable.', '', '| Smith level | Recipe rank | Catalyst | Rarity | Item level | Attack | Fire | Affixes |', '| --- | --- | --- | --- | ---: | ---: | ---: | ---: |');

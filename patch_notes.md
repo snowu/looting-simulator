@@ -1,3 +1,17 @@
+# Clear material ladders, consistent crafting roles
+
+*Patch 49. Existing items and recipes remain, but material bonuses update on existing gear too.*
+
+Every structural family now follows **white → green → blue → purple → gold** from tier 1 to 5, and the market lists them in that order. Metal gives Defense, wood Speed, hide Health, cloth Stamina, and bone Attack. Higher tiers strengthen the same bonus; the market headings and tooltips explain each role.
+
+Late tiers make larger jumps: bone grants +1/3/6/12/20 Attack, metal +1/2/4/7/12 Defense, wood +1/2/4/7/10 Speed, hide +3/6/12/24/40 Health, and cloth +3/6/10/18/30 Stamina. Titan Bone now adds +20 Attack instead of +5; legendary materials should feel worth hunting. Primary and secondary slots use the same family bonus once per slot. Special materials also retain their elemental bonuses: Silver +3 Holy, Moonsilver +6 Frost, Star Iron +10 Shadow, Dragon Scale +10 Fire, and Shadow Silk +7 Shadow. These stack with catalyst and affix effects.
+
+Basic supplies remain accessible despite corrected colors: structural tier-1/2/3 merchant targets are 40/40/14, and structural drop weights follow tier. Depth gates, slow late shipments, recipe quantities, catalyst effects and mastery costs stay as before.
+
+See [the balance review](docs/material-identities-review.md) for the latest two merged PRs, catalyst supply, recipe/mastery costs, before/after combat results and the remaining endgame balance limitations.
+
+---
+
 # Learn from broken blades, earn the better steel
 
 *Unreleased, on `fix/hard-progression-gates`. No save break: existing recipes, gear, mastery and renown carry over (save revision 19 adds per-recipe salvage counts, nothing resets).*

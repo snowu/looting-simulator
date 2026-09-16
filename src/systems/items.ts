@@ -426,7 +426,6 @@ export function itemStats(item: Item): Stats {
     const m2 = findMaterial(item.secondaryId);
     if (m2) {
       addStats(s, secondaryMaterialMods(m2));
-      addStats(s, m2.mods);
     }
   }
   // A unique's own numbers are part of what it is, so they land with the
@@ -600,6 +599,11 @@ export function materialAvailableAtDepth(material: MaterialDef, depth: number): 
 }
 
 function materialRarityWeight(material: MaterialDef): number {
+  // Structural colors describe tier, not an extra scarcity penalty. Keep
+  // basic tier-two supplies accessible and deep tiers scarce across families.
+  if (material.category !== 'gem' && material.category !== 'valuable') {
+    return [0, 1, 1, 0.35, 0.35 ** 3, 0.35 ** 4][material.tier] ?? 0;
+  }
   return 0.35 ** RARITY_ORDER[material.rarity];
 }
 

@@ -61,8 +61,8 @@ describe('elemental damage', () => {
   it('pierces armour without ignoring it', () => {
     const withElement = (() => {
       const e = emptyEquipment();
-      // Moonsilver carries +6 frost; the base is otherwise identical.
-      e.weapon = makeEquipment({ baseId: 'war_axe', materialId: 'moonsilver', rarity: Rarity.Common, ilvl: 12 });
+      // Elemental power comes from an affix, independently of material identity.
+      e.weapon = makeEquipment({ baseId: 'war_axe', materialId: 'iron', rarity: Rarity.Uncommon, ilvl: 12, affixes: [{ id: 'rimed', value: 6 }] });
       return derivePlayer(e, {});
     })();
     const soft = { ...enemyDef('ghoul'), defense: 0, resist: {} };

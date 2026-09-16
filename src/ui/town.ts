@@ -1,5 +1,5 @@
 import { GameState } from '../state/game-state';
-import { EQUIP_SLOTS, Item, MaterialCategory, Rarity, RARITY_COLORS, STAT_KEYS, STAT_LABELS, Stats } from '../types';
+import { EQUIP_SLOTS, Item, MaterialCategory, Rarity, RARITY_COLORS, RARITY_ORDER, STAT_KEYS, STAT_LABELS, Stats } from '../types';
 import { MATERIALS, catalystAffixBonus, material, secondaryMaterialMods } from '../data/materials';
 import { consumable, itemBase } from '../data/items';
 import { affix } from '../data/affixes';
@@ -63,12 +63,12 @@ export interface TownCtx {
 
 const CATS: { id: MaterialCategory; name: string }[] = [
   { id: 'valuable', name: 'Valuables' },
-  { id: 'metal', name: 'Metals' },
+  { id: 'metal', name: 'Metals · Defense' },
   { id: 'gem', name: 'Gems' },
-  { id: 'hide', name: 'Hides' },
-  { id: 'cloth', name: 'Cloth' },
-  { id: 'wood', name: 'Wood' },
-  { id: 'bone', name: 'Bone' },
+  { id: 'hide', name: 'Hides · Health' },
+  { id: 'cloth', name: 'Cloth · Stamina' },
+  { id: 'wood', name: 'Wood · Speed' },
+  { id: 'bone', name: 'Bone · Attack' },
 ];
 
 type ForgeMaterialRole = 'primary' | 'secondary' | 'catalyst';
@@ -96,9 +96,7 @@ function forgeMaterialNote(id: string | null, role: ForgeMaterialRole, baseId: s
     }
     return `${def.name} · Tier ${def.tier} · ${formatForgeStats(core) || 'no stat contribution'}`;
   }
-  const combined: Partial<Stats> = {};
-  const structural = secondaryMaterialMods(def);
-  for (const key of STAT_KEYS) combined[key] = (structural[key] ?? 0) + (def.mods[key] ?? 0);
+  const combined = secondaryMaterialMods(def);
   return `${def.name} · Tier ${def.tier} · ${formatForgeStats(combined) || 'no stat contribution'}`;
 }
 
@@ -335,7 +333,10 @@ export class Town {
     const rows: HTMLElement[] = [];
     for (const cat of CATS) {
       rows.push(h('tr', { class: 'cat-row' }, h('td', { attrs: { colspan: '8' }, text: cat.name })));
-      for (const mat of MATERIALS.filter((x) => x.category === cat.id)) {
+      const materials = MATERIALS.filter((x) => x.category === cat.id).sort(
+        (a, b) => RARITY_ORDER[a.rarity] - RARITY_ORDER[b.rarity] || a.tier - b.tier || a.value - b.value,
+      );
+      for (const mat of materials) {
         const c = m.commodities[mat.id];
         const owned = countOf(s.stash, 'material', mat.id);
         const sell = commoditySellPrice(m, mat.id, this.hag);
