@@ -104,6 +104,12 @@ h3 { font-size: 26px; color: var(--ink); margin-bottom: 6px; }
 .audio-slider { flex: 1; min-width: 80px; accent-color: var(--gold); cursor: pointer; }
 .audio-pct { flex: none; min-width: 52px; text-align: right; font-variant-numeric: tabular-nums; }
 
+/* Settings: brightness calibration strip — three reference greys painted live
+   through the same gamma curve as the dungeon post pass, so what you
+   calibrate here is what the 3D view does. */
+.brightness-calib { display: flex; gap: 6px; margin: 6px 0 2px; }
+.brightness-swatch { flex: 1; height: 26px; border: 1px solid #2a2430; }
+
 /* Slots */
 .slot {
   --sz: 40px;

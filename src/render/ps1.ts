@@ -174,12 +174,19 @@ const POST_FRAG = /* glsl */ `
   uniform float uFade;
   uniform float uVignette;
   uniform float uLowHp;
+  uniform float uBrightness;
   varying vec2 vUv;
   float bayer2(vec2 a) { a = floor(a); return fract(dot(a, vec2(0.5, a.y * 0.75))); }
   float bayer4(vec2 a) { return bayer2(0.5 * a) * 0.25 + bayer2(a); }
   void main() {
     vec2 px = floor(vUv * uRes);
     vec3 c = texture2D(tDiffuse, (px + 0.5) / uRes).rgb;
+    // Display calibration (settings → brightness): a gamma lift applied to
+    // the scene before any UI-flavoured grading, so hit flashes, the
+    // low-HP wash and the death fade keep their authored strength while the
+    // dungeon mids move. pow() pins both ends — fog stays black, flashes
+    // stay white — which a linear gain would not.
+    c = pow(clamp(c, 0.0, 1.0), vec3(1.0 / uBrightness));
     float g = dot(c, vec3(0.299, 0.587, 0.114));
     c = mix(c, vec3(g * 1.15, g * 0.8, g * 0.8), uLowHp * 0.55);
     c = mix(c, uFlash.rgb, uFlash.a);
@@ -207,6 +214,7 @@ export class PostPass {
         uFade: { value: 0 },
         uVignette: { value: 1.1 },
         uLowHp: { value: 0 },
+        uBrightness: { value: 1 },
       },
       vertexShader: POST_VERT,
       fragmentShader: POST_FRAG,

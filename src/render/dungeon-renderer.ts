@@ -14,6 +14,7 @@ import { artSize, artTexture } from './art-cache';
 import { enemyPose } from './enemy-pose';
 import { LevelView, TILE, WALL_H, buildLevel, tileX, tileZ } from './level-mesh';
 import { MAX_LIGHTS, PS1Material, PostPass, Shared, createLowResTarget, createShared, ps1Material } from './ps1';
+import { brightness } from './brightness';
 
 const EYE = 1.32;
 
@@ -520,6 +521,9 @@ export class DungeonRenderer {
     const pu = this.post.material.uniforms;
     this.flash.w = Math.max(0, this.flash.w - dt * 1.6);
     pu.uFlash.value.copy(this.flash);
+    // Polled per frame, not pushed: the settings slider stays live with no
+    // wiring, and dev arenas using this renderer get it for free.
+    pu.uBrightness.value = brightness.get();
     const hpFrac = p.hp / world.derived.maxHp;
     pu.uLowHp.value = hpFrac < 0.3 ? 0.5 + 0.5 * Math.sin(this.time * 5) : 0;
     let fade = 0;

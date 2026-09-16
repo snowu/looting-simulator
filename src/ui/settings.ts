@@ -1,6 +1,7 @@
 import { GameState } from '../state/game-state';
 import { DIFFICULTIES, DIFFICULTY_IDS, difficultyOf } from '../data/difficulty';
 import { audio } from '../audio/sfx';
+import { BRIGHTNESS_MAX, BRIGHTNESS_MIN, applyBrightnessGain, brightness, brightnessToPercent, percentToBrightness } from '../render/brightness';
 import { artImg, btn, h } from './dom';
 
 /**
@@ -157,6 +158,72 @@ export function openSettings(ctx: SettingsCtx): void {
     );
   }
 
+  /**
+   * Display brightness: a gamma lift on the 3D view, live as you drag.
+   * The strip below is the AAA calibration pattern in miniature — drag until
+   * the left square is barely visible and the middle one is clear. That lands
+   * the black level for *this* screen in *this* light, which is the whole
+   * point: brightness is a property of the device and the room, so it is
+   * stored on the device (like volume) and never in the save. Cosmetic only:
+   * it moves no fog plane and grants no light radius.
+   */
+  function displayBox(): HTMLElement {
+    const pct = h('span', { class: 'dim small audio-pct' });
+    const slider = h('input', {
+      class: 'audio-slider',
+      attrs: {
+        type: 'range',
+        min: String(Math.round(BRIGHTNESS_MIN * 100)),
+        max: String(Math.round(BRIGHTNESS_MAX * 100)),
+        step: '1',
+        value: String(brightnessToPercent(brightness.get())),
+      },
+    }) as HTMLInputElement;
+    slider.title = 'Brightness';
+    slider.setAttribute('aria-label', 'Brightness');
+    const resetBtn = btn('Reset', () => {
+      brightness.reset();
+      syncDisplay();
+    }, 'small');
+    // Near-black, dark, mid: the curve pins 0 and 1 and moves these.
+    const bases = [0.015, 0.06, 0.16];
+    const swatches = bases.map((g) => h('div', { class: 'brightness-swatch' }));
+    const strip = h('div', { class: 'brightness-calib' }, ...swatches);
+
+    function paintSwatches(b: number): void {
+      swatches.forEach((el, i) => {
+        const g = Math.round(applyBrightnessGain(bases[i], b) * 255);
+        el.style.background = `rgb(${g},${g},${g})`;
+        el.title = `Reference ${(bases[i] * 100).toFixed(1)}% grey → ${Math.round((g / 255) * 100)}% on this setting`;
+      });
+    }
+
+    function syncDisplay(): void {
+      const b = brightness.get();
+      slider.value = String(brightnessToPercent(b));
+      pct.textContent = `${slider.value}%`;
+      resetBtn.disabled = brightnessToPercent(b) === 100;
+      paintSwatches(b);
+    }
+
+    slider.addEventListener('input', () => {
+      brightness.set(percentToBrightness(Number(slider.value)));
+      syncDisplay();
+    });
+    syncDisplay();
+    return h(
+      'div',
+      {},
+      h('h3', { style: 'margin-top:10px', text: 'Display' }),
+      h('div', { class: 'audio-row' }, resetBtn, slider, pct),
+      strip,
+      h('p', {
+        class: 'dim small',
+        text: 'Drag until the left square is barely visible. Display only — no extra light radius, no easier fights. Stored on this device.',
+      }),
+    );
+  }
+
   const modal = h(
     'div',
     { class: 'modal frame gold settings-modal' },
@@ -168,6 +235,7 @@ export function openSettings(ctx: SettingsCtx): void {
     ),
     ...(showDifficulty ? [difficultyBox] : []),
     audioBox(),
+    displayBox(),
     h('h3', { style: 'margin-top:10px', text: 'Cloud saves' }),
     h('p', { class: 'dim small', text: 'Optional. Signed out, the game plays exactly as it always has.' }),
     accountBox,
