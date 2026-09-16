@@ -398,6 +398,7 @@ table.market .market-owned { color: var(--gold); font-weight: 700; }
 .mat-family-items { display: flex; flex-wrap: wrap; gap: 4px; }
 .mat-pick .slot { --sz: 38px; }
 .mat-pick .slot.cant { opacity: 0.25; }
+.mat-pick .slot.none { cursor: not-allowed; }
 .preview { display: flex; gap: 12px; align-items: flex-start; padding: 6px; background: #0e0c10; border: 1px solid #2a2430; margin: 6px 0; }
 
 .contracts { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }

@@ -691,15 +691,19 @@ export class Town {
               { uid: '', kind: 'material', ref: def.id, qty: Math.max(1, owned) },
               {
                 forgeEffect: forgeMaterialNote(def.id, role, r.baseId, smith, rank, this.forgeMats[0]),
-                hint: available >= slot.qty ? `Use ${slot.qty} ${def.name}` : `Need ${slot.qty}; ${available} available (${owned} owned, ${reserved} in other slots)`,
+                hint: owned === 0 ? `You have no ${def.name}` : available >= slot.qty ? `Use ${slot.qty} ${def.name}` : `Need ${slot.qty}; ${available} available (${owned} owned, ${reserved} in other slots)`,
               },
             ),
-            onclick: () => {
+            // The ladder stays on show so you can see what a material would
+            // do, but one you hold none of cannot be picked: it only ever led
+            // to a craft the forge then refused.
+            onclick: owned === 0 ? undefined : () => {
               this.forgeMats[i] = def.id;
               this.commit();
             },
           });
           if (available < slot.qty) el.classList.add('cant');
+          if (owned === 0) el.classList.add('none');
           familyItems.append(el);
         }
         family.append(familyItems);
