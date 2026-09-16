@@ -23,7 +23,7 @@ import { BESTIARY_ORDER, bestiaryEntry, bestiaryProgress, isKnown, isSeen } from
 import { RELIC_ORDER, findRelic, forgetRelic, forgetRelicName, isFound, isNamed, nameRelic, relicProgress } from '../systems/relics';
 import { UniqueDef } from '../data/uniques';
 import { ELEMENTS } from '../types';
-import { buildCrafted, craft, materialsForSlot, selectionError, salvageForNextRank, studySalvagedWeapon, studyBlueprint } from '../systems/crafting';
+import { buildCrafted, craft, materialsForSlot, selectionError, salvageForNextRank, salvageStudy, studySalvagedWeapon, studyBlueprint } from '../systems/crafting';
 import { durability, identify, identifyCost, itemIcon, itemName, itemStats, itemValue, makeConsumable, makeUnique, repairCost, repairItem, salvage, uniqueOf } from '../systems/items';
 import { Container, addItem, canFit, countOf, freeSlots, removeItem, removeOf, roomFor, sortContainer, takeQty } from '../state/inventory';
 import { syncLoadout } from '../systems/run';
@@ -588,9 +588,18 @@ export class Town {
       const rank = recipeRank(s.recipeRanks, r.id);
       const known = rank > 0;
       const base = itemBase(r.baseId);
-      const salvageProgress = rank < MAX_RECIPE_RANK && ['weapon', 'thrown'].includes(base.slot) ? ` · ${s.recipeSalvage[r.id] ?? 0}/${salvageForNextRank(rank)} salvages` : '';
-      const status = known ? `Rank ${rank} · +${Math.round(masteryBonus(rank) * 100)}% core` : ['weapon', 'thrown'].includes(base.slot) ? 'blueprint or unidentified salvages needed' : 'blueprint needed';
-      const progressStatus = status + salvageProgress;
+      const studies = rank < MAX_RECIPE_RANK && ['weapon', 'thrown'].includes(base.slot);
+      const status = known ? `Rank ${rank} · +${Math.round(masteryBonus(rank) * 100)}% core` : studies ? 'blueprint or salvage' : 'blueprint needed';
+      // One pip per salvage the next rank needs, lit as they are banked, so
+      // breaking weapons down reads as progress at a glance instead of a
+      // fraction buried in the status text.
+      let pips: HTMLElement | null = null;
+      if (studies) {
+        const done = s.recipeSalvage[r.id] ?? 0;
+        const needed = salvageForNextRank(rank);
+        pips = h('span', { class: 'study-pips', title: `${done}/${needed} unidentified ${base.name} salvages toward ${known ? `Rank ${rank + 1}` : 'learning the recipe'}` },
+          ...Array.from({ length: needed }, (_, n) => h('i', { class: n < done ? 'on' : '' })));
+      }
       list.append(
         h(
           'div',
@@ -605,7 +614,8 @@ export class Town {
           },
           artImg(base.icon, undefined, 28),
           h('span', { class: 'grow', text: base.name }),
-          h('span', { class: 'dim small', text: progressStatus }),
+          pips,
+          h('span', { class: 'dim small', text: status }),
         ),
       );
     }
@@ -739,10 +749,13 @@ export class Town {
     const gear = s.stash.items.filter((i) => i.kind === 'equipment');
     const salvageGrid = h('div', { class: 'grid-slots' });
     for (const it of gear) {
-      salvageGrid.append(
-        itemSlot(it, {
+      const study = salvageStudy(it, s.recipeRanks, s.recipeSalvage);
+      const studyHint = study
+        ? `Salvage to study the ${study.baseName}: ${study.count}/${study.needed} → ${study.count + 1}/${study.needed} toward ${study.nextRank === 1 ? 'learning its recipe' : `Rank ${study.nextRank}`}${study.count + 1 >= study.needed ? ' — this one completes it' : ''}`
+        : 'Click to salvage into materials';
+      const el = itemSlot(it, {
           size: 44,
-          tip: () => itemTooltip(it, { hint: (it.identified === false || it.autoIdentified) && !it.crafted && ['weapon', 'thrown'].includes(itemBase(it.ref).slot) ? 'Salvage into materials and advance this weapon’s recipe mastery' : 'Click to salvage into materials' }),
+          tip: () => itemTooltip(it, { hint: studyHint }),
           onclick: () => {
             removeItem(s.stash, it.uid);
             const mastery = studySalvagedWeapon(it, s.recipeRanks, s.recipeSalvage);
@@ -751,8 +764,11 @@ export class Town {
             this.ctx.toast(`Salvaged into ${mats.map((mt) => `${mt.qty} ${material(mt.ref).name}`).join(', ') || 'dust'}.${mastery ? ` ${mastery}` : ''}`, '#c8c0b0');
             this.commit('break');
           },
-        }),
-      );
+        });
+      // Weapons that teach when broken down carry a mark, so you can pick them
+      // out of the stash without hovering each one.
+      if (study) el.append(h('span', { class: `study${study.count + 1 >= study.needed ? ' completes' : ''}`, text: '+' }));
+      salvageGrid.append(el);
     }
 
     return h(

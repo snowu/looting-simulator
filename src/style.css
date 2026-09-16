@@ -387,6 +387,12 @@ table.market .market-owned { color: var(--gold); font-weight: 700; }
    stay readable, so the item name is what gives way on a narrow screen. */
 .recipe > .grow { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .recipe > .dim { white-space: nowrap; }
+.study-pips { display: flex; gap: 2px; flex: none; }
+.study-pips > i { width: 6px; height: 11px; background: #0c0a0e; box-shadow: inset 0 0 0 1px #3a3440; }
+.study-pips > i.on { background: #63c6b0; box-shadow: inset 0 0 0 1px #1c4a42, 0 0 3px #63c6b088; }
+/* A filled tag, not a bare glyph: at 44px a lone '+' vanished into the art. */
+.slot .study { position: absolute; left: 1px; bottom: 1px; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; font-size: 16px; line-height: 1; color: #0c1a17; background: #63c6b0; box-shadow: 0 0 0 1px #000, 0 0 4px #63c6b0aa; }
+.slot .study.completes { background: #ffd870; box-shadow: 0 0 0 1px #000, 0 0 5px #ffd870cc; }
 .forge-slot { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 5px 10px; align-items: start; margin: 10px 0; }
 .forge-slot .lbl { color: var(--text); display: flex; flex-direction: column; align-items: flex-start; line-height: 1.05; }
 .forge-slot .lbl small { color: var(--dim); font-size: 13px; }

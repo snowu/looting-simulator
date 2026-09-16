@@ -126,7 +126,21 @@ export function salvageForNextRank(rank: number): number {
   return rank >= MAX_RECIPE_RANK ? 0 : 4 + Math.max(0, Math.floor(rank));
 }
 
-export function studySalvagedWeapon(item: Item, ranks: RecipeRanks, progress: Record<string, number>): string | null {
+export interface SalvageStudy {
+  recipeId: string;
+  baseName: string;
+  /** Salvages already banked toward the next rank, before this one. */
+  count: number;
+  needed: number;
+  /** The rank this progress leads to; 1 means learning the recipe. */
+  nextRank: number;
+}
+
+/**
+ * What salvaging this item would teach, without teaching it — for the forge
+ * to show before the click. Null when it teaches nothing.
+ */
+export function salvageStudy(item: Item, ranks: RecipeRanks, progress: Record<string, number>): SalvageStudy | null {
   if (item.kind !== 'equipment' || (item.identified !== false && !item.autoIdentified) || item.crafted) return null;
   const base = itemBase(item.ref);
   if (base.slot !== 'weapon' && base.slot !== 'thrown') return null;
@@ -135,12 +149,18 @@ export function studySalvagedWeapon(item: Item, ranks: RecipeRanks, progress: Re
   const rank = recipeRank(ranks, r.id);
   const needed = salvageForNextRank(rank);
   if (!needed) return null;
-  const count = (progress[r.id] ?? 0) + 1;
-  if (count >= needed) {
-    ranks[r.id] = rank + 1;
-    progress[r.id] = 0;
-    return `${base.name} mastery reached Rank ${rank + 1}.`;
+  return { recipeId: r.id, baseName: base.name, count: progress[r.id] ?? 0, needed, nextRank: rank + 1 };
+}
+
+export function studySalvagedWeapon(item: Item, ranks: RecipeRanks, progress: Record<string, number>): string | null {
+  const study = salvageStudy(item, ranks, progress);
+  if (!study) return null;
+  const count = study.count + 1;
+  if (count >= study.needed) {
+    ranks[study.recipeId] = study.nextRank;
+    progress[study.recipeId] = 0;
+    return `${study.baseName} mastery reached Rank ${study.nextRank}.`;
   }
-  progress[r.id] = count;
-  return `${base.name} mastery: ${count}/${needed} salvages toward Rank ${rank + 1}.`;
+  progress[study.recipeId] = count;
+  return `${study.baseName} mastery: ${count}/${study.needed} salvages toward Rank ${study.nextRank}.`;
 }
