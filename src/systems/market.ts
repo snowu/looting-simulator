@@ -84,11 +84,25 @@ const STOCK_TARGET: Record<Rarity, number> = {
   [Rarity.Legendary]: 0,
 };
 
+/** Late structural stock supplements delves, with small, predictable shipments. */
+export function materialStockTarget(mat: (typeof MATERIALS)[number], day = 1): number {
+  if (mat.category !== 'gem' && mat.category !== 'valuable') {
+    if (mat.tier === 5) return day < 18 ? 0 : day < 30 ? 1 : 2;
+    if (mat.tier === 4) return day < 6 ? 0 : day < 12 ? 1 : 2;
+  }
+  return STOCK_TARGET[mat.rarity];
+}
+
+function structuralShipmentInterval(mat: (typeof MATERIALS)[number]): number {
+  if (mat.category === 'gem' || mat.category === 'valuable') return 1;
+  return mat.tier === 5 ? 6 : mat.tier === 4 ? 3 : 1;
+}
+
 export function createMarket(rng: Rng, ranks: RecipeRanks = {}): MarketState {
   const commodities: Record<string, CommodityState> = {};
   for (const m of MATERIALS) {
     const p = Math.max(1, Math.round(m.value * rng.float(0.85, 1.15)));
-    commodities[m.id] = { price: p, supply: 0, stock: materialAvailableAtDepth(m, 1) ? STOCK_TARGET[m.rarity] : 0, history: [p] };
+    commodities[m.id] = { price: p, supply: 0, stock: materialAvailableAtDepth(m, 1) ? materialStockTarget(m) : 0, history: [p] };
   }
   const market: MarketState = {
     day: 1,
@@ -157,8 +171,12 @@ export function advanceDay(m: MarketState, rng: Rng, bestDepth = 1, ranks: Recip
     c.price = Math.max(1, Math.round(next));
     c.history.push(c.price);
     if (c.history.length > HISTORY_DAYS) c.history.shift();
-    const target = materialAvailableAtDepth(mat, bestDepth) ? STOCK_TARGET[mat.rarity] : 0;
-    if (c.stock < target) c.stock = Math.min(target, c.stock + Math.ceil(target * rng.float(0.3, 0.7)));
+    const target = materialAvailableAtDepth(mat, bestDepth) ? materialStockTarget(mat, m.day) : 0;
+    const interval = structuralShipmentInterval(mat);
+    if (c.stock < target && m.day % interval === 0) {
+      const shipment = interval > 1 ? 1 : Math.ceil(target * rng.float(0.3, 0.7));
+      c.stock = Math.min(target, c.stock + shipment);
+    }
   }
 
   for (const cat of ['weapon', 'armor', 'jewelry'] as ItemCategory[]) {

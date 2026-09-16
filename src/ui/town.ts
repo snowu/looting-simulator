@@ -23,7 +23,7 @@ import { BESTIARY_ORDER, bestiaryEntry, bestiaryProgress, isKnown, isSeen } from
 import { RELIC_ORDER, findRelic, forgetRelic, forgetRelicName, isFound, isNamed, nameRelic, relicProgress } from '../systems/relics';
 import { UniqueDef } from '../data/uniques';
 import { ELEMENTS } from '../types';
-import { buildCrafted, craft, materialsForSlot, selectionError, studyBlueprint } from '../systems/crafting';
+import { buildCrafted, craft, materialsForSlot, selectionError, salvageForNextRank, studySalvagedWeapon, studyBlueprint } from '../systems/crafting';
 import { durability, identify, identifyCost, itemIcon, itemName, itemStats, itemValue, makeConsumable, makeUnique, repairCost, repairItem, salvage, uniqueOf } from '../systems/items';
 import { Container, addItem, canFit, countOf, freeSlots, removeItem, removeOf, roomFor, sortContainer, takeQty } from '../state/inventory';
 import { syncLoadout } from '../systems/run';
@@ -475,7 +475,7 @@ export class Town {
     return h(
       'div',
       { class: 'panes' },
-      h('div', { class: 'pane frame' }, h('div', { class: 'row' }, h('h3', { text: 'Commodities' }), valuablesOwned.length ? btn(`Sell spare valuables (${gold(valuablesQuote)})`, () => this.sellAllValuables(), 'small right') : null), h('p', { class: 'dim small', text: '⚑ marks materials needed for accepted quests; the count shows yours / required. Yours means your stash; Merchant means available to buy.' }), table),
+      h('div', { class: 'pane frame' }, h('div', { class: 'row' }, h('h3', { text: 'Commodities' }), valuablesOwned.length ? btn(`Sell spare valuables (${gold(valuablesQuote)})`, () => this.sellAllValuables(), 'small right') : null), h('p', { class: 'dim small', text: '⚑ marks materials needed for accepted quests; the count shows yours / required. Yours means your stash; Merchant means available to buy.' }), h('p', { class: 'dim small', text: 'Deep crafting supplies need both delve progress and time: tier 4 ships one every 3 days from day 6, tier 5 one every 6 days from day 18. Shelves cap at one, rising to two on days 12 / 30. A delve beyond depth 1 advances the day.' }), table),
       h(
         'div',
         { class: 'col' },
@@ -571,14 +571,16 @@ export class Town {
       const rank = recipeRank(s.recipeRanks, r.id);
       const known = rank > 0;
       const base = itemBase(r.baseId);
-      const status = known ? `Rank ${rank} · +${Math.round(masteryBonus(rank) * 100)}% core` : 'blueprint needed';
+      const salvageProgress = rank < MAX_RECIPE_RANK && ['weapon', 'thrown'].includes(base.slot) ? ` · ${s.recipeSalvage[r.id] ?? 0}/${salvageForNextRank(rank)} salvages` : '';
+      const status = known ? `Rank ${rank} · +${Math.round(masteryBonus(rank) * 100)}% core` : ['weapon', 'thrown'].includes(base.slot) ? 'blueprint or unidentified salvages needed' : 'blueprint needed';
+      const progressStatus = status + salvageProgress;
       list.append(
         h(
           'div',
           {
             class: `recipe${this.forgeRecipe === r.id ? ' on' : ''}${known ? '' : ' locked'}`,
             onclick: () => {
-              if (!known) return this.ctx.toast('Find or buy this blueprint first.', '#9ab0d8');
+              if (!known) return this.ctx.toast(['weapon', 'thrown'].includes(base.slot) ? 'Unlock with a blueprint or salvage matching unidentified weapons.' : 'Find or buy this blueprint first.', '#9ab0d8');
               this.forgeRecipe = r.id;
               this.forgeMats = this.defaultMats(r.id);
               this.commit();
@@ -586,7 +588,7 @@ export class Town {
           },
           artImg(base.icon, undefined, 28),
           h('span', { class: 'grow', text: base.name }),
-          h('span', { class: 'dim small', text: status }),
+          h('span', { class: 'dim small', text: progressStatus }),
         ),
       );
     }
@@ -710,12 +712,13 @@ export class Town {
       salvageGrid.append(
         itemSlot(it, {
           size: 44,
-          tip: () => itemTooltip(it, { hint: 'Click to salvage into materials' }),
+          tip: () => itemTooltip(it, { hint: it.identified === false && !it.crafted && ['weapon', 'thrown'].includes(itemBase(it.ref).slot) ? 'Salvage into materials and advance this weapon’s recipe mastery' : 'Click to salvage into materials' }),
           onclick: () => {
             removeItem(s.stash, it.uid);
+            const mastery = studySalvagedWeapon(it, s.recipeRanks, s.recipeSalvage);
             const mats = salvage(it, createRng(randomSeed()));
             for (const mt of mats) addItem(s.stash, mt);
-            this.ctx.toast(`Salvaged into ${mats.map((mt) => `${mt.qty} ${material(mt.ref).name}`).join(', ') || 'dust'}.`, '#c8c0b0');
+            this.ctx.toast(`Salvaged into ${mats.map((mt) => `${mt.qty} ${material(mt.ref).name}`).join(', ') || 'dust'}.${mastery ? ` ${mastery}` : ''}`, '#c8c0b0');
             this.commit('break');
           },
         }),

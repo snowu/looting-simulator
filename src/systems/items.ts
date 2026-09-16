@@ -656,19 +656,23 @@ const UNKNOWN_BLUEPRINT_BONUS = 3;
 /**
  * Pick a blueprint to drop. Three pressures stack into one weighted draw:
  * a recipe higher up its gear line is scarcer, a recipe you don't know yet is
- * favoured, and a maxed one never appears. Nothing is ever locked behind
+ * favoured, and maxed plans are skipped while an eligible uncapped plan exists.
+ * Nothing is ever locked behind
  * another recipe — depth alone decides what the dungeon can hand you, and the
- * ladder only bends the odds.
+ * ladder only bends the odds. Plans retire three floors after their debut
+ * (depth-four and later plans remain in the endgame pool).
  */
 export function rollBlueprint(rng: Rng, depth: number, ranks: RecipeRanks = {}, reserved: Set<string> = new Set()): Item {
-  const eligible = RECIPES.filter((r) => itemBase(r.baseId).minDepth <= depth);
-  const unreserved = eligible.filter((r) => !reserved.has(r.id));
-  const candidates = unreserved.length ? unreserved : eligible;
-  const wanted = candidates.filter((r) => recipeRank(ranks, r.id) < MAX_RECIPE_RANK);
-  const pool = wanted.length ? wanted : candidates;
+  const available = RECIPES.filter((r) => itemBase(r.baseId).minDepth <= depth);
+  const recent = available.filter((r) => itemBase(r.baseId).minDepth >= Math.min(4, depth - 2));
+  const eligible = recent.length ? recent : available;
+  const wanted = eligible.filter((r) => recipeRank(ranks, r.id) < MAX_RECIPE_RANK);
+  const candidates = wanted.length ? wanted : eligible;
+  const unreserved = candidates.filter((r) => !reserved.has(r.id));
+  const pool = unreserved.length ? unreserved : candidates;
   const picked = rng.weighted(pool.map((r) => {
     const unknown = recipeRank(ranks, r.id) === 0;
-    return [r, blueprintDropWeight(r) * (unknown ? UNKNOWN_BLUEPRINT_BONUS : 1)] as const;
+    return [r, Math.sqrt(blueprintDropWeight(r)) * (unknown ? UNKNOWN_BLUEPRINT_BONUS : 1) * (['weapon', 'thrown'].includes(itemBase(r.baseId).slot) ? 1 + Math.max(0, depth - 1) * 0.3 : 1)] as const;
   }));
   reserved.add(picked.id);
   return makeBlueprint(picked.id);
@@ -731,7 +735,7 @@ export function rollEnemyLoot(
   }
   // Potions off corpses were the reason health never actually ran out.
   if (rng.chance(0.025)) items.push(makeConsumable('healing_draught'));
-  if (rng.chance(0.006 * depth)) items.push(rollBlueprint(rng, depth, ranks, blueprints));
+  if (rng.chance(0.008 + 0.004 * Math.min(6, depth))) items.push(rollBlueprint(rng, depth, ranks, blueprints));
   return { items, gold };
 }
 
@@ -776,6 +780,7 @@ export function rollContainerLoot(
       // Trimmed 6+3/depth → 5+2/depth: urns stay frequent but pay ~25% less.
       if (rng.chance(0.3)) gold += Math.round(rng.int(2, 5 + depth * 2) * diff.gold);
       if (rng.chance(0.03)) items.push(makeConsumable('healing_draught'));
+      if (rng.chance(0.02 + 0.005 * Math.min(6, depth))) items.push(rollBlueprint(rng, depth, ranks));
       if (rng.chance(0.05 * f)) items.push(makeMaterial(rollValuable(rng, depth).id, 1));
       break;
     case 'chest':
@@ -792,7 +797,7 @@ export function rollContainerLoot(
       if (rng.chance(0.07)) items.push(makeConsumable('scroll_identify'));
       if (rng.chance(0.18 * f)) items.push(makeMaterial(rollValuable(rng, depth).id, 1));
       if (rng.chance(0.1 * f)) items.push(makeMaterial(rollGem(rng, depth).id, 1));
-      if (rng.chance(0.05)) items.push(rollBlueprint(rng, depth, ranks));
+      if (rng.chance(0.12 + 0.02 * Math.min(6, depth))) items.push(rollBlueprint(rng, depth, ranks));
       if (rng.chance(FIGHT_MILK_CHANCE.chest * depthFactor(depth))) items.push(makeConsumable('fight_milk'));
       break;
     case 'vault':
@@ -805,7 +810,7 @@ export function rollContainerLoot(
       if (rng.chance(0.25)) items.push(rollEquipment(rng, depth, effFind, { minRarity: Rarity.Uncommon, identifyBelow, seenUniques }));
       items.push(makeMaterial(rollValuable(rng, depth).id, rng.int(1, 2)));
       items.push(makeMaterial(rollGem(rng, depth).id, 1));
-      if (rng.chance(tier === 'secret' ? 0.7 : 0.35)) items.push(rollBlueprint(rng, depth, ranks));
+      if (tier === 'secret' || rng.chance(0.35 + 0.03 * Math.min(6, depth))) items.push(rollBlueprint(rng, depth, ranks));
       if (rng.chance(0.35)) items.push(makeConsumable(rng.pick(['greater_healing', 'scroll_recall', 'scroll_identify'])));
       if (rng.chance(FIGHT_MILK_CHANCE.vault * depthFactor(depth))) items.push(makeConsumable('fight_milk'));
       break;

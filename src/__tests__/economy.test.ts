@@ -91,7 +91,7 @@ describe('market', () => {
     advanceDay(m, rng, 4);
     expect(m.commodities.gold.stock).toBeGreaterThan(0);
     expect(m.commodities.moonsilver.stock).toBe(0);
-    advanceDay(m, rng, 5);
+    while (m.day < 6) advanceDay(m, rng, 5);
     expect(m.commodities.moonsilver.stock).toBeGreaterThan(0);
   });
 

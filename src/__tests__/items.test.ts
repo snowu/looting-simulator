@@ -253,7 +253,7 @@ describe('items', () => {
     for (const r of RECIPES) if (r.starter) ranks[r.id] = 1;
     const rng = createRng(7);
     for (let i = 0; i < 4000; i++) {
-      const ref = rollBlueprint(rng, 6, ranks).ref;
+      const ref = rollBlueprint(rng, 1 + i % 6, ranks).ref;
       ranks[ref] = Math.min(MAX_RECIPE_RANK, (ranks[ref] ?? 0) + 1);
     }
     for (const r of RECIPES) expect(ranks[r.id] ?? 0).toBe(MAX_RECIPE_RANK);

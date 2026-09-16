@@ -23,7 +23,7 @@ import { findSigil } from '../data/spells';
  */
 
 /** Bump this (and push a migration) whenever a field is added to the save. */
-export const SAVE_REVISION = 18;
+export const SAVE_REVISION = 19;
 
 type AnyState = GameState & Record<string, unknown>;
 
@@ -167,6 +167,7 @@ const MIGRATIONS: ((s: AnyState) => void)[] = [
       for (const f of s.run.floors ?? []) if (f) normalizeFloor(f);
     }
   },
+  (s) => { s.recipeSalvage ??= {}; },
 ];
 
 /**
