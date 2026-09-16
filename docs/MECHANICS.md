@@ -31,7 +31,7 @@ Dying ends the day too, but you lose the backpack.
 |---|---|
 | Base health | 70 (+12 per Toughness level, + item Health) |
 | Base stamina | 100 (+15 per Second Wind level, + item Stamina) |
-| Health regeneration | **None.** Potions, shrines and life leech only |
+| Health regeneration | **None.** Flask, morsels, shrines and life leech only |
 | Stamina regeneration | 22/s, starting 0.9s after your last swing; 30% of that while blocking |
 | Unarmed | 3 attack, 0.14s windup, 0.30s recovery, 9 stamina, reach 1 |
 | Step | 0.24s per tile; backwards ×1.25; ×1.2 more if Speed < −12 |
@@ -81,7 +81,7 @@ A volley can lose up to two closely stacked bolts to one timed parry; the follow
 
 ## 3. Controls
 
-See the README table. In short: W/S step, A/D turn, Q/E strafe, Space attack, Shift block, F interact, T throw, R call your shafts back, G or C cast your sigil, 1–4 consumables, I pack, M map, Esc pause. On touch: drag anywhere to walk and turn, tap or press the big button for the context action, hold the shield to block.
+See the README table. In short: W/S step, A/D turn, Q/E strafe, Space attack, Shift block, F interact/eat, T throw, R call your shafts back, G or C cast your sigil, 1 flask, 2–4 scrolls (identify, recall, flash, backstep), I pack, M map, Esc pause. On touch: drag anywhere to walk and turn, tap or press the big button for the context action, hold the shield to block.
 
 **The one-button action** (tap the view, or the big button) swings at anything in reach and otherwise does whatever **[F]** would. One exception: a loot pile **underfoot never steals the swing while something is alive within 2 tiles**, or within 4 and hunting you. Killing the first of two monsters drops loot on your tile, and without that rule every tap became the loot window instead of a hit on the second one. Doors, stairs and portals still win over the swing, because running is a legitimate answer to a fight. **[F]** is unaffected — looting on the keyboard is always deliberate.
 
@@ -331,7 +331,7 @@ A monster lighter than **55 health** (`STAGGER_HP`) is knocked out of its wind-u
 | Mimic | — | 0–0 | — |
 | The Ashen King | star iron 100% (1–2), shadow essence 100% (1–2), dragon scale 50%, jeweled skull 100% | 150–300 | 100% |
 
-Every kill also has a 2.5% chance of a Healing Draught and `0.6% × depth` of a blueprint. Loot find multiplies material chances by `1 + find/200` and gear chance by `1 + find/100`.
+Eligible monsters independently roll a morsel at `0.28 − 0.024 × (depth − 1)`; loot find does not modify it. Blueprint chance remains `0.8% + 0.4% × min(6, depth)`. Loot find multiplies material chances by `1 + find/200` and gear chance by `1 + find/100`.
 
 ### Monster AI
 
@@ -372,9 +372,9 @@ A shrine serves one of five gods, fixed per floor and rolled from its own seed s
 
 | | Colour | Prompt | What it does |
 |---|---|---|---|
-| **Font of Mending** | cold blue | *Drink at the font* | **60% of your health** and all of your stamina, and **lifts a curse**. Never harms you |
-| **Hollow Idol** | violet | *Pray at the hollow idol* | **65%**: the same mend and a blessing. **35%**: a curse for the rest of the run |
-| **Offering Stone** | gold | *Offer N gold at the stone* | Up to **3 paid offerings** per stone, each costing **75% more** than the last (`30 + 25 × depth`, ×1.75 per offering made — D1: 55 → 96 → 168; D6: 180 → 315 → 551). Each offering has a **25% chance of silence**: the coin is taken and nothing answers, no mend and no blessing. Too poor? It stays unused — come back with the coin |
+| **Font of Mending** | cold blue | *Drink at the font* | **60% of your health** and all of your stamina, **+1 flask charge** (never above max), and **lifts a curse**. Never harms you |
+| **Hollow Idol** | violet | *Pray at the hollow idol* | **65%**: the same mend (including +1 flask charge) and a blessing. **35%**: a curse for the rest of the run |
+| **Offering Stone** | gold | *Offer N gold at the stone* | Up to **3 paid offerings** per stone, each costing **75% more** than the last (`30 + 25 × depth`, ×1.75 per offering made — D1: 55 → 96 → 168; D6: 180 → 315 → 551). Each offering has a **25% chance of silence**: the coin is taken and nothing answers, no mend and no blessing. Too poor? It stays unused — come back with the coin. The stone never refills a flask charge: a mend you can pay for three times would turn gold straight back into heals |
 | **Sanguine Altar** | crimson | *Bleed at the red altar* | Pay **half your current HP** (rounded down, single use, refused at 1 HP — it cannot kill you) for `40 + 30 × depth + pay` gold. HP is a currency: bleed here, mend at a font |
 | **Shrine of Strife** | ember orange | *Challenge the ember shrine* | Free to invoke, single use: `2 + ⌈depth/2⌉` depth-appropriate enemies rise around the shrine already alerted (never the boss). They drop ordinary loot, and the last trial-marked kill pays `60 + 40 × depth` gold. One trial at a time per run |
 
@@ -541,7 +541,7 @@ fails the suite rather than reaching a player.
 | Eulogy Plate | Star-Iron Plate | +14 Defense, +20 Health; **all** healing at exactly 50% |
 | Charlie Work | Silver Band | +2 tiles of trap-reading: 4 ahead instead of 2 |
 | Kitten Mittens | Shadow-Silk Gloves | −2 tiles off every creature's sight; a skeleton's 7 becomes 5 |
-| Fight Milk | *Legendary draught* | Drunk: stamina regen 22/s → 37.4/s, −20 max stamina, rest of the delve |
+| Fight Milk | *Legendary flask infusion* | While infused: stamina regen 22/s → 37.4/s, −20 max stamina; sip potency −10 points |
 
 **Depth.** Legendary only becomes available at depth 6 (`rarityAvailableAtDepth`),
 so relics are a bottom-of-the-dungeon thing by construction. Each also carries
@@ -564,12 +564,12 @@ shape you are carrying and nothing more. The name is supposed to land at the
 appraiser, and a codex that opened on pickup would hand you the identification
 for free.
 
-**Fight Milk** is the one Legendary you drink. It is never stocked by a merchant
+**Fight Milk** is a Legendary flask infusion. It is never stocked by a merchant
 and never craftable: `0.8% × depthFactor` in a chest, `3% × depthFactor` in a
 vault or secret chest, where `depthFactor` runs 0 at depth 1 to 1 at depth 5.
-Delve-long draughts live in `run.tonics`, deliberately separate from `blessing`
-so finding one never costs you a shrine's favour, and drinking a second bottle of
-something already in you does nothing and keeps the bottle.
+and never craftable. Installing it at the forge consumes the bottle and the
+effect remains until another infusion replaces it. Legacy in-progress runs that
+already drank one retain the old `run.tonics` effect until that delve ends.
 
 **The codex** (Bestiary → Relics) lists all nine, locked to a silhouette until
 found. Under `vite dev` each has an Unlock/Relock bench, the same as the creature
@@ -581,9 +581,9 @@ Each newly generated chest has a deterministic **12% chance to be a mimic**. It 
 
 | Source | Contents |
 |---|---|
-| Urn / barrel | 40% a material (1–2), 30% gold `2 – (5 + 2×depth)`, 3% potion, 5% valuable |
-| Chest | `8–18 × depth` gold, 1–2 material stacks, 17% gear, 12% potion, 18% valuable, 10% gem, 7% identify scroll, 5% blueprint, 0.8%×depth Fight Milk. Loot find scales the gear, valuable and gem rolls |
-| Vault / secret chest | `40–75 × depth` gold, an Uncommon+ item (Rare+ from depth 4; 25% a second Uncommon+), a valuable, a gem, 35%/70% blueprint, 35% a good consumable, 3%×depth Fight Milk |
+| Urn / barrel | 40% a material (1–2), 30% gold `2 – (5 + 2×depth)`, 5% valuable |
+| Chest | `8–18 × depth` gold, 1–2 material stacks, 17% gear, 18% valuable, 10% gem, 7% identify scroll, 5% blueprint, 0.8%×depth Fight Milk. Loot find scales the gear, valuable and gem rolls |
+| Vault / secret chest | `40–75 × depth` gold, an Uncommon+ item (Rare+ from depth 4; 25% a second Uncommon+), a valuable, a gem, 35%/70% blueprint, 35% a scroll, 3%×depth Fight Milk |
 
 Vault rooms contain one premium chest. Special chests roll at the current depth rather than advancing every reward table by one floor.
 
@@ -915,11 +915,40 @@ At most 2 prefixes and 2 suffixes, never two affixes on the same stat.
 
 | Item | Effect | Rarity | Value | Stack |
 |---|---|---|---|---|
-| Healing Draught | Restore 25% health | Common | 24 | 5 |
-| Greater Healing | Restore 55% health | Rare | 70 | 5 |
-| Stamina Tonic | Refill stamina | Common | 16 | 5 |
+| Healing Draught | Legacy save reference; unobtainable and refunded on migration | Common | 24 | 5 |
+| Greater Healing | Legacy save reference; unobtainable and refunded on migration | Rare | 70 | 5 |
+| Stamina Tonic | Legacy save reference; unobtainable and refunded on migration | Common | 16 | 5 |
 | Scroll of Identify | Identify one item in the pack | Uncommon | 30 | 10 |
 | Scroll of Recall | 5s channel, then a two-way town portal | Rare | 95 | 5 |
+| Flash Scroll | A blinding flash at whatever faces you — see below | Rare | 210 | 5 |
+| Backstep Scroll | Snaps you back to where you stood 2 seconds ago — see below | Rare | 160 | 5 |
+
+### The flask, morsels and torn scrolls
+
+Healing is a refillable flask and dungeon food, with two panic scrolls beside them. Potions are gone (see the legacy rows above).
+
+- **Flask:** 3 charges, refilled to full at the start of every delve. **1** sips: a 0.5s commitment with the guard down — a blow mid-sip lands unblocked, and the heal still lands at the end. Pressed mid-step, the sip waits for the step to land (holding the next step, even with a walk key held) rather than dropping the input. Each sip restores 30% of max health. Refused at full health. All flask healing passes through `World.heal`, so Eulogy Plate's half and the difficulty's `playerHealing` apply.
+- **Charges:** +1 per Flask Shard, up to 6 (3 shards). Shards come from reaching depth 3, reaching depth 5, and the first Ashen King kill — each waits as a pickup where you earned it — then rarely (~4%) from vault and secret chests. A shard applies on pickup, never sits in the pack, and is stored on the playthrough, not the run.
+- **Potency:** bought at the merchant that used to sell potions: 30% → 35% → 40% → 45% → 50% per sip for 250 / 700 / 1600 / 3200 gold.
+- **Refills mid-delve:** a Font of Mending and a satisfied Hollow Idol mend 60% and add +1 charge (never above max). The Offering Stone never adds a charge.
+- **Dregs:** healing wasted past full health fills a meter; at 50% of max health it empties into +1 charge if you are below max, otherwise it holds full. Resets each delve.
+- **Infusions:** at the forge Flask bench, one stash material is consumed into the flask until replaced. Every infusion costs 10 points of sip healing (a 40% flask sips for 30%) and triggers the material's family bonus for 6s per sip — metal +Defense, wood +Speed, bone +Attack, cloth refills stamina instead, a gem grants its catalyst affix (Shadow Essence → Leech, flame shard → Fire) at forge-rolled strength. Hide waives the cost and sips for +5 points instead, with no timed effect. Fight Milk is a legendary infusion: always on from delve entry (22/s → 37.4/s regen, −20 max stamina), still costing the 10 points. Only changeable in town.
+- **Morsels:** Scrap (rat, bat, cutpurse, wisps) 10%, Cut (archers, shieldbearers, skeletons, spider) 12.5%, Heart (ghoul, Hollow Knight, Barrow Champion, Flame Wraith, mimic) 15% of max health. Per kill: `28% − 2.4% × (depth − 1)`, its own seed stream, untouched by loot find. Eaten with F where it lies (underfoot or faced): 1.2s chew, healing spread across it; a hit drops it with the uneaten remainder kept. Eating at full health is allowed and feeds dregs. Food never steals the one-button swing from a live fight, loses to doors and stairs, and loses to a loot pile on the same tile: [F] searches first, and the loot window has an **Eat** button, so a half-emptied pile never hides the food. Once the pile is gone [F] eats. Food shows on the automap, and rots 240s after dropping on the run clock. Rats and bats that reach a morsel first eat it over 1s (interruptible): the monster heals full and keeps +25% health and +15% attack, once each, slightly larger.
+- **Flash and Backstep scrolls:** the two panic buttons, split out of Identify
+and Recall because answering every wind-up for the price of an Identify would
+make telegraphs decorative. Both are used like any consumable, both burn
+whether they land or not, and both cancel a recall read, sip or chew in
+progress. **Flash** (210g): needs the nearest living enemy within 3 tiles in
+front of you, in sight, alerted and facing you — with no such target the light
+still bursts, over nothing. Normal: blind 2s. Mid-wind-up: blind 3s, the swing
+cancelled (*Caught it in the light!*). The Ashen King does not blink: no
+blind, no cancelled wind-up, no lost trail, and the scroll still burns. Every flash washes the view white-hot for a beat. **Backstep**
+(160g): returns you to the oldest tile of your last 2s still walkable and free,
+at most 4 tiles back, keeping that facing; used while standing still, it burns
+and comes to nothing. Works in the Ashen Throne. A blinded monster cannot start
+an attack, drops its guard for the blind, stumbles one random step per ~0.6s
+never toward you, and loses your trail when the blind ends if you are more than
+2 tiles away.
 
 ---
 
@@ -1016,7 +1045,6 @@ One or two run at a time, announced the day before as a rumour.
 | Master Smith | +6% crafted quality; L3 an extra affix | 4, 9, 15 |
 | Appraiser's Eye | L1 identify 40% cheaper; L2 Rare and lower drop identified | 5, 12 |
 | Treasure Sense | +20% loot find | 6, 13, 22 |
-| Supply Crate | Start each run with +1 Healing Draught | 5, 11, 18 |
 | Lantern Wick | +1 unit of light radius (½ a tile). L1 also spots traps 3 tiles ahead instead of 2 | 3, 7, 12 |
 | Warden's Vigil | +25% off your sigil's cooldown per kill, capped at a fifth of it | 6, 12, 20 |
 
@@ -1027,7 +1055,6 @@ What did change is the tree's internal shape, because the dungeon moved under it
 | | before | after | why |
 |---|---|---|---|
 | Pack Mule | 4, 8, 14 | 3, 6, 11 | Measured at **exactly zero** on depth, survival and haul: with a 16-slot pack and the new loot rates it never filled. Its job came back when the base pack dropped to 12, and the price came down to match an upgrade that is now situational rather than universal. |
-| Supply Crate | 3, 6, 10 | 5, 11, 18 | The best buy in the tree by a distance — healing supply is what actually binds a deep delve, and three free draughts a run answered that for 19 renown. Still the best depth-per-renown in the tree at 34. |
 | Treasure Sense | +12%, 5/10/16 | +20%, 6/13/22 | +36% find on drop rates that had themselves been halved measured as close to nothing — and what it *did* add was almost entirely Common, because the Common band's flat weight of 100 anchored the roll. Find now divides that weight as well as multiplying the good bands, so it moves quality and not just quantity: at +60 it is +22% gear pieces and **+85% more Uncommons**. Dearer accordingly. |
 
 Five upgrades were **not** repriced, because the harness cannot see them and a number it cannot see is not evidence. Silver Tongue, Market Insider, Master Smith and Appraiser's Eye are entirely town-side, and the scripted bot never visits town. Second Wind measures at zero as well, but only because a slow weapon's stamina regeneration roughly matches its cost per swing — it binds for fast weapons, which the bot does not carry.
@@ -1038,9 +1065,9 @@ Five upgrades were **not** repriced, because the harness cannot see them and a n
 
 *Files: `src/state/inventory.ts`, `src/systems/run.ts`*
 
-- **Backpack:** 12 slots (+4 per Pack Mule). Materials stack 20 per slot, consumables 5–10, gear 1. It was 16, sized against a dungeon that handed you forty items a floor; with loot cut by about sixty percent a deep delve peaks around nineteen slots, so 16 never filled and Pack Mule was worth measurably nothing.
-- **Packing before a delve:** the *Stash & Gear* tab has a **Pack** panel beside the stash. Anything you put in it goes down with you as your backpack. Clicking a stash item moves it into the pack; gear equips instead unless you flip the **Equip / Pack** switch. **Take potions** fills the pack with every consumable that fits. When a run is already open (you came home through a town portal) the panel is your actual backpack, so you can stash your haul and restock before going back.
-- Anything packed that no longer fits when you descend — the pack shrank, or the Supply Crate took the slot — goes back to the stash rather than vanishing.
+- **Backpack:** 16 slots (+4 per Pack Mule). Materials stack 20 per slot, consumables 5–10, gear 1. It was 16, sized against a dungeon that handed you forty items a floor; with loot cut by about sixty percent a deep delve peaks around nineteen slots, so 16 never filled and Pack Mule was worth measurably nothing. It went to 12, then back to 16 once more material families, more monsters and larger floors made 12 tight from the first floor.
+- **Packing before a delve:** the *Stash & Gear* tab has a **Pack** panel beside the stash. Anything you put in it goes down with you as your backpack. Clicking a stash item moves it into the pack; gear equips instead unless you flip the **Equip / Pack** switch. **Take scrolls** fills the pack with every carryable consumable that fits. When a run is already open (you came home through a town portal) the panel is your actual backpack, so you can stash your haul and restock before going back.
+- Anything packed that no longer fits when you descend goes back to the stash rather than vanishing.
 - **Stash:** unlimited, in town, and materials merge into single stacks.
 - **Extracting** banks the whole backpack and the gold you carried.
 - **Dying** loses the backpack and your carried gold. Soul Pouch saves the first `3 × level` slots and `20% × level` of the gold. **Equipped gear is always kept.**

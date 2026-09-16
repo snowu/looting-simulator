@@ -192,18 +192,17 @@ describe('packing for a delve', () => {
     expect(syncLoadout(state).capacity).toBe(before + 8);
   });
 
-  it('sends anything that no longer fits back to the stash', () => {
+  it('does not inject a removed Supply Crate potion into a full pack', () => {
     const state = newGame(createRng(4));
     const pack = syncLoadout(state);
     for (let i = 0; i < pack.capacity; i++) {
       addItem(pack, makeEquipment({ baseId: 'dagger', materialId: 'copper', rarity: Rarity.Common, ilvl: 1, quality: 1 }));
     }
     const overflow = pack.items.length;
-    state.meta.supply_crate = 1; // takes a slot in the new backpack
     const stashBefore = state.stash.items.length;
     startRun(state, 4);
     expect(state.run!.backpack.items.length).toBeLessThanOrEqual(state.run!.backpack.capacity);
-    expect(state.stash.items.length).toBeGreaterThan(stashBefore);
+    expect(state.stash.items.length).toBe(stashBefore);
     expect(state.loadout.items.length).toBe(0);
     expect(overflow).toBeGreaterThan(0);
   });

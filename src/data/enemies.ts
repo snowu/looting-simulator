@@ -340,6 +340,14 @@ export const ENEMIES: EnemyDef[] = [
   },
 ];
 
+const MORSELS: Record<string, NonNullable<EnemyDef['morsel']>> = {
+  rat: 'scrap', bat: 'scrap', goblin: 'scrap', ember_wisp: 'scrap', frost_wisp: 'scrap',
+  goblin_archer: 'cut', goblin_shield: 'cut', skeleton: 'cut', skeleton_archer: 'cut',
+  skeleton_shield: 'cut', spider: 'cut', ghoul: 'heart', hollow_knight: 'heart',
+  barrow_champion: 'heart', flame_wraith: 'heart', mimic: 'heart',
+};
+for (const enemy of ENEMIES) enemy.morsel = MORSELS[enemy.id];
+
 // Added after the base roster so balancing a base updates every themed relative.
 ENEMIES.push(...ELEMENTAL_VARIANTS.map((variant) => {
   const base = ENEMIES.find((e) => e.id === variant.base)!;

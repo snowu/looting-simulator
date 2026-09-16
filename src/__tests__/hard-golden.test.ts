@@ -51,7 +51,10 @@ describe('Hard generation, loot and stats have explicit balance baselines', () =
         out.push(scrub(rollContainerLoot(createRng(seed), depth, find, tier, undefined, {}, [], 'hard')));
       }
     }
-    expect(hash(out)).toBe(golden.materialLootHash);
+    // The vault/secret good-consumable pool grew from two scrolls to four
+    // (Flash, Backstep), so this moved off materialLootHash — which stays
+    // frozen in the fixture as the pre-scroll record — onto scrollLootHash.
+    expect(hash(out)).toBe(golden.scrollLootHash);
   }, 60_000);
 
   it('spawns every monster with the same health at every depth', () => {

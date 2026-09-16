@@ -6,12 +6,13 @@ import { LADDER } from './tables';
 import { DEEP_META, geared, playtest, summarise } from './playtest';
 
 it('prepared depth-six expedition', () => {
-  const heals = Number(process.env.PREP_HEALS ?? 12);
+  // Healing is a flask now, not a stack: preparation means a fully-sharded,
+  // fully-tempered vessel, plus the dungeon food the bot picks up itself.
   const deep = LADDER.find((row) => row.depth === 6)!.make;
   const equip = geared(deep, DEEP_META);
   const prepare = (state: Parameters<typeof equip>[0]) => {
     equip(state);
-    addItem(state.stash, makeConsumable('greater_healing', heals));
+    state.flask = { shards: 3, potency: 4, infusion: null };
     addItem(state.stash, makeConsumable('scroll_recall', 1));
   };
   const common = {
@@ -23,6 +24,6 @@ it('prepared depth-six expedition', () => {
   const reach = playtest(common);
   const boss = playtest({ ...common, policy: { ...common.policy, fightBoss: true } });
   writeFileSync(process.env.PLAYTEST_OUT ?? '/tmp/looting-prepared-report.txt',
-    summarise(reach, `reach depth six, ${heals} greater heals`) + '\n\n' +
-    summarise(boss, `fight Ashen King, ${heals} greater heals`) + '\n');
+    summarise(reach, 'reach depth six, perfected flask') + '\n\n' +
+    summarise(boss, 'fight Ashen King, perfected flask') + '\n');
 });

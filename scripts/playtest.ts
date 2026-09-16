@@ -70,7 +70,9 @@ export interface RunReport {
   itemsKept: number;
   valueKept: number;
   damageTaken: Record<string, number>;
-  potionsDrunk: number;
+  sips: number;
+  morselsEaten: number;
+  morselsRotted: number;
   parries: number;
   hitsTaken: number;
   blockedHits: number;
@@ -95,6 +97,9 @@ export interface FloorReport {
   items: number;
   hpLost: number;
   hpFracAtExit: number;
+  /** Morsels whose chew started, and the share of max health they carried. */
+  morsels: number;
+  food: number;
 }
 
 // --- navigation --------------------------------------------------------------
@@ -173,12 +178,13 @@ class Bot {
   report: RunReport;
   private floorRep!: FloorReport;
   private containersAtStart = 0;
+  private knownMorsels = new Map<number, Set<string>>();
 
   constructor(private w: World, private policy: Policy, seed: number, private rng: Rng) {
     this.lastHp = w.player.hp;
     this.report = {
       seed, outcome: 'timeout', depth: 1, deepest: 1, bossKilled: false, kills: 0, time: 0, gold: 0, renown: 0,
-      itemsKept: 0, valueKept: 0, damageTaken: {}, potionsDrunk: 0, parries: 0, hitsTaken: 0,
+      itemsKept: 0, valueKept: 0, damageTaken: {}, sips: 0, morselsEaten: 0, morselsRotted: 0, parries: 0, hitsTaken: 0,
       blockedHits: 0, trapsSprung: 0, itemsLost: 0, valueLost: 0,
       peakSlots: 0, capacity: w.run.backpack.capacity, brokenAtEnd: 0, perFloor: [],
     };
@@ -198,7 +204,7 @@ class Bot {
     this.floorRep = {
       depth: this.w.run.depth, time: 0, kills: 0, enemies: f.enemies.length,
       containersLooted: 0, containersTotal: this.containersAtStart,
-      items: 0, hpLost: 0, hpFracAtExit: 1,
+      items: 0, hpLost: 0, hpFracAtExit: 1, morsels: 0, food: 0,
     };
     this.report.perFloor.push(this.floorRep);
   }
@@ -257,10 +263,17 @@ class Bot {
       .map((t) => t.e);
   }
 
-  private potion(): Item | undefined {
-    return this.w.run.backpack.items.find(
-      (i) => i.kind === 'consumable' && (i.ref === 'healing_draught' || i.ref === 'greater_healing'),
-    );
+  private eat(): boolean {
+    const morsel = this.w.morselNear();
+    if (!morsel || !this.w.eatMorsel()) return false;
+    this.report.morselsEaten++;
+    this.floorRep.morsels++;
+    this.floorRep.food += morsel.remaining;
+    return true;
+  }
+
+  private hasHeal(): boolean {
+    return (this.w.run.flask?.charges ?? 0) > 0;
   }
 
   /** One decision tick. Returns false when the run is over. */
@@ -286,13 +299,16 @@ class Bot {
     if (w.busy || w.moving) return true;
 
     const hpFrac = p.hp / d.maxHp;
+    const morsels = new Set((w.floor.morsels ?? []).map((m) => m.id));
+    const known = this.knownMorsels.get(w.run.depth) ?? new Set<string>();
+    for (const id of [...known]) if (!morsels.has(id)) { this.report.morselsRotted++; known.delete(id); }
+    for (const id of morsels) known.add(id);
+    this.knownMorsels.set(w.run.depth, known);
 
     // 1. Drink when hurt.
-    if (hpFrac < this.policy.drinkAt) {
-      const pot = this.potion();
-      if (pot) {
-        w.use(pot.uid);
-        this.report.potionsDrunk++;
+    if (hpFrac < this.policy.drinkAt && (!(w.floor.morsels ?? []).length || this.threats().length > 0)) {
+      if (this.hasHeal()) {
+        if (w.sipFlask()) this.report.sips++;
         return true;
       }
     }
@@ -327,6 +343,21 @@ class Bot {
     w.setBlock(false);
     this.parryFor = null;
 
+    // Between fights, walk back to food instead of spending a flask charge.
+    if (!threats.length && hpFrac < 0.98 && (w.floor.morsels ?? []).length) {
+      const near = w.morselNear();
+      if (near) {
+        // Only a chew that actually started counts. Counting presses logged
+        // hundreds of meals a run whenever a door or a pile took the press.
+        if (this.eat()) known.delete(near.id);
+        return true;
+      }
+      const food = [...(w.floor.morsels ?? [])].sort((a, b) =>
+        Math.abs(a.x - p.x) + Math.abs(a.y - p.y) - (Math.abs(b.x - p.x) + Math.abs(b.y - p.y)),
+      )[0];
+      return this.navigate(food.x, food.y);
+    }
+
     // 3. Ranged attackers: close on them.
     // 4. Objectives.
     const target = this.pickTarget(hpFrac);
@@ -347,7 +378,7 @@ class Bot {
     // Fleeing is a commitment. Re-deciding it every frame made the bot climb
     // one flight, notice it was no longer on the floor that scared it, and go
     // straight back down — for the rest of the run.
-    if (hpFrac < this.policy.fleeAt && !this.potion()) this.leaving = true;
+    if (hpFrac < this.policy.fleeAt && !this.hasHeal()) this.leaving = true;
     const hurt = this.leaving;
     const full = w.run.backpack.items.length >= w.run.backpack.capacity;
 
@@ -464,6 +495,11 @@ class Bot {
     } else { this.lastPos = key; this.stuck = 0; }
 
     if (p.x === tx && p.y === ty) {
+      const morsel = w.morselNear();
+      if (morsel && !this.threats().length && this.eat()) {
+        this.knownMorsels.get(w.run.depth)?.delete(morsel.id);
+        return true;
+      }
       // Standing where we wanted. Face whatever we came for, then use the same
       // one-button path the touch controls use: urns and barrels are *smashed*,
       // not opened, and contextAction is the code that already knows that.
@@ -643,8 +679,8 @@ export function geared(equipment: () => Equipment, meta: MetaLevels = {}): (s: G
 }
 
 /** Roughly where the renown tree sits after a dozen successful delves. */
-export const MID_META: MetaLevels = { toughness: 3, endurance: 2, pack_mule: 1, supply_crate: 2, lantern: 1 };
-export const DEEP_META: MetaLevels = { toughness: 5, endurance: 3, pack_mule: 3, supply_crate: 3, lantern: 3, treasure_sense: 2 };
+export const MID_META: MetaLevels = { toughness: 3, endurance: 2, pack_mule: 1, lantern: 1 };
+export const DEEP_META: MetaLevels = { toughness: 5, endurance: 3, pack_mule: 3, lantern: 3, treasure_sense: 2 };
 
 export function playOneRun(seed: number, policy: Policy, prepare?: (s: GameState) => void): RunReport {
   const state = newGame(createRng(seed));
@@ -718,7 +754,7 @@ export function summarise(reports: RunReport[], label: string): string {
   const killers = new Map<string, number>();
   for (const r of deaths) killers.set(r.killedBy ?? '?', (killers.get(r.killedBy ?? '?') ?? 0) + 1);
   L.push(`killed by: ${[...killers].sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} x${v}`).join(', ') || '—'}`);
-  L.push(`run time: avg ${avg(reports.map((r) => r.time)).toFixed(0)}s  kills: ${avg(reports.map((r) => r.kills)).toFixed(1)}  potions: ${avg(reports.map((r) => r.potionsDrunk)).toFixed(1)}  hits taken: ${avg(reports.map((r) => r.hitsTaken)).toFixed(1)}`);
+  L.push(`run time: avg ${avg(reports.map((r) => r.time)).toFixed(0)}s  kills: ${avg(reports.map((r) => r.kills)).toFixed(1)}  sips: ${avg(reports.map((r) => r.sips)).toFixed(1)}  morsels: ${avg(reports.map((r) => r.morselsEaten)).toFixed(1)} eaten / ${avg(reports.map((r) => r.morselsRotted)).toFixed(1)} rotted  hits taken: ${avg(reports.map((r) => r.hitsTaken)).toFixed(1)}`);
   L.push(`damage taken: monsters ${avg(reports.map((r) => r.damageTaken.monster ?? 0)).toFixed(0)}, traps ${avg(reports.map((r) => r.damageTaken.trap ?? 0)).toFixed(0)} (${avg(reports.map((r) => r.trapsSprung)).toFixed(1)} sprung)  parries ${avg(reports.map((r) => r.parries)).toFixed(1)}  blocked ${avg(reports.map((r) => r.blockedHits)).toFixed(1)}`);
   // Banked means settled through endRun(): what the town actually received,
   // after a death has taken the pack off you.
@@ -734,7 +770,7 @@ export function summarise(reports: RunReport[], label: string): string {
   for (let d = 1; d <= 6; d++) {
     const fs = reports.flatMap((r) => r.perFloor.filter((f) => f.depth === d));
     if (!fs.length) continue;
-    L.push(`  D${d} n=${String(fs.length).padStart(3)} time=${avg(fs.map((f) => f.time)).toFixed(0)}s kills=${avg(fs.map((f) => f.kills)).toFixed(1)}/${avg(fs.map((f) => f.enemies)).toFixed(1)} looted=${avg(fs.map((f) => f.containersLooted)).toFixed(1)}/${avg(fs.map((f) => f.containersTotal)).toFixed(1)} items=${avg(fs.map((f) => f.items)).toFixed(1)} hpLost=${avg(fs.map((f) => f.hpLost)).toFixed(0)} hpOut=${(avg(fs.map((f) => f.hpFracAtExit)) * 100).toFixed(0)}%`);
+    L.push(`  D${d} n=${String(fs.length).padStart(3)} time=${avg(fs.map((f) => f.time)).toFixed(0)}s kills=${avg(fs.map((f) => f.kills)).toFixed(1)}/${avg(fs.map((f) => f.enemies)).toFixed(1)} looted=${avg(fs.map((f) => f.containersLooted)).toFixed(1)}/${avg(fs.map((f) => f.containersTotal)).toFixed(1)} items=${avg(fs.map((f) => f.items)).toFixed(1)} hpLost=${avg(fs.map((f) => f.hpLost)).toFixed(0)} hpOut=${(avg(fs.map((f) => f.hpFracAtExit)) * 100).toFixed(0)}% food=${avg(fs.map((f) => f.morsels)).toFixed(1)} (${(avg(fs.map((f) => f.food)) * 100).toFixed(0)}% hp)`);
   }
   return L.join('\n');
 }

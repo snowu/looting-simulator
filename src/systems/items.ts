@@ -767,8 +767,6 @@ export function rollEnemyLoot(
   } else if (rng.chance(Math.min(0.95, def.itemChance * (1 + effFind / 100) * diff.dropChance))) {
     items.push(rollEquipment(rng, depth, effFind, { identifyBelow, seenUniques }));
   }
-  // Potions off corpses were the reason health never actually ran out.
-  if (rng.chance(0.025)) items.push(makeConsumable('healing_draught'));
   if (rng.chance(0.008 + 0.004 * Math.min(6, depth))) items.push(rollBlueprint(rng, depth, ranks, blueprints));
   return { items, gold };
 }
@@ -823,7 +821,6 @@ export function rollContainerLoot(
       if (rng.chance(0.4)) items.push(makeMaterial(materialForDepth(rng, depth, cats).id, rng.int(1, 2)));
       // Trimmed 6+3/depth → 5+2/depth: urns stay frequent but pay ~25% less.
       if (rng.chance(0.3)) gold += Math.round(rng.int(2, 5 + depth * 2) * diff.gold);
-      if (rng.chance(0.03)) items.push(makeConsumable('healing_draught'));
       if (rng.chance(0.02 + 0.005 * Math.min(6, depth))) items.push(rollBlueprint(rng, depth, ranks));
       if (rng.chance(0.05 * f)) items.push(makeMaterial(rollValuable(rng, depth).id, 1));
       break;
@@ -837,7 +834,6 @@ export function rollContainerLoot(
       gold += Math.round(rng.int(8, 18) * depth * diff.gold);
       for (let i = rng.int(1, 2); i > 0; i--) items.push(makeMaterial(materialForDepth(rng, depth, cats).id, rng.int(1, 3)));
       if (rng.chance(0.17 * (1 + effFind / 100) * diff.dropChance)) items.push(rollEquipment(rng, depth, effFind, { identifyBelow, seenUniques }));
-      if (rng.chance(0.12)) items.push(makeConsumable(rng.pick(['healing_draught', 'stamina_tonic'])));
       if (rng.chance(0.07)) items.push(makeConsumable('scroll_identify'));
       if (rng.chance(0.18 * f)) items.push(makeMaterial(rollValuable(rng, depth).id, 1));
       if (rng.chance(0.1 * f)) addGem(items, rng, depth);
@@ -853,7 +849,7 @@ export function rollContainerLoot(
       items.push(makeMaterial(rollValuable(rng, depth).id, rng.int(1, 2)));
       addGem(items, rng, depth);
       if (tier === 'secret' || rng.chance(0.35 + 0.03 * Math.min(6, depth))) items.push(rollBlueprint(rng, depth, ranks));
-      if (rng.chance(0.35)) items.push(makeConsumable(rng.pick(['greater_healing', 'scroll_recall', 'scroll_identify'])));
+      if (rng.chance(0.35)) items.push(makeConsumable(rng.pick(['scroll_recall', 'scroll_identify', 'scroll_flash', 'scroll_backstep'])));
       if (rng.chance(FIGHT_MILK_CHANCE.vault * depthFactor(depth))) items.push(makeConsumable('fight_milk'));
       break;
   }

@@ -6,6 +6,8 @@ import { newId } from '../core/id';
 import { STARTER_RECIPES } from '../data/recipes';
 import { MATERIALS } from '../data/materials';
 import { itemBase } from '../data/items';
+import { itemValue } from '../systems/items';
+import { flaskMax } from '../systems/healing';
 import { findSigil } from '../data/spells';
 
 /**
@@ -23,7 +25,7 @@ import { findSigil } from '../data/spells';
  */
 
 /** Bump this (and push a migration) whenever a field is added to the save. */
-export const SAVE_REVISION = 21;
+export const SAVE_REVISION = 22;
 
 type AnyState = GameState & Record<string, unknown>;
 
@@ -181,6 +183,36 @@ const MIGRATIONS: ((s: AnyState) => void)[] = [
       else (s.run as { quickOrder?: string[] }).quickOrder = q.filter((r): r is string => typeof r === 'string');
     }
   },
+  // 21 → 22: healing is a permanent flask plus floor food. Legacy healing
+  // consumables are bought back at full value and Supply Crate is refunded.
+  (s) => {
+    const legacy = new Set(['healing_draught', 'greater_healing', 'stamina_tonic']);
+    let refund = 0;
+    for (const box of [s.stash, s.loadout, s.run?.backpack]) {
+      if (!box?.items) continue;
+      box.items = box.items.filter((it) => {
+        if (it.kind !== 'consumable' || !legacy.has(it.ref)) return true;
+        refund += itemValue(it) * it.qty;
+        return false;
+      });
+    }
+    s.gold = Math.max(0, Number(s.gold) || 0) + refund;
+    const crate = Math.max(0, Math.trunc(s.meta?.supply_crate ?? 0));
+    const costs = [5, 11, 18];
+    s.renown = Math.max(0, Number(s.renown) || 0) + costs.slice(0, crate).reduce((a, b) => a + b, 0);
+    if (s.meta) delete s.meta.supply_crate;
+    const best = Math.max(0, Number(s.lifetime?.bestDepth) || 0);
+    const king = Boolean(s.lastRun?.bossKilled);
+    const earned = king ? 3 : best >= 5 ? 2 : best >= 3 ? 1 : 0;
+    s.flask ??= { shards: earned, potency: 0, infusion: null };
+    s.flask.shards = Math.max(earned, Math.min(3, Math.trunc(s.flask.shards || 0)));
+    s.flask.potency = Math.max(0, Math.min(4, Math.trunc(s.flask.potency || 0)));
+    s.flask.infusion ??= null;
+    if (s.run) {
+      s.run.flask ??= { charges: flaskMax(s.flask.shards), dregs: 0 };
+      for (const f of s.run.floors ?? []) if (f) f.morsels ??= [];
+    }
+  },
 ];
 
 /**
@@ -248,6 +280,7 @@ function normalizeFloor(f: Floor): void {
   f.props ??= [];
   f.pickups ??= [];
   f.thrown ??= [];
+  f.morsels ??= [];
   const thrown = new Map<string, NonNullable<Floor['thrown']>[number]>();
   for (const marker of f.thrown) {
     if (!marker || typeof marker.base !== 'string' || !Number.isFinite(marker.x) || !Number.isFinite(marker.y) || !Number.isFinite(marker.n)) continue;

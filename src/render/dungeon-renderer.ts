@@ -15,6 +15,7 @@ import { enemyPose } from './enemy-pose';
 import { LevelView, TILE, WALL_H, buildLevel, tileX, tileZ } from './level-mesh';
 import { MAX_LIGHTS, PS1Material, PostPass, Shared, createLowResTarget, createShared, ps1Material } from './ps1';
 import { brightness } from './brightness';
+import { MORSEL_ART, MORSEL_ROT_SECONDS } from '../systems/healing';
 
 const EYE = 1.32;
 
@@ -370,7 +371,7 @@ export class DungeonRenderer {
       });
       wx += DX[en.facing] * pose.lunge;
       wz += DY[en.facing] * pose.lunge;
-      const height = def.scale * 1.9;
+      const height = def.scale * 1.9 * (en.scavenged ? 1.15 : 1);
       let y = (def.floats ? 0.35 + Math.sin(this.time * 2.5 + en.x) * 0.1 : 0) + (en.moveT < 1 ? Math.abs(Math.sin(en.moveT * Math.PI)) * 0.08 : 0);
       if (en.ai === 'dead') y -= en.deadT * 1.4;
       this.place(s, `${def.sprite}_${pose.frame}`, wx, y, wz, height);
@@ -447,7 +448,8 @@ export class DungeonRenderer {
       const hover = 0.25 + Math.sin(this.time * 3 + pk.x) * 0.06;
       let art = 'pickup_bag';
       let ramp: readonly [string, string, string, string] | undefined;
-      if (pk.keyId && !pk.items.length) art = 'ic_key';
+      if (pk.flaskShard) { art = 'ic_shard'; ramp = ['#12383b', '#26716e', '#67c6b6', '#dcfff7']; }
+      else if (pk.keyId && !pk.items.length) art = 'ic_key';
       else if (pk.items.length === 1) {
         const ic = itemIcon(pk.items[0]);
         art = ic.icon;
@@ -463,6 +465,17 @@ export class DungeonRenderer {
       if (!art) continue;
       const s = this.sprite(`th:${marker.base}:${marker.x}:${marker.y}`);
       this.placeFlat(s, art, tileX(marker.x), tileZ(marker.y), 0.62);
+    }
+
+    for (const morsel of floor.morsels ?? []) {
+      if (!near(morsel.x, morsel.y)) continue;
+      const s = this.sprite(`morsel:${morsel.id}`);
+      const age = world.run.stats.time - morsel.droppedAt;
+      const dish = MORSEL_ART[morsel.kind];
+      this.place(s, dish.art, tileX(morsel.x), 0.08, tileZ(morsel.y), dish.height);
+      // Over the last third of its life it goes off: a mouldy olive creeping in.
+      const rot = Math.max(0, Math.min(1, (age - MORSEL_ROT_SECONDS * 2 / 3) / (MORSEL_ROT_SECONDS / 3)));
+      if (rot > 0) s.mat.uniforms.uTint.value.set(0.2, 0.22, 0.1, 0.65 * rot);
     }
 
     if (a.ward && near(a.ward.x, a.ward.y)) {

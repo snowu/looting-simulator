@@ -68,11 +68,11 @@ export class Hud {
   private wardGlow = h('div', { class: 'ward-glow' });
   private time = 0;
   /** Active pointer-drag reorder of the quick bar, if a slot is being dragged. */
-  private quickDrag: { from: number; over: number | null; pointerId: number; startX: number; startY: number; active: boolean } | null = null;
+  private quickDrag: { from: number; el: HTMLElement; over: number | null; pointerId: number; startX: number; startY: number; active: boolean } | null = null;
   /** Set when a drag just ended so the trailing click doesn't drink anything. */
   private suppressQuickClick = false;
 
-  constructor(parent: HTMLElement, private actions: { interact: () => void; quick: (i: number) => void; reorderQuick: (from: number, to: number) => void; settings: () => void }) {
+  constructor(parent: HTMLElement, private actions: { interact: () => void; flask: () => void; quick: (i: number) => void; reorderQuick: (from: number, to: number) => void; settings: () => void }) {
     this.recallWrap.append(this.recallBar);
     // Tappable on touch screens.
     this.prompt.addEventListener('click', () => this.actions.interact());
@@ -104,7 +104,7 @@ export class Hud {
       this.log,
       bars,
       this.quick,
-      h('div', { class: 'hint-keys', text: 'W/S step · A/D turn · Q/E strafe · Space/LMB attack · Shift/RMB block & parry · F interact · I pack · M map · 1–4 use · Esc menu · Pad: stick move, A attack, LT block, Start menu' }),
+      h('div', { class: 'hint-keys', text: 'W/S step · A/D turn · Q/E strafe · Space/LMB attack · Shift/RMB block & parry · F interact · I pack · M map · 1–4 use · Esc menu · Pad: stick move, A attack, B flask, LT block, Start menu' }),
     );
     parent.append(this.root);
   }
@@ -138,7 +138,8 @@ export class Hud {
    */
   private quickDragStart(e: PointerEvent, index: number): void {
     if (e.button !== undefined && e.button !== 0 && e.pointerType === 'mouse') return;
-    this.quickDrag = { from: index, over: null, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, active: false };
+    const el = e.currentTarget as HTMLElement;
+    this.quickDrag = { from: index, el, over: null, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, active: false };
     // Keep move/up events flowing to the source slot even after the pointer
     // leaves it, so a drag across slots works on mouse and touch alike.
     try {
@@ -297,13 +298,23 @@ export class Hud {
       if (it.kind !== 'consumable') continue;
       counts.set(it.ref, (counts.get(it.ref) ?? 0) + it.qty);
     }
-    const qk = seen.slice(0, 4).map((r) => `${r}:${counts.get(r)}`).join('|');
+    const flask = world.run.flask;
+    const qk = `${flask.charges}/${world.state.flask?.shards ?? 0}:${flask.dregs.toFixed(1)}|${seen.slice(0, 3).map((r) => `${r}:${counts.get(r)}`).join('|')}`;
     if (qk !== this.quickKey) {
       this.quickKey = qk;
       this.quickDrag = null;
       this.quick.classList.remove('dragging');
+      const max = 3 + Math.min(3, world.state.flask?.shards ?? 0);
+      const dregs = Math.min(100, flask.dregs / Math.max(1, world.derived.maxHp * 0.5) * 100);
+      // Charges left as one number, like every other stack on the bar: "3/3"
+      // in the pixel font ran into the bottle and the dregs bar and read as
+      // noise. The maximum lives in the tooltip.
+      const flaskSlot = h('div', { class: `slot flask-slot${flask.charges ? '' : ' dry'}`, style: `--sz:44px;--dregs:${dregs}%`, title: `Flask: ${flask.charges} of ${max} charges` });
+      flaskSlot.addEventListener('click', () => this.actions.flask());
+      flaskSlot.append(artImg('ic_potion', ['#173536', '#27706d', '#63b9a9', '#d2fff0'], 36), h('span', { class: 'qty', text: String(flask.charges) }));
       this.quick.replaceChildren(
-        ...[0, 1, 2, 3].map((i) => {
+        h('div', { class: 'qs' }, flaskSlot, h('span', { class: 'key', text: '1' })),
+        ...[0, 1, 2].map((i) => {
           const ref = seen[i];
           const slot = h('div', { class: `slot${ref ? '' : ' empty'}`, style: '--sz:44px', title: ref ? `${consumable(ref).name} — drag to reorder` : '' });
           if (ref) {
@@ -326,7 +337,7 @@ export class Hud {
             img.draggable = false;
             slot.append(img, h('span', { class: 'qty', text: String(counts.get(ref)) }));
           }
-          return h('div', { class: 'qs', attrs: { 'data-qi': String(i) } }, slot, h('span', { class: 'key', text: String(i + 1) }));
+          return h('div', { class: 'qs', attrs: { 'data-qi': String(i) } }, slot, h('span', { class: 'key', text: String(i + 2) }));
         }),
       );
     }

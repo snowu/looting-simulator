@@ -15,7 +15,7 @@ it('trace one run', () => {
       : { ...DEFAULT_POLICY, trace },
     prepared ? (state) => {
       equip(state);
-      addItem(state.stash, makeConsumable('greater_healing', Number(process.env.TRACE_HEALS ?? 12)));
+      state.flask = { shards: 3, potency: 4, infusion: null };
       addItem(state.stash, makeConsumable('scroll_recall', 1));
     } : undefined);
   writeFileSync(process.env.TRACE_OUT ?? 'trace.txt', JSON.stringify(r, null, 1) + '\n' + trace.join('\n'));

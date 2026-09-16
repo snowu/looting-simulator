@@ -41,7 +41,7 @@ export interface DifficultyDef {
   enemyCount: number;
   /** Multiplier on the player's maximum health (`derivePlayer`). */
   playerHp: number;
-  /** Multiplier on every source of healing (`World.heal`: potions, shrines, leech). */
+  /** Multiplier on every source of healing (`World.heal`: flask, morsels, shrines, leech). */
   playerHealing: number;
   /** Multiplier on stamina regeneration. */
   staminaRegen: number;

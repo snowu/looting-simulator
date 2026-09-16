@@ -87,6 +87,7 @@ export interface RunState {
    * Absent on older saves, which used backpack order.
    */
   quickOrder?: string[];
+  flask: { charges: number; dregs: number };
   stats: RunStats;
   outcome: RunOutcome;
   killedBy?: string;
@@ -166,6 +167,7 @@ export interface GameState {
   market: MarketState;
   contracts: Contract[];
   meta: MetaLevels;
+  flask: { shards: number; potency: number; infusion: string | null };
   /** Permanently inscribed sigils and the one selected for the next delve. */
   spells: string[];
   attuned: string | null;
@@ -183,7 +185,6 @@ export function newGame(rng: Rng): GameState {
   equipment.offhand = makeEquipment({ baseId: 'buckler', materialId: 'timber', rarity: Rarity.Common, ilvl: 1, quality: 0.95 });
 
   const stash = createContainer(0);
-  addItem(stash, makeConsumable('healing_draught', 2));
   addItem(stash, makeMaterial('copper', 3));
   addItem(stash, makeMaterial('timber', 2));
   addItem(stash, makeMaterial('rat_hide', 3));
@@ -206,6 +207,7 @@ export function newGame(rng: Rng): GameState {
     market: createMarket(rng, recipeRanks),
     contracts: refreshContracts([], rng, 1),
     meta: {},
+    flask: { shards: 0, potency: 0, infusion: null },
     spells: [],
     attuned: null,
     loadout: createContainer(BASE_BACKPACK),

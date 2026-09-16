@@ -259,6 +259,10 @@ export type ConsumableEffect =
   | { type: 'stamina'; fraction: number }
   | { type: 'identify' }
   | { type: 'recall'; seconds: number }
+  /** A blinding flash of true light at whatever faces you. See World.use. */
+  | { type: 'flash' }
+  /** Yanked back along your own path. See World.use. */
+  | { type: 'backstep' }
   /** A draught whose effect lasts the rest of the delve. See TONICS. */
   | { type: 'tonic'; tonicId: string };
 
@@ -428,6 +432,8 @@ export interface EnemyDef {
   loot: LootEntry[];
   gold: [number, number];
   itemChance: number;
+  /** Food left on death. Bosses and monsters that do not feed the delve omit it. */
+  morsel?: 'scrap' | 'cut' | 'heart';
   /** Light emitted by the enemy (hex), e.g. wisps and wraiths. */
   glow?: string;
   description: string;

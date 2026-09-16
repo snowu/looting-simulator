@@ -372,6 +372,7 @@ export class DungeonOverlays {
         ),
       ),
       full ? h('p', { class: 'red-t small', text: 'Your pack is full — drop something onto the pile below to make room, then take what you want.' }) : null,
+      this.foodRow(w),
       h(
         'div',
         { class: 'row' },
@@ -382,6 +383,26 @@ export class DungeonOverlays {
         btn('Leave [Esc]', () => this.close()),
         h('span', { class: 'dim small right', text: `Pack ${w.run.backpack.items.length}/${w.run.backpack.capacity}` }),
       ),
+    );
+  }
+
+  /**
+   * Food lying with the pile. [F] opens the pile first, so without this a pile
+   * you leave half-taken would sit on top of the morsel for good.
+   */
+  private foodRow(w: World): HTMLElement | null {
+    const morsel = w.morselNear();
+    if (!morsel) return null;
+    const hurt = w.player.hp < w.derived.maxHp;
+    const heals = Math.round(morsel.remaining * 1000) / 10;
+    return h(
+      'div',
+      { class: 'row' },
+      h('span', { class: 'small', text: `Food here: a ${morsel.kind}, ${heals}% of your health${hurt ? '' : ' (you are not hurt)'}.` }),
+      btn(`Eat the ${morsel.kind}`, () => {
+        this.close();
+        w.eatMorsel();
+      }, 'small right'),
     );
   }
 

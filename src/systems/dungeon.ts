@@ -143,6 +143,7 @@ export interface Pickup {
   items: Item[];
   gold: number;
   keyId?: string;
+  flaskShard?: boolean;
 }
 
 /** Recoverable thrown stock. Counts merge by base and tile. */
@@ -224,6 +225,24 @@ export interface EnemyState {
    * nothing, because it already did.
    */
   risen?: boolean;
+  /** A scavenger can gorge only once. */
+  scavenged?: boolean;
+  /** Seconds left eating a morsel. */
+  eating?: number;
+  scavengerAttack?: number;
+  /** Seconds left unable to attack after a torn Identify flash. */
+  blind?: number;
+}
+
+export interface Morsel {
+  id: string;
+  kind: 'scrap' | 'cut' | 'heart';
+  x: number;
+  y: number;
+  /** Fraction of max health still available. */
+  remaining: number;
+  /** Run-clock timestamp of the drop. */
+  droppedAt: number;
 }
 
 export interface Floor {
@@ -242,6 +261,7 @@ export interface Floor {
   props: Prop[];
   pickups: Pickup[];
   thrown?: ThrownMarker[];
+  morsels?: Morsel[];
   enemies: EnemyState[];
   keys: KeyDef[];
   traps: Trap[];
@@ -1078,6 +1098,6 @@ function tryGenerate(
 
   return {
     depth, seed, biome: biome.id, width: W, height: H, tiles, explored: new Array(N).fill(0),
-    rooms, doors, secrets, stairs, torches, props, pickups, enemies, keys, traps,
+    rooms, doors, secrets, stairs, torches, props, pickups, morsels: [], enemies, keys, traps,
   };
 }

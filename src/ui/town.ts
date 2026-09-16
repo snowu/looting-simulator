@@ -23,7 +23,7 @@ import { BESTIARY_ORDER, bestiaryEntry, bestiaryProgress, isKnown, isSeen } from
 import { RELIC_ORDER, findRelic, forgetRelic, forgetRelicName, isFound, isNamed, nameRelic, relicProgress } from '../systems/relics';
 import { UniqueDef } from '../data/uniques';
 import { ELEMENTS } from '../types';
-import { buildCrafted, craft, materialsForSlot, selectionError, salvageForNextRank, studySalvagedWeapon, studyBlueprint } from '../systems/crafting';
+import { buildCrafted, craft, materialsForSlot, selectionError, salvageForNextRank, salvageStudy, studySalvagedWeapon, studyBlueprint } from '../systems/crafting';
 import { durability, identify, identifyCost, itemIcon, itemName, itemStats, itemValue, makeConsumable, makeUnique, repairCost, repairItem, salvage, uniqueOf } from '../systems/items';
 import { Container, addItem, canFit, countOf, freeSlots, removeItem, removeOf, roomFor, sortContainer, takeQty } from '../state/inventory';
 import { syncLoadout } from '../systems/run';
@@ -40,6 +40,7 @@ import { audio } from '../audio/sfx';
 import { difficultyOf } from '../data/difficulty';
 import { AccountSummary } from './account';
 import { openSettings, settingsGearButton } from './settings';
+import { FLASK_POTENCY, FLASK_UPGRADE_COSTS } from '../systems/healing';
 
 export type TownTab = 'market' | 'forge' | 'guild' | 'stash' | 'bestiary' | 'warden';
 
@@ -128,7 +129,7 @@ export class Town {
    * that something is broken or that a stone is waiting, without the pane
    * itself taking the room.
    */
-  private forgeSide: 'recipes' | 'repairs' | 'sigils' = 'recipes';
+  private forgeSide: 'recipes' | 'repairs' | 'sigils' | 'infusions' = 'recipes';
   private forgeRecipe = 'r_short_sword';
   private forgeMats: (string | null)[] = [];
   /** Secondary (grip / extra) pickers live behind a modal so the forge pane stays compact. */
@@ -475,6 +476,20 @@ export class Town {
     // Sell only valuables beyond the quantity promised to accepted contracts.
     const valuablesOwned = this.valuablesOwned();
     const valuablesQuote = valuablesOwned.reduce((sum, v) => sum + quoteSell(m, v.id, v.qty, this.hag), 0);
+    const potency = Math.max(0, Math.min(4, s.flask?.potency ?? 0));
+    const flaskCost = potency < 4 ? FLASK_UPGRADE_COSTS[potency] : null;
+    const flaskPane = h('div', { class: 'pane frame' },
+      h('h3', { text: 'Flask potency' }),
+      h('p', { text: `Level ${potency} · each sip restores ${Math.round(FLASK_POTENCY[potency] * 100)}% maximum health.` }),
+      flaskCost === null ? h('p', { class: 'dim', text: 'The flask is fully tempered.' }) :
+        btn(`Temper flask (${gold(flaskCost)})`, () => {
+          if (s.gold < flaskCost) return;
+          s.gold -= flaskCost;
+          s.flask.potency = potency + 1;
+          this.ctx.toast(`Flask potency is now level ${potency + 1}.`, '#9fe0cf');
+          this.commit('gold');
+        }, 'small', s.gold < flaskCost),
+    );
     return h(
       'div',
       { class: 'panes' },
@@ -496,6 +511,7 @@ export class Town {
         ),
         h('div', { class: 'pane frame' }, h('h3', { text: 'Merchant\'s wares' }), m.wares.length ? wares : h('p', { class: 'dim', text: 'Sold out until tomorrow.' })),
         h('div', { class: 'pane frame' }, h('h3', { text: 'Supplies' }), supplies),
+        flaskPane,
       ),
     );
   }
@@ -574,9 +590,18 @@ export class Town {
       const rank = recipeRank(s.recipeRanks, r.id);
       const known = rank > 0;
       const base = itemBase(r.baseId);
-      const salvageProgress = rank < MAX_RECIPE_RANK && ['weapon', 'thrown'].includes(base.slot) ? ` · ${s.recipeSalvage[r.id] ?? 0}/${salvageForNextRank(rank)} salvages` : '';
-      const status = known ? `Rank ${rank} · +${Math.round(masteryBonus(rank) * 100)}% core` : ['weapon', 'thrown'].includes(base.slot) ? 'blueprint or unidentified salvages needed' : 'blueprint needed';
-      const progressStatus = status + salvageProgress;
+      const studies = rank < MAX_RECIPE_RANK && ['weapon', 'thrown'].includes(base.slot);
+      const status = known ? `Rank ${rank} · +${Math.round(masteryBonus(rank) * 100)}% core` : studies ? 'blueprint or salvage' : 'blueprint needed';
+      // One pip per salvage the next rank needs, lit as they are banked, so
+      // breaking weapons down reads as progress at a glance instead of a
+      // fraction buried in the status text.
+      let pips: HTMLElement | null = null;
+      if (studies) {
+        const done = s.recipeSalvage[r.id] ?? 0;
+        const needed = salvageForNextRank(rank);
+        pips = h('span', { class: 'study-pips', title: `${done}/${needed} unidentified ${base.name} salvages toward ${known ? `Rank ${rank + 1}` : 'learning the recipe'}` },
+          ...Array.from({ length: needed }, (_, n) => h('i', { class: n < done ? 'on' : '' })));
+      }
       list.append(
         h(
           'div',
@@ -592,7 +617,8 @@ export class Town {
           },
           artImg(base.icon, undefined, 22),
           h('span', { class: 'grow', text: base.name }),
-          h('span', { class: 'dim small', text: progressStatus }),
+          pips,
+          h('span', { class: 'dim small', text: status }),
         ),
       );
     }
@@ -683,15 +709,19 @@ export class Town {
               { uid: '', kind: 'material', ref: def.id, qty: Math.max(1, owned) },
               {
                 forgeEffect: forgeMaterialNote(def.id, role, r.baseId, smith, rank, this.forgeMats[0]),
-                hint: available >= slot.qty ? `Use ${slot.qty} ${def.name}` : `Need ${slot.qty}; ${available} available (${owned} owned, ${reserved} in other slots)`,
+                hint: owned === 0 ? `You have no ${def.name}` : available >= slot.qty ? `Use ${slot.qty} ${def.name}` : `Need ${slot.qty}; ${available} available (${owned} owned, ${reserved} in other slots)`,
               },
             ),
-            onclick: () => {
+            // The ladder stays on show so you can see what a material would
+            // do, but one you hold none of cannot be picked: it only ever led
+            // to a craft the forge then refused.
+            onclick: owned === 0 ? undefined : () => {
               this.forgeMats[i] = def.id;
               this.commit();
             },
           });
           if (available < slot.qty) el.classList.add('cant');
+          if (owned === 0) el.classList.add('none');
           familyItems.append(el);
         }
         family.append(familyItems);
@@ -779,10 +809,13 @@ export class Town {
     const gear = s.stash.items.filter((i) => i.kind === 'equipment');
     const salvageGrid = h('div', { class: 'grid-slots' });
     for (const it of gear) {
-      salvageGrid.append(
-        itemSlot(it, {
+      const study = salvageStudy(it, s.recipeRanks, s.recipeSalvage);
+      const studyHint = study
+        ? `Salvage to study the ${study.baseName}: ${study.count}/${study.needed} → ${study.count + 1}/${study.needed} toward ${study.nextRank === 1 ? 'learning its recipe' : `Rank ${study.nextRank}`}${study.count + 1 >= study.needed ? ' — this one completes it' : ''}`
+        : 'Click to salvage into materials';
+      const el = itemSlot(it, {
           size: 44,
-          tip: () => itemTooltip(it, { hint: (it.identified === false || it.autoIdentified) && !it.crafted && ['weapon', 'thrown'].includes(itemBase(it.ref).slot) ? 'Salvage into materials and advance this weapon’s recipe mastery' : 'Click to salvage into materials' }),
+          tip: () => itemTooltip(it, { hint: studyHint }),
           onclick: () => {
             removeItem(s.stash, it.uid);
             const mastery = studySalvagedWeapon(it, s.recipeRanks, s.recipeSalvage);
@@ -791,8 +824,11 @@ export class Town {
             this.ctx.toast(`Salvaged into ${mats.map((mt) => `${mt.qty} ${material(mt.ref).name}`).join(', ') || 'dust'}.${mastery ? ` ${mastery}` : ''}`, '#c8c0b0');
             this.commit('break');
           },
-        }),
-      );
+        });
+      // Weapons that teach when broken down carry a mark, so you can pick them
+      // out of the stash without hovering each one.
+      if (study) el.append(h('span', { class: `study${study.count + 1 >= study.needed ? ' completes' : ''}`, text: '+' }));
+      salvageGrid.append(el);
     }
 
     const forgePane = h(
@@ -846,6 +882,7 @@ export class Town {
       ['recipes', 'Recipes', readyBlueprints],
       ['repairs', 'Repairs', wornCount],
       ['sigils', 'Sigils', stones],
+      ['infusions', 'Flask', 0],
     ];
     const bar = h(
       'div',
@@ -861,8 +898,37 @@ export class Town {
       ? this.repairs()
       : this.forgeSide === 'sigils'
         ? this.sigils()
-        : h('div', { class: 'col' }, learn, h('div', { class: 'pane frame' }, h('h3', { text: 'Recipes' }), list));
+        : this.forgeSide === 'infusions'
+          ? this.infusions()
+          : h('div', { class: 'col' }, learn, h('div', { class: 'pane frame' }, h('h3', { text: 'Recipes' }), list));
     return h('div', { class: 'col' }, bar, body);
+  }
+
+  private infusions(): HTMLElement {
+    const s = this.s;
+    const current = s.flask?.infusion;
+    const choices = s.stash.items.filter((it) =>
+      (it.kind === 'material' && material(it.ref).category !== 'valuable') ||
+      (it.kind === 'consumable' && it.ref === 'fight_milk'),
+    );
+    const grid = h('div', { class: 'grid-slots' });
+    for (const it of choices) {
+      const name = it.ref === 'fight_milk' ? 'Fight Milk' : material(it.ref).name;
+      grid.append(itemSlot(it, { size: 44, tip: () => itemTooltip(it, { hint: 'Consume one and replace the current flask infusion' }), onclick: () => {
+        if (it.kind === 'material') removeOf(s.stash, 'material', it.ref, 1);
+        else removeOf(s.stash, 'consumable', it.ref, 1);
+        s.flask.infusion = it.ref;
+        this.ctx.toast(`The flask is infused with ${name}.`, '#9fe0cf');
+        this.commit('craft');
+      }}));
+    }
+    return h('div', { class: 'pane frame' },
+      h('h3', { text: 'Flask infusion' }),
+      h('p', { text: current ? `Current: ${current === 'fight_milk' ? 'Fight Milk' : material(current).name}` : 'Current: plain flask' }),
+      h('p', { class: 'dim small', text: 'A material is consumed. Replacing it destroys the old infusion. Most infusions trade 10 points of healing for a six-second effect.' }),
+      current ? btn('Make flask plain', () => { s.flask.infusion = null; this.commit('craft'); }, 'small') : null,
+      choices.length ? grid : h('p', { class: 'dim', text: 'No suitable material in the stash.' }),
+    );
   }
 
   /**
@@ -1098,9 +1164,9 @@ export class Town {
         }),
       );
     }
-    const potions = () => {
+    const scrolls = () => {
       for (const it of [...s.stash.items]) {
-        if (it.kind !== 'consumable') continue;
+        if (it.kind !== 'consumable' || !it.ref.startsWith('scroll_')) continue;
         if (freeSlots(this.pack.c) <= 0 && !canFit(this.pack.c, it)) continue;
         this.toPack(it.uid);
       }
@@ -1115,13 +1181,13 @@ export class Town {
         h(
           'div',
           { class: 'row right' },
-          btn('Take potions', potions, 'small', !s.stash.items.some((i) => i.kind === 'consumable')),
+          btn('Take scrolls', scrolls, 'small', !s.stash.items.some((i) => i.kind === 'consumable' && i.ref.startsWith('scroll_'))),
           btn('Stow all', () => {
             for (const it of [...c.items]) this.toStash(it.uid);
           }, 'small', !c.items.length),
         ),
       ),
-      c.items.length ? grid : h('p', { class: 'dim', text: 'Empty. Pack potions and scrolls before you go down.' }),
+      c.items.length ? grid : h('p', { class: 'dim', text: 'Empty. Pack identify and recall scrolls before you go down.' }),
       h('p', {
         class: 'dim small',
         text: live

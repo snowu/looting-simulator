@@ -4,9 +4,9 @@
  * The renown tree was priced against a game where nothing could kill you and
  * the floor handed you forty items. Both of those moved, so the value of every
  * upgrade moved with them — Pack Mule guards against a full pack that no longer
- * fills, while Supply Crate hands you the one resource depth six is actually
- * short of. This runs the same seeds with each upgrade maxed and alone, and
- * reports the delta against no upgrades at all.
+ * fills, while the flask (and the dungeon food around it) is the one resource
+ * depth six is actually short of. This runs the same seeds with each upgrade
+ * maxed and alone, and reports the delta against no upgrades at all.
  *
  * Four of the eleven are town-side (prices, identification, crafting, market
  * intelligence) and the bot never visits town. Those are reported as UNMEASURED
@@ -56,8 +56,8 @@ function score(reports: RunReport[]): Score {
 
 function run(meta: MetaLevels): Score {
   // The deep kit, not a mid one. A character that only reaches depth 2 cannot
-  // show what Pack Mule or Supply Crate are worth, because it never fills a
-  // pack or runs out of potions — measuring them there says "nothing happens".
+  // show what Pack Mule is worth, because it never fills a pack — measuring
+  // it there says "nothing happens".
   const kit = LADDER.find((l) => l.depth === 6)!.make;
   return score(playtest({ runs: RUNS, seed: SEED, prepare: geared(kit, meta), policy: POLICY }));
 }
@@ -73,8 +73,8 @@ it('what each upgrade is worth', () => {
   L.push(`baseline (no upgrades):  depth ${base.depth.toFixed(2)}  out ${(base.survived * 100).toFixed(0)}%  banked ${base.banked.toFixed(0)}g  renown ${base.renown.toFixed(1)}`);
   L.push('');
   // No composite score. An earlier version mixed depth, survival and haul into
-  // one "worth" number, and it ranked Supply Crate WORST in the tree — because
-  // potions take the bot deeper, and going deeper is how it dies. That is a
+  // one "worth" number, and it ranked the old Supply Crate WORST in the tree —
+  // because healing takes the bot deeper, and going deeper is how it dies. That is a
   // property of a policy that pushes until it dies, not of the upgrade. Raw
   // deltas, read with judgement, and the survival column read with suspicion.
   L.push('upgrade          cost   depth      out      banked    depth/100rn   g/renown');

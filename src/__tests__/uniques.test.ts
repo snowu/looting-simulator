@@ -325,41 +325,37 @@ describe('the effects', () => {
     expect(e.hp).toBeLessThan(500);
   });
 
-  it('Fight Milk lasts the delve, and trades the size of the bar for the speed of it', () => {
+  it('Fight Milk lasts the delve as an infusion, and trades the size of the bar for the speed of it', () => {
     const w = arena(6);
     const before = { regen: w.derived.traits.staminaRegen, max: w.derived.maxStamina };
-    const bottle = makeConsumable('fight_milk');
-    addItem(w.run.backpack, bottle);
-    w.use(bottle.uid);
-    expect(w.run.tonics).toContain('fight_milk');
+    w.state.flask.infusion = 'fight_milk';
+    w.refreshDerived();
     expect(w.derived.traits.staminaRegen).toBeGreaterThan(before.regen);
     expect(w.derived.maxStamina).toBeLessThan(before.max);
     // It survives the floor, and the world being rebuilt from the save.
     expect(new World(w.state).derived.maxStamina).toBeLessThan(before.max);
   });
 
-  it('a second bottle of Fight Milk is not drunk twice', () => {
+  it('a drunk bottle of Fight Milk is refused, never double-applied', () => {
     const w = arena(6);
-    const a = makeConsumable('fight_milk');
-    addItem(w.run.backpack, a);
-    w.use(a.uid);
+    w.state.flask.infusion = 'fight_milk';
+    w.refreshDerived();
     const max = w.derived.maxStamina;
     const b = makeConsumable('fight_milk');
     addItem(w.run.backpack, b);
     w.use(b.uid);
-    expect(w.run.tonics).toEqual(['fight_milk']);
+    expect(w.run.tonics ?? []).toEqual([]);
     expect(w.derived.maxStamina).toBe(max);
     // And the bottle is still in the pack, not poured away for nothing.
     expect(w.run.backpack.items.some((i) => i.uid === b.uid)).toBe(true);
   });
 
-  it('the draught regenerates stamina faster in the run itself', () => {
-    const bar = (drink: boolean): number => {
+  it('the infusion regenerates stamina faster in the run itself', () => {
+    const bar = (infused: boolean): number => {
       const w = arena(6);
-      if (drink) {
-        const bottle = makeConsumable('fight_milk');
-        addItem(w.run.backpack, bottle);
-        w.use(bottle.uid);
+      if (infused) {
+        w.state.flask.infusion = 'fight_milk';
+        w.refreshDerived();
       }
       w.player.stamina = 0;
       tick(w, 1.2);
@@ -462,9 +458,8 @@ describe('every number a rule quotes is true', () => {
     expect(r).toContain('-20 maximum stamina');
     const w = arena(6);
     const before = w.derived.maxStamina;
-    const bottle = makeConsumable('fight_milk');
-    addItem(w.run.backpack, bottle);
-    w.use(bottle.uid);
+    w.state.flask.infusion = 'fight_milk';
+    w.refreshDerived();
     expect(w.derived.traits.staminaRegen * STAMINA_REGEN).toBeCloseTo(boosted);
     expect(before - w.derived.maxStamina).toBe(20);
   });

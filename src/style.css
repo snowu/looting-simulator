@@ -256,6 +256,12 @@ body.detail-mode .detail-hide { display: none; }
    clear source + drop-target state mid-drag. */
 .quick .slot:not(.empty) { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
 .quick .slot:not(.empty) img { pointer-events: none; }
+.quick .flask-slot { cursor: pointer; overflow: hidden; }
+/* Sits above the dregs bar instead of on it, and overflow no longer clips it. */
+.quick .flask-slot .qty { bottom: 5px; right: 2px; line-height: 1; font-size: 20px; padding: 0 2px; background: #0a0c0dcc; text-shadow: 1px 0 0 #000, -1px 0 0 #000, 0 1px 0 #000, 0 -1px 0 #000; }
+.quick .flask-slot.dry .qty { color: #ff7060; }
+.quick .flask-slot.dry img { filter: grayscale(0.8) brightness(0.7); }
+.quick .flask-slot::after { content: ''; position: absolute; left: 2px; right: 2px; bottom: 2px; height: 3px; background: linear-gradient(90deg, #63d5bd var(--dregs), #172326 var(--dregs)); box-shadow: 0 0 3px #63d5bd; }
 .quick.dragging .slot:not(.empty) { cursor: grabbing; }
 .quick .qs.drag-src { opacity: 0.45; }
 .quick .qs.drop-target .slot { outline: 2px dashed var(--gold); outline-offset: 2px; }
@@ -381,6 +387,12 @@ table.market .market-owned { color: var(--gold); font-weight: 700; }
    stay readable, so the item name is what gives way on a narrow screen. */
 .recipe > .grow { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .recipe > .dim { white-space: nowrap; }
+.study-pips { display: flex; gap: 2px; flex: none; }
+.study-pips > i { width: 6px; height: 11px; background: #0c0a0e; box-shadow: inset 0 0 0 1px #3a3440; }
+.study-pips > i.on { background: #63c6b0; box-shadow: inset 0 0 0 1px #1c4a42, 0 0 3px #63c6b088; }
+/* A filled tag, not a bare glyph: at 44px a lone '+' vanished into the art. */
+.slot .study { position: absolute; left: 1px; bottom: 1px; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; font-size: 16px; line-height: 1; color: #0c1a17; background: #63c6b0; box-shadow: 0 0 0 1px #000, 0 0 4px #63c6b0aa; }
+.slot .study.completes { background: #ffd870; box-shadow: 0 0 0 1px #000, 0 0 5px #ffd870cc; }
 .forge-slot { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 5px 10px; align-items: start; margin: 10px 0; }
 .forge-slot .lbl { color: var(--text); display: flex; flex-direction: column; align-items: flex-start; line-height: 1.05; }
 .forge-slot .lbl small { color: var(--dim); font-size: 13px; }
@@ -396,6 +408,7 @@ table.market .market-owned { color: var(--gold); font-weight: 700; }
 .mat-family-items { display: flex; flex-wrap: wrap; gap: 4px; }
 .mat-pick .slot { --sz: 38px; }
 .mat-pick .slot.cant { opacity: 0.25; }
+.mat-pick .slot.none { cursor: not-allowed; }
 .preview { display: flex; gap: 12px; align-items: flex-start; padding: 6px; background: #0e0c10; border: 1px solid #2a2430; margin: 6px 0; }
 /* Compact forge: primary + catalyst stay inline, secondaries collapse to summaries. */
 .forge-main .forge-slot { margin: 6px 0; }

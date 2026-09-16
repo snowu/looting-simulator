@@ -17,6 +17,9 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 
 // Commits that must never become patch notes. Short hash -> reason.
 const SKIP = {
+  a4347f6: 'merge only; healing rework changes covered by Patch 51',
+  '1013973': 'merge only; the master forge layout arrives with its own commit',
+  '080e186': 'dev art sheet grouping only; the food art is covered by Patch 52',
   'c5e5389': 'merge only; economy and altar changes covered by Patch 46',
   'a818fc6': 'merge only; original changes already curated',
   '53f1d86': 'merge only; original changes are already curated',

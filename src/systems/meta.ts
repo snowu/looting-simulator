@@ -16,7 +16,6 @@ export const META_UPGRADES: MetaUpgrade[] = [
   { id: 'master_smith', name: 'Master Smith', description: '+6% crafted quality per level. L3: crafted gear rolls an extra affix.', costs: [4, 9, 15] },
   { id: 'appraiser', name: 'Appraiser\'s Eye', description: 'L1: identifying costs 40% less. L2: Rare and lower drops come identified, preserving salvage mastery.', costs: [5, 12] },
   { id: 'treasure_sense', name: 'Treasure Sense', description: '+20% loot find per level. Find raises how much drops and how good it is.', costs: [6, 13, 22] },
-  { id: 'supply_crate', name: 'Supply Crate', description: 'Start each run with +1 Healing Draught per level.', costs: [5, 11, 18] },
   { id: 'lantern', name: 'Lantern Wick', description: '+1 light radius per level, 9.5 to 12.5 at L3, against fog that starts at 4. L1 also reads the floor for traps 3 tiles ahead instead of 2.', costs: [3, 7, 12] },
   { id: 'attunement', name: "Warden's Vigil", description: 'Each kill takes 25% more off your sigil per level.', costs: [6, 12, 20] },
 ];
@@ -39,11 +38,14 @@ export function nextCost(u: MetaUpgrade, levels: MetaLevels): number | null {
  * floor. With loot cut by about sixty percent, a deep delve now peaks at
  * fourteen to nineteen slots and the pack simply never filled — which made
  * Pack Mule worth measurably nothing, and took the "what do I carry home"
- * decision out of a game named after looting. Twelve puts the squeeze back
- * exactly where it belongs: on the deep runs that find things worth arguing
- * over, and nowhere near the first floor.
+ * decision out of a game named after looting. Twelve put the squeeze back on
+ * the deep runs.
+ *
+ * Back to sixteen since: more material families, more monsters and larger
+ * floors made twelve a squeeze from the first floor down, which is not where
+ * the carry-home decision belongs.
  */
-export const BASE_BACKPACK = 12;
+export const BASE_BACKPACK = 16;
 
 /**
  * The light you carry, in world units of radius. Kept deliberately small per
