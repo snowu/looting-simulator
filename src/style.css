@@ -328,7 +328,8 @@ body.detail-mode .detail-hide { display: none; }
 .news .rumour { color: var(--violet); }
 
 .panes { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 14px; align-items: start; }
-@media (max-width: 900px) { .panes { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .panes { grid-template-columns: minmax(0, 1fr); } }
+.panes > .col { min-width: 0; }
 @media (max-width: 640px) { .inv { grid-template-columns: 1fr; } }
 .pane { padding: 4px 8px 8px; min-width: 0; }
 /** A column of stacked panes inside one .panes cell. */
@@ -383,6 +384,9 @@ table.market .market-owned { color: var(--gold); font-weight: 700; }
 .forge-role.catalyst { border-color: #744e86; color: #d39be8; }
 .role-note { color: var(--dim); font-size: 13px; margin-top: 3px; }
 .mat-pick { display: flex; flex-wrap: wrap; gap: 4px; }
+.mat-family { flex: 0 0 100%; min-width: 0; }
+.mat-family-name { color: var(--dim); font-size: 13px; margin-bottom: 3px; }
+.mat-family-items { display: flex; flex-wrap: wrap; gap: 4px; }
 .mat-pick .slot { --sz: 38px; }
 .mat-pick .slot.cant { opacity: 0.25; }
 .preview { display: flex; gap: 12px; align-items: flex-start; padding: 6px; background: #0e0c10; border: 1px solid #2a2430; margin: 6px 0; }

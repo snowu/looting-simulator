@@ -59,7 +59,7 @@ it('audits Hard loot quality and crafting progression', () => {
   for (const [source, units] of [...leaks].sort()) lines.push(`| ${source} | ${(units / samples).toFixed(3)} |`);
   lines.push('', '## Controlled craft comparison', '', 'Same dagger base and iron primary, timber grip; median preview quality. Attack includes physical attack only. Flame Shard is a tier-4 catalyst; this illustrates what an early catalyst can enable, not how often the whole recipe is affordable.', '', '| Smith level | Recipe rank | Catalyst | Rarity | Item level | Attack | Fire | Affixes |', '| --- | --- | --- | --- | ---: | ---: | ---: | ---: |');
   for (const smith of [0, 3]) for (const rank of [1, 5]) for (const gem of [null, 'flame_shard']) {
-    const item = buildCrafted({ recipeId: 'r_dagger', materials: ['iron', 'timber', gem] }, smith, undefined, rank);
+    const item = buildCrafted({ recipeId: 'r_dagger', materials: ['iron', 'timber', null, gem] }, smith, undefined, rank);
     const stats = itemStats(item);
     lines.push(`| ${smith} | ${rank} | ${gem ?? 'none'} | ${item.rarity} | ${item.ilvl} | ${stats.attack} | ${stats.fire} | ${item.affixes?.length ?? 0} |`);
   }

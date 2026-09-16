@@ -142,7 +142,7 @@ describe('crafting', () => {
   it('validates, consumes materials and yields an identified item', () => {
     const stash = createContainer(0);
     addItem(stash, makeMaterial('iron', 3));
-    const sel = { recipeId: 'r_short_sword', materials: ['iron', 'timber', null] };
+    const sel = { recipeId: 'r_short_sword', materials: ['iron', 'timber', null, null] };
     expect(selectionError(sel, stash)).toMatch(/Timber/);
     addItem(stash, makeMaterial('timber', 1));
     expect(selectionError(sel, stash)).toBeNull();
@@ -154,27 +154,27 @@ describe('crafting', () => {
   });
 
   it('a catalyst adds its affix and lifts rarity', () => {
-    const plain = buildCrafted({ recipeId: 'r_short_sword', materials: ['iron', 'yew', null] }, 0);
-    const jade = buildCrafted({ recipeId: 'r_short_sword', materials: ['iron', 'yew', 'jade'] }, 0);
+    const plain = buildCrafted({ recipeId: 'r_short_sword', materials: ['iron', 'yew', null, null] }, 0);
+    const jade = buildCrafted({ recipeId: 'r_short_sword', materials: ['iron', 'yew', null, 'jade'] }, 0);
     expect(jade.affixes!.map((a) => a.id)).toContain('vital');
     expect(RARITY_ORDER[jade.rarity!]).toBe(RARITY_ORDER[plain.rarity!] + 1);
   });
 
   it('supports a guaranteed holy catalyst', () => {
-    const item = buildCrafted({ recipeId: 'r_short_sword', materials: ['iron', 'yew', 'sunstone'] }, 0);
+    const item = buildCrafted({ recipeId: 'r_short_sword', materials: ['iron', 'yew', null, 'sunstone'] }, 0);
     expect(item.affixes!.map((a) => a.id)).toContain('blessed');
     expect(itemStats(item).holy).toBeGreaterThan(0);
   });
 
   it('makes epic catalysts materially stronger than lower tiers', () => {
-    const frost = buildCrafted({ recipeId: 'r_short_sword', materials: ['iron', 'yew', 'frost_shard'] }, 0);
-    const flame = buildCrafted({ recipeId: 'r_short_sword', materials: ['iron', 'yew', 'flame_shard'] }, 0);
+    const frost = buildCrafted({ recipeId: 'r_short_sword', materials: ['iron', 'yew', null, 'frost_shard'] }, 0);
+    const flame = buildCrafted({ recipeId: 'r_short_sword', materials: ['iron', 'yew', null, 'flame_shard'] }, 0);
     expect(flame.affixes![0].value).toBeGreaterThan(frost.affixes![0].value);
   });
 
   it('fills crafted items with the affixes promised by their rarity', () => {
-    const epic = buildCrafted({ recipeId: 'r_short_sword', materials: ['star_iron', 'yew', null] }, 0, createRng(8));
-    const legendary = buildCrafted({ recipeId: 'r_short_sword', materials: ['star_iron', 'yew', 'jade'] }, 0, createRng(9));
+    const epic = buildCrafted({ recipeId: 'r_short_sword', materials: ['star_iron', 'yew', null, null] }, 0, createRng(8));
+    const legendary = buildCrafted({ recipeId: 'r_short_sword', materials: ['star_iron', 'yew', null, 'jade'] }, 0, createRng(9));
     expect(epic.rarity).toBe(Rarity.Epic);
     expect(epic.affixes).toHaveLength(3);
     expect(legendary.rarity).toBe(Rarity.Legendary);
@@ -183,7 +183,7 @@ describe('crafting', () => {
   });
 
   it('keeps Master Smith 3 as an extra affix and rarity upgrade', () => {
-    const item = buildCrafted({ recipeId: 'r_short_sword', materials: ['silver', 'yew', null] }, 3, createRng(10));
+    const item = buildCrafted({ recipeId: 'r_short_sword', materials: ['silver', 'yew', null, null] }, 3, createRng(10));
     expect(item.rarity).toBe(Rarity.Rare);
     expect(item.affixes).toHaveLength(2);
   });
@@ -226,7 +226,7 @@ describe('crafting', () => {
     const stash = createContainer(0);
     addItem(stash, makeMaterial('iron', 6));
     addItem(stash, makeMaterial('timber', 2));
-    const sel = { recipeId: 'r_short_sword', materials: ['iron', 'timber', null] };
+    const sel = { recipeId: 'r_short_sword', materials: ['iron', 'timber', null, null] };
     expect(craft(sel, stash, createRng(11), 0, 0)).toBeNull();
     expect(countOf(stash, 'material', 'iron')).toBe(6);
     const item = craft(sel, stash, createRng(11), 0, 5)!;
@@ -237,6 +237,6 @@ describe('crafting', () => {
     const stash = createContainer(0);
     addItem(stash, makeMaterial('linen', 5));
     addItem(stash, makeMaterial('timber', 5));
-    expect(selectionError({ recipeId: 'r_short_sword', materials: ['linen', 'timber', null] }, stash)).toMatch(/can't be used/);
+    expect(selectionError({ recipeId: 'r_short_sword', materials: ['linen', 'timber', null, null] }, stash)).toMatch(/can't be used/);
   });
 });

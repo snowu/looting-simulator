@@ -21,7 +21,7 @@ export function materialsForSlot(slot: RecipeSlot, stash: Container): { def: Mat
 
 export function selectionError(sel: CraftSelection, stash: Container): string | null {
   const r = recipe(sel.recipeId);
-  // Two slots may pick the same material, so tally totals first.
+  // Multiple slots may pick the same material, so tally totals first.
   const need = new Map<string, number>();
   for (let i = 0; i < r.slots.length; i++) {
     const slot = r.slots[i];
@@ -55,7 +55,8 @@ export function buildCrafted(sel: CraftSelection, smithLevel: number, rng?: Rng,
   const r = recipe(sel.recipeId);
   const base = itemBase(r.baseId);
   const primary = material(sel.materials[0]!);
-  const secondaryId = r.slots.length > 1 && r.slots[1].categories[0] !== 'gem' ? sel.materials[1] ?? undefined : undefined;
+  const secondaryId = sel.materials[1] ?? undefined;
+  const secondary2Id = sel.materials[2] ?? undefined;
   const catalyst = catalystOf(r, sel);
 
   // Rarity: primary tier sets the floor, a catalyst lifts it one step.
@@ -78,6 +79,7 @@ export function buildCrafted(sel: CraftSelection, smithLevel: number, rng?: Rng,
     baseId: base.id,
     materialId: primary.id,
     secondaryId,
+    secondary2Id,
     rarity: rarityFromOrder(Math.max(rarityOrder, affixes.length)),
     ilvl,
     affixes,

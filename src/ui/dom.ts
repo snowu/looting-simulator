@@ -316,7 +316,10 @@ export function itemTooltip(item: Item, opts: TipOpts = {}): string {
         lines.push(`<div class="tt-dim">Throw ${t.range} tiles · ${(t.windup + t.recovery).toFixed(2)}s · ${t.staminaCost} stamina · stock ${thrownCapacity(item)}</div>`);
         lines.push(`<div class="tt-dim detail-only">At point-blank or with no ammunition, uses the melee swing below. Retrieve landed ammunition with R.</div>`);
       }
-      if (mat) lines.push(`<div class="tt-dim">${mat.name}${item.secondaryId ? ` & ${material(item.secondaryId).name}` : ''} · quality ${Math.round((item.quality ?? 1) * 100)}%</div>`);
+      if (mat) {
+        const names = [mat.id, item.secondaryId, item.secondary2Id].filter((id): id is string => !!id).map(id => material(id).name);
+        lines.push(`<div class="tt-dim">${esc(names.join(' & '))} · quality ${Math.round((item.quality ?? 1) * 100)}%</div>`);
+      }
       if (item.crafted && masteryBonus(rank) > 0) lines.push(`<div class="tt-dim">Recipe mastery: +${Math.round(masteryBonus(rank) * 100)}% core stats and durability</div>`);
       if (base.swing) {
         const crit = base.swing.critMult && base.swing.critMult !== DEFAULT_CRIT_MULT

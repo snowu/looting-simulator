@@ -654,31 +654,40 @@ export class Town {
     const selectedPreview = this.forgeMats[0] ? buildCrafted(sel, smith, undefined, rank) : null;
     const slotRows = r.slots.map((slot, i) => {
       const role: ForgeMaterialRole = i === 0 ? 'primary' : slot.categories.length === 1 && slot.categories[0] === 'gem' ? 'catalyst' : 'secondary';
-      const roleName = role[0].toUpperCase() + role.slice(1);
+      const roleName = role === 'secondary' ? `Secondary ${i}` : role[0].toUpperCase() + role.slice(1);
       const picker = h('div', { class: 'mat-pick' });
       if (slot.optional) {
         picker.append(itemSlot(null, { size: 38, placeholder: 'none', onclick: () => { this.forgeMats[i] = null; this.commit(); }, selected: this.forgeMats[i] === null }));
       }
-      for (const { def, owned } of materialsForSlot(slot, s.stash)) {
-        if (owned === 0 && def.tier > 2) continue;
-        const el = itemSlot({ uid: def.id, kind: 'material', ref: def.id, qty: owned }, {
-          size: 38,
-          instant: true,
-          selected: this.forgeMats[i] === def.id,
-          tip: () => itemTooltip(
-            { uid: '', kind: 'material', ref: def.id, qty: Math.max(1, owned) },
-            {
-              forgeEffect: forgeMaterialNote(def.id, role, r.baseId, smith, rank, this.forgeMats[0]),
-              hint: owned >= slot.qty ? `Use ${slot.qty} ${def.name}` : `Need ${slot.qty}; you own ${owned}`,
+      const choices = materialsForSlot(slot, s.stash);
+      for (const category of slot.categories) {
+        const family = h('div', { class: 'mat-family', attrs: { 'data-material-family': category } });
+        family.append(h('div', { class: 'mat-family-name', text: CATS.find(c => c.id === category)?.name ?? category }));
+        const familyItems = h('div', { class: 'mat-family-items' });
+        for (const { def, owned } of choices.filter(o => o.def.category === category)) {
+          const reserved = r.slots.reduce((sum, other, j) => sum + (j !== i && this.forgeMats[j] === def.id ? other.qty : 0), 0);
+          const available = Math.max(0, owned - reserved);
+          const el = itemSlot({ uid: def.id, kind: 'material', ref: def.id, qty: owned }, {
+            size: 38,
+            instant: true,
+            selected: this.forgeMats[i] === def.id,
+            tip: () => itemTooltip(
+              { uid: '', kind: 'material', ref: def.id, qty: Math.max(1, owned) },
+              {
+                forgeEffect: forgeMaterialNote(def.id, role, r.baseId, smith, rank, this.forgeMats[0]),
+                hint: available >= slot.qty ? `Use ${slot.qty} ${def.name}` : `Need ${slot.qty}; ${available} available (${owned} owned, ${reserved} in other slots)`,
+              },
+            ),
+            onclick: () => {
+              this.forgeMats[i] = def.id;
+              this.commit();
             },
-          ),
-          onclick: () => {
-            this.forgeMats[i] = def.id;
-            this.commit();
-          },
-        });
-        if (owned < slot.qty) el.classList.add('cant');
-        picker.append(el);
+          });
+          if (available < slot.qty) el.classList.add('cant');
+          familyItems.append(el);
+        }
+        family.append(familyItems);
+        picker.append(family);
       }
       return h(
         'div',
@@ -733,7 +742,7 @@ export class Town {
         'div',
         { class: 'pane frame' },
         h('h3', { text: `Forge: ${itemBase(r.baseId).name} · Rank ${rank}` }),
-        h('p', { class: 'dim small', text: `Rank ${rank} mastery: +${Math.round(masteryBonus(rank) * 100)}% core stats and durability. Hover a material to see exactly what it contributes in that slot.` }),
+        h('p', { class: 'dim small', text: `Rank ${rank} mastery: +${Math.round(masteryBonus(rank) * 100)}% core stats and durability. The main material defines the item. Mix any material families in the two secondary slots; the second is optional. Hover a material to see its contribution.` }),
         ...slotRows,
         preview,
         h('div', { class: 'row' }, btn('Forge it', () => {

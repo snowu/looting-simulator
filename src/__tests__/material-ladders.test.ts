@@ -75,7 +75,7 @@ it('stacks innate elemental damage with matching affixes', () => {
 
 it('makes legendary bone a substantial crafted weapon upgrade without requiring mastery', () => {
   const craft = (grip: string) => itemStats(buildCrafted({
-    recipeId: 'r_dagger', materials: ['iron', grip, null],
+    recipeId: 'r_dagger', materials: ['iron', grip, null, null],
   }, 0, undefined, 1));
   const plain = craft('timber');
   const epic = craft('wyrm_bone');

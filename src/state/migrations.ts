@@ -23,7 +23,7 @@ import { findSigil } from '../data/spells';
  */
 
 /** Bump this (and push a migration) whenever a field is added to the save. */
-export const SAVE_REVISION = 19;
+export const SAVE_REVISION = 20;
 
 type AnyState = GameState & Record<string, unknown>;
 
@@ -168,6 +168,10 @@ const MIGRATIONS: ((s: AnyState) => void)[] = [
     }
   },
   (s) => { s.recipeSalvage ??= {}; },
+  // 19 → 20: crafted gear may carry secondary2Id. Absence means no extra
+  // material, so existing items require no mutation. Stamp the new revision
+  // so older clients cannot upload saves that ignore the extra slot's stats.
+  () => {},
 ];
 
 /**

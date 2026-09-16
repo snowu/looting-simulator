@@ -61,6 +61,7 @@ export interface EquipmentSpec {
   baseId: string;
   materialId: string;
   secondaryId?: string;
+  secondary2Id?: string;
   rarity: Rarity;
   ilvl: number;
   affixes?: AffixRoll[];
@@ -82,6 +83,7 @@ export function makeEquipment(spec: EquipmentSpec): Item {
     qty: 1,
     materialId: spec.materialId,
     secondaryId: spec.secondaryId,
+    secondary2Id: spec.secondary2Id,
     rarity: spec.rarity,
     ilvl: spec.ilvl,
     affixes: spec.affixes ?? [],
@@ -422,8 +424,8 @@ export function itemStats(item: Item): Stats {
   for (const k of STAT_KEYS) if (core[k] > 0) core[k] *= 1 + mastery;
   addStats(s, core);
   if (mat) addStats(s, mat.mods);
-  if (item.secondaryId) {
-    const m2 = findMaterial(item.secondaryId);
+  for (const id of [item.secondaryId, item.secondary2Id]) {
+    const m2 = id ? findMaterial(id) : undefined;
     if (m2) {
       addStats(s, secondaryMaterialMods(m2));
     }
@@ -865,7 +867,9 @@ export function salvage(item: Item, rng: Rng): Item[] {
   const out: Item[] = [];
   const primaryQty = r ? r.slots[0].qty : 2;
   if (item.materialId) out.push(makeMaterial(item.materialId, Math.max(1, Math.floor(primaryQty / 2))));
-  if (item.secondaryId && rng.chance(0.5)) out.push(makeMaterial(item.secondaryId, 1));
+  for (const id of [item.secondaryId, item.secondary2Id]) {
+    if (id && rng.chance(0.5)) out.push(makeMaterial(id, 1));
+  }
   const order = RARITY_ORDER[item.rarity ?? Rarity.Common];
   if (order > 0 && rng.chance(0.2 * order)) addGem(out, rng, item.lootDepth ?? Math.max(1, ((item.ilvl ?? 2) - 2) / 2));
   return out;

@@ -13,7 +13,11 @@ describe('weapon recipes', () => {
     ['r_javelins', 'javelins', false, 210, undefined, [{ label: 'Heads', categories: ['metal'], qty: 3 }, { label: 'Shafts', categories: ['wood'], qty: 4 }, CATALYST]],
   ])('defines %s exactly', (id, baseId, starter, value, blueprintWeight, slots) => {
     const actual = recipe(id as string);
-    expect(actual).toMatchObject({ baseId, starter, value, slots });
+    expect(actual).toMatchObject({ baseId, starter, value });
+    const oldSlots = slots as { label: string; categories: string[]; qty: number }[];
+    expect(actual.slots[0]).toEqual(oldSlots[0]);
+    expect(actual.slots[1].qty).toBe(oldSlots[1].qty);
+    expect(actual.slots[3]).toEqual(CATALYST);
     expect(actual.blueprintWeight).toBe(blueprintWeight);
   });
 

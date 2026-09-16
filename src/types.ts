@@ -310,6 +310,8 @@ export interface Item {
   materialId?: string;
   /** Equipment: secondary material (crafted items). */
   secondaryId?: string;
+  /** Equipment: optional second secondary material; absent on older crafts. */
+  secondary2Id?: string;
   rarity?: Rarity;
   ilvl?: number;
   affixes?: AffixRoll[];
@@ -351,7 +353,7 @@ export interface RecipeSlot {
 export interface RecipeDef {
   id: string;
   baseId: string;
-  /** slots[0] is the primary material slot. A 'gem' slot acts as a catalyst. */
+  /** Primary, required secondary, optional secondary, then gem catalyst. */
   slots: RecipeSlot[];
   /** Known from the start (otherwise learned from a blueprint). */
   starter: boolean;

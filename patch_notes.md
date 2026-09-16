@@ -1,3 +1,17 @@
+# Mix your secondary crafting materials
+
+*Working changes after Patch 49. Save revision 20 is additive; existing crafted gear keeps its original materials.*
+
+Every equipment recipe now has two secondary material slots. The first keeps its required quantity; the second is optional and uses one extra unit. Both accept **metal, wood, hide, cloth and bone**, including every tier. Pick different families or double up on one material when you have enough: both slots contribute their family and elemental bonuses.
+
+The main material remains specific to the item. A club still needs wood or bone for its body; a sword still needs metal for its blade. A wooden club can have metal reinforcement and a linen wrap. Rings and pendants gain a one-unit required support slot too, and the pendant still requires its gem separately.
+
+The forge now groups materials into labeled family rows and shows their full tier ladders, including cloth. The extra slot has a None choice, and the picker accounts for material already selected in other slots. Both supports appear in the finished item's tooltip, survive saving, and have their own salvage chance. The narrow-screen forge also fits within the phone viewport.
+
+Validation: 561 tests, production build, desktop/mobile browser checks, and a real UI craft of a wooden club with Iron and Linen supports.
+
+---
+
 # Clear material ladders, consistent crafting roles
 
 *Patch 49. Existing items and recipes remain, but material bonuses update on existing gear too.*

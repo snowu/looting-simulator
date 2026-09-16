@@ -64,7 +64,7 @@ describe('crafting growth', () => {
   });
   it('lets wood and cloth crafts reach the top material tier', () => {
     for (const [recipeId, primary, secondary] of [['r_club', 'starwood', 'linen'], ['r_robe', 'astral_silk', 'linen']]) {
-      const crafted = buildCrafted({ recipeId, materials: [primary, secondary, null] }, 0);
+      const crafted = buildCrafted({ recipeId, materials: [primary, secondary, null, null] }, 0);
       expect(crafted.ilvl).toBe(10);
     }
   });
