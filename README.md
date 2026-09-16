@@ -38,7 +38,8 @@ Progress saves locally in your browser. Passwordless sign-in lets you sync saves
 | T | Throw one shaft from your belt |
 | R | Call every landed shaft back, one at a time |
 | G / C | Cast your attuned sigil |
-| 1–4 | Quick-use consumables |
+| 1 | Sip the flask (0.5s commitment) |
+| 2–4 | Tap to read a scroll; hold ~0.4s to tear it |
 | I / Tab | Pack and gear |
 | M | Map |
 | Esc | Pause and help |

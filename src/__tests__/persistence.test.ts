@@ -9,7 +9,7 @@ import { startRun, syncLoadout } from '../systems/run';
 import { backpackCapacity } from '../systems/meta';
 import { Rarity } from '../types';
 import { GameState } from '../state/game-state';
-import { makeBlueprint, makeEquipment } from '../systems/items';
+import { makeBlueprint, makeConsumable, makeEquipment } from '../systems/items';
 import { MATERIALS } from '../data/materials';
 import { commoditySellPrice } from '../systems/market';
 
@@ -30,7 +30,7 @@ describe('loading an old save', () => {
 
   it('keeps the town progress intact', () => {
     const s = parseSave(LEGACY)!;
-    expect(s.gold).toBe(840);
+    expect(s.gold).toBe(936);
     expect(s.renown).toBe(31);
     expect(s.meta).toEqual({ pack: 2, tough: 3, smith: 1, appraiser: 1 });
     expect(s.lifetime.kills).toBe(137);
@@ -47,7 +47,9 @@ describe('loading an old save', () => {
     expect(run.outcome).toBe('active');
     expect(run.gold).toBe(210);
     expect(run.player.hp).toBe(54);
-    expect(run.backpack.items.length).toBe(3);
+    expect(run.backpack.items.length).toBe(2);
+    expect(run.flask).toEqual({ charges: 5, dregs: 0 });
+    expect(run.tornDepths).toEqual([]);
     expect(run.floors.length).toBe(2);
     for (const f of run.floors) {
       expect(f).toBeTruthy();
@@ -56,7 +58,23 @@ describe('loading an old save', () => {
       expect(f!.stairs.length).toBeGreaterThan(0);
       expect(Array.isArray(f!.props)).toBe(true);
       expect(Array.isArray(f!.enemies)).toBe(true);
+      expect(f!.morsels).toEqual([]);
     }
+  });
+
+  it('refunds legacy healing stock and Supply Crate without wiping the save', () => {
+    const state = newGame(createRng(91));
+    state.revision = 21;
+    state.gold = 10;
+    state.renown = 2;
+    state.meta.supply_crate = 2;
+    addItem(state.stash, makeConsumable('healing_draught', 2));
+    addItem(state.loadout, makeConsumable('stamina_tonic', 1));
+    const migrated = parseSave(JSON.stringify(state))!;
+    expect(migrated.gold).toBe(10 + 2 * 24 + 16);
+    expect(migrated.renown).toBe(2 + 5 + 11);
+    expect(migrated.meta.supply_crate).toBeUndefined();
+    expect([...migrated.stash.items, ...migrated.loadout.items].some((i) => ['healing_draught', 'greater_healing', 'stamina_tonic'].includes(i.ref))).toBe(false);
   });
 
   it('backfills fields added after the save was written', () => {

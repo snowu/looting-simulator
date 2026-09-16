@@ -428,6 +428,8 @@ export interface EnemyDef {
   loot: LootEntry[];
   gold: [number, number];
   itemChance: number;
+  /** Food left on death. Bosses and monsters that do not feed the delve omit it. */
+  morsel?: 'scrap' | 'cut' | 'heart';
   /** Light emitted by the enemy (hex), e.g. wisps and wraiths. */
   glow?: string;
   description: string;

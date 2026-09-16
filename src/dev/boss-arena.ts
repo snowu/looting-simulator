@@ -39,10 +39,10 @@ function throneKit(): Equipment {
 /** Kit the character out and fill the pack, before the run starts. */
 export function prepare(state: GameState): void {
   state.equipment = throneKit();
-  state.meta = { toughness: 5, endurance: 3, pack_mule: 3, supply_crate: 3, lantern: 3, treasure_sense: 2 };
+  state.meta = { toughness: 5, endurance: 3, pack_mule: 3, lantern: 3, treasure_sense: 2 };
+  state.flask = { shards: 3, potency: 4, infusion: null };
   state.gold = 5000;
   const pack = syncLoadout(state);
-  addItem(pack, makeConsumable('greater_healing', 12));
   addItem(pack, makeConsumable('scroll_recall', 1));
 }
 

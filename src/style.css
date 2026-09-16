@@ -256,6 +256,10 @@ body.detail-mode .detail-hide { display: none; }
    clear source + drop-target state mid-drag. */
 .quick .slot:not(.empty) { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
 .quick .slot:not(.empty) img { pointer-events: none; }
+.quick .slot.holding::before { content: ''; position: absolute; inset: -3px; border-radius: 50%; background: conic-gradient(#fff3a0 0turn, transparent 0); animation: tear-hold .4s linear forwards; pointer-events: none; }
+@keyframes tear-hold { to { background: conic-gradient(#fff3a0 1turn, transparent 0); } }
+.quick .flask-slot { cursor: pointer; overflow: hidden; }
+.quick .flask-slot::after { content: ''; position: absolute; left: 2px; right: 2px; bottom: 2px; height: 3px; background: linear-gradient(90deg, #63d5bd var(--dregs), #172326 var(--dregs)); box-shadow: 0 0 3px #63d5bd; }
 .quick.dragging .slot:not(.empty) { cursor: grabbing; }
 .quick .qs.drag-src { opacity: 0.45; }
 .quick .qs.drop-target .slot { outline: 2px dashed var(--gold); outline-offset: 2px; }

@@ -90,7 +90,8 @@ export function buildCrafted(sel: CraftSelection, smithLevel: number, rng?: Rng,
   });
 }
 
-function medianAffix(id: string, ilvl: number): number {
+/** Deterministic stand-in for previews; also values timed gem infusions. */
+export function medianAffix(id: string, ilvl: number): number {
   // Deterministic stand-in for previews.
   const fake = { next: () => 0.5 } as unknown as Rng;
   fake.float = (a: number, b: number) => (a + b) / 2;

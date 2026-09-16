@@ -16,7 +16,6 @@ export const META_UPGRADES: MetaUpgrade[] = [
   { id: 'master_smith', name: 'Master Smith', description: '+6% crafted quality per level. L3: crafted gear rolls an extra affix.', costs: [4, 9, 15] },
   { id: 'appraiser', name: 'Appraiser\'s Eye', description: 'L1: identifying costs 40% less. L2: Rare and lower drops come identified, preserving salvage mastery.', costs: [5, 12] },
   { id: 'treasure_sense', name: 'Treasure Sense', description: '+20% loot find per level. Find raises how much drops and how good it is.', costs: [6, 13, 22] },
-  { id: 'supply_crate', name: 'Supply Crate', description: 'Start each run with +1 Healing Draught per level.', costs: [5, 11, 18] },
   { id: 'lantern', name: 'Lantern Wick', description: '+1 light radius per level, 9.5 to 12.5 at L3, against fog that starts at 4. L1 also reads the floor for traps 3 tiles ahead instead of 2.', costs: [3, 7, 12] },
   { id: 'attunement', name: "Warden's Vigil", description: 'Each kill takes 25% more off your sigil per level.', costs: [6, 12, 20] },
 ];

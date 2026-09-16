@@ -5,7 +5,6 @@ import { Container, addItem, createContainer } from '../state/inventory';
 import { generateFloor, stairsFront } from './dungeon';
 import { backpackCapacity, metaLevel, renownForRun } from './meta';
 import { derivePlayer } from './player';
-import { makeConsumable } from './items';
 import { advanceDay } from './market';
 import { recordDepth, refreshContracts } from './contracts';
 
@@ -44,8 +43,6 @@ export function startRun(state: GameState, seed = randomSeed()): RunState {
   const spawn = stairsFront(up);
   const d = derivePlayer(state.equipment, state.meta, difficulty);
   const backpack = createContainer(backpackCapacity(state.meta));
-  const crate = metaLevel(state.meta, 'supply_crate');
-  if (crate > 0) addItem(backpack, makeConsumable('healing_draught', crate));
   // Everything packed in town comes with you. Anything that no longer fits
   // (the pack shrank, or the crate filled a slot) goes back to the stash.
   for (const it of syncLoadout(state).items) {
@@ -69,6 +66,8 @@ export function startRun(state: GameState, seed = randomSeed()): RunState {
     portal: null,
     thrown: { held: {}, retrieveCd: 0 },
     sigil: state.attuned ? { id: state.attuned, cd: 0 } : null,
+    flask: { charges: 3 + Math.min(3, state.flask?.shards ?? 0), dregs: 0 },
+    tornDepths: [],
     stats: { kills: 0, goldFound: 0, itemsFound: 0, deepest: 1, time: 0, bossKilled: false },
     outcome: 'active',
   };

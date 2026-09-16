@@ -40,6 +40,7 @@ import { audio } from '../audio/sfx';
 import { difficultyOf } from '../data/difficulty';
 import { AccountSummary } from './account';
 import { openSettings, settingsGearButton } from './settings';
+import { FLASK_POTENCY, FLASK_UPGRADE_COSTS } from '../systems/healing';
 
 export type TownTab = 'market' | 'forge' | 'guild' | 'stash' | 'bestiary' | 'warden';
 
@@ -128,7 +129,7 @@ export class Town {
    * that something is broken or that a stone is waiting, without the pane
    * itself taking the room.
    */
-  private forgeSide: 'recipes' | 'repairs' | 'sigils' = 'recipes';
+  private forgeSide: 'recipes' | 'repairs' | 'sigils' | 'infusions' = 'recipes';
   private forgeRecipe = 'r_short_sword';
   private forgeMats: (string | null)[] = [];
   private stashFilter: 'all' | 'gear' | 'materials' | 'other' = 'all';
@@ -473,6 +474,20 @@ export class Town {
     // Sell only valuables beyond the quantity promised to accepted contracts.
     const valuablesOwned = this.valuablesOwned();
     const valuablesQuote = valuablesOwned.reduce((sum, v) => sum + quoteSell(m, v.id, v.qty, this.hag), 0);
+    const potency = Math.max(0, Math.min(4, s.flask?.potency ?? 0));
+    const flaskCost = potency < 4 ? FLASK_UPGRADE_COSTS[potency] : null;
+    const flaskPane = h('div', { class: 'pane frame' },
+      h('h3', { text: 'Flask potency' }),
+      h('p', { text: `Level ${potency} · each sip restores ${Math.round(FLASK_POTENCY[potency] * 100)}% maximum health.` }),
+      flaskCost === null ? h('p', { class: 'dim', text: 'The flask is fully tempered.' }) :
+        btn(`Temper flask (${gold(flaskCost)})`, () => {
+          if (s.gold < flaskCost) return;
+          s.gold -= flaskCost;
+          s.flask.potency = potency + 1;
+          this.ctx.toast(`Flask potency is now level ${potency + 1}.`, '#9fe0cf');
+          this.commit('gold');
+        }, 'small', s.gold < flaskCost),
+    );
     return h(
       'div',
       { class: 'panes' },
@@ -494,6 +509,7 @@ export class Town {
         ),
         h('div', { class: 'pane frame' }, h('h3', { text: 'Merchant\'s wares' }), m.wares.length ? wares : h('p', { class: 'dim', text: 'Sold out until tomorrow.' })),
         h('div', { class: 'pane frame' }, h('h3', { text: 'Supplies' }), supplies),
+        flaskPane,
       ),
     );
   }
@@ -783,6 +799,7 @@ export class Town {
       ['recipes', 'Recipes', readyBlueprints],
       ['repairs', 'Repairs', wornCount],
       ['sigils', 'Sigils', stones],
+      ['infusions', 'Flask', 0],
     ];
     const bar = h(
       'div',
@@ -798,8 +815,37 @@ export class Town {
       ? this.repairs()
       : this.forgeSide === 'sigils'
         ? this.sigils()
+        : this.forgeSide === 'infusions'
+          ? this.infusions()
         : h('div', { class: 'col' }, h('div', { class: 'pane frame' }, h('h3', { text: 'Recipes' }), list), learn);
     return h('div', { class: 'col' }, bar, body);
+  }
+
+  private infusions(): HTMLElement {
+    const s = this.s;
+    const current = s.flask?.infusion;
+    const choices = s.stash.items.filter((it) =>
+      (it.kind === 'material' && material(it.ref).category !== 'valuable') ||
+      (it.kind === 'consumable' && it.ref === 'fight_milk'),
+    );
+    const grid = h('div', { class: 'grid-slots' });
+    for (const it of choices) {
+      const name = it.ref === 'fight_milk' ? 'Fight Milk' : material(it.ref).name;
+      grid.append(itemSlot(it, { size: 44, tip: () => itemTooltip(it, { hint: 'Consume one and replace the current flask infusion' }), onclick: () => {
+        if (it.kind === 'material') removeOf(s.stash, 'material', it.ref, 1);
+        else removeOf(s.stash, 'consumable', it.ref, 1);
+        s.flask.infusion = it.ref;
+        this.ctx.toast(`The flask is infused with ${name}.`, '#9fe0cf');
+        this.commit('craft');
+      }}));
+    }
+    return h('div', { class: 'pane frame' },
+      h('h3', { text: 'Flask infusion' }),
+      h('p', { text: current ? `Current: ${current === 'fight_milk' ? 'Fight Milk' : material(current).name}` : 'Current: plain flask' }),
+      h('p', { class: 'dim small', text: 'A material is consumed. Replacing it destroys the old infusion. Most infusions trade 10 points of healing for a six-second effect.' }),
+      current ? btn('Make flask plain', () => { s.flask.infusion = null; this.commit('craft'); }, 'small') : null,
+      choices.length ? grid : h('p', { class: 'dim', text: 'No suitable material in the stash.' }),
+    );
   }
 
   /**
@@ -1035,9 +1081,9 @@ export class Town {
         }),
       );
     }
-    const potions = () => {
+    const scrolls = () => {
       for (const it of [...s.stash.items]) {
-        if (it.kind !== 'consumable') continue;
+        if (it.kind !== 'consumable' || !it.ref.startsWith('scroll_')) continue;
         if (freeSlots(this.pack.c) <= 0 && !canFit(this.pack.c, it)) continue;
         this.toPack(it.uid);
       }
@@ -1052,13 +1098,13 @@ export class Town {
         h(
           'div',
           { class: 'row right' },
-          btn('Take potions', potions, 'small', !s.stash.items.some((i) => i.kind === 'consumable')),
+          btn('Take scrolls', scrolls, 'small', !s.stash.items.some((i) => i.kind === 'consumable' && i.ref.startsWith('scroll_'))),
           btn('Stow all', () => {
             for (const it of [...c.items]) this.toStash(it.uid);
           }, 'small', !c.items.length),
         ),
       ),
-      c.items.length ? grid : h('p', { class: 'dim', text: 'Empty. Pack potions and scrolls before you go down.' }),
+      c.items.length ? grid : h('p', { class: 'dim', text: 'Empty. Pack identify and recall scrolls before you go down.' }),
       h('p', {
         class: 'dim small',
         text: live

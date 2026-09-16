@@ -370,7 +370,7 @@ export class DungeonRenderer {
       });
       wx += DX[en.facing] * pose.lunge;
       wz += DY[en.facing] * pose.lunge;
-      const height = def.scale * 1.9;
+      const height = def.scale * 1.9 * (en.scavenged ? 1.15 : 1);
       let y = (def.floats ? 0.35 + Math.sin(this.time * 2.5 + en.x) * 0.1 : 0) + (en.moveT < 1 ? Math.abs(Math.sin(en.moveT * Math.PI)) * 0.08 : 0);
       if (en.ai === 'dead') y -= en.deadT * 1.4;
       this.place(s, `${def.sprite}_${pose.frame}`, wx, y, wz, height);
@@ -447,7 +447,8 @@ export class DungeonRenderer {
       const hover = 0.25 + Math.sin(this.time * 3 + pk.x) * 0.06;
       let art = 'pickup_bag';
       let ramp: readonly [string, string, string, string] | undefined;
-      if (pk.keyId && !pk.items.length) art = 'ic_key';
+      if (pk.flaskShard) { art = 'ic_shard'; ramp = ['#12383b', '#26716e', '#67c6b6', '#dcfff7']; }
+      else if (pk.keyId && !pk.items.length) art = 'ic_key';
       else if (pk.items.length === 1) {
         const ic = itemIcon(pk.items[0]);
         art = ic.icon;
@@ -463,6 +464,17 @@ export class DungeonRenderer {
       if (!art) continue;
       const s = this.sprite(`th:${marker.base}:${marker.x}:${marker.y}`);
       this.placeFlat(s, art, tileX(marker.x), tileZ(marker.y), 0.62);
+    }
+
+    for (const morsel of floor.morsels ?? []) {
+      if (!near(morsel.x, morsel.y)) continue;
+      const s = this.sprite(`morsel:${morsel.id}`);
+      const age = world.run.stats.time - morsel.droppedAt;
+      const dark = age > 160;
+      const ramp: [string, string, string, string] = dark
+        ? ['#160d09', '#332019', '#573629', '#79503a']
+        : morsel.kind === 'heart' ? ['#31060b', '#711220', '#b8323d', '#ef7a72'] : ['#24120b', '#63321d', '#a96638', '#e5a66e'];
+      this.place(s, 'ic_bone', tileX(morsel.x), 0.08, tileZ(morsel.y), morsel.kind === 'heart' ? 0.5 : 0.4, ramp);
     }
 
     if (a.ward && near(a.ward.x, a.ward.y)) {

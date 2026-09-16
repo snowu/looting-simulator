@@ -224,20 +224,20 @@ export const CONSUMABLES: ConsumableDef[] = [
   },
   {
     id: 'scroll_identify', name: 'Scroll of Identify', icon: 'ic_scroll', ramp: ['#4a3a20', '#8a7040', '#c8a868', '#f4e4b0'],
-    description: 'Reveals the true nature of one item.', effect: { type: 'identify' },
+    description: 'Reveals the true nature of one item. Hold to tear instead: a blinding flash at whatever faces you.', effect: { type: 'identify' },
     rarity: Rarity.Uncommon, value: 30, stack: 10,
   },
   {
-    // The only Legendary you can drink. Deliberately not stocked by any
-    // merchant and not craftable: it turns up in the dark or not at all.
+    // A legendary flask infusion, found only in the dark: never stocked by any
+    // merchant and not craftable. Installed at the forge, never drunk.
     id: 'fight_milk', name: 'Fight Milk', icon: 'ic_potion', ramp: ['#2a2410', '#6a6030', '#c8c088', '#f8f4d8'],
-    description: "Drunk, and it lasts the delve. You come back quicker and you have less to come back with.",
+    description: "Infused at the forge, it lasts the delve. You come back quicker and you have less to come back with.",
     effect: { type: 'tonic', tonicId: 'fight_milk' },
     rarity: Rarity.Legendary, value: 420, stack: 2,
   },
   {
     id: 'scroll_recall', name: 'Scroll of Recall', icon: 'ic_scroll', ramp: ['#1a2a4a', '#34508a', '#6a90d0', '#d0e4ff'],
-    description: 'After 5 seconds of stillness, carries you and your pack back to town.',
+    description: 'After 5 seconds of stillness, carries you and your pack back to town. Hold to tear instead: snapped back along your own path.',
     effect: { type: 'recall', seconds: 5 }, rarity: Rarity.Rare, value: 95, stack: 5,
   },
 ];

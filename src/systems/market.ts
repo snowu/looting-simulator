@@ -302,7 +302,9 @@ export function itemBuyPrice(m: MarketState, item: Item, haggle: number): number
  * rarest consumable in the game into a purchase. Derived from `tonicUnique`
  * rather than an id check, so the next tonic added is excluded for free.
  */
-export const SHOP_CONSUMABLES = CONSUMABLES.filter((c) => !tonicUnique(c.id)).map((c) => c.id);
+export const SHOP_CONSUMABLES = CONSUMABLES.filter((c) =>
+  (c.id === 'scroll_identify' || c.id === 'scroll_recall') && !tonicUnique(c.id),
+).map((c) => c.id);
 
 export function trendPercent(history: number[], days = 5): number {
   if (history.length < 2) return 0;

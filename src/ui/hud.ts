@@ -68,11 +68,11 @@ export class Hud {
   private wardGlow = h('div', { class: 'ward-glow' });
   private time = 0;
   /** Active pointer-drag reorder of the quick bar, if a slot is being dragged. */
-  private quickDrag: { from: number; over: number | null; pointerId: number; startX: number; startY: number; active: boolean } | null = null;
+  private quickDrag: { from: number; ref: string; el: HTMLElement; over: number | null; pointerId: number; startX: number; startY: number; active: boolean; hold: number | null } | null = null;
   /** Set when a drag just ended so the trailing click doesn't drink anything. */
   private suppressQuickClick = false;
 
-  constructor(parent: HTMLElement, private actions: { interact: () => void; quick: (i: number) => void; reorderQuick: (from: number, to: number) => void; settings: () => void }) {
+  constructor(parent: HTMLElement, private actions: { interact: () => void; flask: () => void; quick: (i: number) => void; tear: (ref: string) => void; reorderQuick: (from: number, to: number) => void; settings: () => void }) {
     this.recallWrap.append(this.recallBar);
     // Tappable on touch screens.
     this.prompt.addEventListener('click', () => this.actions.interact());
@@ -136,9 +136,19 @@ export class Hud {
    * press-and-hold still taps to use, but moving past a small threshold turns
    * the gesture into a drag, and dropping on another slot swaps the order.
    */
-  private quickDragStart(e: PointerEvent, index: number): void {
+  private quickDragStart(e: PointerEvent, index: number, ref: string): void {
     if (e.button !== undefined && e.button !== 0 && e.pointerType === 'mouse') return;
-    this.quickDrag = { from: index, over: null, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, active: false };
+    const el = e.currentTarget as HTMLElement;
+    if (ref.startsWith('scroll_')) el.classList.add('holding');
+    const hold = ref.startsWith('scroll_') ? window.setTimeout(() => {
+      const d = this.quickDrag;
+      if (!d || d.active || d.ref !== ref) return;
+      this.actions.tear(ref);
+      this.suppressQuickClick = true;
+      el.classList.remove('holding');
+      this.quickDrag = null;
+    }, 400) : null;
+    this.quickDrag = { from: index, ref, el, over: null, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, active: false, hold };
     // Keep move/up events flowing to the source slot even after the pointer
     // leaves it, so a drag across slots works on mouse and touch alike.
     try {
@@ -154,6 +164,8 @@ export class Hud {
     if (!d.active) {
       if (Math.hypot(e.clientX - d.startX, e.clientY - d.startY) < 10) return;
       d.active = true;
+      if (d.hold !== null) window.clearTimeout(d.hold);
+      d.el.classList.remove('holding');
       this.quick.classList.add('dragging');
     }
     e.preventDefault();
@@ -172,6 +184,8 @@ export class Hud {
     const d = this.quickDrag;
     if (!d || e.pointerId !== d.pointerId) return;
     this.quickDrag = null;
+    if (d.hold !== null) window.clearTimeout(d.hold);
+    d.el.classList.remove('holding');
     this.quick.classList.remove('dragging');
     for (const child of [...this.quick.children]) (child as HTMLElement).classList.remove('drag-src', 'drop-target');
     if (d.active) {
@@ -185,6 +199,9 @@ export class Hud {
   }
 
   private quickDragCancel(): void {
+    const hold = this.quickDrag?.hold;
+    if (hold != null) window.clearTimeout(hold);
+    this.quickDrag?.el.classList.remove('holding');
     this.quickDrag = null;
     this.suppressQuickClick = false;
     this.quick.classList.remove('dragging');
@@ -297,13 +314,20 @@ export class Hud {
       if (it.kind !== 'consumable') continue;
       counts.set(it.ref, (counts.get(it.ref) ?? 0) + it.qty);
     }
-    const qk = seen.slice(0, 4).map((r) => `${r}:${counts.get(r)}`).join('|');
+    const flask = world.run.flask;
+    const qk = `${flask.charges}:${flask.dregs.toFixed(1)}|${seen.slice(0, 3).map((r) => `${r}:${counts.get(r)}`).join('|')}`;
     if (qk !== this.quickKey) {
       this.quickKey = qk;
       this.quickDrag = null;
       this.quick.classList.remove('dragging');
+      const max = 3 + Math.min(3, world.state.flask?.shards ?? 0);
+      const dregs = Math.min(100, flask.dregs / Math.max(1, world.derived.maxHp * 0.5) * 100);
+      const flaskSlot = h('div', { class: 'slot flask-slot', style: `--sz:44px;--dregs:${dregs}%`, title: 'Flask' });
+      flaskSlot.addEventListener('click', () => this.actions.flask());
+      flaskSlot.append(artImg('ic_potion', ['#173536', '#27706d', '#63b9a9', '#d2fff0'], 36), h('span', { class: 'qty', text: `${flask.charges}/${max}` }));
       this.quick.replaceChildren(
-        ...[0, 1, 2, 3].map((i) => {
+        h('div', { class: 'qs' }, flaskSlot, h('span', { class: 'key', text: '1' })),
+        ...[0, 1, 2].map((i) => {
           const ref = seen[i];
           const slot = h('div', { class: `slot${ref ? '' : ' empty'}`, style: '--sz:44px', title: ref ? `${consumable(ref).name} — drag to reorder` : '' });
           if (ref) {
@@ -317,7 +341,7 @@ export class Hud {
             // Native image drag would fight the pointer reorder with a ghost
             // image; the pointer handlers below are the drag on every device.
             slot.addEventListener('dragstart', (e) => e.preventDefault());
-            slot.addEventListener('pointerdown', (e) => this.quickDragStart(e, i));
+            slot.addEventListener('pointerdown', (e) => this.quickDragStart(e, i, ref));
             slot.addEventListener('pointermove', (e) => this.quickDragMove(e));
             slot.addEventListener('pointerup', (e) => this.quickDragEnd(e));
             slot.addEventListener('pointercancel', () => this.quickDragCancel());
@@ -326,7 +350,7 @@ export class Hud {
             img.draggable = false;
             slot.append(img, h('span', { class: 'qty', text: String(counts.get(ref)) }));
           }
-          return h('div', { class: 'qs', attrs: { 'data-qi': String(i) } }, slot, h('span', { class: 'key', text: String(i + 1) }));
+          return h('div', { class: 'qs', attrs: { 'data-qi': String(i) } }, slot, h('span', { class: 'key', text: String(i + 2) }));
         }),
       );
     }

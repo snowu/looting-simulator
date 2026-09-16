@@ -52,11 +52,11 @@ it('balance report', () => {
     runs: RUNS, seed: 21000,
     prepare: (state) => {
       equip(state);
-      addItem(state.stash, makeConsumable('greater_healing', 20));
+      state.flask = { shards: 3, potency: 4, infusion: null };
       addItem(state.stash, makeConsumable('scroll_recall', 1));
     },
     policy: { parrySkill: 0.8, drinkAt: 0.6, fleeAt: 0.15, lootUrns: false, floorBudget: 45 },
-  }), 'a prepared expedition: deep gear, 20 greater heals, straight down'), '');
+  }), 'a prepared expedition: deep gear, a perfected flask, straight down'), '');
 
   writeFileSync(OUT, parts.join('\n') + '\n');
 });

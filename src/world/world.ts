@@ -52,6 +52,11 @@ import { Rarity } from '../types';
 import type { SfxName } from '../audio/sfx';
 import { SigilId, findSigil, sigil } from '../data/spells';
 import { makeSigil, unknownSigils } from '../systems/spells';
+import { CHEW_SECONDS, DREGS_FRACTION, FLASK_POTENCY, MORSEL_HEAL, MORSEL_ROT_SECONDS, SIP_SECONDS, flaskMax, morselChance } from '../systems/healing';
+import { findMaterial, secondaryMaterialMods, catalystAffixBonus } from '../data/materials';
+import { affix } from '../data/affixes';
+import { medianAffix } from '../systems/crafting';
+import { addStats, Stats } from '../types';
 
 // ---------------------------------------------------------------------------
 // Events the world emits for the renderer / UI / audio to react to.
@@ -158,6 +163,9 @@ export interface PlayerAnim {
   unseenT: number;
   ward: { x: number; y: number; t: number } | null;
   transition: { t: number; dir: 'down' | 'up'; done: boolean } | null;
+  sip: number | null;
+  chew: { id: string; left: number; delivered: number; total: number } | null;
+  infusionT: number;
 }
 
 const STEP_TIME = 0.24;
@@ -400,6 +408,7 @@ export class World {
   private projN = 0;
   private pathCache = new Map<string, { t: number; next: [number, number] | null }>();
   private turnReadyAt = 0;
+  private trail: { x: number; y: number; facing: Dir; time: number }[] = [];
   time = 0;
 
   constructor(state: GameState) {
@@ -417,7 +426,9 @@ export class World {
       blockRaise: 0, blockT: Infinity, parryArmed: false, parryCd: 0,
       rangedParryT: 0, parryInvulnT: 0, stunT: 0, steps: 0, parryStacks: 0,
       sinceStamina: 10, windedCd: 0, recall: null, cast: null, snuffT: 0, unseenT: 0, ward: null, transition: null,
+      sip: null, chew: null, infusionT: 0,
     };
+    this.trail.push({ x: this.player.x, y: this.player.y, facing: this.player.facing, time: this.run.stats.time });
     this.reveal();
   }
 
@@ -458,6 +469,22 @@ export class World {
     if (this.run.curse === 'dulled') this.derived.attack = Math.max(1, Math.round(this.derived.attack * 0.75));
     // hunted is read in sightPenalty (+3); brittle is read in wear (+1).
     for (const id of this.run.tonics ?? []) TONICS[id]?.apply(this.derived);
+    if (this.state.flask?.infusion === 'fight_milk') TONICS.fight_milk.apply(this.derived);
+    const infused = this.state.flask?.infusion ? findMaterial(this.state.flask.infusion) : undefined;
+    if (infused && this.anim?.infusionT > 0) {
+      // One material-bonus table, not two: structural infusions grant the same
+      // family mods secondary crafting uses, and a gem grants its catalyst
+      // affix at the value the forge would roll for it. Elemental stats deal
+      // damage through the ELEMENTS loop in combat, so they must NOT also land
+      // in attack — that dealt every gem twice, and bone's attack twice over.
+      const mods: Partial<Stats> = infused.category === 'gem' && infused.catalystAffix
+        ? { [affix(infused.catalystAffix).stat]: medianAffix(infused.catalystAffix, infused.tier * 2) + catalystAffixBonus(infused) }
+        : secondaryMaterialMods(infused);
+      addStats(this.derived.stats, mods);
+      this.derived.attack += mods.attack ?? 0;
+      this.derived.maxHp += mods.health ?? 0;
+      this.derived.maxStamina += mods.stamina ?? 0;
+    }
     this.player.hp = Math.min(this.player.hp, this.derived.maxHp);
     this.player.stamina = Math.min(this.player.stamina, this.derived.maxStamina);
     this.ensureThrownStock();
@@ -480,6 +507,18 @@ export class World {
     const scaled = Math.round(amount * this.derived.traits.healing * this.diff.playerHealing);
     const healed = Math.min(Math.max(0, scaled), this.derived.maxHp - this.player.hp);
     this.player.hp += healed;
+    const overflow = Math.max(0, scaled - healed);
+    if (overflow > 0) {
+      const flask = (this.run.flask ??= { charges: flaskMax(this.state.flask?.shards ?? 0), dregs: 0 });
+      const max = flaskMax(this.state.flask?.shards ?? 0);
+      const threshold = Math.max(1, this.derived.maxHp * DREGS_FRACTION);
+      flask.dregs = Math.min(threshold, flask.dregs + overflow);
+      if (flask.dregs >= threshold && flask.charges < max) {
+        flask.dregs = 0;
+        flask.charges++;
+        this.msg('The flask draws a charge from its dregs.', '#a0d8c8');
+      }
+    }
     return healed;
   }
 
@@ -572,11 +611,83 @@ export class World {
   }
 
   get busy(): boolean {
-    return this.run.outcome !== 'active' || !!this.anim.transition;
+    return this.run.outcome !== 'active' || !!this.anim.transition || this.anim.sip !== null || !!this.anim.chew;
   }
 
   get moving(): boolean {
     return this.anim.moveT < 1 || this.anim.turnT < 1;
+  }
+
+  /** Begin the flask commitment. The charge is spent only when the sip lands. */
+  sipFlask(): boolean {
+    const flask = (this.run.flask ??= { charges: flaskMax(this.state.flask?.shards ?? 0), dregs: 0 });
+    if (this.player.hp >= this.derived.maxHp) {
+      this.msg('You are already at full health.', '#888');
+      return false;
+    }
+    if (flask.charges <= 0) {
+      this.msg('The flask is dry.', '#888');
+      return false;
+    }
+    if (this.busy || this.moving || this.anim.attack !== 'idle' || this.anim.cast || this.anim.sip !== null || this.anim.chew) return false;
+    this.anim.sip = SIP_SECONDS;
+    this.held.clear();
+    this.setBlock(false);
+    return true;
+  }
+
+  /** Instant alternate use for the two scrolls. */
+  tear(ref: string): boolean {
+    if (this.run.outcome !== 'active') return false;
+    if (ref !== 'scroll_recall' && ref !== 'scroll_identify') return false;
+    if ((this.run.tornDepths ??= []).includes(this.run.depth)) {
+      this.msg('Your nerve is spent on this floor.', '#888');
+      return false;
+    }
+    const item = this.run.backpack.items.find((i) => i.kind === 'consumable' && i.ref === ref);
+    if (!item) return false;
+    if (ref === 'scroll_recall') {
+      const now = this.run.stats.time;
+      const candidates = this.trail.filter((p) => now - p.time <= 2 && (p.x !== this.player.x || p.y !== this.player.y)).slice(-4);
+      const dest = candidates.find((p) => !blocksMove(this.floor, p.x, p.y) && !enemyAt(this.floor, p.x, p.y));
+      if (!dest) {
+        this.msg('The scroll will not tear. You have been nowhere.', '#888');
+        return false;
+      }
+      this.player.x = dest.x; this.player.y = dest.y; this.player.facing = dest.facing;
+      const yaw = dest.facing * Math.PI / 2;
+      Object.assign(this.anim, { fromX: dest.x, fromY: dest.y, moveT: 1, yaw, yawFrom: yaw, yawTo: yaw, turnT: 1 });
+      this.anim.recall = null; this.anim.sip = null; this.anim.chew = null;
+      this.sfx('recall'); this.emit({ type: 'shake', amount: 0.22 });
+      this.msg('The torn scroll snaps you back along your path.', '#9ac0ff');
+    } else {
+      let target: EnemyState | undefined;
+      for (let d = 1; d <= 3; d++) {
+        const t = this.frontTile(d);
+        const e = enemyAt(this.floor, t.x, t.y);
+        if (e) {
+          const toward = dirOf(Math.sign(this.player.x - e.x), Math.sign(this.player.y - e.y));
+          if (e.alert > 0 && toward === e.facing) target = e;
+          break;
+        }
+        if (blocksSight(this.floor, t.x, t.y)) break;
+      }
+      if (!target) {
+        this.msg('There is nothing looking at you.', '#888');
+        return false;
+      }
+      const save = target.ai === 'windup' && target.def !== BOSS_ID;
+      target.blind = target.def === BOSS_ID ? 0.8 : save ? 3 : 2;
+      if (save) { target.ai = 'recover'; target.timer = target.blind; }
+      target.guard = 'down'; target.guardT = target.blind;
+      this.anim.recall = null; this.anim.sip = null; this.anim.chew = null;
+      this.msg(save ? 'Caught it in the light!' : `${enemyDef(target.def).name} reels from the flash.`, '#fff2a0');
+      this.sfx('magic', target.x, target.y);
+    }
+    this.run.tornDepths.push(this.run.depth);
+    item.qty--;
+    if (item.qty <= 0) removeItem(this.run.backpack, item.uid);
+    return true;
   }
 
   frontTile(dist = 1): { x: number; y: number } {
@@ -593,6 +704,15 @@ export class World {
     if (this.run.outcome !== 'active') return;
     this.run.stats.time += dt;
     const a = this.anim;
+    if (a.infusionT > 0) {
+      a.infusionT = Math.max(0, a.infusionT - dt);
+      if (a.infusionT === 0) this.refreshDerived();
+    }
+
+    // Rot is run-clock based and therefore pauses naturally in town. Floors
+    // are cleaned lazily when visited; no background ticking is needed.
+    this.floor.morsels ??= [];
+    this.floor.morsels = this.floor.morsels.filter((m) => this.run.stats.time - m.droppedAt < MORSEL_ROT_SECONDS);
 
     this.run.thrown ??= { held: {}, retrieveCd: 0 };
     this.run.thrown.retrieveCd = Math.max(0, (this.run.thrown.retrieveCd ?? 0) - dt);
@@ -634,7 +754,9 @@ export class World {
     a.stunT = Math.max(0, a.stunT - dt);
     a.rangedParryT = Math.max(0, a.rangedParryT - dt);
     a.parryInvulnT = Math.max(0, a.parryInvulnT - dt);
-    const wantGuard = this.held.has('block') && a.attack === 'idle' && !a.cast && a.stunT <= 0;
+    // A sip is a commitment: the guard stays down for the whole 0.5s, so a
+    // blow mid-sip lands unblocked (see damagePlayer) and the heal still lands.
+    const wantGuard = this.held.has('block') && a.attack === 'idle' && !a.cast && a.stunT <= 0 && a.sip === null;
     const brokenGuard = wantGuard ? this.brokenGuardGear() : null;
     const wantBlock = wantGuard && !brokenGuard;
     a.parryCd = Math.max(0, a.parryCd - dt);
@@ -662,7 +784,7 @@ export class World {
     }
 
     // Next movement, from the queue or held keys. Stun sits you out.
-    if (!this.moving && a.transition === null && a.stunT <= 0 && !a.cast) {
+    if (!this.moving && a.transition === null && a.stunT <= 0 && !a.cast && a.sip === null && !a.chew) {
       const next = this.queued ?? this.heldMove();
       this.queued = null;
       if (next) this.doAction(next);
@@ -694,7 +816,48 @@ export class World {
       }
     }
 
-    // Stamina recovers; health never does on its own (potions, shrines, leech only).
+
+    if (a.sip !== null) {
+      a.sip -= dt;
+      if (a.sip <= 0) {
+        a.sip = null;
+        const flask = this.run.flask;
+        if (flask.charges > 0) {
+          flask.charges--;
+          const level = Math.max(0, Math.min(4, this.state.flask?.potency ?? 0));
+          let fraction = FLASK_POTENCY[level];
+          const infusion = this.state.flask?.infusion;
+          const mat = infusion ? findMaterial(infusion) : undefined;
+          if (infusion) fraction -= 0.1;
+          if (mat?.category === 'hide') fraction = FLASK_POTENCY[level] + 0.05;
+          this.heal(this.derived.maxHp * fraction);
+          if (mat?.category === 'cloth') this.player.stamina = this.derived.maxStamina;
+          if (mat && mat.category !== 'hide' && mat.category !== 'cloth') {
+            a.infusionT = 6;
+            this.refreshDerived();
+          }
+          this.sfx('drink');
+        }
+      }
+    }
+
+    if (a.chew) {
+      a.chew.left = Math.max(0, a.chew.left - dt);
+      const target = Math.round(a.chew.total * (1 - a.chew.left / CHEW_SECONDS));
+      const portion = Math.max(0, target - a.chew.delivered);
+      if (portion) {
+        this.heal(portion);
+        a.chew.delivered += portion;
+      }
+      if (a.chew.left <= 0) {
+        const id = a.chew.id;
+        a.chew = null;
+        this.floor.morsels = (this.floor.morsels ?? []).filter((m) => m.id !== id);
+        this.sfx('drink');
+      }
+    }
+
+    // Stamina recovers; health never does on its own (flask, food, shrines and leech only).
     a.windedCd = Math.max(0, a.windedCd - dt);
     a.sinceStamina += dt;
     if (a.sinceStamina > STAMINA_DELAY && a.attack === 'idle') {
@@ -763,6 +926,8 @@ export class World {
 
   /** Called when a step completes. */
   private arrive(): void {
+    this.trail.push({ x: this.player.x, y: this.player.y, facing: this.player.facing, time: this.run.stats.time });
+    this.trail = this.trail.filter((p) => this.run.stats.time - p.time <= 2.1).slice(-5);
     const p = this.player;
     this.anim.steps++;
     this.reveal();
@@ -814,7 +979,7 @@ export class World {
   }
 
   private prunePickups(): void {
-    this.floor.pickups = this.floor.pickups.filter((q) => q.items.length > 0 || q.gold > 0 || q.keyId);
+    this.floor.pickups = this.floor.pickups.filter((q) => q.items.length > 0 || q.gold > 0 || q.keyId || q.flaskShard);
   }
 
   // -------------------------------------------------------------------------
@@ -852,6 +1017,13 @@ export class World {
     if (dir === 'down' && run.depth > run.stats.deepest) {
       run.stats.deepest = run.depth;
       recordDepth(this.state.contracts, run.depth);
+      const milestone = run.depth >= 5 ? 2 : run.depth >= 3 ? 1 : 0;
+      if (milestone > (this.state.flask?.shards ?? 0)) {
+        const shard = f.pickups.find((p) => p.x === spot.x && p.y === spot.y) ?? { id: `shard_depth_${run.depth}`, x: spot.x, y: spot.y, items: [], gold: 0 };
+        shard.flaskShard = true;
+        if (!f.pickups.includes(shard)) f.pickups.push(shard);
+        this.msg('A Flask Shard waits at the stair.', '#9fe0cf');
+      }
     }
     this.reveal();
     const biome = biomeForFloor(f);
@@ -1684,6 +1856,7 @@ export class World {
   private hitEnemy(e: EnemyState, neverBash = false, chips = this.derived.swing.chips ?? 1, powerMult = 1): void {
     if (this.protectedByFog(e)) return;
     const def = this.view(e);
+    if ((e.eating ?? 0) > 0) e.eating = undefined;
     const reaction = this.guardReaction(e, def);
     if (reaction === 'bash' && !neverBash) {
       this.shieldBash(e, def);
@@ -1763,10 +1936,24 @@ export class World {
       const spot = this.freeTileNear(e.x, e.y, true);
       this.dropLoot(spot.x, spot.y, loot.items, loot.gold);
       this.run.stats.bossKilled = true;
+      if ((this.state.flask?.shards ?? 0) < 3) {
+        const shard = this.floor.pickups.find((p) => p.x === spot.x && p.y === spot.y) ?? { id: 'shard_king', x: spot.x, y: spot.y, items: [], gold: 0 };
+        shard.flaskShard = true;
+        if (!this.floor.pickups.includes(shard)) this.floor.pickups.push(shard);
+      }
       this.msg('The Ashen King crumbles to cinders. A portal tears open.', '#c080ff');
       this.unsealBossDoors();
       this.floor.props.push({ id: `portal${this.time}`, kind: 'portal', x: e.x, y: e.y, used: false, tier: 'none', blocking: false, mimic: false });
     } else {
+      if (def.morsel) {
+        const foodRng = createRng(hashString(`morsel:${this.floor.seed}:${e.id}`));
+        if (foodRng.chance(morselChance(this.run.depth))) {
+          (this.floor.morsels ??= []).push({
+            id: `morsel_${e.id}`, kind: def.morsel, x: e.x, y: e.y,
+            remaining: MORSEL_HEAL[def.morsel], droppedAt: this.run.stats.time,
+          });
+        }
+      }
       this.dropLoot(e.x, e.y, loot.items, loot.gold);
       this.msg(`${def.name} slain.`, '#c8c0b0');
     }
@@ -1904,6 +2091,8 @@ export class World {
     if (this.townPortalHere()) return this.pickupNear() ? 'Search' : 'Step through to Bleakmere';
     const s = stairsAt(f, t.x, t.y);
     if (s) return s.down ? `Descend to depth ${this.run.depth + 1}` : this.run.depth === 1 ? 'Leave the dungeon' : `Climb to depth ${this.run.depth - 1}`;
+    const morsel = this.morselNear();
+    if (morsel) return `Eat the ${morsel.kind}${this.player.hp >= this.derived.maxHp ? ' (you are not hurt)' : ''}`;
     if (this.pickupNear()) return 'Search';
     return null;
   }
@@ -1925,7 +2114,7 @@ export class World {
     // monsters drops loot on your tile, and on touch that turned every tap
     // into the loot window instead of a hit on the second one. Doors, stairs
     // and portals still win, since running is a legitimate answer to a fight.
-    if (hint === 'Search' && this.threatNear()) return { kind: 'attack', label: '' };
+    if ((hint === 'Search' || hint.startsWith('Eat the ')) && this.threatNear()) return { kind: 'attack', label: '' };
     return { kind: 'interact', label: shortLabel(hint) };
   }
 
@@ -1998,8 +2187,15 @@ export class World {
     const f = this.floor;
     const t = this.frontTile();
     return (
-      f.pickups.find((p) => p.x === this.player.x && p.y === this.player.y && p.items.length) ??
-      f.pickups.find((p) => p.x === t.x && p.y === t.y && p.items.length && !blocksSight(f, t.x, t.y))
+      f.pickups.find((p) => p.x === this.player.x && p.y === this.player.y && (p.items.length || p.flaskShard)) ??
+      f.pickups.find((p) => p.x === t.x && p.y === t.y && (p.items.length || p.flaskShard) && !blocksSight(f, t.x, t.y))
+    );
+  }
+
+  morselNear() {
+    const t = this.frontTile();
+    return (this.floor.morsels ?? []).find((m) =>
+      (m.x === this.player.x && m.y === this.player.y) || (m.x === t.x && m.y === t.y && !blocksSight(this.floor, t.x, t.y)),
     );
   }
 
@@ -2089,7 +2285,12 @@ export class World {
           tier === 'vault' || tier === 'secret' ? 0.22 : 0.03 * Math.max(0, Math.min(1, (this.run.depth - 1) / 4)),
         );
         if (sigilDrop) loot.items.push(sigilDrop);
-        const pk = this.dropLoot(p.x, p.y, loot.items, 0);
+        let pk = this.dropLoot(p.x, p.y, loot.items, 0);
+        if ((tier === 'vault' || tier === 'secret') && (this.state.flask?.shards ?? 0) < 3 && createRng(hashString(`flask-shard:${f.seed}:${p.id}`)).chance(0.04)) {
+          pk ??= { id: `shard_${p.id}`, x: p.x, y: p.y, items: [], gold: 0 };
+          pk.flaskShard = true;
+          if (!f.pickups.includes(pk)) f.pickups.push(pk);
+        }
         if (loot.gold) {
           this.run.gold += loot.gold;
           this.run.stats.goldFound += loot.gold;
@@ -2137,6 +2338,20 @@ export class World {
       return;
     }
 
+    // Food loses to furniture: a morsel on a stair or door tile must never eat
+    // the press that walks you out. It still beats a loot pile — eat first,
+    // then search. [F] is always deliberate, so unlike the one-button tap it
+    // eats even with something hunting you; the 1.2s chew and the dropped
+    // morsel on a hit are the price, not a refusal.
+    const morsel = this.morselNear();
+    if (morsel) {
+      const name = morsel.kind;
+      this.anim.chew = { id: morsel.id, left: CHEW_SECONDS, delivered: 0, total: Math.round(this.derived.maxHp * morsel.remaining) };
+      this.held.clear();
+      this.msg(`You eat the ${name}.`, '#d8c098');
+      return;
+    }
+
     const pk = this.pickupNear();
     if (pk) this.emit({ type: 'loot', pickupId: pk.id });
   }
@@ -2171,9 +2386,13 @@ export class World {
    * bar is a save point, and a save point on every other floor is the end of
    * attrition as a mechanic. It is a large, welcome, *partial* mend.
    */
-  private restore(): void {
+  private restore(refillFlask = false): void {
     this.heal(Math.round(this.derived.maxHp * 0.6));
     this.player.stamina = this.derived.maxStamina;
+    if (refillFlask) {
+      const flask = this.run.flask;
+      flask.charges = Math.min(flaskMax(this.state.flask?.shards ?? 0), flask.charges + 1);
+    }
   }
 
   private grantBlessing(): boolean {
@@ -2198,7 +2417,7 @@ export class World {
         const lifted = this.run.curse;
         this.run.curse = null;
         this.refreshDerived();
-        this.restore();
+        this.restore(true);
         if (lifted) this.msg(`The water runs black and clears. ${CURSES[lifted].name} is washed away.`, '#a0c8ff');
         else this.msg('Cold clean water. Most of the hurt goes out of you.', '#a0c8ff');
         return;
@@ -2209,7 +2428,7 @@ export class World {
       // kinder than before (was 60/40) to compensate stronger curses.
       case 'idol': {
         if (this.rng.chance(0.65)) {
-          this.restore();
+          this.restore(true);
           if (!this.grantBlessing()) this.msg('The idol is satisfied. Much of the hurt leaves you.', '#a0c8ff');
           return;
         }
@@ -2362,6 +2581,13 @@ export class World {
     const pk = this.floor.pickups.find((p) => p.id === pickupId);
     if (!pk) return 0;
     let moved = 0;
+    if (pk.flaskShard && (this.state.flask?.shards ?? 0) < 3) {
+      this.state.flask.shards++;
+      this.run.flask.charges = Math.min(flaskMax(this.state.flask.shards), this.run.flask.charges + 1);
+      pk.flaskShard = false;
+      moved++;
+      this.msg('The Flask Shard dissolves into the vessel. Its capacity grows.', '#9fe0cf');
+    }
     for (const it of [...pk.items]) {
       if (uid && it.uid !== uid) continue;
       // Field notes are read where they lie. They never reach the pack, so a
@@ -2446,6 +2672,14 @@ export class World {
       case 'tonic': {
         const tonic = TONICS[e.tonicId];
         if (!tonic) return;
+        // Fight Milk stopped being drunk when the flask took over healing. The
+        // bottle is a forge infusion now; drinking it would bypass the potency
+        // trade the infusion charges for. Legacy delves that already drank keep
+        // their run.tonics effect until that run ends.
+        if (e.tonicId === 'fight_milk') {
+          this.msg('Too precious to drink raw. The forge can infuse the flask with it.', '#e8b84a');
+          return;
+        }
         const tonics = (this.run.tonics ??= []);
         // Two of the same draught is two of the same draught. It is already in
         // you; drinking another would only cost you the bottle.
@@ -2510,6 +2744,9 @@ export class World {
     const present: string[] = [];
     for (const it of this.run.backpack.items) {
       if (it.kind !== 'consumable' || present.includes(it.ref)) continue;
+      // Fight Milk rides in the pack as an infusion ingredient, not a drink.
+      // It is spent at the forge bench, so it never takes a quick-bar slot.
+      if (it.ref === 'fight_milk') continue;
       present.push(it.ref);
     }
     const saved = this.run.quickOrder ?? [];
@@ -2815,6 +3052,18 @@ export class World {
       const def = this.view(e);
       if (def.behavior === 'boss') this.checkBossPhase(e);
       e.hurtT = Math.max(0, e.hurtT - dt);
+      if (!e.scavenged && (e.def === 'rat' || e.def === 'bat') && (e.ai === 'idle' || e.ai === 'wander')) {
+        const morsel = (f.morsels ?? []).find((m) => m.x === e.x && m.y === e.y);
+        if (morsel) {
+          e.eating = (e.eating ?? 1) - dt;
+          if (e.eating <= 0) {
+            f.morsels = (f.morsels ?? []).filter((m) => m !== morsel);
+            e.scavenged = true; e.eating = 0;
+            e.maxHp = Math.round(e.maxHp * 1.25); e.hp = e.maxHp; e.scavengerAttack = 1.15;
+          }
+          continue;
+        }
+      }
       e.attackCd -= dt;
       if (e.strikeT !== undefined) e.strikeT += dt;
       if (e.vuln) e.vuln = Math.max(0, e.vuln - dt);
@@ -2827,6 +3076,24 @@ export class World {
         if (e.moveT < 1) continue;
       }
       const dist = Math.abs(e.x - p.x) + Math.abs(e.y - p.y);
+      if ((e.blind ?? 0) > 0) {
+        e.blind = Math.max(0, (e.blind ?? 0) - dt);
+        e.guard = 'down';
+        if (this.rng.chance(dt / 0.6)) {
+          // A blind thing stumbles, never hunts: it may blunder sideways but
+          // never steps closer to you on purpose. Walled in with no sideways
+          // step, it stays put.
+          const steps = DIRS.map((d) => [e.x + DX[d], e.y + DY[d]] as [number, number])
+            .filter(([x, y]) => this.canStep(e, x, y))
+            .filter(([x, y]) => Math.abs(x - p.x) + Math.abs(y - p.y) >= dist);
+          if (steps.length) { const [x, y] = this.rng.pick(steps); this.stepEnemy(e, x, y); }
+        }
+        if (e.blind <= 0) {
+          if (dist > 2) { e.alert = 0; e.ai = 'idle'; }
+          else e.ai = 'chase';
+        }
+        continue;
+      }
       const sees = (this.anim.unseenT > 0 && dist <= 2) || (dist <= def.sight + this.sightPenalty && this.los(e.x, e.y, p.x, p.y));
       if (sees) {
         if (e.alert <= 0 && (e.ai === 'idle' || e.ai === 'wander')) {
@@ -2962,7 +3229,7 @@ export class World {
         if (off !== 0 && blocksSight(this.floor, e.x + ox, e.y + oy)) continue;
         this.projectiles.push({
           id: this.projN++, x: e.x + ox + 0.5, y: e.y + oy + 0.5, dx, dy, speed: pr.speed,
-          damage: Math.round(def.attack * attackPower(e.power) * this.diff.enemyDamage), type: pr.damageType, sprite: pr.sprite, light: pr.light,
+          damage: Math.round(def.attack * attackPower(e.power) * (e.scavengerAttack ?? 1) * this.diff.enemyDamage), type: pr.damageType, sprite: pr.sprite, light: pr.light,
           tileX: e.x + ox, tileY: e.y + oy, source: def.name, sourceId: def.id,
         });
       }
@@ -2972,7 +3239,7 @@ export class World {
     // Melee lands only if you're still in the tile it aimed at.
     this.sfx('swing', e.x, e.y);
     if (p.x === e.lastSeenX && p.y === e.lastSeenY && dist === 1) {
-      this.damagePlayer(Math.max(1, Math.round(def.attack * attackPower(e.power) * this.diff.enemyDamage)), def.damageType, e.x, e.y, def.name, def.id, e);
+      this.damagePlayer(Math.max(1, Math.round(def.attack * attackPower(e.power) * (e.scavengerAttack ?? 1) * this.diff.enemyDamage)), def.damageType, e.x, e.y, def.name, def.id, e);
     } else {
       this.sfx('miss', e.x, e.y);
     }
@@ -3023,7 +3290,10 @@ export class World {
     let dmg = enemyHitsPlayer(this.rng, attack, type, this.derived);
     const facingSource = this.facingSource(fromX, fromY);
     let blocked = false;
-    if (this.anim.blockRaise > 0.6 && facingSource) {
+    // Mid-sip the guard is down by design: the blow lands unblocked, and the
+    // heal still lands when the 0.5s commitment completes. Drinking in melee
+    // range is supposed to get you hit.
+    if (this.anim.sip === null && this.anim.blockRaise > 0.6 && facingSource) {
       const absorbed = dmg * this.derived.block;
       const cost = absorbed * 1.3;
       if (p.stamina >= cost) {
@@ -3051,6 +3321,13 @@ export class World {
     if (this.anim.retrieving) {
       this.anim.retrieving = null;
       this.msg('The blow scatters your aim; they stop coming.', '#888');
+    }
+    if (this.anim.chew) {
+      const chew = this.anim.chew;
+      const morsel = (this.floor.morsels ?? []).find((m) => m.id === chew.id);
+      if (morsel) morsel.remaining = Math.max(0, (chew.total - chew.delivered) / this.derived.maxHp);
+      this.anim.chew = null;
+      this.msg('The blow knocks the morsel from your hands.', '#c8a060');
     }
     if (dmg > 0 && !blocked) this.wearArmour();
     // An unblocked hit empties whatever the blade had banked. Blocking keeps it:
