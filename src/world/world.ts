@@ -2500,17 +2500,40 @@ export class World {
     if (it.qty <= 0) removeItem(this.run.backpack, uid);
   }
 
-  /** Quick-slot use: nth distinct consumable in the pack. */
-  quickUse(slot: number): void {
-    const seen: string[] = [];
+  /**
+   * Distinct consumable refs in the pack, in the player's chosen quick-bar
+   * order. Saved order wins for refs still carried; anything new appends in
+   * backpack order, and anything gone is ignored — so the bar never points at
+   * something you no longer have.
+   */
+  quickRefs(): string[] {
+    const present: string[] = [];
     for (const it of this.run.backpack.items) {
-      if (it.kind !== 'consumable' || seen.includes(it.ref)) continue;
-      seen.push(it.ref);
-      if (seen.length - 1 === slot) {
-        this.use(it.uid);
-        return;
-      }
+      if (it.kind !== 'consumable' || present.includes(it.ref)) continue;
+      present.push(it.ref);
     }
+    const saved = this.run.quickOrder ?? [];
+    const ordered = saved.filter((r) => present.includes(r));
+    for (const r of present) if (!ordered.includes(r)) ordered.push(r);
+    return ordered;
+  }
+
+  /** Move a quick-bar entry from one position to another (drag reorder). */
+  moveQuick(from: number, to: number): void {
+    const refs = this.quickRefs();
+    if (from < 0 || from >= refs.length || to < 0 || to >= refs.length || from === to) return;
+    const [moved] = refs.splice(from, 1);
+    refs.splice(to, 0, moved);
+    this.run.quickOrder = refs;
+  }
+
+  /** Quick-slot use: nth distinct consumable in the player's bar order. */
+  quickUse(slot: number): void {
+    const refs = this.quickRefs();
+    const ref = refs[slot];
+    if (!ref) return;
+    const it = this.run.backpack.items.find((i) => i.kind === 'consumable' && i.ref === ref);
+    if (it) this.use(it.uid);
   }
 
   // -------------------------------------------------------------------------

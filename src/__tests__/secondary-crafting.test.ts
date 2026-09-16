@@ -106,7 +106,7 @@ it('round-trips both materials and keeps older one-secondary gear unchanged', ()
   legacy.revision = 19;
   legacy.stash.items = [old];
   const migrated = parseSave(JSON.stringify(legacy))!;
-  expect(migrated.revision).toBe(20);
+  expect(migrated.revision).toBe(21);
   expect(migrated.stash.items[0].secondary2Id).toBeUndefined();
   expect(itemStats(migrated.stash.items[0])).toEqual(itemStats(old));
 });

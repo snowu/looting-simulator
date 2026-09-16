@@ -82,7 +82,7 @@ renderer.onLavaSound = ({ name, x, z }) => {
   const pan = (dx * Math.cos(world.anim.yaw) + dz * Math.sin(world.anim.yaw)) / Math.max(1, distance);
   audio.play(name, { volume: 0.75 / (1 + distance * 0.16), pan: pan * 0.8 });
 };
-const hud = new Hud(app, { interact: () => world?.interact(), quick: (i) => world?.quickUse(i), settings: () => openDungeonSettings() });
+const hud = new Hud(app, { interact: () => world?.interact(), quick: (i) => world?.quickUse(i), reorderQuick: (from, to) => world?.moveQuick(from, to), settings: () => openDungeonSettings() });
 
 let touchMode = isTouchDevice();
 let touchAttack = false;

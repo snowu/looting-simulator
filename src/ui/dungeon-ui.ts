@@ -413,7 +413,7 @@ export class DungeonOverlays {
       ['Throw button', 'Hurl one shaft from your belt'],
       ['R button', 'Call shafts back — hold to call, release to stop, they fly to your raised hand'],
       ['Sigil button', 'Cast your attuned sigil when ready'],
-      ['Quick slots', 'Tap to drink / read'],
+      ['Quick slots', 'Tap to drink / read · drag to reorder'],
       ['Pack · Map', 'Gear, backpack and the automap'],
     ];
     const rows: [string, string][] = isTouchMode() ? touchRows : [
@@ -426,7 +426,7 @@ export class DungeonOverlays {
       ['T', 'Throw one shaft from your belt'],
       ['R', 'Call shafts back — hold to call, release to stop, they fly to your raised hand'],
       ['G / C', 'Cast your attuned sigil'],
-      ['1 – 4', 'Drink / read your first four consumables'],
+      ['1 – 4', 'Drink / read your first four consumables · drag the bar to reorder'],
       ['I / Tab', 'Pack & gear'],
       ['M', 'Map'],
       ['Esc', 'Close / pause'],

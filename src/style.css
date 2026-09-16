@@ -252,6 +252,13 @@ body.detail-mode .detail-hide { display: none; }
 @media (prefers-reduced-motion: reduce) { .sigil.ready .sigil-icon { animation: none; } }
 .quick .qs { display: flex; flex-direction: column; align-items: center; gap: 1px; }
 .quick .key { font-size: 15px; color: var(--dim); }
+/* Reorderable quick bar: grab affordance, no scroll-fighting on touch, and a
+   clear source + drop-target state mid-drag. */
+.quick .slot:not(.empty) { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+.quick .slot:not(.empty) img { pointer-events: none; }
+.quick.dragging .slot:not(.empty) { cursor: grabbing; }
+.quick .qs.drag-src { opacity: 0.45; }
+.quick .qs.drop-target .slot { outline: 2px dashed var(--gold); outline-offset: 2px; }
 
 .prompt {
   position: absolute; left: 50%; bottom: 22%; transform: translateX(-50%);

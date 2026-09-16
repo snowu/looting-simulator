@@ -81,6 +81,12 @@ export interface RunState {
   thrown: { held: Record<string, number>; retrieveCd: number };
   /** Attuned sigil and remaining cooldown, snapshotted for this delve. */
   sigil: { id: string; cd: number } | null;
+  /**
+   * Player-chosen order of the delve quick bar (consumable refs, first = slot 1).
+   * New consumable types append at the end; missing ones are ignored on read.
+   * Absent on older saves, which used backpack order.
+   */
+  quickOrder?: string[];
   stats: RunStats;
   outcome: RunOutcome;
   killedBy?: string;

@@ -1,3 +1,13 @@
+# Reorder the delve quick bar by dragging
+
+*Working changes. Save revision 21 is additive; the new quick-bar order defaults to backpack order, so existing delves look exactly as before.*
+
+The four usable-item slots in a delve can now be rearranged: drag a slot onto another with the mouse, or press and drag with a finger on touch screens. A plain tap or click still uses the item — only a drag past a small threshold reorders. New consumable types join at the end of the bar, and anything you no longer carry is skipped, so the order never points at something gone. It persists in the save for the rest of the run.
+
+Validation: typecheck, full test suite (including the revision-20→21 migration expectation update), production build to follow.
+
+---
+
 # Mix your secondary crafting materials
 
 *Working changes after Patch 49. Save revision 20 is additive; existing crafted gear keeps its original materials.*

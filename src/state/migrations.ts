@@ -23,7 +23,7 @@ import { findSigil } from '../data/spells';
  */
 
 /** Bump this (and push a migration) whenever a field is added to the save. */
-export const SAVE_REVISION = 20;
+export const SAVE_REVISION = 21;
 
 type AnyState = GameState & Record<string, unknown>;
 
@@ -172,6 +172,15 @@ const MIGRATIONS: ((s: AnyState) => void)[] = [
   // material, so existing items require no mutation. Stamp the new revision
   // so older clients cannot upload saves that ignore the extra slot's stats.
   () => {},
+  // 20 → 21: the delve quick bar gains a player-chosen order. Older saves used
+  // backpack order, so an empty list preserves exactly what they already saw.
+  (s) => {
+    if (s.run) {
+      const q = (s.run as { quickOrder?: unknown }).quickOrder;
+      if (!Array.isArray(q)) (s.run as { quickOrder?: string[] }).quickOrder = [];
+      else (s.run as { quickOrder?: string[] }).quickOrder = q.filter((r): r is string => typeof r === 'string');
+    }
+  },
 ];
 
 /**

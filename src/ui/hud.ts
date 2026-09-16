@@ -67,8 +67,12 @@ export class Hud {
    */
   private wardGlow = h('div', { class: 'ward-glow' });
   private time = 0;
+  /** Active pointer-drag reorder of the quick bar, if a slot is being dragged. */
+  private quickDrag: { from: number; over: number | null; pointerId: number; startX: number; startY: number; active: boolean } | null = null;
+  /** Set when a drag just ended so the trailing click doesn't drink anything. */
+  private suppressQuickClick = false;
 
-  constructor(parent: HTMLElement, private actions: { interact: () => void; quick: (i: number) => void; settings: () => void }) {
+  constructor(parent: HTMLElement, private actions: { interact: () => void; quick: (i: number) => void; reorderQuick: (from: number, to: number) => void; settings: () => void }) {
     this.recallWrap.append(this.recallBar);
     // Tappable on touch screens.
     this.prompt.addEventListener('click', () => this.actions.interact());
@@ -125,6 +129,77 @@ export class Hud {
     const el = h('div', { class: 'float', text, style: `color:${color}` });
     this.floatsEl.append(el);
     this.floats.push({ el, x: x + (Math.random() - 0.5) * 0.3, y: y + (Math.random() - 0.5) * 0.3, t: 0 });
+  }
+
+  /**
+   * Pointer-based reorder of the quick bar. One path for mouse and touch:
+   * press-and-hold still taps to use, but moving past a small threshold turns
+   * the gesture into a drag, and dropping on another slot swaps the order.
+   */
+  private quickDragStart(e: PointerEvent, index: number): void {
+    if (e.button !== undefined && e.button !== 0 && e.pointerType === 'mouse') return;
+    this.quickDrag = { from: index, over: null, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, active: false };
+    // Keep move/up events flowing to the source slot even after the pointer
+    // leaves it, so a drag across slots works on mouse and touch alike.
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      // No capture (e.g. headless test DOM) — move events still work while over.
+    }
+  }
+
+  private quickDragMove(e: PointerEvent): void {
+    const d = this.quickDrag;
+    if (!d || e.pointerId !== d.pointerId) return;
+    if (!d.active) {
+      if (Math.hypot(e.clientX - d.startX, e.clientY - d.startY) < 10) return;
+      d.active = true;
+      this.quick.classList.add('dragging');
+    }
+    e.preventDefault();
+    const over = this.quickSlotAt(e.clientX, e.clientY);
+    if (over !== d.over) {
+      d.over = over;
+      for (const child of [...this.quick.children]) {
+        const el = child as HTMLElement;
+        el.classList.toggle('drag-src', Number(el.dataset.qi) === d.from);
+        el.classList.toggle('drop-target', over !== null && Number(el.dataset.qi) === over);
+      }
+    }
+  }
+
+  private quickDragEnd(e: PointerEvent): void {
+    const d = this.quickDrag;
+    if (!d || e.pointerId !== d.pointerId) return;
+    this.quickDrag = null;
+    this.quick.classList.remove('dragging');
+    for (const child of [...this.quick.children]) (child as HTMLElement).classList.remove('drag-src', 'drop-target');
+    if (d.active) {
+      this.suppressQuickClick = true;
+      if (d.over !== null && d.over !== d.from) this.actions.reorderQuick(d.from, d.over);
+      // A tap that became a drag must not also arm a tooltip or a click.
+      setTimeout(() => {
+        this.suppressQuickClick = false;
+      }, 0);
+    }
+  }
+
+  private quickDragCancel(): void {
+    this.quickDrag = null;
+    this.suppressQuickClick = false;
+    this.quick.classList.remove('dragging');
+    for (const child of [...this.quick.children]) (child as HTMLElement).classList.remove('drag-src', 'drop-target');
+  }
+
+  /** Which visible quick slot sits under this viewport point, if any. */
+  private quickSlotAt(x: number, y: number): number | null {
+    for (const child of [...this.quick.children]) {
+      const el = child as HTMLElement;
+      if (el.dataset.qi === undefined) continue;
+      const r = el.getBoundingClientRect();
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return Number(el.dataset.qi);
+    }
+    return null;
   }
 
   /** Icon, cooldown dial and cast bar for the attuned sigil. */
@@ -215,27 +290,43 @@ export class Hud {
 
     drawMap(this.minimap, world.floor, p.x, p.y, p.facing, { cell: 6, cx: p.x, cy: p.y, radius: 12, visibleEnemies: world.visibleEnemies() }, this.time);
 
-    // Quick slots (first four distinct consumables).
-    const seen: string[] = [];
+    // Quick slots: distinct consumables in the player's chosen bar order.
+    const seen = world.quickRefs();
     const counts = new Map<string, number>();
     for (const it of world.run.backpack.items) {
       if (it.kind !== 'consumable') continue;
-      if (!seen.includes(it.ref)) seen.push(it.ref);
       counts.set(it.ref, (counts.get(it.ref) ?? 0) + it.qty);
     }
     const qk = seen.slice(0, 4).map((r) => `${r}:${counts.get(r)}`).join('|');
     if (qk !== this.quickKey) {
       this.quickKey = qk;
+      this.quickDrag = null;
+      this.quick.classList.remove('dragging');
       this.quick.replaceChildren(
         ...[0, 1, 2, 3].map((i) => {
           const ref = seen[i];
-          const slot = h('div', { class: `slot${ref ? '' : ' empty'}`, style: '--sz:44px', title: ref ? consumable(ref).name : '' });
-          if (ref) slot.addEventListener('click', () => this.actions.quick(i));
+          const slot = h('div', { class: `slot${ref ? '' : ' empty'}`, style: '--sz:44px', title: ref ? `${consumable(ref).name} — drag to reorder` : '' });
           if (ref) {
+            slot.addEventListener('click', () => {
+              if (this.suppressQuickClick) {
+                this.suppressQuickClick = false;
+                return;
+              }
+              this.actions.quick(i);
+            });
+            // Native image drag would fight the pointer reorder with a ghost
+            // image; the pointer handlers below are the drag on every device.
+            slot.addEventListener('dragstart', (e) => e.preventDefault());
+            slot.addEventListener('pointerdown', (e) => this.quickDragStart(e, i));
+            slot.addEventListener('pointermove', (e) => this.quickDragMove(e));
+            slot.addEventListener('pointerup', (e) => this.quickDragEnd(e));
+            slot.addEventListener('pointercancel', () => this.quickDragCancel());
             const ic = itemIcon({ uid: '', kind: 'consumable', ref, qty: 1 });
-            slot.append(artImg(ic.icon, ic.ramp, 36), h('span', { class: 'qty', text: String(counts.get(ref)) }));
+            const img = artImg(ic.icon, ic.ramp, 36);
+            img.draggable = false;
+            slot.append(img, h('span', { class: 'qty', text: String(counts.get(ref)) }));
           }
-          return h('div', { class: 'qs' }, slot, h('span', { class: 'key', text: String(i + 1) }));
+          return h('div', { class: 'qs', attrs: { 'data-qi': String(i) } }, slot, h('span', { class: 'key', text: String(i + 1) }));
         }),
       );
     }
