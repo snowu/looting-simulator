@@ -113,6 +113,11 @@ const SKIP = {
   '51b33a9': 'merge of master into the branch; its commits are curated or warned individually',
   e09cdc1: 'preview PNG for a pull request, not in the game',
   ef582f5: 'preview PNG move for a pull request, not in the game',
+  // This branch's own scaffolding: patch_notes.md section + Patch 48 entry
+  // for Astra's crafting/progression work, and the dev materials helper.
+  // The gameplay itself is curated as Patch 48 (hash e01892d).
+  '1533b27': 'patch_notes.md section + Patch 48 entry, not loaded by the game',
+  '0d7932b': 'dev materials helper behind DEV, not in the game',
 };
 
 // Commits touching only these files maintain the notes themselves and never
