@@ -299,16 +299,19 @@ export class Hud {
       counts.set(it.ref, (counts.get(it.ref) ?? 0) + it.qty);
     }
     const flask = world.run.flask;
-    const qk = `${flask.charges}:${flask.dregs.toFixed(1)}|${seen.slice(0, 3).map((r) => `${r}:${counts.get(r)}`).join('|')}`;
+    const qk = `${flask.charges}/${world.state.flask?.shards ?? 0}:${flask.dregs.toFixed(1)}|${seen.slice(0, 3).map((r) => `${r}:${counts.get(r)}`).join('|')}`;
     if (qk !== this.quickKey) {
       this.quickKey = qk;
       this.quickDrag = null;
       this.quick.classList.remove('dragging');
       const max = 3 + Math.min(3, world.state.flask?.shards ?? 0);
       const dregs = Math.min(100, flask.dregs / Math.max(1, world.derived.maxHp * 0.5) * 100);
-      const flaskSlot = h('div', { class: 'slot flask-slot', style: `--sz:44px;--dregs:${dregs}%`, title: 'Flask' });
+      // Charges left as one number, like every other stack on the bar: "3/3"
+      // in the pixel font ran into the bottle and the dregs bar and read as
+      // noise. The maximum lives in the tooltip.
+      const flaskSlot = h('div', { class: `slot flask-slot${flask.charges ? '' : ' dry'}`, style: `--sz:44px;--dregs:${dregs}%`, title: `Flask: ${flask.charges} of ${max} charges` });
       flaskSlot.addEventListener('click', () => this.actions.flask());
-      flaskSlot.append(artImg('ic_potion', ['#173536', '#27706d', '#63b9a9', '#d2fff0'], 36), h('span', { class: 'qty', text: `${flask.charges}/${max}` }));
+      flaskSlot.append(artImg('ic_potion', ['#173536', '#27706d', '#63b9a9', '#d2fff0'], 36), h('span', { class: 'qty', text: String(flask.charges) }));
       this.quick.replaceChildren(
         h('div', { class: 'qs' }, flaskSlot, h('span', { class: 'key', text: '1' })),
         ...[0, 1, 2].map((i) => {

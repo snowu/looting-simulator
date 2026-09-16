@@ -257,6 +257,10 @@ body.detail-mode .detail-hide { display: none; }
 .quick .slot:not(.empty) { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
 .quick .slot:not(.empty) img { pointer-events: none; }
 .quick .flask-slot { cursor: pointer; overflow: hidden; }
+/* Sits above the dregs bar instead of on it, and overflow no longer clips it. */
+.quick .flask-slot .qty { bottom: 5px; right: 2px; line-height: 1; font-size: 20px; padding: 0 2px; background: #0a0c0dcc; text-shadow: 1px 0 0 #000, -1px 0 0 #000, 0 1px 0 #000, 0 -1px 0 #000; }
+.quick .flask-slot.dry .qty { color: #ff7060; }
+.quick .flask-slot.dry img { filter: grayscale(0.8) brightness(0.7); }
 .quick .flask-slot::after { content: ''; position: absolute; left: 2px; right: 2px; bottom: 2px; height: 3px; background: linear-gradient(90deg, #63d5bd var(--dregs), #172326 var(--dregs)); box-shadow: 0 0 3px #63d5bd; }
 .quick.dragging .slot:not(.empty) { cursor: grabbing; }
 .quick .qs.drag-src { opacity: 0.45; }
