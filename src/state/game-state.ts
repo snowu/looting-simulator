@@ -154,6 +154,7 @@ export interface GameState {
   stash: Container;
   equipment: Equipment;
   recipeRanks: RecipeRanks;
+  recipeSalvage: Record<string, number>;
   /** Creatures met and the field notes read on them. */
   bestiary: BestiaryState;
   market: MarketState;
@@ -194,6 +195,7 @@ export function newGame(rng: Rng): GameState {
     stash,
     equipment,
     recipeRanks,
+    recipeSalvage: {},
     bestiary: {},
     market: createMarket(rng, recipeRanks),
     contracts: refreshContracts([], rng, 1),

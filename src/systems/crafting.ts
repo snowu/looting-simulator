@@ -2,7 +2,7 @@ import { createRng, Rng } from '../core/rng';
 import { Item, MaterialDef, RecipeDef, RecipeRanks, RecipeSlot, rarityFromOrder } from '../types';
 import { MATERIALS, catalystAffixBonus, material } from '../data/materials';
 import { itemBase } from '../data/items';
-import { MAX_RECIPE_RANK, blueprintCostForNextRank, recipe, recipeRank } from '../data/recipes';
+import { MAX_RECIPE_RANK, blueprintCostForNextRank, recipe, recipeForBase, recipeRank } from '../data/recipes';
 import { Container, countOf, removeOf } from '../state/inventory';
 import { makeEquipment, rollAffixValue, rollAffixes } from './items';
 
@@ -107,7 +107,7 @@ export function craft(sel: CraftSelection, stash: Container, rng: Rng, smithLeve
   return item;
 }
 
-/** Consume one blueprint to unlock or advance its recipe. */
+/** Consume the next rank’s blueprint cost to unlock or advance its recipe. */
 export function studyBlueprint(blueprint: Item, stash: Container, ranks: RecipeRanks): number | null {
   if (blueprint.kind !== 'blueprint') return null;
   const current = recipeRank(ranks, blueprint.ref);
@@ -116,4 +116,28 @@ export function studyBlueprint(blueprint: Item, stash: Container, ranks: RecipeR
   const next = current + 1;
   ranks[blueprint.ref] = next;
   return next;
+}
+
+/** Integer salvage counts avoid floating-point thresholds at 1/6 and 1/7. */
+export function salvageForNextRank(rank: number): number {
+  return rank >= MAX_RECIPE_RANK ? 0 : 4 + Math.max(0, Math.floor(rank));
+}
+
+export function studySalvagedWeapon(item: Item, ranks: RecipeRanks, progress: Record<string, number>): string | null {
+  if (item.kind !== 'equipment' || item.identified !== false || item.crafted) return null;
+  const base = itemBase(item.ref);
+  if (base.slot !== 'weapon' && base.slot !== 'thrown') return null;
+  const r = recipeForBase(base.id);
+  if (!r) return null;
+  const rank = recipeRank(ranks, r.id);
+  const needed = salvageForNextRank(rank);
+  if (!needed) return null;
+  const count = (progress[r.id] ?? 0) + 1;
+  if (count >= needed) {
+    ranks[r.id] = rank + 1;
+    progress[r.id] = 0;
+    return `${base.name} mastery reached Rank ${rank + 1}.`;
+  }
+  progress[r.id] = count;
+  return `${base.name} mastery: ${count}/${needed} salvages toward Rank ${rank + 1}.`;
 }

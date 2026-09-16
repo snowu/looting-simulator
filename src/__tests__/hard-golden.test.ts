@@ -20,7 +20,7 @@ import golden from './fixtures/hard-golden.json';
  * values are frozen there. It is the only check that still means something
  * once this branch is master and there is no old version left to diff against.
  *
- * Historical values remain frozen. Intentional biome and weapon-roster changes
+ * Historical values remain frozen. Intentional crafting, biome and weapon-roster changes
  * are pinned separately so later drift is still visible without rewriting history.
  */
 
@@ -33,8 +33,8 @@ describe('hard matches the pre-difficulty game, to the number', () => {
     for (let seed = 0; seed < 200; seed++) {
       for (let depth = 1; depth <= 6; depth++) out.push(scrub(generateFloor(seed, depth, 'hard')));
     }
-    // Expanded maps plus elemental residents and the economy/shrine generation pass.
-    expect(hash(out)).toBe(golden.expandedFloorHash);
+    // Material rolls embedded in pickups change with the completed crafting ladders.
+    expect(hash(out)).toBe(golden.craftingFloorHash);
     // Generating 1,200 floors outruns the default 5s budget when the suite
     // runs its files in parallel.
   }, 60_000);
@@ -51,7 +51,7 @@ describe('hard matches the pre-difficulty game, to the number', () => {
         out.push(scrub(rollContainerLoot(createRng(seed), depth, find, tier, undefined, {}, [], 'hard')));
       }
     }
-    expect(hash(out)).toBe(golden.weaponLootHash);
+    expect(hash(out)).toBe(golden.craftingLootHash);
   }, 60_000);
 
   it('spawns every monster with the same health at every depth', () => {
@@ -74,7 +74,7 @@ describe('hard matches the pre-difficulty game, to the number', () => {
       }
       out.push(derivePlayer(eq, { toughness: seed % 6 }, 'hard').maxHp);
     }
-    const expected = golden.playerHp.map((hp, i) => golden.weaponPlayerHpChanges[String(i) as keyof typeof golden.weaponPlayerHpChanges] ?? hp);
+    const expected = golden.craftingPlayerHp;
     expect(out).toEqual(expected);
   });
 });
