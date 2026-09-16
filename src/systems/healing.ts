@@ -14,6 +14,13 @@ export const MORSEL_HEAL = {
   heart: 0.15,
 } as const;
 
+/** The dish each tier is drawn as, bigger heal, bigger dish. */
+export const MORSEL_ART = {
+  scrap: { art: 'ic_gyoza', name: 'Gyoza', height: 0.4 },
+  cut: { art: 'ic_pizza', name: 'Pizza slice', height: 0.45 },
+  heart: { art: 'ic_drumstick', name: 'Chicken thigh', height: 0.5 },
+} as const;
+
 export function flaskMax(shards: number): number {
   return BASE_FLASK_CHARGES + Math.max(0, Math.min(MAX_FLASK_SHARDS, Math.trunc(shards)));
 }

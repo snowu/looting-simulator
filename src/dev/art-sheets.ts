@@ -12,6 +12,7 @@ import { ENEMIES, KING_PHASES } from '../data/enemies';
 import { BIOMES } from '../data/biomes';
 import { ELEMENTAL_VARIANTS } from '../data/elemental-variants';
 import { ICONS } from '../art/icons';
+import { MORSEL_ART, MORSEL_HEAL } from '../systems/healing';
 import { MATERIALS } from '../data/materials';
 import { CONSUMABLES, ITEM_BASES, viewmodelFor } from '../data/items';
 import { MaterialDef } from '../types';
@@ -288,8 +289,16 @@ function viewmodelCells(tier: number, materialId?: string): SheetCell[] {
   });
 }
 
+/** Morsels, one dish per tier, in the order they heal. Drawn with no ramp, as they ship. */
+function foodCells(): SheetCell[] {
+  return (Object.keys(MORSEL_ART) as (keyof typeof MORSEL_ART)[]).map((kind) => ({
+    id: MORSEL_ART[kind].art,
+    label: `${MORSEL_ART[kind].name} · ${kind} · ${MORSEL_HEAL[kind] * 100}%`,
+  }));
+}
+
 function iconGroups(tier: number, materialId?: string): SheetGroup[] {
-  const covered = new Set<string>();
+  const covered = new Set<string>(foodCells().map((c) => c.id));
   const materials: SheetCell[] = MATERIALS.map((m) => {
     covered.add(m.icon);
     return { id: m.icon, label: m.name, ramp: m.ramp };
@@ -332,6 +341,7 @@ function propGroups(): SheetGroup[] {
   return [
     { title: 'Thrown · in flight', cells: inFlight },
     { title: 'Thrown · on the ground', cells: onGround },
+    { title: 'Floor food', cells: foodCells() },
     { title: 'Props', cells: plain(PROPS.map((p) => p.id).filter((id) => !covered.has(id))) },
   ];
 }
@@ -368,7 +378,7 @@ export function sheets(tier: number = DEFAULT_TIER, materialId?: string): ArtShe
   },
   { id: 'residents', title: 'Elemental residents', note: 'New residents: inherited combat timing, elemental skins and the Burrows mole.', cols: 3, groups: residentGroups },
   { id: 'biomes', title: 'Biomes', note: 'Wall, floor, ceiling and door per biome. Burrows shows its depth-1 fallback roof plus the two inherited ceilings. In-game these also carry coloured light.', cols: 6, groups: biomeGroups },
-  { id: 'props', title: 'Props', note: 'Everything the dungeon stands on the floor. Thrown weapons have no viewmodel — the shaft in flight and the shaft on the ground is their art.', cols: 6, groups: propGroups() },
+  { id: 'props', title: 'Props', note: 'Everything the dungeon stands on the floor, food included. Thrown weapons have no viewmodel — the shaft in flight and the shaft on the ground is their art.', cols: 6, groups: propGroups() },
   { id: 'icons', title: 'Icons', note: 'Every icon as something that exists: each piece of gear in a material its base actually allows, each material and potion in its own colours.', cols: 6, groups: iconGroups(tier, materialId) },
   { id: 'viewmodels', title: 'Viewmodels', note: 'The weapon in your own hands, in the material of a weapon that uses it. An empty hand has no material.', cols: 4, groups: [{ title: heldTitle(tier, materialId), cells: viewmodelCells(tier, materialId) }] },
   ];

@@ -15,7 +15,7 @@ import { enemyPose } from './enemy-pose';
 import { LevelView, TILE, WALL_H, buildLevel, tileX, tileZ } from './level-mesh';
 import { MAX_LIGHTS, PS1Material, PostPass, Shared, createLowResTarget, createShared, ps1Material } from './ps1';
 import { brightness } from './brightness';
-import { MORSEL_ROT_SECONDS } from '../systems/healing';
+import { MORSEL_ART, MORSEL_ROT_SECONDS } from '../systems/healing';
 
 const EYE = 1.32;
 
@@ -471,8 +471,8 @@ export class DungeonRenderer {
       if (!near(morsel.x, morsel.y)) continue;
       const s = this.sprite(`morsel:${morsel.id}`);
       const age = world.run.stats.time - morsel.droppedAt;
-      const art = morsel.kind === 'heart' ? 'ic_drumstick' : morsel.kind === 'cut' ? 'ic_pizza' : 'ic_gyoza';
-      this.place(s, art, tileX(morsel.x), 0.08, tileZ(morsel.y), morsel.kind === 'heart' ? 0.5 : morsel.kind === 'cut' ? 0.45 : 0.4);
+      const dish = MORSEL_ART[morsel.kind];
+      this.place(s, dish.art, tileX(morsel.x), 0.08, tileZ(morsel.y), dish.height);
       // Over the last third of its life it goes off: a mouldy olive creeping in.
       const rot = Math.max(0, Math.min(1, (age - MORSEL_ROT_SECONDS * 2 / 3) / (MORSEL_ROT_SECONDS / 3)));
       if (rot > 0) s.mat.uniforms.uTint.value.set(0.2, 0.22, 0.1, 0.65 * rot);
