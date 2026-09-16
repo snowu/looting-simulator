@@ -131,6 +131,8 @@ export class Town {
   private forgeSide: 'recipes' | 'repairs' | 'sigils' = 'recipes';
   private forgeRecipe = 'r_short_sword';
   private forgeMats: (string | null)[] = [];
+  /** Secondary (grip / extra) pickers live behind a modal so the forge pane stays compact. */
+  private forgeSecondaryOpen = false;
   private stashFilter: 'all' | 'gear' | 'materials' | 'other' = 'all';
   /** What a click on a stash item does: wear it, or pack it for the delve. */
   private stashAction: 'equip' | 'pack' = 'equip';
@@ -211,7 +213,7 @@ export class Town {
       'div',
       { class: 'tabs' },
       ...tabs.map(([id, label, badge]) =>
-        h('button', { class: `tab${this.tab === id ? ' on' : ''}`, onclick: () => { this.tab = id; audio.play('ui'); this.render(); } }, label, badge ? h('span', { class: 'badge', text: String(badge) }) : null),
+        h('button', { class: `tab${this.tab === id ? ' on' : ''}`, onclick: () => { this.tab = id; if (id !== 'forge') this.forgeSecondaryOpen = false; audio.play('ui'); this.render(); } }, label, badge ? h('span', { class: 'badge', text: String(badge) }) : null),
       ),
     );
     let body: HTMLElement;
@@ -584,10 +586,11 @@ export class Town {
               if (!known) return this.ctx.toast(['weapon', 'thrown'].includes(base.slot) ? 'Unlock with a blueprint or salvage matching unidentified weapons.' : 'Find or buy this blueprint first.', '#9ab0d8');
               this.forgeRecipe = r.id;
               this.forgeMats = this.defaultMats(r.id);
+              this.forgeSecondaryOpen = false;
               this.commit();
             },
           },
-          artImg(base.icon, undefined, 28),
+          artImg(base.icon, undefined, 22),
           h('span', { class: 'grow', text: base.name }),
           h('span', { class: 'dim small', text: progressStatus }),
         ),
@@ -601,11 +604,12 @@ export class Town {
       if (group) group.owned += bp.qty;
       else grouped.set(bp.ref, { sample: bp, owned: bp.qty });
     }
-    const bps = [...grouped.values()].sort((a, b) => {
-      const aCapped = recipeRank(s.recipeRanks, a.sample.ref) >= MAX_RECIPE_RANK;
-      const bCapped = recipeRank(s.recipeRanks, b.sample.ref) >= MAX_RECIPE_RANK;
-      return Number(aCapped) - Number(bCapped) || itemName(a.sample).localeCompare(itemName(b.sample));
-    });
+    // Only actionable blueprints: enough copies to learn/upgrade right now.
+    // Partial stacks (e.g. 2/4) and capped spares stay hidden to keep the forge compact.
+    const bps = [...grouped.values()].filter(({ sample, owned }) => {
+      const rank = recipeRank(s.recipeRanks, sample.ref);
+      return rank < MAX_RECIPE_RANK && owned >= blueprintCostForNextRank(rank);
+    }).sort((a, b) => itemName(a.sample).localeCompare(itemName(b.sample)));
     const learn = bps.length
       ? h(
           'div',
@@ -616,15 +620,13 @@ export class Town {
             { class: 'wares blueprint-wares' },
             ...bps.map(({ sample: bp, owned }) => {
               const rank = recipeRank(s.recipeRanks, bp.ref);
-              const capped = rank >= MAX_RECIPE_RANK;
               const cost = blueprintCostForNextRank(rank);
-              const enough = owned >= cost;
-              const status = capped ? `Rank 5 · ${owned} spare` : rank === 0 ? `Locked · ${owned}/${cost} owned` : `Rank ${rank} · ${owned}/${cost} owned`;
-              const action = capped ? 'Capped' : rank === 0 ? `Learn · ${cost} BP` : `Upgrade · ${cost} BP`;
+              const status = rank === 0 ? `Locked · ${owned}/${cost} ready` : `Rank ${rank} · ${owned}/${cost} ready`;
+              const action = rank === 0 ? `Learn · ${cost} BP` : `Upgrade · ${cost} BP`;
               return h(
                 'div',
                 { class: 'ware blueprint-ware' },
-                itemSlot({ ...bp, qty: owned }, { size: 44 }),
+                itemSlot({ ...bp, qty: owned }, { size: 36 }),
                 h(
                   'div',
                   { class: 'blueprint-details grow' },
@@ -636,14 +638,14 @@ export class Town {
                   if (!next) return;
                   this.forgeRecipe = bp.ref;
                   this.forgeMats = this.defaultMats(bp.ref);
+                  this.forgeSecondaryOpen = false;
                   const name = itemBase(recipe(bp.ref).baseId).name;
                   this.ctx.toast(next === 1 ? `Learned to forge the ${name}.` : `${name} mastery reached Rank ${next} for ${cost} blueprints.`, '#9ab0d8');
                   this.commit('study');
-                }, 'small', capped || !enough),
+                }, 'small'),
               );
             }),
           ),
-          h('p', { class: 'dim small', text: 'Duplicate blueprints raise mastery to Rank 5. Capped copies can be sold.' }),
         )
       : null;
 
@@ -652,18 +654,24 @@ export class Town {
     const rank = recipeRank(s.recipeRanks, r.id);
     const sel = { recipeId: r.id, materials: this.forgeMats };
     const selectedPreview = this.forgeMats[0] ? buildCrafted(sel, smith, undefined, rank) : null;
-    const slotRows = r.slots.map((slot, i) => {
-      const role: ForgeMaterialRole = i === 0 ? 'primary' : slot.categories.length === 1 && slot.categories[0] === 'gem' ? 'catalyst' : 'secondary';
-      const roleName = role === 'secondary' ? `Secondary ${i}` : role[0].toUpperCase() + role.slice(1);
+    const roleOf = (slot: (typeof r.slots)[number], i: number): ForgeMaterialRole =>
+      i === 0 ? 'primary' : slot.categories.length === 1 && slot.categories[0] === 'gem' ? 'catalyst' : 'secondary';
+    const buildPicker = (i: number): HTMLElement => {
+      const slot = r.slots[i];
+      const role = roleOf(slot, i);
       const picker = h('div', { class: 'mat-pick' });
-      if (slot.optional) {
-        picker.append(itemSlot(null, { size: 38, placeholder: 'none', onclick: () => { this.forgeMats[i] = null; this.commit(); }, selected: this.forgeMats[i] === null }));
-      }
+      const noneSlot = slot.optional
+        ? itemSlot(null, { size: 38, placeholder: 'none', onclick: () => { this.forgeMats[i] = null; this.commit(); }, selected: this.forgeMats[i] === null })
+        : null;
+      // Single-family slots (catalyst): keep "none" in the family row so it
+      // doesn't sit on a line of its own above the gems.
+      if (noneSlot && slot.categories.length !== 1) picker.append(noneSlot);
       const choices = materialsForSlot(slot, s.stash);
       for (const category of slot.categories) {
         const family = h('div', { class: 'mat-family', attrs: { 'data-material-family': category } });
         family.append(h('div', { class: 'mat-family-name', text: CATS.find(c => c.id === category)?.name ?? category }));
         const familyItems = h('div', { class: 'mat-family-items' });
+        if (noneSlot && slot.categories.length === 1) familyItems.append(noneSlot);
         for (const { def, owned } of choices.filter(o => o.def.category === category)) {
           const reserved = r.slots.reduce((sum, other, j) => sum + (j !== i && this.forgeMats[j] === def.id ? other.qty : 0), 0);
           const available = Math.max(0, owned - reserved);
@@ -689,13 +697,65 @@ export class Town {
         family.append(familyItems);
         picker.append(family);
       }
+      return picker;
+    };
+    const buildFullRow = (i: number): HTMLElement => {
+      const slot = r.slots[i];
+      const role = roleOf(slot, i);
+      const roleName = role === 'secondary' ? `Secondary ${i}` : role[0].toUpperCase() + role.slice(1);
       return h(
         'div',
         { class: 'forge-slot' },
         h('div', { class: 'lbl' }, h('span', { text: slot.label }), h('b', { class: `forge-role ${role}`, text: roleName }), h('small', { text: `×${slot.qty}${slot.optional ? ' optional' : ''}` })),
-        h('div', { class: 'forge-choice' }, picker, h('div', { class: 'role-note', text: forgeMaterialNote(this.forgeMats[i], role, r.baseId, smith, rank, this.forgeMats[0]) })),
+        h('div', { class: 'forge-choice' }, buildPicker(i), h('div', { class: 'role-note', text: forgeMaterialNote(this.forgeMats[i], role, r.baseId, smith, rank, this.forgeMats[0]) })),
+      );
+    };
+    // Primary + catalyst stay inline; grip / extra collapse to one-line summaries
+    // behind a modal so the Forge button and preview stay on screen.
+    const inlineRows: HTMLElement[] = [];
+    const secondaryIndices: number[] = [];
+    r.slots.forEach((slot, i) => {
+      if (roleOf(slot, i) === 'secondary') secondaryIndices.push(i);
+      else inlineRows.push(buildFullRow(i));
+    });
+    const secondarySummaries = secondaryIndices.map((i) => {
+      const slot = r.slots[i];
+      const id = this.forgeMats[i];
+      const owned = id ? countOf(s.stash, 'material', id) : 0;
+      const icon = id
+        ? itemSlot({ uid: id, kind: 'material', ref: id, qty: Math.max(1, owned) }, { size: 32, tip: () => itemTooltip({ uid: '', kind: 'material', ref: id, qty: Math.max(1, owned) }, { forgeEffect: forgeMaterialNote(id, 'secondary', r.baseId, smith, rank, this.forgeMats[0]) }) })
+        : itemSlot(null, { size: 32, placeholder: 'none' });
+      return h(
+        'div',
+        { class: 'forge-slot forge-summary' },
+        h('div', { class: 'lbl' }, h('span', { text: slot.label }), h('b', { class: 'forge-role secondary', text: `Secondary ${i}` }), h('small', { text: `×${slot.qty}${slot.optional ? ' optional' : ''}` })),
+        h(
+          'div',
+          { class: 'forge-choice forge-summary-choice' },
+          icon,
+          h('div', { class: 'forge-summary-text' }, h('div', { text: id ? material(id).name : 'None' }), h('div', { class: 'role-note', text: forgeMaterialNote(id, 'secondary', r.baseId, smith, rank, this.forgeMats[0]) })),
+          btn('Change', () => { this.forgeSecondaryOpen = true; audio.play('ui'); this.render(); }, 'small'),
+        ),
       );
     });
+    const secondaryModal = !this.forgeSecondaryOpen ? null : h(
+      'div',
+      {
+        class: 'forge-modal-wrap',
+        onclick: () => { this.forgeSecondaryOpen = false; audio.play('ui'); this.render(); },
+      },
+      h(
+        'div',
+        {
+          class: 'modal frame forge-modal',
+          onclick: (e: MouseEvent) => { e.stopPropagation(); },
+        },
+        h('div', { class: 'row' }, h('h3', { class: 'grow', text: `Secondary materials · ${itemBase(r.baseId).name}` }), btn('Done', () => { this.forgeSecondaryOpen = false; this.commit(); }, 'small primary')),
+        h('p', { class: 'dim small', text: 'Mix any material families in the two secondary slots; the second is optional. Hover a material to see its contribution.' }),
+        ...secondaryIndices.map((i) => buildFullRow(i)),
+        h('div', { class: 'row' }, btn('Done', () => { this.forgeSecondaryOpen = false; this.commit(); }, 'primary')),
+      ),
+    );
 
     const err = selectionError(sel, s.stash);
     let preview: HTMLElement | null = null;
@@ -735,27 +795,30 @@ export class Town {
       );
     }
 
+    const forgePane = h(
+      'div',
+      { class: 'pane frame forge-main' },
+      h('h3', { text: `Forge: ${itemBase(r.baseId).name} · Rank ${rank}` }),
+      h('p', { class: 'dim small', text: `Rank ${rank} mastery: +${Math.round(masteryBonus(rank) * 100)}% core stats and durability. The main material defines the item. Secondaries mix in the modal.` }),
+      ...inlineRows,
+      ...secondarySummaries,
+      preview,
+      h('div', { class: 'row forge-actions' }, btn('Forge it', () => {
+        const item = craft(sel, s.stash, createRng(randomSeed()), smith, rank);
+        if (!item) return;
+        addItem(s.stash, item);
+        this.forgeMats = this.defaultMats(r.id);
+        this.ctx.toast(`Forged: ${itemName(item)}.`, rarityColor(item));
+        this.commit('craft');
+      }, 'primary', !!err), err ? h('span', { class: 'dim small', text: err }) : null),
+      gear.length ? h('div', {}, h('h3', { style: 'margin-top:10px', text: 'Salvage' }), salvageGrid) : null,
+    );
     return h(
       'div',
-      { class: 'panes' },
-      h(
-        'div',
-        { class: 'pane frame' },
-        h('h3', { text: `Forge: ${itemBase(r.baseId).name} · Rank ${rank}` }),
-        h('p', { class: 'dim small', text: `Rank ${rank} mastery: +${Math.round(masteryBonus(rank) * 100)}% core stats and durability. The main material defines the item. Mix any material families in the two secondary slots; the second is optional. Hover a material to see its contribution.` }),
-        ...slotRows,
-        preview,
-        h('div', { class: 'row' }, btn('Forge it', () => {
-          const item = craft(sel, s.stash, createRng(randomSeed()), smith, rank);
-          if (!item) return;
-          addItem(s.stash, item);
-          this.forgeMats = this.defaultMats(r.id);
-          this.ctx.toast(`Forged: ${itemName(item)}.`, rarityColor(item));
-          this.commit('craft');
-        }, 'primary', !!err), err ? h('span', { class: 'dim small', text: err }) : null),
-        gear.length ? h('div', {}, h('h3', { style: 'margin-top:10px', text: 'Salvage' }), salvageGrid) : null,
-      ),
+      { class: 'panes forge-panes' },
+      forgePane,
       this.forgeBenches(list, learn),
+      secondaryModal,
     );
   }
 
@@ -798,7 +861,7 @@ export class Town {
       ? this.repairs()
       : this.forgeSide === 'sigils'
         ? this.sigils()
-        : h('div', { class: 'col' }, h('div', { class: 'pane frame' }, h('h3', { text: 'Recipes' }), list), learn);
+        : h('div', { class: 'col' }, learn, h('div', { class: 'pane frame' }, h('h3', { text: 'Recipes' }), list));
     return h('div', { class: 'col' }, bar, body);
   }
 

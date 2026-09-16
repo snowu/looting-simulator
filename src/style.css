@@ -353,17 +353,17 @@ table.market .market-owned { color: var(--gold); font-weight: 700; }
 
 .wares { display: flex; flex-wrap: wrap; gap: 6px; }
 .ware { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 70px; font-size: 16px; }
-.blueprint-wares { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 6px; align-items: stretch; }
+.blueprint-wares { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px; align-items: stretch; }
 .blueprint-ware {
   width: auto;
-  min-height: 82px;
+  min-height: 68px;
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr);
+  grid-template-columns: 36px minmax(0, 1fr);
   grid-template-rows: auto auto;
-  gap: 5px 9px;
+  gap: 4px 8px;
   align-items: center;
   text-align: left;
-  padding: 7px;
+  padding: 6px;
   background: #17131b;
   border: 1px solid #2a2430;
 }
@@ -372,8 +372,8 @@ table.market .market-owned { color: var(--gold); font-weight: 700; }
 .blueprint-details b, .blueprint-details span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .blueprint-ware button { grid-column: 2; grid-row: 2; width: 100%; min-width: 0; }
 
-.recipes { display: flex; flex-direction: column; gap: 3px; max-height: 60vh; overflow: auto; }
-.recipe { display: flex; gap: 8px; align-items: center; padding: 3px 6px; cursor: pointer; background: #17131b; border: 1px solid #0006; }
+.recipes { display: flex; flex-direction: column; gap: 2px; max-height: 52vh; overflow: auto; }
+.recipe { display: flex; gap: 7px; align-items: center; padding: 2px 6px; cursor: pointer; background: #17131b; border: 1px solid #0006; font-size: 18px; line-height: 1.1; }
 .recipe:hover { background: #221c28; }
 .recipe.on { background: #2e2616; border-color: var(--gold); }
 .recipe.locked { opacity: 0.45; }
@@ -397,6 +397,16 @@ table.market .market-owned { color: var(--gold); font-weight: 700; }
 .mat-pick .slot { --sz: 38px; }
 .mat-pick .slot.cant { opacity: 0.25; }
 .preview { display: flex; gap: 12px; align-items: flex-start; padding: 6px; background: #0e0c10; border: 1px solid #2a2430; margin: 6px 0; }
+/* Compact forge: primary + catalyst stay inline, secondaries collapse to summaries. */
+.forge-main .forge-slot { margin: 6px 0; }
+.forge-summary { align-items: center; }
+.forge-summary-choice { display: flex; gap: 8px; align-items: center; justify-content: flex-start; }
+.forge-summary-text { flex: 0 1 auto; min-width: 0; }
+.forge-summary-choice .btn { flex: none; }
+.forge-actions { position: sticky; bottom: 0; background: #121015f2; padding: 6px 0; }
+.forge-modal-wrap { position: fixed; inset: 0; display: grid; place-items: center; background: #050406aa; z-index: 40; padding: 12px; }
+.forge-modal { width: min(94vw, 860px); max-height: 88vh; overflow: auto; padding: 8px 12px 12px; }
+.forge-modal .forge-slot { margin: 10px 0; }
 
 .contracts { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
 .contract { padding: 4px 8px 8px; display: flex; flex-direction: column; gap: 4px; }
