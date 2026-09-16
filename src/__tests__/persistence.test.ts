@@ -236,7 +236,7 @@ describe('loading an old save', () => {
 
 describe('shrinking the backpack', () => {
   it('never eats what an old save was already carrying', () => {
-    // BASE_BACKPACK went 16 -> 12 in the balance pass. A save written before
+    // BASE_BACKPACK went 16 -> 12 in a balance pass (and later back). A save written before
     // that has a town loadout sized for the old pack, and the one thing this
     // project never does is lose a player's items.
     const s = newGame(createRng(1));

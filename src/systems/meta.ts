@@ -38,11 +38,14 @@ export function nextCost(u: MetaUpgrade, levels: MetaLevels): number | null {
  * floor. With loot cut by about sixty percent, a deep delve now peaks at
  * fourteen to nineteen slots and the pack simply never filled — which made
  * Pack Mule worth measurably nothing, and took the "what do I carry home"
- * decision out of a game named after looting. Twelve puts the squeeze back
- * exactly where it belongs: on the deep runs that find things worth arguing
- * over, and nowhere near the first floor.
+ * decision out of a game named after looting. Twelve put the squeeze back on
+ * the deep runs.
+ *
+ * Back to sixteen since: more material families, more monsters and larger
+ * floors made twelve a squeeze from the first floor down, which is not where
+ * the carry-home decision belongs.
  */
-export const BASE_BACKPACK = 12;
+export const BASE_BACKPACK = 16;
 
 /**
  * The light you carry, in world units of radius. Kept deliberately small per
