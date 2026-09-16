@@ -849,7 +849,7 @@ export function rollContainerLoot(
       items.push(makeMaterial(rollValuable(rng, depth).id, rng.int(1, 2)));
       addGem(items, rng, depth);
       if (tier === 'secret' || rng.chance(0.35 + 0.03 * Math.min(6, depth))) items.push(rollBlueprint(rng, depth, ranks));
-      if (rng.chance(0.35)) items.push(makeConsumable(rng.pick(['scroll_recall', 'scroll_identify'])));
+      if (rng.chance(0.35)) items.push(makeConsumable(rng.pick(['scroll_recall', 'scroll_identify', 'scroll_flash', 'scroll_backstep'])));
       if (rng.chance(FIGHT_MILK_CHANCE.vault * depthFactor(depth))) items.push(makeConsumable('fight_milk'));
       break;
   }

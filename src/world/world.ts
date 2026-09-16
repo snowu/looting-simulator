@@ -636,60 +636,6 @@ export class World {
     return true;
   }
 
-  /** Instant alternate use for the two scrolls. */
-  tear(ref: string): boolean {
-    if (this.run.outcome !== 'active') return false;
-    if (ref !== 'scroll_recall' && ref !== 'scroll_identify') return false;
-    if ((this.run.tornDepths ??= []).includes(this.run.depth)) {
-      this.msg('Your nerve is spent on this floor.', '#888');
-      return false;
-    }
-    const item = this.run.backpack.items.find((i) => i.kind === 'consumable' && i.ref === ref);
-    if (!item) return false;
-    if (ref === 'scroll_recall') {
-      const now = this.run.stats.time;
-      const candidates = this.trail.filter((p) => now - p.time <= 2 && (p.x !== this.player.x || p.y !== this.player.y)).slice(-4);
-      const dest = candidates.find((p) => !blocksMove(this.floor, p.x, p.y) && !enemyAt(this.floor, p.x, p.y));
-      if (!dest) {
-        this.msg('The scroll will not tear. You have been nowhere.', '#888');
-        return false;
-      }
-      this.player.x = dest.x; this.player.y = dest.y; this.player.facing = dest.facing;
-      const yaw = dest.facing * Math.PI / 2;
-      Object.assign(this.anim, { fromX: dest.x, fromY: dest.y, moveT: 1, yaw, yawFrom: yaw, yawTo: yaw, turnT: 1 });
-      this.anim.recall = null; this.anim.sip = null; this.anim.chew = null;
-      this.sfx('recall'); this.emit({ type: 'shake', amount: 0.22 });
-      this.msg('The torn scroll snaps you back along your path.', '#9ac0ff');
-    } else {
-      let target: EnemyState | undefined;
-      for (let d = 1; d <= 3; d++) {
-        const t = this.frontTile(d);
-        const e = enemyAt(this.floor, t.x, t.y);
-        if (e) {
-          const toward = dirOf(Math.sign(this.player.x - e.x), Math.sign(this.player.y - e.y));
-          if (e.alert > 0 && toward === e.facing) target = e;
-          break;
-        }
-        if (blocksSight(this.floor, t.x, t.y)) break;
-      }
-      if (!target) {
-        this.msg('There is nothing looking at you.', '#888');
-        return false;
-      }
-      const save = target.ai === 'windup' && target.def !== BOSS_ID;
-      target.blind = target.def === BOSS_ID ? 0.8 : save ? 3 : 2;
-      if (save) { target.ai = 'recover'; target.timer = target.blind; }
-      target.guard = 'down'; target.guardT = target.blind;
-      this.anim.recall = null; this.anim.sip = null; this.anim.chew = null;
-      this.msg(save ? 'Caught it in the light!' : `${enemyDef(target.def).name} reels from the flash.`, '#fff2a0');
-      this.sfx('magic', target.x, target.y);
-    }
-    this.run.tornDepths.push(this.run.depth);
-    item.qty--;
-    if (item.qty <= 0) removeItem(this.run.backpack, item.uid);
-    return true;
-  }
-
   frontTile(dist = 1): { x: number; y: number } {
     return { x: this.player.x + DX[this.player.facing] * dist, y: this.player.y + DY[this.player.facing] * dist };
   }
@@ -1014,6 +960,10 @@ export class World {
     Object.assign(this.anim, { fromX: spot.x, fromY: spot.y, moveT: 1, yaw, yawFrom: yaw, yawTo: yaw, turnT: 1 });
     this.projectiles = [];
     this.pathCache.clear();
+    // A new floor means a new path: stale trail entries point at tiles on the
+    // floor you just left, and a backstep within 2s of the stairs would read
+    // them against the wrong map.
+    this.trail = [{ x: spot.x, y: spot.y, facing: spot.facing, time: this.run.stats.time }];
     if (dir === 'down' && run.depth > run.stats.deepest) {
       run.stats.deepest = run.depth;
       recordDepth(this.state.contracts, run.depth);
@@ -2647,6 +2597,7 @@ export class World {
   }
 
   use(uid: string, targetUid?: string): void {
+    if (this.run.outcome !== 'active') return;
     const it = findItem(this.run.backpack, uid);
     if (!it) return;
     if (it.kind === 'blueprint') {
@@ -2729,6 +2680,54 @@ export class World {
         );
         this.sfx('magic');
         break;
+      case 'flash': {
+        // Blinding true light, and it burns whether it lands or not. Whiff it
+        // into empty air and you have one fewer scroll — that is the lesson.
+        let target: EnemyState | undefined;
+        for (let d = 1; d <= 3; d++) {
+          const t = this.frontTile(d);
+          const foe = enemyAt(this.floor, t.x, t.y);
+          if (foe) {
+            const toward = dirOf(Math.sign(this.player.x - foe.x), Math.sign(this.player.y - foe.y));
+            if (foe.alert > 0 && toward === foe.facing) target = foe;
+            break;
+          }
+          if (blocksSight(this.floor, t.x, t.y)) break;
+        }
+        this.anim.recall = null; this.anim.sip = null; this.anim.chew = null;
+        // True light, seen: a white-hot wash over the whole view, stronger
+        // than any sigil landing. Reuses the sigil flash path in the
+        // renderer, so headless callers and saves see nothing new.
+        this.emit({ type: 'sigil', r: 1.0, g: 0.97, b: 0.88, strength: 0.85 });
+        if (!target) {
+          this.msg('Light bursts over nothing. There is nothing looking at you.', '#888');
+          this.sfx('magic', this.player.x, this.player.y);
+          break;
+        }
+        const save = target.ai === 'windup' && target.def !== BOSS_ID;
+        target.blind = target.def === BOSS_ID ? 0.8 : save ? 3 : 2;
+        if (save) { target.ai = 'recover'; target.timer = target.blind; }
+        target.guard = 'down'; target.guardT = target.blind;
+        this.msg(save ? 'Caught it in the light!' : `${enemyDef(target.def).name} reels from the flash.`, '#fff2a0');
+        this.sfx('magic', target.x, target.y);
+        break;
+      }
+      case 'backstep': {
+        const now = this.run.stats.time;
+        const candidates = this.trail.filter((p) => now - p.time <= 2 && (p.x !== this.player.x || p.y !== this.player.y)).slice(-4);
+        const dest = candidates.find((p) => !blocksMove(this.floor, p.x, p.y) && !enemyAt(this.floor, p.x, p.y));
+        this.anim.recall = null; this.anim.sip = null; this.anim.chew = null;
+        if (!dest) {
+          this.msg('The scroll comes to nothing. You have been nowhere.', '#888');
+          break;
+        }
+        this.player.x = dest.x; this.player.y = dest.y; this.player.facing = dest.facing;
+        const yaw = dest.facing * Math.PI / 2;
+        Object.assign(this.anim, { fromX: dest.x, fromY: dest.y, moveT: 1, yaw, yawFrom: yaw, yawTo: yaw, turnT: 1 });
+        this.sfx('recall'); this.emit({ type: 'shake', amount: 0.22 });
+        this.msg('The scroll snaps you back along your path.', '#9ac0ff');
+        break;
+      }
     }
     it.qty -= 1;
     if (it.qty <= 0) removeItem(this.run.backpack, uid);

@@ -15,11 +15,11 @@ The rework has three parts:
 1. **The flask**: a refillable, upgradeable heal. Your only in-fight healing.
 2. **Morsels**: food dropped by monsters that you eat where it falls. Healing
    between fights.
-3. **Torn scrolls**: an instant panic use for each of the two scrolls, limited
-   to one tear per floor.
+3. **Flash and Backstep scrolls**: standalone panic buttons, priced to hurt
+   (Flash 210g, Backstep 160g). See section 4 for the history.
 
-After this, the only consumables you can buy or carry are **Scroll of Identify**
-and **Scroll of Recall**.
+After this, the only consumables you can buy or carry are the four scrolls:
+Identify, Recall, Flash and Backstep.
 
 ## What is removed
 
@@ -213,42 +213,50 @@ Add them as an optional array defaulting to `[]` in migration.
 
 ---
 
-## 4. Torn scrolls
+## 4. Flash and Backstep scrolls
 
-Each scroll keeps its normal **read** exactly as it is today. **Tearing** is a
-second, instant use that spends the scroll and does something rough and local.
-A tear never gives information and never takes you off the floor.
+> Playtest note (2026-09-16): tearing is **cut**. The flash proved too strong
+> as a 30g second use on a scroll you carry anyway, so the two panic uses are
+> standalone scrolls with standalone prices (Flash 210g, Backstep 160g), sold
+> by the merchant and found in vaults/secrets. Identify and Recall are
+> read-only again, and the hold-to-tear input (long-press vs drag, 400ms key
+> hold, fill ring) is deleted. What follows keeps the effect rules; the
+> Limit/Input/Fizzle paragraphs below are struck through as implemented
+> history.
 
-### Limit: one tear per floor
+Each scroll is used like any consumable, burns whether it lands or not, and
+never takes you off the floor.
 
-A tear is allowed **once per depth per run**, shared between both scrolls.
-Record it on the run as the set of depths already torn on (e.g.
-`run.tornDepths: number[]`). It is keyed by depth, not "since the last stairs",
-so stepping up and down a staircase doesn't reset it. When used up, trying to
-tear says *Your nerve is spent on this floor.* and does nothing.
+### Limit: none — the price is the limit
+
+> The one-tear-per-floor limit was removed first ("don't hold their hands"),
+> then the fizzle protections ("let the player fuck it up and learn"), then
+> tearing itself once Flash showed the real cost problem.
+
+~~A tear is allowed **once per depth per run**, shared between both scrolls.~~
+~~Record it on the run as the set of depths already torn on (e.g.~~
+~~`run.tornDepths: number[]`). It is keyed by depth, not "since the last stairs",~~
+~~so stepping up and down a staircase doesn't reset it. When used up, trying to~~
+~~tear says *Your nerve is spent on this floor.* and does nothing.~~
 
 ### Input
 
-- **Touch:** long-press the scroll's quick-bar slot (reuse the long-press in
-  `src/ui/dom.ts`). The slots are drag-reorderable (commit b5370c9): a press
-  that **moves** is a drag, and a press that **holds still** past the threshold
-  is a tear. A tear must never fire on a drag.
-- **Keyboard:** hold the scroll's number key for about 400ms. A tap reads.
-- Show a short fill ring on the slot while holding, so a tear is never an
-  accident.
+~~Touch long-press vs drag, keyboard 400ms hold, fill ring — deleted with
+tearing. The new scrolls tap/click/press like every other quick-slot item.~~
 
-### Recall, torn: Snap back
+### Backstep Scroll: Snap back
 
 You are yanked back along your own path to **where you stood 2 seconds ago**.
 
 - Keep a short ring buffer of `(x, y, facing, time)` whenever the player enters
-  a tile.
+  a tile. Reset it on floor change, so stairs never hand you the old floor's
+  tiles.
 - Destination: the **oldest** recorded tile from the last 2s that is still
   walkable and unoccupied, at most **4 tiles** of path back. You keep the facing
   you had at that point.
 - If there is no valid earlier tile (you stood still, or every tile is now
-  blocked), the tear **fizzles**: no scroll spent, no tear used, *The scroll
-  will not tear. You have been nowhere.*
+  blocked), the scroll still burns: *The scroll comes to nothing. You have been
+  nowhere.*
 - Nothing else changes. Enemies stay alerted and keep chasing, projectiles in
   flight keep flying, and you are still on the floor, now a few tiles further
   away.
@@ -258,15 +266,16 @@ You are yanked back along your own path to **where you stood 2 seconds ago**.
 - Feel: a sharp reverse whoosh, a quick blur toward the destination (~0.12s),
   a small camera shake.
 
-### Identify, torn: Flash
+### Flash Scroll: Flash
 
 A blinding flash of true light at **the monster facing you**, in the style of a
-Dead by Daylight flashlight save.
+Dead by Daylight flashlight save. Fires a white-hot wash over the whole view —
+the strongest screen flash in the game.
 
 **Target:** the nearest living enemy **in front of you within 3 tiles**, in line
 of sight, **that is looking at you**: alerted and facing your tile. You can't
-flash a monster that has its back to you. With no valid target the tear
-**fizzles** (nothing spent) with *There is nothing looking at you.*
+flash a monster that has its back to you. With no valid target the light still
+bursts, over nothing, and the scroll still burns.
 
 **On hit:**
 
@@ -307,7 +316,7 @@ never wipe a save.
 - **Supply Crate levels:** refund the renown spent (sum of `costs` up to the
   level), then delete the key.
 - New fields default safely: `flask: { shards: 0, potency: 0, infusion: null }`
-  on state; `flask: { charges: max, dregs: 0 }`, `tornDepths: []` on a run
+  on state; `flask: { charges: max, dregs: 0 }` on a run
   (an in-progress run migrates in with full charges); `morsels: []` on each
   saved floor.
 - **Flask Shard milestones on old saves:** grant retroactively from `lifetime`.
@@ -320,9 +329,10 @@ never wipe a save.
 
 - `scripts/playtest.ts`: the bot drinks potions below `drinkAt`. Change it to
   sip the flask, walk to and eat known morsels between fights (when no enemy is
-  hunting), and report `sips`, `morselsEaten`, `morselsRotted`, `tears`. **Use it
+  hunting), and report `sips`, `morselsEaten`, `morselsRotted`. **Use it
   to tune** the drop rate, rot time and base charges against the 25–35% food
-  target.
+  target. (The bot never touches scrolls, old or new — Flash/Backstep
+  balancing is a human playtest job.)
 - `scripts/upgrades.bench.ts`, `balance.bench.ts`: remove Supply Crate and
   potion assumptions.
 - `src/dev/boss-arena.ts`: sets `supply_crate: 3`. Give it max shards, potency 4
@@ -344,6 +354,6 @@ Each step is playable and committable on its own:
 2. **Morsels:** drops, eating, automap, rot. Then dregs.
 3. **Flask upgrades:** shards and milestones, potency at the merchant.
 4. **Infusions:** the forge bench, then Fight Milk as an infusion.
-5. **Torn scrolls:** the input first (long-press vs drag), then Snap back, then
-   Flash.
+5. **Flash and Backstep scrolls** (was: torn scrolls with hold input; cut —
+   standalone scrolls instead, then Snap back, then Flash).
 6. Scavengers, last and optional.

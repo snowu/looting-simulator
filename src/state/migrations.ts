@@ -210,7 +210,6 @@ const MIGRATIONS: ((s: AnyState) => void)[] = [
     s.flask.infusion ??= null;
     if (s.run) {
       s.run.flask ??= { charges: flaskMax(s.flask.shards), dregs: 0 };
-      s.run.tornDepths ??= [];
       for (const f of s.run.floors ?? []) if (f) f.morsels ??= [];
     }
   },

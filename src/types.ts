@@ -259,6 +259,10 @@ export type ConsumableEffect =
   | { type: 'stamina'; fraction: number }
   | { type: 'identify' }
   | { type: 'recall'; seconds: number }
+  /** A blinding flash of true light at whatever faces you. See World.use. */
+  | { type: 'flash' }
+  /** Yanked back along your own path. See World.use. */
+  | { type: 'backstep' }
   /** A draught whose effect lasts the rest of the delve. See TONICS. */
   | { type: 'tonic'; tonicId: string };
 

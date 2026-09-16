@@ -100,7 +100,7 @@ describe('market', () => {
     // entry in CONSUMABLES, which put the rarest consumable in the game on the
     // shelf for about 504 gold and quietly undid its found-only design.
     expect(SHOP_CONSUMABLES).not.toContain('fight_milk');
-    expect(SHOP_CONSUMABLES).toEqual(['scroll_identify', 'scroll_recall']);
+    expect(SHOP_CONSUMABLES).toEqual(['scroll_identify', 'scroll_flash', 'scroll_backstep', 'scroll_recall']);
     for (const id of SHOP_CONSUMABLES) expect(tonicUnique(id)).toBeUndefined();
   });
 

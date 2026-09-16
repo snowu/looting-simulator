@@ -303,7 +303,7 @@ export function itemBuyPrice(m: MarketState, item: Item, haggle: number): number
  * rather than an id check, so the next tonic added is excluded for free.
  */
 export const SHOP_CONSUMABLES = CONSUMABLES.filter((c) =>
-  (c.id === 'scroll_identify' || c.id === 'scroll_recall') && !tonicUnique(c.id),
+  c.id.startsWith('scroll_') && !tonicUnique(c.id),
 ).map((c) => c.id);
 
 export function trendPercent(history: number[], days = 5): number {

@@ -39,7 +39,7 @@ Progress saves locally in your browser. Passwordless sign-in lets you sync saves
 | R | Call every landed shaft back, one at a time |
 | G / C | Cast your attuned sigil |
 | 1 | Sip the flask (0.5s commitment) |
-| 2–4 | Tap to read a scroll; hold ~0.4s to tear it |
+| 2–4 | Use a scroll: identify, recall, flash, backstep |
 | I / Tab | Pack and gear |
 | M | Map |
 | Esc | Pause and help |

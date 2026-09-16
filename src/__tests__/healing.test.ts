@@ -55,17 +55,23 @@ describe('healing rework', () => {
     expect(w.run.flask.dregs).toBeGreaterThan(0);
   });
 
-  it('flashes only an alerted enemy looking at the player and spends the shared floor tear', () => {
+  it('a flash scroll blinds only an alerted enemy looking at the player', () => {
     const w = arena(3);
-    addItem(w.run.backpack, makeConsumable('scroll_identify'));
+    addItem(w.run.backpack, makeConsumable('scroll_flash', 2));
+    const use = (): void => {
+      w.use(w.run.backpack.items.find((i) => i.ref === 'scroll_flash')!.uid);
+    };
     const t = w.frontTile(2);
     const e = createEnemy(enemyDef('skeleton'), t.x, t.y, turnAround(w.player.facing), 'watcher', 1);
     e.alert = 5;
     w.floor.enemies.push(e);
-    expect(w.tear('scroll_identify')).toBe(true);
+    use();
     expect(e.blind).toBe(2);
-    expect(w.run.tornDepths).toEqual([1]);
-    expect(w.tear('scroll_identify')).toBe(false);
+    // A second scroll on the same floor: each use spends a scroll, nothing else.
+    e.blind = 0;
+    use();
+    expect(e.blind).toBe(2);
+    expect(w.run.backpack.items.some((i) => i.ref === 'scroll_flash')).toBe(false);
   });
 
   it('lands a mid-sip blow unblocked even with the guard raised', () => {
@@ -147,11 +153,68 @@ describe('healing rework', () => {
     expect(w.anim.chew).not.toBeNull();
   });
 
-  it('refuses tears once the run is over', () => {
+  it('refuses scroll use once the run is over', () => {
     const w = arena(17);
-    addItem(w.run.backpack, makeConsumable('scroll_recall'));
+    addItem(w.run.backpack, makeConsumable('scroll_backstep'));
     w.run.outcome = 'dead';
-    expect(w.tear('scroll_recall')).toBe(false);
-    expect(w.run.tornDepths).toEqual([]);
+    w.use(w.run.backpack.items.find((i) => i.ref === 'scroll_backstep')!.uid);
+    expect(w.run.backpack.items.some((i) => i.ref === 'scroll_backstep')).toBe(true);
+  });
+
+  it('a flash scroll blinds and washes the screen white', () => {
+    const w = arena(18);
+    addItem(w.run.backpack, makeConsumable('scroll_flash'));
+    const t = w.frontTile(2);
+    const e = createEnemy(enemyDef('skeleton'), t.x, t.y, turnAround(w.player.facing), 'lit', 1);
+    e.alert = 5;
+    w.floor.enemies.push(e);
+    w.drainEvents();
+    w.use(w.run.backpack.items.find((i) => i.ref === 'scroll_flash')!.uid);
+    expect(e.blind).toBe(2);
+    expect(w.run.backpack.items.some((i) => i.ref === 'scroll_flash')).toBe(false);
+    const flash = w.drainEvents().find((ev) => ev.type === 'sigil');
+    expect(flash).toMatchObject({ r: 1.0, g: 0.97, b: 0.88 });
+    expect((flash as { strength: number }).strength).toBeGreaterThan(0.6);
+  });
+
+  it('a flash scroll burns on a whiff instead of being refused', () => {
+    const w = arena(19);
+    addItem(w.run.backpack, makeConsumable('scroll_flash'));
+    // Nobody ahead, nobody looking: the flash still goes off, into nothing.
+    w.drainEvents();
+    w.use(w.run.backpack.items.find((i) => i.ref === 'scroll_flash')!.uid);
+    expect(w.run.backpack.items.some((i) => i.ref === 'scroll_flash')).toBe(false);
+    expect(w.drainEvents().some((ev) => ev.type === 'sigil')).toBe(true);
+  });
+
+  it('a backstep scroll returns along the trail', () => {
+    const w = arena(20);
+    addItem(w.run.backpack, makeConsumable('scroll_backstep'));
+    // The arena helper teleports in, leaving a stale trail entry behind: let
+    // it age out first so the trail only holds genuinely walked tiles.
+    tick(w, 2.2);
+    w.press('forward');
+    const visited: { x: number; y: number }[] = [];
+    for (let i = 0; i < 40 && visited.length < 2; i++) {
+      w.update(1 / 60);
+      const at = { x: w.player.x, y: w.player.y };
+      if (!visited.some((v) => v.x === at.x && v.y === at.y)) visited.push(at);
+    }
+    expect(visited.length).toBe(2);
+    w.use(w.run.backpack.items.find((i) => i.ref === 'scroll_backstep')!.uid);
+    // The oldest recorded tile on the trail: the first tile genuinely arrived
+    // at, which is where a real delve's path begins too.
+    expect({ x: w.player.x, y: w.player.y }).toEqual(visited[0]);
+    expect(w.run.backpack.items.some((i) => i.ref === 'scroll_backstep')).toBe(false);
+  });
+
+  it('a backstep scroll burns while standing still', () => {
+    const w = arena(21);
+    addItem(w.run.backpack, makeConsumable('scroll_backstep'));
+    tick(w, 2.2);
+    const at = { x: w.player.x, y: w.player.y };
+    w.use(w.run.backpack.items.find((i) => i.ref === 'scroll_backstep')!.uid);
+    expect(w.run.backpack.items.some((i) => i.ref === 'scroll_backstep')).toBe(false);
+    expect({ x: w.player.x, y: w.player.y }).toEqual(at);
   });
 });

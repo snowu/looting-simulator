@@ -88,7 +88,6 @@ export interface RunState {
    */
   quickOrder?: string[];
   flask: { charges: number; dregs: number };
-  tornDepths: number[];
   stats: RunStats;
   outcome: RunOutcome;
   killedBy?: string;

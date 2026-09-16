@@ -224,8 +224,22 @@ export const CONSUMABLES: ConsumableDef[] = [
   },
   {
     id: 'scroll_identify', name: 'Scroll of Identify', icon: 'ic_scroll', ramp: ['#4a3a20', '#8a7040', '#c8a868', '#f4e4b0'],
-    description: 'Reveals the true nature of one item. Hold to tear instead: a blinding flash at whatever faces you.', effect: { type: 'identify' },
+    description: 'Reveals the true nature of one item.', effect: { type: 'identify' },
     rarity: Rarity.Uncommon, value: 30, stack: 10,
+  },
+  {
+    // Blinding true light in a tube: expensive, because answering every
+    // wind-up for the price of an Identify would make telegraphs decorative.
+    id: 'scroll_flash', name: 'Flash Scroll', icon: 'ic_scroll', ramp: ['#f4ecd8', '#e8d8a0', '#fff8e0', '#ffffff'],
+    description: 'A blinding flash at whatever faces you. Blind 2s, 3s with the swing cancelled mid-wind-up. It burns whether it lands or not.',
+    effect: { type: 'flash' }, rarity: Rarity.Rare, value: 210, stack: 5,
+  },
+  {
+    // A short step back along your own path: the escape half of torn Recall,
+    // priced so it is a decision rather than a habit.
+    id: 'scroll_backstep', name: 'Backstep Scroll', icon: 'ic_scroll', ramp: ['#2a3a5a', '#5a7ab0', '#9ac0ff', '#e0f0ff'],
+    description: 'Snaps you back to where you stood 2 seconds ago. Torn while standing still, it burns and comes to nothing.',
+    effect: { type: 'backstep' }, rarity: Rarity.Rare, value: 160, stack: 5,
   },
   {
     // A legendary flask infusion, found only in the dark: never stocked by any
@@ -237,7 +251,7 @@ export const CONSUMABLES: ConsumableDef[] = [
   },
   {
     id: 'scroll_recall', name: 'Scroll of Recall', icon: 'ic_scroll', ramp: ['#1a2a4a', '#34508a', '#6a90d0', '#d0e4ff'],
-    description: 'After 5 seconds of stillness, carries you and your pack back to town. Hold to tear instead: snapped back along your own path.',
+    description: 'After 5 seconds of stillness, carries you and your pack back to town.',
     effect: { type: 'recall', seconds: 5 }, rarity: Rarity.Rare, value: 95, stack: 5,
   },
 ];

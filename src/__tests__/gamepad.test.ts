@@ -1,10 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import {
   PAD_BUTTONS,
+  GamepadController,
   snapshotPad,
   stickXToStrafe,
   stickXToTurn,
   stickYToMove,
+  type PadContext,
   type RawPad,
 } from '../ui/gamepad';
 
@@ -69,5 +71,43 @@ describe('gamepad mapping', () => {
     const r = snapshotPad(press(pad(), PAD_BUTTONS.rb), new Set());
     expect(r.retrieveHeld).toBe(true);
     expect(r.moves.size).toBe(0);
+  });
+
+  it('sips the flask on B in the dungeon, closes overlays instead in menus', () => {
+    const calls: string[] = [];
+    const noop = (): void => undefined;
+    const ctx: PadContext = {
+      paused: false,
+      overlayOpen: false,
+      contextKind: () => 'attack',
+      attack: () => calls.push('attack'),
+      interact: noop,
+      hurl: noop,
+      setRetrieve: noop,
+      setBlock: noop,
+      castSigil: noop,
+      sipFlask: () => calls.push('sip'),
+      press: noop,
+      release: noop,
+      toggleInventory: noop,
+      toggleMap: noop,
+      toggleHelp: noop,
+      takeAll: noop,
+      closeOverlay: () => calls.push('close'),
+      quickUseNext: noop,
+      menuNav: () => false,
+      menuActivate: () => false,
+    };
+    const c = new GamepadController(ctx);
+    c.getPoll = () => press(pad(), PAD_BUTTONS.b);
+    c.update(1 / 60);
+    expect(calls).toEqual(['sip']);
+
+    calls.length = 0;
+    ctx.overlayOpen = true;
+    const c2 = new GamepadController(ctx);
+    c2.getPoll = () => press(pad(), PAD_BUTTONS.b);
+    c2.update(1 / 60);
+    expect(calls).toEqual(['close']);
   });
 });

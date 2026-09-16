@@ -49,7 +49,6 @@ describe('loading an old save', () => {
     expect(run.player.hp).toBe(54);
     expect(run.backpack.items.length).toBe(2);
     expect(run.flask).toEqual({ charges: 5, dregs: 0 });
-    expect(run.tornDepths).toEqual([]);
     expect(run.floors.length).toBe(2);
     for (const f of run.floors) {
       expect(f).toBeTruthy();

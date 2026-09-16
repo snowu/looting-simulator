@@ -73,7 +73,6 @@ export interface RunReport {
   sips: number;
   morselsEaten: number;
   morselsRotted: number;
-  tears: number;
   parries: number;
   hitsTaken: number;
   blockedHits: number;
@@ -182,7 +181,7 @@ class Bot {
     this.lastHp = w.player.hp;
     this.report = {
       seed, outcome: 'timeout', depth: 1, deepest: 1, bossKilled: false, kills: 0, time: 0, gold: 0, renown: 0,
-      itemsKept: 0, valueKept: 0, damageTaken: {}, sips: 0, morselsEaten: 0, morselsRotted: 0, tears: 0, parries: 0, hitsTaken: 0,
+      itemsKept: 0, valueKept: 0, damageTaken: {}, sips: 0, morselsEaten: 0, morselsRotted: 0, parries: 0, hitsTaken: 0,
       blockedHits: 0, trapsSprung: 0, itemsLost: 0, valueLost: 0,
       peakSlots: 0, capacity: w.run.backpack.capacity, brokenAtEnd: 0, perFloor: [],
     };
@@ -745,7 +744,7 @@ export function summarise(reports: RunReport[], label: string): string {
   const killers = new Map<string, number>();
   for (const r of deaths) killers.set(r.killedBy ?? '?', (killers.get(r.killedBy ?? '?') ?? 0) + 1);
   L.push(`killed by: ${[...killers].sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} x${v}`).join(', ') || '—'}`);
-  L.push(`run time: avg ${avg(reports.map((r) => r.time)).toFixed(0)}s  kills: ${avg(reports.map((r) => r.kills)).toFixed(1)}  sips: ${avg(reports.map((r) => r.sips)).toFixed(1)}  morsels: ${avg(reports.map((r) => r.morselsEaten)).toFixed(1)} eaten / ${avg(reports.map((r) => r.morselsRotted)).toFixed(1)} rotted  tears: ${avg(reports.map((r) => r.tears)).toFixed(1)}  hits taken: ${avg(reports.map((r) => r.hitsTaken)).toFixed(1)}`);
+  L.push(`run time: avg ${avg(reports.map((r) => r.time)).toFixed(0)}s  kills: ${avg(reports.map((r) => r.kills)).toFixed(1)}  sips: ${avg(reports.map((r) => r.sips)).toFixed(1)}  morsels: ${avg(reports.map((r) => r.morselsEaten)).toFixed(1)} eaten / ${avg(reports.map((r) => r.morselsRotted)).toFixed(1)} rotted  hits taken: ${avg(reports.map((r) => r.hitsTaken)).toFixed(1)}`);
   L.push(`damage taken: monsters ${avg(reports.map((r) => r.damageTaken.monster ?? 0)).toFixed(0)}, traps ${avg(reports.map((r) => r.damageTaken.trap ?? 0)).toFixed(0)} (${avg(reports.map((r) => r.trapsSprung)).toFixed(1)} sprung)  parries ${avg(reports.map((r) => r.parries)).toFixed(1)}  blocked ${avg(reports.map((r) => r.blockedHits)).toFixed(1)}`);
   // Banked means settled through endRun(): what the town actually received,
   // after a death has taken the pack off you.

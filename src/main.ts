@@ -83,7 +83,7 @@ renderer.onLavaSound = ({ name, x, z }) => {
   const pan = (dx * Math.cos(world.anim.yaw) + dz * Math.sin(world.anim.yaw)) / Math.max(1, distance);
   audio.play(name, { volume: 0.75 / (1 + distance * 0.16), pan: pan * 0.8 });
 };
-const hud = new Hud(app, { interact: () => world?.interact(), flask: () => world?.sipFlask(), quick: (i) => world?.quickUse(i), tear: (ref) => world?.tear(ref), reorderQuick: (from, to) => world?.moveQuick(from, to), settings: () => openDungeonSettings() });
+const hud = new Hud(app, { interact: () => world?.interact(), flask: () => world?.sipFlask(), quick: (i) => world?.quickUse(i), reorderQuick: (from, to) => world?.moveQuick(from, to), settings: () => openDungeonSettings() });
 
 let touchMode = isTouchDevice();
 let touchAttack = false;
@@ -194,6 +194,7 @@ const padCtx: PadContext = {
   setRetrieve: (held) => world?.retrieve(held),
   setBlock: (on) => world?.setBlock(on),
   castSigil: () => world?.castSigil(),
+  sipFlask: () => world?.sipFlask(),
   press: (m) => world?.press(m),
   release: (m) => world?.release(m),
   toggleInventory: () => {
@@ -941,7 +942,6 @@ const MOVES: Record<string, Parameters<World['press']>[0]> = {
   a: 'turnLeft', arrowleft: 'turnLeft', d: 'turnRight', arrowright: 'turnRight',
   q: 'left', e: 'right',
 };
-const scrollKeyDown = new Map<string, number>();
 
 window.addEventListener('keydown', (e) => {
   audio.unlock();
@@ -1012,7 +1012,7 @@ window.addEventListener('keydown', (e) => {
     case '2':
     case '3':
     case '4':
-      if (!e.repeat) scrollKeyDown.set(k, performance.now());
+      if (!e.repeat) world.quickUse(Number(k) - 2);
       break;
   }
 });
@@ -1023,14 +1023,6 @@ window.addEventListener('keyup', (e) => {
   if (MOVES[k]) world.release(MOVES[k]);
   if (k === 'shift') world.setBlock(false);
   if (k === 'r') world.retrieve(false);
-  if ((k === '2' || k === '3' || k === '4') && scrollKeyDown.has(k)) {
-    const held = performance.now() - scrollKeyDown.get(k)!;
-    scrollKeyDown.delete(k);
-    const slot = Number(k) - 2;
-    const ref = world.quickRefs()[slot];
-    if (held >= 400 && ref?.startsWith('scroll_')) world.tear(ref);
-    else world.quickUse(slot);
-  }
 });
 
 // Mouse: LMB attack, RMB block. (Touch goes through the drag zone in TouchControls.)

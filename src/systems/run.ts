@@ -67,7 +67,6 @@ export function startRun(state: GameState, seed = randomSeed()): RunState {
     thrown: { held: {}, retrieveCd: 0 },
     sigil: state.attuned ? { id: state.attuned, cd: 0 } : null,
     flask: { charges: 3 + Math.min(3, state.flask?.shards ?? 0), dregs: 0 },
-    tornDepths: [],
     stats: { kills: 0, goldFound: 0, itemsFound: 0, deepest: 1, time: 0, bossKilled: false },
     outcome: 'active',
   };

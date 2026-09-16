@@ -81,7 +81,7 @@ A volley can lose up to two closely stacked bolts to one timed parry; the follow
 
 ## 3. Controls
 
-See the README table. In short: W/S step, A/D turn, Q/E strafe, Space attack, Shift block, F interact/eat, T throw, R call your shafts back, G or C cast your sigil, 1 flask, 2–4 scrolls (hold to tear), I pack, M map, Esc pause. On touch: drag anywhere to walk and turn, tap or press the big button for the context action, hold the shield to block.
+See the README table. In short: W/S step, A/D turn, Q/E strafe, Space attack, Shift block, F interact/eat, T throw, R call your shafts back, G or C cast your sigil, 1 flask, 2–4 scrolls (identify, recall, flash, backstep), I pack, M map, Esc pause. On touch: drag anywhere to walk and turn, tap or press the big button for the context action, hold the shield to block.
 
 **The one-button action** (tap the view, or the big button) swings at anything in reach and otherwise does whatever **[F]** would. One exception: a loot pile **underfoot never steals the swing while something is alive within 2 tiles**, or within 4 and hunting you. Killing the first of two monsters drops loot on your tile, and without that rule every tap became the loot window instead of a hit on the second one. Doors, stairs and portals still win over the swing, because running is a legitimate answer to a fight. **[F]** is unaffected — looting on the keyboard is always deliberate.
 
@@ -918,8 +918,10 @@ At most 2 prefixes and 2 suffixes, never two affixes on the same stat.
 | Healing Draught | Legacy save reference; unobtainable and refunded on migration | Common | 24 | 5 |
 | Greater Healing | Legacy save reference; unobtainable and refunded on migration | Rare | 70 | 5 |
 | Stamina Tonic | Legacy save reference; unobtainable and refunded on migration | Common | 16 | 5 |
-| Scroll of Identify | Identify one item in the pack. **Tear** (hold the slot ~0.4s): a blinding flash at the monster facing you — see below | Uncommon | 30 | 10 |
-| Scroll of Recall | 5s channel, then a two-way town portal. **Tear** (hold the slot ~0.4s): yanked back along your own path — see below | Rare | 95 | 5 |
+| Scroll of Identify | Identify one item in the pack | Uncommon | 30 | 10 |
+| Scroll of Recall | 5s channel, then a two-way town portal | Rare | 95 | 5 |
+| Flash Scroll | A blinding flash at whatever faces you — see below | Rare | 210 | 5 |
+| Backstep Scroll | Snaps you back to where you stood 2 seconds ago — see below | Rare | 160 | 5 |
 
 ### The flask, morsels and torn scrolls
 
@@ -932,7 +934,21 @@ Healing is a refillable flask, dungeon food, and one torn scroll per floor. Poti
 - **Dregs:** healing wasted past full health fills a meter; at 50% of max health it empties into +1 charge if you are below max, otherwise it holds full. Resets each delve.
 - **Infusions:** at the forge Flask bench, one stash material is consumed into the flask until replaced. Every infusion costs 10 points of sip healing (a 40% flask sips for 30%) and triggers the material's family bonus for 6s per sip — metal +Defense, wood +Speed, bone +Attack, cloth refills stamina instead, a gem grants its catalyst affix (Shadow Essence → Leech, flame shard → Fire) at forge-rolled strength. Hide waives the cost and sips for +5 points instead, with no timed effect. Fight Milk is a legendary infusion: always on from delve entry (22/s → 37.4/s regen, −20 max stamina), still costing the 10 points. Only changeable in town.
 - **Morsels:** Scrap (rat, bat, cutpurse, wisps) 10%, Cut (archers, shieldbearers, skeletons, spider) 12.5%, Heart (ghoul, Hollow Knight, Barrow Champion, Flame Wraith, mimic) 15% of max health. Per kill: `35% − 2.6% × (depth − 1)`, its own seed stream, untouched by loot find. Eaten with F where it lies (underfoot or faced): 1.2s chew, healing spread across it; a hit drops it with the uneaten remainder kept. Eating at full health is allowed and feeds dregs. Food never steals the one-button swing from a live fight, loses to doors and stairs, shows on the automap, and rots 240s after dropping on the run clock. Rats and bats that reach a morsel first eat it over 1s (interruptible): the monster heals full and keeps +25% health and +15% attack, once each, slightly larger.
-- **Torn scrolls:** each scroll keeps its normal read; tearing is a second, instant use, **once per depth per run** shared between both scrolls (`Your nerve is spent on this floor.`). **Snap back** (torn Recall): returns you to the oldest tile of your last 2s still walkable and free, at most 4 tiles back, keeping that facing; fizzles unspent if you have been nowhere. Cancels a recall read, sip or chew, and works in the Ashen Throne. **Flash** (torn Identify): needs the nearest living enemy within 3 tiles in front of you, in sight, alerted and facing you. Normal: blind 2s. Mid-wind-up: blind 3s, the swing cancelled (*Caught it in the light!*). The King: blind 0.8s, wind-up not cancelled. A blinded monster cannot start an attack, drops its guard for the blind, stumbles one random step per ~0.6s never toward you, and loses your trail when the blind ends if you are more than 2 tiles away.
+- **Flash and Backstep scrolls:** the two panic buttons, split out of Identify
+and Recall because answering every wind-up for the price of an Identify would
+make telegraphs decorative. Both are used like any consumable, both burn
+whether they land or not, and both cancel a recall read, sip or chew in
+progress. **Flash** (210g): needs the nearest living enemy within 3 tiles in
+front of you, in sight, alerted and facing you — with no such target the light
+still bursts, over nothing. Normal: blind 2s. Mid-wind-up: blind 3s, the swing
+cancelled (*Caught it in the light!*). The King: blind 0.8s, wind-up not
+cancelled. Every flash washes the view white-hot for a beat. **Backstep**
+(160g): returns you to the oldest tile of your last 2s still walkable and free,
+at most 4 tiles back, keeping that facing; used while standing still, it burns
+and comes to nothing. Works in the Ashen Throne. A blinded monster cannot start
+an attack, drops its guard for the blind, stumbles one random step per ~0.6s
+never toward you, and loses your trail when the blind ends if you are more than
+2 tiles away.
 
 ---
 

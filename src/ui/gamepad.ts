@@ -17,7 +17,7 @@
  * - RB (R1, hold): call shafts back, release to stop
  * - LT (L2, hold): block (time the raise to parry)
  * - Start: pause / help, Select/Back: pack & gear, L3: map, R3: quick-use
- * - B (Circle): back / close panel
+ * - B (Circle): sip the flask (back / close inside panels)
  */
 
 export type PadMove = 'forward' | 'back' | 'left' | 'right' | 'turnLeft' | 'turnRight';
@@ -157,6 +157,7 @@ export interface PadContext {
   setRetrieve: (held: boolean) => void;
   setBlock: (on: boolean) => void;
   castSigil: () => void;
+  sipFlask: () => void;
   press: (m: PadMove) => void;
   release: (m: PadMove) => void;
   toggleInventory: () => void;
@@ -319,6 +320,8 @@ export class GamepadController {
     if (snap.attackHeld && ctx.contextKind() === 'attack') ctx.attack();
     if (edge(P.lb)) ctx.hurl();
     if (edge(P.y)) ctx.castSigil();
+    // B is Close inside overlays (handled above); in the dungeon it sips.
+    if (edge(P.b)) ctx.sipFlask();
     if (edge(P.select)) ctx.toggleInventory();
     if (edge(P.start)) ctx.toggleHelp();
     if (edge(P.l3)) ctx.toggleMap();
@@ -377,5 +380,5 @@ export const GAMEPAD_HELP_ROWS: [string, string][] = [
   ['L3', 'Map'],
   ['Start', 'Pause / help'],
   ['R3', 'Use next quick-slot item'],
-  ['B', 'Close / back'],
+  ['B', 'Sip the flask (Close / back in menus)'],
 ];
