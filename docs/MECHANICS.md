@@ -331,7 +331,7 @@ A monster lighter than **55 health** (`STAGGER_HP`) is knocked out of its wind-u
 | Mimic | — | 0–0 | — |
 | The Ashen King | star iron 100% (1–2), shadow essence 100% (1–2), dragon scale 50%, jeweled skull 100% | 150–300 | 100% |
 
-Eligible monsters independently roll a morsel at `0.35 − 0.026 × (depth − 1)`; loot find does not modify it. Blueprint chance remains `0.8% + 0.4% × min(6, depth)`. Loot find multiplies material chances by `1 + find/200` and gear chance by `1 + find/100`.
+Eligible monsters independently roll a morsel at `0.28 − 0.024 × (depth − 1)`; loot find does not modify it. Blueprint chance remains `0.8% + 0.4% × min(6, depth)`. Loot find multiplies material chances by `1 + find/200` and gear chance by `1 + find/100`.
 
 ### Monster AI
 
@@ -925,15 +925,15 @@ At most 2 prefixes and 2 suffixes, never two affixes on the same stat.
 
 ### The flask, morsels and torn scrolls
 
-Healing is a refillable flask, dungeon food, and one torn scroll per floor. Potions are gone (see the legacy rows above).
+Healing is a refillable flask and dungeon food, with two panic scrolls beside them. Potions are gone (see the legacy rows above).
 
-- **Flask:** 3 charges, refilled to full at the start of every delve. **1** sips: a 0.5s commitment with the guard down — a blow mid-sip lands unblocked, and the heal still lands at the end. Each sip restores 30% of max health. Refused at full health. All flask healing passes through `World.heal`, so Eulogy Plate's half and the difficulty's `playerHealing` apply.
+- **Flask:** 3 charges, refilled to full at the start of every delve. **1** sips: a 0.5s commitment with the guard down — a blow mid-sip lands unblocked, and the heal still lands at the end. Pressed mid-step, the sip waits for the step to land (holding the next step, even with a walk key held) rather than dropping the input. Each sip restores 30% of max health. Refused at full health. All flask healing passes through `World.heal`, so Eulogy Plate's half and the difficulty's `playerHealing` apply.
 - **Charges:** +1 per Flask Shard, up to 6 (3 shards). Shards come from reaching depth 3, reaching depth 5, and the first Ashen King kill — each waits as a pickup where you earned it — then rarely (~4%) from vault and secret chests. A shard applies on pickup, never sits in the pack, and is stored on the playthrough, not the run.
 - **Potency:** bought at the merchant that used to sell potions: 30% → 35% → 40% → 45% → 50% per sip for 250 / 700 / 1600 / 3200 gold.
 - **Refills mid-delve:** a Font of Mending and a satisfied Hollow Idol mend 60% and add +1 charge (never above max). The Offering Stone never adds a charge.
 - **Dregs:** healing wasted past full health fills a meter; at 50% of max health it empties into +1 charge if you are below max, otherwise it holds full. Resets each delve.
 - **Infusions:** at the forge Flask bench, one stash material is consumed into the flask until replaced. Every infusion costs 10 points of sip healing (a 40% flask sips for 30%) and triggers the material's family bonus for 6s per sip — metal +Defense, wood +Speed, bone +Attack, cloth refills stamina instead, a gem grants its catalyst affix (Shadow Essence → Leech, flame shard → Fire) at forge-rolled strength. Hide waives the cost and sips for +5 points instead, with no timed effect. Fight Milk is a legendary infusion: always on from delve entry (22/s → 37.4/s regen, −20 max stamina), still costing the 10 points. Only changeable in town.
-- **Morsels:** Scrap (rat, bat, cutpurse, wisps) 10%, Cut (archers, shieldbearers, skeletons, spider) 12.5%, Heart (ghoul, Hollow Knight, Barrow Champion, Flame Wraith, mimic) 15% of max health. Per kill: `35% − 2.6% × (depth − 1)`, its own seed stream, untouched by loot find. Eaten with F where it lies (underfoot or faced): 1.2s chew, healing spread across it; a hit drops it with the uneaten remainder kept. Eating at full health is allowed and feeds dregs. Food never steals the one-button swing from a live fight, loses to doors and stairs, shows on the automap, and rots 240s after dropping on the run clock. Rats and bats that reach a morsel first eat it over 1s (interruptible): the monster heals full and keeps +25% health and +15% attack, once each, slightly larger.
+- **Morsels:** Scrap (rat, bat, cutpurse, wisps) 10%, Cut (archers, shieldbearers, skeletons, spider) 12.5%, Heart (ghoul, Hollow Knight, Barrow Champion, Flame Wraith, mimic) 15% of max health. Per kill: `28% − 2.4% × (depth − 1)`, its own seed stream, untouched by loot find. Eaten with F where it lies (underfoot or faced): 1.2s chew, healing spread across it; a hit drops it with the uneaten remainder kept. Eating at full health is allowed and feeds dregs. Food never steals the one-button swing from a live fight, loses to doors and stairs, and loses to a loot pile on the same tile: [F] searches first, and the loot window has an **Eat** button, so a half-emptied pile never hides the food. Once the pile is gone [F] eats. Food shows on the automap, and rots 240s after dropping on the run clock. Rats and bats that reach a morsel first eat it over 1s (interruptible): the monster heals full and keeps +25% health and +15% attack, once each, slightly larger.
 - **Flash and Backstep scrolls:** the two panic buttons, split out of Identify
 and Recall because answering every wind-up for the price of an Identify would
 make telegraphs decorative. Both are used like any consumable, both burn
@@ -941,8 +941,8 @@ whether they land or not, and both cancel a recall read, sip or chew in
 progress. **Flash** (210g): needs the nearest living enemy within 3 tiles in
 front of you, in sight, alerted and facing you — with no such target the light
 still bursts, over nothing. Normal: blind 2s. Mid-wind-up: blind 3s, the swing
-cancelled (*Caught it in the light!*). The King: blind 0.8s, wind-up not
-cancelled. Every flash washes the view white-hot for a beat. **Backstep**
+cancelled (*Caught it in the light!*). The Ashen King does not blink: no
+blind, no cancelled wind-up, no lost trail, and the scroll still burns. Every flash washes the view white-hot for a beat. **Backstep**
 (160g): returns you to the oldest tile of your last 2s still walkable and free,
 at most 4 tiles back, keeping that facing; used while standing still, it burns
 and comes to nothing. Works in the Ashen Throne. A blinded monster cannot start

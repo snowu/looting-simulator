@@ -168,7 +168,7 @@ so new monsters have to pick one.
 
 Per kill, rolled in its own seeded stream so existing loot rolls do not reshuffle:
 
-`chance = 0.35 − 0.026 × (depth − 1)` → 35% on depth 1, about 22% on depth 6 *(tune)*.
+`chance = 0.28 − 0.024 × (depth − 1)` → 28% on depth 1, about 16% on depth 6 *(tune)*.
 
 Target: **25–35% of max health in food per floor** across the delve. Deeper
 floors hit harder but feed you the same, so the flask has to cover the gap. Loot
@@ -178,6 +178,10 @@ find does **not** raise it.
 
 - A morsel lands on the corpse's tile as its own floor object, **not** an item.
   It never enters the backpack, stash, loot window or economy.
+- **A loot pile on the same tile wins.** A corpse usually leaves both, and
+  eating first cost a chew before you could search. [F] opens the pile; the
+  loot window has an **Eat** button, so a half-emptied pile never hides the
+  food; with no pile left, [F] eats.
 - **Eat** with [F] / the context button while standing on or facing it:
   **1.2s chew** *(tune)*, healing spread evenly over the chew. A hit during the
   chew **drops the morsel**: whatever hasn't healed yet is lost, and the morsel
@@ -281,9 +285,13 @@ bursts, over nothing, and the scroll still burns.
 
 | | Normal enemy | Enemy **mid-wind-up** (flash save) | Ashen King |
 |---|---|---|---|
-| Blinded | 2s | **3s** | 0.8s |
+| Blinded | 2s | **3s** | No effect |
 | Wind-up | — | **Cancelled**, attack not delivered | Not cancelled |
 | Shield guard | Dropped for the blind | Dropped for the blind | — |
+
+The King does not blink (*The King does not blink.*): no blind, no lost
+trail, and the scroll still burns. A 0.8s blind ran him through the ordinary
+blind AI, which reset his wind-up and could drop his aggro.
 
 **Blinded monster:**
 - can't start an attack

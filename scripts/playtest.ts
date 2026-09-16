@@ -97,6 +97,9 @@ export interface FloorReport {
   items: number;
   hpLost: number;
   hpFracAtExit: number;
+  /** Morsels whose chew started, and the share of max health they carried. */
+  morsels: number;
+  food: number;
 }
 
 // --- navigation --------------------------------------------------------------
@@ -201,7 +204,7 @@ class Bot {
     this.floorRep = {
       depth: this.w.run.depth, time: 0, kills: 0, enemies: f.enemies.length,
       containersLooted: 0, containersTotal: this.containersAtStart,
-      items: 0, hpLost: 0, hpFracAtExit: 1,
+      items: 0, hpLost: 0, hpFracAtExit: 1, morsels: 0, food: 0,
     };
     this.report.perFloor.push(this.floorRep);
   }
@@ -258,6 +261,15 @@ class Bot {
       .filter((t) => t.d <= 8 && this.w.los(t.e.x, t.e.y, p.x, p.y))
       .sort((a, b) => a.d - b.d)
       .map((t) => t.e);
+  }
+
+  private eat(): boolean {
+    const morsel = this.w.morselNear();
+    if (!morsel || !this.w.eatMorsel()) return false;
+    this.report.morselsEaten++;
+    this.floorRep.morsels++;
+    this.floorRep.food += morsel.remaining;
+    return true;
   }
 
   private hasHeal(): boolean {
@@ -335,9 +347,9 @@ class Bot {
     if (!threats.length && hpFrac < 0.98 && (w.floor.morsels ?? []).length) {
       const near = w.morselNear();
       if (near) {
-        w.interact();
-        known.delete(near.id);
-        this.report.morselsEaten++;
+        // Only a chew that actually started counts. Counting presses logged
+        // hundreds of meals a run whenever a door or a pile took the press.
+        if (this.eat()) known.delete(near.id);
         return true;
       }
       const food = [...(w.floor.morsels ?? [])].sort((a, b) =>
@@ -484,10 +496,8 @@ class Bot {
 
     if (p.x === tx && p.y === ty) {
       const morsel = w.morselNear();
-      if (morsel && !this.threats().length) {
-        w.interact();
+      if (morsel && !this.threats().length && this.eat()) {
         this.knownMorsels.get(w.run.depth)?.delete(morsel.id);
-        this.report.morselsEaten++;
         return true;
       }
       // Standing where we wanted. Face whatever we came for, then use the same
@@ -760,7 +770,7 @@ export function summarise(reports: RunReport[], label: string): string {
   for (let d = 1; d <= 6; d++) {
     const fs = reports.flatMap((r) => r.perFloor.filter((f) => f.depth === d));
     if (!fs.length) continue;
-    L.push(`  D${d} n=${String(fs.length).padStart(3)} time=${avg(fs.map((f) => f.time)).toFixed(0)}s kills=${avg(fs.map((f) => f.kills)).toFixed(1)}/${avg(fs.map((f) => f.enemies)).toFixed(1)} looted=${avg(fs.map((f) => f.containersLooted)).toFixed(1)}/${avg(fs.map((f) => f.containersTotal)).toFixed(1)} items=${avg(fs.map((f) => f.items)).toFixed(1)} hpLost=${avg(fs.map((f) => f.hpLost)).toFixed(0)} hpOut=${(avg(fs.map((f) => f.hpFracAtExit)) * 100).toFixed(0)}%`);
+    L.push(`  D${d} n=${String(fs.length).padStart(3)} time=${avg(fs.map((f) => f.time)).toFixed(0)}s kills=${avg(fs.map((f) => f.kills)).toFixed(1)}/${avg(fs.map((f) => f.enemies)).toFixed(1)} looted=${avg(fs.map((f) => f.containersLooted)).toFixed(1)}/${avg(fs.map((f) => f.containersTotal)).toFixed(1)} items=${avg(fs.map((f) => f.items)).toFixed(1)} hpLost=${avg(fs.map((f) => f.hpLost)).toFixed(0)} hpOut=${(avg(fs.map((f) => f.hpFracAtExit)) * 100).toFixed(0)}% food=${avg(fs.map((f) => f.morsels)).toFixed(1)} (${(avg(fs.map((f) => f.food)) * 100).toFixed(0)}% hp)`);
   }
   return L.join('\n');
 }

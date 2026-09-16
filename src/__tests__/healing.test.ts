@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { createRng } from '../core/rng';
 import { DIRS, DX, DY, turnAround } from '../core/dir';
-import { enemyDef } from '../data/enemies';
+import { BOSS_ID, enemyDef } from '../data/enemies';
 import { newGame } from '../state/game-state';
 import { addItem } from '../state/inventory';
 import { createEnemy, FLOOR } from '../systems/dungeon';
-import { makeConsumable } from '../systems/items';
+import { makeConsumable, makeMaterial } from '../systems/items';
 import { startRun } from '../systems/run';
 import { World } from '../world/world';
 
@@ -40,6 +40,25 @@ describe('healing rework', () => {
     expect(w.player.hp).toBe(20);
     expect(w.run.flask.charges).toBe(charge);
     tick(w, 0.1);
+    expect(w.player.hp).toBeGreaterThan(20);
+    expect(w.run.flask.charges).toBe(charge - 1);
+  });
+
+  it('buffers a sip pressed mid-step instead of dropping it', () => {
+    const w = arena(22);
+    w.player.hp = 20;
+    const charge = w.run.flask.charges;
+    w.press('forward');
+    w.update(1 / 60);
+    w.release('forward');
+    expect(w.moving).toBe(true);
+    // Refused — but buffered, not lost.
+    expect(w.sipFlask()).toBe(false);
+    expect(w.anim.sip).toBeNull();
+    tick(w, 0.3);
+    expect(w.moving).toBe(false);
+    expect(w.anim.sip).not.toBeNull();
+    tick(w, 0.6);
     expect(w.player.hp).toBeGreaterThan(20);
     expect(w.run.flask.charges).toBe(charge - 1);
   });
@@ -216,5 +235,52 @@ describe('healing rework', () => {
     w.use(w.run.backpack.items.find((i) => i.ref === 'scroll_backstep')!.uid);
     expect(w.run.backpack.items.some((i) => i.ref === 'scroll_backstep')).toBe(false);
     expect({ x: w.player.x, y: w.player.y }).toEqual(at);
+  });
+  it('holds a held walk for a buffered sip so the sip lands between steps', () => {
+    const w = arena(23);
+    w.player.hp = 20;
+    w.press('forward');
+    w.update(1 / 60);
+    expect(w.moving).toBe(true);
+    expect(w.sipFlask()).toBe(false);
+    tick(w, 0.3);
+    // Still holding forward, but the landed step gave way to the sip.
+    expect(w.anim.sip).not.toBeNull();
+    w.release('forward');
+  });
+
+  it('searches a pile before eating the food under it, and eats once the pile is gone', () => {
+    const w = arena(24);
+    w.player.hp = 20;
+    w.floor.pickups.push({ id: 'pile', x: w.player.x, y: w.player.y, items: [makeMaterial('copper', 1)], gold: 0 });
+    w.floor.morsels = [{ id: 'm', kind: 'cut', x: w.player.x, y: w.player.y, remaining: 0.125, droppedAt: 0 }];
+    w.drainEvents();
+    expect(w.interactionHint()).toBe('Search');
+    w.interact();
+    expect(w.anim.chew).toBeNull();
+    expect(w.drainEvents().some((ev) => ev.type === 'loot')).toBe(true);
+    // The loot window's Eat button reaches the food without emptying the pile.
+    expect(w.eatMorsel()).toBe(true);
+    expect(w.anim.chew).not.toBeNull();
+    tick(w, 1.3);
+    w.floor.pickups = w.floor.pickups.filter((p) => p.id !== 'pile');
+    w.floor.morsels = [{ id: 'm2', kind: 'scrap', x: w.player.x, y: w.player.y, remaining: 0.1, droppedAt: 0 }];
+    expect(w.interactionHint()).toContain('Eat the scrap');
+    w.interact();
+    expect(w.anim.chew).not.toBeNull();
+  });
+
+  it('a flash scroll does nothing to the Ashen King but still burns', () => {
+    const w = arena(25);
+    addItem(w.run.backpack, makeConsumable('scroll_flash'));
+    const t = w.frontTile(2);
+    const king = createEnemy(enemyDef(BOSS_ID), t.x, t.y, turnAround(w.player.facing), 'king', 1);
+    king.alert = 5;
+    king.ai = 'windup';
+    w.floor.enemies.push(king);
+    w.use(w.run.backpack.items.find((i) => i.ref === 'scroll_flash')!.uid);
+    expect(king.blind ?? 0).toBe(0);
+    expect(king.ai).toBe('windup');
+    expect(w.run.backpack.items.some((i) => i.ref === 'scroll_flash')).toBe(false);
   });
 });

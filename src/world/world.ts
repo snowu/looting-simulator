@@ -52,7 +52,7 @@ import { Rarity } from '../types';
 import type { SfxName } from '../audio/sfx';
 import { SigilId, findSigil, sigil } from '../data/spells';
 import { makeSigil, unknownSigils } from '../systems/spells';
-import { CHEW_SECONDS, DREGS_FRACTION, FLASK_POTENCY, MORSEL_HEAL, MORSEL_ROT_SECONDS, SIP_SECONDS, flaskMax, morselChance } from '../systems/healing';
+import { CHEW_SECONDS, DREGS_FRACTION, FLASK_POTENCY, MORSEL_HEAL, MORSEL_ROT_SECONDS, SIP_BUFFER_SECONDS, SIP_SECONDS, flaskMax, morselChance } from '../systems/healing';
 import { findMaterial, secondaryMaterialMods, catalystAffixBonus } from '../data/materials';
 import { affix } from '../data/affixes';
 import { medianAffix } from '../systems/crafting';
@@ -409,6 +409,8 @@ export class World {
   private pathCache = new Map<string, { t: number; next: [number, number] | null }>();
   private turnReadyAt = 0;
   private trail: { x: number; y: number; facing: Dir; time: number }[] = [];
+  /** A flask sip pressed mid-step, waiting for the step to land. */
+  private sipBuffered = 0;
   time = 0;
 
   constructor(state: GameState) {
@@ -622,14 +624,23 @@ export class World {
   sipFlask(): boolean {
     const flask = (this.run.flask ??= { charges: flaskMax(this.state.flask?.shards ?? 0), dregs: 0 });
     if (this.player.hp >= this.derived.maxHp) {
+      this.sipBuffered = 0;
       this.msg('You are already at full health.', '#888');
       return false;
     }
     if (flask.charges <= 0) {
+      this.sipBuffered = 0;
       this.msg('The flask is dry.', '#888');
       return false;
     }
-    if (this.busy || this.moving || this.anim.attack !== 'idle' || this.anim.cast || this.anim.sip !== null || this.anim.chew) return false;
+    if (this.busy || this.anim.attack !== 'idle' || this.anim.cast || this.anim.sip !== null || this.anim.chew) return false;
+    // Mid-step presses are buffered, not dropped: the sip starts the moment
+    // the step lands, so walking never eats the input. Anything longer than
+    // the buffer is a new decision, not a late one.
+    if (this.moving) {
+      this.sipBuffered = SIP_BUFFER_SECONDS;
+      return false;
+    }
     this.anim.sip = SIP_SECONDS;
     this.held.clear();
     this.setBlock(false);
@@ -730,7 +741,9 @@ export class World {
     }
 
     // Next movement, from the queue or held keys. Stun sits you out.
-    if (!this.moving && a.transition === null && a.stunT <= 0 && !a.cast && a.sip === null && !a.chew) {
+    // A buffered sip holds the next step, or a held walk key would start a new
+    // step on the very tick the last one landed and the sip would never fit.
+    if (!this.moving && a.transition === null && a.stunT <= 0 && !a.cast && a.sip === null && !a.chew && this.sipBuffered <= 0) {
       const next = this.queued ?? this.heldMove();
       this.queued = null;
       if (next) this.doAction(next);
@@ -762,6 +775,15 @@ export class World {
       }
     }
 
+
+    if (this.sipBuffered > 0) {
+      this.sipBuffered = Math.max(0, this.sipBuffered - dt);
+      // One attempt when the step lands, so a refusal speaks once, not per tick.
+      if (!this.moving) {
+        this.sipBuffered = 0;
+        this.sipFlask();
+      }
+    }
 
     if (a.sip !== null) {
       a.sip -= dt;
@@ -2041,9 +2063,9 @@ export class World {
     if (this.townPortalHere()) return this.pickupNear() ? 'Search' : 'Step through to Bleakmere';
     const s = stairsAt(f, t.x, t.y);
     if (s) return s.down ? `Descend to depth ${this.run.depth + 1}` : this.run.depth === 1 ? 'Leave the dungeon' : `Climb to depth ${this.run.depth - 1}`;
+    if (this.pickupNear()) return 'Search';
     const morsel = this.morselNear();
     if (morsel) return `Eat the ${morsel.kind}${this.player.hp >= this.derived.maxHp ? ' (you are not hurt)' : ''}`;
-    if (this.pickupNear()) return 'Search';
     return null;
   }
 
@@ -2288,22 +2310,32 @@ export class World {
       return;
     }
 
-    // Food loses to furniture: a morsel on a stair or door tile must never eat
-    // the press that walks you out. It still beats a loot pile — eat first,
-    // then search. [F] is always deliberate, so unlike the one-button tap it
-    // eats even with something hunting you; the 1.2s chew and the dropped
-    // morsel on a hit are the price, not a refusal.
-    const morsel = this.morselNear();
-    if (morsel) {
-      const name = morsel.kind;
-      this.anim.chew = { id: morsel.id, left: CHEW_SECONDS, delivered: 0, total: Math.round(this.derived.maxHp * morsel.remaining) };
-      this.held.clear();
-      this.msg(`You eat the ${name}.`, '#d8c098');
+    // A corpse usually leaves loot and food on the same tile. The pile wins:
+    // eating first cost a 1.2s chew (and, at full health, the food itself)
+    // before you could search. The loot window offers the food as well, so a
+    // pile you only half-empty never hides the morsel under it; once the pile
+    // is gone, [F] eats. Food still loses to doors and stairs above.
+    const pk = this.pickupNear();
+    if (pk) {
+      this.emit({ type: 'loot', pickupId: pk.id });
       return;
     }
+    this.eatMorsel();
+  }
 
-    const pk = this.pickupNear();
-    if (pk) this.emit({ type: 'loot', pickupId: pk.id });
+  /**
+   * Start chewing the morsel underfoot or faced. [F] is always deliberate, so
+   * unlike the one-button tap it eats even with something hunting you; the
+   * 1.2s chew and the dropped morsel on a hit are the price, not a refusal.
+   */
+  eatMorsel(): boolean {
+    if (this.busy || this.moving || this.anim.attack !== 'idle' || this.anim.cast) return false;
+    const morsel = this.morselNear();
+    if (!morsel) return false;
+    this.anim.chew = { id: morsel.id, left: CHEW_SECONDS, delivered: 0, total: Math.round(this.derived.maxHp * morsel.remaining) };
+    this.held.clear();
+    this.msg(`You eat the ${morsel.kind}.`, '#d8c098');
+    return true;
   }
 
   /**
@@ -2535,6 +2567,10 @@ export class World {
       this.state.flask.shards++;
       this.run.flask.charges = Math.min(flaskMax(this.state.flask.shards), this.run.flask.charges + 1);
       pk.flaskShard = false;
+      if (this.state.flask.shards >= 3) {
+        for (const fl of this.run.floors ?? []) for (const other of fl?.pickups ?? []) other.flaskShard = false;
+        this.prunePickups();
+      }
       moved++;
       this.msg('The Flask Shard dissolves into the vessel. Its capacity grows.', '#9fe0cf');
     }
@@ -2704,8 +2740,15 @@ export class World {
           this.sfx('magic', this.player.x, this.player.y);
           break;
         }
-        const save = target.ai === 'windup' && target.def !== BOSS_ID;
-        target.blind = target.def === BOSS_ID ? 0.8 : save ? 3 : 2;
+        if (target.def === BOSS_ID) {
+          // No blind, no cancelled wind-up, no lost trail: a blind that ran
+          // through the ordinary AI reset his wind-up and could drop his aggro.
+          this.msg('The King does not blink.', '#c0a0ff');
+          this.sfx('magic', target.x, target.y);
+          break;
+        }
+        const save = target.ai === 'windup';
+        target.blind = save ? 3 : 2;
         if (save) { target.ai = 'recover'; target.timer = target.blind; }
         target.guard = 'down'; target.guardT = target.blind;
         this.msg(save ? 'Caught it in the light!' : `${enemyDef(target.def).name} reels from the flash.`, '#fff2a0');
@@ -2724,6 +2767,7 @@ export class World {
         this.player.x = dest.x; this.player.y = dest.y; this.player.facing = dest.facing;
         const yaw = dest.facing * Math.PI / 2;
         Object.assign(this.anim, { fromX: dest.x, fromY: dest.y, moveT: 1, yaw, yawFrom: yaw, yawTo: yaw, turnT: 1 });
+        this.reveal();
         this.sfx('recall'); this.emit({ type: 'shake', amount: 0.22 });
         this.msg('The scroll snaps you back along your path.', '#9ac0ff');
         break;
@@ -3051,7 +3095,7 @@ export class World {
       const def = this.view(e);
       if (def.behavior === 'boss') this.checkBossPhase(e);
       e.hurtT = Math.max(0, e.hurtT - dt);
-      if (!e.scavenged && (e.def === 'rat' || e.def === 'bat') && (e.ai === 'idle' || e.ai === 'wander')) {
+      if (!e.scavenged && /^(rat|bat)(_|$)/.test(e.def) && (e.ai === 'idle' || e.ai === 'wander')) {
         const morsel = (f.morsels ?? []).find((m) => m.x === e.x && m.y === e.y);
         if (morsel) {
           e.eating = (e.eating ?? 1) - dt;
