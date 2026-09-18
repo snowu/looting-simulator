@@ -121,6 +121,7 @@ const SKIP = {
   // The gameplay itself is curated as Patch 48 (hash e01892d).
   '1533b27': 'patch_notes.md section + Patch 48 entry, not loaded by the game',
   '0d7932b': 'dev materials helper behind DEV, not in the game',
+  '86b47ff': 'lab mimic/honest chest buttons behind DEV, not in the game',
 };
 
 // Commits touching only these files maintain the notes themselves and never
