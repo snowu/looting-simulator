@@ -1,3 +1,15 @@
+# Mimics bite like they mean it
+
+*No save change. The new grab timer on a mimic is optional; mimics and chests on floors that already exist behave by the new rules.*
+
+Open a mimic and it grabs you: the lid snaps shut and you are held for about a second, unable to move, guard, drink or parry. Then it bites once for two and a half times its normal blow before armour. Your guard and parry can't stop it; only armour softens it, and it can kill. Then it spits you out and the fight starts.
+
+The way out is the old Dark Souls habit: **hit the chest first.** An honest chest turns your blow aside like a wall, stays shut and loses nothing. Your weapon takes a small bit of wear. A mimic takes the blow, rises up and reveals itself. The pale points in the lid seam are still there for sharp eyes. On touch screens, tap the action button to open a chest and hold it to strike instead.
+
+Validation: typecheck, full test suite with three new mimic tests (grab ignores guard and parry grace, a struck mimic wakes damaged, an honest chest deflects), and a live dev-build check of the grab, bite, spit-out and deflect.
+
+---
+
 # Reorder the delve quick bar by dragging
 
 *Working changes. Save revision 21 is additive; the new quick-bar order defaults to backpack order, so existing delves look exactly as before.*

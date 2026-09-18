@@ -72,4 +72,57 @@ describe('mimics', () => {
     expect(loot!.gold).toBeGreaterThan(0);
     expect(loot!.items.length).toBeGreaterThan(0);
   });
+
+  it('grabs whoever opens it and lands one bite nothing can refuse', () => {
+    const w = arena(73);
+    const t = w.frontTile();
+    w.floor.props.push({ id: 'jaws', kind: 'chest', x: t.x, y: t.y, used: false, tier: 'chest', blocking: true, mimic: true });
+    const hp = w.player.hp;
+
+    w.interact();
+    const mimic = w.floor.enemies[0];
+    expect(mimic.grabT).toBeGreaterThan(0);
+    expect(w.anim.stunT).toBeGreaterThan(mimic.grabT!);
+    // Guard up and parry grace running: neither saves you from inside it.
+    w.setBlock(true);
+    w.anim.blockRaise = 1;
+    w.anim.parryInvulnT = 5;
+    expect(w.sipFlask()).toBe(false);
+
+    for (let i = 0; i < 25 && (mimic.grabT ?? 0) > 0; i++) w.update(0.05);
+
+    expect(mimic.grabT).toBeUndefined();
+    expect(w.player.hp).toBeLessThan(hp);
+    // Far more than an ordinary bite would take through the same armour.
+    expect(hp - w.player.hp).toBeGreaterThan(30);
+  });
+
+  it('rises and takes the blow when struck instead of opened', () => {
+    const w = arena(74);
+    const t = w.frontTile();
+    w.floor.props.push({ id: 'lurker', kind: 'chest', x: t.x, y: t.y, used: false, tier: 'chest', blocking: true, mimic: true });
+
+    (w as unknown as { resolvePlayerAttack(): void }).resolvePlayerAttack();
+
+    expect(w.floor.props.some((p) => p.id === 'lurker')).toBe(false);
+    const mimic = w.floor.enemies[0];
+    expect(mimic.def).toBe('mimic');
+    expect(mimic.hp).toBeLessThan(mimic.maxHp);
+    expect(mimic.grabT).toBeUndefined();
+    expect(w.anim.stunT).toBe(0);
+  });
+
+  it('turns the blow off an honest chest and leaves it shut', () => {
+    const w = arena(75);
+    const t = w.frontTile();
+    w.floor.props.push({ id: 'honest', kind: 'chest', x: t.x, y: t.y, used: false, tier: 'chest', blocking: true, mimic: false });
+    const pickups = w.floor.pickups.length;
+
+    (w as unknown as { resolvePlayerAttack(): void }).resolvePlayerAttack();
+
+    const chest = w.floor.props.find((p) => p.id === 'honest')!;
+    expect(chest.used).toBe(false);
+    expect(w.floor.enemies).toHaveLength(0);
+    expect(w.floor.pickups).toHaveLength(pickups);
+  });
 });

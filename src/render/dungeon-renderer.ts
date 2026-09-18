@@ -368,6 +368,7 @@ export class DungeonRenderer {
         ranged: def.behavior === 'ranged',
         windup: def.windup,
         recovery: def.recovery,
+        grabT: en.grabT,
       });
       wx += DX[en.facing] * pose.lunge;
       wz += DY[en.facing] * pose.lunge;
@@ -376,7 +377,7 @@ export class DungeonRenderer {
       if (en.ai === 'dead') y -= en.deadT * 1.4;
       this.place(s, `${def.sprite}_${pose.frame}`, wx, y, wz, height);
       if (en.hurtT > 0) s.mat.uniforms.uTint.value.set(1, 0.95, 0.9, Math.min(0.8, en.hurtT * 3));
-      else if (en.ai === 'windup') s.mat.uniforms.uTint.value.set(1, 0.2, 0.1, 0.12 + 0.12 * Math.sin(this.time * 30));
+      else if (en.ai === 'windup' || (en.grabT ?? 0) > 0) s.mat.uniforms.uTint.value.set(1, 0.2, 0.1, 0.12 + 0.12 * Math.sin(this.time * 30));
       if (en.ai === 'dead') s.mat.uniforms.uTint.value.set(0, 0, 0, Math.min(1, en.deadT * 1.2));
     }
 

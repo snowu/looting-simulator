@@ -358,7 +358,7 @@ Eligible monsters independently roll a morsel at `0.28 − 0.024 × (depth − 1
 | Door | Opens/closes. Monsters can't open them |
 | Locked door (vault) | Needs that floor's key, which is always findable without it; consumes the key |
 | Masonry-marked wall | Push it aside to open a secret room |
-| Chest | Opens into the loot window; gold goes straight to your purse. 12% are mimics: two pale points in the lid seam are the quiet tell |
+| Chest | Opens into the loot window; gold goes straight to your purse. 12% are mimics: two pale points in the lid seam are the quiet tell. Strike it first: an honest chest glances your blow off, a mimic wakes |
 | Urn / barrel | Smash by attacking or interacting; small loot |
 | Shrine | One of three flavours — see below. The prompt names it before you touch it |
 | Stairs | Walk into the alcove. Floor 1's up-stairs leaves the dungeon |
@@ -577,7 +577,13 @@ animation bench, so a new icon and a new effect can be read without a lucky drop
 
 ### Containers
 
-Each newly generated chest has a deterministic **12% chance to be a mimic**. It looks almost right: two pale points interrupt the lid seam, visible to someone who has learned to check without announcing the trick to a first-time player. Opening one makes it split into a maw and unfold eight wooden legs, with a brief moment to react before this unusually tough, fast monster attacks. Killing it releases the same tier of hoard the chest would have contained, including vault and secret-chest rewards.
+Each newly generated chest has a deterministic **12% chance to be a mimic**. It looks almost right: two pale points interrupt the lid seam, visible to someone who has learned to check without announcing the trick to a first-time player. It follows the Dark Souls rules:
+
+- **Open it** and it grabs you. You are held for **1.1s** (no moving, guarding, drinking, parrying or interacting), then it bites once for **2.5× its normal attack** before armour. Guard, parry, parry grace and block stamina are all ignored; only armour softens it, and it can kill. It spits you out and you are down another **0.45s**, then the mimic has a 0.8s beat before its first ordinary wind-up.
+- **Strike it first** and it rises up, takes the blow as a normal hit and fights. It needs 0.9s to rise, and no grab is possible.
+- **Strike an honest chest** and the blow glances off like it hit a wall: the chest stays shut and undamaged, and the weapon takes 1 wear, half a landed blow. Hitting every chest before opening it is the safe, slightly costly habit.
+
+On touch, tap the action button to open a chest and hold it (0.35s) to strike it instead. Killing a mimic releases the same tier of hoard the chest would have contained, including vault and secret-chest rewards.
 
 | Source | Contents |
 |---|---|

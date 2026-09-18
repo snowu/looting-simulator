@@ -30,6 +30,8 @@ export interface PoseInput {
   ranged: boolean;
   windup: number;
   recovery: number;
+  /** Seconds left chewing on a grabbed player (mimics); absent when not. */
+  grabT?: number;
 }
 
 export interface EnemyPose {
@@ -69,6 +71,8 @@ function strikeLunge(sinceStrike: number, recovery: number, ranged: boolean): nu
 
 export function enemyPose(i: PoseInput): EnemyPose {
   if (i.ai === 'dead') return { frame: '0', lunge: 0 };
+  // Jaws wide and working: pressed into you and chewing in short jerks.
+  if ((i.grabT ?? 0) > 0) return { frame: 'atk', lunge: 0.3 + 0.08 * Math.sin(i.grabT! * 28) };
   const rest: EnemyFrame = i.hasShield && (i.guard ?? 'down') !== 'down' ? 'block' : '0';
   if (i.ai === 'windup') {
     const u = clamp01(1 - i.timer / Math.max(0.01, i.windup));

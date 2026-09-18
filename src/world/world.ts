@@ -191,6 +191,19 @@ const STAMINA_DELAY = 0.9;
  */
 const PARRY_WINDOW = 0.22;
 const PARRY_COOLDOWN = 0.75;
+/**
+ * Opening a mimic, Dark Souls style: it snaps shut on you, chews for
+ * MIMIC_GRAB seconds and bites once for MIMIC_BITE times its normal blow,
+ * which no guard or parry can refuse; only armour softens it. Then it spits you out
+ * and you lie there another MIMIC_SPAT seconds before the fight is yours.
+ * The chest is not a surprise you can react to; it is one you can test for,
+ * by hitting it first.
+ */
+const MIMIC_GRAB = 1.1;
+const MIMIC_BITE = 2.5;
+const MIMIC_SPAT = 0.45;
+/** How long a mimic takes to rise after being struck awake. */
+const MIMIC_RISE = 0.9;
 /** Base grace after a parry; Normal extends it through difficulty tuning. */
 const PARRY_GRACE = 0.75;
 /** Crowd control after turning aside a melee blow. */
@@ -633,7 +646,7 @@ export class World {
       this.msg('The flask is dry.', '#888');
       return false;
     }
-    if (this.busy || this.anim.attack !== 'idle' || this.anim.cast || this.anim.sip !== null || this.anim.chew) return false;
+    if (this.busy || this.grabbed || this.anim.attack !== 'idle' || this.anim.cast || this.anim.sip !== null || this.anim.chew) return false;
     // Mid-step presses are buffered, not dropped: the sip starts the moment
     // the step lands, so walking never eats the input. Anything longer than
     // the buffer is a new decision, not a late one.
@@ -1645,6 +1658,24 @@ export class World {
         this.breakProp(p);
         return;
       }
+      // Dark Souls rules: an honest chest shrugs off a blow like a wall does,
+      // and a mimic takes it and wakes up. Hitting first is the test.
+      if (p && p.kind === 'chest' && !p.used) {
+        if (p.mimic) {
+          const mimic = this.wakeMimic(p, MIMIC_RISE);
+          this.hitEnemy(mimic);
+          this.wear('weapon', 2);
+          this.sfx('alert', p.x, p.y);
+          this.emit({ type: 'shake', amount: 0.4 });
+          if (mimic.ai !== 'dead') this.msg('The chest rises up and reveals itself. Prepare to fight!', '#e8c080');
+          return;
+        }
+        this.sfx('block', p.x, p.y);
+        this.emit({ type: 'shake', amount: 0.15 });
+        this.msg('Your blow glances off the chest. Just wood and iron.', '#a8a090');
+        this.wear('weapon', 1);
+        return;
+      }
       if (blocksSight(f, t.x, t.y)) break;
     }
     this.wearWhiff();
@@ -2018,6 +2049,39 @@ export class World {
     return createRng(hashString(`${this.floor.seed}:${p.id}`));
   }
 
+  /** Swap a disguised chest for the mimic inside it, holding the chest's reward. */
+  private wakeMimic(p: Prop, rise: number): EnemyState {
+    const f = this.floor;
+    f.props = f.props.filter((q) => q !== p);
+    const mimic = createEnemy(enemyDef('mimic'), p.x, p.y, turnAround(this.player.facing), `mimic:${p.id}`, this.run.depth, this.difficultyId);
+    mimic.ai = 'recover';
+    mimic.timer = rise;
+    mimic.alert = 6;
+    mimic.lastSeenX = this.player.x;
+    mimic.lastSeenY = this.player.y;
+    mimic.mimicTier = p.tier === 'none' ? 'chest' : p.tier;
+    mimic.mimicPropId = p.id;
+    f.enemies.push(mimic);
+    return mimic;
+  }
+
+  /** The held bite of a mimic you opened: nothing refuses it but armour. */
+  private mimicBite(e: EnemyState): void {
+    const def = this.view(e);
+    this.sfx('swing', e.x, e.y);
+    e.strikeT = 0;
+    this.damagePlayer(
+      Math.max(1, Math.round(def.attack * MIMIC_BITE * attackPower(e.power) * this.diff.enemyDamage)),
+      def.damageType, e.x, e.y, def.name, def.id, e, true,
+    );
+    if (this.run.outcome === 'active') this.msg('It chews, then spits you out. Get up!', '#ff9070');
+  }
+
+  /** In a mimic's jaws: every other action waits for the bite. */
+  private get grabbed(): boolean {
+    return this.floor.enemies.some((e) => (e.grabT ?? 0) > 0 && e.ai !== 'dead');
+  }
+
   private breakProp(p: Prop): void {
     p.used = true;
     this.sfx('break', p.x, p.y);
@@ -2172,7 +2236,7 @@ export class World {
   }
 
   interact(): void {
-    if (this.busy || this.moving) return;
+    if (this.busy || this.moving || this.grabbed) return;
     const f = this.floor;
     const t = this.frontTile();
 
@@ -2233,19 +2297,17 @@ export class World {
       if (p.kind === 'chest') {
         const tier = p.tier === 'none' ? 'chest' : p.tier;
         if (p.mimic) {
-          f.props = f.props.filter((q) => q !== p);
-          const mimic = createEnemy(enemyDef('mimic'), p.x, p.y, turnAround(this.player.facing), `mimic:${p.id}`, this.run.depth, this.difficultyId);
-          mimic.ai = 'recover';
-          mimic.timer = 0.65;
-          mimic.alert = 6;
-          mimic.lastSeenX = this.player.x;
-          mimic.lastSeenY = this.player.y;
-          mimic.mimicTier = tier;
-          mimic.mimicPropId = p.id;
-          f.enemies.push(mimic);
+          // Its recovery is frozen while it chews, so this is the beat after the bite.
+          const mimic = this.wakeMimic(p, 0.8);
+          mimic.grabT = MIMIC_GRAB;
+          const a = this.anim;
+          a.stunT = Math.max(a.stunT, MIMIC_GRAB + MIMIC_SPAT);
+          a.blockRaise = 0;
+          this.held.clear();
+          this.setBlock(false);
           this.sfx('alert', p.x, p.y);
-          this.emit({ type: 'shake', amount: 0.35 });
-          this.msg('The chest sprouts legs and splits into a hungry grin!', '#e8c080');
+          this.emit({ type: 'shake', amount: 0.8 });
+          this.msg('The lid snaps shut on you — the chest grabs you and tries to eat you whole!', '#ff6a50');
           return;
         }
         p.used = true;
@@ -3110,6 +3172,14 @@ export class World {
       e.attackCd -= dt;
       if (e.strikeT !== undefined) e.strikeT += dt;
       if (e.vuln) e.vuln = Math.max(0, e.vuln - dt);
+      if ((e.grabT ?? 0) > 0) {
+        e.grabT = e.grabT! - dt;
+        if (e.grabT <= 0) {
+          delete e.grabT;
+          this.mimicBite(e);
+        }
+        continue;
+      }
       if ((e.blockT ?? 0) > 0) {
         e.blockT = Math.max(0, (e.blockT ?? 0) - dt);
         if (e.blockT === 0) e.blocks = 0;
@@ -3296,10 +3366,11 @@ export class World {
     source: string,
     sourceId?: string,
     attacker?: EnemyState,
+    unavoidable = false,
   ): void {
     const p = this.player;
     // A parry denies the hit outright and leaves the attacker open.
-    if (this.parries(fromX, fromY)) {
+    if (!unavoidable && this.parries(fromX, fromY)) {
       this.parryFlourish(fromX, fromY);
       const traits = this.derived.traits;
       if (traits.parryFeedMax > 0 && this.anim.parryStacks < traits.parryFeedMax) {
@@ -3329,14 +3400,14 @@ export class World {
       }
       return;
     }
-    if (this.anim.parryInvulnT > 0) return;
+    if (!unavoidable && this.anim.parryInvulnT > 0) return;
     let dmg = enemyHitsPlayer(this.rng, attack, type, this.derived);
     const facingSource = this.facingSource(fromX, fromY);
     let blocked = false;
     // Mid-sip the guard is down by design: the blow lands unblocked, and the
     // heal still lands when the 0.5s commitment completes. Drinking in melee
     // range is supposed to get you hit.
-    if (this.anim.sip === null && this.anim.blockRaise > 0.6 && facingSource) {
+    if (!unavoidable && this.anim.sip === null && this.anim.blockRaise > 0.6 && facingSource) {
       const absorbed = dmg * this.derived.block;
       const cost = absorbed * 1.3;
       if (p.stamina >= cost) {

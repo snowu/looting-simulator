@@ -212,6 +212,13 @@ export interface EnemyState {
   mimicTier?: ContainerTier;
   mimicPropId?: string;
   /**
+   * Seconds left before a mimic that caught you opening it bites down. While
+   * it runs you are held: no moving, guarding, drinking or parrying, and the
+   * bite ignores all of them. **Absent means not grabbing**, so older saves
+   * need no migration.
+   */
+  grabT?: number;
+  /**
    * For a boss: the highest phase whose entrance has already played. **Absent
    * means the first** — the same trick `guard` and `dur` use, so a King already
    * mid-fight in an older save costs no migration. The phase he is actually *in*

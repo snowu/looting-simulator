@@ -87,6 +87,13 @@ const hud = new Hud(app, { interact: () => world?.interact(), flask: () => world
 
 let touchMode = isTouchDevice();
 let touchAttack = false;
+/**
+ * When a finger went down on the action button in front of a chest. A tap
+ * opens it; holding past CHEST_HOLD_MS swings at it instead, which is how a
+ * touch player tests a chest for a mimic the way a keyboard player just hits it.
+ */
+let chestPress: number | null = null;
+const CHEST_HOLD_MS = 350;
 setTouchMode(touchMode);
 let stickDir: TouchMove | null = null;
 const touch = new TouchControls(app, {
@@ -106,10 +113,15 @@ const touch = new TouchControls(app, {
   action: (on) => {
     if (!on) {
       touchAttack = false;
+      if (chestPress !== null) {
+        chestPress = null;
+        world?.interact();
+      }
       return;
     }
     if (!world) return;
-    if (world.contextAction().kind === 'interact') world.interact();
+    if (world.interactionHint() === 'Open chest') chestPress = performance.now();
+    else if (world.contextAction().kind === 'interact') world.interact();
     else {
       touchAttack = true;
       world.attack();
@@ -410,6 +422,7 @@ function show(m: Mode): void {
   hud.visible = m === 'dungeon';
   touch.visible = m === 'dungeon' && touchMode;
   touchAttack = false;
+  chestPress = null;
   stickDir = null;
   pad.reset();
   canvas.style.visibility = m === 'dungeon' ? 'visible' : 'hidden';
@@ -889,6 +902,11 @@ function frame(now: number): void {
         sigil: !!world.run.sigil && world.run.sigil.cd <= 0,
       });
     }
+    if (chestPress !== null && (paused || world.interactionHint() !== 'Open chest')) chestPress = null;
+    if (chestPress !== null && now - chestPress >= CHEST_HOLD_MS) {
+      chestPress = null;
+      world.attack();
+    }
     // Holding the touch attack button keeps swinging.
     if (touchAttack && !paused) world.attack();
     if (!paused) world.update(dt);
@@ -1055,6 +1073,7 @@ function goBackground(): void {
   world?.setBlock(false);
   world?.retrieve(false);
   touchAttack = false;
+  chestPress = null;
   stickDir = null;
   pad.reset();
   if (mode === 'dungeon' && world && !overlays.isOpen && !isSettingsOpen() && !ending) overlays.open('help', world);
