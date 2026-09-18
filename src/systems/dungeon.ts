@@ -111,6 +111,8 @@ export interface Prop {
    * saves and generated floors never carry it.
    */
   shattered?: number;
+  /** An emptied chest broken apart; it no longer blocks. Absent means intact. */
+  smashed?: boolean;
 }
 
 /**
@@ -328,7 +330,7 @@ export function blocksSight(f: Floor, x: number, y: number): boolean {
 export function blocksMove(f: Floor, x: number, y: number): boolean {
   if (blocksSight(f, x, y)) return true;
   const p = propAt(f, x, y);
-  return !!p && p.blocking && !(p.kind === 'urn' || p.kind === 'barrel' || p.kind === 'root_cache' ? p.used : false);
+  return !!p && p.blocking && !(p.kind === 'urn' || p.kind === 'barrel' || p.kind === 'root_cache' ? p.used : p.kind === 'chest' ? !!p.smashed : false);
 }
 
 /** The tile in front of a staircase — where you stand when you arrive. */

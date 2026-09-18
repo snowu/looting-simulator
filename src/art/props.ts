@@ -49,6 +49,26 @@ const CHEST_OPEN = sym([
   ...CHEST_LOWER,
 ]);
 
+// An opened chest smashed flat: the lid gone, the sides snapped to splinters
+// above the lower iron band. It stays on the floor like a broken urn does.
+const CHEST_BROKEN = sym([
+  ...Array.from({ length: 18 }, () => '................'),
+  '....k.......k...',
+  '...kxk.....kxk..',
+  '..kwwk..k..kwwk.',
+  '..kwyk.kxk.kwwkk',
+  '..kiinkkwwkkiiii',
+  '..kwwwwwwwwwwwww',
+  '..kwwwwwwwwywwww',
+  '..kiiniiiiiiiiii',
+  '..kyyyyyyyyyyyyy',
+  '..kkkkkkkkkkkkkk',
+  '...zzzzzzzzzzzzz',
+  '................',
+  '................',
+  '................',
+]);
+
 const CHEST_PAL = {
   k: '#120a05', x: '#8a5c30', w: '#6a4222', y: '#44280f', q: '#1e1008',
   i: '#34343c', n: '#8a8a94', g: '#c09030', h: '#f0d070', z: '#00000066',
@@ -823,6 +843,7 @@ export const PROPS: ArtDef[] = [
   { id: 'chest', palette: CHEST_PAL, rows: CHEST },
   { id: 'chest_mimic', palette: CHEST_PAL, rows: CHEST_MIMIC },
   { id: 'chest_open', palette: CHEST_PAL, rows: CHEST_OPEN },
+  { id: 'chest_broken', palette: CHEST_PAL, rows: CHEST_BROKEN },
   { id: 'mimic_0', palette: CHEST_PAL, rows: MIMIC_IDLE },
   { id: 'mimic_atk', palette: CHEST_PAL, rows: MIMIC_ATK },
   { id: 'urn', palette: URN_PAL, rows: URN },

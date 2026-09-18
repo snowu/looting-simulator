@@ -583,6 +583,7 @@ Each newly generated chest has a deterministic **12% chance to be a mimic**. It 
 - **Strike it first** and the blow only wakes it: no damage, it rises over 0.9s at **full health** and fights. No grab is possible.
 - **Strike an honest chest** and the blow glances off: the chest stays shut. Each blow has a **35% chance (55% with a blunt or two-handed weapon)** to smash one fragile piece inside, meaning one unit of a gem, a valuable or a consumable. Gear and ordinary materials never break. Smashed pieces are missing when you open it, and it says how many.
 - **Any strike on a chest clangs.** Every living enemy within **7 tiles** (Manhattan, through walls) is alerted to your position.
+- **An opened chest breaks in one blow**: it becomes splinters, stops blocking its tile, and makes no clang. Any loot pile on it stays.
 - Every chest strike costs 1 weapon wear. Testing costs loot and noise; reading the lid tell and opening a chest you trust costs neither.
 
 On touch, tap the action button to open a chest and hold it (0.35s) to strike it instead. Killing a mimic releases the same tier of hoard the chest would have contained, including vault and secret-chest rewards.

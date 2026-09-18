@@ -400,7 +400,7 @@ export class DungeonRenderer {
       const wx = tileX(pr.x), wz = tileZ(pr.y);
       switch (pr.kind) {
         case 'chest':
-          this.place(s, pr.used ? 'chest_open' : pr.mimic ? 'chest_mimic' : 'chest', wx, 0, wz, 1.5);
+          this.place(s, pr.smashed ? 'chest_broken' : pr.used ? 'chest_open' : pr.mimic ? 'chest_mimic' : 'chest', wx, 0, wz, 1.5);
           break;
         case 'icicle': {
           const c = pr.ceiling;

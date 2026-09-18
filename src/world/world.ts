@@ -1678,6 +1678,13 @@ export class World {
         this.breakProp(p);
         return;
       }
+      // An emptied chest is only boards now: one blow and it is splinters.
+      if (p && p.kind === 'chest' && p.used && !p.smashed) {
+        p.smashed = true;
+        this.sfx('break', p.x, p.y);
+        this.emit({ type: 'shake', amount: 0.15 });
+        return;
+      }
       // Dark Souls rules: an honest chest shrugs off a blow like a wall does,
       // and a mimic takes it and wakes up. Hitting first is the test.
       if (p && p.kind === 'chest' && !p.used) {

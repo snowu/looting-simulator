@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DIRS, DX, DY } from '../core/dir';
 import { createRng } from '../core/rng';
 import { newGame } from '../state/game-state';
-import { FLOOR, chestIsMimic, createEnemy } from '../systems/dungeon';
+import { FLOOR, blocksMove, chestIsMimic, createEnemy } from '../systems/dungeon';
 import { enemyDef } from '../data/enemies';
 import { findMaterial } from '../data/materials';
 import { startRun } from '../systems/run';
@@ -183,6 +183,29 @@ describe('mimics', () => {
     expect(near.alert).toBeGreaterThan(0);
     expect([near.lastSeenX, near.lastSeenY]).toEqual([w.player.x, w.player.y]);
     expect(far.alert).toBe(0);
+  });
+
+  it('an opened chest breaks in one blow and stops blocking, quietly', () => {
+    const w = arena(78);
+    const t = w.frontTile();
+    w.floor.props.push({ id: 'done', kind: 'chest', x: t.x, y: t.y, used: false, tier: 'chest', blocking: true, mimic: false });
+    const strike = () => (w as unknown as { resolvePlayerAttack(): void }).resolvePlayerAttack();
+
+    strike();
+    const box = w.floor.props.find((p) => p.id === 'done')!;
+    expect(box.smashed).toBeUndefined();
+    expect(blocksMove(w.floor, t.x, t.y)).toBe(true);
+
+    w.interact();
+    const pile = w.floor.pickups.find((pk) => pk.x === t.x && pk.y === t.y);
+    const near = createEnemyAt(w, 3);
+    w.floor.enemies = [near];
+    strike();
+
+    expect(box.smashed).toBe(true);
+    expect(blocksMove(w.floor, t.x, t.y)).toBe(false);
+    expect(near.alert).toBe(0);
+    expect(w.floor.pickups.find((pk) => pk.x === t.x && pk.y === t.y)).toBe(pile);
   });
 });
 
