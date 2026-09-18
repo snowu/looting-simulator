@@ -22,7 +22,7 @@ import { equipFrom } from '../systems/equip';
 import { createRng, randomSeed } from '../core/rng';
 import { Rarity } from '../types';
 import {
-  LAB_ILVL, loadLabLevel, clearLabMobs, killLabMobs, refurbish, restockLabMats, spawnLabConfig, spawnLabMob,
+  LAB_ILVL, loadLabLevel, clearLabMobs, killLabMobs, refurbish, restockLabMats, spawnLabChest, spawnLabConfig, spawnLabMob,
 } from './lab-room';
 import {
   LabConfig, LabMobEntry, deleteLabConfig, exportLabConfig, isBuiltinLabConfig,
@@ -225,6 +225,18 @@ function buildSpawnSection(
       if (!w) return;
       notify(`Slew ${killLabMobs(w)} enemies.`, '#9ac0ff');
     }, 'small'),
+  ));
+  // A closed chest on the tile you face. Open the mimic to be grabbed, strike
+  // it to wake it; strike the honest one to see the blow glance off.
+  const chest = (mimic: boolean) => () => {
+    const w = getWorld();
+    if (!w) return;
+    const ok = spawnLabChest(w, mimic);
+    notify(ok ? `${mimic ? 'Mimic' : 'Honest'} chest placed in front of you.` : 'Face an open floor tile first.', ok ? '#c080ff' : '#ff9070');
+  };
+  wrap.append(h('div', { class: 'row', style: 'gap:4px;margin-bottom:4px' },
+    btn('Mimic chest', chest(true), 'small'),
+    btn('Honest chest', chest(false), 'small'),
   ));
 }
 

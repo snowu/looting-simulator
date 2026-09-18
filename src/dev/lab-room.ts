@@ -28,7 +28,7 @@ import { MATERIALS } from '../data/materials';
 import { MAX_RECIPE_RANK, RECIPES } from '../data/recipes';
 import { META_UPGRADES } from '../systems/meta';
 import { ENEMIES, enemyDef } from '../data/enemies';
-import { Room, blocksMove, createEnemy, generateFloor } from '../systems/dungeon';
+import { Room, blocksMove, createEnemy, doorAt, enemyAt, generateFloor, stairsAt } from '../systems/dungeon';
 import { BIOMES, biomeForDepth } from '../data/biomes';
 import { hashString } from '../core/rng';
 import { Dir, dirOf } from '../core/dir';
@@ -224,6 +224,24 @@ export function killLabMobs(world: World): number {
   }
   world.projectiles.length = 0;
   return n;
+}
+
+/**
+ * Put a closed chest, at rest, on the tile you face: a mimic to test the grab
+ * (open it) and the reveal (strike it), or an honest one to test the glance.
+ * Returns false if that tile is not open floor.
+ */
+export function spawnLabChest(world: World, mimic: boolean): boolean {
+  const f = world.floor;
+  const { x, y } = world.frontTile();
+  if (x < 0 || y < 0 || x >= f.width || y >= f.height) return false;
+  if (blocksMove(f, x, y) || enemyAt(f, x, y) || doorAt(f, x, y) || stairsAt(f, x, y)) return false;
+  f.pickups = f.pickups.filter((pk) => pk.x !== x || pk.y !== y);
+  f.props.push({
+    id: `labchest:${Date.now().toString(36)}`, kind: 'chest', x, y,
+    used: false, tier: 'chest', blocking: true, mimic,
+  });
+  return true;
 }
 
 /** Spawn every entry of a config. Returns the total actually spawned. */

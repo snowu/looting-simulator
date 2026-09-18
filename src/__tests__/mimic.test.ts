@@ -6,6 +6,7 @@ import { FLOOR, chestIsMimic } from '../systems/dungeon';
 import { enemyDef } from '../data/enemies';
 import { startRun } from '../systems/run';
 import { World } from '../world/world';
+import { spawnLabChest } from '../dev/lab-room';
 
 function arena(seed = 71): World {
   const state = newGame(createRng(seed));
@@ -124,5 +125,16 @@ describe('mimics', () => {
     expect(chest.used).toBe(false);
     expect(w.floor.enemies).toHaveLength(0);
     expect(w.floor.pickups).toHaveLength(pickups);
+  });
+
+  it('lab places a resting chest on the faced tile, never into a wall', () => {
+    const w = arena(76);
+    expect(spawnLabChest(w, true)).toBe(true);
+    const t = w.frontTile();
+    const chest = w.floor.props.find((p) => p.x === t.x && p.y === t.y)!;
+    expect(chest).toMatchObject({ kind: 'chest', used: false, mimic: true, blocking: true });
+    expect(w.floor.enemies).toHaveLength(0);
+    // The chest now blocks that tile, so a second one there is refused.
+    expect(spawnLabChest(w, false)).toBe(false);
   });
 });
