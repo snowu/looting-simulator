@@ -5,6 +5,7 @@ import { newGame } from '../state/game-state';
 import { FLOOR, blocksMove, chestIsMimic, createEnemy, propAt } from '../systems/dungeon';
 import { enemyDef } from '../data/enemies';
 import { findMaterial } from '../data/materials';
+import { durability } from '../systems/items';
 import { startRun } from '../systems/run';
 import { World } from '../world/world';
 import { spawnLabChest } from '../dev/lab-room';
@@ -139,35 +140,58 @@ describe('mimics', () => {
     expect(spawnLabChest(w, false)).toBe(false);
   });
 
-  it('smashes fragile loot in an honest chest it is struck, and opening untouched keeps it all', () => {
+  it('every blow on an honest chest breaks something, fragile pieces first, and untouched keeps it all', () => {
     const strike = (w: World) => (w as unknown as { resolvePlayerAttack(): void }).resolvePlayerAttack();
-    const fragile = (items: { kind: string; ref: string; qty: number }[]) =>
-      items.filter((i) => i.kind === 'consumable' || (i.kind === 'material' && ['gem', 'valuable'].includes(findMaterial(i.ref)?.category ?? '')))
-        .reduce((n, i) => n + i.qty, 0);
-    // Find a vault chest whose roll has something fragile to lose.
-    for (let seed = 80; seed < 120; seed++) {
-      const clean = arena(seed);
-      const t = clean.frontTile();
-      clean.floor.props.push({ id: 'box', kind: 'chest', x: t.x, y: t.y, used: false, tier: 'vault', blocking: true, mimic: false });
-      clean.interact();
-      const whole = clean.floor.pickups.find((pk) => pk.x === t.x && pk.y === t.y)!;
-      if (fragile(whole.items) < 2) continue;
-
-      const hit = arena(seed);
-      hit.floor.props.push({ id: 'box', kind: 'chest', x: t.x, y: t.y, used: false, tier: 'vault', blocking: true, mimic: false });
-      for (let i = 0; i < 12; i++) strike(hit);
-      const box = hit.floor.props.find((p) => p.id === 'box')!;
-      expect(box.used).toBe(false);
-      expect(box.shattered).toBeGreaterThan(0);
-      hit.interact();
-      const dented = hit.floor.pickups.find((pk) => pk.x === t.x && pk.y === t.y)!;
-      expect(fragile(dented.items)).toBe(fragile(whole.items) - box.shattered!);
-      // Gear and ordinary materials never break.
-      const sturdy = (items: typeof whole.items) => items.filter((i) => i.kind === 'equipment').length;
-      expect(sturdy(dented.items)).toBe(sturdy(whole.items));
-      return;
+    const isFragile = (i: { kind: string; ref: string }) => i.kind === 'consumable' || i.kind === 'blueprint'
+      || (i.kind === 'material' && ['gem', 'valuable'].includes(findMaterial(i.ref)?.category ?? ''));
+    const units = (items: { kind: string; ref: string; qty: number }[], f: (i: { kind: string; ref: string }) => boolean) =>
+      items.filter(f).reduce((n, i) => n + i.qty, 0);
+    const open = (seed: number, blows: number) => {
+      const w = arena(seed);
+      const t = w.frontTile();
+      w.floor.props.push({ id: 'box', kind: 'chest', x: t.x, y: t.y, used: false, tier: 'vault', blocking: true, mimic: false });
+      for (let i = 0; i < blows; i++) strike(w);
+      const box = w.floor.props.find((p) => p.id === 'box')!;
+      const gold = w.run.gold;
+      w.interact();
+      const pile = w.floor.pickups.find((pk) => pk.x === t.x && pk.y === t.y);
+      return { box, items: pile?.items ?? [], gold: w.run.gold - gold };
+    };
+    let checked = 0;
+    for (let seed = 80; seed < 120 && checked < 3; seed++) {
+      const whole = open(seed, 0);
+      const fragile = units(whole.items, isFragile);
+      if (fragile < 2) continue;
+      // The short sword is neither blunt nor two-handed: exactly one loss per blow.
+      const hit = open(seed, 2);
+      expect(hit.box.used).toBe(true);
+      expect(hit.box.shattered).toBe(2);
+      expect(units(hit.items, isFragile)).toBe(fragile - 2);
+      expect(units(hit.items, (i) => !isFragile(i))).toBe(units(whole.items, (i) => !isFragile(i)));
+      expect(hit.gold).toBe(whole.gold);
+      checked++;
     }
-    throw new Error('no vault roll with fragile loot');
+    expect(checked).toBe(3);
+  });
+
+  it('keeps costing once the chest has nothing fragile left: materials, then gear, then coin', () => {
+    const w = arena(81);
+    const t = w.frontTile();
+    w.floor.props.push({ id: 'box', kind: 'chest', x: t.x, y: t.y, used: false, tier: 'chest', blocking: true, mimic: false });
+    const clean = arena(81);
+    clean.floor.props.push({ id: 'box', kind: 'chest', x: t.x, y: t.y, used: false, tier: 'chest', blocking: true, mimic: false });
+    const before = clean.run.gold;
+    clean.interact();
+    const wholeGold = clean.run.gold - before;
+
+    // Far more blows than the chest has pieces: everything goes, then the coin bleeds.
+    for (let i = 0; i < 40; i++) (w as unknown as { resolvePlayerAttack(): void }).resolvePlayerAttack();
+    const g = w.run.gold;
+    w.interact();
+    const left = w.floor.pickups.find((pk) => pk.x === t.x && pk.y === t.y)?.items ?? [];
+    expect(left.filter((i) => i.kind !== 'equipment')).toHaveLength(0);
+    for (const it of left) expect(durability(it).cur).toBe(0);
+    expect(w.run.gold - g).toBeLessThan(wholeGold);
   });
 
   it('clangs: striking a chest wakes what is near and not what is far', () => {

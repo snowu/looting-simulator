@@ -205,14 +205,18 @@ const MIMIC_SPAT = 0.45;
 /** How long a mimic takes to rise after being struck awake. */
 const MIMIC_RISE = 0.9;
 /**
- * Striking a chest is a test, and it is not free. Each blow on an honest chest
- * may smash one fragile piece inside (a gem, a valuable, a flask or scroll),
- * likelier with a blunt or two-handed weapon; and the clang carries, waking
- * anything within CHEST_CLANG_RADIUS tiles. A player who reads the lid tell
- * and just opens it keeps everything and stays quiet.
+ * Striking a chest is a test, and it is never free. Every blow on an honest
+ * chest breaks one thing inside (see chestLoot for the order), and a blunt or
+ * two-handed weapon has CHEST_SHATTER_HEAVY_EXTRA odds of breaking a second.
+ * The clang carries too, waking anything within CHEST_CLANG_RADIUS tiles. A
+ * player who reads the lid tell and just opens it keeps everything and stays
+ * quiet.
  */
-const CHEST_SHATTER = 0.35;
-const CHEST_SHATTER_HEAVY = 0.55;
+const CHEST_SHATTER_HEAVY_EXTRA = 0.55;
+/** Share of a gear piece's max durability one blow knocks off, once nothing smaller is left to break. */
+const CHEST_DENT = 0.4;
+/** Share of the remaining coin one blow spills, once there is nothing else. */
+const CHEST_SPILL = 0.25;
 const CHEST_CLANG_RADIUS = 7;
 /** Base grace after a parry; Normal extends it through difficulty tuning. */
 const PARRY_GRACE = 0.75;
@@ -287,12 +291,28 @@ const BOSS_PHASE_BEAT = 1.2;
 const RAISED_GUARD_HP = 0.3;
 const MAX_RAISED_GUARDS = 2;
 /** Compact button label for an interaction hint. */
-/** What a blow on a chest can break: gems, valuables, and anything in a flask or on a page. */
+/** What a blow on a chest breaks first: gems, valuables, and anything in a flask or on a page. */
 function fragileLoot(it: Item): boolean {
-  if (it.kind === 'consumable') return true;
+  if (it.kind === 'consumable' || it.kind === 'blueprint') return true;
   if (it.kind !== 'material') return false;
   const cat = findMaterial(it.ref)?.category;
   return cat === 'gem' || cat === 'valuable';
+}
+
+/** "2× Jade, Silver Chalice, Iron Mace dented 2×, 14 gold": repeats counted, coin summed last. */
+function summarizeLost(lost: string[]): string {
+  const counts = new Map<string, number>();
+  let gold = 0;
+  for (const l of lost) {
+    const g = /^(\d+) gold$/.exec(l);
+    if (g) gold += Number(g[1]);
+    else counts.set(l, (counts.get(l) ?? 0) + 1);
+  }
+  const parts = [...counts].map(([l, n]) => l.startsWith('dent:')
+    ? `${l.slice(5)} dented${n > 1 ? ` ${n}×` : ''}`
+    : n > 1 ? `${n}× ${l}` : l);
+  if (gold) parts.push(`${gold} gold`);
+  return parts.join(', ');
 }
 
 export function shortLabel(hint: string): string {
@@ -1700,8 +1720,8 @@ export class World {
         }
         this.sfx('block', p.x, p.y);
         this.emit({ type: 'shake', amount: 0.15 });
-        if (this.shatterInChest(p)) this.msg('Your blow glances off the chest — and something inside shatters.', '#d0a070');
-        else this.msg('Your blow glances off the chest. Just wood and iron.', '#a8a090');
+        this.shatterInChest(p);
+        this.msg('Your blow glances off the chest. Something inside breaks.', '#d0a070');
         return;
       }
       if (blocksSight(f, t.x, t.y)) break;
@@ -2077,34 +2097,50 @@ export class World {
     return createRng(hashString(`${this.floor.seed}:${p.id}`));
   }
 
-  /** What a chest holds, less whatever blows have already smashed inside it. */
-  private chestLoot(p: Prop, tier: ContainerTier): { items: Item[]; gold: number; lost: number } {
+  /**
+   * What a chest holds, less whatever blows have already broken inside it.
+   * Each recorded blow takes one thing, worst first: a fragile piece (gem,
+   * valuable, consumable, blueprint), then a unit of material, then a dent in
+   * the gear, and once nothing else is left, a quarter of the coin.
+   */
+  private chestLoot(p: Prop, tier: ContainerTier): { items: Item[]; gold: number; lost: string[] } {
     const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
     const loot = rollContainerLoot(this.propRng(p), this.run.depth, this.derived.find, tier, idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId);
     // Its own stream, so which piece broke never moves the loot roll itself.
     const pick = createRng(hashString(`chest-shatter:${this.floor.seed}:${p.id}`));
-    let lost = 0;
-    for (let n = p.shattered ?? 0; n > 0; n--) {
-      const fragile = loot.items.filter(fragileLoot);
-      if (!fragile.length) break;
-      const it = pick.pick(fragile);
+    const lost: string[] = [];
+    const takeOne = (it: Item) => {
+      lost.push(itemName(it));
       it.qty -= 1;
       if (it.qty <= 0) loot.items.splice(loot.items.indexOf(it), 1);
-      lost++;
+    };
+    for (let n = p.shattered ?? 0; n > 0; n--) {
+      const fragile = loot.items.filter(fragileLoot);
+      if (fragile.length) { takeOne(pick.pick(fragile)); continue; }
+      const mats = loot.items.filter((it) => it.kind === 'material');
+      if (mats.length) { takeOne(pick.pick(mats)); continue; }
+      const gear = loot.items.filter((it) => it.kind === 'equipment' && durability(it).wears && durability(it).cur > 0);
+      if (gear.length) {
+        const it = pick.pick(gear);
+        const d = durability(it);
+        it.dur = Math.max(0, d.cur - Math.ceil(d.max * CHEST_DENT));
+        lost.push(`dent:${itemName(it)}`);
+        continue;
+      }
+      if (loot.gold > 0) {
+        const spilt = Math.max(1, Math.round(loot.gold * CHEST_SPILL));
+        loot.gold -= spilt;
+        lost.push(`${spilt} gold`);
+      }
     }
     return { ...loot, lost };
   }
 
-  /** One blow's worth of damage to an honest chest's fragile contents. True if something broke. */
-  private shatterInChest(p: Prop): boolean {
-    const tier = p.tier === 'none' ? 'chest' : p.tier;
-    const left = this.chestLoot(p, tier).items.filter(fragileLoot).reduce((n, it) => n + it.qty, 0);
-    if (left <= 0) return false;
+  /** Record what one blow on an honest chest breaks inside it: always one thing, sometimes two. */
+  private shatterInChest(p: Prop): void {
     const heavy = this.derived.twoHanded || this.derived.damageType === 'blunt';
     const struck = createRng(hashString(`chest-strike:${this.floor.seed}:${p.id}:${this.chestBlows++}`));
-    if (!struck.chance(heavy ? CHEST_SHATTER_HEAVY : CHEST_SHATTER)) return false;
-    p.shattered = (p.shattered ?? 0) + 1;
-    return true;
+    p.shattered = (p.shattered ?? 0) + (heavy && struck.chance(CHEST_SHATTER_HEAVY_EXTRA) ? 2 : 1);
   }
 
   /** Iron on iron carries: anything near enough comes to see what it was. */
@@ -2385,7 +2421,7 @@ export class World {
         p.used = true;
         this.sfx('chest', p.x, p.y);
         const loot = this.chestLoot(p, tier);
-        if (loot.lost > 0) this.msg(`${loot.lost === 1 ? 'One piece' : `${loot.lost} pieces`} inside lie smashed to shards.`, '#d0a070');
+        if (loot.lost.length) this.msg(`Your blows cost you: ${summarizeLost(loot.lost)}.`, '#d0a070');
         const sigilDrop = this.rollSigil(
           `chest:${p.id}`,
           tier === 'vault' || tier === 'secret' ? 0.22 : 0.03 * Math.max(0, Math.min(1, (this.run.depth - 1) / 4)),
