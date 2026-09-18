@@ -310,8 +310,17 @@ export function trapAt(f: Floor, x: number, y: number): Trap | undefined {
   return f.traps?.find((t) => t.x === x && t.y === y);
 }
 
+/** Broken urns, barrels, root caches and smashed chests: scenery now, nothing to act on. */
+function isWreckage(p: Prop): boolean {
+  return p.kind === 'chest' ? !!p.smashed : (p.kind === 'urn' || p.kind === 'barrel' || p.kind === 'root_cache') && p.used;
+}
+
+/**
+ * The prop you would act on at a tile. Wreckage is skipped, so anything that
+ * ends up on the same tile as it (a chest set down on splinters) is still found.
+ */
 export function propAt(f: Floor, x: number, y: number): Prop | undefined {
-  return f.props.find((p) => p.x === x && p.y === y && p.kind !== 'fungus' && p.kind !== 'bones' && p.kind !== 'icicle');
+  return f.props.find((p) => p.x === x && p.y === y && p.kind !== 'fungus' && p.kind !== 'bones' && p.kind !== 'icicle' && !isWreckage(p));
 }
 
 export function enemyAt(f: Floor, x: number, y: number): EnemyState | undefined {
@@ -330,7 +339,8 @@ export function blocksSight(f: Floor, x: number, y: number): boolean {
 export function blocksMove(f: Floor, x: number, y: number): boolean {
   if (blocksSight(f, x, y)) return true;
   const p = propAt(f, x, y);
-  return !!p && p.blocking && !(p.kind === 'urn' || p.kind === 'barrel' || p.kind === 'root_cache' ? p.used : p.kind === 'chest' ? !!p.smashed : false);
+  // propAt already passes over wreckage, which is what lets you walk through it.
+  return !!p && p.blocking;
 }
 
 /** The tile in front of a staircase — where you stand when you arrive. */

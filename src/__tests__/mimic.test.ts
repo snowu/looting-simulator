@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DIRS, DX, DY } from '../core/dir';
 import { createRng } from '../core/rng';
 import { newGame } from '../state/game-state';
-import { FLOOR, blocksMove, chestIsMimic, createEnemy } from '../systems/dungeon';
+import { FLOOR, blocksMove, chestIsMimic, createEnemy, propAt } from '../systems/dungeon';
 import { enemyDef } from '../data/enemies';
 import { findMaterial } from '../data/materials';
 import { startRun } from '../systems/run';
@@ -206,6 +206,22 @@ describe('mimics', () => {
     expect(blocksMove(w.floor, t.x, t.y)).toBe(false);
     expect(near.alert).toBe(0);
     expect(w.floor.pickups.find((pk) => pk.x === t.x && pk.y === t.y)).toBe(pile);
+  });
+
+  it('a chest set down on splinters can still be struck, opened and walked into', () => {
+    const w = arena(79);
+    const t = w.frontTile();
+    w.floor.props.push({ id: 'old', kind: 'chest', x: t.x, y: t.y, used: true, tier: 'chest', blocking: true, mimic: false, smashed: true });
+    expect(blocksMove(w.floor, t.x, t.y)).toBe(false);
+
+    expect(spawnLabChest(w, false)).toBe(true);
+    const fresh = w.floor.props[w.floor.props.length - 1];
+    expect(propAt(w.floor, t.x, t.y)).toBe(fresh);
+    expect(blocksMove(w.floor, t.x, t.y)).toBe(true);
+    expect(w.interactionHint()).toBe('Open chest');
+
+    w.interact();
+    expect(fresh.used).toBe(true);
   });
 });
 
