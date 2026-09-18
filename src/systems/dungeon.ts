@@ -105,6 +105,12 @@ export interface Prop {
    * never see the field.
    */
   offerings?: number;
+  /**
+   * Fragile pieces (gems, valuables, consumables) a struck chest has smashed,
+   * taken out of its loot when it is opened. Absent means none, so older
+   * saves and generated floors never carry it.
+   */
+  shattered?: number;
 }
 
 /**

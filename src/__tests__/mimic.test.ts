@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { DIRS, DX, DY } from '../core/dir';
 import { createRng } from '../core/rng';
 import { newGame } from '../state/game-state';
-import { FLOOR, chestIsMimic } from '../systems/dungeon';
+import { FLOOR, chestIsMimic, createEnemy } from '../systems/dungeon';
 import { enemyDef } from '../data/enemies';
+import { findMaterial } from '../data/materials';
 import { startRun } from '../systems/run';
 import { World } from '../world/world';
 import { spawnLabChest } from '../dev/lab-room';
@@ -98,7 +99,7 @@ describe('mimics', () => {
     expect(hp - w.player.hp).toBeGreaterThan(30);
   });
 
-  it('rises and takes the blow when struck instead of opened', () => {
+  it('only wakes when struck: it rises at full health and cannot grab', () => {
     const w = arena(74);
     const t = w.frontTile();
     w.floor.props.push({ id: 'lurker', kind: 'chest', x: t.x, y: t.y, used: false, tier: 'chest', blocking: true, mimic: true });
@@ -108,7 +109,7 @@ describe('mimics', () => {
     expect(w.floor.props.some((p) => p.id === 'lurker')).toBe(false);
     const mimic = w.floor.enemies[0];
     expect(mimic.def).toBe('mimic');
-    expect(mimic.hp).toBeLessThan(mimic.maxHp);
+    expect(mimic.hp).toBe(mimic.maxHp);
     expect(mimic.grabT).toBeUndefined();
     expect(w.anim.stunT).toBe(0);
   });
@@ -137,4 +138,56 @@ describe('mimics', () => {
     // The chest now blocks that tile, so a second one there is refused.
     expect(spawnLabChest(w, false)).toBe(false);
   });
+
+  it('smashes fragile loot in an honest chest it is struck, and opening untouched keeps it all', () => {
+    const strike = (w: World) => (w as unknown as { resolvePlayerAttack(): void }).resolvePlayerAttack();
+    const fragile = (items: { kind: string; ref: string; qty: number }[]) =>
+      items.filter((i) => i.kind === 'consumable' || (i.kind === 'material' && ['gem', 'valuable'].includes(findMaterial(i.ref)?.category ?? '')))
+        .reduce((n, i) => n + i.qty, 0);
+    // Find a vault chest whose roll has something fragile to lose.
+    for (let seed = 80; seed < 120; seed++) {
+      const clean = arena(seed);
+      const t = clean.frontTile();
+      clean.floor.props.push({ id: 'box', kind: 'chest', x: t.x, y: t.y, used: false, tier: 'vault', blocking: true, mimic: false });
+      clean.interact();
+      const whole = clean.floor.pickups.find((pk) => pk.x === t.x && pk.y === t.y)!;
+      if (fragile(whole.items) < 2) continue;
+
+      const hit = arena(seed);
+      hit.floor.props.push({ id: 'box', kind: 'chest', x: t.x, y: t.y, used: false, tier: 'vault', blocking: true, mimic: false });
+      for (let i = 0; i < 12; i++) strike(hit);
+      const box = hit.floor.props.find((p) => p.id === 'box')!;
+      expect(box.used).toBe(false);
+      expect(box.shattered).toBeGreaterThan(0);
+      hit.interact();
+      const dented = hit.floor.pickups.find((pk) => pk.x === t.x && pk.y === t.y)!;
+      expect(fragile(dented.items)).toBe(fragile(whole.items) - box.shattered!);
+      // Gear and ordinary materials never break.
+      const sturdy = (items: typeof whole.items) => items.filter((i) => i.kind === 'equipment').length;
+      expect(sturdy(dented.items)).toBe(sturdy(whole.items));
+      return;
+    }
+    throw new Error('no vault roll with fragile loot');
+  });
+
+  it('clangs: striking a chest wakes what is near and not what is far', () => {
+    const w = arena(77);
+    const t = w.frontTile();
+    w.floor.props.push({ id: 'loud', kind: 'chest', x: t.x, y: t.y, used: false, tier: 'chest', blocking: true, mimic: false });
+    const near = { ...createEnemyAt(w, 3) };
+    const far = { ...createEnemyAt(w, 20) };
+    w.floor.enemies = [near, far];
+
+    (w as unknown as { resolvePlayerAttack(): void }).resolvePlayerAttack();
+
+    expect(near.alert).toBeGreaterThan(0);
+    expect([near.lastSeenX, near.lastSeenY]).toEqual([w.player.x, w.player.y]);
+    expect(far.alert).toBe(0);
+  });
 });
+
+function createEnemyAt(w: World, dist: number) {
+  const e = createEnemy(enemyDef('skeleton'), w.player.x + dist, w.player.y, 0, `e${dist}`, 1);
+  e.alert = 0;
+  return e;
+}

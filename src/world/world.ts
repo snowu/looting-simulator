@@ -36,7 +36,7 @@ import { biomeForFloor, FINAL_DEPTH } from '../data/biomes';
 import { PlayerDerived, derivePlayer, thrownView } from '../systems/player';
 import { DifficultyId, DifficultyDef, difficultyOf } from '../data/difficulty';
 import { enemyHitsPlayer, playerHitsEnemy, staminaPower } from '../systems/combat';
-import { durability, identify, isIdentified, itemName, makeMaterial, rollContainerLoot, rollEnemyLoot, uniqueOf, wearItem } from '../systems/items';
+import { ContainerTier, durability, identify, isIdentified, itemName, makeMaterial, rollContainerLoot, rollEnemyLoot, uniqueOf, wearItem } from '../systems/items';
 import { nameRelic } from '../systems/relics';
 import { recordDepth, recordKill } from '../systems/contracts';
 import {
@@ -204,6 +204,16 @@ const MIMIC_BITE = 2.5;
 const MIMIC_SPAT = 0.45;
 /** How long a mimic takes to rise after being struck awake. */
 const MIMIC_RISE = 0.9;
+/**
+ * Striking a chest is a test, and it is not free. Each blow on an honest chest
+ * may smash one fragile piece inside (a gem, a valuable, a flask or scroll),
+ * likelier with a blunt or two-handed weapon; and the clang carries, waking
+ * anything within CHEST_CLANG_RADIUS tiles. A player who reads the lid tell
+ * and just opens it keeps everything and stays quiet.
+ */
+const CHEST_SHATTER = 0.35;
+const CHEST_SHATTER_HEAVY = 0.55;
+const CHEST_CLANG_RADIUS = 7;
 /** Base grace after a parry; Normal extends it through difficulty tuning. */
 const PARRY_GRACE = 0.75;
 /** Crowd control after turning aside a melee blow. */
@@ -277,6 +287,14 @@ const BOSS_PHASE_BEAT = 1.2;
 const RAISED_GUARD_HP = 0.3;
 const MAX_RAISED_GUARDS = 2;
 /** Compact button label for an interaction hint. */
+/** What a blow on a chest can break: gems, valuables, and anything in a flask or on a page. */
+function fragileLoot(it: Item): boolean {
+  if (it.kind === 'consumable') return true;
+  if (it.kind !== 'material') return false;
+  const cat = findMaterial(it.ref)?.category;
+  return cat === 'gem' || cat === 'valuable';
+}
+
 export function shortLabel(hint: string): string {
   if (hint === 'Search') return 'Loot';
   if (hint.startsWith('Descend')) return 'Descend';
@@ -539,6 +557,8 @@ export class World {
 
   /** Swings into empty air since the last scuff: every third one wears the edge. */
   private whiffs = 0;
+  /** Blows landed on chests this session, so each one rolls its own shatter chance. */
+  private chestBlows = 0;
   /** Throttles the broken-guard refusal so holding block can't spam it. */
   private guardWarnCd = 0;
 
@@ -1661,19 +1681,20 @@ export class World {
       // Dark Souls rules: an honest chest shrugs off a blow like a wall does,
       // and a mimic takes it and wakes up. Hitting first is the test.
       if (p && p.kind === 'chest' && !p.used) {
+        this.wear('weapon', 1);
+        this.chestClang(p);
+        // The blow only wakes it: it rises at full health, as in Dark Souls.
         if (p.mimic) {
-          const mimic = this.wakeMimic(p, MIMIC_RISE);
-          this.hitEnemy(mimic);
-          this.wear('weapon', 2);
+          this.wakeMimic(p, MIMIC_RISE);
           this.sfx('alert', p.x, p.y);
           this.emit({ type: 'shake', amount: 0.4 });
-          if (mimic.ai !== 'dead') this.msg('The chest rises up and reveals itself. Prepare to fight!', '#e8c080');
+          this.msg('The chest rises up and reveals itself. Prepare to fight!', '#e8c080');
           return;
         }
         this.sfx('block', p.x, p.y);
         this.emit({ type: 'shake', amount: 0.15 });
-        this.msg('Your blow glances off the chest. Just wood and iron.', '#a8a090');
-        this.wear('weapon', 1);
+        if (this.shatterInChest(p)) this.msg('Your blow glances off the chest — and something inside shatters.', '#d0a070');
+        else this.msg('Your blow glances off the chest. Just wood and iron.', '#a8a090');
         return;
       }
       if (blocksSight(f, t.x, t.y)) break;
@@ -2049,6 +2070,50 @@ export class World {
     return createRng(hashString(`${this.floor.seed}:${p.id}`));
   }
 
+  /** What a chest holds, less whatever blows have already smashed inside it. */
+  private chestLoot(p: Prop, tier: ContainerTier): { items: Item[]; gold: number; lost: number } {
+    const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
+    const loot = rollContainerLoot(this.propRng(p), this.run.depth, this.derived.find, tier, idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId);
+    // Its own stream, so which piece broke never moves the loot roll itself.
+    const pick = createRng(hashString(`chest-shatter:${this.floor.seed}:${p.id}`));
+    let lost = 0;
+    for (let n = p.shattered ?? 0; n > 0; n--) {
+      const fragile = loot.items.filter(fragileLoot);
+      if (!fragile.length) break;
+      const it = pick.pick(fragile);
+      it.qty -= 1;
+      if (it.qty <= 0) loot.items.splice(loot.items.indexOf(it), 1);
+      lost++;
+    }
+    return { ...loot, lost };
+  }
+
+  /** One blow's worth of damage to an honest chest's fragile contents. True if something broke. */
+  private shatterInChest(p: Prop): boolean {
+    const tier = p.tier === 'none' ? 'chest' : p.tier;
+    const left = this.chestLoot(p, tier).items.filter(fragileLoot).reduce((n, it) => n + it.qty, 0);
+    if (left <= 0) return false;
+    const heavy = this.derived.twoHanded || this.derived.damageType === 'blunt';
+    const struck = createRng(hashString(`chest-strike:${this.floor.seed}:${p.id}:${this.chestBlows++}`));
+    if (!struck.chance(heavy ? CHEST_SHATTER_HEAVY : CHEST_SHATTER)) return false;
+    p.shattered = (p.shattered ?? 0) + 1;
+    return true;
+  }
+
+  /** Iron on iron carries: anything near enough comes to see what it was. */
+  private chestClang(p: Prop): void {
+    let woken = 0;
+    for (const e of this.floor.enemies) {
+      if (e.ai === 'dead' || this.protectedByFog(e)) continue;
+      if (Math.abs(e.x - p.x) + Math.abs(e.y - p.y) > CHEST_CLANG_RADIUS) continue;
+      if (e.alert <= 0) woken++;
+      e.alert = Math.max(e.alert, 6);
+      e.lastSeenX = this.player.x;
+      e.lastSeenY = this.player.y;
+    }
+    if (woken) this.msg('The clang echoes down the halls. Something heard it.', '#ff9070');
+  }
+
   /** Swap a disguised chest for the mimic inside it, holding the chest's reward. */
   private wakeMimic(p: Prop, rise: number): EnemyState {
     const f = this.floor;
@@ -2312,8 +2377,8 @@ export class World {
         }
         p.used = true;
         this.sfx('chest', p.x, p.y);
-        const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
-        const loot = rollContainerLoot(this.propRng(p), this.run.depth, this.derived.find, tier, idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId);
+        const loot = this.chestLoot(p, tier);
+        if (loot.lost > 0) this.msg(`${loot.lost === 1 ? 'One piece' : `${loot.lost} pieces`} inside lie smashed to shards.`, '#d0a070');
         const sigilDrop = this.rollSigil(
           `chest:${p.id}`,
           tier === 'vault' || tier === 'secret' ? 0.22 : 0.03 * Math.max(0, Math.min(1, (this.run.depth - 1) / 4)),
