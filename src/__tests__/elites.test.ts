@@ -7,7 +7,7 @@ import { FLOOR, EnemyState, createEnemy, generateFloor, promoteElite } from '../
 import { BOSS_ID, ENEMIES, THIEF_GLOW, enemyDef, enemyView } from '../data/enemies';
 import {
   ELITES, ELITE_GOLD_MULT, ELITE_HP_MULT, FRENZY_AT, HASTED_WINDUP_MULT, IRONHIDE_DEFENSE_MULT, IRONHIDE_HP_MULT,
-  THIEF_ESCAPE, VENGEFUL_FUSE, eliteChance, eliteFor, eligibleTraits,
+  THIEF_CREEP, THIEF_ESCAPE, THIEF_LADEN, THIEF_TRAIL_EVERY, VENGEFUL_FUSE, eliteChance, eliteFor, eligibleTraits,
 } from '../data/elites';
 import { makeMaterial, rollEnemyLoot } from '../systems/items';
 import { startRun } from '../systems/run';
@@ -214,6 +214,45 @@ describe('the thieving Cutpurse', () => {
     expect(e.ai).toBe('dead');
     expect(e.stolen).toBeUndefined();
     expect(w.floor.pickups.some((p) => p.items.some((i) => i.ref === 'iron' && i.qty === 3))).toBe(false);
+  });
+});
+
+describe('chasing a thief', () => {
+  it('is slower while it carries your things', () => {
+    const def = enemyDef('goblin');
+    expect(enemyView(def, 10, 10, { carrying: true }).step).toBeCloseTo(def.step * THIEF_LADEN);
+    expect(def.step * THIEF_LADEN).toBeGreaterThan(0.24);
+  });
+
+  it('goes to ground out of sight: one creeping step, then a wait', () => {
+    const w = arena(98);
+    const e = facing(w, 'goblin');
+    e.stolen = [makeMaterial('iron', 3)];
+    e.stolenT = 0;
+    e.lastSeenX = w.player.x;
+    e.lastSeenY = w.player.y;
+    priv(w).runWithLoot(e, enemyDef('goblin'), 1, false, 0.016);
+    expect(e.pauseT).toBe(THIEF_CREEP);
+    const at = [e.x, e.y];
+    e.moveT = 1;
+    priv(w).runWithLoot(e, enemyDef('goblin'), 1, false, 0.5);
+    expect([e.x, e.y]).toEqual(at);
+  });
+
+  it('leaves a trail of coins as it runs', () => {
+    const w = arena(99);
+    const e = facing(w, 'goblin');
+    e.stolen = [makeMaterial('iron', 3)];
+    e.stolenT = 0; e.trailN = 0; e.trailDrops = 0;
+    const gold = () => w.floor.pickups.reduce((n, p) => n + p.gold, 0);
+    const before = gold();
+    for (let i = 0; i < THIEF_TRAIL_EVERY * 3; i++) {
+      e.pauseT = 0;
+      e.moveT = 1;
+      priv(w).runWithLoot(e, enemyDef('goblin'), 3, true, 0.016);
+    }
+    expect(e.trailDrops ?? 0).toBeGreaterThan(0);
+    expect(gold()).toBeGreaterThan(before);
   });
 });
 

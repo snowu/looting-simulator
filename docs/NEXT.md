@@ -309,7 +309,8 @@ Log (newest last), one line per landed piece with what is and is not done:
   on the `elite:` stream after generation; read through `enemyView` mods; glow,
   pulse and target-bar name as the tell; loot ×2.5 gold / ×3 gear / ×1.5
   materials on the same draws. The Cutpurse (`thief: true`) steals on an
-  unblocked blow and flees; kill it to recover, 20s out of sight and it escapes.
+  unblocked blow and flees; kill it to recover, 30s out of sight and it escapes
+  (was 20s; see the chase fix below).
   No save migration (all fields optional). Not done: the codex doesn't list
   traits yet, Oaths can't raise the elite chance yet (`eliteFor` takes a
   `bonus` for that), and the headless bot doesn't chase thieves deliberately.
@@ -352,6 +353,21 @@ Log (newest last), one line per landed piece with what is and is not done:
 - Art previews for PR descriptions are PNG sheets from `npm run art:sheet`,
   committed under `docs/previews/ri-*.png` and embedded by raw URL (user's
   request, 2026-09-19).
+- 2026-09-19 — **PR 3 follow-ups** (user feedback). The ore and sealed
+  textures were far too obvious, so both were redrawn quiet: ore is a thin
+  fissure with a few dull, translucent glints; sealed is a faint, broken mortar
+  outline with a hairline crack (the plain shortcut crack is unchanged). Easter
+  egg: an unbroken Mining Pick breaks any crack in one blow; in MECHANICS.md,
+  deliberately not in the patch notes.
+- 2026-09-19 — **Thief chase fix** (user: "nearly impossible to chase").
+  The old flee took the step that maximised distance every tick and kept
+  sprinting away from your last-seen position out of sight. Now: laden ×1.25
+  step, 12% fumble (0.7s stand) per step in sight, panicked step choice (any
+  step not closer, prefers straight, no lookahead, so it bolts into dead ends),
+  creeps one tile per 1.5s out of sight, a coin trail every 3 steps (max 6),
+  escape 30s. A scripted chase sim didn't reproduce the problem (a bot chaser
+  caught even the old thief 55/60), so the fix targets the causes, not a sim
+  number; it needs a human read.
 
 ## The problem
 

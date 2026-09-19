@@ -345,7 +345,7 @@ Eligible monsters independently roll a morsel at `0.28 − 0.024 × (depth − 1
 - **Shields** (Shieldbearer, Shieldguard): while you are close the guard runs a rhythm you can read off the sprite — the shield sweeps center (**raise**, 0.25s), holds (**up**, 1.4s), drops (**down**, 1.6s). A frontal blow into the raise is answered with a shield-bash: your guard drops, you are **stunned for 1 second**, and the bearer starts a swing you cannot dodge. A frontal blow into the hold is **absorbed for 75%** with no stagger; three chips running sag the guard and drop it early. Blows from behind, mid-swing, while reeling, or into the dropped guard land full — and break the chip count. Flank them, meet their swing, or time the drop.
 - **Ranged:** only fire along a row or column with clear sight. They back away if you close to melee and sidestep to line up a shot. Bolts travel tile by tile, so strafing out of the line dodges them.
 - **Skittish** (goblins): flee below 35% health.
-- **Thieves** (the Goblin Cutpurse, and any *Thieving* elite): a melee blow that gets through (not parried, not blocked, and you survive it) takes one thing from your backpack: a piece of gear whole, or half a stack rounded up. Equipped gear is never at risk. The thief then flees at once, glowing gold so you can chase it in the dark, and the target bar says what it is carrying. Kill it and it drops what it took. If it spends **20 seconds** (`THIEF_ESCAPE`) out of your sight, it gets away and the item is gone. Cornered, it fights. It steals once; a thief that is already carrying does not steal again.
+- **Thieves** (the Goblin Cutpurse, and any *Thieving* elite): a melee blow that gets through (not parried, not blocked, and you survive it) takes one thing from your backpack: a piece of gear whole, or half a stack rounded up. Equipped gear is never at risk. The thief then flees at once, glowing gold so you can chase it in the dark, and the target bar says what it is carrying. It is a chase you are meant to win. Laden, it steps **1.25×** slower (`THIEF_LADEN`). After a step in your sight it has a **12%** chance to fumble its prize and stand still for **0.7s**. It runs in a panic, not cleverly: any step that isn't towards you, preferring to keep going straight, so it will bolt into a dead end. Out of your sight it goes to ground, creeping one tile every **1.5s** (`THIEF_CREEP`) and still glowing. Every 3 steps, up to 6 times, 1–3 coins spill from its purse, leaving a trail. Kill it and it drops what it took. If it spends **30 seconds** (`THIEF_ESCAPE`) out of your sight, it gets away and the item is gone. Cornered, it fights. It steals once; a thief that is already carrying does not steal again.
 - **Boss:** melee when adjacent, otherwise a three-bolt shadow volley when aligned.
 
 ### The Gravecaller and remains
@@ -473,7 +473,7 @@ Diablo's, in short: a two-way door that costs one scroll for the round trip.
 
 *Files: `src/data/walls.ts`, `placeCracks` in `src/systems/dungeon.ts`, `strikeCrack` in `src/world/world.ts`, the cracked-wall box in `src/render/level-mesh.ts`*
 
-Some wall tiles are **cracked**: the biome's own wall with a fissure drawn over it. Any weapon breaks one in **3 blows** (`CRACK_BLOWS`). The count is the same for every weapon for now, by decision, to be revisited after play. Every blow:
+Some wall tiles are **cracked**: the biome's own wall with a fissure drawn over it. Any weapon breaks one in **3 blows** (`CRACK_BLOWS`), by decision, to be revisited after play. One quiet exception, kept as an easter egg and left out of the patch notes on purpose: an unbroken **Mining Pick** brings any cracked wall down in **one** blow ("The pick finds the fault line."). Every blow:
 - **wears your weapon** by 2, like a landed hit
 - is **loud**: monsters within **6 tiles** (`CRACK_NOISE`) are alerted to where you stand, through walls
 
@@ -482,8 +482,8 @@ A broken wall becomes floor for good. The tile, its floor, ceiling and inner wal
 | Kind | What shows | Where | Breaking it |
 |---|---|---|---|
 | Shortcut | a plain fissure | a wall one tile thick between two floors at least **12 steps** apart the long way round | opens a new way through |
-| Seam | a fissure packed with glinting ore | a wall tile with exactly one open side | opens an alcove and spills **2–4** metal ore for the depth |
-| Cache | the mortar outline of a bricked-up niche, cracked | a wall tile with exactly one open side | opens an alcove with a hoard rolled like a **chest**, never less than `10 + 8 × depth` gold |
+| Seam | a thin fissure with a few dull glints, noticed on a second look | a wall tile with exactly one open side | opens an alcove and spills **2–4** metal ore for the depth |
+| Cache | a faint, broken mortar outline of a bricked-up niche with a hairline crack; the subtlest of the three | a wall tile with exactly one open side | opens an alcove with a hoard rolled like a **chest**, never less than `10 + 8 × depth` gold |
 
 Per floor: 2 shortcuts, 1 cache, and `1 + 2 on Burrows/Mines floors + 1 from depth 4` seams, at least 6 tiles apart. None on the border, within a tile of a door, stair, secret or blocking prop, on a wall a torch hangs from, or on the throne floor. Breaking one only ever adds floor, so it can't strand a key or a stair. Placement is the last generation pass, on its own stream (`cracks:<floorSeed>:<depth>`); the Hard golden test removes it before matching the pre-elite hash.
 

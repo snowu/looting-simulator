@@ -290,6 +290,11 @@ export interface EnemyState {
   raiseCd?: number;
   /** How many it has raised this life. */
   raised?: number;
+  /** A fleeing thief's pause: fumbling its prize, or waiting between creeps out of sight. */
+  pauseT?: number;
+  /** Steps a thief has run with its loot, and how many coin drops it has left as a trail. */
+  trailN?: number;
+  trailDrops?: number;
 }
 
 export interface Morsel {
