@@ -4,10 +4,12 @@ import { DX, DY, turnRight } from '../core/dir';
 import { biomeForFloor, ceilingForFloor } from '../data/biomes';
 import { enemyDef, enemyView } from '../data/enemies';
 import { ELITES } from '../data/elites';
+import { DROP_SECONDS } from '../data/ambush';
 import { findMaterial } from '../data/materials';
 import { findSigil } from '../data/spells';
 import { itemBase, viewmodelFor } from '../data/items';
-import { Floor, ShrineKind } from '../systems/dungeon';
+import { EnemyState, Floor, ShrineKind } from '../systems/dungeon';
+import type { EnemyDef } from '../types';
 import { itemIcon } from '../systems/items';
 import { lightIntensity } from '../systems/meta';
 import { World } from '../world/world';
@@ -155,6 +157,30 @@ export class DungeonRenderer {
   }
 
   /** Lay a sprite flat on the floor as a decal, one tile wide. */
+  /**
+   * A hidden monster. Buried: its mound, sliding between tiles as it travels
+   * and heaving as it rises. On the ceiling: nothing until you have spotted it,
+   * then a dark shape high in the gloom; once it lets go, the fall.
+   */
+  private drawLurker(en: EnemyState, def: EnemyDef): void {
+    const t = en.moveT < 1 ? en.moveT : 1;
+    const wx = tileX(en.fromX + (en.x - en.fromX) * t), wz = tileZ(en.fromY + (en.y - en.fromY) * t);
+    if (en.lurk === 'buried') {
+      const s = this.sprite(`m:${en.id}`);
+      const rising = en.lurkT !== undefined && !en.tunnelling;
+      const heave = rising ? 1.1 + 0.12 * Math.sin(this.time * 40) : 0.9 + 0.05 * Math.sin(this.time * 6 + en.x);
+      this.placeFlat(s, 'mound', wx, wz, heave);
+      return;
+    }
+    if (!en.spotted && en.lurkT === undefined) return;
+    const s = this.sprite(`e:${en.id}`);
+    const height = def.scale * 1.9;
+    const fall = en.lurkT === undefined ? 0 : 1 - Math.max(0, en.lurkT) / DROP_SECONDS;
+    const top = WALL_H - height * 0.95;
+    this.place(s, `${def.sprite}_0`, wx, top * (1 - fall * fall), wz, height);
+    s.mat.uniforms.uTint.value.set(0, 0, 0, 0.5 * (1 - fall));
+  }
+
   private placeFlat(s: SpriteObj, art: string, x: number, z: number, size = 1): void {
     const tex = artTexture(art);
     if (s.mat.uniforms.map.value !== tex) s.mat.uniforms.map.value = tex;
@@ -328,7 +354,8 @@ export class DungeonRenderer {
     for (const en of floor.enemies) {
       const def = enemyDef(en.def);
       const view = enemyView(def, en.hp, en.maxHp, { elite: en.elite, carrying: !!en.stolen?.length });
-      if (view.glow && en.ai !== 'dead') lights.push({ x: tileX(en.x), y: 1.2, z: tileZ(en.y), r: 4.5, color: new THREE.Color(view.glow), intensity: 0.9 });
+      // A lurker throws no light: an elite glowing on the ceiling would be no ambush.
+      if (view.glow && en.ai !== 'dead' && !en.lurk) lights.push({ x: tileX(en.x), y: 1.2, z: tileZ(en.y), r: 4.5, color: new THREE.Color(view.glow), intensity: 0.9 });
       // A Vengeful corpse's fuse: a swelling violet light over the body.
       if (en.burstT !== undefined) lights.push({ x: tileX(en.x), y: 0.6, z: tileZ(en.y), r: 3.5, color: new THREE.Color(ELITES.vengeful.color), intensity: 0.8 + 0.8 * Math.abs(Math.sin(this.time * 14)) });
     }
@@ -354,6 +381,10 @@ export class DungeonRenderer {
       // The phase view, so the King's sprite family, glow and guard all follow
       // the fight. Everything else gets its own stat block back unchanged.
       const def = enemyView(enemyDef(en.def), en.hp, en.maxHp, { elite: en.elite, carrying: !!en.stolen?.length });
+      if (en.lurk && en.ai !== 'dead') {
+        this.drawLurker(en, def);
+        continue;
+      }
       // A Vengeful corpse stays up, pulsing, until it goes off.
       const fused = en.burstT !== undefined;
       if (en.ai === 'dead' && en.deadT > 0.9 && !fused) continue;

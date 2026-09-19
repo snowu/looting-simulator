@@ -348,6 +348,29 @@ Eligible monsters independently roll a morsel at `0.28 − 0.024 × (depth − 1
 - **Thieves** (the Goblin Cutpurse, and any *Thieving* elite): a melee blow that gets through (not parried, not blocked, and you survive it) takes one thing from your backpack: a piece of gear whole, or half a stack rounded up. Equipped gear is never at risk. The thief then flees at once, glowing gold so you can chase it in the dark, and the target bar says what it is carrying. Kill it and it drops what it took. If it spends **20 seconds** (`THIEF_ESCAPE`) out of your sight, it gets away and the item is gone. Cornered, it fights. It steals once; a thief that is already carrying does not steal again.
 - **Boss:** melee when adjacent, otherwise a three-bolt shadow volley when aligned.
 
+### Ambushers
+
+*Files: `src/data/ambush.ts`, the ambush pass at the end of generation in `src/systems/dungeon.ts`, `updateLurker` / `emerge` / `knockOut` / `dive` in `src/world/world.ts`*
+
+Some monsters are not standing where you can see them. A **lurker** (`EnemyState.lurk`) clings to the ceiling or lies under the floor. Until it comes out it is not on its tile for any purpose: you walk under or over it, bolts pass it, it does not block other monsters, it doesn't count as a nearby threat (so it can't give itself away by stopping tap-to-loot), it doesn't show on the map, and it throws no light, not even as an elite.
+
+**The fairness rule: an ambusher never deals damage the moment it appears.** It lands or surfaces on its own tile if that is free, otherwise on a free tile beside you. It then starts in recovery for **0.5s** (`AMBUSH_BEAT`) before it may wind up, with the normal red flash. An ambush costs you position, never a free hit.
+
+| | Ceiling dropper | Buried |
+|---|---|---|
+| Who | **Ceiling Crawler** (30 HP, 10 attack, a Cave Spider's timing; never in the ordinary spawn pool) | **Tunnel Stalkers** on Vermin Burrows and Deep Mines floors (half of them, `STALKER_BURIED`), and a diving **Delver Mole** |
+| Where | Over corridor tiles at least 8 steps from the arrival point: 1 per floor at depths 2–3, 2 at depths 4–5, none at depth 1 or on the throne floor | Wherever the stalker spawned |
+| How you see it | Spotted by the same look that finds traps (the tiles ahead, plus the four beside you, with Lantern Wick and Charlie Work reaching further). Sounding finds any within 6. Spotted: a dark shape high up, red eyes showing. Unspotted: invisible | Always visible as a **mound** of turned earth (a flat decal that heaves slowly) |
+| Set off by | You coming within 1 tile | You coming within 1 tile |
+| The tell | **0.6s** (`DROP_SECONDS`) of falling, with dust and a skitter: "Dust sifts down from above — something skitters!" | **0.4s** of rumble: "The ground heaves!" |
+| Strike it first | A spotted dropper on the tile you face can be hit from below | Any mound on the tile you face can be hit |
+
+**Struck where it hides**, a lurker comes out at once, reeling for **1.5s** (`KNOCKOUT_STUN`) and open to double damage like a parried monster. The one-button tap swings at a visible lurker in front of you.
+
+**The Delver Mole dives.** Once per life, below **35%** health, it goes under instead of fleeing. It travels as a mound one tile per **0.45s** (slower than you walk), heading greedily for the tile at your back, for **2–4s** or until it is beside you. Then it surfaces, preferring your back, under the same no-damage rule.
+
+Placement uses its own stream (`ambush:<floorSeed>:<depth>`) after elites, so it moves nothing else. `hard-golden.test.ts` removes placed droppers and un-buries stalkers before matching the pre-elite hash.
+
 ### Elites
 
 *Files: `src/data/elites.ts`, `promoteElite` in `src/systems/dungeon.ts`, `enemyView` in `src/data/enemies.ts`*

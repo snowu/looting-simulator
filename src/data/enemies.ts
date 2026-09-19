@@ -206,6 +206,18 @@ export const ENEMIES: EnemyDef[] = [
     description: 'Old bones behind a white wall. Flank it — the shield only faces you.',
   },
   {
+    // Never in the ordinary pool (weight 0): placed only by the ambush pass in
+    // generation, clinging to corridor ceilings. A Cave Spider's body with a
+    // little less of it, because the fight starts with you out of position.
+    id: 'ceiling_crawler', name: 'Ceiling Crawler', sprite: 'spider', scale: 0.6,
+    hp: 30, attack: 10, defense: 2, damageType: 'pierce', resist: { fire: 1.5, slash: 1.3, pierce: 1.35 },
+    behavior: 'melee', step: 0.28, windup: 0.42, recovery: 0.8, sight: 5,
+    minDepth: 2, maxDepth: 5, weight: 0,
+    loot: [{ id: 'spider_silk', chance: 0.5, min: 1, max: 2 }, { id: 'bone', chance: 0.3, min: 1, max: 1 }],
+    gold: [0, 5], itemChance: 0.03,
+    description: 'It waits upside down where the torchlight does not reach, and lets go when something warm walks under it. Look up.',
+  },
+  {
     id: 'spider', name: 'Cave Spider', sprite: 'spider', scale: 0.6,
     hp: 36, attack: 11, defense: 3, damageType: 'pierce', resist: { fire: 1.5, slash: 1.3, pierce: 1.35 },
     // The shortest attack cycle of any melee in the game, which made it the
@@ -348,7 +360,7 @@ export const ENEMIES: EnemyDef[] = [
 const MORSELS: Record<string, NonNullable<EnemyDef['morsel']>> = {
   rat: 'scrap', bat: 'scrap', goblin: 'scrap', ember_wisp: 'scrap', frost_wisp: 'scrap',
   goblin_archer: 'cut', goblin_shield: 'cut', skeleton: 'cut', skeleton_archer: 'cut',
-  skeleton_shield: 'cut', spider: 'cut', ghoul: 'heart', hollow_knight: 'heart',
+  skeleton_shield: 'cut', spider: 'cut', ceiling_crawler: 'cut', ghoul: 'heart', hollow_knight: 'heart',
   barrow_champion: 'heart', flame_wraith: 'heart', mimic: 'heart',
 };
 for (const enemy of ENEMIES) enemy.morsel = MORSELS[enemy.id];
@@ -366,6 +378,7 @@ ENEMIES.push(...ELEMENTAL_VARIANTS.map((variant) => {
 }));
 ENEMIES.push({
   id: 'mole', name: 'Delver Mole', sprite: 'mole', scale: 0.75,
+  burrows: true,
   hp: 32, attack: 9, defense: 3, damageType: 'blunt', resist: { blunt: 0.65, pierce: 1.4, slash: 1.3 },
   behavior: 'skittish', step: 0.65, windup: 0.8, recovery: 1, sight: 5,
   shield: { block: 0.55, stun: 0.6 }, minDepth: 1, maxDepth: 3, weight: 1,

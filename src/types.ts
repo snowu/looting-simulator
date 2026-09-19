@@ -432,6 +432,11 @@ export interface EnemyDef {
    * trait gives it to anything that swings.
    */
   thief?: boolean;
+  /**
+   * Digs: badly hurt, it dives under the floor and travels as a mound, then
+   * surfaces beside you — behind you, if it can. See `src/data/ambush.ts`.
+   */
+  burrows?: boolean;
   minDepth: number;
   maxDepth: number;
   weight: number;
