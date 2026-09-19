@@ -30,7 +30,7 @@ export const ROADS: Record<string, RoadDef> = {
   mines: {
     biome: 'mines', name: 'The Mine Road', color: '#c8a070',
     danger: 'Goblin shieldbearers, the Barrow Champion, burrowers under the rubble.',
-    reward: 'Metal: ore spills from the seams, and the goblins carry iron.',
+    reward: 'Metal: ore spills from the seams. Braced walls brought down crush whatever stands beside them.',
   },
   frostvault: {
     biome: 'frostvault', name: 'The Frozen Road', color: '#9ad0ff',

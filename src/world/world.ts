@@ -13,6 +13,10 @@ import {
   RETRIEVAL_MULT, RIPOSTE_MULT, RIPOSTE_WINDOW,
 } from '../data/properties';
 import { FORK_DEPTH, ROADS, ROAD_DEPTHS } from '../data/routes';
+import {
+  BURROWS_NOISE_MULT, COLLAPSE_BASE, COLLAPSE_PER_DEPTH, COLLAPSE_STUN, LAWS, OSSUARY_RISE_HP, OSSUARY_STIR, OSSUARY_STIR_AFTER,
+  ROOT_CACHE_LURE, lawFor,
+} from '../data/laws';
 import { HUNTER_DEPTHS, HUNTER_MARKS, HUNTER_SIGHT, OATHS, UNBROKEN_DEPTH, UNBROKEN_WEAR } from '../data/oaths';
 import { eligibleTraits } from '../data/elites';
 import { RAISE_BEAT, RAISE_CHANNEL, RAISE_COOLDOWN, RAISE_HP, RAISE_LIMIT, RAISE_REACH, SHATTER_OVERKILL } from '../data/necromancy';
@@ -1085,7 +1089,8 @@ export class World {
     }
     this.retrieve(false);
     run.depth += dir === 'down' ? 1 : -1;
-    if (!run.floors[run.depth - 1]) {
+    const fresh = !run.floors[run.depth - 1];
+    if (fresh) {
       // Pity guarantees: ≥1 shrine in depths 1–3, ≥2 in 4–6. Natural rolls
       // cover most runs; the force only bites on a drought.
       const force = shrinePityFor(run.floors, run.depth);
@@ -1126,6 +1131,8 @@ export class World {
     this.reveal();
     const biome = biomeForFloor(f);
     this.msg(`Depth ${run.depth} — ${biome.name}`, '#d8c8a8');
+    const law = lawFor(f.biome);
+    if (law && fresh) this.msg(law.arrival, law.color);
     if (run.depth === FINAL_DEPTH && dir === 'down') this.msg('The air is thick with ash. Something waits below the throne.', '#c080ff');
     this.emit({ type: 'floor' });
   }
@@ -1224,7 +1231,7 @@ export class World {
       let woken = 0;
       for (const e of this.floor.enemies) {
         if (e.ai === 'dead') continue;
-        if (Math.abs(e.x - trap.x) + Math.abs(e.y - trap.y) > 12) continue;
+        if (Math.abs(e.x - trap.x) + Math.abs(e.y - trap.y) > this.noise(12)) continue;
         e.alert = Math.max(e.alert, 10);
         e.lastSeenX = trap.x;
         e.lastSeenY = trap.y;
@@ -1703,7 +1710,7 @@ export class World {
 
   private castWardcry(): void {
     for (const e of this.floor.enemies) {
-      if (e.ai === 'dead' || Math.abs(e.x - this.player.x) + Math.abs(e.y - this.player.y) > 8) continue;
+      if (e.ai === 'dead' || Math.abs(e.x - this.player.x) + Math.abs(e.y - this.player.y) > this.noise(8)) continue;
       e.alert = Math.max(e.alert, 8);
       e.lastSeenX = this.player.x;
       e.lastSeenY = this.player.y;
@@ -2131,6 +2138,62 @@ export class World {
     (oath.placed ??= []).push(f.depth);
   }
 
+  /** Burrows: how far a noise of radius `r` actually carries on this floor. */
+  private noise(r: number): number {
+    return this.floor.biome === 'burrows' ? Math.round(r * BURROWS_NOISE_MULT) : r;
+  }
+
+  /**
+   * Ossuary: undead remains that were neither shattered nor sanctified stir
+   * `OSSUARY_STIR_AFTER` seconds after death, then stand `OSSUARY_STIR` later
+   * at `OSSUARY_RISE_HP`, risen, so they pay nothing twice and never rise
+   * again. Only on the crossing, so corpses left behind on a floor you walk
+   * back onto do not all stand at once.
+   */
+  private ossuaryStir(e: EnemyState, before: number, dt: number): void {
+    if (e.stirT !== undefined) {
+      e.stirT -= dt;
+      if (e.stirT > 0) return;
+      delete e.stirT;
+      if (e.remains) return;
+      this.raiseCorpse(e);
+      e.hp = Math.max(1, Math.round(e.maxHp * OSSUARY_RISE_HP));
+      return;
+    }
+    if (before >= OSSUARY_STIR_AFTER || e.deadT < OSSUARY_STIR_AFTER) return;
+    const def = enemyDef(e.def);
+    if (!def.undead || def.behavior === 'boss' || e.risen || e.remains || e.burstT !== undefined || e.mimicTier) return;
+    e.stirT = OSSUARY_STIR;
+    if (Math.abs(e.x - this.player.x) + Math.abs(e.y - this.player.y) <= 10) this.msg(`The ${def.name}'s bones stir.`, LAWS.crypt.color);
+  }
+
+  /**
+   * Mines: a cracked wall brought down drops its rotten timbering on every
+   * monster beside it, for a crushing blow and a stagger. You are the one
+   * striking it, from beside it, so the roof never falls on you.
+   */
+  private collapse(x: number, y: number): void {
+    const dealtTo: string[] = [];
+    for (const e of this.floor.enemies) {
+      if (e.ai === 'dead' || e.lurk || Math.abs(e.x - x) + Math.abs(e.y - y) !== 1) continue;
+      const def = enemyDef(e.def);
+      const dealt = Math.max(1, Math.round((COLLAPSE_BASE + COLLAPSE_PER_DEPTH * this.run.depth) * (def.resist.blunt ?? 1)));
+      e.hp -= dealt;
+      e.hurtT = 0.3;
+      e.alert = Math.max(e.alert, 8);
+      if (def.behavior !== 'boss') {
+        e.ai = 'recover';
+        e.timer = Math.max(e.timer, COLLAPSE_STUN);
+        e.attackCd = Math.max(e.attackCd, COLLAPSE_STUN + 0.2);
+      }
+      this.emit({ type: 'float', x: e.x, y: e.y, text: `${dealt}!`, color: LAWS.mines.color });
+      dealtTo.push(def.name);
+      if (e.hp <= 0) this.killEnemy(e);
+    }
+    this.emit({ type: 'shake', amount: 0.5 });
+    this.msg(dealtTo.length ? `The timbers give and the roof comes down on the ${dealtTo.join(' and the ')}!` : 'The timbers give. Rock rains down where the wall stood.', LAWS.mines.color);
+  }
+
   /**
    * Kindling: a blow with fire in it, landing on a monster below `KINDLING_AT`
    * of its health, also burns one monster beside it for the fire share.
@@ -2385,7 +2448,7 @@ export class World {
     let woken = 0;
     for (const e of this.floor.enemies) {
       if (e.ai === 'dead' || this.protectedByFog(e)) continue;
-      if (Math.abs(e.x - p.x) + Math.abs(e.y - p.y) > CHEST_CLANG_RADIUS) continue;
+      if (Math.abs(e.x - p.x) + Math.abs(e.y - p.y) > this.noise(CHEST_CLANG_RADIUS)) continue;
       if (e.alert <= 0) woken++;
       e.alert = Math.max(e.alert, 6);
       e.lastSeenX = this.player.x;
@@ -2430,6 +2493,19 @@ export class World {
   private breakProp(p: Prop): void {
     p.used = true;
     this.sfx('break', p.x, p.y);
+    // Burrows: the crack of old roots is a lure. What hears it comes to the
+    // cache, not to you — so break it and be somewhere else.
+    if (p.kind === 'root_cache' && this.floor.biome === 'burrows') {
+      let drawn = 0;
+      for (const e of this.floor.enemies) {
+        if (e.ai === 'dead' || e.lurk || Math.abs(e.x - p.x) + Math.abs(e.y - p.y) > ROOT_CACHE_LURE) continue;
+        e.alert = Math.max(e.alert, 8);
+        e.lastSeenX = p.x;
+        e.lastSeenY = p.y;
+        drawn++;
+      }
+      this.msg(drawn ? 'The roots crack like a shot. Something skitters towards the sound.' : 'The roots crack like a shot. Nothing answers.', LAWS.burrows.color);
+    }
     const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
     const loot = rollContainerLoot(this.propRng(p), this.run.depth, this.derived.find, 'urn', idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId);
     this.dropLoot(p.x, p.y, loot.items, loot.gold);
@@ -3503,7 +3579,9 @@ export class World {
     const p = this.player;
     for (const e of f.enemies) {
       if (e.ai === 'dead') {
+        const before = e.deadT;
         e.deadT += dt;
+        if (f.biome === 'crypt') this.ossuaryStir(e, before, dt);
         if (e.burstT !== undefined) {
           e.burstT -= dt;
           if (e.burstT <= 0) {
@@ -4189,7 +4267,7 @@ export class World {
     this.emit({ type: 'crack', id: c.id, hits: c.hits });
     for (const e of f.enemies) {
       if (e.ai === 'dead' || e.lurk || this.protectedByFog(e)) continue;
-      if (Math.abs(e.x - c.x) + Math.abs(e.y - c.y) > CRACK_NOISE) continue;
+      if (Math.abs(e.x - c.x) + Math.abs(e.y - c.y) > this.noise(CRACK_NOISE)) continue;
       e.alert = Math.max(e.alert, 6);
       e.lastSeenX = this.player.x;
       e.lastSeenY = this.player.y;
@@ -4201,6 +4279,7 @@ export class World {
     c.broken = true;
     f.tiles[c.y * f.width + c.x] = FLOOR;
     if (pick) this.msg('The pick finds the fault line. The wall comes down in one.', '#e8d8a0');
+    if (f.biome === 'mines') this.collapse(c.x, c.y);
     this.reveal();
     const rng = createRng(hashString(`crack:${f.seed}:${c.id}`));
     if (c.kind === 'seam') {
