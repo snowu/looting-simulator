@@ -1194,7 +1194,7 @@ export class Town {
     return wrap;
   }
 
-  /** The Oath Stone: swear one oath for the next delve, or none. */
+  /** The Oath Stone: swear oaths for the next delve, or none. */
   private oathStone(): HTMLElement {
     const s = this.s;
     const sworn = pendingOaths(s);
@@ -1204,7 +1204,7 @@ export class Town {
       'div',
       { class: 'pane frame' },
       h('h3', { text: 'The Oath Stone' }),
-      h('p', { class: 'dim small', text: `Today's oaths: one hard, two medium, and they change with the days. Swear as many as you dare, or none. Each kept oath pays inscriptions you have not learned (one for medium, two for hard), keep every one of two or more and you learn one more, and a broken oath loses only its own reward.` }),
+      h('p', { class: 'dim small', text: `Today's oaths: two hard, three medium, and they change with the days. Swear as many as you dare, or none. Each kept oath pays inscriptions you have not learned (one for medium, two for hard), keep every one of two or more and you learn one more, and a broken oath loses only its own reward.` }),
       h('div', { class: 'col' }, ...today.map((id) => {
         const def = OATHS[id];
         const on = sworn.includes(id);

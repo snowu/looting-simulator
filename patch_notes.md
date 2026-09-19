@@ -4,7 +4,7 @@
 
 **Swear as many oaths as you dare.** Each one's rule applies, and each is kept or broken on its own. Kept oaths pay separately: a **medium** oath one inscription, a **hard** oath **two**. **Keep every oath you swore, having sworn at least two, and you learn one more.** A broken oath only loses its own reward.
 
-**The stone changes with the days.** Each day it offers one hard oath and two medium ones, from a pool of eight:
+**The stone changes with the days.** Each day it offers two hard oaths and three medium ones, from a pool of eight:
 
 - **Blood Price** (hard): go down cursed with Frailty, which fonts won't lift. Bring home 250 gold found.
 - **Dry Throat** (hard): your flask starts empty; fonts and dregs still refill it. Reach depth 4.
@@ -15,9 +15,9 @@
 - **Silence** (medium): monsters see you less, but every noise carries twice as far. Reach depth 3 without springing an alarm ward or shouting Wardcry.
 - **Pilgrim** (medium): Hollow Idols curse far more often. Pray at three shrines.
 
-All of them ask you to come home alive. The Descend panel shows the day's three and what keeping them all would pay; the HUD tracks each one.
+All of them ask you to come home alive. The Descend panel shows the day's five and what keeping them all would pay; the HUD tracks each one. A reward paying several inscriptions is picked together in town and learned at once.
 
-Validation: typecheck, production build, and the full test suite (729 tests), twice. New tests cover the daily offer (one hard, two medium, stable through the day, every oath appearing over a month), swearing several at once (only today's, only in town), migrating single oaths into lists, each oath's rule and objective, the per-oath pay with the keep-them-all bonus, a broken oath losing only its own share, and claiming picks one at a time. Checked in the dev lab in Chrome: the Descend panel with the day's three oaths, swearing two, and the "keep them all" total. Not played through a real multi-oath delve yet.
+Validation: typecheck, production build, and the full test suite (730 tests), twice. New tests cover the daily offer (two hard, three medium, stable through the day, every oath appearing over a month), swearing several at once (only today's, only in town), migrating single oaths into lists, each oath's rule and objective, the per-oath pay with the keep-them-all bonus, a broken oath losing only its own share, and claiming a reward's picks together. Checked in the dev lab in Chrome: the Descend panel with the day's five oaths, swearing two, and the "keep them all" total. Not played through a real multi-oath delve yet.
 
 ---
 

@@ -428,9 +428,10 @@ Log (newest last), one line per landed piece with what is and is not done:
 - 2026-09-19 — **Oaths stack, and the pool grew to eight** (user: Blood Price
   too punitive; "picking as many as they want is fun"; 3 oaths go stale). Tiers
   (hard pays 2 inscriptions, medium 1), any number sworn, +1 for keeping all of
-  two or more, a daily offer of 1 hard + 2 medium. New: Dry Throat, Duelist,
+  two or more, a daily offer of 2 hard + 3 medium. New: Dry Throat, Duelist,
   Kingsbane (hard); Silence, Pilgrim (medium). Save revision 29 turns the
-  single oath fields into lists.
+  single oath fields into lists. Follow-up the same day: the stone shows five
+  (was three) and a multi-pick reward is chosen together, then learned at once.
 - Art previews for PR descriptions are PNG sheets from `npm run art:sheet`,
   committed under `docs/previews/ri-*.png` and embedded by raw URL (user's
   request, 2026-09-19).

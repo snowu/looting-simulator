@@ -16,7 +16,7 @@ export type OathId = 'blood_price' | 'dry_throat' | 'duelist' | 'kingsbane' | 'u
 
 /**
  * How hard an oath is, and so how much it pays. The shape the offer grows into
- * as the pool does: one hard oath and two medium ones on the stone.
+ * as the pool does: two hard oaths and three medium ones on the stone.
  */
 export type OathTier = 'hard' | 'medium';
 
