@@ -72,6 +72,16 @@ have now moved the loot curve, which is exactly the thing it was waiting for:
 - [ ] **Balance pass**, which needs a headless playtest harness before it needs
       any numbers changed. Uniques will move the loot curve, so they come first.
 
+### Run identity — designed in [NEXT.md](NEXT.md) §3 (2026-09-19)
+
+- [ ] Elite traits and a Cutpurse that steals from the pack.
+- [ ] New monster verbs: ceiling droppers, burrowers, destructible walls, Gravecaller necromancers.
+- [ ] Delve Oaths at the town gate (Blood Price, Unbroken, Hunter).
+- [ ] A route fork at depth 3 steered by market rumours; one law per biome.
+- [ ] Floor lieutenants and the corpse run.
+- [ ] Build properties and Rank 5 crafting specialisation.
+- [ ] Ashen Seals after the first King kill.
+
 Also parked: [SUPABASE_SYNC.md](SUPABASE_SYNC.md), optional accounts and
 cross-device saves.
 
