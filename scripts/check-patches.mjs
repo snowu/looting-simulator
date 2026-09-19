@@ -25,6 +25,8 @@ const SKIP = {
   d245536: 'patch-note citation only; the fix is cited by Patch 57',
   f25027a: 'merge only; stacked branch sync, changes covered by Patches 57 and 58',
   '9f785e4': 'merge only; stacked branch sync, changes covered by Patches 57-59',
+  'f5d74d0': 'merge only; stacked branch sync, changes covered by Patches 57-59',
+  a8894b0: 'patch-note skip reasons only',
   a4347f6: 'merge only; healing rework changes covered by Patch 51',
   '1013973': 'merge only; the master forge layout arrives with its own commit',
   '080e186': 'dev art sheet grouping only; the food art is covered by Patch 52',
