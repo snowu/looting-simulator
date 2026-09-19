@@ -270,7 +270,8 @@ export class Hud {
     // difference. All three are read off the same helper the world uses.
     const belt = world.thrownCounts();
     const beltKey = belt ? `${belt.held}|${belt.floor}|${belt.flying}|${belt.calling}` : '';
-    const oathLine = oathStatus(world);
+    const sealCount = world.run.seals?.length ?? 0;
+    const oathLine = oathStatus(world) + (sealCount ? `<div style="color:#c080ff">Sealed ×${sealCount}</div>` : '');
     const statusKey = `${world.run.depth}|${biome.id}|${world.run.gold}|${keyNames.join()}|${bless}|${curse}|${world.freeSlots}|${ward}|${snuffed}|${beltKey}|${oathLine}`;
     if (statusKey !== this.statusKey) {
       this.statusKey = statusKey;

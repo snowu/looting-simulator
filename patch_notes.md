@@ -1,3 +1,23 @@
+# The Ashen Seals, and a panel on the way down
+
+*Additive save change (revision 28): no Seals set. Every existing save loads as it was.*
+
+**Oaths and Seals are chosen as you descend.** The Oath Stone no longer sits above the town tabs all day. Pressing Descend for a new delve opens a *Before you go down* panel with the oaths (and the Seals, once you've earned them), and a Descend button at the bottom. *Not yet* closes it. A kept oath's reward still waits in town until you choose it.
+
+**The Ashen Seals.** Once you've killed the Ashen King, you can set Seals on your delves. Each is a stated complication, stacks with the others, stays set until you break it, and pays a quarter more renown and +15 loot find for the delve:
+
+- **Teeth:** monsters hit 20% harder.
+- **Multitudes:** 30% more monsters on every floor.
+- **Champions:** elites far more often, even on the first floor.
+- **The Dry Well:** the flask starts two charges short.
+- **The Lightless:** your light reaches less far.
+
+Killing the King under more Seals than ever before sets a record. If you've already killed him, the Seals are open to you now.
+
+Validation: typecheck, production build, and the full test suite (721 tests), twice. New tests cover unlocking (only after a King kill, only in town, and Seals set before then doing nothing), each Seal's effect, the extra loot find and renown, the record, and the save migration. Checked in the dev lab in Chrome: the Descend panel with the Oath Stone and the Seals, swearing Hunter inside it without it closing, and its Descend starting the delve under the oath. The balance harness plays exactly as before, since its bot never kills the King. Not played through a real sealed delve yet.
+
+---
+
 # Lieutenants
 
 *No save change. Floors you've already been to are untouched.*
@@ -60,7 +80,7 @@ Validation: typecheck, production build, and the full test suite (692 tests), tw
 
 *Additive save change (revisions 25 and 26): nothing learned, nothing sworn. Every existing save loads as it was.*
 
-**The Oath Stone.** Between delves, above the town tabs, you can swear an oath for your next delve, or none. Keep it and come home alive, and it pays an inscription you haven't learned yet. Break it and you lose only the reward.
+**The Oath Stone.** When you press Descend for a new delve, a panel asks whether to swear an oath for it, or none. Keep it and come home alive, and it pays an inscription you haven't learned yet. Break it and you lose only the reward.
 
 - **Blood Price:** you go down cursed with Frailty, and no font will wash it off. Come home with 250 gold found in the dungeon.
 - **Unbroken:** everything you wear wears twice as fast. Reach depth 4 with nothing breaking, then come home.

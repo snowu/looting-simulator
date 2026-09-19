@@ -10,6 +10,7 @@ import { ELITE_HP_MULT, EliteTrait, IRONHIDE_HP_MULT, eliteFor } from '../data/e
 import { EARTH_BIOMES, STALKER_BURIED, droppersFor } from '../data/ambush';
 import { GRAVE_BIOMES, gravecallerChance } from '../data/necromancy';
 import { Crack, SHORTCUT_MIN_SAVING, cracksFor } from '../data/walls';
+import type { FloorMods } from '../data/seals';
 import { ContainerTier, makeMaterial, materialForDepth } from './items';
 
 // ---------------------------------------------------------------------------
@@ -576,6 +577,8 @@ export function generateFloor(
   forceShrine = false,
   /** The route fork's choice, for the depths it covers. Absent means the depth's own roll. */
   biomeId?: string,
+  /** Ashen Seals on this delve: more monsters, likelier elites. Absent means none. */
+  mods?: FloorMods,
 ): Floor {
   const seed = hashString(`floor:${runSeed}:${depth}`);
   // Difficulty deliberately stays out of the seed: a Hard floor is generated
@@ -583,7 +586,7 @@ export function generateFloor(
   // *which* walls stand where.
   const diff = difficultyOf(difficulty);
   for (let attempt = 0; attempt < 40; attempt++) {
-    const f = tryGenerate(seed, depth, createRng((seed + Math.imul(attempt + 1, 0x9e3779b1)) >>> 0), diff, forceShrine, biomeId);
+    const f = tryGenerate(seed, depth, createRng((seed + Math.imul(attempt + 1, 0x9e3779b1)) >>> 0), diff, forceShrine, biomeId, mods);
     if (f) return f;
   }
   throw new Error(`dungeon generation failed for depth ${depth}`);
@@ -672,6 +675,7 @@ function tryGenerate(
   diff: DifficultyDef = DIFFICULTIES.hard,
   forceShrine = false,
   biomeId?: string,
+  mods?: FloorMods,
 ): Floor | null {
   const biome = (biomeId && BIOMES.find((b) => b.id === biomeId && b.depths.includes(depth))) || biomeForDepth(depth, seed);
   const isBoss = depth >= FINAL_DEPTH;
@@ -1152,7 +1156,7 @@ function tryGenerate(
   // Depth scaling: steeper slope (1.2 → 1.6) plus denser rooms (/4 → /3) for
   // roughly +30-40% more bodies deep while keeping D1 readable.
   const authored = enemies.length;
-  const wanted = Math.max(1, Math.round((3 + Math.round(depth * 1.6) + Math.floor(rooms.length / 3)) * diff.enemyCount));
+  const wanted = Math.max(1, Math.round((3 + Math.round(depth * 1.6) + Math.floor(rooms.length / 3)) * diff.enemyCount * (mods?.enemyCount ?? 1)));
   const hostRooms = rooms.filter((r) => r.role !== 'start' && r.role !== 'secret' && r.role !== 'throne');
   for (let guard = 0; enemies.length < wanted + (throne ? 3 : 0) && guard < 200; guard++) {
     const def = rng.weighted(pool.map((e) => [e,
@@ -1179,7 +1183,7 @@ function tryGenerate(
   // The throne's King and his guards are spawned before the loop and are never
   // promoted: that fight is authored.
   for (const e of enemies.slice(authored)) {
-    const trait = eliteFor(seed, e.id, depth, enemyDef(e.def));
+    const trait = eliteFor(seed, e.id, depth, enemyDef(e.def), mods?.eliteBonus ?? 0);
     if (trait) promoteElite(e, trait);
   }
   // Ambushers, on their own stream for the same reason: ceiling droppers over

@@ -14,6 +14,7 @@ import {
 } from '../data/properties';
 import { FORK_DEPTH, ROADS, ROAD_DEPTHS } from '../data/routes';
 import { SHADE_ID, placeShade } from '../systems/grave';
+import { LIGHTLESS_LIGHT, SEAL_FIND, sealDifficulty, sealFloorMods } from '../data/seals';
 import {
   HOARDER_REACH, HOARDER_SHY, LIEUTENANTS, LIEUTENANT_MIN_DISTANCE, LieutenantId, QUARTERMASTER_MIN_GOBLINS, RALLY_DAMAGE,
   ROUT_SECONDS, isGoblin, lieutenantChance,
@@ -537,7 +538,17 @@ export class World {
    * through. Older saves have no snapshot and were all Hard.
    */
   get diff(): DifficultyDef {
-    return difficultyOf(this.run.difficulty ?? this.state.difficulty);
+    const base = difficultyOf(this.run.difficulty ?? this.state.difficulty);
+    if (!this.run.seals?.length) return base;
+    // Sealed: the Seals' multipliers over the snapshot, built once per delve.
+    if (this.sealedDiff?.base !== base) this.sealedDiff = { base, def: sealDifficulty(base, this.run.seals) };
+    return this.sealedDiff.def;
+  }
+  private sealedDiff: { base: DifficultyDef; def: DifficultyDef } | null = null;
+
+  /** Loot find for every roll: your gear's, plus the Ashen Seals' bonus. */
+  private get lootFind(): number {
+    return this.derived.find + SEAL_FIND * (this.run.seals?.length ?? 0);
   }
 
   /** The raw id behind `diff`, for passing into loot and generation calls. */
@@ -1100,7 +1111,7 @@ export class World {
       // cover most runs; the force only bites on a drought.
       const force = shrinePityFor(run.floors, run.depth);
       const road = run.road && ROAD_DEPTHS.includes(run.depth) ? run.road : undefined;
-      run.floors[run.depth - 1] = generateFloor(run.seed, run.depth, this.difficultyId, force, road);
+      run.floors[run.depth - 1] = generateFloor(run.seed, run.depth, this.difficultyId, force, road, sealFloorMods(run.seals));
       this.placeHunterMark(run.floors[run.depth - 1]!);
       this.placeLieutenant(run.floors[run.depth - 1]!);
       if (!run.shadePlaced && placeShade(this.state, run.floors[run.depth - 1]!, run.seed, this.difficultyId)) {
@@ -2219,7 +2230,7 @@ export class World {
       }
       const rng = createRng(hashString(`strongbox:${this.floor.seed}:${e.id}`));
       const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
-      const box = rollContainerLoot(rng, this.run.depth, this.derived.find, 'vault', idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId);
+      const box = rollContainerLoot(rng, this.run.depth, this.lootFind, 'vault', idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId);
       this.dropLoot(e.x, e.y, box.items, box.gold);
       this.msg(routed ? 'The banner falls. The goblins break and run! The strongbox key is yours.' : 'The banner falls. The strongbox key is yours.', LIEUTENANTS.quartermaster.color);
     } else if (e.lieutenant === 'hoarder') {
@@ -2394,8 +2405,8 @@ export class World {
     recordBestiaryKill(this.state.bestiary, def.id);
     const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
     const loot = e.mimicTier && e.mimicPropId
-      ? rollContainerLoot(createRng(hashString(`${this.floor.seed}:${e.mimicPropId}`)), this.run.depth, this.derived.find, e.mimicTier, idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId)
-      : rollEnemyLoot(this.rng, def, this.run.depth, this.derived.find, idBelow, this.state.recipeRanks, this.state.bestiary, this.seenUniques, this.difficultyId, !!e.elite);
+      ? rollContainerLoot(createRng(hashString(`${this.floor.seed}:${e.mimicPropId}`)), this.run.depth, this.lootFind, e.mimicTier, idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId)
+      : rollEnemyLoot(this.rng, def, this.run.depth, this.lootFind, idBelow, this.state.recipeRanks, this.state.bestiary, this.seenUniques, this.difficultyId, !!e.elite);
     const sigilDrop = def.behavior === 'boss'
       ? this.rollSigil(`boss:${e.id}`, 1)
       : e.mimicTier && e.mimicPropId
@@ -2532,7 +2543,7 @@ export class World {
    */
   private chestLoot(p: Prop, tier: ContainerTier): { items: Item[]; gold: number; lost: string[] } {
     const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
-    const loot = rollContainerLoot(this.propRng(p), this.run.depth, this.derived.find, tier, idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId);
+    const loot = rollContainerLoot(this.propRng(p), this.run.depth, this.lootFind, tier, idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId);
     // Its own stream, so which piece broke never moves the loot roll itself.
     const pick = createRng(hashString(`chest-shatter:${this.floor.seed}:${p.id}`));
     const lost: string[] = [];
@@ -2634,7 +2645,7 @@ export class World {
       this.msg(drawn ? 'The roots crack like a shot. Something skitters towards the sound.' : 'The roots crack like a shot. Nothing answers.', LAWS.burrows.color);
     }
     const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
-    const loot = rollContainerLoot(this.propRng(p), this.run.depth, this.derived.find, 'urn', idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId);
+    const loot = rollContainerLoot(this.propRng(p), this.run.depth, this.lootFind, 'urn', idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId);
     this.dropLoot(p.x, p.y, loot.items, loot.gold);
   }
 
@@ -4418,7 +4429,7 @@ export class World {
       const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
       // Three loud blows and the wear on your blade: it pays like a chest,
       // and never nothing.
-      const loot = rollContainerLoot(rng, this.run.depth, this.derived.find, 'chest', idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId);
+      const loot = rollContainerLoot(rng, this.run.depth, this.lootFind, 'chest', idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId);
       this.dropLoot(c.x, c.y, loot.items, Math.max(loot.gold, CACHE_MIN_GOLD(this.run.depth)));
       this.msg('The wall gives way onto a sealed niche. Someone hid something here.', '#e8d8a0');
     } else {
@@ -4710,7 +4721,9 @@ export class World {
 
   /** Carried light after temporary sigil effects. */
   get playerLightRadius(): number {
-    return this.anim.snuffT > 0 ? 2.5 : lightRadius(this.state.meta) + this.derived.traits.light;
+    if (this.anim.snuffT > 0) return 2.5;
+    const lightless = this.run.seals?.includes('lightless') ? LIGHTLESS_LIGHT : 0;
+    return Math.max(2.5, lightRadius(this.state.meta) + this.derived.traits.light - lightless);
   }
 
   /** Base item info for the viewmodel. */

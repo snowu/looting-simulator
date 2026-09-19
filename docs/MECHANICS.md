@@ -992,7 +992,7 @@ A stone is **inscribed at the forge**, on its *Sigils* bench, which consumes it 
 
 *Files: `src/data/oaths.ts`, `src/systems/oaths.ts`, the hooks in `src/world/world.ts`, the Oath Stone in `src/ui/town.ts`*
 
-Between delves, the **Oath Stone** above the town tabs offers every oath. You may swear one or none; swearing again changes it, and it can be taken back until you descend. On descending it moves onto the run (`run.oath`) and takes hold. **Keep it and come home alive** (by the stairs or the King's portal; a town-portal trip doesn't end the delve) and a reward waits in town: choose **1 of 3** build properties you haven't learned, drawn from the run's seed so a reload can't reroll them. With every property learned, it pays **10 renown** instead. A broken or unkept oath costs only the reward. You can't swear a new oath while a reward is still unchosen.
+Pressing **Descend** for a new delve opens a *Before you go down* panel. Its **Oath Stone** offers every oath: you may swear one or none, swearing again changes it, and **Not yet** (or Esc, or a click outside) closes the panel without descending. Returning through a town portal or resuming an open delve skips the panel. A kept oath's reward waits above the town tabs until chosen. On descending it moves onto the run (`run.oath`) and takes hold. **Keep it and come home alive** (by the stairs or the King's portal; a town-portal trip doesn't end the delve) and a reward waits in town: choose **1 of 3** build properties you haven't learned, drawn from the run's seed so a reload can't reroll them. With every property learned, it pays **10 renown** instead. A broken or unkept oath costs only the reward. You can't swear a new oath while a reward is still unchosen.
 
 | Oath | Rule | Objective |
 |---|---|---|
@@ -1001,6 +1001,22 @@ Between delves, the **Oath Stone** above the town tabs offers every oath. You ma
 | Hunter | Monsters see you **2** tiles further | A **marked** elite is placed on each of depths **2, 3, 4** when the floor is first generated: one of the three toughest monsters at least 8 steps from the stairs, promoted to an elite if it isn't one. Kill all **3**, then come home |
 
 A marked monster's name reads "Marked …" on the target bar, in gold. The HUD's status block shows the oath and its progress.
+
+### Ashen Seals
+
+*Files: `src/data/seals.ts`, `src/systems/seals.ts`, `startRun` / `endRun` in `src/systems/run.ts`, the world's `diff` and `lootFind`*
+
+Once the Ashen King has fallen to this playthrough (read from the bestiary's kill count, so it applies to heroes who beat him before Seals existed), the Descend panel also shows the **Ashen Seals**: stackable, stated complications for a delve. Set Seals stay set between delves until you break them. They're snapshotted into `run.seals` when the delve starts, and they only apply once unlocked.
+
+| Seal | Effect |
+|---|---|
+| Seal of Teeth | monster damage ×1.2 (the delve's `enemyDamage`) |
+| Seal of Multitudes | ×1.3 monsters on every floor generated this delve |
+| Seal of Champions | +15 points of elite chance on every floor, from depth 1 |
+| Seal of the Dry Well | the flask starts the delve 2 charges short, never below 1 |
+| Seal of the Lightless | light radius −3 units (never below 2.5) |
+
+**Each Seal** pays **+25% renown** for the delve and **+15 loot find** on every roll. Killing the King under more Seals than ever before sets `lifetime.bestSeals`, shown in the panel and on the results screen. The HUD shows *Sealed ×N*.
 
 ### Build properties
 

@@ -304,8 +304,8 @@ the same commit as the work it describes**, so any session can resume from it.
 | 7 | `feat/ri-7-routes` | Step 4, part 1: the route fork below depth 2 | [#24](https://github.com/snowu/looting-simulator/pull/24) open |
 | 8 | `feat/ri-8-laws` | Step 4, part 2: biome laws for Ossuary, Deep Mines, Vermin Burrows | [#25](https://github.com/snowu/looting-simulator/pull/25) open |
 | 9 | `feat/ri-9-grave` | Step 5, part 1: the corpse run | [#26](https://github.com/snowu/looting-simulator/pull/26) open |
-| 10 | `feat/ri-10-lieutenants` | Step 5, part 2: floor lieutenants | built, PR open |
-| 11 | — | Step 7: Ashen Seals | not started |
+| 10 | `feat/ri-10-lieutenants` | Step 5, part 2: floor lieutenants | [#27](https://github.com/snowu/looting-simulator/pull/27) open |
+| 11 | `feat/ri-11-seals` | Step 7: Ashen Seals, and the Descend panel | built, PR open |
 
 Log (newest last), one line per landed piece with what is and is not done:
 
@@ -369,8 +369,8 @@ Log (newest last), one line per landed piece with what is and is not done:
   PR 6's covers both. Not done: phone-width check of the bench (the browser
   window couldn't be resized here).
 - 2026-09-19 — **PR 6 built** (stacked on PR 5). Delve Oaths: Blood Price,
-  Unbroken, Hunter (`src/data/oaths.ts`). Sworn at the Oath Stone above the
-  town tabs into `state.pendingOath`, moved onto `run.oath` by `startRun`,
+  Unbroken, Hunter (`src/data/oaths.ts`). Sworn at the Oath Stone (since PR 11
+  a panel that opens on Descend) into `state.pendingOath`, moved onto `run.oath` by `startRun`,
   settled in `endRun`: kept and home alive → `state.oathReward` = 3 unlearned
   properties (seeded by run), or 10 renown if none left. Save revision 26
   (additive). Hunter marks one of the three toughest monsters on D2–4 at first
@@ -415,6 +415,16 @@ Log (newest last), one line per landed piece with what is and is not done:
   Ossuary law (PR 8) already does floor-wide rising. `pathStep` stops short of
   its goal, so the Hoarder takes the last step itself. **Step 5 done.** Next:
   step 7, Ashen Seals.
+- 2026-09-19 — **PR 11 built** (stacked on PR 10). Five Seals
+  (`src/data/seals.ts`), unlocked by a King kill in the bestiary. Teeth via the
+  world's `diff`, Multitudes and Champions via a `FloorMods` argument to
+  `generateFloor`, the Dry Well at `startRun`, the Lightless in
+  `playerLightRadius`. +25% renown and +15 find each (find through a world
+  `lootFind` getter, since loot rolls take the base difficulty by id);
+  `lifetime.bestSeals` record. Save revision 28. **User change:** the Oath
+  Stone and the Seals now open in a *Before you go down* panel on Descend
+  instead of sitting above the town tabs; the oath reward stays in town. **All
+  seven steps of the plan are now built.**
 - Art previews for PR descriptions are PNG sheets from `npm run art:sheet`,
   committed under `docs/previews/ri-*.png` and embedded by raw URL (user's
   request, 2026-09-19).

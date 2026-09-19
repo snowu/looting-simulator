@@ -1,4 +1,6 @@
 import { GameState } from '../state/game-state';
+import { SEALS, SEAL_FIND, SEAL_IDS, SEAL_RENOWN, validSeals } from '../data/seals';
+import { sealsUnlocked, toggleSeal } from '../systems/seals';
 import { ROADS, roadsForDay } from '../data/routes';
 import { OATHS, OATH_IDS, findOath } from '../data/oaths';
 import { swearOath } from '../systems/oaths';
@@ -137,6 +139,8 @@ export class Town {
    * itself taking the room.
    */
   private forgeSide: 'recipes' | 'repairs' | 'sigils' | 'inscribe' | 'infusions' = 'recipes';
+  /** Whether the Descend panel (oath and Seals) is open. */
+  private descendOpen = false;
   /** The item picked for each property on the Inscribe bench, by property id. */
   private inscribeTarget: Record<string, string> = {};
   private forgeRecipe = 'r_short_sword';
@@ -213,7 +217,9 @@ export class Town {
       ),
       btn(
         s.run?.portal ? 'Step back through the portal' : running ? 'Return to the Depths' : 'Descend',
-        () => this.ctx.descend(),
+        // A new delve asks first: oath and Seals are chosen on the way down,
+        // not in a pane that sits in town all day.
+        () => { if (running) this.ctx.descend(); else { this.descendOpen = true; audio.play('ui'); this.render(); } },
         'primary big',
       ),
       this.syncCompact(),
@@ -260,7 +266,7 @@ export class Town {
         body = this.warden();
         break;
     }
-    this.root.replaceChildren(head, this.news(), ...this.oathPanes(running), tabBar, body);
+    this.root.replaceChildren(head, this.news(), ...this.rewardPane(), tabBar, body, ...(this.descendOpen && !running ? [this.descendModal()] : []));
     this.root.scrollTop = this.scrollMemo;
     const nextRecipes = this.root.querySelector<HTMLElement>('.recipes');
     if (nextRecipes) nextRecipes.scrollTop = this.recipeScrollMemo;
@@ -1105,7 +1111,7 @@ export class Town {
    * and between delves, the oaths you can swear for the next one. One or none;
    * swearing again changes it, and it can be taken back until you descend.
    */
-  private oathPanes(running: boolean): HTMLElement[] {
+  private rewardPane(): HTMLElement[] {
     const s = this.s;
     const out: HTMLElement[] = [];
     const reward = s.oathReward;
@@ -1136,9 +1142,43 @@ export class Town {
         })),
       ));
     }
-    if (running) return out;
+    return out;
+  }
+
+  /**
+   * The panel that opens on Descend for a new delve: the Oath Stone and, once
+   * the King has fallen, the Ashen Seals, with the way down at the bottom.
+   * Swearing or setting re-renders the town with the panel still open; Not yet
+   * (or a click outside, or Esc) closes it without descending.
+   */
+  private descendModal(): HTMLElement {
+    const close = () => { this.descendOpen = false; audio.play('ui'); this.render(); };
+    const wrap = h(
+      'div',
+      { class: 'forge-modal-wrap', onclick: close },
+      h(
+        'div',
+        { class: 'modal frame forge-modal', onclick: (e: MouseEvent) => { e.stopPropagation(); } },
+        h('h3', { text: 'Before you go down' }),
+        this.oathStone(),
+        sealsUnlocked(this.s) ? this.sealPane() : null,
+        h('div', { class: 'row', style: 'justify-content:flex-end;gap:8px;margin-top:8px' },
+          btn('Not yet', close, 'small'),
+          btn('Descend', () => { this.descendOpen = false; this.ctx.descend(); }, 'primary big'),
+        ),
+      ),
+    );
+    wrap.tabIndex = -1;
+    wrap.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+    queueMicrotask(() => wrap.querySelector<HTMLElement>('button.primary')?.focus());
+    return wrap;
+  }
+
+  /** The Oath Stone: swear one oath for the next delve, or none. */
+  private oathStone(): HTMLElement {
+    const s = this.s;
     const sworn = s.pendingOath ?? null;
-    out.push(h(
+    return h(
       'div',
       { class: 'pane frame' },
       h('h3', { text: 'The Oath Stone' }),
@@ -1161,8 +1201,41 @@ export class Town {
           }, `small${on ? '' : ' primary'}`),
         );
       })),
-    ));
-    return out;
+    );
+  }
+
+  /**
+   * The Ashen Seals, once the King has fallen: stackable, stated complications
+   * for the next delve, each paying more. Kept set between delves until you
+   * change them, since the point is to climb.
+   */
+  private sealPane(): HTMLElement {
+    const s = this.s;
+    const on = validSeals(s.pendingSeals);
+    const best = s.lifetime.bestSeals ?? 0;
+    return h(
+      'div',
+      { class: 'pane frame' },
+      h('h3', { text: 'The Ashen Seals' }),
+      h('p', { class: 'dim small', text: `The King is dead, and the throne remembers. Set any number of Seals on your delves: each one is harder, and pays a quarter more renown and +${SEAL_FIND} loot find. ${best ? `Your record: the King slain under ${best} Seal${best === 1 ? '' : 's'}.` : 'Kill the King under Seals to set a record.'}` }),
+      h('div', { class: 'col' }, ...SEAL_IDS.map((id) => {
+        const def = SEALS[id];
+        const set = on.includes(id);
+        return h(
+          'div',
+          { class: `row repair-row${set ? ' gold' : ''}` },
+          h('div', { class: 'grow' },
+            h('div', { style: `color:${set ? '#e0c060' : '#c080ff'}`, text: def.name + (set ? ' · set' : '') }),
+            h('div', { class: 'dim small', text: def.rule }),
+          ),
+          btn(set ? 'Break' : 'Set', () => {
+            if (!toggleSeal(s, id)) return;
+            this.commit('ui');
+          }, `small${set ? '' : ' primary'}`),
+        );
+      })),
+      on.length ? h('p', { class: 'small', style: 'color:#e0c060', text: `${on.length} Seal${on.length === 1 ? '' : 's'} set: +${Math.round(on.length * SEAL_RENOWN * 100)}% renown, +${on.length * SEAL_FIND} loot find.` }) : null,
+    );
   }
 
   /**

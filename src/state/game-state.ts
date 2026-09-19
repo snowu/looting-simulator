@@ -54,6 +54,8 @@ export interface RunState {
   road?: string;
   /** Whether this delve has already put your Shade on its floor. */
   shadePlaced?: boolean;
+  /** The Ashen Seals this delve is under. Absent means none. */
+  seals?: string[];
   seed: number;
   rngState: number;
   depth: number;
@@ -122,6 +124,8 @@ export interface RunSummary {
   oath?: { id: OathId; kept: boolean; renown: number };
   /** On a death: the depth where your Shade now holds what you lost. */
   graveDepth?: number;
+  /** The Ashen Seals the delve was under, and whether it set a new record. */
+  seals?: { count: number; record: boolean };
 }
 
 /**
@@ -159,6 +163,8 @@ export interface Lifetime {
    * tells you for free what the appraiser is for.
    */
   uniquesKnown?: string[];
+  /** The most Ashen Seals the King has been killed under. */
+  bestSeals?: number;
 }
 
 export interface GameState {
@@ -210,6 +216,8 @@ export interface GameState {
   oathReward?: OathReward | null;
   /** What you lost when you last fell, guarded by your Shade on that depth. See `src/systems/grave.ts`. */
   grave?: Grave | null;
+  /** Ashen Seals set for the next delve (`src/data/seals.ts`). Kept between delves until changed. */
+  pendingSeals?: string[];
   /** Packed in town for the next delve; becomes the backpack when you descend. */
   loadout: Container;
   run: RunState | null;

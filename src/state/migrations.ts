@@ -26,7 +26,7 @@ import { findSigil } from '../data/spells';
  */
 
 /** Bump this (and push a migration) whenever a field is added to the save. */
-export const SAVE_REVISION = 27;
+export const SAVE_REVISION = 28;
 
 type AnyState = GameState & Record<string, unknown>;
 
@@ -246,6 +246,10 @@ const MIGRATIONS: ((s: AnyState) => void)[] = [
   // 26 → 27: the corpse run. No grave waiting.
   (s) => {
     s.grave ??= null;
+  },
+  // 27 → 28: Ashen Seals. None set.
+  (s) => {
+    s.pendingSeals ??= [];
   },
 ];
 
