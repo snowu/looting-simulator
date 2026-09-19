@@ -19,6 +19,8 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 const SKIP = {
   '55e9f88': 'design doc for the run-identity plan; no player-facing change',
   '8517c39': 'progress tracker update in NEXT.md; no player-facing change',
+  '2b6c9de': 'PR preview image only',
+  aa2b693: 'PR preview image only',
   d245536: 'patch-note citation only; the fix is cited by Patch 57',
   f25027a: 'merge only; stacked branch sync, changes covered by Patches 57 and 58',
   '9f785e4': 'merge only; stacked branch sync, changes covered by Patches 57-59',
