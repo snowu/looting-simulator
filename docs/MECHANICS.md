@@ -990,17 +990,24 @@ A stone is **inscribed at the forge**, on its *Sigils* bench, which consumes it 
 
 ### Delve Oaths
 
-*Files: `src/data/oaths.ts`, `src/systems/oaths.ts`, the hooks in `src/world/world.ts`, the Oath Stone in `src/ui/town.ts`*
+*Files: `src/data/oaths.ts`, `src/systems/oaths.ts`, the hooks in `src/world/world.ts`, the Oath Stone in the Descend panel (`src/ui/town.ts`)*
 
-Pressing **Descend** for a new delve opens a *Before you go down* panel. Its **Oath Stone** offers every oath: you may swear one or none, swearing again changes it, and **Not yet** (or Esc, or a click outside) closes the panel without descending. Returning through a town portal or resuming an open delve skips the panel. A kept oath's reward waits above the town tabs until chosen. On descending it moves onto the run (`run.oath`) and takes hold. **Keep it and come home alive** (by the stairs or the King's portal; a town-portal trip doesn't end the delve) and a reward waits in town: choose **1 of 3** build properties you haven't learned, drawn from the run's seed so a reload can't reroll them. With every property learned, it pays **10 renown** instead. A broken or unkept oath costs only the reward. You can't swear a new oath while a reward is still unchosen.
+Pressing **Descend** for a new delve opens a *Before you go down* panel. Its **Oath Stone** offers **today's oaths**: **two hard and three medium**, drawn from the pool by the playthrough and the day (`oathsForDay`), so the offer turns with the days. **Swear as many as you dare**, or none; each takes hold when you descend (`run.oaths`) and is kept or broken on its own. **Not yet** (or Esc, or a click outside) closes the panel. Returning through a town portal or resuming an open delve skips it.
 
-| Oath | Rule | Objective |
-|---|---|---|
-| Blood Price | You start cursed with **Frailty** (−20% max health). A Font of Mending won't lift it this delve | Come home with at least **250 gold found** in the dungeon (`run.stats.goldFound`) |
-| Unbroken | Everything you wear wears **×2** | Reach **depth 4** with nothing you wear breaking (kept the moment you arrive), then come home. Any worn item breaking before that breaks the oath |
-| Hunter | Monsters see you **2** tiles further | A **marked** elite is placed on each of depths **2, 3, 4** when the floor is first generated: one of the three toughest monsters at least 8 steps from the stairs, promoted to an elite if it isn't one. Kill all **3**, then come home |
+**Keep an oath and come home alive** (by the stairs or the King's portal; a town-portal trip doesn't end the delve) and it pays: a **medium** oath one inscription, a **hard** oath **two**. **Keep every oath you swore, having sworn at least two, and learn one more.** The inscriptions are chosen in town from a list at least one longer than the picks, drawn from the run's seed so a reload can't reroll them; the reward pane stays until every pick is used. With every inscription already known, oaths pay renown instead: 10 per medium, 20 per hard, and 10 for the bonus. A broken or unkept oath loses only its own reward (and the bonus). No new oath can be sworn while a reward is unchosen.
 
-A marked monster's name reads "Marked …" on the target bar, in gold. The HUD's status block shows the oath and its progress.
+| Oath | Tier | Rule | Objective |
+|---|---|---|---|
+| Blood Price | **hard** | Start cursed with **Frailty** (−20% max health); a Font of Mending won't lift it this delve | come home with **250 gold found** |
+| Dry Throat | **hard** | The flask starts **empty**; fonts and dregs can still refill it | reach **depth 4**, then come home |
+| Duelist | **hard** | Blocking absorbs **nothing**; a parry still works | **20 kills** (raised corpses don't count), then come home |
+| Kingsbane | **hard** | Monsters hit **15%** harder | kill **the Ashen King**, then come home |
+| Unbroken | medium | Everything you wear wears **×2** | reach **depth 4** with nothing worn breaking (kept on arrival), then come home |
+| Hunter | medium | Monsters see you **2** tiles further; a **marked** elite on each of depths 2, 3, 4 (one of the three toughest monsters 8+ steps from the stairs, placed on first generation) | kill all **3**, then come home |
+| Silence | medium | Monsters see you **2** tiles less, but every noise carries **×2** (stacking with the Burrows) | reach **depth 3** and come home without springing an **alarm ward** or casting **Wardcry** |
+| Pilgrim | medium | A Hollow Idol curses **65%** of the time instead of 35% | pray at **3** shrines (a refused prayer doesn't count), then come home |
+
+The HUD shows each oath and its progress; the results screen says which were kept and what they pay. Saves from before stacking are migrated (revision 29): a single sworn oath, a delve's single oath and a waiting reward all become lists.
 
 ### Ashen Seals
 

@@ -26,7 +26,7 @@ import { findSigil } from '../data/spells';
  */
 
 /** Bump this (and push a migration) whenever a field is added to the save. */
-export const SAVE_REVISION = 28;
+export const SAVE_REVISION = 29;
 
 type AnyState = GameState & Record<string, unknown>;
 
@@ -250,6 +250,17 @@ const MIGRATIONS: ((s: AnyState) => void)[] = [
   // 27 → 28: Ashen Seals. None set.
   (s) => {
     s.pendingSeals ??= [];
+  },
+  // 28 → 29: oaths stack. The single sworn oath, a delve's single oath and a
+  // waiting reward's single oath all become lists.
+  (s) => {
+    s.pendingOaths ??= s.pendingOath ? [s.pendingOath] : [];
+    s.pendingOath = null;
+    if (s.run && s.run.oath && !s.run.oaths) {
+      s.run.oaths = [s.run.oath];
+      delete s.run.oath;
+    }
+    if (s.oathReward && s.oathReward.oath && !s.oathReward.oaths) s.oathReward.oaths = [s.oathReward.oath];
   },
 ];
 

@@ -120,6 +120,10 @@ supabase/          SQL schema and email template for cloud saves
 
 **Play on a phone too.** Mobile is a first-class target. Check narrow and landscape layouts, not just desktop.
 
+## UI conventions
+
+**Pane explanations go behind a "?" toggle, hidden by default.** Long-lived panes with a paragraph of explanation (the Oath Stone was the first) use the "?" system instead of an always-on blurb: content lives in the `HELP` registry in `src/data/help.ts` (one entry per pane, never inline in UI code), `helpButton(id, rerender)` sits beside the pane's `h3` inside a `.pane-head` row, and `helpBlock(id)` goes where the description used to be. Open/closed state is a session-only map keyed by pane id, never save data. The full adoption contract lives in the JSDoc above `helpButton` in `src/ui/dom.ts`. Future direction: a full game-guide modal rendering every registry entry, where a pane's "?" jumps straight to its entry and highlights it — keep adding entries to the registry so that PR only adds presentation.
+
 ## Shipping
 
 Every push to `master` builds and deploys to GitHub Pages (`.github/workflows/deploy.yml`). Open copies, installed ones included, check `version.json` and reload into the new build. Open a pull request against `master`. The PR description should include what you changed, how you verified it (tests, build, a real play of the feature), and screenshots or a GIF for anything visual.
