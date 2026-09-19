@@ -13,6 +13,7 @@ import {
   RETRIEVAL_MULT, RIPOSTE_MULT, RIPOSTE_WINDOW,
 } from '../data/properties';
 import { FORK_DEPTH, ROADS, ROAD_DEPTHS } from '../data/routes';
+import { SHADE_ID, placeShade } from '../systems/grave';
 import {
   BURROWS_NOISE_MULT, COLLAPSE_BASE, COLLAPSE_PER_DEPTH, COLLAPSE_STUN, LAWS, OSSUARY_RISE_HP, OSSUARY_STIR, OSSUARY_STIR_AFTER,
   ROOT_CACHE_LURE, lawFor,
@@ -1097,6 +1098,10 @@ export class World {
       const road = run.road && ROAD_DEPTHS.includes(run.depth) ? run.road : undefined;
       run.floors[run.depth - 1] = generateFloor(run.seed, run.depth, this.difficultyId, force, road);
       this.placeHunterMark(run.floors[run.depth - 1]!);
+      if (!run.shadePlaced && placeShade(this.state, run.floors[run.depth - 1]!, run.seed, this.difficultyId)) {
+        run.shadePlaced = true;
+        this.msg('Something that wears your shape waits on this floor, holding what you lost.', '#9ab8ff');
+      }
     }
     // Unbroken is kept the moment you stand on its depth with everything whole.
     if (run.oath?.id === 'unbroken' && run.oath.status === 'active' && run.depth >= UNBROKEN_DEPTH) {
@@ -1922,7 +1927,7 @@ export class World {
    * reading the fields they always read.
    */
   private view(e: EnemyState): EnemyDef {
-    return enemyView(enemyDef(e.def), e.hp, e.maxHp, { elite: e.elite, carrying: !!e.stolen?.length, marked: e.marked });
+    return enemyView(enemyDef(e.def), e.hp, e.maxHp, { elite: e.elite, carrying: !!e.stolen?.length, marked: e.marked, shadeType: e.shadeType });
   }
 
   private guardReaction(e: EnemyState, def: EnemyDef): 'bash' | 'chip' | null {
@@ -2253,6 +2258,12 @@ export class World {
     if (e.risen) {
       this.msg(`${def.name} falls still again.`, '#c8c0b0');
       return;
+    }
+    if (e.def === SHADE_ID && this.state.grave) {
+      const grave = this.state.grave;
+      this.state.grave = null;
+      this.dropLoot(e.x, e.y, grave.items, grave.gold);
+      this.msg('Your Shade comes apart. What you lost is yours again.', '#9ab8ff');
     }
     if (e.marked && this.run.oath?.id === 'hunter') {
       const oath = this.run.oath;

@@ -5,7 +5,7 @@ import { Dir, DIRS, DX, DY, turnAround, turnLeft, turnRight } from '../core/dir'
 import { BIOMES, biomeForDepth, FINAL_DEPTH } from '../data/biomes';
 import { BOSS_ID, ENEMIES, enemyDef } from '../data/enemies';
 import { DifficultyId, DifficultyDef, DIFFICULTIES, difficultyOf } from '../data/difficulty';
-import { EnemyDef, Item } from '../types';
+import { DamageType, EnemyDef, Item } from '../types';
 import { ELITE_HP_MULT, EliteTrait, IRONHIDE_HP_MULT, eliteFor } from '../data/elites';
 import { EARTH_BIOMES, STALKER_BURIED, droppersFor } from '../data/ambush';
 import { GRAVE_BIOMES, gravecallerChance } from '../data/necromancy';
@@ -299,6 +299,8 @@ export interface EnemyState {
   marked?: boolean;
   /** Ossuary: restless remains stirring, seconds until they stand. Absent when still. */
   stirT?: number;
+  /** Your Shade: the damage type of the weapon you fell with. */
+  shadeType?: DamageType;
 }
 
 export interface Morsel {

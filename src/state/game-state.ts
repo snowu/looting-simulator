@@ -1,4 +1,5 @@
 import type { OathId, OathReward, OathState } from '../data/oaths';
+import type { Grave } from '../systems/grave';
 import { Rng } from '../core/rng';
 import { Dir } from '../core/dir';
 import { Item, Rarity, RecipeRanks } from '../types';
@@ -51,6 +52,8 @@ export interface RunState {
   roads?: string[];
   /** The road taken: the biome of depths 3 and 4. Absent until chosen. */
   road?: string;
+  /** Whether this delve has already put your Shade on its floor. */
+  shadePlaced?: boolean;
   seed: number;
   rngState: number;
   depth: number;
@@ -117,6 +120,8 @@ export interface RunSummary {
   fallen?: boolean;
   /** The oath sworn for this delve, and whether it was kept. */
   oath?: { id: OathId; kept: boolean; renown: number };
+  /** On a death: the depth where your Shade now holds what you lost. */
+  graveDepth?: number;
 }
 
 /**
@@ -203,6 +208,8 @@ export interface GameState {
   pendingOath?: OathId | null;
   /** A kept oath's reward, waiting in town to be chosen. */
   oathReward?: OathReward | null;
+  /** What you lost when you last fell, guarded by your Shade on that depth. See `src/systems/grave.ts`. */
+  grave?: Grave | null;
   /** Packed in town for the next delve; becomes the backpack when you descend. */
   loadout: Container;
   run: RunState | null;

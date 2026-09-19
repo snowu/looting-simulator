@@ -1,5 +1,5 @@
 import { ELEMENTAL_VARIANTS, elementalVariant } from './elemental-variants';
-import { EnemyDef } from '../types';
+import { DamageType, EnemyDef } from '../types';
 import {
   ELITES, EliteTrait, FRENZIED_RECOVERY_MULT, FRENZIED_STEP_MULT, FRENZIED_WINDUP_MULT, FRENZY_AT,
   HASTED_RECOVERY_MULT, HASTED_STEP_MULT, HASTED_WINDUP_MULT, IRONHIDE_DEFENSE_MULT, IRONHIDE_STEP_MULT, THIEF_LADEN,
@@ -33,6 +33,19 @@ export const ENEMIES: EnemyDef[] = [
     loot: [{ id: 'bone', chance: 0.5, min: 1, max: 2 }, { id: 'ancient_tome', chance: 0.06, min: 1, max: 1 }, { id: 'shadow_essence', chance: 0.04, min: 1, max: 1 }],
     gold: [2, 10], itemChance: 0.04,
     description: 'It hums to the dead, and the dead remember how to stand. Break the song, or break the bones.',
+  },
+  {
+    // Never in the ordinary pool (weight 0): placed only by the corpse run, on
+    // the depth you last fell, guarding what you lost. A hollowed you: it
+    // borrows the knight's frame without the shield, and strikes with the
+    // damage type of the weapon you died holding (`EnemyState.shadeType`).
+    id: 'shade', name: 'Your Shade', sprite: 'knight', scale: 0.95,
+    hp: 60, attack: 12, defense: 6, damageType: 'shadow', resist: { holy: 1.5, shadow: 0.5 },
+    behavior: 'melee', step: 0.5, windup: 0.6, recovery: 0.9, sight: 7,
+    minDepth: 1, maxDepth: 6, weight: 0,
+    loot: [], gold: [0, 0], itemChance: 0,
+    glow: '#9ab8ff',
+    description: 'What the dark kept of you when you fell, holding what you lost. It fights the way you did.',
   },
   {
     id: 'tunnel_stalker', name: 'Tunnel Stalker', sprite: 'stalker', scale: 0.65,
@@ -513,6 +526,8 @@ export interface ViewMods {
   carrying?: boolean;
   /** Hunter's quarry. */
   marked?: boolean;
+  /** A Shade strikes with the damage type of the weapon you fell with. */
+  shadeType?: DamageType;
 }
 
 /** The glow of a thief carrying your things: a lamp to chase by. */
@@ -520,9 +535,9 @@ export const THIEF_GLOW = '#e8c060';
 
 export function enemyView(def: EnemyDef, hp: number, maxHp: number, mods?: ViewMods): EnemyDef {
   const base = phaseView(def, hp, maxHp);
-  if (!mods || (!mods.elite && !mods.carrying && !mods.marked)) return base;
+  if (!mods || (!mods.elite && !mods.carrying && !mods.marked && !mods.shadeType)) return base;
   const frenzy = mods.elite === 'frenzied' && maxHp > 0 && hp < maxHp * FRENZY_AT;
-  const key = `${base.id}:${base.sprite}:${mods.elite ?? ''}:${frenzy ? 1 : 0}:${mods.carrying ? 1 : 0}:${mods.marked ? 1 : 0}`;
+  const key = `${base.id}:${base.sprite}:${mods.elite ?? ''}:${frenzy ? 1 : 0}:${mods.carrying ? 1 : 0}:${mods.marked ? 1 : 0}:${mods.shadeType ?? ''}`;
   let view = VIEW_CACHE.get(key);
   if (view) return view;
   view = { ...base };
@@ -548,6 +563,7 @@ export function enemyView(def: EnemyDef, hp: number, maxHp: number, mods?: ViewM
     }
   }
   if (mods.marked) view.name = `Marked ${view.name}`;
+  if (mods.shadeType) view.damageType = mods.shadeType;
   if (mods.carrying) {
     view.glow = THIEF_GLOW;
     // Laden: running with your things slows it down. See `runWithLoot`.
