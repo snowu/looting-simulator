@@ -296,8 +296,8 @@ the same commit as the work it describes**, so any session can resume from it.
 | # | Branch | Scope | Status |
 |---|---|---|---|
 | 1 | `feat/ri-1-elites` | Step 1: elite traits, thieving Cutpurse | [#18](https://github.com/snowu/looting-simulator/pull/18) open — needs a real delve on desktop and phone |
-| 2 | `feat/ri-2-ambushers` | Step 2: ceiling droppers, burrowing Mole and Stalker | built, PR open — needs a real delve on desktop and phone |
-| 3 | `feat/ri-3-walls` | Step 2: cracked walls, ore seams, sealed niches | not started |
+| 2 | `feat/ri-2-ambushers` | Step 2: ceiling droppers, burrowing Mole and Stalker | [#19](https://github.com/snowu/looting-simulator/pull/19) open — needs a real delve on desktop and phone |
+| 3 | `feat/ri-3-walls` | Step 2: cracked walls, ore seams, sealed niches | built, PR open — needs a real delve on desktop and phone |
 | 4 | `feat/ri-4-gravecaller` | Step 2: the Gravecaller, shattered and sanctified remains | not started |
 | 5+ | — | Steps 3–7: Oaths, route fork and biome laws, lieutenants and corpse run, build properties, Seals | not started |
 
@@ -330,6 +330,22 @@ Log (newest last), one line per landed piece with what is and is not done:
   bolts don't knock droppers down (only a melee swing does), Crawlers reuse the
   Cave Spider sprite, the Frost Vault icicle variant of the dropper doesn't
   exist yet, and no real delve or phone check.
+- 2026-09-19 — **PR 3 built** (stacked on PR 2). `Floor.cracks` (optional),
+  placed last on the `cracks:` stream: 2 shortcuts (≥12 steps saved), seams
+  (more on earth floors) and 1 cache per floor, none on the throne. 3 blows
+  from any weapon (as decided), 2 wear and 6-tile noise per blow; the tile
+  becomes FLOOR. Seams spill 2–4 metal ore; caches roll like a chest with a
+  gold floor. Rendered as a box in one of 21 new composited textures (7 walls
+  × cracked/ore/sealed); the opening's floor, ceiling and inner walls are
+  pre-built so no rebuild is needed. Not done: monsters don't break walls (the
+  Barrow Champion idea), the Deep Mines collapse law is step 4, the automap
+  doesn't mark cracks, and no real delve or phone check.
+- 2026-09-19 — **PR 3 follow-ups** (user feedback). The ore and sealed
+  textures were far too obvious, so both were redrawn quiet: ore is a thin
+  fissure with a few dull, translucent glints; sealed is a faint, broken mortar
+  outline with a hairline crack (the plain shortcut crack is unchanged). Easter
+  egg: an unbroken Mining Pick breaks any crack in one blow; in MECHANICS.md,
+  deliberately not in the patch notes.
 - 2026-09-19 — **Thief chase fix** (user: "nearly impossible to chase").
   The old flee took the step that maximised distance every tick and kept
   sprinting away from your last-seen position out of sight. Now: laden ×1.25

@@ -454,6 +454,26 @@ Diablo's, in short: a two-way door that costs one scroll for the round trip.
 - A portal trip never heals you: Bleakmere watches, it does not mend. Full health returns only with a new delve — the day turns, the hero rests.
 
 
+### Cracked walls
+
+*Files: `src/data/walls.ts`, `placeCracks` in `src/systems/dungeon.ts`, `strikeCrack` in `src/world/world.ts`, the cracked-wall box in `src/render/level-mesh.ts`*
+
+Some wall tiles are **cracked**: the biome's own wall with a fissure drawn over it. Any weapon breaks one in **3 blows** (`CRACK_BLOWS`), by decision, to be revisited after play. One quiet exception, kept as an easter egg and left out of the patch notes on purpose: an unbroken **Mining Pick** brings any cracked wall down in **one** blow ("The pick finds the fault line."). Every blow:
+- **wears your weapon** by 2, like a landed hit
+- is **loud**: monsters within **6 tiles** (`CRACK_NOISE`) are alerted to where you stand, through walls
+
+A broken wall becomes floor for good. The tile, its floor, ceiling and inner walls are laid when the level is built, so the opening is finished the moment the box sinks away.
+
+| Kind | What shows | Where | Breaking it |
+|---|---|---|---|
+| Shortcut | a plain fissure | a wall one tile thick between two floors at least **12 steps** apart the long way round | opens a new way through |
+| Seam | a thin fissure with a few dull glints, noticed on a second look | a wall tile with exactly one open side | opens an alcove and spills **2–4** metal ore for the depth |
+| Cache | a faint, broken mortar outline of a bricked-up niche with a hairline crack; the subtlest of the three | a wall tile with exactly one open side | opens an alcove with a hoard rolled like a **chest**, never less than `10 + 8 × depth` gold |
+
+Per floor: 2 shortcuts, 1 cache, and `1 + 2 on Burrows/Mines floors + 1 from depth 4` seams, at least 6 tiles apart. None on the border, within a tile of a door, stair, secret or blocking prop, on a wall a torch hangs from, or on the throne floor. Breaking one only ever adds floor, so it can't strand a key or a stair. Placement is the last generation pass, on its own stream (`cracks:<floorSeed>:<depth>`); the Hard golden test removes it before matching the pre-elite hash.
+
+The one-button tap swings at a cracked wall you face.
+
 ---
 
 ## 6a. Traps
