@@ -75,17 +75,21 @@ export const VENGEFUL_FUSE = 1.0;
 export const VENGEFUL_DAMAGE_MULT = 1.5;
 
 /** Seconds a thief carrying your things must spend out of your sight to get away with them. */
-export const THIEF_ESCAPE = 30;
-/** A thief carrying loot steps this much slower: you are faster, and the chase is yours to win. */
-export const THIEF_LADEN = 1.25;
+export const THIEF_ESCAPE = 25;
+/**
+ * A thief carrying loot steps this much slower. 1 since the second tuning:
+ * you already outpace a goblin, and 1.25 made the chase a formality.
+ */
+export const THIEF_LADEN = 1;
 /** After a step in your sight, the chance it stops to clutch the loot, and for how long. */
-export const THIEF_FUMBLE_CHANCE = 0.12;
+export const THIEF_FUMBLE_CHANCE = 0.05;
 export const THIEF_FUMBLE = 0.7;
-/** Out of your sight it goes to ground: one creeping step every this many seconds. */
-export const THIEF_CREEP = 1.5;
+/** Out of your sight it keeps sprinting this long, then goes to ground: one creeping step every `THIEF_CREEP` seconds. */
+export const THIEF_BOLT = 2;
+export const THIEF_CREEP = 1;
 /** Every this many steps, a coin or two spills from its purse, up to this many times. */
-export const THIEF_TRAIL_EVERY = 3;
-export const THIEF_TRAIL_MAX = 6;
+export const THIEF_TRAIL_EVERY = 4;
+export const THIEF_TRAIL_MAX = 3;
 
 /** What an elite pays over an ordinary kill of its kind. */
 export const ELITE_GOLD_MULT = 2.5;

@@ -368,6 +368,12 @@ Log (newest last), one line per landed piece with what is and is not done:
   escape 30s. A scripted chase sim didn't reproduce the problem (a bot chaser
   caught even the old thief 55/60), so the fix targets the causes, not a sim
   number; it needs a human read.
+- 2026-09-19 — **Thief retune, middle ground** (user: the fix made it "too
+  nerfed and too easy"). Kept the panicked step choice; dropped the laden
+  slowdown (×1.25 → ×1, a goblin is already slower than you), fumble 12% → 5%,
+  out of sight it now sprints 2s (`THIEF_BOLT`) before creeping one tile per 1s
+  (was straight to 1.5s creeps), coin trail every 4 steps up to 3 drops (was
+  3/6), escape 25s (was 30s; original 20s).
 
 ## The problem
 
