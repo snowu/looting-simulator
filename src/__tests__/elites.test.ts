@@ -7,7 +7,7 @@ import { FLOOR, EnemyState, createEnemy, generateFloor, promoteElite } from '../
 import { BOSS_ID, ENEMIES, THIEF_GLOW, enemyDef, enemyView } from '../data/enemies';
 import {
   ELITES, ELITE_GOLD_MULT, ELITE_HP_MULT, FRENZY_AT, HASTED_WINDUP_MULT, IRONHIDE_DEFENSE_MULT, IRONHIDE_HP_MULT,
-  THIEF_CREEP, THIEF_ESCAPE, THIEF_LADEN, THIEF_TRAIL_EVERY, VENGEFUL_FUSE, eliteChance, eliteFor, eligibleTraits,
+  THIEF_BOLT, THIEF_CREEP, THIEF_ESCAPE, THIEF_LADEN, THIEF_TRAIL_EVERY, VENGEFUL_FUSE, eliteChance, eliteFor, eligibleTraits,
 } from '../data/elites';
 import { makeMaterial, rollEnemyLoot } from '../systems/items';
 import { startRun } from '../systems/run';
@@ -218,17 +218,22 @@ describe('the thieving Cutpurse', () => {
 });
 
 describe('chasing a thief', () => {
-  it('is slower while it carries your things', () => {
+  it('is never faster than you while it carries your things', () => {
     const def = enemyDef('goblin');
     expect(enemyView(def, 10, 10, { carrying: true }).step).toBeCloseTo(def.step * THIEF_LADEN);
     expect(def.step * THIEF_LADEN).toBeGreaterThan(0.24);
   });
 
-  it('goes to ground out of sight: one creeping step, then a wait', () => {
+  it('bolts when it first loses you, then goes to ground: one creeping step, then a wait', () => {
     const w = arena(98);
     const e = facing(w, 'goblin');
     e.stolen = [makeMaterial('iron', 3)];
     e.stolenT = 0;
+    e.lastSeenX = w.player.x;
+    e.lastSeenY = w.player.y;
+    priv(w).runWithLoot(e, enemyDef('goblin'), 1, false, 0.016);
+    expect(e.pauseT ?? 0).toBe(0);
+    e.stolenT = THIEF_BOLT;
     e.lastSeenX = w.player.x;
     e.lastSeenY = w.player.y;
     priv(w).runWithLoot(e, enemyDef('goblin'), 1, false, 0.016);

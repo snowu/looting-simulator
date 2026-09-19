@@ -4,7 +4,7 @@ import { DamageType, EnemyDef, EquipSlot, EQUIP_SLOTS, Item, SwingProfile } from
 import { GameState, RunState } from '../state/game-state';
 import { addItem, canFit, findItem, removeItem, roomFor, takeQty } from '../state/inventory';
 import {
-  THIEF_CREEP, THIEF_ESCAPE, THIEF_FUMBLE, THIEF_FUMBLE_CHANCE, THIEF_TRAIL_EVERY, THIEF_TRAIL_MAX,
+  THIEF_BOLT, THIEF_CREEP, THIEF_ESCAPE, THIEF_FUMBLE, THIEF_FUMBLE_CHANCE, THIEF_TRAIL_EVERY, THIEF_TRAIL_MAX,
   VENGEFUL_DAMAGE_MULT, VENGEFUL_FUSE,
 } from '../data/elites';
 import { CACHE_MIN_GOLD, CRACK_BLOWS, CRACK_NOISE, CRACK_WEAR, Crack, SEAM_ORE } from '../data/walls';
@@ -4110,13 +4110,15 @@ export class World {
    * One tick of a thief running with your things. Returns true when it has
    * acted. It is meant to be a chase you can win, not a vanishing act:
    *
-   * - **Laden**: carrying makes it slower (`THIEF_LADEN`, via `enemyView`).
-   * - **Clumsy**: after a step it sometimes stops to clutch the loot
-   *   (`THIEF_FUMBLE_CHANCE` for `THIEF_FUMBLE` seconds).
+   * - **Clumsy**: after a step in your sight it sometimes stops to clutch the
+   *   loot (`THIEF_FUMBLE_CHANCE` for `THIEF_FUMBLE` seconds).
+   * - **Laden** only in principle: `THIEF_LADEN` is 1 now, since you already
+   *   outpace a goblin.
    * - **Panicked, not clever**: it takes any step that is not closer to you,
    *   preferring to keep running straight, so it bolts down dead ends.
-   * - **Goes to ground**: out of sight it stops running and creeps a tile only
-   *   every `THIEF_CREEP` seconds, still glowing where it hides.
+   * - **Goes to ground**: out of sight it keeps sprinting for `THIEF_BOLT`
+   *   seconds, then creeps a tile only every `THIEF_CREEP` seconds, still
+   *   glowing where it hides.
    * - **Leaves a trail**: every few steps a coin or two spills from its purse.
    *
    * It gets clean away after `THIEF_ESCAPE` seconds out of your sight, taking
@@ -4141,10 +4143,8 @@ export class World {
       return true;
     }
     if (sees) { e.lastSeenX = p.x; e.lastSeenY = p.y; }
-    if (!sees) {
-      e.pauseT = THIEF_CREEP;
-      // Creep one tile at most, then wait again.
-    }
+    // Out of sight it bolts for a moment, then goes to ground and creeps.
+    if (!sees && e.stolenT >= THIEF_BOLT) e.pauseT = THIEF_CREEP;
     const fromX = sees ? p.x : e.lastSeenX, fromY = sees ? p.y : e.lastSeenY;
     const here = Math.abs(e.x - fromX) + Math.abs(e.y - fromY);
     const options = DIRS.map((d) => ({ d, x: e.x + DX[d], y: e.y + DY[d] }))
