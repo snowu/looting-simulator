@@ -2,7 +2,8 @@ import { Rng, createRng, hashString } from '../core/rng';
 import { Dir, DIR_NAMES, DIRS, DX, DY, dirOf, turnAround, turnLeft, turnRight } from '../core/dir';
 import { DamageType, EnemyDef, EquipSlot, EQUIP_SLOTS, Item, SwingProfile } from '../types';
 import { GameState, RunState } from '../state/game-state';
-import { addItem, canFit, findItem, removeItem, roomFor } from '../state/inventory';
+import { addItem, canFit, findItem, removeItem, roomFor, takeQty } from '../state/inventory';
+import { THIEF_ESCAPE, VENGEFUL_DAMAGE_MULT, VENGEFUL_FUSE } from '../data/elites';
 import {
   EnemyState,
   Floor,
@@ -1806,7 +1807,7 @@ export class World {
    * reading the fields they always read.
    */
   private view(e: EnemyState): EnemyDef {
-    return enemyView(enemyDef(e.def), e.hp, e.maxHp);
+    return enemyView(enemyDef(e.def), e.hp, e.maxHp, { elite: e.elite, carrying: !!e.stolen?.length });
   }
 
   private guardReaction(e: EnemyState, def: EnemyDef): 'bash' | 'chip' | null {
@@ -1994,6 +1995,11 @@ export class World {
     e.ai = 'dead';
     e.deadT = 0;
     this.sfx('enemyDie', e.x, e.y);
+    // A Vengeful elite's fuse lights as it falls; `updateEnemies` sets it off.
+    if (e.elite === 'vengeful') {
+      e.burstT = VENGEFUL_FUSE;
+      this.msg('The corpse swells with violet light. Get clear!', '#c070ff');
+    }
     // Something the King stood back up pays out once, not twice. It already
     // gave you its hoard, its tally and its contract credit the first time it
     // fell; without this the throne room would be the best place in the game to
@@ -2009,7 +2015,7 @@ export class World {
     const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
     const loot = e.mimicTier && e.mimicPropId
       ? rollContainerLoot(createRng(hashString(`${this.floor.seed}:${e.mimicPropId}`)), this.run.depth, this.derived.find, e.mimicTier, idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId)
-      : rollEnemyLoot(this.rng, def, this.run.depth, this.derived.find, idBelow, this.state.recipeRanks, this.state.bestiary, this.seenUniques, this.difficultyId);
+      : rollEnemyLoot(this.rng, def, this.run.depth, this.derived.find, idBelow, this.state.recipeRanks, this.state.bestiary, this.seenUniques, this.difficultyId, !!e.elite);
     const sigilDrop = def.behavior === 'boss'
       ? this.rollSigil(`boss:${e.id}`, 1)
       : e.mimicTier && e.mimicPropId
@@ -2041,7 +2047,13 @@ export class World {
         }
       }
       this.dropLoot(e.x, e.y, loot.items, loot.gold);
-      this.msg(`${def.name} slain.`, '#c8c0b0');
+      this.msg(`${this.view(e).name} slain.`, e.elite ? '#e8d8a0' : '#c8c0b0');
+      if (e.stolen?.length) {
+        this.dropLoot(e.x, e.y, e.stolen, 0);
+        this.msg(`It drops your ${e.stolen.map(itemName).join(', ')}.`, '#e8c060');
+        delete e.stolen;
+        delete e.stolenT;
+      }
     }
     this.trialKill(e.id);
   }
@@ -3294,6 +3306,13 @@ export class World {
     for (const e of f.enemies) {
       if (e.ai === 'dead') {
         e.deadT += dt;
+        if (e.burstT !== undefined) {
+          e.burstT -= dt;
+          if (e.burstT <= 0) {
+            delete e.burstT;
+            this.vengefulBurst(e);
+          }
+        }
         continue;
       }
       if (this.protectedByFog(e)) continue;
@@ -3368,6 +3387,11 @@ export class World {
 
       // The guard rhythm ticks while the bearer is free to hold it.
       this.updateGuard(e, def, dt, e.alert > 0 && dist <= GUARD_RANGE);
+
+      // A thief with your things in its hands does nothing but run.
+      if (e.stolen?.length && e.ai !== 'windup' && e.ai !== 'recover') {
+        if (this.runWithLoot(e, def, dist, sees, dt)) continue;
+      }
 
       switch (e.ai) {
         case 'windup':
@@ -3605,6 +3629,10 @@ export class World {
       }
     }
     p.hp -= dmg;
+    // A thief's blow that gets through takes something with it.
+    if (attacker && dmg > 0 && !blocked && p.hp > 0 && !attacker.stolen?.length && this.view(attacker).thief) {
+      this.pickPocket(attacker);
+    }
     if (this.anim.cast) {
       this.anim.cast = null;
       this.msg('The sigil cast is broken by the blow.', '#888');
@@ -3824,6 +3852,92 @@ export class World {
    * own damage type, so a creature that shrugs off fire still shrugs it off
    * coming back — the shield returns the blow, it does not translate it.
    */
+  /**
+   * A thief lifts one thing from your pack: a piece of gear whole, or half a
+   * stack. Equipped gear is never at risk — only what you are carrying home,
+   * which is the thing this whole game is about.
+   */
+  private pickPocket(e: EnemyState): void {
+    const pack = this.run.backpack.items.filter((it) => it.kind !== 'lore');
+    if (!pack.length) return;
+    const target = this.rng.pick(pack);
+    const taken = takeQty(this.run.backpack, target.uid, target.qty > 1 ? Math.ceil(target.qty / 2) : 1);
+    if (!taken) return;
+    e.stolen = [taken];
+    e.stolenT = 0;
+    e.ai = 'flee';
+    e.alert = Math.max(e.alert, 6);
+    this.emit({ type: 'float', x: this.player.x, y: this.player.y, text: 'Stolen!', color: '#e8c060' });
+    this.sfx('gold', e.x, e.y);
+    this.msg(`The ${this.view(e).name} snatches your ${itemName(taken)} and runs!`, '#e8c060');
+  }
+
+  /**
+   * One tick of a thief running with your things. Returns true when it has
+   * acted. It flees your last known position, never gives up while you can see
+   * it, and gets clean away after `THIEF_ESCAPE` seconds out of your sight —
+   * taking what it stole with it. Cornered and in reach, it fights.
+   */
+  private runWithLoot(e: EnemyState, def: EnemyDef, dist: number, sees: boolean, dt: number): boolean {
+    const p = this.player;
+    e.stolenT = sees ? 0 : (e.stolenT ?? 0) + dt;
+    if (e.stolenT >= THIEF_ESCAPE) {
+      const lost = e.stolen!.map(itemName).join(', ');
+      e.ai = 'dead';
+      e.hp = 0;
+      e.deadT = 99;
+      delete e.stolen;
+      delete e.stolenT;
+      this.msg(`Somewhere in the dark, the ${def.name} gets away with your ${lost}.`, '#c89060');
+      return true;
+    }
+    e.ai = 'flee';
+    const fromX = sees ? p.x : e.lastSeenX, fromY = sees ? p.y : e.lastSeenY;
+    if (sees) { e.lastSeenX = p.x; e.lastSeenY = p.y; }
+    const here = Math.abs(e.x - fromX) + Math.abs(e.y - fromY);
+    const away = DIRS.map((d) => [e.x + DX[d], e.y + DY[d]] as [number, number])
+      .filter(([x, y]) => this.canStep(e, x, y) && Math.abs(x - fromX) + Math.abs(y - fromY) > here)
+      .sort((a, b) => Math.abs(b[0] - fromX) + Math.abs(b[1] - fromY) - (Math.abs(a[0] - fromX) + Math.abs(a[1] - fromY)))[0];
+    if (away) {
+      this.stepEnemy(e, away[0], away[1]);
+      return true;
+    }
+    if (dist === 1 && e.attackCd <= 0) {
+      this.beginWindup(e, def, p.x, p.y);
+      return true;
+    }
+    return true;
+  }
+
+  /**
+   * A Vengeful corpse goes off: its own tile and the four beside it. It is a
+   * blow like any other from that tile — facing it, you can block or parry it;
+   * standing on the body, you cannot. Monsters caught in it take it raw, the
+   * way they take a trap, which makes killing one beside its friends a tactic.
+   */
+  private vengefulBurst(e: EnemyState): void {
+    const def = enemyDef(e.def);
+    const attack = Math.max(1, Math.round(def.attack * attackPower(e.power) * VENGEFUL_DAMAGE_MULT * this.diff.enemyDamage));
+    const inBlast = (x: number, y: number) => Math.abs(x - e.x) + Math.abs(y - e.y) <= 1;
+    this.sfx('lava_burst', e.x, e.y);
+    this.emit({ type: 'float', x: e.x, y: e.y, text: 'Burst!', color: '#c070ff' });
+    for (const other of this.floor.enemies) {
+      if (other === e || other.ai === 'dead' || !inBlast(other.x, other.y)) continue;
+      const odef = enemyDef(other.def);
+      const dealt = Math.max(1, Math.round(def.attack * attackPower(e.power) * VENGEFUL_DAMAGE_MULT * (odef.resist[def.damageType] ?? 1)));
+      other.hp -= dealt;
+      other.hurtT = 0.3;
+      this.emit({ type: 'float', x: other.x, y: other.y, text: `${dealt}`, color: '#c070ff' });
+      if (other.hp <= 0) this.killEnemy(other);
+    }
+    if (inBlast(this.player.x, this.player.y)) {
+      this.emit({ type: 'shake', amount: 0.5 });
+      this.damagePlayer(attack, def.damageType, e.x, e.y, `Vengeful ${def.name}`, def.id);
+    } else {
+      this.msg('The corpse bursts harmlessly behind you.', '#9a80b0');
+    }
+  }
+
   private reflectOntoAttacker(e: EnemyState, attack: number, type: DamageType): void {
     if (this.protectedByFog(e)) return;
     const def = enemyDef(e.def);

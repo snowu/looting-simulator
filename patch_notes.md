@@ -1,3 +1,23 @@
+# Elites, and a Cutpurse that earns the name
+
+*No save change. Floors you have already generated keep their monsters exactly as they were; elites appear on floors generated from now on.*
+
+From depth 3 down, an ordinary monster is sometimes an **elite**: the same creature with one trait on top. It's 5% of spawns at depth 3, climbing to 11% at depth 6, about one or two a floor. Elites are never hidden. Each one glows and slowly pulses in its trait's colour, stands a little taller, and shows the trait in its name on the target bar.
+
+- **Hasted** (yellow): winds up, recovers and walks much faster. The timing you learned is wrong.
+- **Ironhide** (steel): much harder armour and a deeper health bar, but slow on its feet.
+- **Frenzied** (red): below half health it swings and moves much faster. Finish it, or step back.
+- **Vengeful** (violet): a moment after it dies, the corpse bursts, hitting its own tile and the four beside it. Step away, or face it and block or parry. Monsters caught in the blast get hurt too.
+- **Thieving** (gold): steals from your pack, like the Cutpurse below.
+
+Every elite has half again the health, and pays for it: two and a half times the gold, three times the chance of gear, and more materials.
+
+The **Goblin Cutpurse** now steals. If its blow gets through your guard, it takes one thing from your backpack (a piece of gear, or half a stack) and runs, glowing gold so you can chase it in the dark. The target bar says what it's carrying. Kill it and you get your things back. Lose sight of it for 20 seconds and it's gone for good. Your equipped gear is never at risk, and a parry or a block stops the theft.
+
+Validation: typecheck, production build, and the full test suite (631 tests), three times. New tests cover the elite chance by depth, the King and his guards never being promoted, each trait's effect, elite loot, theft (half a stack, blocked and parried blows steal nothing, the drop on death, the escape), and the Vengeful burst hitting you or missing you after you step away. The Hard golden test demotes every elite and matches the hash pinned before elites existed, so no wall, chest or other monster moved. The balance harness, 24 runs per profile against master: most profiles are within noise, and the careful iron-kit profile died more often (29% → 46%). Not tested by hand yet in a browser, so the glow, pulse and burst visuals haven't been seen on screen.
+
+---
+
 # The flask takes draughts
 
 *Additive save change (revision 24). A flask holding Jade, Crystal, Moonstone, Emerald or Wardstone is emptied and the gem goes back to the stash (or its value in gold if the stash is full). Every other infusion carries over and now does its new thing.*

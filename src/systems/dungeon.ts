@@ -6,6 +6,7 @@ import { biomeForDepth, FINAL_DEPTH } from '../data/biomes';
 import { BOSS_ID, ENEMIES, enemyDef } from '../data/enemies';
 import { DifficultyId, DifficultyDef, DIFFICULTIES, difficultyOf } from '../data/difficulty';
 import { EnemyDef, Item } from '../types';
+import { ELITE_HP_MULT, EliteTrait, IRONHIDE_HP_MULT, eliteFor } from '../data/elites';
 import { ContainerTier, makeMaterial, materialForDepth } from './items';
 
 // ---------------------------------------------------------------------------
@@ -247,6 +248,18 @@ export interface EnemyState {
   scavengerAttack?: number;
   /** Seconds left unable to attack after a torn Identify flash. */
   blind?: number;
+  /**
+   * The elite trait this monster was promoted with. **Absent means an ordinary
+   * monster**, so floors generated before elites existed need no migration.
+   * See `src/data/elites.ts`.
+   */
+  elite?: EliteTrait;
+  /** What a thief took from your pack. Dropped where it dies; gone if it escapes. */
+  stolen?: Item[];
+  /** Seconds a thief carrying loot has been out of your sight. At `THIEF_ESCAPE` it is gone. */
+  stolenT?: number;
+  /** A Vengeful corpse's fuse, counting down to its burst. Absent once spent. */
+  burstT?: number;
 }
 
 export interface Morsel {
@@ -397,6 +410,18 @@ export function createEnemy(def: EnemyDef, x: number, y: number, facing: Dir, id
     id, def: def.id, x, y, fromX: x, fromY: y, moveT: 1, facing, hp, maxHp: hp, ai: 'idle', timer: 0, alert: 0,
     lastSeenX: -1, lastSeenY: -1, homeX: x, homeY: y, hurtT: 0, deadT: 0, attackCd: 0, power,
   };
+}
+
+/**
+ * Promote a monster to an elite. The extra health is baked in here, at spawn,
+ * like the depth curve; everything else a trait changes is read live through
+ * `enemyView`, so it can never drift out of step with the state.
+ */
+export function promoteElite(e: EnemyState, trait: EliteTrait): void {
+  e.elite = trait;
+  const mult = ELITE_HP_MULT * (trait === 'ironhide' ? IRONHIDE_HP_MULT : 1);
+  e.maxHp = Math.round(e.maxHp * mult);
+  e.hp = e.maxHp;
 }
 
 /** Mimic rolls use their own stream so adding them never reshuffles a floor. */
@@ -998,6 +1023,7 @@ function tryGenerate(
   // count — and therefore every RNG draw after it — is unchanged there.
   // Depth scaling: steeper slope (1.2 → 1.6) plus denser rooms (/4 → /3) for
   // roughly +30-40% more bodies deep while keeping D1 readable.
+  const authored = enemies.length;
   const wanted = Math.max(1, Math.round((3 + Math.round(depth * 1.6) + Math.floor(rooms.length / 3)) * diff.enemyCount));
   const hostRooms = rooms.filter((r) => r.role !== 'start' && r.role !== 'secret' && r.role !== 'throne');
   for (let guard = 0; enemies.length < wanted + (throne ? 3 : 0) && guard < 200; guard++) {
@@ -1019,6 +1045,14 @@ function tryGenerate(
       const [x, y] = spots.pop()!;
       spawnEnemy(def, x, y);
     }
+  }
+  // Elites are decided after the fact, on their own stream, so the draws above
+  // — and therefore every wall, chest and monster — are exactly what they were.
+  // The throne's King and his guards are spawned before the loop and are never
+  // promoted: that fight is authored.
+  for (const e of enemies.slice(authored)) {
+    const trait = eliteFor(seed, e.id, depth, enemyDef(e.def));
+    if (trait) promoteElite(e, trait);
   }
 
   // --- Loose loot and keys -----------------------------------------------------

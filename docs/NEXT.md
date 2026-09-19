@@ -295,7 +295,7 @@ the same commit as the work it describes**, so any session can resume from it.
 
 | # | Branch | Scope | Status |
 |---|---|---|---|
-| 1 | `feat/ri-1-elites` | Step 1: elite traits, thieving Cutpurse | in progress |
+| 1 | `feat/ri-1-elites` | Step 1: elite traits, thieving Cutpurse | built, PR open — needs a browser playtest |
 | 2 | `feat/ri-2-ambushers` | Step 2: ceiling droppers, burrowing Mole and Stalker | not started |
 | 3 | `feat/ri-3-walls` | Step 2: cracked walls, ore seams, sealed niches | not started |
 | 4 | `feat/ri-4-gravecaller` | Step 2: the Gravecaller, shattered and sanctified remains | not started |
@@ -304,6 +304,17 @@ the same commit as the work it describes**, so any session can resume from it.
 Log (newest last), one line per landed piece with what is and is not done:
 
 - 2026-09-19 — design agreed; tracker created.
+- 2026-09-19 — **PR 1 built.** Five elite traits (Hasted, Ironhide, Frenzied,
+  Vengeful, Thieving) in `src/data/elites.ts`, rolled from depth 3 at 5% → 11%
+  on the `elite:` stream after generation; read through `enemyView` mods; glow,
+  pulse and target-bar name as the tell; loot ×2.5 gold / ×3 gear / ×1.5
+  materials on the same draws. The Cutpurse (`thief: true`) steals on an
+  unblocked blow and flees; kill it to recover, 20s out of sight and it escapes.
+  No save migration (all fields optional). Not done: the codex doesn't list
+  traits yet, Oaths can't raise the elite chance yet (`eliteFor` takes a
+  `bonus` for that), the headless bot doesn't chase thieves deliberately, and
+  nobody has looked at it in a browser. Harness: careful iron kit deaths
+  29% → 46%, other profiles within noise; watch this in play.
 
 ## The problem
 

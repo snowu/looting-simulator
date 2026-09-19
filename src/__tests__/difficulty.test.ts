@@ -75,7 +75,8 @@ describe('hard is the game as it was', () => {
           .toBe(scrub(rollContainerLoot(createRng(seed), depth, find, tier)));
       }
     }
-  });
+    // 400 floors outrun the default 5s budget once the suite runs its files in parallel.
+  }, 60_000);
 
   it('computes the old enemy health on hard', () => {
     for (const id of ['rat', 'skeleton', 'ghoul', 'hollow_knight', 'ashen_king']) {

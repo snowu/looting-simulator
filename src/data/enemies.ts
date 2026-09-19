@@ -1,5 +1,9 @@
 import { ELEMENTAL_VARIANTS, elementalVariant } from './elemental-variants';
 import { EnemyDef } from '../types';
+import {
+  ELITES, EliteTrait, FRENZIED_RECOVERY_MULT, FRENZIED_STEP_MULT, FRENZIED_WINDUP_MULT, FRENZY_AT,
+  HASTED_RECOVERY_MULT, HASTED_STEP_MULT, HASTED_WINDUP_MULT, IRONHIDE_DEFENSE_MULT, IRONHIDE_STEP_MULT,
+} from './elites';
 
 /*
  * Physical damage is a triangle, not a ladder. Blunt crushes bone and rigid
@@ -107,6 +111,7 @@ export const ENEMIES: EnemyDef[] = [
   },
   {
     id: 'goblin', name: 'Goblin Cutpurse', sprite: 'goblin', scale: 0.8,
+    thief: true,
     hp: 28, attack: 8, defense: 2, damageType: 'slash', resist: { slash: 1.4, pierce: 1.25 },
     behavior: 'skittish', step: 0.4, windup: 0.45, recovery: 0.7, sight: 7,
     minDepth: 1, maxDepth: 4, weight: 3,
@@ -475,7 +480,51 @@ const VIEW_CACHE = new Map<string, EnemyDef>();
  * `behavior`, `resist`, `loot` and `hp` must never move, because the codex, the
  * guaranteed relic and the field notes are all keyed off them.
  */
-export function enemyView(def: EnemyDef, hp: number, maxHp: number): EnemyDef {
+/** The per-monster state a view folds in, beyond health. Plain fields, to keep this file free of the dungeon module. */
+export interface ViewMods {
+  elite?: EliteTrait;
+  /** A thief running with something of yours. */
+  carrying?: boolean;
+}
+
+/** The glow of a thief carrying your things: a lamp to chase by. */
+export const THIEF_GLOW = '#e8c060';
+
+export function enemyView(def: EnemyDef, hp: number, maxHp: number, mods?: ViewMods): EnemyDef {
+  const base = phaseView(def, hp, maxHp);
+  if (!mods || (!mods.elite && !mods.carrying)) return base;
+  const frenzy = mods.elite === 'frenzied' && maxHp > 0 && hp < maxHp * FRENZY_AT;
+  const key = `${base.id}:${base.sprite}:${mods.elite ?? ''}:${frenzy ? 1 : 0}:${mods.carrying ? 1 : 0}`;
+  let view = VIEW_CACHE.get(key);
+  if (view) return view;
+  view = { ...base };
+  const trait = mods.elite;
+  if (trait) {
+    // The name is display only — ids key the codex, contracts and field notes.
+    view.name = `${ELITES[trait].name} ${base.name}`;
+    view.glow = ELITES[trait].color;
+    view.scale = base.scale * 1.1;
+    if (trait === 'hasted') {
+      view.windup = base.windup * HASTED_WINDUP_MULT;
+      view.recovery = base.recovery * HASTED_RECOVERY_MULT;
+      view.step = base.step * HASTED_STEP_MULT;
+    } else if (trait === 'ironhide') {
+      view.defense = base.defense * IRONHIDE_DEFENSE_MULT;
+      view.step = base.step * IRONHIDE_STEP_MULT;
+    } else if (frenzy) {
+      view.windup = base.windup * FRENZIED_WINDUP_MULT;
+      view.recovery = base.recovery * FRENZIED_RECOVERY_MULT;
+      view.step = base.step * FRENZIED_STEP_MULT;
+    } else if (trait === 'thieving') {
+      view.thief = true;
+    }
+  }
+  if (mods.carrying) view.glow = THIEF_GLOW;
+  VIEW_CACHE.set(key, view);
+  return view;
+}
+
+function phaseView(def: EnemyDef, hp: number, maxHp: number): EnemyDef {
   const phase = bossPhase(def, hp, maxHp);
   if (!phase || phase === KING_PHASES[0]) return def;
   const key = `${def.id}:${phase.sprite}`;
