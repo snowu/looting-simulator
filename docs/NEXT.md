@@ -303,8 +303,8 @@ the same commit as the work it describes**, so any session can resume from it.
 | 6 | `feat/ri-6-oaths` | Step 3: Delve Oaths, paying out properties | [#23](https://github.com/snowu/looting-simulator/pull/23) open |
 | 7 | `feat/ri-7-routes` | Step 4, part 1: the route fork below depth 2 | [#24](https://github.com/snowu/looting-simulator/pull/24) open |
 | 8 | `feat/ri-8-laws` | Step 4, part 2: biome laws for Ossuary, Deep Mines, Vermin Burrows | [#25](https://github.com/snowu/looting-simulator/pull/25) open |
-| 9 | `feat/ri-9-grave` | Step 5, part 1: the corpse run | built, PR open |
-| 10 | `feat/ri-10-lieutenants` | Step 5, part 2: floor lieutenants | not started |
+| 9 | `feat/ri-9-grave` | Step 5, part 1: the corpse run | [#26](https://github.com/snowu/looting-simulator/pull/26) open |
+| 10 | `feat/ri-10-lieutenants` | Step 5, part 2: floor lieutenants | built, PR open |
 | 11 | — | Step 7: Ashen Seals | not started |
 
 Log (newest last), one line per landed piece with what is and is not done:
@@ -405,6 +405,16 @@ Log (newest last), one line per landed piece with what is and is not done:
   from it, so harness runs stopped being reproducible. The harness comparisons
   quoted in PRs 7 and 8 were noise. Fixed on PR 7's branch (the bot fixes its
   save id) and re-measured.
+- 2026-09-19 — **PR 10 built** (stacked on PR 9). Two lieutenants
+  (`src/data/lieutenants.ts`), placed in `changeFloor` on first generation, 40%
+  per floor from D2–5. Goblin Quartermaster (red-banner goblin): goblins ×1.25
+  damage and no fleeing while it lives; rout and a vault-tier strongbox on its
+  death. The Hoarder (rat with a coin sack): collects unattended piles (not
+  keys or flask shards), shies from the player, spills its hoard on death.
+  Swapped the design's Ossuary Gravecaller lieutenant for these two, since the
+  Ossuary law (PR 8) already does floor-wide rising. `pathStep` stops short of
+  its goal, so the Hoarder takes the last step itself. **Step 5 done.** Next:
+  step 7, Ashen Seals.
 - Art previews for PR descriptions are PNG sheets from `npm run art:sheet`,
   committed under `docs/previews/ri-*.png` and embedded by raw URL (user's
   request, 2026-09-19).

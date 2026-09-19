@@ -1,3 +1,16 @@
+# Lieutenants
+
+*No save change. Floors you've already been to are untouched.*
+
+From depth 2, a floor sometimes has a **lieutenant**, a named monster that changes the whole floor while it lives. A clue on arrival tells you something is wrong; whether to hunt it down is up to you.
+
+- **The Goblin Quartermaster** carries a red war banner. While it stands, every goblin on its floor hits harder and never runs. Kill it and they break and flee, and its strongbox is yours.
+- **The Hoarder** is a bloated rat with a sack of coin on its back. It wanders the floor carrying off any loot left lying around, and it keeps away from you. Kill it and everything it gathered spills back out, with its own hoard on top.
+
+Validation: typecheck, production build, and the full test suite (712 tests), twice. New tests cover placement (from depth 2, at most one a floor, far from the stairs, a Quartermaster only with goblins to command), the Quartermaster's rally while it stands and the rout and strongbox when it falls, and the Hoarder carrying off a pile and giving it back, never taking a key, and keeping away from you. The first test run caught the Hoarder stopping one step short of every pile; that's fixed. Checked in the dev lab in Chrome: both sprites in the dungeon, and "The Hoarder" on the target bar. The balance harness moved within 9 points either way. Not played through a real delve yet.
+
+---
+
 # Your Shade keeps what you lost
 
 *Additive save change (revision 27): no grave waiting. Every existing save loads as it was.*

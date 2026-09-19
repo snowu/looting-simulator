@@ -48,6 +48,30 @@ export const ENEMIES: EnemyDef[] = [
     description: 'What the dark kept of you when you fell, holding what you lost. It fights the way you did.',
   },
   {
+    // A floor lieutenant (weight 0): placed only by the lieutenant pass on a
+    // floor with goblins to command. It fights like a sturdy goblin; what
+    // matters is what its banner does to the rest of them while it stands.
+    id: 'goblin_quartermaster', name: 'Goblin Quartermaster', sprite: 'quartermaster', scale: 0.85,
+    hp: 70, attack: 10, defense: 6, damageType: 'slash', resist: { slash: 1.4, pierce: 1.25 },
+    behavior: 'melee', step: 0.45, windup: 0.5, recovery: 0.8, sight: 8,
+    minDepth: 2, maxDepth: 5, weight: 0,
+    loot: [{ id: 'copper', chance: 0.6, min: 2, max: 3 }, { id: 'iron', chance: 0.4, min: 1, max: 2 }],
+    gold: [15, 40], itemChance: 0.25,
+    description: 'It carries the banner, the ledger and the key to the strongbox. While it stands, every goblin on the floor fights like it is being watched.',
+  },
+  {
+    // A floor lieutenant (weight 0): wanders to any loot left lying on its
+    // floor and carries it off. Shy of you, not harmless when cornered.
+    id: 'hoarder', name: 'The Hoarder', sprite: 'hoarder', scale: 0.8,
+    hp: 90, attack: 8, defense: 4, damageType: 'pierce', resist: { slash: 1.3, pierce: 1.2 },
+    behavior: 'skittish', step: 0.42, windup: 0.5, recovery: 0.8, sight: 7,
+    minDepth: 2, maxDepth: 5, weight: 0,
+    loot: [{ id: 'gold', chance: 0.5, min: 1, max: 2 }],
+    gold: [20, 50], itemChance: 0.2,
+    glow: '#e8c060',
+    description: 'A rat that never stopped eating and started collecting instead. Everything left on the floor ends up in the sack on its back.',
+  },
+  {
     id: 'tunnel_stalker', name: 'Tunnel Stalker', sprite: 'stalker', scale: 0.65,
     hp: 25, attack: 9, defense: 1, damageType: 'pierce', resist: { fire: 1.5, slash: 1.35 },
     behavior: 'skittish', step: 0.26, windup: 0.4, recovery: 0.75, sight: 5,
