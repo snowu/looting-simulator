@@ -3,7 +3,7 @@ import { sealsUnlocked } from './seals';
 import { digGrave, placeShade } from './grave';
 import { itemBase } from '../data/items';
 import { roadsForDay } from '../data/routes';
-import { beginOath, settleOath } from './oaths';
+import { beginOaths, settleOaths } from './oaths';
 import { createRng, randomSeed } from '../core/rng';
 import { Item } from '../types';
 import { GameState, RunState, RunSummary } from '../state/game-state';
@@ -81,7 +81,7 @@ export function startRun(state: GameState, seed = randomSeed()): RunState {
     outcome: 'active',
   };
   if (seals.length) run.seals = seals;
-  beginOath(state, run);
+  beginOaths(state, run);
   if (placeShade(state, floor, seed, difficulty)) run.shadePlaced = true;
   run.roads = roadsForDay(state.saveId ?? '', state.market.day, state.market.events);
   state.run = run;
@@ -121,7 +121,7 @@ export function endRun(state: GameState, outcome: 'dead' | 'extracted'): RunSumm
   const sealRecord = run.stats.bossKilled && sealCount > (state.lifetime.bestSeals ?? 0);
   if (sealRecord) state.lifetime.bestSeals = sealCount;
   state.renown += renown;
-  const oath = settleOath(state, run, outcome);
+  const oaths = settleOaths(state, run, outcome);
   // The corpse run: what was lost waits on the depth you fell, with your Shade.
   // A Hardcore death ends the save, so there is nothing to come back for.
   const oneLife = difficultyOf(run.difficulty ?? state.difficulty).oneLife;
@@ -145,7 +145,7 @@ export function endRun(state: GameState, outcome: 'dead' | 'extracted'): RunSumm
     bossKilled: run.stats.bossKilled,
     killedBy: run.killedBy,
     dayTurned,
-    ...(oath ? { oath } : {}),
+    ...(oaths ? { oaths } : {}),
     ...(graveDepth ? { graveDepth } : {}),
     ...(sealCount ? { seals: { count: sealCount, record: sealRecord } } : {}),
   };

@@ -46,7 +46,9 @@ export interface PortalState {
 }
 
 export interface RunState {
-  /** The oath sworn for this delve, and how it stands. Absent means none. */
+  /** The oaths sworn for this delve, and how each stands. Absent means none. */
+  oaths?: OathState[];
+  /** The single oath from before oaths stacked; migrated into `oaths`. */
   oath?: OathState;
   /** The two roads open at the fork below depth 2 (`src/data/routes.ts`). Absent on runs from before the fork. */
   roads?: string[];
@@ -120,7 +122,8 @@ export interface RunSummary {
   dayTurned: boolean;
   /** A one-life death: this was the hero's last delve, not just a lost one. */
   fallen?: boolean;
-  /** The oath sworn for this delve, and whether it was kept. */
+  /** The oaths sworn for this delve, and how they ended. `oath` is the single one from before oaths stacked. */
+  oaths?: { results: { id: OathId; kept: boolean }[]; picks: number; renown: number; bonus: boolean };
   oath?: { id: OathId; kept: boolean; renown: number };
   /** On a death: the depth where your Shade now holds what you lost. */
   graveDepth?: number;
@@ -210,7 +213,9 @@ export interface GameState {
   attuned: string | null;
   /** Build properties learned, ready to inscribe at the forge. See `src/data/properties.ts`. */
   properties: string[];
-  /** The oath sworn for the next delve, if any. See `src/data/oaths.ts`. */
+  /** The oaths sworn for the next delve. See `src/data/oaths.ts`. */
+  pendingOaths?: OathId[];
+  /** The single sworn oath from before oaths stacked; migrated into `pendingOaths`. */
   pendingOath?: OathId | null;
   /** A kept oath's reward, waiting in town to be chosen. */
   oathReward?: OathReward | null;

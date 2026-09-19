@@ -23,7 +23,11 @@ import {
   BURROWS_NOISE_MULT, COLLAPSE_BASE, COLLAPSE_PER_DEPTH, COLLAPSE_STUN, LAWS, OSSUARY_RISE_HP, OSSUARY_STIR, OSSUARY_STIR_AFTER,
   ROOT_CACHE_LURE, lawFor,
 } from '../data/laws';
-import { HUNTER_DEPTHS, HUNTER_MARKS, HUNTER_SIGHT, OATHS, UNBROKEN_DEPTH, UNBROKEN_WEAR } from '../data/oaths';
+import {
+  DUELIST_KILLS, HUNTER_DEPTHS, HUNTER_MARKS, HUNTER_SIGHT, KINGSBANE_DAMAGE, OATHS, PILGRIM_IDOL_CURSE, PILGRIM_PRAYERS,
+  SILENCE_NOISE, SILENCE_SIGHT, UNBROKEN_DEPTH, UNBROKEN_WEAR,
+} from '../data/oaths';
+import { runOath } from '../systems/oaths';
 import { eligibleTraits } from '../data/elites';
 import { RAISE_BEAT, RAISE_CHANNEL, RAISE_COOLDOWN, RAISE_HP, RAISE_LIMIT, RAISE_REACH, SHATTER_OVERKILL } from '../data/necromancy';
 import {
@@ -539,9 +543,13 @@ export class World {
    */
   get diff(): DifficultyDef {
     const base = difficultyOf(this.run.difficulty ?? this.state.difficulty);
-    if (!this.run.seals?.length) return base;
-    // Sealed: the Seals' multipliers over the snapshot, built once per delve.
-    if (this.sealedDiff?.base !== base) this.sealedDiff = { base, def: sealDifficulty(base, this.run.seals) };
+    const kingsbane = !!runOath(this.run, 'kingsbane');
+    if (!this.run.seals?.length && !kingsbane) return base;
+    // Sealed or sworn: the multipliers over the snapshot, built once per delve.
+    if (this.sealedDiff?.base !== base) {
+      const sealed = sealDifficulty(base, this.run.seals);
+      this.sealedDiff = { base, def: kingsbane ? { ...sealed, enemyDamage: sealed.enemyDamage * KINGSBANE_DAMAGE } : sealed };
+    }
     return this.sealedDiff.def;
   }
   private sealedDiff: { base: DifficultyDef; def: DifficultyDef } | null = null;
@@ -635,8 +643,8 @@ export class World {
   private wear(slot: EquipSlot, amount = 1): void {
     const it = this.state.equipment[slot];
     if (this.run.curse === 'brittle') amount += 1;
-    const oath = this.run.oath;
-    if (oath?.id === 'unbroken') amount *= UNBROKEN_WEAR;
+    const oath = runOath(this.run, 'unbroken');
+    if (oath) amount *= UNBROKEN_WEAR;
     const crossed = wearItem(it, amount);
     if (crossed === 'none' || !it) return;
     const name = itemName(it);
@@ -645,7 +653,7 @@ export class World {
       this.msg(`Your ${name} breaks!`, '#ff7070');
       this.sfx('break');
       this.emit({ type: 'shake', amount: 0.3 });
-      if (oath?.id === 'unbroken' && oath.status === 'active') {
+      if (oath && oath.status === 'active') {
         oath.status = 'broken';
         this.msg('Your oath breaks with it. Unbroken is lost.', OATHS.unbroken.color);
       }
@@ -674,7 +682,7 @@ export class World {
 
   /** Extra tiles of sight the floor has on you, from the Hunted curse. */
   private get sightPenalty(): number {
-    return (this.run.curse === 'hunted' ? 3 : 0) + (this.run.oath?.id === 'hunter' ? HUNTER_SIGHT : 0) - this.derived.traits.unseen - (this.anim?.unseenT > 0 ? 99 : 0);
+    return (this.run.curse === 'hunted' ? 3 : 0) + (runOath(this.run, 'hunter') ? HUNTER_SIGHT : 0) - (runOath(this.run, 'silence') ? SILENCE_SIGHT : 0) - this.derived.traits.unseen - (this.anim?.unseenT > 0 ? 99 : 0);
   }
 
   private emit(e: WorldEvent): void {
@@ -1120,8 +1128,9 @@ export class World {
       }
     }
     // Unbroken is kept the moment you stand on its depth with everything whole.
-    if (run.oath?.id === 'unbroken' && run.oath.status === 'active' && run.depth >= UNBROKEN_DEPTH) {
-      run.oath.status = 'kept';
+    const unbroken = runOath(run, 'unbroken');
+    if (unbroken && unbroken.status === 'active' && run.depth >= UNBROKEN_DEPTH) {
+      unbroken.status = 'kept';
       this.msg(`Depth ${UNBROKEN_DEPTH}, and nothing broken. The oath is kept: now bring it home.`, OATHS.unbroken.color);
     }
     const f = this.floor;
@@ -1259,6 +1268,7 @@ export class World {
         woken++;
       }
       if (!victim) {
+        this.breakSilence('The ward shrieks');
         this.msg(woken ? 'A ward shrieks. Something heard that.' : 'A ward shrieks into an empty floor.', '#ff9070');
         this.emit({ type: 'shake', amount: 0.2 });
       }
@@ -1730,6 +1740,7 @@ export class World {
   }
 
   private castWardcry(): void {
+    this.breakSilence('Your shout rings down the halls');
     for (const e of this.floor.enemies) {
       if (e.ai === 'dead' || Math.abs(e.x - this.player.x) + Math.abs(e.y - this.player.y) > this.noise(8)) continue;
       e.alert = Math.max(e.alert, 8);
@@ -2249,8 +2260,8 @@ export class World {
    * floor is first generated, so a floor is only ever marked once.
    */
   private placeHunterMark(f: Floor): void {
-    const oath = this.run.oath;
-    if (oath?.id !== 'hunter' || !HUNTER_DEPTHS.includes(f.depth) || (oath.placed ?? []).includes(f.depth)) return;
+    const oath = runOath(this.run, 'hunter');
+    if (!oath || !HUNTER_DEPTHS.includes(f.depth) || (oath.placed ?? []).includes(f.depth)) return;
     const up = f.stairs.find((st) => !st.down);
     const far = (e: EnemyState) => up ? Math.abs(e.x - up.x) + Math.abs(e.y - up.y) : 0;
     const pool = f.enemies.filter((e) => e.ai !== 'dead' && !e.lurk && enemyDef(e.def).behavior !== 'boss' && far(e) >= 8);
@@ -2271,7 +2282,17 @@ export class World {
 
   /** Burrows: how far a noise of radius `r` actually carries on this floor. */
   private noise(r: number): number {
-    return this.floor.biome === 'burrows' ? Math.round(r * BURROWS_NOISE_MULT) : r;
+    const burrows = this.floor.biome === 'burrows' ? BURROWS_NOISE_MULT : 1;
+    const silence = runOath(this.run, 'silence') ? SILENCE_NOISE : 1;
+    return Math.round(r * burrows * silence);
+  }
+
+  /** Silence is broken by the loud things: an alarm ward you spring, or Wardcry. */
+  private breakSilence(what: string): void {
+    const oath = runOath(this.run, 'silence');
+    if (!oath || oath.status === 'broken') return;
+    oath.status = 'broken';
+    this.msg(`${what}. The oath of Silence is broken.`, OATHS.silence.color);
   }
 
   /**
@@ -2392,8 +2413,14 @@ export class World {
       this.dropLoot(e.x, e.y, grave.items, grave.gold);
       this.msg('Your Shade comes apart. What you lost is yours again.', '#9ab8ff');
     }
-    if (e.marked && this.run.oath?.id === 'hunter') {
-      const oath = this.run.oath;
+    const duelist = runOath(this.run, 'duelist');
+    if (duelist && !e.risen) {
+      duelist.kills = (duelist.kills ?? 0) + 1;
+      if (duelist.kills === DUELIST_KILLS) this.msg(`${DUELIST_KILLS} kills with no guard but the parry. The Duelist's oath is met: now bring it home.`, OATHS.duelist.color);
+    }
+    const hunter = runOath(this.run, 'hunter');
+    if (e.marked && hunter) {
+      const oath = hunter;
       oath.marks = (oath.marks ?? 0) + 1;
       this.msg(oath.marks >= HUNTER_MARKS
         ? `The last marked quarry falls. The hunt is done: now bring it home.`
@@ -2902,6 +2929,12 @@ export class World {
       if (p.kind === 'shrine') {
         p.used = true;
         this.pray(p);
+        // A refused prayer (too poor, too hurt) puts the shrine back unused.
+        const pilgrim = runOath(this.run, 'pilgrim');
+        if (p.used && pilgrim) {
+          pilgrim.prayers = (pilgrim.prayers ?? 0) + 1;
+          if (pilgrim.prayers === PILGRIM_PRAYERS) this.msg(`${PILGRIM_PRAYERS} shrines. The Pilgrim's oath is met: now bring it home.`, OATHS.pilgrim.color);
+        }
         return;
       }
     }
@@ -3023,7 +3056,7 @@ export class World {
       // makes a font worth crossing a floor for once an idol has marked you.
       case 'font': {
         // Blood Price's Frailty is sworn, not suffered: the water leaves it.
-        const sworn = this.run.oath?.id === 'blood_price' && this.run.curse === 'frailty';
+        const sworn = !!runOath(this.run, 'blood_price') && this.run.curse === 'frailty';
         const lifted = sworn ? null : this.run.curse;
         if (!sworn) this.run.curse = null;
         if (sworn) this.msg('The water will not touch a sworn price. Frailty stays.', OATHS.blood_price.color);
@@ -3038,7 +3071,8 @@ export class World {
       // it takes, and what it takes lasts the rest of the run. Slightly
       // kinder than before (was 60/40) to compensate stronger curses.
       case 'idol': {
-        if (this.rng.chance(0.65)) {
+        // A Pilgrim's idol is crueller: it curses far more often than it gives.
+        if (this.rng.chance(runOath(this.run, 'pilgrim') ? 1 - PILGRIM_IDOL_CURSE : 0.65)) {
           this.restore(true);
           if (!this.grantBlessing()) this.msg('The idol is satisfied. Much of the hurt leaves you.', '#a0c8ff');
           return;
@@ -4000,7 +4034,8 @@ export class World {
     // Mid-sip the guard is down by design: the blow lands unblocked, and the
     // heal still lands when the 0.5s commitment completes. Drinking in melee
     // range is supposed to get you hit.
-    if (!unavoidable && this.anim.sip === null && this.anim.blockRaise > 0.6 && facingSource) {
+    // Duelist: the guard is sworn away. A parry (above) still works.
+    if (!unavoidable && this.anim.sip === null && this.anim.blockRaise > 0.6 && facingSource && !runOath(this.run, 'duelist')) {
       const absorbed = dmg * this.derived.block;
       const cost = absorbed * 1.3;
       if (p.stamina >= cost) {

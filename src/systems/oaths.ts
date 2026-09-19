@@ -1,71 +1,122 @@
 import { createRng, hashString } from '../core/rng';
 import { GameState, RunState } from '../state/game-state';
-import { BLOOD_PRICE_GOLD, HUNTER_MARKS, OATH_FALLBACK, OATH_PICKS, OathId, OathState, findOath } from '../data/oaths';
+import {
+  BLOOD_PRICE_GOLD, DRY_THROAT_DEPTH, DUELIST_KILLS, HUNTER_MARKS, OATH_FALLBACK, OATH_PICKS, OathId, OathState,
+  PILGRIM_PRAYERS, SILENCE_DEPTH, STACK_BONUS, STACK_BONUS_AT, UNBROKEN_DEPTH, findOath, oathsForDay,
+} from '../data/oaths';
 import { learnProperty, unlearnedProperties } from './properties';
 
+/** Today's oaths on the stone, for this playthrough. */
+export function todaysOaths(state: GameState): OathId[] {
+  return oathsForDay(state.saveId ?? '', state.market.day);
+}
+
+/** The oaths sworn for the next delve, from the current field or the single one before oaths stacked. */
+export function pendingOaths(state: GameState): OathId[] {
+  const list = state.pendingOaths ?? (state.pendingOath ? [state.pendingOath] : []);
+  return list.filter((id) => !!findOath(id));
+}
+
+/** The oaths on a delve, however it was saved. */
+export function runOaths(run: RunState): OathState[] {
+  return run.oaths ?? (run.oath ? [run.oath] : []);
+}
+
+/** One oath on this delve, if it was sworn. */
+export function runOath(run: RunState, id: OathId): OathState | undefined {
+  return runOaths(run).find((o) => o.id === id);
+}
+
 /**
- * Swear (or, with null, unswear) the oath for the next delve. Only in town,
- * between delves, and not while a kept oath's reward is still unchosen: a
- * second reward would overwrite the first.
+ * Swear or unswear one of today's oaths for the next delve. Any number can be
+ * sworn at once. Only in town between delves, and not while a kept oath's
+ * reward is still unchosen: a second reward would overwrite the first.
  */
-export function swearOath(state: GameState, id: OathId | null): boolean {
-  if (state.run) return false;
-  if (id !== null && state.oathReward) return false;
-  if (id !== null && !findOath(id)) return false;
-  state.pendingOath = id;
+export function toggleOath(state: GameState, id: OathId): boolean {
+  if (state.run || !findOath(id)) return false;
+  const set = new Set(pendingOaths(state));
+  if (set.has(id)) {
+    set.delete(id);
+  } else {
+    if (state.oathReward || !todaysOaths(state).includes(id)) return false;
+    set.add(id);
+  }
+  state.pendingOaths = [...set];
+  state.pendingOath = null;
   return true;
 }
 
-/** Called as a delve starts: the sworn oath moves onto the run and takes hold. */
-export function beginOath(state: GameState, run: RunState): void {
-  const id = state.pendingOath;
+/** Called as a delve starts: the sworn oaths move onto the run and take hold. */
+export function beginOaths(state: GameState, run: RunState): void {
+  const ids = pendingOaths(state);
+  state.pendingOaths = [];
   state.pendingOath = null;
-  if (!id || !findOath(id)) return;
-  run.oath = { id, status: 'active', marks: 0, placed: [] };
-  if (id === 'blood_price') run.curse = 'frailty';
+  if (!ids.length) return;
+  run.oaths = ids.map((id) => ({ id, status: 'active', marks: 0, placed: [], kills: 0, prayers: 0 }));
+  if (ids.includes('blood_price')) run.curse = 'frailty';
+  if (ids.includes('dry_throat') && run.flask) run.flask.charges = 0;
 }
 
-/** Whether the oath on this run has been kept, given how the delve ended. */
-export function oathKept(run: RunState, outcome: 'dead' | 'extracted'): boolean {
-  const oath = run.oath;
-  if (!oath || outcome !== 'extracted' || oath.status === 'broken') return false;
+/** Whether one oath on this run has been kept, given how the delve ended. */
+export function oathKept(run: RunState, oath: OathState, outcome: 'dead' | 'extracted'): boolean {
+  if (outcome !== 'extracted' || oath.status === 'broken') return false;
   switch (oath.id) {
     case 'blood_price': return run.stats.goldFound >= BLOOD_PRICE_GOLD;
-    case 'unbroken': return oath.status === 'kept';
+    case 'unbroken': return oath.status === 'kept' || run.stats.deepest >= UNBROKEN_DEPTH;
     case 'hunter': return (oath.marks ?? 0) >= HUNTER_MARKS;
+    case 'dry_throat': return run.stats.deepest >= DRY_THROAT_DEPTH;
+    case 'duelist': return (oath.kills ?? 0) >= DUELIST_KILLS;
+    case 'kingsbane': return run.stats.bossKilled;
+    case 'silence': return run.stats.deepest >= SILENCE_DEPTH;
+    case 'pilgrim': return (oath.prayers ?? 0) >= PILGRIM_PRAYERS;
   }
+  return false;
+}
+
+export interface OathOutcome {
+  results: { id: OathId; kept: boolean }[];
+  /** Inscriptions to learn from the reward, or 0. */
+  picks: number;
+  /** Renown paid instead, when there is nothing left to learn. */
+  renown: number;
+  /** Whether every sworn oath was kept, with enough sworn for the bonus. */
+  bonus: boolean;
 }
 
 /**
- * Settle the oath at the end of a delve. A kept oath leaves a reward waiting in
- * town: three unlearned properties, drawn from the run's seed so a reload
- * cannot reroll them, of which a medium oath learns one and a hard oath two.
- * With nothing left to learn it pays renown, twice as much for a hard oath.
- * Returns what happened, for the results screen.
+ * Settle the delve's oaths. Each kept oath pays on its own: a medium one an
+ * inscription, a hard one two. Keep every oath you swore, having sworn at
+ * least `STACK_BONUS_AT`, and one more on top. The inscriptions are chosen in
+ * town from a list at least one longer than the picks, drawn from the run's
+ * seed so a reload cannot reroll it. With nothing left to learn, renown.
  */
-export function settleOath(state: GameState, run: RunState, outcome: 'dead' | 'extracted'): { id: OathId; kept: boolean; renown: number } | null {
-  const oath: OathState | undefined = run.oath;
-  if (!oath) return null;
-  const kept = oathKept(run, outcome);
+export function settleOaths(state: GameState, run: RunState, outcome: 'dead' | 'extracted'): OathOutcome | null {
+  const oaths = runOaths(run);
+  if (!oaths.length) return null;
+  const results = oaths.map((o) => ({ id: o.id, kept: oathKept(run, o, outcome) }));
+  const kept = results.filter((r) => r.kept);
+  const bonus = kept.length === results.length && results.length >= STACK_BONUS_AT;
+  let picks = kept.reduce((n, r) => n + OATH_PICKS[findOath(r.id)!.tier], 0) + (bonus ? STACK_BONUS : 0);
   let renown = 0;
-  if (kept) {
-    const tier = findOath(oath.id)!.tier;
+  if (picks > 0) {
     const pool = unlearnedProperties(state);
     if (pool.length) {
-      const rng = createRng(hashString(`oath:${run.seed}:${oath.id}`));
-      const choices = rng.shuffle([...pool]).slice(0, 3);
-      state.oathReward = { oath: oath.id, choices, picks: Math.min(OATH_PICKS[tier], choices.length) };
+      const rng = createRng(hashString(`oath:${run.seed}:${kept.map((r) => r.id).join(',')}`));
+      const choices = rng.shuffle([...pool]).slice(0, Math.max(3, picks + 1));
+      picks = Math.min(picks, choices.length);
+      state.oathReward = { oaths: kept.map((r) => r.id), choices, picks };
     } else {
-      renown = OATH_FALLBACK[tier];
+      renown = kept.reduce((n, r) => n + OATH_FALLBACK[findOath(r.id)!.tier], 0) + (bonus ? OATH_FALLBACK.medium : 0);
       state.renown += renown;
+      picks = 0;
     }
   }
-  return { id: oath.id, kept, renown };
+  return { results, picks, renown, bonus };
 }
 
 /**
  * Learn one of a waiting reward's choices. The reward stays until its picks are
- * used up (a hard oath's two), with the learned one taken off the list.
+ * used up, with the learned one taken off the list.
  */
 export function claimOathReward(state: GameState, id: string): boolean {
   const reward = state.oathReward;

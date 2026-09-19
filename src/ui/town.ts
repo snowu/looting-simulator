@@ -2,8 +2,8 @@ import { GameState } from '../state/game-state';
 import { SEALS, SEAL_FIND, SEAL_IDS, SEAL_RENOWN, validSeals } from '../data/seals';
 import { sealsUnlocked, toggleSeal } from '../systems/seals';
 import { ROADS, roadsForDay } from '../data/routes';
-import { OATHS, OATH_IDS, findOath } from '../data/oaths';
-import { claimOathReward, swearOath } from '../systems/oaths';
+import { OATHS, OATH_PICKS, STACK_BONUS, STACK_BONUS_AT, findOath } from '../data/oaths';
+import { claimOathReward, pendingOaths, todaysOaths, toggleOath } from '../systems/oaths';
 import { learnProperty } from '../systems/properties';
 import { INSCRIBE_COST, PropertyDef, findProperty } from '../data/properties';
 import { inscribe, inscribeTargets } from '../systems/properties';
@@ -1116,11 +1116,11 @@ export class Town {
     const out: HTMLElement[] = [];
     const reward = s.oathReward;
     if (reward) {
-      const oath = findOath(reward.oath);
+      const kept = (reward.oaths ?? (reward.oath ? [reward.oath] : [])).map((id) => findOath(id)?.name).filter(Boolean);
       out.push(h(
         'div',
         { class: 'pane frame gold' },
-        h('h3', { text: `Oath kept: ${oath?.name ?? ''}` }),
+        h('h3', { text: `Oath${kept.length === 1 ? '' : 's'} kept: ${kept.join(', ')}` }),
         h('p', { class: 'dim', text: `The old wardens paid a kept oath in knowledge. Choose ${(reward.picks ?? 1) > 1 ? `${reward.picks} inscriptions` : 'one inscription'} to learn; they can be cut into your gear at the forge.` }),
         h('div', { class: 'col' }, ...reward.choices.map((id) => {
           const def = findProperty(id);
@@ -1176,15 +1176,17 @@ export class Town {
   /** The Oath Stone: swear one oath for the next delve, or none. */
   private oathStone(): HTMLElement {
     const s = this.s;
-    const sworn = s.pendingOath ?? null;
+    const sworn = pendingOaths(s);
+    const today = todaysOaths(s);
+    const picks = sworn.reduce((n, id) => n + OATH_PICKS[OATHS[id].tier], 0) + (sworn.length >= STACK_BONUS_AT ? STACK_BONUS : 0);
     return h(
       'div',
       { class: 'pane frame' },
       h('h3', { text: 'The Oath Stone' }),
-      h('p', { class: 'dim small', text: 'Swear one before you go down, or none. Keep it and come home alive, and it pays inscriptions you have not learned: one for a medium oath, two for the hard one. Break it and you lose only the reward.' }),
-      h('div', { class: 'col' }, ...OATH_IDS.map((id) => {
+      h('p', { class: 'dim small', text: `Today's oaths: one hard, two medium, and they change with the days. Swear as many as you dare, or none. Each kept oath pays inscriptions you have not learned (one for medium, two for hard), keep every one of two or more and you learn one more, and a broken oath loses only its own reward.` }),
+      h('div', { class: 'col' }, ...today.map((id) => {
         const def = OATHS[id];
-        const on = sworn === id;
+        const on = sworn.includes(id);
         return h(
           'div',
           { class: `row repair-row${on ? ' gold' : ''}` },
@@ -1194,12 +1196,13 @@ export class Town {
             h('div', { class: 'small', text: def.objective }),
           ),
           btn(on ? 'Unswear' : 'Swear', () => {
-            if (!swearOath(s, on ? null : id)) return this.ctx.toast('Choose your inscription from the last oath first.', '#e8c060');
-            this.ctx.toast(on ? `${def.name} unsworn.` : `You swear the ${def.name}. It takes hold when you descend.`, def.color);
+            if (!toggleOath(s, id)) return this.ctx.toast('Choose your inscriptions from the last oaths first.', '#e8c060');
+            this.ctx.toast(on ? `${def.name} unsworn.` : `You swear ${def.name}. It takes hold when you descend.`, def.color);
             this.commit('ui');
           }, `small${on ? '' : ' primary'}`),
         );
       })),
+      sworn.length ? h('p', { class: 'small', style: 'color:#e0c060', text: `${sworn.length} sworn: keep them all and learn ${picks} inscription${picks === 1 ? '' : 's'}.` }) : null,
     );
   }
 

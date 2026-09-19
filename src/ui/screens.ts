@@ -78,7 +78,7 @@ export function summaryScreen(sum: RunSummary, onContinue: () => void): HTMLElem
         h('div', {}, h('div', { class: 'big-num', text: String(sum.kills) }), h('div', { class: 'dim', text: 'slain' })),
       ),
       fallen ? h('p', { class: 'red-t', text: 'Hardcore: there was only one life. This hero is dead for good, and the save stays as their headstone.' }) : null,
-      sum.oath ? oathLine(sum.oath) : null,
+      sum.oaths ? oathsLine(sum.oaths) : sum.oath ? oathLine(sum.oath) : null,
       sum.seals ? h('p', { style: 'color:#c080ff', text: `Under ${sum.seals.count} Ashen Seal${sum.seals.count === 1 ? '' : 's'}.${sum.seals.record ? ' A new record: the King slain under more Seals than ever before.' : ''}` }) : null,
       sum.graveDepth ? h('p', { style: 'color:#9ab8ff', text: `What you lost waits at depth ${sum.graveDepth}, held by your Shade. Go back for it before you fall again.` }) : null,
       sum.items.length && !fallen ? h('h3', { text: home ? 'Brought home' : 'Saved by the Soul Pouch' }) : null,
@@ -109,4 +109,13 @@ function oathLine(o: { id: string; kept: boolean; renown: number }): HTMLElement
         : `Oath kept: ${def.name}. ${def.tier === 'hard' ? 'Two inscriptions wait' : 'An inscription waits'} for you in Bleakmere: choose from three.`
       : `Oath broken: ${def.name}. It costs you nothing but the reward.`,
   });
+}
+
+/** How the delve's oaths ended, on the results screen. */
+function oathsLine(o: { results: { id: string; kept: boolean }[]; picks: number; renown: number; bonus: boolean }): HTMLElement {
+  const parts = o.results.map((r) => `${findOath(r.id)?.name ?? r.id} ${r.kept ? 'kept' : 'broken'}`);
+  const pay = o.picks
+    ? ` ${o.picks} inscription${o.picks === 1 ? '' : 's'} wait${o.picks === 1 ? 's' : ''} for you in Bleakmere${o.bonus ? ', one of them for keeping every oath' : ''}.`
+    : o.renown ? ` You know every inscription, so they pay ${o.renown} renown instead.` : ' They cost you nothing but the reward.';
+  return h('p', { style: `color:${o.results.some((r) => r.kept) ? '#e0c060' : '#9a9aa8'}`, text: `Oaths: ${parts.join(', ')}.${pay}` });
 }

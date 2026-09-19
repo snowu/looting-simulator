@@ -1,12 +1,26 @@
-# Hard and medium oaths
+# Oaths stack, and there are more of them
 
-*No save change. A reward already waiting in town still lets you learn one.*
+*Additive save change (revision 29): a sworn oath, an oath on a delve in progress and a reward waiting in town all carry over.*
 
-Blood Price asked a lot more than the other oaths for the same reward, so oaths now come in tiers. **Blood Price is the hard oath**: keep it and you learn **two** of the three inscriptions offered instead of one (or 20 renown instead of 10 once you know them all). Unbroken and Hunter are medium oaths and pay as before. The Descend panel lists the hard oath first and says what each one pays.
+**Swear as many oaths as you dare.** Each one's rule applies, and each is kept or broken on its own. Kept oaths pay separately: a **medium** oath one inscription, a **hard** oath **two**. **Keep every oath you swore, having sworn at least two, and you learn one more.** A broken oath only loses its own reward.
 
-Validation: typecheck, production build, and the full test suite (726 tests). New tests cover the tiers, the hard oath's two picks (the reward stays until both are chosen), a reward from before the tiers still paying one, and the doubled renown when nothing is left to learn. Not checked in a browser: the change is to the reward's text and count, and the flow is covered by the tests.
+**The stone changes with the days.** Each day it offers one hard oath and two medium ones, from a pool of eight:
+
+- **Blood Price** (hard): go down cursed with Frailty, which fonts won't lift. Bring home 250 gold found.
+- **Dry Throat** (hard): your flask starts empty; fonts and dregs still refill it. Reach depth 4.
+- **Duelist** (hard): blocking does nothing, only the parry. Kill 20 monsters.
+- **Kingsbane** (hard): monsters hit harder. Kill the Ashen King.
+- **Unbroken** (medium): your gear wears twice as fast. Reach depth 4 with nothing breaking.
+- **Hunter** (medium): monsters see you further. Kill three marked elites.
+- **Silence** (medium): monsters see you less, but every noise carries twice as far. Reach depth 3 without springing an alarm ward or shouting Wardcry.
+- **Pilgrim** (medium): Hollow Idols curse far more often. Pray at three shrines.
+
+All of them ask you to come home alive. The Descend panel shows the day's three and what keeping them all would pay; the HUD tracks each one.
+
+Validation: typecheck, production build, and the full test suite (729 tests), twice. New tests cover the daily offer (one hard, two medium, stable through the day, every oath appearing over a month), swearing several at once (only today's, only in town), migrating single oaths into lists, each oath's rule and objective, the per-oath pay with the keep-them-all bonus, a broken oath losing only its own share, and claiming picks one at a time. Checked in the dev lab in Chrome: the Descend panel with the day's three oaths, swearing two, and the "keep them all" total. Not played through a real multi-oath delve yet.
 
 ---
+
 
 # Fixed: cloud saves after the update
 
