@@ -3931,6 +3931,7 @@ export class World {
       if (other.hp <= 0) this.killEnemy(other);
     }
     if (inBlast(this.player.x, this.player.y)) {
+      this.msg(`The Vengeful ${def.name}'s corpse bursts!`, '#c070ff');
       this.emit({ type: 'shake', amount: 0.5 });
       this.damagePlayer(attack, def.damageType, e.x, e.y, `Vengeful ${def.name}`, def.id);
     } else {

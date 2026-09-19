@@ -28,7 +28,8 @@ import { MATERIALS } from '../data/materials';
 import { MAX_RECIPE_RANK, RECIPES } from '../data/recipes';
 import { META_UPGRADES } from '../systems/meta';
 import { ENEMIES, enemyDef } from '../data/enemies';
-import { Room, blocksMove, createEnemy, doorAt, enemyAt, generateFloor, stairsAt } from '../systems/dungeon';
+import { Room, blocksMove, createEnemy, doorAt, enemyAt, generateFloor, promoteElite, stairsAt } from '../systems/dungeon';
+import { EliteTrait, eligibleTraits } from '../data/elites';
 import { BIOMES, biomeForDepth } from '../data/biomes';
 import { hashString } from '../core/rng';
 import { Dir, dirOf } from '../core/dir';
@@ -156,6 +157,8 @@ export interface LabSpawnOpts {
   spacing?: 'near' | 'ranged';
   /** 'alert' = aware of you; 'windup' = already mid-swing. */
   prime?: 'alert' | 'windup';
+  /** Promote each spawn to this elite trait. */
+  elite?: EliteTrait;
 }
 
 /** All spawnable enemy ids for the panel dropdown. */
@@ -195,6 +198,7 @@ export function spawnLabMob(world: World, id: string, opts: LabSpawnOpts = {}): 
     e.alert = 6;
     e.lastSeenX = px;
     e.lastSeenY = py;
+    if (opts.elite && eligibleTraits(def).includes(opts.elite)) promoteElite(e, opts.elite);
     if (opts.prime === 'windup') {
       e.ai = 'windup';
       e.timer = 0.12;

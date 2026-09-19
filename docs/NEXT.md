@@ -295,7 +295,7 @@ the same commit as the work it describes**, so any session can resume from it.
 
 | # | Branch | Scope | Status |
 |---|---|---|---|
-| 1 | `feat/ri-1-elites` | Step 1: elite traits, thieving Cutpurse | built, PR open — needs a browser playtest |
+| 1 | `feat/ri-1-elites` | Step 1: elite traits, thieving Cutpurse | built, PR open — needs a real delve on desktop and phone |
 | 2 | `feat/ri-2-ambushers` | Step 2: ceiling droppers, burrowing Mole and Stalker | not started |
 | 3 | `feat/ri-3-walls` | Step 2: cracked walls, ore seams, sealed niches | not started |
 | 4 | `feat/ri-4-gravecaller` | Step 2: the Gravecaller, shattered and sanctified remains | not started |
@@ -312,8 +312,9 @@ Log (newest last), one line per landed piece with what is and is not done:
   unblocked blow and flees; kill it to recover, 20s out of sight and it escapes.
   No save migration (all fields optional). Not done: the codex doesn't list
   traits yet, Oaths can't raise the elite chance yet (`eliteFor` takes a
-  `bonus` for that), the headless bot doesn't chase thieves deliberately, and
-  nobody has looked at it in a browser. Harness: careful iron kit deaths
+  `bonus` for that), and the headless bot doesn't chase thieves deliberately.
+  Checked in the dev lab (elite picker added to the F3 console); not yet played
+  through a real delve or on a phone. Harness: careful iron kit deaths
   29% → 46%, other profiles within noise; watch this in play.
 
 ## The problem
