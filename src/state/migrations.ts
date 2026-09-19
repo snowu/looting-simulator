@@ -26,7 +26,7 @@ import { findSigil } from '../data/spells';
  */
 
 /** Bump this (and push a migration) whenever a field is added to the save. */
-export const SAVE_REVISION = 25;
+export const SAVE_REVISION = 26;
 
 type AnyState = GameState & Record<string, unknown>;
 
@@ -237,6 +237,11 @@ const MIGRATIONS: ((s: AnyState) => void)[] = [
   // 24 → 25: build properties. Nothing learned yet; items simply have none.
   (s) => {
     s.properties ??= [];
+  },
+  // 25 → 26: Delve Oaths. Nothing sworn, no reward waiting.
+  (s) => {
+    s.pendingOath ??= null;
+    s.oathReward ??= null;
   },
 ];
 

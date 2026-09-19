@@ -1,3 +1,4 @@
+import type { OathId, OathReward, OathState } from '../data/oaths';
 import { Rng } from '../core/rng';
 import { Dir } from '../core/dir';
 import { Item, Rarity, RecipeRanks } from '../types';
@@ -44,6 +45,8 @@ export interface PortalState {
 }
 
 export interface RunState {
+  /** The oath sworn for this delve, and how it stands. Absent means none. */
+  oath?: OathState;
   seed: number;
   rngState: number;
   depth: number;
@@ -108,6 +111,8 @@ export interface RunSummary {
   dayTurned: boolean;
   /** A one-life death: this was the hero's last delve, not just a lost one. */
   fallen?: boolean;
+  /** The oath sworn for this delve, and whether it was kept. */
+  oath?: { id: OathId; kept: boolean; renown: number };
 }
 
 /**
@@ -190,6 +195,10 @@ export interface GameState {
   attuned: string | null;
   /** Build properties learned, ready to inscribe at the forge. See `src/data/properties.ts`. */
   properties: string[];
+  /** The oath sworn for the next delve, if any. See `src/data/oaths.ts`. */
+  pendingOath?: OathId | null;
+  /** A kept oath's reward, waiting in town to be chosen. */
+  oathReward?: OathReward | null;
   /** Packed in town for the next delve; becomes the backpack when you descend. */
   loadout: Container;
   run: RunState | null;

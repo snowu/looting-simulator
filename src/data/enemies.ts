@@ -511,6 +511,8 @@ export interface ViewMods {
   elite?: EliteTrait;
   /** A thief running with something of yours. */
   carrying?: boolean;
+  /** Hunter's quarry. */
+  marked?: boolean;
 }
 
 /** The glow of a thief carrying your things: a lamp to chase by. */
@@ -518,9 +520,9 @@ export const THIEF_GLOW = '#e8c060';
 
 export function enemyView(def: EnemyDef, hp: number, maxHp: number, mods?: ViewMods): EnemyDef {
   const base = phaseView(def, hp, maxHp);
-  if (!mods || (!mods.elite && !mods.carrying)) return base;
+  if (!mods || (!mods.elite && !mods.carrying && !mods.marked)) return base;
   const frenzy = mods.elite === 'frenzied' && maxHp > 0 && hp < maxHp * FRENZY_AT;
-  const key = `${base.id}:${base.sprite}:${mods.elite ?? ''}:${frenzy ? 1 : 0}:${mods.carrying ? 1 : 0}`;
+  const key = `${base.id}:${base.sprite}:${mods.elite ?? ''}:${frenzy ? 1 : 0}:${mods.carrying ? 1 : 0}:${mods.marked ? 1 : 0}`;
   let view = VIEW_CACHE.get(key);
   if (view) return view;
   view = { ...base };
@@ -545,6 +547,7 @@ export function enemyView(def: EnemyDef, hp: number, maxHp: number, mods?: ViewM
       view.thief = true;
     }
   }
+  if (mods.marked) view.name = `Marked ${view.name}`;
   if (mods.carrying) {
     view.glow = THIEF_GLOW;
     // Laden: running with your things slows it down. See `runWithLoot`.

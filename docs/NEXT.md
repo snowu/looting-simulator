@@ -299,8 +299,8 @@ the same commit as the work it describes**, so any session can resume from it.
 | 2 | `feat/ri-2-ambushers` | Step 2: ceiling droppers, burrowing Mole and Stalker | [#19](https://github.com/snowu/looting-simulator/pull/19) open — needs a real delve on desktop and phone |
 | 3 | `feat/ri-3-walls` | Step 2: cracked walls, ore seams, sealed niches | [#20](https://github.com/snowu/looting-simulator/pull/20) open — needs a real delve on desktop and phone |
 | 4 | `feat/ri-4-gravecaller` | Step 2: the Gravecaller, shattered and sanctified remains | built, PR open — needs a real delve on desktop and phone |
-| 5 | `feat/ri-5-properties` | Step 6 pulled forward: six build properties and the forge's Inscribe bench | built, PR open |
-| 6 | `feat/ri-6-oaths` | Step 3: Delve Oaths, paying out properties | not started |
+| 5 | `feat/ri-5-properties` | Step 6 pulled forward: six build properties and the forge's Inscribe bench | [#22](https://github.com/snowu/looting-simulator/pull/22) open |
+| 6 | `feat/ri-6-oaths` | Step 3: Delve Oaths, paying out properties | built, PR open |
 | 7+ | — | Steps 4, 5, 7: route fork and biome laws, lieutenants and corpse run, Seals | not started |
 
 Log (newest last), one line per landed piece with what is and is not done:
@@ -364,6 +364,17 @@ Log (newest last), one line per landed piece with what is and is not done:
   No player-facing way to learn one until PR 6, so PR 5 carries no patch note;
   PR 6's covers both. Not done: phone-width check of the bench (the browser
   window couldn't be resized here).
+- 2026-09-19 — **PR 6 built** (stacked on PR 5). Delve Oaths: Blood Price,
+  Unbroken, Hunter (`src/data/oaths.ts`). Sworn at the Oath Stone above the
+  town tabs into `state.pendingOath`, moved onto `run.oath` by `startRun`,
+  settled in `endRun`: kept and home alive → `state.oathReward` = 3 unlearned
+  properties (seeded by run), or 10 renown if none left. Save revision 26
+  (additive). Hunter marks one of the three toughest monsters on D2–4 at first
+  generation (first version picked a rat). No new oath while a reward is
+  unchosen. The patch note covers PRs 5 and 6 together. Not done: HUD target
+  bar overlaps the status block at ~500px width (layout issue from before,
+  longer "Marked …" names make it worse); oath choice isn't seeded per day
+  (all three always on offer, since there are only three).
 - Art previews for PR descriptions are PNG sheets from `npm run art:sheet`,
   committed under `docs/previews/ri-*.png` and embedded by raw URL (user's
   request, 2026-09-19).

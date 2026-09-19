@@ -948,6 +948,20 @@ The roll never offers a sigil you already know or are already carrying anywhere 
 
 A stone is **inscribed at the forge**, on its *Sigils* bench, which consumes it permanently into `state.spells`; you **attune** from the same bench. The forge's right-hand column is three tabs — Recipes, Repairs, Sigils — each badged when it wants attention, because stacking them put the recipe list a screen and a half down. Attunement cannot change mid-delve unless a town portal is open — the same rule that governs restocking.
 
+### Delve Oaths
+
+*Files: `src/data/oaths.ts`, `src/systems/oaths.ts`, the hooks in `src/world/world.ts`, the Oath Stone in `src/ui/town.ts`*
+
+Between delves, the **Oath Stone** above the town tabs offers every oath. You may swear one or none; swearing again changes it, and it can be taken back until you descend. On descending it moves onto the run (`run.oath`) and takes hold. **Keep it and come home alive** (by the stairs or the King's portal; a town-portal trip doesn't end the delve) and a reward waits in town: choose **1 of 3** build properties you haven't learned, drawn from the run's seed so a reload can't reroll them. With every property learned, it pays **10 renown** instead. A broken or unkept oath costs only the reward. You can't swear a new oath while a reward is still unchosen.
+
+| Oath | Rule | Objective |
+|---|---|---|
+| Blood Price | You start cursed with **Frailty** (−20% max health). A Font of Mending won't lift it this delve | Come home with at least **250 gold found** in the dungeon (`run.stats.goldFound`) |
+| Unbroken | Everything you wear wears **×2** | Reach **depth 4** with nothing you wear breaking (kept the moment you arrive), then come home. Any worn item breaking before that breaks the oath |
+| Hunter | Monsters see you **2** tiles further | A **marked** elite is placed on each of depths **2, 3, 4** when the floor is first generated: one of the three toughest monsters at least 8 steps from the stairs, promoted to an elite if it isn't one. Kill all **3**, then come home |
+
+A marked monster's name reads "Marked …" on the target bar, in gold. The HUD's status block shows the oath and its progress.
+
 ### Build properties
 
 *Files: `src/data/properties.ts`, `src/systems/properties.ts`, `applyProperty` in `src/systems/player.ts`, the hooks in `src/world/world.ts`, the Inscribe bench in `src/ui/town.ts`*

@@ -295,6 +295,8 @@ export interface EnemyState {
   /** Steps a thief has run with its loot, and how many coin drops it has left as a trail. */
   trailN?: number;
   trailDrops?: number;
+  /** Hunter's quarry: one of the marked elites the oath asks you to kill. */
+  marked?: boolean;
 }
 
 export interface Morsel {

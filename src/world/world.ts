@@ -12,6 +12,8 @@ import {
   BULWARK_MULT, BULWARK_SOAK, BULWARK_WINDOW, EXECUTION_REFUND_MULT, KINDLING_AT, KINDLING_SPREAD, LAST_FLASK_MULT,
   RETRIEVAL_MULT, RIPOSTE_MULT, RIPOSTE_WINDOW,
 } from '../data/properties';
+import { HUNTER_DEPTHS, HUNTER_MARKS, HUNTER_SIGHT, OATHS, UNBROKEN_DEPTH, UNBROKEN_WEAR } from '../data/oaths';
+import { eligibleTraits } from '../data/elites';
 import { RAISE_BEAT, RAISE_CHANNEL, RAISE_COOLDOWN, RAISE_HP, RAISE_LIMIT, RAISE_REACH, SHATTER_OVERKILL } from '../data/necromancy';
 import {
   AMBUSH_BEAT, AMBUSH_TRIGGER, BURROW_MAX, BURROW_MIN, DIVE_AT, DROP_SECONDS, KNOCKOUT_STUN, MOUND_STEP, SURFACE_SECONDS,
@@ -32,6 +34,7 @@ import {
   doorAt,
   enemyAt,
   lurkerAt,
+  promoteElite,
   crackAt,
   generateFloor,
   inBounds,
@@ -610,6 +613,8 @@ export class World {
   private wear(slot: EquipSlot, amount = 1): void {
     const it = this.state.equipment[slot];
     if (this.run.curse === 'brittle') amount += 1;
+    const oath = this.run.oath;
+    if (oath?.id === 'unbroken') amount *= UNBROKEN_WEAR;
     const crossed = wearItem(it, amount);
     if (crossed === 'none' || !it) return;
     const name = itemName(it);
@@ -618,6 +623,10 @@ export class World {
       this.msg(`Your ${name} breaks!`, '#ff7070');
       this.sfx('break');
       this.emit({ type: 'shake', amount: 0.3 });
+      if (oath?.id === 'unbroken' && oath.status === 'active') {
+        oath.status = 'broken';
+        this.msg('Your oath breaks with it. Unbroken is lost.', OATHS.unbroken.color);
+      }
     }
     this.refreshDerived();
   }
@@ -643,7 +652,7 @@ export class World {
 
   /** Extra tiles of sight the floor has on you, from the Hunted curse. */
   private get sightPenalty(): number {
-    return (this.run.curse === 'hunted' ? 3 : 0) - this.derived.traits.unseen - (this.anim?.unseenT > 0 ? 99 : 0);
+    return (this.run.curse === 'hunted' ? 3 : 0) + (this.run.oath?.id === 'hunter' ? HUNTER_SIGHT : 0) - this.derived.traits.unseen - (this.anim?.unseenT > 0 ? 99 : 0);
   }
 
   private emit(e: WorldEvent): void {
@@ -1074,6 +1083,12 @@ export class World {
       // cover most runs; the force only bites on a drought.
       const force = shrinePityFor(run.floors, run.depth);
       run.floors[run.depth - 1] = generateFloor(run.seed, run.depth, this.difficultyId, force);
+      this.placeHunterMark(run.floors[run.depth - 1]!);
+    }
+    // Unbroken is kept the moment you stand on its depth with everything whole.
+    if (run.oath?.id === 'unbroken' && run.oath.status === 'active' && run.depth >= UNBROKEN_DEPTH) {
+      run.oath.status = 'kept';
+      this.msg(`Depth ${UNBROKEN_DEPTH}, and nothing broken. The oath is kept: now bring it home.`, OATHS.unbroken.color);
     }
     const f = this.floor;
     const arrive = f.stairs.find((s) => s.down === (dir === 'up'))!;
@@ -1870,7 +1885,7 @@ export class World {
    * reading the fields they always read.
    */
   private view(e: EnemyState): EnemyDef {
-    return enemyView(enemyDef(e.def), e.hp, e.maxHp, { elite: e.elite, carrying: !!e.stolen?.length });
+    return enemyView(enemyDef(e.def), e.hp, e.maxHp, { elite: e.elite, carrying: !!e.stolen?.length, marked: e.marked });
   }
 
   private guardReaction(e: EnemyState, def: EnemyDef): 'bash' | 'chip' | null {
@@ -2060,6 +2075,33 @@ export class World {
   }
 
   /**
+   * Hunter: a freshly generated floor on one of the hunt's depths gets its
+   * mark. One of the three toughest monsters far from the stairs is chosen on
+   * the run's own stream, promoted to an elite if it is not one, and marked. Placed when the
+   * floor is first generated, so a floor is only ever marked once.
+   */
+  private placeHunterMark(f: Floor): void {
+    const oath = this.run.oath;
+    if (oath?.id !== 'hunter' || !HUNTER_DEPTHS.includes(f.depth) || (oath.placed ?? []).includes(f.depth)) return;
+    const up = f.stairs.find((st) => !st.down);
+    const far = (e: EnemyState) => up ? Math.abs(e.x - up.x) + Math.abs(e.y - up.y) : 0;
+    const pool = f.enemies.filter((e) => e.ai !== 'dead' && !e.lurk && enemyDef(e.def).behavior !== 'boss' && far(e) >= 8);
+    const quarry = pool.length ? pool : f.enemies.filter((e) => e.ai !== 'dead' && !e.lurk && enemyDef(e.def).behavior !== 'boss');
+    if (!quarry.length) return;
+    // Quarry worth the name: one of the three toughest on the floor, never
+    // whatever rat happened to be furthest from the stairs.
+    const rng = createRng(hashString(`hunt:${this.run.seed}:${f.depth}`));
+    const toughest = [...quarry].sort((a, b) => enemyDef(b.def).hp - enemyDef(a.def).hp || a.id.localeCompare(b.id)).slice(0, 3);
+    const e = rng.pick(toughest);
+    if (!e.elite) {
+      const traits = eligibleTraits(enemyDef(e.def));
+      if (traits.length) promoteElite(e, rng.pick(traits));
+    }
+    e.marked = true;
+    (oath.placed ??= []).push(f.depth);
+  }
+
+  /**
    * Kindling: a blow with fire in it, landing on a monster below `KINDLING_AT`
    * of its health, also burns one monster beside it for the fire share.
    */
@@ -2118,6 +2160,13 @@ export class World {
     if (e.risen) {
       this.msg(`${def.name} falls still again.`, '#c8c0b0');
       return;
+    }
+    if (e.marked && this.run.oath?.id === 'hunter') {
+      const oath = this.run.oath;
+      oath.marks = (oath.marks ?? 0) + 1;
+      this.msg(oath.marks >= HUNTER_MARKS
+        ? `The last marked quarry falls. The hunt is done: now bring it home.`
+        : `Marked quarry slain: ${oath.marks} of ${HUNTER_MARKS}.`, OATHS.hunter.color);
     }
     this.refundSigil(def, this.derived.traits.execution && (e.vuln ?? 0) > 0 ? EXECUTION_REFUND_MULT : 1);
     this.run.stats.kills++;
@@ -2729,8 +2778,11 @@ export class World {
       // The safe one. A large mend and it washes off a curse — which is what
       // makes a font worth crossing a floor for once an idol has marked you.
       case 'font': {
-        const lifted = this.run.curse;
-        this.run.curse = null;
+        // Blood Price's Frailty is sworn, not suffered: the water leaves it.
+        const sworn = this.run.oath?.id === 'blood_price' && this.run.curse === 'frailty';
+        const lifted = sworn ? null : this.run.curse;
+        if (!sworn) this.run.curse = null;
+        if (sworn) this.msg('The water will not touch a sworn price. Frailty stays.', OATHS.blood_price.color);
         this.refreshDerived();
         this.restore(true);
         if (lifted) this.msg(`The water runs black and clears. ${CURSES[lifted].name} is washed away.`, '#a0c8ff');
