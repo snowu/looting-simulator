@@ -34,6 +34,7 @@ const SKIP = {
   '1c24bdf': 'harness fix only (reproducible bot save id); no player-facing change',
   ed91fa2: 'merge only; stacked branch sync of the harness fix',
   '70da7ee': 'merge only; stacked branch sync of the harness fix',
+  '77943fa': 'patch-note commit for Patch 64 that also filled in patch_notes.md; covered by Patch 64',
   a4347f6: 'merge only; healing rework changes covered by Patch 51',
   '1013973': 'merge only; the master forge layout arrives with its own commit',
   '080e186': 'dev art sheet grouping only; the food art is covered by Patch 52',
