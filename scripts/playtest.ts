@@ -688,6 +688,10 @@ export const DEEP_META: MetaLevels = { toughness: 5, endurance: 3, pack_mule: 3,
 
 export function playOneRun(seed: number, policy: Policy, prepare?: (s: GameState) => void): RunReport {
   const state = newGame(createRng(seed));
+  // newGame draws a random save id, and the day's roads at the fork are seeded
+  // from it. Fix it, or two runs of the harness take different roads and stop
+  // being comparable.
+  state.saveId = `bot-${seed}`;
   prepare?.(state);
   packLoadout(state);
   startRun(state, seed);
