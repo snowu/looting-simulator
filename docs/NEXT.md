@@ -295,7 +295,7 @@ the same commit as the work it describes**, so any session can resume from it.
 
 | # | Branch | Scope | Status |
 |---|---|---|---|
-| 1 | `feat/ri-1-elites` | Step 1: elite traits, thieving Cutpurse | built, PR open — needs a real delve on desktop and phone |
+| 1 | `feat/ri-1-elites` | Step 1: elite traits, thieving Cutpurse | [#18](https://github.com/snowu/looting-simulator/pull/18) open — needs a real delve on desktop and phone |
 | 2 | `feat/ri-2-ambushers` | Step 2: ceiling droppers, burrowing Mole and Stalker | not started |
 | 3 | `feat/ri-3-walls` | Step 2: cracked walls, ore seams, sealed niches | not started |
 | 4 | `feat/ri-4-gravecaller` | Step 2: the Gravecaller, shattered and sanctified remains | not started |
