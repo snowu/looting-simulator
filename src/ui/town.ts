@@ -316,6 +316,10 @@ export class Town {
       lines.push(h('div', { class: 'event', text: `◆ ${def.name} (${ev.daysLeft} day${ev.daysLeft === 1 ? '' : 's'} left) — ${def.description}` }));
     }
     for (const n of m.news) if (!m.events.some((ev) => n.startsWith(marketEvent(ev.id).name))) lines.push(h('div', { class: 'dim', text: n }));
+    const grave = this.s.grave;
+    if (grave) {
+      lines.push(h('div', { style: 'color:#9ab8ff', text: `Your Shade holds what you lost at depth ${grave.depth}: ${grave.items.length} stack${grave.items.length === 1 ? '' : 's'}${grave.gold ? ` and ${gold(grave.gold)}` : ''}. Die again first and it is gone.` }));
+    }
     // The roads open below depth 2 today, named so a delve can be prepared for.
     const roads = roadsForDay(this.s.saveId ?? '', m.day, m.events).map((b) => ROADS[b]);
     lines.push(h('div', { class: 'rumour', text: `Below the second floor today the stair splits: ${roads.map((r) => r.name).join(' or ')}.` }));

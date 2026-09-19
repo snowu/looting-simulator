@@ -1,3 +1,15 @@
+# Your Shade keeps what you lost
+
+*Additive save change (revision 27): no grave waiting. Every existing save loads as it was.*
+
+Dying no longer throws your pack away. What you lose (the backpack and the coin you carried, beyond what a Soul Pouch keeps) waits on the depth where you fell, held by **your Shade**: a pale, cold version of you that fights with the kind of weapon you died holding. Reach it on a later delve and kill it, and everything drops back at your feet.
+
+There's only ever one grave. Die again before you get back to it, and the old pack is gone for good; the new one takes its place. Coming home without reclaiming it leaves it waiting. The town news and the results screen tell you where it is. On Hardcore a death ends the save, so there's no Shade to go back for.
+
+HARNESS_LINE
+
+---
+
 # Every floor its own law
 
 *No save change.*

@@ -79,6 +79,7 @@ export function summaryScreen(sum: RunSummary, onContinue: () => void): HTMLElem
       ),
       fallen ? h('p', { class: 'red-t', text: 'Hardcore: there was only one life. This hero is dead for good, and the save stays as their headstone.' }) : null,
       sum.oath ? oathLine(sum.oath) : null,
+      sum.graveDepth ? h('p', { style: 'color:#9ab8ff', text: `What you lost waits at depth ${sum.graveDepth}, held by your Shade. Go back for it before you fall again.` }) : null,
       sum.items.length && !fallen ? h('h3', { text: home ? 'Brought home' : 'Saved by the Soul Pouch' }) : null,
       sum.items.length && !fallen ? h('div', { class: 'items' }, ...sum.items.map((it) => itemSlot(it, { size: 44 }))) : null,
       sum.lost.length ? h('h3', { class: 'red-t', text: 'Lost in the dark' }) : null,

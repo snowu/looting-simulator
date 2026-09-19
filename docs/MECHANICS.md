@@ -1221,6 +1221,12 @@ Five upgrades were **not** repriced, because the harness cannot see them and a n
 
 ---
 
+### The corpse run
+
+*Files: `src/systems/grave.ts`, `endRun` in `src/systems/run.ts`, the Shade hooks in `src/world/world.ts`*
+
+When you die, what you lost (the backpack beyond any Soul Pouch slots, and the carried coin beyond its share) goes into a **grave** on the depth where you fell (`state.grave`). The next delve that reaches that depth finds **Your Shade** there, at least **10** steps from the arrival stair and never in the throne room. Its stats: 60 health, 12 attack, 6 defense, holy ×1.5, shadow ×0.5, scaled by depth like any monster. It strikes with the **damage type of the weapon you fell holding**, is drawn as a pale, cold version of the knight's frame, and glows blue. **Kill it and the whole pack drops where it stood**, coin included. Only one grave exists at a time: **die again before reclaiming it and it is replaced**, and the old pack is gone for good. Coming home without reclaiming it leaves it where it is. The Shade is placed once per delve (`run.shadePlaced`), and never on **Hardcore**, where a death ends the save. The town news and the results screen say where it waits.
+
 ## 15. Saving
 
 *Files: `src/state/persistence.ts`, `src/state/migrations.ts`* — one JSON blob in `localStorage` under `looting-simulator-save-v2`, written on every town action, on floor changes, every 15 seconds in a run, when the app goes to the background, and on close. A run in progress is saved too, so you can resume it. Loading strips affixes that no longer exist and blessings that were removed, so old saves survive rule changes.

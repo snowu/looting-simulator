@@ -302,8 +302,10 @@ the same commit as the work it describes**, so any session can resume from it.
 | 5 | `feat/ri-5-properties` | Step 6 pulled forward: six build properties and the forge's Inscribe bench | [#22](https://github.com/snowu/looting-simulator/pull/22) open |
 | 6 | `feat/ri-6-oaths` | Step 3: Delve Oaths, paying out properties | [#23](https://github.com/snowu/looting-simulator/pull/23) open |
 | 7 | `feat/ri-7-routes` | Step 4, part 1: the route fork below depth 2 | [#24](https://github.com/snowu/looting-simulator/pull/24) open |
-| 8 | `feat/ri-8-laws` | Step 4, part 2: biome laws for Ossuary, Deep Mines, Vermin Burrows | built, PR open |
-| 9+ | — | Steps 5 and 7: lieutenants and corpse run, Seals | not started |
+| 8 | `feat/ri-8-laws` | Step 4, part 2: biome laws for Ossuary, Deep Mines, Vermin Burrows | [#25](https://github.com/snowu/looting-simulator/pull/25) open |
+| 9 | `feat/ri-9-grave` | Step 5, part 1: the corpse run | built, PR open |
+| 10 | `feat/ri-10-lieutenants` | Step 5, part 2: floor lieutenants | not started |
+| 11 | — | Step 7: Ashen Seals | not started |
 
 Log (newest last), one line per landed piece with what is and is not done:
 
@@ -392,6 +394,17 @@ Log (newest last), one line per landed piece with what is and is not done:
   radii ×1.75; a broken root cache lures monsters within 12 to the cache. The
   arrival message plays on a floor's first generation. **Step 4 done with this
   PR.** Next: step 5, lieutenants and the corpse run.
+- 2026-09-19 — **PR 9 built** (stacked on PR 8). `src/systems/grave.ts`:
+  `endRun` digs `state.grave` (lost items, lost coin, the weapon's damage type,
+  depth fallen) on a non-Hardcore death, replacing any unclaimed grave. The
+  Shade (weight-0 def on the knight sprite, pale tint) is placed once per
+  delve when its depth is generated (`startRun` for depth 1, `changeFloor`
+  otherwise); killing it drops the grave and clears it. Save revision 27.
+- 2026-09-19 — **Harness bug found:** `newGame` gives each save a random
+  `saveId` (`crypto.randomUUID`), and since PR 7 the day's roads are seeded
+  from it, so harness runs stopped being reproducible. The harness comparisons
+  quoted in PRs 7 and 8 were noise. Fixed on PR 7's branch (the bot fixes its
+  save id) and re-measured.
 - Art previews for PR descriptions are PNG sheets from `npm run art:sheet`,
   committed under `docs/previews/ri-*.png` and embedded by raw URL (user's
   request, 2026-09-19).

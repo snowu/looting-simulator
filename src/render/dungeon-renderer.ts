@@ -430,6 +430,8 @@ export class DungeonRenderer {
       if (en.ai === 'dead') y -= call !== undefined ? (1 - call) * 1.2 : (fused ? Math.min(en.deadT, 0.3) : en.deadT) * 1.4;
       this.place(s, `${def.sprite}_${pose.frame}`, wx, y, wz, height);
       if (en.hurtT > 0) s.mat.uniforms.uTint.value.set(1, 0.95, 0.9, Math.min(0.8, en.hurtT * 3));
+      // Your Shade: a pale, cold wash so it never reads as an ordinary knight.
+      else if (en.def === 'shade' && en.ai !== 'dead' && en.ai !== 'windup') s.mat.uniforms.uTint.value.set(0.6, 0.72, 1, 0.45 + 0.08 * Math.sin(this.time * 2));
       else if (en.ai === 'windup' || (en.grabT ?? 0) > 0) s.mat.uniforms.uTint.value.set(1, 0.2, 0.1, 0.12 + 0.12 * Math.sin(this.time * 30));
       else if (en.elite && en.ai !== 'dead') {
         // A slow pulse in the trait's colour: readable at a glance, and never
