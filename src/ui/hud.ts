@@ -1,4 +1,5 @@
 import { DIR_NAMES, DX, DY, turnLeft, turnRight } from '../core/dir';
+import { BLOOD_PRICE_GOLD, HUNTER_MARKS, OATHS, UNBROKEN_DEPTH, findOath } from '../data/oaths';
 import { biomeForFloor } from '../data/biomes';
 import { THIEF_GLOW, enemyDef, enemyView } from '../data/enemies';
 import { ELITES } from '../data/elites';
@@ -269,7 +270,9 @@ export class Hud {
     // difference. All three are read off the same helper the world uses.
     const belt = world.thrownCounts();
     const beltKey = belt ? `${belt.held}|${belt.floor}|${belt.flying}|${belt.calling}` : '';
-    const statusKey = `${world.run.depth}|${biome.id}|${world.run.gold}|${keyNames.join()}|${bless}|${curse}|${world.freeSlots}|${ward}|${snuffed}|${beltKey}`;
+    const sealCount = world.run.seals?.length ?? 0;
+    const oathLine = oathStatus(world) + (sealCount ? `<div style="color:#c080ff">Sealed ×${sealCount}</div>` : '');
+    const statusKey = `${world.run.depth}|${biome.id}|${world.run.gold}|${keyNames.join()}|${bless}|${curse}|${world.freeSlots}|${ward}|${snuffed}|${beltKey}|${oathLine}`;
     if (statusKey !== this.statusKey) {
       this.statusKey = statusKey;
       const beltLine = !belt
@@ -286,6 +289,7 @@ export class Hud {
         (keyNames.length ? `<div class="keys">${keyNames.join(', ')}</div>` : '') +
         (bless ? `<div class="bless">Blessing of ${bless}</div>` : '') +
         (curse ? `<div class="curse">${curse}</div>` : '') +
+        oathLine +
         (ward ? `<div class="ward">Consecrated ground · ${ward}s</div>` : '') +
         (snuffed ? `<div class="ward">Snuffed · ${snuffed}s</div>` : '');
     }
@@ -366,12 +370,12 @@ export class Hud {
     }
     this.target.hidden = !tgt;
     if (tgt) {
-      const def = enemyView(enemyDef(tgt.def), tgt.hp, tgt.maxHp, { elite: tgt.elite });
+      const def = enemyView(enemyDef(tgt.def), tgt.hp, tgt.maxHp, { elite: tgt.elite, marked: tgt.marked });
       const weak = Object.entries(def.resist).filter(([, v]) => (v ?? 1) >= 1.4).map(([k]) => k);
       const res = Object.entries(def.resist).filter(([, v]) => (v ?? 1) <= 0.6).map(([k]) => k);
       // An elite's name carries its trait in the trait's colour, and hovering
       // it says what the trait does.
-      const elite = tgt.elite ? ELITES[tgt.elite] : null;
+      const elite = tgt.marked ? { color: OATHS.hunter.color, rule: 'Your quarry: the Hunter oath asks for its death.' } : tgt.elite ? ELITES[tgt.elite] : null;
       const name = elite
         ? `<div style="color:${elite.color}" title="${esc(elite.rule)}">${esc(def.name)}</div>`
         : `<div>${esc(def.name)}</div>`;
@@ -418,3 +422,16 @@ export class Hud {
 }
 
 export { DX, DY };
+
+/** The oath line in the status block: what was sworn and how it stands. Strings come from code only. */
+function oathStatus(world: World): string {
+  const oath = world.run.oath;
+  const def = findOath(oath?.id);
+  if (!oath || !def) return '';
+  let progress: string;
+  if (oath.status === 'broken') progress = 'broken';
+  else if (oath.id === 'blood_price') progress = `${Math.min(world.run.stats.goldFound, BLOOD_PRICE_GOLD)}/${BLOOD_PRICE_GOLD} gold`;
+  else if (oath.id === 'unbroken') progress = oath.status === 'kept' ? 'kept, bring it home' : `reach depth ${UNBROKEN_DEPTH}`;
+  else progress = (oath.marks ?? 0) >= HUNTER_MARKS ? 'hunt done, bring it home' : `${oath.marks ?? 0}/${HUNTER_MARKS} marked`;
+  return `<div style="color:${def.color}">Oath: ${def.name} · ${progress}</div>`;
+}

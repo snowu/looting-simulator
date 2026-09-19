@@ -1,5 +1,5 @@
 import { ELEMENTAL_VARIANTS, elementalVariant } from './elemental-variants';
-import { EnemyDef } from '../types';
+import { DamageType, EnemyDef } from '../types';
 import {
   ELITES, EliteTrait, FRENZIED_RECOVERY_MULT, FRENZIED_STEP_MULT, FRENZIED_WINDUP_MULT, FRENZY_AT,
   HASTED_RECOVERY_MULT, HASTED_STEP_MULT, HASTED_WINDUP_MULT, IRONHIDE_DEFENSE_MULT, IRONHIDE_STEP_MULT, THIEF_LADEN,
@@ -20,6 +20,56 @@ export const ENEMIES: EnemyDef[] = [
     minDepth: 1, maxDepth: 3, weight: 0.8,
     loot: [{ id: 'bone', chance: 0.5, min: 1, max: 2 }], gold: [0, 5], itemChance: 0.025,
     description: 'Waterlogged bones swing slowly, but the weight of the blow lingers.',
+  },
+  {
+    // Never in the ordinary pool (weight 0): placed by its own pass on Ossuary
+    // and Catacombs floors, where there are bones to call. It barely fights:
+    // it keeps its distance and stands your kills back up.
+    // Light enough to stagger, so a blow or a thrown shaft breaks the chant.
+    id: 'gravecaller', name: 'Gravecaller', sprite: 'gravecaller', scale: 0.95,
+    hp: 34, attack: 7, defense: 3, damageType: 'shadow', resist: { ...UNDEAD_RESIST }, undead: true,
+    behavior: 'ranged', range: 3, raises: true, step: 0.5, windup: 0.6, recovery: 1, sight: 8,
+    minDepth: 2, maxDepth: 5, weight: 0,
+    loot: [{ id: 'bone', chance: 0.5, min: 1, max: 2 }, { id: 'ancient_tome', chance: 0.06, min: 1, max: 1 }, { id: 'shadow_essence', chance: 0.04, min: 1, max: 1 }],
+    gold: [2, 10], itemChance: 0.04,
+    description: 'It hums to the dead, and the dead remember how to stand. Break the song, or break the bones.',
+  },
+  {
+    // Never in the ordinary pool (weight 0): placed only by the corpse run, on
+    // the depth you last fell, guarding what you lost. A hollowed you: it
+    // borrows the knight's frame without the shield, and strikes with the
+    // damage type of the weapon you died holding (`EnemyState.shadeType`).
+    id: 'shade', name: 'Your Shade', sprite: 'knight', scale: 0.95,
+    hp: 60, attack: 12, defense: 6, damageType: 'shadow', resist: { holy: 1.5, shadow: 0.5 },
+    behavior: 'melee', step: 0.5, windup: 0.6, recovery: 0.9, sight: 7,
+    minDepth: 1, maxDepth: 6, weight: 0,
+    loot: [], gold: [0, 0], itemChance: 0,
+    glow: '#9ab8ff',
+    description: 'What the dark kept of you when you fell, holding what you lost. It fights the way you did.',
+  },
+  {
+    // A floor lieutenant (weight 0): placed only by the lieutenant pass on a
+    // floor with goblins to command. It fights like a sturdy goblin; what
+    // matters is what its banner does to the rest of them while it stands.
+    id: 'goblin_quartermaster', name: 'Goblin Quartermaster', sprite: 'quartermaster', scale: 0.85,
+    hp: 70, attack: 10, defense: 6, damageType: 'slash', resist: { slash: 1.4, pierce: 1.25 },
+    behavior: 'melee', step: 0.45, windup: 0.5, recovery: 0.8, sight: 8,
+    minDepth: 2, maxDepth: 5, weight: 0,
+    loot: [{ id: 'copper', chance: 0.6, min: 2, max: 3 }, { id: 'iron', chance: 0.4, min: 1, max: 2 }],
+    gold: [15, 40], itemChance: 0.25,
+    description: 'It carries the banner, the ledger and the key to the strongbox. While it stands, every goblin on the floor fights like it is being watched.',
+  },
+  {
+    // A floor lieutenant (weight 0): wanders to any loot left lying on its
+    // floor and carries it off. Shy of you, not harmless when cornered.
+    id: 'hoarder', name: 'The Hoarder', sprite: 'hoarder', scale: 0.8,
+    hp: 90, attack: 8, defense: 4, damageType: 'pierce', resist: { slash: 1.3, pierce: 1.2 },
+    behavior: 'skittish', step: 0.42, windup: 0.5, recovery: 0.8, sight: 7,
+    minDepth: 2, maxDepth: 5, weight: 0,
+    loot: [{ id: 'gold', chance: 0.5, min: 1, max: 2 }],
+    gold: [20, 50], itemChance: 0.2,
+    glow: '#e8c060',
+    description: 'A rat that never stopped eating and started collecting instead. Everything left on the floor ends up in the sack on its back.',
   },
   {
     id: 'tunnel_stalker', name: 'Tunnel Stalker', sprite: 'stalker', scale: 0.65,
@@ -114,7 +164,7 @@ export const ENEMIES: EnemyDef[] = [
     thief: true,
     hp: 28, attack: 8, defense: 2, damageType: 'slash', resist: { slash: 1.4, pierce: 1.25 },
     behavior: 'skittish', step: 0.4, windup: 0.45, recovery: 0.7, sight: 7,
-    minDepth: 1, maxDepth: 4, weight: 3,
+    minDepth: 1, maxDepth: 4, weight: 1,
     loot: [
       { id: 'copper', chance: 0.35, min: 1, max: 2 },
       { id: 'linen', chance: 0.28, min: 1, max: 2 },
@@ -204,6 +254,18 @@ export const ENEMIES: EnemyDef[] = [
     loot: [{ id: 'bone', chance: 0.49, min: 1, max: 3 }, { id: 'iron', chance: 0.28, min: 1, max: 2 }],
     gold: [2, 8], itemChance: 0.04,
     description: 'Old bones behind a white wall. Flank it — the shield only faces you.',
+  },
+  {
+    // Never in the ordinary pool (weight 0): placed only by the ambush pass in
+    // generation, clinging to corridor ceilings. A Cave Spider's body with a
+    // little less of it, because the fight starts with you out of position.
+    id: 'ceiling_crawler', name: 'Ceiling Crawler', sprite: 'spider', scale: 0.6,
+    hp: 30, attack: 10, defense: 2, damageType: 'pierce', resist: { fire: 1.5, slash: 1.3, pierce: 1.35 },
+    behavior: 'melee', step: 0.28, windup: 0.42, recovery: 0.8, sight: 5,
+    minDepth: 2, maxDepth: 5, weight: 0,
+    loot: [{ id: 'spider_silk', chance: 0.5, min: 1, max: 2 }, { id: 'bone', chance: 0.3, min: 1, max: 1 }],
+    gold: [0, 5], itemChance: 0.03,
+    description: 'It waits upside down where the torchlight does not reach, and lets go when something warm walks under it. Look up.',
   },
   {
     id: 'spider', name: 'Cave Spider', sprite: 'spider', scale: 0.6,
@@ -348,7 +410,7 @@ export const ENEMIES: EnemyDef[] = [
 const MORSELS: Record<string, NonNullable<EnemyDef['morsel']>> = {
   rat: 'scrap', bat: 'scrap', goblin: 'scrap', ember_wisp: 'scrap', frost_wisp: 'scrap',
   goblin_archer: 'cut', goblin_shield: 'cut', skeleton: 'cut', skeleton_archer: 'cut',
-  skeleton_shield: 'cut', spider: 'cut', ghoul: 'heart', hollow_knight: 'heart',
+  skeleton_shield: 'cut', spider: 'cut', ceiling_crawler: 'cut', ghoul: 'heart', hollow_knight: 'heart',
   barrow_champion: 'heart', flame_wraith: 'heart', mimic: 'heart',
 };
 for (const enemy of ENEMIES) enemy.morsel = MORSELS[enemy.id];
@@ -366,6 +428,7 @@ ENEMIES.push(...ELEMENTAL_VARIANTS.map((variant) => {
 }));
 ENEMIES.push({
   id: 'mole', name: 'Delver Mole', sprite: 'mole', scale: 0.75,
+  burrows: true,
   hp: 32, attack: 9, defense: 3, damageType: 'blunt', resist: { blunt: 0.65, pierce: 1.4, slash: 1.3 },
   behavior: 'skittish', step: 0.65, windup: 0.8, recovery: 1, sight: 5,
   shield: { block: 0.55, stun: 0.6 }, minDepth: 1, maxDepth: 3, weight: 1,
@@ -485,6 +548,10 @@ export interface ViewMods {
   elite?: EliteTrait;
   /** A thief running with something of yours. */
   carrying?: boolean;
+  /** Hunter's quarry. */
+  marked?: boolean;
+  /** A Shade strikes with the damage type of the weapon you fell with. */
+  shadeType?: DamageType;
 }
 
 /** The glow of a thief carrying your things: a lamp to chase by. */
@@ -492,9 +559,9 @@ export const THIEF_GLOW = '#e8c060';
 
 export function enemyView(def: EnemyDef, hp: number, maxHp: number, mods?: ViewMods): EnemyDef {
   const base = phaseView(def, hp, maxHp);
-  if (!mods || (!mods.elite && !mods.carrying)) return base;
+  if (!mods || (!mods.elite && !mods.carrying && !mods.marked && !mods.shadeType)) return base;
   const frenzy = mods.elite === 'frenzied' && maxHp > 0 && hp < maxHp * FRENZY_AT;
-  const key = `${base.id}:${base.sprite}:${mods.elite ?? ''}:${frenzy ? 1 : 0}:${mods.carrying ? 1 : 0}`;
+  const key = `${base.id}:${base.sprite}:${mods.elite ?? ''}:${frenzy ? 1 : 0}:${mods.carrying ? 1 : 0}:${mods.marked ? 1 : 0}:${mods.shadeType ?? ''}`;
   let view = VIEW_CACHE.get(key);
   if (view) return view;
   view = { ...base };
@@ -519,6 +586,8 @@ export function enemyView(def: EnemyDef, hp: number, maxHp: number, mods?: ViewM
       view.thief = true;
     }
   }
+  if (mods.marked) view.name = `Marked ${view.name}`;
+  if (mods.shadeType) view.damageType = mods.shadeType;
   if (mods.carrying) {
     view.glow = THIEF_GLOW;
     // Laden: running with your things slows it down. See `runWithLoot`.

@@ -1,4 +1,12 @@
 import { GameState } from '../state/game-state';
+import { SEALS, SEAL_FIND, SEAL_IDS, SEAL_RENOWN, validSeals } from '../data/seals';
+import { sealsUnlocked, toggleSeal } from '../systems/seals';
+import { ROADS, roadsForDay } from '../data/routes';
+import { OATHS, OATH_IDS, findOath } from '../data/oaths';
+import { swearOath } from '../systems/oaths';
+import { learnProperty } from '../systems/properties';
+import { INSCRIBE_COST, PropertyDef, findProperty } from '../data/properties';
+import { inscribe, inscribeTargets } from '../systems/properties';
 import { EQUIP_SLOTS, Item, MaterialCategory, Rarity, RARITY_COLORS, RARITY_ORDER, STAT_KEYS, STAT_LABELS, Stats } from '../types';
 import { MATERIALS, catalystAffixBonus, material, secondaryMaterialMods } from '../data/materials';
 import { consumable, itemBase } from '../data/items';
@@ -130,7 +138,11 @@ export class Town {
    * that something is broken or that a stone is waiting, without the pane
    * itself taking the room.
    */
-  private forgeSide: 'recipes' | 'repairs' | 'sigils' | 'infusions' = 'recipes';
+  private forgeSide: 'recipes' | 'repairs' | 'sigils' | 'inscribe' | 'infusions' = 'recipes';
+  /** Whether the Descend panel (oath and Seals) is open. */
+  private descendOpen = false;
+  /** The item picked for each property on the Inscribe bench, by property id. */
+  private inscribeTarget: Record<string, string> = {};
   private forgeRecipe = 'r_short_sword';
   private forgeMats: (string | null)[] = [];
   /** Secondary (grip / extra) pickers live behind a modal so the forge pane stays compact. */
@@ -205,7 +217,9 @@ export class Town {
       ),
       btn(
         s.run?.portal ? 'Step back through the portal' : running ? 'Return to the Depths' : 'Descend',
-        () => this.ctx.descend(),
+        // A new delve asks first: oath and Seals are chosen on the way down,
+        // not in a pane that sits in town all day.
+        () => { if (running) this.ctx.descend(); else { this.descendOpen = true; audio.play('ui'); this.render(); } },
         'primary big',
       ),
       this.syncCompact(),
@@ -252,7 +266,7 @@ export class Town {
         body = this.warden();
         break;
     }
-    this.root.replaceChildren(head, this.news(), tabBar, body);
+    this.root.replaceChildren(head, this.news(), ...this.rewardPane(), tabBar, body, ...(this.descendOpen && !running ? [this.descendModal()] : []));
     this.root.scrollTop = this.scrollMemo;
     const nextRecipes = this.root.querySelector<HTMLElement>('.recipes');
     if (nextRecipes) nextRecipes.scrollTop = this.recipeScrollMemo;
@@ -308,6 +322,13 @@ export class Town {
       lines.push(h('div', { class: 'event', text: `◆ ${def.name} (${ev.daysLeft} day${ev.daysLeft === 1 ? '' : 's'} left) — ${def.description}` }));
     }
     for (const n of m.news) if (!m.events.some((ev) => n.startsWith(marketEvent(ev.id).name))) lines.push(h('div', { class: 'dim', text: n }));
+    const grave = this.s.grave;
+    if (grave) {
+      lines.push(h('div', { style: 'color:#9ab8ff', text: `Your Shade holds what you lost at depth ${grave.depth}: ${grave.items.length} stack${grave.items.length === 1 ? '' : 's'}${grave.gold ? ` and ${gold(grave.gold)}` : ''}. Die again first and it is gone.` }));
+    }
+    // The roads open below depth 2 today, named so a delve can be prepared for.
+    const roads = roadsForDay(this.s.saveId ?? '', m.day, m.events).map((b) => ROADS[b]);
+    lines.push(h('div', { class: 'rumour', text: `Below the second floor today the stair splits: ${roads.map((r) => r.name).join(' or ')}.` }));
     if (m.upcoming && metaLevel(this.s.meta, 'insider') >= 2) {
       const def = marketEvent(m.upcoming);
       lines.push(h('div', { class: 'rumour', text: `Rumour: ${def.name} tomorrow. ${def.description}` }));
@@ -883,6 +904,7 @@ export class Town {
       ['recipes', 'Recipes', readyBlueprints],
       ['repairs', 'Repairs', wornCount],
       ['sigils', 'Sigils', stones],
+      ['inscribe', 'Inscribe', 0],
       ['infusions', 'Flask', 0],
     ];
     const bar = h(
@@ -899,6 +921,8 @@ export class Town {
       ? this.repairs()
       : this.forgeSide === 'sigils'
         ? this.sigils()
+        : this.forgeSide === 'inscribe'
+        ? this.inscribeBench()
         : this.forgeSide === 'infusions'
           ? this.infusions()
           : h('div', { class: 'col' }, learn, h('div', { class: 'pane frame' }, h('h3', { text: 'Recipes' }), list));
@@ -1079,6 +1103,190 @@ export class Town {
       known.length
         ? h('p', { class: 'dim small', text: `You carry one at a time, cast with G or C. ${locked ? 'Attunement is fixed until you are back in town or a portal is open. ' : ''}${vigil ? `Warden's Vigil takes ${25 * vigil}% more off the cooldown on every kill, up to a fifth of it.` : "Warden's Vigil, on the Warden's board, shortens the cooldown with every kill."}` })
         : null,
+    );
+  }
+
+  /**
+   * The oath stone, above the tabs: a reward waiting to be chosen comes first,
+   * and between delves, the oaths you can swear for the next one. One or none;
+   * swearing again changes it, and it can be taken back until you descend.
+   */
+  private rewardPane(): HTMLElement[] {
+    const s = this.s;
+    const out: HTMLElement[] = [];
+    const reward = s.oathReward;
+    if (reward) {
+      const oath = findOath(reward.oath);
+      out.push(h(
+        'div',
+        { class: 'pane frame gold' },
+        h('h3', { text: `Oath kept: ${oath?.name ?? ''}` }),
+        h('p', { class: 'dim', text: 'The old wardens paid a kept oath in knowledge. Choose one inscription to learn; it can be cut into your gear at the forge.' }),
+        h('div', { class: 'col' }, ...reward.choices.map((id) => {
+          const def = findProperty(id);
+          if (!def) return null;
+          return h(
+            'div',
+            { class: 'row repair-row' },
+            h('div', { class: 'grow' },
+              h('div', { style: `color:${def.color}`, text: `${def.name} · ${def.slots.join(', ')}` }),
+              bothRegisters(def.rule, def.detail, 'dim small'),
+            ),
+            btn('Learn', () => {
+              learnProperty(s, id);
+              s.oathReward = null;
+              this.ctx.toast(`${def.name} learned. Cut it into your gear at the forge.`, def.color);
+              this.commit('study');
+            }, 'small primary'),
+          );
+        })),
+      ));
+    }
+    return out;
+  }
+
+  /**
+   * The panel that opens on Descend for a new delve: the Oath Stone and, once
+   * the King has fallen, the Ashen Seals, with the way down at the bottom.
+   * Swearing or setting re-renders the town with the panel still open; Not yet
+   * (or a click outside, or Esc) closes it without descending.
+   */
+  private descendModal(): HTMLElement {
+    const close = () => { this.descendOpen = false; audio.play('ui'); this.render(); };
+    const wrap = h(
+      'div',
+      { class: 'forge-modal-wrap', onclick: close },
+      h(
+        'div',
+        { class: 'modal frame forge-modal', onclick: (e: MouseEvent) => { e.stopPropagation(); } },
+        h('h3', { text: 'Before you go down' }),
+        this.oathStone(),
+        sealsUnlocked(this.s) ? this.sealPane() : null,
+        h('div', { class: 'row', style: 'justify-content:flex-end;gap:8px;margin-top:8px' },
+          btn('Not yet', close, 'small'),
+          btn('Descend', () => { this.descendOpen = false; this.ctx.descend(); }, 'primary big'),
+        ),
+      ),
+    );
+    wrap.tabIndex = -1;
+    wrap.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+    queueMicrotask(() => wrap.querySelector<HTMLElement>('button.primary')?.focus());
+    return wrap;
+  }
+
+  /** The Oath Stone: swear one oath for the next delve, or none. */
+  private oathStone(): HTMLElement {
+    const s = this.s;
+    const sworn = s.pendingOath ?? null;
+    return h(
+      'div',
+      { class: 'pane frame' },
+      h('h3', { text: 'The Oath Stone' }),
+      h('p', { class: 'dim small', text: 'Swear one before you go down, or none. Keep it and come home alive, and it pays an inscription you have not learned. Break it and you lose only the reward.' }),
+      h('div', { class: 'col' }, ...OATH_IDS.map((id) => {
+        const def = OATHS[id];
+        const on = sworn === id;
+        return h(
+          'div',
+          { class: `row repair-row${on ? ' gold' : ''}` },
+          h('div', { class: 'grow' },
+            h('div', { style: `color:${def.color}`, text: def.name + (on ? ' · sworn' : '') }),
+            h('div', { class: 'dim small', text: def.rule }),
+            h('div', { class: 'small', text: def.objective }),
+          ),
+          btn(on ? 'Unswear' : 'Swear', () => {
+            if (!swearOath(s, on ? null : id)) return this.ctx.toast('Choose your inscription from the last oath first.', '#e8c060');
+            this.ctx.toast(on ? `${def.name} unsworn.` : `You swear the ${def.name}. It takes hold when you descend.`, def.color);
+            this.commit('ui');
+          }, `small${on ? '' : ' primary'}`),
+        );
+      })),
+    );
+  }
+
+  /**
+   * The Ashen Seals, once the King has fallen: stackable, stated complications
+   * for the next delve, each paying more. Kept set between delves until you
+   * change them, since the point is to climb.
+   */
+  private sealPane(): HTMLElement {
+    const s = this.s;
+    const on = validSeals(s.pendingSeals);
+    const best = s.lifetime.bestSeals ?? 0;
+    return h(
+      'div',
+      { class: 'pane frame' },
+      h('h3', { text: 'The Ashen Seals' }),
+      h('p', { class: 'dim small', text: `The King is dead, and the throne remembers. Set any number of Seals on your delves: each one is harder, and pays a quarter more renown and +${SEAL_FIND} loot find. ${best ? `Your record: the King slain under ${best} Seal${best === 1 ? '' : 's'}.` : 'Kill the King under Seals to set a record.'}` }),
+      h('div', { class: 'col' }, ...SEAL_IDS.map((id) => {
+        const def = SEALS[id];
+        const set = on.includes(id);
+        return h(
+          'div',
+          { class: `row repair-row${set ? ' gold' : ''}` },
+          h('div', { class: 'grow' },
+            h('div', { style: `color:${set ? '#e0c060' : '#c080ff'}`, text: def.name + (set ? ' · set' : '') }),
+            h('div', { class: 'dim small', text: def.rule }),
+          ),
+          btn(set ? 'Break' : 'Set', () => {
+            if (!toggleSeal(s, id)) return;
+            this.commit('ui');
+          }, `small${set ? '' : ' primary'}`),
+        );
+      })),
+      on.length ? h('p', { class: 'small', style: 'color:#e0c060', text: `${on.length} Seal${on.length === 1 ? '' : 's'} set: +${Math.round(on.length * SEAL_RENOWN * 100)}% renown, +${on.length * SEAL_FIND} loot find.` }) : null,
+    );
+  }
+
+  /**
+   * The Inscribe bench: put a learned build property onto a piece of gear.
+   * Each property lists only the gear that can take it, worn or stashed; the
+   * choice is remembered per property while the screen is open.
+   */
+  private inscribeBench(): HTMLElement {
+    const s = this.s;
+    const known = (s.properties ?? []).map((id) => findProperty(id)).filter((d): d is PropertyDef => !!d);
+    const rows = known.map((def) => {
+      const targets = inscribeTargets(s, def.id);
+      const chosen = targets.find((it) => it.uid === this.inscribeTarget[def.id]) ?? targets[0];
+      const select = h('select', { attrs: { 'aria-label': `Item for ${def.name}` }, style: 'max-width:100%' }) as HTMLSelectElement;
+      select.addEventListener('change', () => { this.inscribeTarget[def.id] = select.value; this.render(); });
+      for (const it of targets) {
+        const worn = EQUIP_SLOTS.some((slot) => s.equipment[slot]?.uid === it.uid);
+        const current = findProperty(it.property);
+        const o = document.createElement('option');
+        o.value = it.uid;
+        o.textContent = `${itemName(it)}${worn ? ' (worn)' : ''}${current ? ` · ${current.name}` : ''}`;
+        o.selected = it.uid === chosen?.uid;
+        select.append(o);
+      }
+      const already = chosen?.property === def.id;
+      return h(
+        'div',
+        { class: 'row repair-row' },
+        h('div', { class: 'grow' },
+          h('div', { style: `color:${def.color}`, text: def.name }),
+          bothRegisters(def.rule, def.detail, 'dim small'),
+          targets.length ? select : h('div', { class: 'dim small', text: `Nothing you own can take it: ${def.slots.join(', ')} only.` }),
+        ),
+        btn(already ? 'Inscribed' : `Inscribe · ${INSCRIBE_COST}g`, () => {
+          if (!chosen) return;
+          const r = inscribe(s, chosen.uid, def.id);
+          if (r === 'gold') return this.ctx.toast(`It costs ${INSCRIBE_COST} gold.`, '#ff9070');
+          if (r !== 'ok') return;
+          this.ctx.toast(`${def.name} is cut into the ${itemName(chosen)}.`, def.color);
+          this.commit('craft');
+        }, 'small', !chosen || already || s.gold < INSCRIBE_COST),
+      );
+    });
+    return h(
+      'div',
+      { class: 'pane frame' },
+      h('h3', { text: 'Inscribe' }),
+      rows.length
+        ? h('div', { class: 'col' }, ...rows)
+        : h('p', { class: 'dim', text: 'You know no inscriptions yet. They are learned, not found: an oath kept below is how the old wardens earned theirs.' }),
+      rows.length ? h('p', { class: 'dim small', text: 'One inscription per item; inscribing again replaces it. Relics already carry their own.' }) : null,
     );
   }
 

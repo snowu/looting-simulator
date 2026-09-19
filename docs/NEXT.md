@@ -296,10 +296,16 @@ the same commit as the work it describes**, so any session can resume from it.
 | # | Branch | Scope | Status |
 |---|---|---|---|
 | 1 | `feat/ri-1-elites` | Step 1: elite traits, thieving Cutpurse | [#18](https://github.com/snowu/looting-simulator/pull/18) open — needs a real delve on desktop and phone |
-| 2 | `feat/ri-2-ambushers` | Step 2: ceiling droppers, burrowing Mole and Stalker | not started |
-| 3 | `feat/ri-3-walls` | Step 2: cracked walls, ore seams, sealed niches | not started |
-| 4 | `feat/ri-4-gravecaller` | Step 2: the Gravecaller, shattered and sanctified remains | not started |
-| 5+ | — | Steps 3–7: Oaths, route fork and biome laws, lieutenants and corpse run, build properties, Seals | not started |
+| 2 | `feat/ri-2-ambushers` | Step 2: ceiling droppers, burrowing Mole and Stalker | [#19](https://github.com/snowu/looting-simulator/pull/19) open — needs a real delve on desktop and phone |
+| 3 | `feat/ri-3-walls` | Step 2: cracked walls, ore seams, sealed niches | [#20](https://github.com/snowu/looting-simulator/pull/20) open — needs a real delve on desktop and phone |
+| 4 | `feat/ri-4-gravecaller` | Step 2: the Gravecaller, shattered and sanctified remains | built, PR open — needs a real delve on desktop and phone |
+| 5 | `feat/ri-5-properties` | Step 6 pulled forward: six build properties and the forge's Inscribe bench | [#22](https://github.com/snowu/looting-simulator/pull/22) open |
+| 6 | `feat/ri-6-oaths` | Step 3: Delve Oaths, paying out properties | [#23](https://github.com/snowu/looting-simulator/pull/23) open |
+| 7 | `feat/ri-7-routes` | Step 4, part 1: the route fork below depth 2 | [#24](https://github.com/snowu/looting-simulator/pull/24) open |
+| 8 | `feat/ri-8-laws` | Step 4, part 2: biome laws for Ossuary, Deep Mines, Vermin Burrows | [#25](https://github.com/snowu/looting-simulator/pull/25) open |
+| 9 | `feat/ri-9-grave` | Step 5, part 1: the corpse run | [#26](https://github.com/snowu/looting-simulator/pull/26) open |
+| 10 | `feat/ri-10-lieutenants` | Step 5, part 2: floor lieutenants | [#27](https://github.com/snowu/looting-simulator/pull/27) open |
+| 11 | `feat/ri-11-seals` | Step 7: Ashen Seals, and the Descend panel | built, PR open |
 
 Log (newest last), one line per landed piece with what is and is not done:
 
@@ -317,6 +323,117 @@ Log (newest last), one line per landed piece with what is and is not done:
   Checked in the dev lab (elite picker added to the F3 console); not yet played
   through a real delve or on a phone. Harness: careful iron kit deaths
   29% → 46%, other profiles within noise; watch this in play.
+- 2026-09-19 — **PR 2 built** (stacked on PR 1). `EnemyState.lurk`
+  ('ceiling' | 'buried'): lurkers are invisible to `enemyAt`, `threatNear`,
+  `occupied`, the map and light until they come out. Ceiling Crawler (new
+  weight-0 def, Cave Spider art) placed over corridors on the `ambush:` stream,
+  1 at D2–3 and 2 at D4–5; spotted like traps and by Sounding; drops 0.6s after
+  you come within 1 tile. Half of Tunnel Stalkers on Burrows/Mines start
+  buried. The Delver Mole (`burrows: true`) dives once below 35% and tunnels to
+  your back for 2–4s. Nothing strikes on arrival (0.5s beat); a visible lurker
+  struck where it hides comes out stunned for 1.5s with double damage. New
+  `mound` art, synced to `public/art`. Not done: thrown shafts and reflected
+  bolts don't knock droppers down (only a melee swing does), Crawlers reuse the
+  Cave Spider sprite, the Frost Vault icicle variant of the dropper doesn't
+  exist yet, and no real delve or phone check.
+- 2026-09-19 — **PR 3 built** (stacked on PR 2). `Floor.cracks` (optional),
+  placed last on the `cracks:` stream: 2 shortcuts (≥12 steps saved), seams
+  (more on earth floors) and 1 cache per floor, none on the throne. 3 blows
+  from any weapon (as decided), 2 wear and 6-tile noise per blow; the tile
+  becomes FLOOR. Seams spill 2–4 metal ore; caches roll like a chest with a
+  gold floor. Rendered as a box in one of 21 new composited textures (7 walls
+  × cracked/ore/sealed); the opening's floor, ceiling and inner walls are
+  pre-built so no rebuild is needed. Not done: monsters don't break walls (the
+  Barrow Champion idea), the Deep Mines collapse law is step 4, the automap
+  doesn't mark cracks, and no real delve or phone check.
+- 2026-09-19 — **PR 4 built** (stacked on PR 3). Gravecaller (weight-0 def,
+  new `gravecaller_0/_atk` art) placed by its own `gravecaller:` pass on
+  Ossuary/Catacombs floors from depth 2 (so D2–3 in practice), not marking its
+  tile occupied so loot and keys don't move. It chants 2s over the nearest
+  fallen undead within 4 and stands it up at 50%, risen; limit 3, 6s
+  cooldown; any damage breaks the chant. `EnemyState.remains`: blunt or 25%
+  overkill shatters, holy damage or Threshold sanctifies (melee killing blows
+  only). Not done: thrown/trap/burst kills never set remains; the Ossuary
+  lieutenant (floor-wide rising) is step 5. **Step 2 is complete with this PR.**
+  Next up: step 3, Delve Oaths (new branch `feat/ri-5-oaths` off this one).
+- 2026-09-19 — **Oath rewards decided: build properties now.** Asked the user
+  what Oaths should pay before step 6 existed; answer: build step 6 first. So
+  PR 5 is properties and PR 6 is Oaths.
+- 2026-09-19 — **PR 5 built** (stacked on PR 4). Six properties in
+  `src/data/properties.ts`: Riposte, Execution, Kindling (weapon), Bulwark
+  (shield), Retrieval (thrown belt), Last Flask (armour). Learned into
+  `state.properties` (save revision 25, additive), inscribed onto `Item.property`
+  at a new forge **Inscribe** bench for 150g, one per item, never on a relic.
+  Read into `UniqueTraits` flags by `applyProperty`. The dev lab learns all six.
+  No player-facing way to learn one until PR 6, so PR 5 carries no patch note;
+  PR 6's covers both. Not done: phone-width check of the bench (the browser
+  window couldn't be resized here).
+- 2026-09-19 — **PR 6 built** (stacked on PR 5). Delve Oaths: Blood Price,
+  Unbroken, Hunter (`src/data/oaths.ts`). Sworn at the Oath Stone (since PR 11
+  a panel that opens on Descend) into `state.pendingOath`, moved onto `run.oath` by `startRun`,
+  settled in `endRun`: kept and home alive → `state.oathReward` = 3 unlearned
+  properties (seeded by run), or 10 renown if none left. Save revision 26
+  (additive). Hunter marks one of the three toughest monsters on D2–4 at first
+  generation (first version picked a rat). No new oath while a reward is
+  unchosen. The patch note covers PRs 5 and 6 together. Not done: HUD target
+  bar overlaps the status block at ~500px width (layout issue from before,
+  longer "Marked …" names make it worse); oath choice isn't seeded per day
+  (all three always on offer, since there are only three).
+- 2026-09-19 — **PR 7 built** (stacked on PR 6). The fork is at depth 2's down
+  stair, not a second stair (no generation change): `forkPending` emits a
+  `fork` event, a panel offers `run.roads` (snapshot of `roadsForDay(saveId,
+  day, events)` at `startRun`), `chooseRoad` sets `run.road` and descends.
+  `generateFloor(..., biomeId)` honours the road on depths 3–4 only where the
+  biome can appear. Town news names the day's roads. Bot takes roads[0]. No
+  save-revision bump (run fields optional; absent means no fork).
+- 2026-09-19 — **PR 8 built** (stacked on PR 7). `src/data/laws.ts`. Ossuary:
+  undead remains stir as `deadT` crosses 8s (`stirT`, rendered like a
+  Gravecaller's chant) and stand 2s later at 50%, risen, once. Mines: a crack
+  broken on a mines floor collapses onto every monster beside it (30 + 12×depth
+  blunt, 1.2s reel). Burrows: `noise()` scales crack, Wardcry, alarm and chest
+  radii ×1.75; a broken root cache lures monsters within 12 to the cache. The
+  arrival message plays on a floor's first generation. **Step 4 done with this
+  PR.** Next: step 5, lieutenants and the corpse run.
+- 2026-09-19 — **PR 9 built** (stacked on PR 8). `src/systems/grave.ts`:
+  `endRun` digs `state.grave` (lost items, lost coin, the weapon's damage type,
+  depth fallen) on a non-Hardcore death, replacing any unclaimed grave. The
+  Shade (weight-0 def on the knight sprite, pale tint) is placed once per
+  delve when its depth is generated (`startRun` for depth 1, `changeFloor`
+  otherwise); killing it drops the grave and clears it. Save revision 27.
+- 2026-09-19 — **Harness bug found:** `newGame` gives each save a random
+  `saveId` (`crypto.randomUUID`), and since PR 7 the day's roads are seeded
+  from it, so harness runs stopped being reproducible. The harness comparisons
+  quoted in PRs 7 and 8 were noise. Fixed on PR 7's branch (the bot fixes its
+  save id) and re-measured.
+- 2026-09-19 — **PR 10 built** (stacked on PR 9). Two lieutenants
+  (`src/data/lieutenants.ts`), placed in `changeFloor` on first generation, 40%
+  per floor from D2–5. Goblin Quartermaster (red-banner goblin): goblins ×1.25
+  damage and no fleeing while it lives; rout and a vault-tier strongbox on its
+  death. The Hoarder (rat with a coin sack): collects unattended piles (not
+  keys or flask shards), shies from the player, spills its hoard on death.
+  Swapped the design's Ossuary Gravecaller lieutenant for these two, since the
+  Ossuary law (PR 8) already does floor-wide rising. `pathStep` stops short of
+  its goal, so the Hoarder takes the last step itself. **Step 5 done.** Next:
+  step 7, Ashen Seals.
+- 2026-09-19 — **PR 11 built** (stacked on PR 10). Five Seals
+  (`src/data/seals.ts`), unlocked by a King kill in the bestiary. Teeth via the
+  world's `diff`, Multitudes and Champions via a `FloorMods` argument to
+  `generateFloor`, the Dry Well at `startRun`, the Lightless in
+  `playerLightRadius`. +25% renown and +15 find each (find through a world
+  `lootFind` getter, since loot rolls take the base difficulty by id);
+  `lifetime.bestSeals` record. Save revision 28. **User change:** the Oath
+  Stone and the Seals now open in a *Before you go down* panel on Descend
+  instead of sitting above the town tabs; the oath reward stays in town. **All
+  seven steps of the plan are now built.**
+- Art previews for PR descriptions are PNG sheets from `npm run art:sheet`,
+  committed under `docs/previews/ri-*.png` and embedded by raw URL (user's
+  request, 2026-09-19).
+- 2026-09-19 — **PR 3 follow-ups** (user feedback). The ore and sealed
+  textures were far too obvious, so both were redrawn quiet: ore is a thin
+  fissure with a few dull, translucent glints; sealed is a faint, broken mortar
+  outline with a hairline crack (the plain shortcut crack is unchanged). Easter
+  egg: an unbroken Mining Pick breaks any crack in one blow; in MECHANICS.md,
+  deliberately not in the patch notes.
 - 2026-09-19 — **Thief chase fix** (user: "nearly impossible to chase").
   The old flee took the step that maximised distance every tick and kept
   sprinting away from your last-seen position out of sight. Now: laden ×1.25

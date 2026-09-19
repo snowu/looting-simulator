@@ -28,9 +28,16 @@ import golden from './fixtures/hard-golden.json';
 const scrub = (v: unknown) => JSON.stringify(v, (k, x) => (k === 'uid' ? undefined : x));
 const hash = (parts: string[]) => hashString(parts.join(' ')).toString(16);
 
-/** Undo `promoteElite` on a copy of the floor: the trait goes, and the health it baked in. */
+/**
+ * Undo the post-generation passes on a copy of the floor: `promoteElite` (the
+ * trait goes, and the health it baked in), the ambush pass (placed ceiling
+ * droppers removed, buried stalkers stood back up) and the cracked walls.
+ */
 function demote(f: Floor): Floor {
   const copy: Floor = JSON.parse(JSON.stringify(f));
+  copy.enemies = copy.enemies.filter((e) => !e.id.startsWith('amb') && e.id !== 'grave0');
+  delete copy.cracks;
+  for (const e of copy.enemies) delete e.lurk;
   for (const e of copy.enemies) {
     if (!e.elite) continue;
     const mult = ELITE_HP_MULT * (e.elite === 'ironhide' ? IRONHIDE_HP_MULT : 1);
@@ -53,12 +60,15 @@ describe('Hard generation, loot and stats have explicit balance baselines', () =
       }
     }
     // Material rolls embedded in pickups now use consistent family tier weights.
+    // Re-pinned on 2026-09-19 when the Goblin Cutpurse's spawn weight went from
+    // 3 to 1: once it stole from the pack, a quarter of every depth-1 floor
+    // being pickpockets was too many.
     // Elites are stripped first: they are rolled on their own stream after
     // generation, so with them undone every floor must be byte-identical to the
     // one pinned before they existed.
     expect(hash(out)).toBe(golden.materialFloorHash);
-    // And the elites themselves, pinned separately.
-    expect(hash(withElites)).toBe(golden.eliteFloorHash);
+    // And the elites and ambushers themselves, pinned separately.
+    expect(hash(withElites)).toBe(golden.passesFloorHash);
     // Generating 1,200 floors outruns the default 5s budget when the suite
     // runs its files in parallel.
   }, 60_000);

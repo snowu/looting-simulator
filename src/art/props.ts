@@ -678,6 +678,31 @@ const THROWN_PAL = {
 // Floor decals, drawn flat on the tile, so they read as part of the stonework
 // until you are close enough to see the seam.
 
+/**
+ * Turned earth over something moving under the floor: a burrower's mound.
+ * Dark soil ringing a raised crown of lighter crumbs, with a crack across it
+ * and a few pale stones thrown up, so it reads as *freshly disturbed* at a
+ * glance, not as floor texture. Drawn flat like a trap plate.
+ */
+const MOUND = rows(`
+  ................
+  ................
+  .....aaaaaa.....
+  ...aabbbbbbaa...
+  ..abbbccccbbba..
+  ..abbccddccbba..
+  .abbccceccccbba.
+  .abcccecccdccba.
+  .abccdcceeccbba.
+  .abbccccceccbba.
+  ..abbccdcccbba..
+  ..aabbbccbbbaa..
+  ....aabbbbaa....
+  ......aaaa......
+  ................
+  ................
+`);
+
 const TRAP_PLATE = rows(`
   ................
   ...pppppppppp...
@@ -871,6 +896,7 @@ export const PROPS: ArtDef[] = [
   { id: 'ward_threshold_dim', palette: { g: '#453510fa', b: '#807450fa' }, rows: WARD_THRESHOLD },
   { id: 'trap_dart_spent', palette: TRAP_PAL, rows: TRAP_DART_SPENT },
   { id: 'trap_spikes_spent', palette: { ...TRAP_PAL, k: '#101014', w: '#aaa4b0' }, rows: TRAP_SPIKES_SPENT },
+  { id: 'mound', palette: { a: '#2a1d12e0', b: '#5a4128', c: '#8a6842', d: '#d2bc94', e: '#120c06' }, rows: MOUND },
   { id: 'trap_alarm_spent', palette: TRAP_PAL, rows: TRAP_ALARM_SPENT },
   { id: 'town_portal', palette: { c: '#102848fa', b: '#2060b0fa', a: '#60b0fffa', w: '#d8f0fffa' }, rows: TOWN_PORTAL },
   { id: 'sconce', palette: { k: '#0c0c0e', i: '#3a3a42', j: '#5a5a64', h: '#3a2410', g: '#1a0e06' }, rows: SCONCE },

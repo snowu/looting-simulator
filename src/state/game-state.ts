@@ -1,3 +1,5 @@
+import type { OathId, OathReward, OathState } from '../data/oaths';
+import type { Grave } from '../systems/grave';
 import { Rng } from '../core/rng';
 import { Dir } from '../core/dir';
 import { Item, Rarity, RecipeRanks } from '../types';
@@ -44,6 +46,16 @@ export interface PortalState {
 }
 
 export interface RunState {
+  /** The oath sworn for this delve, and how it stands. Absent means none. */
+  oath?: OathState;
+  /** The two roads open at the fork below depth 2 (`src/data/routes.ts`). Absent on runs from before the fork. */
+  roads?: string[];
+  /** The road taken: the biome of depths 3 and 4. Absent until chosen. */
+  road?: string;
+  /** Whether this delve has already put your Shade on its floor. */
+  shadePlaced?: boolean;
+  /** The Ashen Seals this delve is under. Absent means none. */
+  seals?: string[];
   seed: number;
   rngState: number;
   depth: number;
@@ -108,6 +120,12 @@ export interface RunSummary {
   dayTurned: boolean;
   /** A one-life death: this was the hero's last delve, not just a lost one. */
   fallen?: boolean;
+  /** The oath sworn for this delve, and whether it was kept. */
+  oath?: { id: OathId; kept: boolean; renown: number };
+  /** On a death: the depth where your Shade now holds what you lost. */
+  graveDepth?: number;
+  /** The Ashen Seals the delve was under, and whether it set a new record. */
+  seals?: { count: number; record: boolean };
 }
 
 /**
@@ -145,6 +163,8 @@ export interface Lifetime {
    * tells you for free what the appraiser is for.
    */
   uniquesKnown?: string[];
+  /** The most Ashen Seals the King has been killed under. */
+  bestSeals?: number;
 }
 
 export interface GameState {
@@ -188,6 +208,16 @@ export interface GameState {
   /** Permanently inscribed sigils and the one selected for the next delve. */
   spells: string[];
   attuned: string | null;
+  /** Build properties learned, ready to inscribe at the forge. See `src/data/properties.ts`. */
+  properties: string[];
+  /** The oath sworn for the next delve, if any. See `src/data/oaths.ts`. */
+  pendingOath?: OathId | null;
+  /** A kept oath's reward, waiting in town to be chosen. */
+  oathReward?: OathReward | null;
+  /** What you lost when you last fell, guarded by your Shade on that depth. See `src/systems/grave.ts`. */
+  grave?: Grave | null;
+  /** Ashen Seals set for the next delve (`src/data/seals.ts`). Kept between delves until changed. */
+  pendingSeals?: string[];
   /** Packed in town for the next delve; becomes the backpack when you descend. */
   loadout: Container;
   run: RunState | null;
@@ -227,6 +257,7 @@ export function newGame(rng: Rng): GameState {
     flask: { shards: 0, potency: 0, infusion: null },
     spells: [],
     attuned: null,
+    properties: [],
     loadout: createContainer(BASE_BACKPACK),
     run: null,
     lifetime: { runs: 0, deaths: 0, extractions: 0, bestDepth: 0, goldEarned: 0, kills: 0, uniquesSeen: [], uniquesKnown: [] },

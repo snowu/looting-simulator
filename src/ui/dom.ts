@@ -1,4 +1,5 @@
 import { DEFAULT_CRIT_MULT, ELEMENTS, EquipSlot, EQUIP_SLOTS, Item, RARITY_COLORS, STAT_KEYS, STAT_LABELS, Stats, slotOf } from '../types';
+import { findProperty } from '../data/properties';
 import { consumable, itemBase } from '../data/items';
 import { material } from '../data/materials';
 import { affix } from '../data/affixes';
@@ -332,6 +333,10 @@ export function itemTooltip(item: Item, opts: TipOpts = {}): string {
       if (unique && isIdentified(item)) {
         lines.push(`<div class="tt-unique">${esc(detailed ? unique.detail : unique.rule)}</div>`);
         lines.push(`<div class="tt-flavour">${esc(unique.flavour)}</div>`);
+      }
+      const property = findProperty(item.property);
+      if (property) {
+        lines.push(`<div class="tt-unique" style="color:${property.color}">${esc(property.name)}: ${esc(detailed ? property.detail : property.rule)}</div>`);
       }
       const d = durability(item);
       if (d.wears) {

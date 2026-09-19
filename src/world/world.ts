@@ -7,6 +7,28 @@ import {
   THIEF_BOLT, THIEF_CREEP, THIEF_ESCAPE, THIEF_FUMBLE, THIEF_FUMBLE_CHANCE, THIEF_TRAIL_EVERY, THIEF_TRAIL_MAX,
   VENGEFUL_DAMAGE_MULT, VENGEFUL_FUSE,
 } from '../data/elites';
+import { CACHE_MIN_GOLD, CRACK_BLOWS, CRACK_NOISE, CRACK_WEAR, Crack, SEAM_ORE } from '../data/walls';
+import {
+  BULWARK_MULT, BULWARK_SOAK, BULWARK_WINDOW, EXECUTION_REFUND_MULT, KINDLING_AT, KINDLING_SPREAD, LAST_FLASK_MULT,
+  RETRIEVAL_MULT, RIPOSTE_MULT, RIPOSTE_WINDOW,
+} from '../data/properties';
+import { FORK_DEPTH, ROADS, ROAD_DEPTHS } from '../data/routes';
+import { SHADE_ID, placeShade } from '../systems/grave';
+import { LIGHTLESS_LIGHT, SEAL_FIND, sealDifficulty, sealFloorMods } from '../data/seals';
+import {
+  HOARDER_REACH, HOARDER_SHY, LIEUTENANTS, LIEUTENANT_MIN_DISTANCE, LieutenantId, QUARTERMASTER_MIN_GOBLINS, RALLY_DAMAGE,
+  ROUT_SECONDS, isGoblin, lieutenantChance,
+} from '../data/lieutenants';
+import {
+  BURROWS_NOISE_MULT, COLLAPSE_BASE, COLLAPSE_PER_DEPTH, COLLAPSE_STUN, LAWS, OSSUARY_RISE_HP, OSSUARY_STIR, OSSUARY_STIR_AFTER,
+  ROOT_CACHE_LURE, lawFor,
+} from '../data/laws';
+import { HUNTER_DEPTHS, HUNTER_MARKS, HUNTER_SIGHT, OATHS, UNBROKEN_DEPTH, UNBROKEN_WEAR } from '../data/oaths';
+import { eligibleTraits } from '../data/elites';
+import { RAISE_BEAT, RAISE_CHANNEL, RAISE_COOLDOWN, RAISE_HP, RAISE_LIMIT, RAISE_REACH, SHATTER_OVERKILL } from '../data/necromancy';
+import {
+  AMBUSH_BEAT, AMBUSH_TRIGGER, BURROW_MAX, BURROW_MIN, DIVE_AT, DROP_SECONDS, KNOCKOUT_STUN, MOUND_STEP, SURFACE_SECONDS,
+} from '../data/ambush';
 import {
   EnemyState,
   Floor,
@@ -22,6 +44,9 @@ import {
   defensePower,
   doorAt,
   enemyAt,
+  lurkerAt,
+  promoteElite,
+  crackAt,
   generateFloor,
   inBounds,
   isBossDoor,
@@ -40,7 +65,7 @@ import { biomeForFloor, FINAL_DEPTH } from '../data/biomes';
 import { PlayerDerived, derivePlayer, thrownView } from '../systems/player';
 import { DifficultyId, DifficultyDef, difficultyOf } from '../data/difficulty';
 import { enemyHitsPlayer, playerHitsEnemy, staminaPower } from '../systems/combat';
-import { ContainerTier, durability, identify, isIdentified, itemName, makeMaterial, rollContainerLoot, rollEnemyLoot, uniqueOf, wearItem } from '../systems/items';
+import { ContainerTier, durability, identify, isIdentified, itemName, makeMaterial, materialForDepth, rollContainerLoot, rollEnemyLoot, uniqueOf, wearItem } from '../systems/items';
 import { nameRelic } from '../systems/relics';
 import { recordDepth, recordKill } from '../systems/contracts';
 import {
@@ -76,6 +101,8 @@ export type WorldEvent =
   | { type: 'floor' }
   | { type: 'end'; outcome: 'dead' | 'extracted' }
   | { type: 'secret'; x: number; y: number }
+  | { type: 'crack'; id: string; hits: number }
+  | { type: 'fork' }
   | { type: 'trap'; id: string; x: number; y: number; kind: Trap['kind'] }
   | { type: 'town' };
 
@@ -104,6 +131,8 @@ export interface Projectile {
   returning?: boolean;
   /** Recoverable player throw. Its combat snapshot prevents gear swaps changing a shot in flight. */
   thrownBase?: string;
+  /** Monsters a Retrieval shaft has already cut on its way home. */
+  hitIds?: string[];
   thrownRange?: number;
   traveled?: number;
   player?: PlayerDerived;
@@ -164,6 +193,11 @@ export interface PlayerAnim {
   cast: { id: SigilId; t: number } | null;
   snuffT: number;
   unseenT: number;
+  /** Riposte: seconds left in which the next swing is free and harder, and whether the swing in flight is one. */
+  riposteT: number;
+  riposteSwing: boolean;
+  /** Bulwark: seconds left in which the next landed strike is charged. */
+  bulwarkT: number;
   ward: { x: number; y: number; t: number } | null;
   transition: { t: number; dir: 'down' | 'up'; done: boolean } | null;
   sip: number | null;
@@ -482,7 +516,7 @@ export class World {
       attackBase: null, attackWeaponUid: null, attackSnapshot: null,
       blockRaise: 0, blockT: Infinity, parryArmed: false, parryCd: 0,
       rangedParryT: 0, parryInvulnT: 0, stunT: 0, steps: 0, parryStacks: 0,
-      sinceStamina: 10, windedCd: 0, recall: null, cast: null, snuffT: 0, unseenT: 0, ward: null, transition: null,
+      sinceStamina: 10, windedCd: 0, recall: null, cast: null, snuffT: 0, unseenT: 0, riposteT: 0, riposteSwing: false, bulwarkT: 0, ward: null, transition: null,
       sip: null, chew: null, draught: null,
     };
     this.trail.push({ x: this.player.x, y: this.player.y, facing: this.player.facing, time: this.run.stats.time });
@@ -504,7 +538,17 @@ export class World {
    * through. Older saves have no snapshot and were all Hard.
    */
   get diff(): DifficultyDef {
-    return difficultyOf(this.run.difficulty ?? this.state.difficulty);
+    const base = difficultyOf(this.run.difficulty ?? this.state.difficulty);
+    if (!this.run.seals?.length) return base;
+    // Sealed: the Seals' multipliers over the snapshot, built once per delve.
+    if (this.sealedDiff?.base !== base) this.sealedDiff = { base, def: sealDifficulty(base, this.run.seals) };
+    return this.sealedDiff.def;
+  }
+  private sealedDiff: { base: DifficultyDef; def: DifficultyDef } | null = null;
+
+  /** Loot find for every roll: your gear's, plus the Ashen Seals' bonus. */
+  private get lootFind(): number {
+    return this.derived.find + SEAL_FIND * (this.run.seals?.length ?? 0);
   }
 
   /** The raw id behind `diff`, for passing into loot and generation calls. */
@@ -552,8 +596,10 @@ export class World {
    * suit of armour halve all of it at once. Returns what was actually restored.
    * Difficulty mends faster on Normal; Hard multiplies by exactly 1.
    */
-  private heal(amount: number): number {
-    const scaled = Math.round(amount * this.derived.traits.healing * this.diff.playerHealing);
+  private heal(amount: number, source?: 'food' | 'leech'): number {
+    // Last Flask: with the flask dry, food and leech carry you.
+    const lastFlask = source && this.derived.traits.lastFlask && (this.run.flask?.charges ?? 1) <= 0 ? LAST_FLASK_MULT : 1;
+    const scaled = Math.round(amount * lastFlask * this.derived.traits.healing * this.diff.playerHealing);
     const healed = Math.min(Math.max(0, scaled), this.derived.maxHp - this.player.hp);
     this.player.hp += healed;
     const overflow = Math.max(0, scaled - healed);
@@ -589,6 +635,8 @@ export class World {
   private wear(slot: EquipSlot, amount = 1): void {
     const it = this.state.equipment[slot];
     if (this.run.curse === 'brittle') amount += 1;
+    const oath = this.run.oath;
+    if (oath?.id === 'unbroken') amount *= UNBROKEN_WEAR;
     const crossed = wearItem(it, amount);
     if (crossed === 'none' || !it) return;
     const name = itemName(it);
@@ -597,6 +645,10 @@ export class World {
       this.msg(`Your ${name} breaks!`, '#ff7070');
       this.sfx('break');
       this.emit({ type: 'shake', amount: 0.3 });
+      if (oath?.id === 'unbroken' && oath.status === 'active') {
+        oath.status = 'broken';
+        this.msg('Your oath breaks with it. Unbroken is lost.', OATHS.unbroken.color);
+      }
     }
     this.refreshDerived();
   }
@@ -622,7 +674,7 @@ export class World {
 
   /** Extra tiles of sight the floor has on you, from the Hunted curse. */
   private get sightPenalty(): number {
-    return (this.run.curse === 'hunted' ? 3 : 0) - this.derived.traits.unseen - (this.anim?.unseenT > 0 ? 99 : 0);
+    return (this.run.curse === 'hunted' ? 3 : 0) + (this.run.oath?.id === 'hunter' ? HUNTER_SIGHT : 0) - this.derived.traits.unseen - (this.anim?.unseenT > 0 ? 99 : 0);
   }
 
   private emit(e: WorldEvent): void {
@@ -762,6 +814,8 @@ export class World {
     this.run.thrown ??= { held: {}, retrieveCd: 0 };
     this.run.thrown.retrieveCd = Math.max(0, (this.run.thrown.retrieveCd ?? 0) - dt);
     a.snuffT = Math.max(0, a.snuffT - dt);
+    a.riposteT = Math.max(0, a.riposteT - dt);
+    a.bulwarkT = Math.max(0, a.bulwarkT - dt);
     a.unseenT = Math.max(0, a.unseenT - dt);
     if (a.ward) {
       a.ward.t -= dt;
@@ -894,7 +948,7 @@ export class World {
       const target = Math.round(a.chew.total * (1 - a.chew.left / CHEW_SECONDS));
       const portion = Math.max(0, target - a.chew.delivered);
       if (portion) {
-        this.heal(portion);
+        this.heal(portion, 'food');
         a.chew.delivered += portion;
       }
       if (a.chew.left <= 0) {
@@ -995,6 +1049,11 @@ export class World {
         this.finish('extracted');
         return;
       }
+      // The fork: the first time down from depth 2, the road is chosen first.
+      if (s.down && this.forkPending()) {
+        this.emit({ type: 'fork' });
+        return;
+      }
       this.anim.transition = { t: 0, dir: s.down ? 'down' : 'up', done: false };
       this.sfx('stairs');
       return;
@@ -1046,11 +1105,24 @@ export class World {
     }
     this.retrieve(false);
     run.depth += dir === 'down' ? 1 : -1;
-    if (!run.floors[run.depth - 1]) {
+    const fresh = !run.floors[run.depth - 1];
+    if (fresh) {
       // Pity guarantees: ≥1 shrine in depths 1–3, ≥2 in 4–6. Natural rolls
       // cover most runs; the force only bites on a drought.
       const force = shrinePityFor(run.floors, run.depth);
-      run.floors[run.depth - 1] = generateFloor(run.seed, run.depth, this.difficultyId, force);
+      const road = run.road && ROAD_DEPTHS.includes(run.depth) ? run.road : undefined;
+      run.floors[run.depth - 1] = generateFloor(run.seed, run.depth, this.difficultyId, force, road, sealFloorMods(run.seals));
+      this.placeHunterMark(run.floors[run.depth - 1]!);
+      this.placeLieutenant(run.floors[run.depth - 1]!);
+      if (!run.shadePlaced && placeShade(this.state, run.floors[run.depth - 1]!, run.seed, this.difficultyId)) {
+        run.shadePlaced = true;
+        this.msg('Something that wears your shape waits on this floor, holding what you lost.', '#9ab8ff');
+      }
+    }
+    // Unbroken is kept the moment you stand on its depth with everything whole.
+    if (run.oath?.id === 'unbroken' && run.oath.status === 'active' && run.depth >= UNBROKEN_DEPTH) {
+      run.oath.status = 'kept';
+      this.msg(`Depth ${UNBROKEN_DEPTH}, and nothing broken. The oath is kept: now bring it home.`, OATHS.unbroken.color);
     }
     const f = this.floor;
     const arrive = f.stairs.find((s) => s.down === (dir === 'up'))!;
@@ -1080,8 +1152,32 @@ export class World {
     this.reveal();
     const biome = biomeForFloor(f);
     this.msg(`Depth ${run.depth} — ${biome.name}`, '#d8c8a8');
+    const law = lawFor(f.biome);
+    if (law && fresh) this.msg(law.arrival, law.color);
     if (run.depth === FINAL_DEPTH && dir === 'down') this.msg('The air is thick with ash. Something waits below the throne.', '#c080ff');
     this.emit({ type: 'floor' });
+  }
+
+  /** Whether the stair down from here forks and no road has been taken yet. */
+  forkPending(): boolean {
+    const run = this.run;
+    return run.depth === FORK_DEPTH && !!run.roads?.length && !run.road && !run.floors[FORK_DEPTH];
+  }
+
+  /**
+   * Take one of the two roads at the fork and go down it. The other is sealed
+   * for the rest of the delve. Refused unless standing on the forking stair.
+   */
+  chooseRoad(biome: string): boolean {
+    const run = this.run;
+    const s = stairsAt(this.floor, this.player.x, this.player.y);
+    if (!s?.down || !this.forkPending() || !run.roads!.includes(biome)) return false;
+    run.road = biome;
+    const other = run.roads!.find((b) => b !== biome);
+    this.msg(`You take ${ROADS[biome].name}.${other ? ` ${ROADS[other].name} is sealed behind you.` : ''}`, ROADS[biome].color);
+    this.anim.transition = { t: 0, dir: 'down', done: false };
+    this.sfx('stairs');
+    return true;
   }
 
   /** Debug/playtest hook: jump a floor without walking to the stairs. */
@@ -1111,11 +1207,21 @@ export class World {
    */
   private spotTraps(): void {
     const f = this.floor;
-    if (!f.traps?.length) return;
     const p = this.player;
     const look: { x: number; y: number }[] = [];
     for (let d = 1; d <= this.lookAhead; d++) look.push(this.frontTile(d));
     for (const d of DIRS) look.push({ x: p.x + DX[d], y: p.y + DY[d] });
+    // The same look reads the ceiling: whatever clings up there is found by
+    // the same glance that finds a seam in the flagstones.
+    for (const t of look) {
+      const up = lurkerAt(f, t.x, t.y);
+      if (!up || up.lurk !== 'ceiling' || up.spotted) continue;
+      if (!this.los(p.x, p.y, t.x, t.y)) continue;
+      up.spotted = true;
+      this.msg('Something clings to the ceiling ahead.', '#d0b080');
+      this.sfx('ui');
+    }
+    if (!f.traps?.length) return;
     for (const t of look) {
       const trap = trapAt(f, t.x, t.y);
       if (!trap || trap.found || !trap.armed) continue;
@@ -1146,7 +1252,7 @@ export class World {
       let woken = 0;
       for (const e of this.floor.enemies) {
         if (e.ai === 'dead') continue;
-        if (Math.abs(e.x - trap.x) + Math.abs(e.y - trap.y) > 12) continue;
+        if (Math.abs(e.x - trap.x) + Math.abs(e.y - trap.y) > this.noise(12)) continue;
         e.alert = Math.max(e.alert, 10);
         e.lastSeenX = trap.x;
         e.lastSeenY = trap.y;
@@ -1244,6 +1350,7 @@ export class World {
 
   /** Shared feedback for any parry: it should feel like a moment. */
   private parryFlourish(x: number, y: number): void {
+    if (this.derived.traits.riposte) this.anim.riposteT = RIPOSTE_WINDOW;
     this.anim.blockT = Infinity;
     this.anim.parryArmed = false;
     this.sfx('parry', x, y);
@@ -1289,7 +1396,10 @@ export class World {
     // zero, which kept the free swings coming. How tired you are still shows
     // in the damage, through staminaPower — it just is not free any more.
     const profile: SwingProfile = this.derived.swing;
-    const cost = profile.staminaCost;
+    // Riposte: the swing after a parry is free.
+    a.riposteSwing = this.derived.traits.riposte && a.riposteT > 0;
+    if (a.riposteSwing) a.riposteT = 0;
+    const cost = a.riposteSwing ? 0 : profile.staminaCost;
     if (this.player.stamina < cost) {
       // Throttled hard: at the bottom of the bar almost every frame is a
       // refusal, and without this the breath loops under a held button.
@@ -1510,12 +1620,16 @@ export class World {
       x: fromX + 0.5, y: fromY + 0.5,
       dx: dx / len, dy: dy / len,
       speed: RETURN_SPEED,
-      damage: 0, type: 'pierce',
+      // Retrieval: a shaft on its way home cuts what it passes through.
+      damage: this.derived.traits.retrieval && thrown ? thrown.power * RETRIEVAL_MULT : 0,
+      type: this.derived.damageType,
       sprite: thrown?.sprite ?? 'proj_knife',
       tileX: fromX, tileY: fromY,
       source: 'your hand',
       returning: true,
       thrownBase: base,
+      player: this.derived.traits.retrieval ? this.derived : undefined,
+      hitIds: [],
     });
   }
 
@@ -1617,7 +1731,7 @@ export class World {
 
   private castWardcry(): void {
     for (const e of this.floor.enemies) {
-      if (e.ai === 'dead' || Math.abs(e.x - this.player.x) + Math.abs(e.y - this.player.y) > 8) continue;
+      if (e.ai === 'dead' || Math.abs(e.x - this.player.x) + Math.abs(e.y - this.player.y) > this.noise(8)) continue;
       e.alert = Math.max(e.alert, 8);
       e.lastSeenX = this.player.x;
       e.lastSeenY = this.player.y;
@@ -1676,6 +1790,12 @@ export class World {
         this.msg(TRAPS[trap.kind].spotted, '#e0c060');
       }
     }
+    for (const e of f.enemies) {
+      if (e.lurk !== 'ceiling' || e.spotted || e.ai === 'dead') continue;
+      if (Math.abs(e.x - this.player.x) + Math.abs(e.y - this.player.y) > 6) continue;
+      e.spotted = true;
+      this.msg('Something clings to the ceiling nearby.', '#d0b080');
+    }
     for (const secret of f.secrets) {
       const dx = secret.x - this.player.x, dy = secret.y - this.player.y;
       if (secret.found || Math.abs(dx) + Math.abs(dy) > 6) continue;
@@ -1712,6 +1832,14 @@ export class World {
     this.sfx('swing');
     for (let d = 1; d <= this.derived.swing.reach; d++) {
       const t = this.frontTile(d);
+      // A spotted dropper overhead, or any mound, can be struck where it
+      // hides: it comes out early, reeling and open.
+      const hidden = d === 1 ? lurkerAt(f, t.x, t.y) : undefined;
+      if (hidden && (hidden.lurk === 'buried' || hidden.spotted)) {
+        this.knockOut(hidden);
+        this.wear('weapon', 2);
+        return;
+      }
       const e = enemyAt(f, t.x, t.y);
       if (e) {
         this.hitEnemy(e);
@@ -1723,6 +1851,11 @@ export class World {
       const p = propAt(f, t.x, t.y);
       if (p && d === 1 && (p.kind === 'urn' || p.kind === 'barrel' || p.kind === 'root_cache') && !p.used) {
         this.breakProp(p);
+        return;
+      }
+      const crack = d === 1 ? crackAt(f, t.x, t.y) : undefined;
+      if (crack) {
+        this.strikeCrack(crack);
         return;
       }
       // An emptied chest is only boards now: one blow and it is splinters.
@@ -1810,7 +1943,7 @@ export class World {
    * reading the fields they always read.
    */
   private view(e: EnemyState): EnemyDef {
-    return enemyView(enemyDef(e.def), e.hp, e.maxHp, { elite: e.elite, carrying: !!e.stolen?.length });
+    return enemyView(enemyDef(e.def), e.hp, e.maxHp, { elite: e.elite, carrying: !!e.stolen?.length, marked: e.marked, shadeType: e.shadeType });
   }
 
   private guardReaction(e: EnemyState, def: EnemyDef): 'bash' | 'chip' | null {
@@ -1964,7 +2097,14 @@ export class World {
       }
       this.emit({ type: 'shake', amount: 0.4 });
     }
+    // Riposte rides on the whole swing after a parry; Bulwark on the next blow that lands.
+    if (this.anim.riposteSwing) hit.damage = Math.round(hit.damage * RIPOSTE_MULT);
+    if (this.anim.bulwarkT > 0 && this.derived.traits.bulwark) {
+      hit.damage = Math.round(hit.damage * BULWARK_MULT);
+      this.anim.bulwarkT = 0;
+    }
     e.hp -= hit.damage;
+    if (this.derived.traits.kindling) this.kindle(e);
     const life = this.state.lifetime;
     if (hit.damage > (life.bestHit ?? 0)) life.bestHit = hit.damage;
     recordDamageDealt(this.state.bestiary, def.id, hit.damage);
@@ -1978,7 +2118,7 @@ export class World {
     if (hit.effective === 'resist' && this.rng.chance(0.3)) this.msg(`The ${def.name} shrugs off your ${this.derived.damageType} blows.`, '#9a9aa8');
     if (hit.effective === 'weak' && this.rng.chance(0.3)) this.msg(`The ${def.name} reels!`, '#ff9a40');
     if (this.derived.stats.leech > 0) {
-      this.heal(Math.max(1, Math.round((hit.damage * this.derived.stats.leech) / 100)));
+      this.heal(Math.max(1, Math.round((hit.damage * this.derived.stats.leech) / 100)), 'leech');
     }
     // Lighter foes are staggered out of their wind-up.
     if (this.derived.swing.stagger) e.attackCd += this.derived.swing.stagger;
@@ -1986,7 +2126,241 @@ export class World {
       e.ai = 'recover';
       e.timer = 0.5;
     }
-    if (e.hp <= 0) this.killEnemy(e);
+    if (e.hp <= 0) {
+      this.markRemains(e);
+      this.killEnemy(e);
+    }
+  }
+
+  /**
+   * A freshly generated floor from depth 2 may get a lieutenant, on its own
+   * stream: a Goblin Quartermaster where there are goblins to command, or the
+   * Hoarder anywhere. Placed far from the arrival stair, and announced by a
+   * clue rather than by name.
+   */
+  private placeLieutenant(f: Floor): void {
+    if (f.rooms.some((r) => r.role === 'throne')) return;
+    const rng = createRng(hashString(`lt:${this.run.seed}:${f.depth}`));
+    if (!rng.chance(lieutenantChance(f.depth))) return;
+    const goblins = f.enemies.filter((e) => e.ai !== 'dead' && isGoblin(e.def));
+    const options: LieutenantId[] = goblins.length >= QUARTERMASTER_MIN_GOBLINS ? ['quartermaster', 'hoarder'] : ['hoarder'];
+    const id = rng.pick(options);
+    const up = f.stairs.find((st) => !st.down);
+    const busy = new Set(f.enemies.filter((e) => e.ai !== 'dead').map((e) => `${e.x},${e.y}`));
+    const roomOf = (x: number, y: number) => f.rooms.find((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h);
+    const tiles = (r: (typeof f.rooms)[number]) => {
+      const out: [number, number][] = [];
+      for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
+        if (blocksMove(f, x, y) || busy.has(`${x},${y}`) || stairsAt(f, x, y)) continue;
+        if (up && Math.abs(x - up.x) + Math.abs(y - up.y) < LIEUTENANT_MIN_DISTANCE) continue;
+        out.push([x, y]);
+      }
+      return out;
+    };
+    const rooms = f.rooms.filter((r) => r.role !== 'start' && r.role !== 'secret' && tiles(r).length);
+    if (!rooms.length) return;
+    // A Quartermaster stands with the most goblins; the Hoarder anywhere.
+    const room = id === 'quartermaster'
+      ? [...rooms].sort((a, b) => goblins.filter((g) => roomOf(g.x, g.y) === b).length - goblins.filter((g) => roomOf(g.x, g.y) === a).length)[0]
+      : rng.pick(rooms);
+    const [x, y] = rng.pick(tiles(room));
+    const def = LIEUTENANTS[id];
+    const e = createEnemy(enemyDef(def.enemy), x, y, rng.int(0, 3) as Dir, `lt${f.depth}`, f.depth, this.difficultyId);
+    e.lieutenant = id;
+    f.enemies.push(e);
+    this.msg(def.clue, def.color);
+  }
+
+  /** Goblins under a living Quartermaster hit harder (and never flee): the damage multiplier. */
+  private rally(e: EnemyState): number {
+    if (!isGoblin(e.def)) return 1;
+    return this.floor.enemies.some((q) => q.lieutenant === 'quartermaster' && q.ai !== 'dead') ? RALLY_DAMAGE : 1;
+  }
+
+  /**
+   * The Hoarder's tick. Returns true when it has acted. It goes for the nearest
+   * loot pile on its floor (never a key or a flask shard), stuffs it into its
+   * sack, and keeps away from you; only cornered and in reach does it fight.
+   */
+  private updateHoarder(e: EnemyState, def: EnemyDef, dist: number, sees: boolean): boolean {
+    const f = this.floor;
+    const p = this.player;
+    const here = f.pickups.find((k) => k.x === e.x && k.y === e.y && !k.keyId && !k.flaskShard && (k.items.length || k.gold > 0));
+    if (here) {
+      (e.hoard ??= []).push(...here.items);
+      e.hoardGold = (e.hoardGold ?? 0) + here.gold;
+      f.pickups = f.pickups.filter((k) => k !== here);
+      if (sees) this.msg('The Hoarder stuffs the pile into its sack.', LIEUTENANTS.hoarder.color);
+      return true;
+    }
+    if (sees && dist <= HOARDER_SHY) {
+      const away = DIRS.map((d) => [e.x + DX[d], e.y + DY[d]] as [number, number])
+        .filter(([x, y]) => this.canStep(e, x, y) && Math.abs(x - p.x) + Math.abs(y - p.y) > dist)[0];
+      if (away) {
+        this.stepEnemy(e, away[0], away[1]);
+        return true;
+      }
+      // Cornered: in reach, it fights like anything else.
+      return dist > 1;
+    }
+    const target = f.pickups
+      .filter((k) => !k.keyId && !k.flaskShard && (k.items.length || k.gold > 0) && Math.abs(k.x - e.x) + Math.abs(k.y - e.y) <= HOARDER_REACH)
+      .sort((a, b) => Math.abs(a.x - e.x) + Math.abs(a.y - e.y) - (Math.abs(b.x - e.x) + Math.abs(b.y - e.y)))[0];
+    if (target) {
+      // pathStep stops short of its goal (it was written for closing on you),
+      // so the last step onto the pile is taken here.
+      const adjacent = Math.abs(target.x - e.x) + Math.abs(target.y - e.y) === 1;
+      const next = adjacent ? (this.canStep(e, target.x, target.y) ? [target.x, target.y] as [number, number] : null) : this.pathStep(e, target.x, target.y);
+      if (next) this.stepEnemy(e, next[0], next[1]);
+      return true;
+    }
+    // Nothing to take: it keeps its distance rather than hunting you.
+    return dist > 1;
+  }
+
+  /** A lieutenant dies: its floor changes, and it pays in kind. */
+  private lieutenantFalls(e: EnemyState): void {
+    if (e.lieutenant === 'quartermaster') {
+      let routed = 0;
+      for (const g of this.floor.enemies) {
+        if (g.ai === 'dead' || !isGoblin(g.def)) continue;
+        g.ai = 'flee';
+        g.alert = Math.max(g.alert, ROUT_SECONDS);
+        routed++;
+      }
+      const rng = createRng(hashString(`strongbox:${this.floor.seed}:${e.id}`));
+      const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
+      const box = rollContainerLoot(rng, this.run.depth, this.lootFind, 'vault', idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId);
+      this.dropLoot(e.x, e.y, box.items, box.gold);
+      this.msg(routed ? 'The banner falls. The goblins break and run! The strongbox key is yours.' : 'The banner falls. The strongbox key is yours.', LIEUTENANTS.quartermaster.color);
+    } else if (e.lieutenant === 'hoarder') {
+      const n = e.hoard?.length ?? 0;
+      this.dropLoot(e.x, e.y, e.hoard ?? [], e.hoardGold ?? 0);
+      delete e.hoard;
+      delete e.hoardGold;
+      this.msg(n ? 'The sack splits. Everything the Hoarder gathered spills across the floor.' : 'The sack splits, heavy with coin.', LIEUTENANTS.hoarder.color);
+    }
+  }
+
+  /**
+   * Hunter: a freshly generated floor on one of the hunt's depths gets its
+   * mark. One of the three toughest monsters far from the stairs is chosen on
+   * the run's own stream, promoted to an elite if it is not one, and marked. Placed when the
+   * floor is first generated, so a floor is only ever marked once.
+   */
+  private placeHunterMark(f: Floor): void {
+    const oath = this.run.oath;
+    if (oath?.id !== 'hunter' || !HUNTER_DEPTHS.includes(f.depth) || (oath.placed ?? []).includes(f.depth)) return;
+    const up = f.stairs.find((st) => !st.down);
+    const far = (e: EnemyState) => up ? Math.abs(e.x - up.x) + Math.abs(e.y - up.y) : 0;
+    const pool = f.enemies.filter((e) => e.ai !== 'dead' && !e.lurk && enemyDef(e.def).behavior !== 'boss' && far(e) >= 8);
+    const quarry = pool.length ? pool : f.enemies.filter((e) => e.ai !== 'dead' && !e.lurk && enemyDef(e.def).behavior !== 'boss');
+    if (!quarry.length) return;
+    // Quarry worth the name: one of the three toughest on the floor, never
+    // whatever rat happened to be furthest from the stairs.
+    const rng = createRng(hashString(`hunt:${this.run.seed}:${f.depth}`));
+    const toughest = [...quarry].sort((a, b) => enemyDef(b.def).hp - enemyDef(a.def).hp || a.id.localeCompare(b.id)).slice(0, 3);
+    const e = rng.pick(toughest);
+    if (!e.elite) {
+      const traits = eligibleTraits(enemyDef(e.def));
+      if (traits.length) promoteElite(e, rng.pick(traits));
+    }
+    e.marked = true;
+    (oath.placed ??= []).push(f.depth);
+  }
+
+  /** Burrows: how far a noise of radius `r` actually carries on this floor. */
+  private noise(r: number): number {
+    return this.floor.biome === 'burrows' ? Math.round(r * BURROWS_NOISE_MULT) : r;
+  }
+
+  /**
+   * Ossuary: undead remains that were neither shattered nor sanctified stir
+   * `OSSUARY_STIR_AFTER` seconds after death, then stand `OSSUARY_STIR` later
+   * at `OSSUARY_RISE_HP`, risen, so they pay nothing twice and never rise
+   * again. Only on the crossing, so corpses left behind on a floor you walk
+   * back onto do not all stand at once.
+   */
+  private ossuaryStir(e: EnemyState, before: number, dt: number): void {
+    if (e.stirT !== undefined) {
+      e.stirT -= dt;
+      if (e.stirT > 0) return;
+      delete e.stirT;
+      if (e.remains) return;
+      this.raiseCorpse(e);
+      e.hp = Math.max(1, Math.round(e.maxHp * OSSUARY_RISE_HP));
+      return;
+    }
+    if (before >= OSSUARY_STIR_AFTER || e.deadT < OSSUARY_STIR_AFTER) return;
+    const def = enemyDef(e.def);
+    if (!def.undead || def.behavior === 'boss' || e.risen || e.remains || e.burstT !== undefined || e.mimicTier) return;
+    e.stirT = OSSUARY_STIR;
+    if (Math.abs(e.x - this.player.x) + Math.abs(e.y - this.player.y) <= 10) this.msg(`The ${def.name}'s bones stir.`, LAWS.crypt.color);
+  }
+
+  /**
+   * Mines: a cracked wall brought down drops its rotten timbering on every
+   * monster beside it, for a crushing blow and a stagger. You are the one
+   * striking it, from beside it, so the roof never falls on you.
+   */
+  private collapse(x: number, y: number): void {
+    const dealtTo: string[] = [];
+    for (const e of this.floor.enemies) {
+      if (e.ai === 'dead' || e.lurk || Math.abs(e.x - x) + Math.abs(e.y - y) !== 1) continue;
+      const def = enemyDef(e.def);
+      const dealt = Math.max(1, Math.round((COLLAPSE_BASE + COLLAPSE_PER_DEPTH * this.run.depth) * (def.resist.blunt ?? 1)));
+      e.hp -= dealt;
+      e.hurtT = 0.3;
+      e.alert = Math.max(e.alert, 8);
+      if (def.behavior !== 'boss') {
+        e.ai = 'recover';
+        e.timer = Math.max(e.timer, COLLAPSE_STUN);
+        e.attackCd = Math.max(e.attackCd, COLLAPSE_STUN + 0.2);
+      }
+      this.emit({ type: 'float', x: e.x, y: e.y, text: `${dealt}!`, color: LAWS.mines.color });
+      dealtTo.push(def.name);
+      if (e.hp <= 0) this.killEnemy(e);
+    }
+    this.emit({ type: 'shake', amount: 0.5 });
+    this.msg(dealtTo.length ? `The timbers give and the roof comes down on the ${dealtTo.join(' and the ')}!` : 'The timbers give. Rock rains down where the wall stood.', LAWS.mines.color);
+  }
+
+  /**
+   * Kindling: a blow with fire in it, landing on a monster below `KINDLING_AT`
+   * of its health, also burns one monster beside it for the fire share.
+   */
+  private kindle(e: EnemyState): void {
+    const fire = this.derived.stats.fire ?? 0;
+    if (fire <= 0 || e.hp >= e.maxHp * KINDLING_AT) return;
+    const near = this.floor.enemies.filter((o) => o !== e && o.ai !== 'dead' && !o.lurk && Math.abs(o.x - e.x) + Math.abs(o.y - e.y) === 1);
+    if (!near.length) return;
+    const o = this.rng.pick(near);
+    const mult = enemyDef(o.def).resist.fire ?? 1;
+    const dealt = Math.round(fire * KINDLING_SPREAD * this.anim.attackPower * mult);
+    if (dealt <= 0) return;
+    o.hp -= dealt;
+    o.hurtT = 0.3;
+    o.alert = Math.max(o.alert, 8);
+    this.emit({ type: 'float', x: o.x, y: o.y, text: `${dealt}`, color: '#ff9a50' });
+    if (o.hp <= 0) this.killEnemy(o);
+  }
+
+  /**
+   * How an undead monster fell, for any Gravecaller nearby: a blunt killing
+   * blow, or one that overkills by `SHATTER_OVERKILL`, shatters the bones; a
+   * killing blow carrying holy damage, or struck from consecrated ground,
+   * sanctifies them. Either way nothing raises it.
+   */
+  private markRemains(e: EnemyState): void {
+    if (!enemyDef(e.def).undead) return;
+    const overkill = -e.hp >= e.maxHp * SHATTER_OVERKILL;
+    const ward = this.anim.ward;
+    const consecrated = !!ward && ward.x === this.player.x && ward.y === this.player.y;
+    if (this.derived.damageType === 'blunt' || overkill) e.remains = 'shattered';
+    else if ((this.derived.stats.holy ?? 0) > 0 || consecrated) e.remains = 'sanctified';
+    else return;
+    const caller = this.floor.enemies.some((g) => g.ai !== 'dead' && enemyDef(g.def).raises && Math.abs(g.x - e.x) + Math.abs(g.y - e.y) <= 10);
+    if (caller) this.msg(e.remains === 'shattered' ? 'The bones shatter. Nothing will call these back.' : 'The remains are sanctified. They will stay down.', '#e8e0c0');
   }
 
   private killEnemy(e: EnemyState): void {
@@ -2011,14 +2385,28 @@ export class World {
       this.msg(`${def.name} falls still again.`, '#c8c0b0');
       return;
     }
-    this.refundSigil(def);
+    if (e.lieutenant) this.lieutenantFalls(e);
+    if (e.def === SHADE_ID && this.state.grave) {
+      const grave = this.state.grave;
+      this.state.grave = null;
+      this.dropLoot(e.x, e.y, grave.items, grave.gold);
+      this.msg('Your Shade comes apart. What you lost is yours again.', '#9ab8ff');
+    }
+    if (e.marked && this.run.oath?.id === 'hunter') {
+      const oath = this.run.oath;
+      oath.marks = (oath.marks ?? 0) + 1;
+      this.msg(oath.marks >= HUNTER_MARKS
+        ? `The last marked quarry falls. The hunt is done: now bring it home.`
+        : `Marked quarry slain: ${oath.marks} of ${HUNTER_MARKS}.`, OATHS.hunter.color);
+    }
+    this.refundSigil(def, this.derived.traits.execution && (e.vuln ?? 0) > 0 ? EXECUTION_REFUND_MULT : 1);
     this.run.stats.kills++;
     recordKill(this.state.contracts, def.id);
     recordBestiaryKill(this.state.bestiary, def.id);
     const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
     const loot = e.mimicTier && e.mimicPropId
-      ? rollContainerLoot(createRng(hashString(`${this.floor.seed}:${e.mimicPropId}`)), this.run.depth, this.derived.find, e.mimicTier, idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId)
-      : rollEnemyLoot(this.rng, def, this.run.depth, this.derived.find, idBelow, this.state.recipeRanks, this.state.bestiary, this.seenUniques, this.difficultyId, !!e.elite);
+      ? rollContainerLoot(createRng(hashString(`${this.floor.seed}:${e.mimicPropId}`)), this.run.depth, this.lootFind, e.mimicTier, idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId)
+      : rollEnemyLoot(this.rng, def, this.run.depth, this.lootFind, idBelow, this.state.recipeRanks, this.state.bestiary, this.seenUniques, this.difficultyId, !!e.elite);
     const sigilDrop = def.behavior === 'boss'
       ? this.rollSigil(`boss:${e.id}`, 1)
       : e.mimicTier && e.mimicPropId
@@ -2087,11 +2475,11 @@ export class World {
     return (this.state.lifetime.uniquesKnown ??= []);
   }
 
-  private refundSigil(def: EnemyDef): void {
+  private refundSigil(def: EnemyDef, mult = 1): void {
     const active = this.run.sigil;
     if (!active || active.cd <= 0) return;
     const spell = sigil(active.id);
-    const base = 2 + 8 * Math.min(1, def.hp / 140);
+    const base = (2 + 8 * Math.min(1, def.hp / 140)) * mult;
     const multiplier = 1 + 0.25 * metaLevel(this.state.meta, 'attunement') + this.derived.stats.focus / 100;
     active.cd = Math.max(0, active.cd - Math.min(base * multiplier, spell.cooldown * 0.2));
   }
@@ -2155,7 +2543,7 @@ export class World {
    */
   private chestLoot(p: Prop, tier: ContainerTier): { items: Item[]; gold: number; lost: string[] } {
     const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
-    const loot = rollContainerLoot(this.propRng(p), this.run.depth, this.derived.find, tier, idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId);
+    const loot = rollContainerLoot(this.propRng(p), this.run.depth, this.lootFind, tier, idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId);
     // Its own stream, so which piece broke never moves the loot roll itself.
     const pick = createRng(hashString(`chest-shatter:${this.floor.seed}:${p.id}`));
     const lost: string[] = [];
@@ -2198,7 +2586,7 @@ export class World {
     let woken = 0;
     for (const e of this.floor.enemies) {
       if (e.ai === 'dead' || this.protectedByFog(e)) continue;
-      if (Math.abs(e.x - p.x) + Math.abs(e.y - p.y) > CHEST_CLANG_RADIUS) continue;
+      if (Math.abs(e.x - p.x) + Math.abs(e.y - p.y) > this.noise(CHEST_CLANG_RADIUS)) continue;
       if (e.alert <= 0) woken++;
       e.alert = Math.max(e.alert, 6);
       e.lastSeenX = this.player.x;
@@ -2243,8 +2631,21 @@ export class World {
   private breakProp(p: Prop): void {
     p.used = true;
     this.sfx('break', p.x, p.y);
+    // Burrows: the crack of old roots is a lure. What hears it comes to the
+    // cache, not to you — so break it and be somewhere else.
+    if (p.kind === 'root_cache' && this.floor.biome === 'burrows') {
+      let drawn = 0;
+      for (const e of this.floor.enemies) {
+        if (e.ai === 'dead' || e.lurk || Math.abs(e.x - p.x) + Math.abs(e.y - p.y) > ROOT_CACHE_LURE) continue;
+        e.alert = Math.max(e.alert, 8);
+        e.lastSeenX = p.x;
+        e.lastSeenY = p.y;
+        drawn++;
+      }
+      this.msg(drawn ? 'The roots crack like a shot. Something skitters towards the sound.' : 'The roots crack like a shot. Nothing answers.', LAWS.burrows.color);
+    }
     const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
-    const loot = rollContainerLoot(this.propRng(p), this.run.depth, this.derived.find, 'urn', idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId);
+    const loot = rollContainerLoot(this.propRng(p), this.run.depth, this.lootFind, 'urn', idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId);
     this.dropLoot(p.x, p.y, loot.items, loot.gold);
   }
 
@@ -2300,6 +2701,10 @@ export class World {
     for (let d = 1; d <= this.derived.swing.reach; d++) {
       const t = this.frontTile(d);
       if (enemyAt(f, t.x, t.y)) return { kind: 'attack', label: '' };
+      if (d === 1 && crackAt(f, t.x, t.y)) return { kind: 'attack', label: '' };
+      // Something you can see hiding right in front of you is a target too.
+      const hidden = d === 1 ? lurkerAt(f, t.x, t.y) : undefined;
+      if (hidden && (hidden.lurk === 'buried' || hidden.spotted)) return { kind: 'attack', label: '' };
       if (blocksSight(f, t.x, t.y)) break;
     }
     const hint = this.interactionHint();
@@ -2316,7 +2721,8 @@ export class World {
   private threatNear(): boolean {
     const p = this.player;
     for (const e of this.floor.enemies) {
-      if (e.ai === 'dead') continue;
+      // A lurker is not in the fight until it drops: counting it would give it away.
+      if (e.ai === 'dead' || e.lurk) continue;
       const dist = Math.abs(e.x - p.x) + Math.abs(e.y - p.y);
       if (dist <= 2) return true;
       if (dist <= 4 && e.alert > 0 && this.los(p.x, p.y, e.x, e.y)) return true;
@@ -2616,8 +3022,11 @@ export class World {
       // The safe one. A large mend and it washes off a curse — which is what
       // makes a font worth crossing a floor for once an idol has marked you.
       case 'font': {
-        const lifted = this.run.curse;
-        this.run.curse = null;
+        // Blood Price's Frailty is sworn, not suffered: the water leaves it.
+        const sworn = this.run.oath?.id === 'blood_price' && this.run.curse === 'frailty';
+        const lifted = sworn ? null : this.run.curse;
+        if (!sworn) this.run.curse = null;
+        if (sworn) this.msg('The water will not touch a sworn price. Frailty stays.', OATHS.blood_price.color);
         this.refreshDerived();
         this.restore(true);
         if (lifted) this.msg(`The water runs black and clears. ${CURSES[lifted].name} is washed away.`, '#a0c8ff');
@@ -3042,7 +3451,7 @@ export class World {
 
   private occupied(x: number, y: number, self: EnemyState): boolean {
     if (x === this.player.x && y === this.player.y) return true;
-    return this.floor.enemies.some((o) => o !== self && o.ai !== 'dead' && o.x === x && o.y === y);
+    return this.floor.enemies.some((o) => o !== self && o.ai !== 'dead' && !o.lurk && o.x === x && o.y === y);
   }
 
   private canStep(e: EnemyState, x: number, y: number): boolean {
@@ -3308,7 +3717,9 @@ export class World {
     const p = this.player;
     for (const e of f.enemies) {
       if (e.ai === 'dead') {
+        const before = e.deadT;
         e.deadT += dt;
+        if (f.biome === 'crypt') this.ossuaryStir(e, before, dt);
         if (e.burstT !== undefined) {
           e.burstT -= dt;
           if (e.burstT <= 0) {
@@ -3319,6 +3730,10 @@ export class World {
         continue;
       }
       if (this.protectedByFog(e)) continue;
+      if (e.lurk) {
+        this.updateLurker(e, dt);
+        continue;
+      }
       const def = this.view(e);
       if (def.behavior === 'boss') this.checkBossPhase(e);
       e.hurtT = Math.max(0, e.hurtT - dt);
@@ -3391,6 +3806,9 @@ export class World {
       // The guard rhythm ticks while the bearer is free to hold it.
       this.updateGuard(e, def, dt, e.alert > 0 && dist <= GUARD_RANGE);
 
+      // A Gravecaller chanting over a corpse stands still until it finishes or is broken.
+      if (def.raises && this.updateRaiser(e, def, dt)) continue;
+
       // A thief with your things in its hands does nothing but run.
       if (e.stolen?.length && e.ai !== 'windup' && e.ai !== 'recover') {
         if (this.runWithLoot(e, def, dist, sees, dt)) continue;
@@ -3418,7 +3836,12 @@ export class World {
         }
       }
 
-      if (def.behavior === 'skittish' && e.hp < e.maxHp * 0.35 && sees && this.rng.chance(0.02)) {
+      if (def.burrows && !e.dived && e.hp < e.maxHp * DIVE_AT) {
+        this.dive(e, def);
+        continue;
+      }
+      if (e.lieutenant === 'hoarder' && this.updateHoarder(e, def, dist, sees)) continue;
+      if (def.behavior === 'skittish' && e.hp < e.maxHp * 0.35 && sees && this.rally(e) === 1 && this.rng.chance(0.02)) {
         e.ai = 'flee';
         this.msg(`The ${def.name} tries to flee!`, '#c8c0b0');
         continue;
@@ -3512,7 +3935,7 @@ export class World {
         if (off !== 0 && blocksSight(this.floor, e.x + ox, e.y + oy)) continue;
         this.projectiles.push({
           id: this.projN++, x: e.x + ox + 0.5, y: e.y + oy + 0.5, dx, dy, speed: pr.speed,
-          damage: Math.round(def.attack * attackPower(e.power) * (e.scavengerAttack ?? 1) * this.diff.enemyDamage), type: pr.damageType, sprite: pr.sprite, light: pr.light,
+          damage: Math.round(def.attack * attackPower(e.power) * (e.scavengerAttack ?? 1) * this.rally(e) * this.diff.enemyDamage), type: pr.damageType, sprite: pr.sprite, light: pr.light,
           tileX: e.x + ox, tileY: e.y + oy, source: def.name, sourceId: def.id,
         });
       }
@@ -3522,7 +3945,7 @@ export class World {
     // Melee lands only if you're still in the tile it aimed at.
     this.sfx('swing', e.x, e.y);
     if (p.x === e.lastSeenX && p.y === e.lastSeenY && dist === 1) {
-      this.damagePlayer(Math.max(1, Math.round(def.attack * attackPower(e.power) * (e.scavengerAttack ?? 1) * this.diff.enemyDamage)), def.damageType, e.x, e.y, def.name, def.id, e);
+      this.damagePlayer(Math.max(1, Math.round(def.attack * attackPower(e.power) * (e.scavengerAttack ?? 1) * this.rally(e) * this.diff.enemyDamage)), def.damageType, e.x, e.y, def.name, def.id, e);
     } else {
       this.sfx('miss', e.x, e.y);
     }
@@ -3556,7 +3979,7 @@ export class World {
         attacker.attackCd = Math.max(attacker.attackCd, PARRY_STUN + 0.2);
         attacker.vuln = PARRY_STUN;
         for (const other of this.floor.enemies) {
-          if (other === attacker || other.ai === 'dead') continue;
+          if (other === attacker || other.ai === 'dead' || other.lurk) continue;
           if (Math.abs(other.x - p.x) + Math.abs(other.y - p.y) !== 1) continue;
           other.ai = 'recover';
           other.timer = Math.max(other.timer, MELEE_PARRY_SPLASH_STUN);
@@ -3584,6 +4007,11 @@ export class World {
         p.stamina -= cost;
         dmg = Math.round(dmg - absorbed);
         blocked = true;
+        // Bulwark: a heavy blow taken on the shield charges the next strike.
+        if (this.derived.traits.bulwark && absorbed >= this.derived.maxHp * BULWARK_SOAK) {
+          if (this.anim.bulwarkT <= 0) this.msg('The shield takes it. Your next blow is charged.', '#a8bccc');
+          this.anim.bulwarkT = BULWARK_WINDOW;
+        }
         // Blocking grinds the shield down (2 per block, was 1); a parry
         // costs it nothing, which is one more reason to meet the swing
         // instead of hiding behind it.
@@ -3677,8 +4105,16 @@ export class World {
         }
         pr.dx = ddx / dist;
         pr.dy = ddy / dist;
-        pr.tileX = Math.floor(pr.x);
-        pr.tileY = Math.floor(pr.y);
+        const rx = Math.floor(pr.x), ry = Math.floor(pr.y);
+        if (pr.damage > 0 && (rx !== pr.tileX || ry !== pr.tileY)) {
+          const cut = enemyAt(f, rx, ry);
+          if (cut && !pr.hitIds?.includes(cut.id)) {
+            (pr.hitIds ??= []).push(cut.id);
+            this.thrownHit(pr, cut);
+          }
+        }
+        pr.tileX = rx;
+        pr.tileY = ry;
         continue;
       }
       const tx = Math.floor(pr.x), ty = Math.floor(pr.y);
@@ -3774,7 +4210,7 @@ export class World {
     recordDamageDealt(this.state.bestiary, def.id, hit.damage);
     this.emit({ type: 'float', x: e.x, y: e.y, text: hit.crit ? `${hit.damage}!` : `${hit.damage}`, color: hit.crit ? '#ffe040' : hit.effective === 'weak' ? '#ff9a40' : hit.effective === 'resist' ? '#9a9aa8' : '#ffffff' });
     this.sfx(hit.crit ? 'crit' : 'hit', e.x, e.y);
-    if (player.stats.leech > 0) this.heal(Math.max(1, Math.round(hit.damage * player.stats.leech / 100)));
+    if (player.stats.leech > 0) this.heal(Math.max(1, Math.round(hit.damage * player.stats.leech / 100)), 'leech');
     this.wearThrown(pr.weaponUid);
     if (e.hp <= 0) this.killEnemy(e);
   }
@@ -3855,6 +4291,256 @@ export class World {
    * own damage type, so a creature that shrugs off fire still shrugs it off
    * coming back — the shield returns the blow, it does not translate it.
    */
+  /**
+   * One tick of a hidden monster. A ceiling dropper waits until you come
+   * within `AMBUSH_TRIGGER`, sifts dust for `DROP_SECONDS`, then lands. A
+   * buried one does the same with a rumble. A tunnelling burrower travels
+   * towards your back first. None of them strike on arrival (see `emerge`).
+   */
+  private updateLurker(e: EnemyState, dt: number): void {
+    const p = this.player;
+    const dist = Math.abs(e.x - p.x) + Math.abs(e.y - p.y);
+    if (e.tunnelling) {
+      e.lurkT = (e.lurkT ?? 0) - dt;
+      if (e.moveT < 1) {
+        e.moveT = Math.min(1, e.moveT + dt / MOUND_STEP);
+        return;
+      }
+      if (e.lurkT <= 0 || dist <= 1) {
+        this.emerge(e, true);
+        return;
+      }
+      // Head for the tile at your back. The floor is no obstacle to it, but
+      // walls and doors are; it goes greedily, which you can read and turn to.
+      const back = { x: p.x - DX[p.facing], y: p.y - DY[p.facing] };
+      const step = DIRS.map((d) => ({ x: e.x + DX[d], y: e.y + DY[d] }))
+        .filter((t) => !blocksMove(this.floor, t.x, t.y) && !(t.x === p.x && t.y === p.y))
+        .sort((a, b) => Math.abs(a.x - back.x) + Math.abs(a.y - back.y) - (Math.abs(b.x - back.x) + Math.abs(b.y - back.y)))[0];
+      if (step) {
+        e.fromX = e.x; e.fromY = e.y;
+        e.x = step.x; e.y = step.y;
+        e.moveT = 0;
+      }
+      return;
+    }
+    if (e.lurkT === undefined) {
+      if (dist > AMBUSH_TRIGGER) return;
+      if (e.lurk === 'ceiling') {
+        e.lurkT = DROP_SECONDS;
+        this.sfx('drip', e.x, e.y);
+        this.msg(e.spotted ? 'It lets go of the ceiling!' : 'Dust sifts down from above — something skitters!', '#d0b080');
+      } else {
+        e.lurkT = SURFACE_SECONDS;
+        this.sfx('break', e.x, e.y);
+        this.msg('The ground heaves!', '#c8a070');
+      }
+      return;
+    }
+    e.lurkT -= dt;
+    if (e.lurkT <= 0) this.emerge(e, false);
+  }
+
+  /**
+   * A lurker comes out onto the floor. Its own tile if that is free, otherwise
+   * a free tile beside you — behind you, for a burrower that went looking for
+   * your back. **It never strikes on arrival**: it lands in recovery, with a
+   * beat before it may start a wind-up, so an ambush costs position and never
+   * a free hit.
+   */
+  private emerge(e: EnemyState, preferBack: boolean): void {
+    const p = this.player;
+    const def = enemyDef(e.def);
+    const open = (x: number, y: number) =>
+      !blocksMove(this.floor, x, y) && !(x === p.x && y === p.y) && !enemyAt(this.floor, x, y);
+    let spot = open(e.x, e.y) && !preferBack ? { x: e.x, y: e.y } : null;
+    if (!spot) {
+      const around = DIRS.map((d) => ({ x: p.x + DX[d], y: p.y + DY[d], d }))
+        .filter((t) => open(t.x, t.y))
+        .sort((a, b) => (preferBack ? (a.d === turnAround(p.facing) ? -1 : 0) - (b.d === turnAround(p.facing) ? -1 : 0) : 0));
+      spot = around[0] ?? (open(e.x, e.y) ? { x: e.x, y: e.y } : null);
+    }
+    if (!spot) {
+      // Nowhere to come out: it waits a little longer.
+      e.lurkT = 0.3;
+      return;
+    }
+    const was = e.lurk;
+    delete e.lurk;
+    delete e.lurkT;
+    delete e.tunnelling;
+    e.x = e.fromX = spot.x;
+    e.y = e.fromY = spot.y;
+    e.moveT = 1;
+    const d = dirOf(Math.sign(p.x - e.x), Math.sign(p.y - e.y));
+    if (d !== null) e.facing = d;
+    e.ai = 'recover';
+    e.timer = AMBUSH_BEAT;
+    e.attackCd = Math.max(e.attackCd, AMBUSH_BEAT + 0.2);
+    e.alert = 8;
+    e.lastSeenX = p.x;
+    e.lastSeenY = p.y;
+    this.sfx(was === 'ceiling' ? 'plop' : 'break', e.x, e.y);
+    this.emit({ type: 'shake', amount: 0.2 });
+    const behind = e.x === p.x - DX[p.facing] && e.y === p.y - DY[p.facing];
+    this.msg(was === 'ceiling'
+      ? `A ${def.name} drops down${behind ? ' behind you' : ''}!`
+      : `A ${def.name} bursts from the earth${behind ? ' behind you' : ''}!`, '#e0a070');
+  }
+
+  /**
+   * A blow on a cracked wall. It wears the weapon like a landed hit and it is
+   * loud: everything within `CRACK_NOISE` tiles comes to look, through walls.
+   * At `CRACK_BLOWS` the wall goes, for good, and a seam or cache spills.
+   */
+  private strikeCrack(c: Crack): void {
+    const f = this.floor;
+    // A small secret, not a rule: the Mining Pick knows where stone gives, and
+    // brings any cracked wall down in one. Every other weapon takes CRACK_BLOWS.
+    const w = this.state.equipment.weapon;
+    const pick = !!w && itemBase(w.ref).weaponClass === 'pick' && !durability(w).broken;
+    c.hits = pick ? CRACK_BLOWS - 1 : c.hits;
+    c.hits++;
+    this.wear('weapon', CRACK_WEAR);
+    this.sfx('break', c.x, c.y);
+    this.emit({ type: 'shake', amount: 0.2 });
+    this.emit({ type: 'crack', id: c.id, hits: c.hits });
+    for (const e of f.enemies) {
+      if (e.ai === 'dead' || e.lurk || this.protectedByFog(e)) continue;
+      if (Math.abs(e.x - c.x) + Math.abs(e.y - c.y) > this.noise(CRACK_NOISE)) continue;
+      e.alert = Math.max(e.alert, 6);
+      e.lastSeenX = this.player.x;
+      e.lastSeenY = this.player.y;
+    }
+    if (c.hits < CRACK_BLOWS) {
+      this.msg(c.hits === 1 ? 'The cracked stone shifts. The sound carries.' : 'Dust pours from the crack.', '#c8b090');
+      return;
+    }
+    c.broken = true;
+    f.tiles[c.y * f.width + c.x] = FLOOR;
+    if (pick) this.msg('The pick finds the fault line. The wall comes down in one.', '#e8d8a0');
+    if (f.biome === 'mines') this.collapse(c.x, c.y);
+    this.reveal();
+    const rng = createRng(hashString(`crack:${f.seed}:${c.id}`));
+    if (c.kind === 'seam') {
+      const ore = materialForDepth(rng, this.run.depth, ['metal']);
+      this.dropLoot(c.x, c.y, [makeMaterial(ore.id, rng.int(SEAM_ORE[0], SEAM_ORE[1]))], 0);
+      this.msg(`The wall gives way. Ore spills from the seam: ${ore.name}.`, '#e8d8a0');
+    } else if (c.kind === 'cache') {
+      const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
+      // Three loud blows and the wear on your blade: it pays like a chest,
+      // and never nothing.
+      const loot = rollContainerLoot(rng, this.run.depth, this.lootFind, 'chest', idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId);
+      this.dropLoot(c.x, c.y, loot.items, Math.max(loot.gold, CACHE_MIN_GOLD(this.run.depth)));
+      this.msg('The wall gives way onto a sealed niche. Someone hid something here.', '#e8d8a0');
+    } else {
+      this.msg('The wall gives way. A way through!', '#e8d8a0');
+    }
+  }
+
+  /**
+   * One tick of a Gravecaller's necromancy. Returns true while it is chanting,
+   * which is all it does then. Any blow breaks the chant (`hurtT` is set by
+   * every hit), as does the corpse being shattered, sanctified or already up.
+   */
+  private updateRaiser(e: EnemyState, def: EnemyDef, dt: number): boolean {
+    const f = this.floor;
+    e.raiseCd = Math.max(0, (e.raiseCd ?? 0) - dt);
+    if (e.channel) {
+      const target = f.enemies.find((g) => g.id === e.channel!.target);
+      if (e.hurtT > 0 || e.ai === 'recover') {
+        delete e.channel;
+        e.raiseCd = 1.5;
+        this.msg('The chant breaks!', '#ffe8a0');
+        return false;
+      }
+      if (!target || target.ai !== 'dead' || target.remains) {
+        delete e.channel;
+        return false;
+      }
+      e.channel.t -= dt;
+      if (e.channel.t <= 0) {
+        delete e.channel;
+        e.raiseCd = RAISE_COOLDOWN;
+        e.raised = (e.raised ?? 0) + 1;
+        this.raiseCorpse(target);
+      }
+      return true;
+    }
+    if (e.alert <= 0 || e.raiseCd > 0 || (e.raised ?? 0) >= RAISE_LIMIT || e.ai === 'windup' || e.ai === 'recover') return false;
+    const taken = new Set(f.enemies.map((g) => g.channel?.target).filter(Boolean));
+    const corpse = f.enemies
+      .filter((g) => g.ai === 'dead' && g !== e && !g.remains && g.burstT === undefined && !taken.has(g.id)
+        && enemyDef(g.def).undead && enemyDef(g.def).behavior !== 'boss'
+        && Math.abs(g.x - e.x) + Math.abs(g.y - e.y) <= RAISE_REACH && this.los(e.x, e.y, g.x, g.y))
+      .sort((a, b) => Math.abs(a.x - e.x) + Math.abs(a.y - e.y) - (Math.abs(b.x - e.x) + Math.abs(b.y - e.y)))[0];
+    if (!corpse) return false;
+    e.channel = { target: corpse.id, t: RAISE_CHANNEL };
+    const d = dirOf(Math.sign(corpse.x - e.x), Math.sign(corpse.y - e.y));
+    if (d !== null) e.facing = d;
+    this.sfx('magic', e.x, e.y);
+    this.msg(`The ${def.name} begins to chant over the fallen ${enemyDef(corpse.def).name}.`, '#a0e0a0');
+    return true;
+  }
+
+  /** A corpse stands back up: risen, so it pays nothing twice, and not swinging yet. */
+  private raiseCorpse(g: EnemyState): void {
+    const spot = this.freeTileForRise(g.x, g.y);
+    g.hp = Math.max(1, Math.round(g.maxHp * RAISE_HP));
+    g.risen = true;
+    g.ai = 'recover';
+    g.timer = RAISE_BEAT;
+    g.attackCd = RAISE_BEAT + 0.2;
+    g.deadT = 0;
+    g.hurtT = 0;
+    g.alert = 8;
+    g.vuln = 0;
+    g.guard = 'down';
+    g.blocks = 0;
+    g.x = g.fromX = spot.x;
+    g.y = g.fromY = spot.y;
+    g.moveT = 1;
+    g.lastSeenX = this.player.x;
+    g.lastSeenY = this.player.y;
+    this.sfx('alert', g.x, g.y);
+    this.emit({ type: 'shake', amount: 0.2 });
+    this.msg(`The ${enemyDef(g.def).name} stands back up!`, '#a0e0a0');
+  }
+
+  /** Struck where it hides: dragged out early, reeling, open to double damage. */
+  private knockOut(e: EnemyState): void {
+    const def = enemyDef(e.def);
+    const was = e.lurk;
+    delete e.lurk;
+    delete e.lurkT;
+    delete e.tunnelling;
+    e.moveT = 1;
+    e.fromX = e.x; e.fromY = e.y;
+    e.ai = 'recover';
+    e.timer = KNOCKOUT_STUN;
+    e.vuln = KNOCKOUT_STUN;
+    e.attackCd = Math.max(e.attackCd, KNOCKOUT_STUN + 0.2);
+    e.alert = 8;
+    e.hurtT = 0.3;
+    e.lastSeenX = this.player.x;
+    e.lastSeenY = this.player.y;
+    this.sfx('hit', e.x, e.y);
+    this.emit({ type: 'shake', amount: 0.25 });
+    this.msg(was === 'ceiling' ? `You knock the ${def.name} off the ceiling!` : `You drag the ${def.name} out of the earth!`, '#ffe8a0');
+  }
+
+  /** A burrower, badly hurt, goes under: a mound heading for your back. */
+  private dive(e: EnemyState, def: EnemyDef): void {
+    e.dived = true;
+    e.lurk = 'buried';
+    e.tunnelling = true;
+    e.lurkT = this.rng.float(BURROW_MIN, BURROW_MAX);
+    e.moveT = 1;
+    e.ai = 'idle';
+    e.guard = 'down';
+    this.sfx('break', e.x, e.y);
+    this.msg(`The ${def.name} dives into the earth!`, '#c8a070');
+  }
+
   /**
    * A thief lifts one thing from your pack: a piece of gear whole, or half a
    * stack. Equipped gear is never at risk — only what you are carrying home,
@@ -3958,7 +4644,7 @@ export class World {
     this.sfx('lava_burst', e.x, e.y);
     this.emit({ type: 'float', x: e.x, y: e.y, text: 'Burst!', color: '#c070ff' });
     for (const other of this.floor.enemies) {
-      if (other === e || other.ai === 'dead' || !inBlast(other.x, other.y)) continue;
+      if (other === e || other.ai === 'dead' || other.lurk || !inBlast(other.x, other.y)) continue;
       const odef = enemyDef(other.def);
       const dealt = Math.max(1, Math.round(def.attack * attackPower(e.power) * VENGEFUL_DAMAGE_MULT * (odef.resist[def.damageType] ?? 1)));
       other.hp -= dealt;
@@ -4022,7 +4708,7 @@ export class World {
     const out = new Set<string>();
     const p = this.player;
     for (const e of this.floor.enemies) {
-      if (e.ai === 'dead') continue;
+      if (e.ai === 'dead' || e.lurk) continue;
       if (Math.abs(e.x - p.x) + Math.abs(e.y - p.y) <= 8 && this.los(p.x, p.y, e.x, e.y)) out.add(e.id);
     }
     return out;
@@ -4035,7 +4721,9 @@ export class World {
 
   /** Carried light after temporary sigil effects. */
   get playerLightRadius(): number {
-    return this.anim.snuffT > 0 ? 2.5 : lightRadius(this.state.meta) + this.derived.traits.light;
+    if (this.anim.snuffT > 0) return 2.5;
+    const lightless = this.run.seals?.includes('lightless') ? LIGHTLESS_LIGHT : 0;
+    return Math.max(2.5, lightRadius(this.state.meta) + this.derived.traits.light - lightless);
   }
 
   /** Base item info for the viewmodel. */

@@ -1,3 +1,155 @@
+# The Ashen Seals, and a panel on the way down
+
+*Additive save change (revision 28): no Seals set. Every existing save loads as it was.*
+
+**Oaths and Seals are chosen as you descend.** The Oath Stone no longer sits above the town tabs all day. Pressing Descend for a new delve opens a *Before you go down* panel with the oaths (and the Seals, once you've earned them), and a Descend button at the bottom. *Not yet* closes it. A kept oath's reward still waits in town until you choose it.
+
+**The Ashen Seals.** Once you've killed the Ashen King, you can set Seals on your delves. Each is a stated complication, stacks with the others, stays set until you break it, and pays a quarter more renown and +15 loot find for the delve:
+
+- **Teeth:** monsters hit 20% harder.
+- **Multitudes:** 30% more monsters on every floor.
+- **Champions:** elites far more often, even on the first floor.
+- **The Dry Well:** the flask starts two charges short.
+- **The Lightless:** your light reaches less far.
+
+Killing the King under more Seals than ever before sets a record. If you've already killed him, the Seals are open to you now.
+
+Validation: typecheck, production build, and the full test suite (721 tests), twice. New tests cover unlocking (only after a King kill, only in town, and Seals set before then doing nothing), each Seal's effect, the extra loot find and renown, the record, and the save migration. Checked in the dev lab in Chrome: the Descend panel with the Oath Stone and the Seals, swearing Hunter inside it without it closing, and its Descend starting the delve under the oath. The balance harness plays exactly as before, since its bot never kills the King. Not played through a real sealed delve yet.
+
+---
+
+# Lieutenants
+
+*No save change. Floors you've already been to are untouched.*
+
+From depth 2, a floor sometimes has a **lieutenant**, a named monster that changes the whole floor while it lives. A clue on arrival tells you something is wrong; whether to hunt it down is up to you.
+
+- **The Goblin Quartermaster** carries a red war banner. While it stands, every goblin on its floor hits harder and never runs. Kill it and they break and flee, and its strongbox is yours.
+- **The Hoarder** is a bloated rat with a sack of coin on its back. It wanders the floor carrying off any loot left lying around, and it keeps away from you. Kill it and everything it gathered spills back out, with its own hoard on top.
+
+Validation: typecheck, production build, and the full test suite (712 tests), twice. New tests cover placement (from depth 2, at most one a floor, far from the stairs, a Quartermaster only with goblins to command), the Quartermaster's rally while it stands and the rout and strongbox when it falls, and the Hoarder carrying off a pile and giving it back, never taking a key, and keeping away from you. The first test run caught the Hoarder stopping one step short of every pile; that's fixed. Checked in the dev lab in Chrome: both sprites in the dungeon, and "The Hoarder" on the target bar. The balance harness moved within 9 points either way. Not played through a real delve yet.
+
+---
+
+# Your Shade keeps what you lost
+
+*Additive save change (revision 27): no grave waiting. Every existing save loads as it was.*
+
+Dying no longer throws your pack away. What you lose (the backpack and the coin you carried, beyond what a Soul Pouch keeps) waits on the depth where you fell, held by **your Shade**: a pale, cold version of you that fights with the kind of weapon you died holding. Reach it on a later delve and kill it, and everything drops back at your feet.
+
+There's only ever one grave. Die again before you get back to it, and the old pack is gone for good; the new one takes its place. Coming home without reclaiming it leaves it waiting. The town news and the results screen tell you where it is. On Hardcore a death ends the save, so there's no Shade to go back for.
+
+Validation: typecheck, production build, and the full test suite (707 tests), twice. New tests cover the grave (dug on the depth you fell with what you lost, replaced by a second death, left alone when you come home, never on Hardcore), the save migration, the Shade (on the grave's depth only, far from the stair, once per delve, on depth 1 from the start, striking with your weapon's damage type), and killing it giving the whole pack back. Checked in the dev lab in Chrome: the Shade reads as a pale, cold figure, and the target bar says "Your Shade". The balance harness plays exactly as before, since its bot starts every delve without a grave. While measuring, I found that the harness had stopped being reproducible when the route fork arrived (the day's roads were seeded from a random save id); that's fixed.
+
+---
+
+# Every floor its own law
+
+*No save change.*
+
+Three biomes now each have a rule of their own. The first time you arrive on one, it tells you.
+
+- **The Ossuary: the dead do not stay down.** A skeleton you put down stirs a few seconds later and stands back up at half its health. Shatter the bones with a blunt killing blow, or sanctify them with holy damage, and they stay down. A corpse only rises once.
+- **The Deep Mines: braced walls come down hard.** Bring down a cracked wall and its rotten timbers fall on whatever stands beside it: a crushing blow, and they reel. The noise of the blows draws monsters to you, so let them come, then bring it down.
+- **The Vermin Burrows: noise carries.** Every sound reaches further here: a cracked wall, Wardcry, an alarm ward, a struck chest. A broken root cache is a lure: whatever hears it goes to the cache, not to you.
+
+The Mine Road's description at the fork now mentions its walls.
+
+Validation: typecheck, production build, and the full test suite (698 tests), twice. New tests cover the Ossuary (remains stirring and standing once at half health, shattered, sanctified, living and non-Ossuary corpses staying down, long-dead corpses not all rising at once), a Mines collapse crushing and staggering what stands beside the wall and only in the Mines, the Burrows carrying a wall's noise further, and a root cache drawing monsters to itself. One existing test was pinned to a floor that isn't the Burrows, since its whole point is the normal noise range. Checked in the dev lab in Chrome: a skeleton's bones stirring with the log line, and it standing back up at 15 of 30 health. The balance harness moved within noise against the previous build, with no rise in deaths on depths 1–2. Not played through a real delve yet.
+
+---
+
+# The stair splits
+
+*No save change. A delve already under way keeps going the old way; the fork appears from your next delve.*
+
+The first time you go down from depth 2, the stair splits into **two roads**. The one you take decides what depths 3 and 4 are, and the other is sealed for the rest of the delve.
+
+- **The Mine Road** (Deep Mines): shieldbearers and the Barrow Champion. Pays in metal.
+- **The Frozen Road** (Frost Vault): frost wisps and icebound guards; bring fire. Pays in frost shards and moonstone.
+- **The Ember Road** (Emberworks): flame wraiths and molten floors; bring frost. Pays in flame shards and sunstone.
+- **The Spore Road** (Sporegrove): spore hunters and the Bog Seraph. Pays in leather and crystal.
+
+Which two roads are open changes each day, and what's happening in Bleakmere tilts it: an Iron Shortage opens the mines, a Harsh Winter the frozen road, a dragon sighting the ember one. The town news names the day's roads, so you can pack for the one you mean to take.
+
+Validation: typecheck, production build, and the full test suite (692 tests), twice. New tests cover the day's roads (always two different ones, the same all day, leaning towards the road a market event favours, handed to a new delve), the fork stopping you at the stair instead of descending, the road setting depths 3 and 4 and nothing else, asking only once, delves from before the fork, and generation ignoring a road where its biome can't be. Checked in the dev lab in Chrome at 500px wide: the town news naming the roads, the fork panel, taking the Spore Road with the log line, and arriving at depth 3 in the Sporegrove. The headless bot takes the first road; its death rates moved a few points either way, as expected with different biomes on depths 3 and 4. Not played through a real delve yet.
+
+---
+
+# Oaths and inscriptions
+
+*Additive save change (revisions 25 and 26): nothing learned, nothing sworn. Every existing save loads as it was.*
+
+**The Oath Stone.** When you press Descend for a new delve, a panel asks whether to swear an oath for it, or none. Keep it and come home alive, and it pays an inscription you haven't learned yet. Break it and you lose only the reward.
+
+- **Blood Price:** you go down cursed with Frailty, and no font will wash it off. Come home with 250 gold found in the dungeon.
+- **Unbroken:** everything you wear wears twice as fast. Reach depth 4 with nothing breaking, then come home.
+- **Hunter:** monsters see you from further away, and a marked elite, one of the toughest on its floor, waits on each of depths 2, 3 and 4. Kill all three, then come home.
+
+The HUD shows how your oath stands.
+
+**Inscriptions.** A kept oath lets you choose one of three to learn. At the forge, the new **Inscribe** bench cuts a learned inscription into a piece of your gear for 150 gold, one per item. Inscribing again replaces it, and relics can't take one.
+
+- **Riposte** (weapon): after a parry, your next swing is free and hits harder.
+- **Execution** (weapon): finishing a reeling monster feeds your sigil twice over.
+- **Kindling** (weapon): your fire leaps from a badly wounded monster to one beside it.
+- **Bulwark** (shield): taking a heavy blow on the shield charges your next strike.
+- **Retrieval** (thrown belt): shafts you call back cut what they pass through.
+- **Last Flask** (helm, body or gloves): with your flask empty, food and life leech heal more.
+
+Validation: typecheck, production build, and the full test suite (684 tests), twice. New tests cover learning and inscribing (slot fit, no relics, cost, replacing, identified and worn gear only), one behaviour test per inscription, each oath's rule and objective (Frailty surviving a font, double wear and a break ending Unbroken, keeping it at depth 4, Hunter's sight and its three marks placed once each on tough monsters and counted), the reward drawing only unlearned inscriptions or paying renown, no new oath while a reward waits, and both save migrations. Checked in the dev lab in Chrome: the Inscribe bench, inscribing Riposte onto a sword, the Oath Stone and the reward picker at 500px wide with no overflow, learning from a reward, swearing Hunter, the HUD oath line, and marked elites on depths 2–4. Not played through a real delve with an oath to the end, and not checked on a real phone.
+
+---
+
+# The Gravecaller
+
+*No save change. Floors you've already generated are untouched; Gravecallers appear on floors generated from now on.*
+
+Something hooded walks the Ossuary and the Catacombs from depth 2. **The Gravecaller** barely fights. It keeps its distance and chants over the undead you've killed, and after two seconds of green light the corpse stands back up at half its health. It does this up to three times in a life.
+
+You have three answers:
+- **Break the chant.** Hit it with anything, even a thrown knife or an arrow sent back at its friends.
+- **Shatter the bones.** Kill the undead with a blunt weapon, or hit hard enough to crush them, and nothing can call them back.
+- **Sanctify them.** A killing blow with any holy damage, or from Threshold's consecrated ground, and they stay down.
+
+The log tells you when remains are shattered or sanctified while a Gravecaller is near. A corpse it raises gives nothing when it falls again, so there's no farming it.
+
+Validation: typecheck, production build, and the full test suite (656 tests), twice. New tests cover placement (Ossuary and Catacombs only, never depth 1), the chant raising a skeleton at half health and marked risen, a blow breaking the chant, goblins staying dead, the three-raise limit, shattered and sanctified remains staying down, how the killing blow marks remains, and a raised corpse paying nothing a second time. The Hard golden test still matches the hash pinned before elites once the Gravecaller is removed. The first run of that test caught the Gravecaller shifting where loose loot and keys land, which is fixed. Checked in the dev lab in Chrome on a Catacombs floor: the Gravecaller in the dark with its green-eyed staff, the corpse glowing and rising during the chant, and the skeleton standing at 25 of 50 health with the player unharmed. Balance harness, 24 runs per profile: death rates rose across the geared profiles against the previous build (the careful iron kit 50% → 67%). The extra deaths are spread over depths 2–4 among many killers, never the Gravecaller itself, so it is likely a mix of attrition from extra fights and noise. Worth watching in play. Not played through a real delve yet, and not checked on a phone.
+
+---
+
+# Walls that give
+
+*No save change. Floors you've already generated have no cracked walls; they appear on floors generated from now on.*
+
+Some walls are **cracked**, and three blows from anything will bring one down. It costs you: every blow wears your weapon like a hit, and the noise carries through the walls to anything within six tiles.
+
+- **A plain crack** is a shortcut: a thin wall between two passages that are a long way apart on foot.
+- **A thin crack with a dull glint in it** is an ore seam. Break it for a few pieces of metal ore for the depth. They're commonest in the Vermin Burrows and the Deep Mines.
+- **A faint outline in the mortar**, where a niche was bricked up, is a cache someone sealed. It's easy to miss. Break it for a hoard like a chest's, and never less than a handful of coin.
+
+A broken wall stays broken for the rest of the delve, and the one-button tap swings at a cracked wall in front of you.
+
+Validation: typecheck, production build, and the full test suite (648 tests). New tests cover placement (on walls, clear of doors and stairs, shortcuts saving at least 12 steps, none on the throne floor), a texture for every wall, three blows with wear each time and the tile passable only after the third, the noise reaching six tiles and no further, ore and cache loot, and the tap swinging at a crack. The first test run caught caches that could open onto nothing, so they now roll like chests with a minimum of coin. Checked in the dev lab in Chrome: an ore seam and a sealed cache on Vermin Burrows walls, and three blows bringing the seam down into a finished alcove with copper ore inside. The balance harness is unchanged, since the bot never breaks walls. Not played through a real delve yet, and not checked on a phone.
+
+---
+
+# Look up. Watch the floor.
+
+*No save change. Floors you have already generated are untouched; ambushers appear on floors generated from now on.*
+
+Some monsters are no longer standing where you can see them.
+
+- **Ceiling Crawlers** cling over corridors from depth 2, one or two a floor. You spot them the way you spot a trap, by looking down the corridor ahead: "Something clings to the ceiling ahead", and a dark shape with red eyes high in the gloom. Walk close and it drops, after a beat of falling dust and skittering. Spot it first and you can hit it off the ceiling, and it lands stunned and open to double damage.
+- **Buried Tunnel Stalkers** lie under Vermin Burrows and Deep Mines floors as mounds of turned earth. Come close and the ground heaves, or strike the mound first to drag it out stunned.
+- **The Delver Mole dives.** Badly hurt, it goes under instead of running, then comes up beside you, behind you if it can reach. You can watch the mound travel and turn to meet it.
+
+An ambusher **never hits you as it arrives**. It lands or surfaces next to you and needs half a second before it can start a swing, with the usual red flash. What an ambush costs you is position, not health.
+
+Validation: typecheck, production build, and the full test suite (642 tests). New tests cover where droppers and buried stalkers are placed (corridors only, depths 2–5, never near the arrival point or on the throne floor, earth biomes only), that lurkers are invisible to targeting, the threat check and the map, spotting, the drop timing with no blow during the landing beat, dropping onto you putting it beside you, striking a spotted dropper or a mound for the stun, a buried stalker rising, and the mole diving once and surfacing behind you. The Hard golden test still matches the hash pinned before elites once ambushers are removed. Checked in the dev lab in Chrome: a spotted crawler as red eyes on the ceiling, the mound in dark Burrows and lit crypt corridors (its colours were brightened after the first look, because it vanished into the Burrows' dirt floor), the crawler mid-fall, and its landing with health unchanged. Balance harness, 24 runs per profile: the two careful profiles die more often across elites and ambushers together (iron 29% → 50%, moonsilver 33% → 42% against master), and the rest are within noise. The bot doesn't look up or read mounds. Not played through a real delve yet, and not checked on a phone.
+
+---
+
 # Elites, and a Cutpurse that earns the name
 
 *No save change. Floors you have already generated keep their monsters exactly as they were; elites appear on floors generated from now on.*
@@ -12,7 +164,7 @@ From depth 3 down, an ordinary monster is sometimes an **elite**: the same creat
 
 Every elite has half again the health, and pays for it: two and a half times the gold, three times the chance of gear, and more materials.
 
-The **Goblin Cutpurse** now steals. If its blow gets through your guard, it takes one thing from your backpack (a piece of gear, or half a stack) and runs, glowing gold so you can chase it in the dark. The target bar says what it's carrying. It runs in a panic, so it will bolt into a dead end, and now and then it fumbles the loot. A few coins spill from its purse as it goes. Once it loses you it runs a little further, then goes to ground and creeps. Kill it and you get your things back. Lose sight of it for 25 seconds and it's gone for good. Your equipped gear is never at risk, and a parry or a block stops the theft.
+The **Goblin Cutpurse** now steals. If its blow gets through your guard, it takes one thing from your backpack (a piece of gear, or half a stack) and runs, glowing gold so you can chase it in the dark. The target bar says what it's carrying. It runs in a panic, so it will bolt into a dead end, and now and then it fumbles the loot. A few coins spill from its purse as it goes. Once it loses you it runs a little further, then goes to ground and creeps. Kill it and you get your things back. Lose sight of it for 25 seconds and it's gone for good. Your equipped gear is never at risk, and a parry or a block stops the theft. Cutpurses are also a third as common as they were, about one a floor on the first two depths, so a theft is an event rather than the whole floor.
 
 Validation: typecheck, production build, and the full test suite (631 tests), three times. New tests cover the elite chance by depth, the King and his guards never being promoted, each trait's effect, elite loot, theft (half a stack, blocked and parried blows steal nothing, the drop on death, the escape), and the Vengeful burst hitting you or missing you after you step away. The Hard golden test demotes every elite and matches the hash pinned before elites existed, so no wall, chest or other monster moved. The balance harness, 24 runs per profile against master: most profiles are within noise, and the careful iron-kit profile died more often (29% → 46%). Checked in the dev lab in Chrome (the spawn console now has an elite picker): the Hasted and Vengeful glows, the violet target-bar name, the Vengeful corpse flaring, then bursting on the player and on a Hasted Skeleton that walked into the blast, and a Cutpurse stealing a Star-Iron Long Sword, running lit gold with "carrying your Star-Iron Long Sword" on its target bar, and dropping it on death. Not played through a real delve yet, and not checked on a phone.
 

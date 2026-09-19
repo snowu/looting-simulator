@@ -121,7 +121,10 @@ export function eligibleTraits(def: EnemyDef): EliteTrait[] {
 export function eliteFor(floorSeed: number, enemyId: string, depth: number, def: EnemyDef, bonus = 0): EliteTrait | null {
   const traits = eligibleTraits(def);
   if (!traits.length) return null;
+  const chance = Math.min(1, eliteChance(depth) + bonus);
+  // No draw at all when there is no chance: keeps unsealed floors' streams as they were.
+  if (chance <= 0) return null;
   const rng = createRng(hashString(`elite:${floorSeed}:${enemyId}`));
-  if (!rng.chance(Math.min(1, eliteChance(depth) + bonus))) return null;
+  if (!rng.chance(chance)) return null;
   return rng.weighted(traits.map((t) => [t, ELITES[t].weight] as const));
 }

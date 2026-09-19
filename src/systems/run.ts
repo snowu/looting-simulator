@@ -1,3 +1,9 @@
+import { DRY_WELL_CHARGES, SEAL_RENOWN, sealFloorMods, validSeals } from '../data/seals';
+import { sealsUnlocked } from './seals';
+import { digGrave, placeShade } from './grave';
+import { itemBase } from '../data/items';
+import { roadsForDay } from '../data/routes';
+import { beginOath, settleOath } from './oaths';
 import { createRng, randomSeed } from '../core/rng';
 import { Item } from '../types';
 import { GameState, RunState, RunSummary } from '../state/game-state';
@@ -40,7 +46,9 @@ export function startRun(state: GameState, seed = randomSeed()): RunState {
   // town selector says afterwards does not touch this run.
   const difficulty = difficultyOf(state.difficulty).id;
   state.difficulty = difficulty;
-  const floor = generateFloor(seed, 1, difficulty);
+  // Ashen Seals, once the King has fallen: snapshotted for the whole delve.
+  const seals = sealsUnlocked(state) ? validSeals(state.pendingSeals) : [];
+  const floor = generateFloor(seed, 1, difficulty, false, undefined, sealFloorMods(seals));
   const up = floor.stairs.find((s) => !s.down)!;
   const spawn = stairsFront(up);
   const d = derivePlayer(state.equipment, state.meta, difficulty);
@@ -68,10 +76,14 @@ export function startRun(state: GameState, seed = randomSeed()): RunState {
     portal: null,
     thrown: { held: {}, retrieveCd: 0 },
     sigil: state.attuned ? { id: state.attuned, cd: 0 } : null,
-    flask: { charges: 3 + Math.min(3, state.flask?.shards ?? 0), dregs: 0 },
+    flask: { charges: Math.max(1, 3 + Math.min(3, state.flask?.shards ?? 0) - (seals.includes('dry_well') ? DRY_WELL_CHARGES : 0)), dregs: 0 },
     stats: { kills: 0, goldFound: 0, itemsFound: 0, deepest: 1, time: 0, bossKilled: false },
     outcome: 'active',
   };
+  if (seals.length) run.seals = seals;
+  beginOath(state, run);
+  if (placeShade(state, floor, seed, difficulty)) run.shadePlaced = true;
+  run.roads = roadsForDay(state.saveId ?? '', state.market.day, state.market.events);
   state.run = run;
   state.lifetime.runs += 1;
   recordDepth(state.contracts, 1);
@@ -103,8 +115,22 @@ export function endRun(state: GameState, outcome: 'dead' | 'extracted'): RunSumm
   state.lifetime.goldEarned += gold;
   state.lifetime.kills += run.stats.kills;
   state.lifetime.bestDepth = Math.max(state.lifetime.bestDepth, run.stats.deepest);
-  const renown = renownForRun(run.stats.deepest, outcome === 'extracted', run.stats.bossKilled);
+  // Each Ashen Seal on the delve adds a quarter again to the renown it pays.
+  const sealCount = validSeals(run.seals).length;
+  const renown = Math.round(renownForRun(run.stats.deepest, outcome === 'extracted', run.stats.bossKilled) * (1 + SEAL_RENOWN * sealCount));
+  const sealRecord = run.stats.bossKilled && sealCount > (state.lifetime.bestSeals ?? 0);
+  if (sealRecord) state.lifetime.bestSeals = sealCount;
   state.renown += renown;
+  const oath = settleOath(state, run, outcome);
+  // The corpse run: what was lost waits on the depth you fell, with your Shade.
+  // A Hardcore death ends the save, so there is nothing to come back for.
+  const oneLife = difficultyOf(run.difficulty ?? state.difficulty).oneLife;
+  let graveDepth: number | undefined;
+  if (outcome === 'dead' && !oneLife) {
+    const weapon = state.equipment.weapon;
+    digGrave(state, run.depth, lost, run.gold - gold, (weapon && itemBase(weapon.ref).damageType) || 'blunt');
+    graveDepth = state.grave?.depth;
+  }
   const dayTurned = run.stats.deepest > 1;
 
   const summary: RunSummary = {
@@ -119,6 +145,9 @@ export function endRun(state: GameState, outcome: 'dead' | 'extracted'): RunSumm
     bossKilled: run.stats.bossKilled,
     killedBy: run.killedBy,
     dayTurned,
+    ...(oath ? { oath } : {}),
+    ...(graveDepth ? { graveDepth } : {}),
+    ...(sealCount ? { seals: { count: sealCount, record: sealRecord } } : {}),
   };
   // One life: the grave is dug before anything else is saved, so there is no
   // moment where the save holds a dead Hardcore hero who is still playable.
