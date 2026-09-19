@@ -7,6 +7,7 @@ import { BOSS_ID, ENEMIES, enemyDef } from '../data/enemies';
 import { DifficultyId, DifficultyDef, DIFFICULTIES, difficultyOf } from '../data/difficulty';
 import { EnemyDef, Item } from '../types';
 import { ELITE_HP_MULT, EliteTrait, IRONHIDE_HP_MULT, eliteFor } from '../data/elites';
+import { EARTH_BIOMES, STALKER_BURIED, droppersFor } from '../data/ambush';
 import { ContainerTier, makeMaterial, materialForDepth } from './items';
 
 // ---------------------------------------------------------------------------
@@ -260,6 +261,21 @@ export interface EnemyState {
   stolenT?: number;
   /** A Vengeful corpse's fuse, counting down to its burst. Absent once spent. */
   burstT?: number;
+  /**
+   * Hidden: clinging to the ceiling or buried under the floor. **Absent means
+   * it is standing where you can see it.** A lurker is not on its tile for any
+   * purpose — you walk under it, bolts pass it, `enemyAt` never returns it —
+   * until it drops or surfaces. See `src/data/ambush.ts`.
+   */
+  lurk?: 'ceiling' | 'buried';
+  /** Counting down to the drop or the surfacing, once it has been set off. Absent while it waits. */
+  lurkT?: number;
+  /** A ceiling lurker you have seen. Buried ones are always visible as their mound. */
+  spotted?: boolean;
+  /** A burrower on the move under the floor, heading for your back. */
+  tunnelling?: boolean;
+  /** A burrower that has already dived once this life. */
+  dived?: boolean;
   /** A fleeing thief's pause: fumbling its prize, or waiting between creeps out of sight. */
   pauseT?: number;
   /** Steps a thief has run with its loot, and how many coin drops it has left as a trail. */
@@ -342,7 +358,12 @@ export function propAt(f: Floor, x: number, y: number): Prop | undefined {
 }
 
 export function enemyAt(f: Floor, x: number, y: number): EnemyState | undefined {
-  return f.enemies.find((e) => e.ai !== 'dead' && e.x === x && e.y === y);
+  return f.enemies.find((e) => e.ai !== 'dead' && !e.lurk && e.x === x && e.y === y);
+}
+
+/** A hidden monster (ceiling or buried) on this tile, if any. */
+export function lurkerAt(f: Floor, x: number, y: number): EnemyState | undefined {
+  return f.enemies.find((e) => e.ai !== 'dead' && !!e.lurk && e.x === x && e.y === y);
 }
 
 /** Blocks sight: walls, pillars, closed doors. */
@@ -1058,6 +1079,28 @@ function tryGenerate(
   for (const e of enemies.slice(authored)) {
     const trait = eliteFor(seed, e.id, depth, enemyDef(e.def));
     if (trait) promoteElite(e, trait);
+  }
+  // Ambushers, on their own stream for the same reason: ceiling droppers over
+  // corridor tiles, and some of an earth floor's Tunnel Stalkers put under it.
+  if (!throne) {
+    const amb = createRng(hashString(`ambush:${seed}:${depth}`));
+    const corridor: [number, number][] = [];
+    for (let i = 0; i < N; i++) {
+      const x = i % W, y = (i / W) | 0;
+      if (roomOf[i] === -1 && free(x, y) && distFromSpawn[i] >= 8) corridor.push([x, y]);
+    }
+    const crawler = enemyDef('ceiling_crawler');
+    const spots = amb.shuffle(corridor);
+    for (let n = 0; n < droppersFor(depth) && spots.length; n++) {
+      const [x, y] = spots.pop()!;
+      occupied.add(idx(x, y));
+      const e = createEnemy(crawler, x, y, amb.pick(DIRS), `amb${n}`, depth, diff.id);
+      e.lurk = 'ceiling';
+      enemies.push(e);
+    }
+    if (EARTH_BIOMES.has(biome.id)) {
+      for (const e of enemies) if (e.def === 'tunnel_stalker' && amb.chance(STALKER_BURIED)) e.lurk = 'buried';
+    }
   }
 
   // --- Loose loot and keys -----------------------------------------------------
