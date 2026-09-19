@@ -301,6 +301,11 @@ export interface EnemyState {
   stirT?: number;
   /** Your Shade: the damage type of the weapon you fell with. */
   shadeType?: DamageType;
+  /** A floor lieutenant (`src/data/lieutenants.ts`). Absent for everything else. */
+  lieutenant?: 'quartermaster' | 'hoarder';
+  /** The Hoarder's sack: loot it has carried off, and coin. */
+  hoard?: Item[];
+  hoardGold?: number;
 }
 
 export interface Morsel {

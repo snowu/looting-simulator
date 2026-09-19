@@ -375,6 +375,19 @@ Eligible monsters independently roll a morsel at `0.28 − 0.024 × (depth − 1
 - **Thieves** (the Goblin Cutpurse, and any *Thieving* elite): a melee blow that gets through (not parried, not blocked, and you survive it) takes one thing from your backpack: a piece of gear whole, or half a stack rounded up. Equipped gear is never at risk. The thief then flees at once, glowing gold so you can chase it in the dark, and the target bar says what it is carrying. It is a chase you can win, but have to work for. It runs at its normal pace (`THIEF_LADEN` is 1: you already outpace a goblin). After a step in your sight it has a **5%** chance to fumble its prize and stand still for **0.7s**. It runs in a panic, not cleverly: any step that isn't towards you, preferring to keep going straight, so it will bolt into a dead end. When it loses you it keeps sprinting for **2s** (`THIEF_BOLT`), then goes to ground, creeping one tile every **1s** (`THIEF_CREEP`) and still glowing. Every 4 steps, up to 3 times, 1–3 coins spill from its purse, leaving a short trail. Kill it and it drops what it took. If it spends **25 seconds** (`THIEF_ESCAPE`) out of your sight, it gets away and the item is gone. Cornered, it fights. It steals once; a thief that is already carrying does not steal again.
 - **Boss:** melee when adjacent, otherwise a three-bolt shadow volley when aligned.
 
+### Floor lieutenants
+
+*Files: `src/data/lieutenants.ts`, `placeLieutenant` / `rally` / `updateHoarder` / `lieutenantFalls` in `src/world/world.ts`*
+
+When a floor from **depth 2 to 5** is first generated in a delve, it has a **40%** chance of a **lieutenant**, rolled on its own stream (`lt:<runSeed>:<depth>`). Never on the throne floor, placed at least 10 steps from the arrival stair, and announced by a clue in the log rather than by name.
+
+| Lieutenant | Where | While it lives | When it dies |
+|---|---|---|---|
+| **Goblin Quartermaster** (70 HP, 10 attack, 6 defense; a goblin under a red war banner) | only on floors with at least 2 goblins, placed in the room with the most | every goblin on the floor deals **×1.25** damage and never flees | every goblin on the floor breaks and **flees**, and its **strongbox** drops: a vault-tier roll |
+| **The Hoarder** (90 HP, 8 attack, 4 defense; a bloated rat with a sack of coin, glowing gold) | any floor | it walks to the nearest loot pile within **18** steps (never a key or a flask shard), stuffs it into its sack, and keeps **3** tiles away from you, fighting only when cornered in reach | everything it gathered spills out, plus its own gold and loot |
+
+Clues: *"The goblins here move in formation. Somewhere on this floor, someone is giving orders."* and *"Coin scrapes across stone somewhere on this floor. Leave nothing lying around."*
+
 ### The Gravecaller and remains
 
 *Files: `src/data/necromancy.ts`, the Gravecaller pass at the end of generation in `src/systems/dungeon.ts`, `markRemains` / `updateRaiser` / `raiseCorpse` in `src/world/world.ts`*

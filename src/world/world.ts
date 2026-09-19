@@ -15,6 +15,10 @@ import {
 import { FORK_DEPTH, ROADS, ROAD_DEPTHS } from '../data/routes';
 import { SHADE_ID, placeShade } from '../systems/grave';
 import {
+  HOARDER_REACH, HOARDER_SHY, LIEUTENANTS, LIEUTENANT_MIN_DISTANCE, LieutenantId, QUARTERMASTER_MIN_GOBLINS, RALLY_DAMAGE,
+  ROUT_SECONDS, isGoblin, lieutenantChance,
+} from '../data/lieutenants';
+import {
   BURROWS_NOISE_MULT, COLLAPSE_BASE, COLLAPSE_PER_DEPTH, COLLAPSE_STUN, LAWS, OSSUARY_RISE_HP, OSSUARY_STIR, OSSUARY_STIR_AFTER,
   ROOT_CACHE_LURE, lawFor,
 } from '../data/laws';
@@ -1098,6 +1102,7 @@ export class World {
       const road = run.road && ROAD_DEPTHS.includes(run.depth) ? run.road : undefined;
       run.floors[run.depth - 1] = generateFloor(run.seed, run.depth, this.difficultyId, force, road);
       this.placeHunterMark(run.floors[run.depth - 1]!);
+      this.placeLieutenant(run.floors[run.depth - 1]!);
       if (!run.shadePlaced && placeShade(this.state, run.floors[run.depth - 1]!, run.seed, this.difficultyId)) {
         run.shadePlaced = true;
         this.msg('Something that wears your shape waits on this floor, holding what you lost.', '#9ab8ff');
@@ -2117,6 +2122,116 @@ export class World {
   }
 
   /**
+   * A freshly generated floor from depth 2 may get a lieutenant, on its own
+   * stream: a Goblin Quartermaster where there are goblins to command, or the
+   * Hoarder anywhere. Placed far from the arrival stair, and announced by a
+   * clue rather than by name.
+   */
+  private placeLieutenant(f: Floor): void {
+    if (f.rooms.some((r) => r.role === 'throne')) return;
+    const rng = createRng(hashString(`lt:${this.run.seed}:${f.depth}`));
+    if (!rng.chance(lieutenantChance(f.depth))) return;
+    const goblins = f.enemies.filter((e) => e.ai !== 'dead' && isGoblin(e.def));
+    const options: LieutenantId[] = goblins.length >= QUARTERMASTER_MIN_GOBLINS ? ['quartermaster', 'hoarder'] : ['hoarder'];
+    const id = rng.pick(options);
+    const up = f.stairs.find((st) => !st.down);
+    const busy = new Set(f.enemies.filter((e) => e.ai !== 'dead').map((e) => `${e.x},${e.y}`));
+    const roomOf = (x: number, y: number) => f.rooms.find((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h);
+    const tiles = (r: (typeof f.rooms)[number]) => {
+      const out: [number, number][] = [];
+      for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
+        if (blocksMove(f, x, y) || busy.has(`${x},${y}`) || stairsAt(f, x, y)) continue;
+        if (up && Math.abs(x - up.x) + Math.abs(y - up.y) < LIEUTENANT_MIN_DISTANCE) continue;
+        out.push([x, y]);
+      }
+      return out;
+    };
+    const rooms = f.rooms.filter((r) => r.role !== 'start' && r.role !== 'secret' && tiles(r).length);
+    if (!rooms.length) return;
+    // A Quartermaster stands with the most goblins; the Hoarder anywhere.
+    const room = id === 'quartermaster'
+      ? [...rooms].sort((a, b) => goblins.filter((g) => roomOf(g.x, g.y) === b).length - goblins.filter((g) => roomOf(g.x, g.y) === a).length)[0]
+      : rng.pick(rooms);
+    const [x, y] = rng.pick(tiles(room));
+    const def = LIEUTENANTS[id];
+    const e = createEnemy(enemyDef(def.enemy), x, y, rng.int(0, 3) as Dir, `lt${f.depth}`, f.depth, this.difficultyId);
+    e.lieutenant = id;
+    f.enemies.push(e);
+    this.msg(def.clue, def.color);
+  }
+
+  /** Goblins under a living Quartermaster hit harder (and never flee): the damage multiplier. */
+  private rally(e: EnemyState): number {
+    if (!isGoblin(e.def)) return 1;
+    return this.floor.enemies.some((q) => q.lieutenant === 'quartermaster' && q.ai !== 'dead') ? RALLY_DAMAGE : 1;
+  }
+
+  /**
+   * The Hoarder's tick. Returns true when it has acted. It goes for the nearest
+   * loot pile on its floor (never a key or a flask shard), stuffs it into its
+   * sack, and keeps away from you; only cornered and in reach does it fight.
+   */
+  private updateHoarder(e: EnemyState, def: EnemyDef, dist: number, sees: boolean): boolean {
+    const f = this.floor;
+    const p = this.player;
+    const here = f.pickups.find((k) => k.x === e.x && k.y === e.y && !k.keyId && !k.flaskShard && (k.items.length || k.gold > 0));
+    if (here) {
+      (e.hoard ??= []).push(...here.items);
+      e.hoardGold = (e.hoardGold ?? 0) + here.gold;
+      f.pickups = f.pickups.filter((k) => k !== here);
+      if (sees) this.msg('The Hoarder stuffs the pile into its sack.', LIEUTENANTS.hoarder.color);
+      return true;
+    }
+    if (sees && dist <= HOARDER_SHY) {
+      const away = DIRS.map((d) => [e.x + DX[d], e.y + DY[d]] as [number, number])
+        .filter(([x, y]) => this.canStep(e, x, y) && Math.abs(x - p.x) + Math.abs(y - p.y) > dist)[0];
+      if (away) {
+        this.stepEnemy(e, away[0], away[1]);
+        return true;
+      }
+      // Cornered: in reach, it fights like anything else.
+      return dist > 1;
+    }
+    const target = f.pickups
+      .filter((k) => !k.keyId && !k.flaskShard && (k.items.length || k.gold > 0) && Math.abs(k.x - e.x) + Math.abs(k.y - e.y) <= HOARDER_REACH)
+      .sort((a, b) => Math.abs(a.x - e.x) + Math.abs(a.y - e.y) - (Math.abs(b.x - e.x) + Math.abs(b.y - e.y)))[0];
+    if (target) {
+      // pathStep stops short of its goal (it was written for closing on you),
+      // so the last step onto the pile is taken here.
+      const adjacent = Math.abs(target.x - e.x) + Math.abs(target.y - e.y) === 1;
+      const next = adjacent ? (this.canStep(e, target.x, target.y) ? [target.x, target.y] as [number, number] : null) : this.pathStep(e, target.x, target.y);
+      if (next) this.stepEnemy(e, next[0], next[1]);
+      return true;
+    }
+    // Nothing to take: it keeps its distance rather than hunting you.
+    return dist > 1;
+  }
+
+  /** A lieutenant dies: its floor changes, and it pays in kind. */
+  private lieutenantFalls(e: EnemyState): void {
+    if (e.lieutenant === 'quartermaster') {
+      let routed = 0;
+      for (const g of this.floor.enemies) {
+        if (g.ai === 'dead' || !isGoblin(g.def)) continue;
+        g.ai = 'flee';
+        g.alert = Math.max(g.alert, ROUT_SECONDS);
+        routed++;
+      }
+      const rng = createRng(hashString(`strongbox:${this.floor.seed}:${e.id}`));
+      const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
+      const box = rollContainerLoot(rng, this.run.depth, this.derived.find, 'vault', idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId);
+      this.dropLoot(e.x, e.y, box.items, box.gold);
+      this.msg(routed ? 'The banner falls. The goblins break and run! The strongbox key is yours.' : 'The banner falls. The strongbox key is yours.', LIEUTENANTS.quartermaster.color);
+    } else if (e.lieutenant === 'hoarder') {
+      const n = e.hoard?.length ?? 0;
+      this.dropLoot(e.x, e.y, e.hoard ?? [], e.hoardGold ?? 0);
+      delete e.hoard;
+      delete e.hoardGold;
+      this.msg(n ? 'The sack splits. Everything the Hoarder gathered spills across the floor.' : 'The sack splits, heavy with coin.', LIEUTENANTS.hoarder.color);
+    }
+  }
+
+  /**
    * Hunter: a freshly generated floor on one of the hunt's depths gets its
    * mark. One of the three toughest monsters far from the stairs is chosen on
    * the run's own stream, promoted to an elite if it is not one, and marked. Placed when the
@@ -2259,6 +2374,7 @@ export class World {
       this.msg(`${def.name} falls still again.`, '#c8c0b0');
       return;
     }
+    if (e.lieutenant) this.lieutenantFalls(e);
     if (e.def === SHADE_ID && this.state.grave) {
       const grave = this.state.grave;
       this.state.grave = null;
@@ -3713,7 +3829,8 @@ export class World {
         this.dive(e, def);
         continue;
       }
-      if (def.behavior === 'skittish' && e.hp < e.maxHp * 0.35 && sees && this.rng.chance(0.02)) {
+      if (e.lieutenant === 'hoarder' && this.updateHoarder(e, def, dist, sees)) continue;
+      if (def.behavior === 'skittish' && e.hp < e.maxHp * 0.35 && sees && this.rally(e) === 1 && this.rng.chance(0.02)) {
         e.ai = 'flee';
         this.msg(`The ${def.name} tries to flee!`, '#c8c0b0');
         continue;
@@ -3807,7 +3924,7 @@ export class World {
         if (off !== 0 && blocksSight(this.floor, e.x + ox, e.y + oy)) continue;
         this.projectiles.push({
           id: this.projN++, x: e.x + ox + 0.5, y: e.y + oy + 0.5, dx, dy, speed: pr.speed,
-          damage: Math.round(def.attack * attackPower(e.power) * (e.scavengerAttack ?? 1) * this.diff.enemyDamage), type: pr.damageType, sprite: pr.sprite, light: pr.light,
+          damage: Math.round(def.attack * attackPower(e.power) * (e.scavengerAttack ?? 1) * this.rally(e) * this.diff.enemyDamage), type: pr.damageType, sprite: pr.sprite, light: pr.light,
           tileX: e.x + ox, tileY: e.y + oy, source: def.name, sourceId: def.id,
         });
       }
@@ -3817,7 +3934,7 @@ export class World {
     // Melee lands only if you're still in the tile it aimed at.
     this.sfx('swing', e.x, e.y);
     if (p.x === e.lastSeenX && p.y === e.lastSeenY && dist === 1) {
-      this.damagePlayer(Math.max(1, Math.round(def.attack * attackPower(e.power) * (e.scavengerAttack ?? 1) * this.diff.enemyDamage)), def.damageType, e.x, e.y, def.name, def.id, e);
+      this.damagePlayer(Math.max(1, Math.round(def.attack * attackPower(e.power) * (e.scavengerAttack ?? 1) * this.rally(e) * this.diff.enemyDamage)), def.damageType, e.x, e.y, def.name, def.id, e);
     } else {
       this.sfx('miss', e.x, e.y);
     }
