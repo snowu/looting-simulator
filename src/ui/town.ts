@@ -1,4 +1,8 @@
 import { GameState } from '../state/game-state';
+import { ROADS, roadsForDay } from '../data/routes';
+import { OATHS, OATH_IDS, findOath } from '../data/oaths';
+import { swearOath } from '../systems/oaths';
+import { learnProperty } from '../systems/properties';
 import { INSCRIBE_COST, PropertyDef, findProperty } from '../data/properties';
 import { inscribe, inscribeTargets } from '../systems/properties';
 import { EQUIP_SLOTS, Item, MaterialCategory, Rarity, RARITY_COLORS, RARITY_ORDER, STAT_KEYS, STAT_LABELS, Stats } from '../types';
@@ -256,7 +260,7 @@ export class Town {
         body = this.warden();
         break;
     }
-    this.root.replaceChildren(head, this.news(), tabBar, body);
+    this.root.replaceChildren(head, this.news(), ...this.oathPanes(running), tabBar, body);
     this.root.scrollTop = this.scrollMemo;
     const nextRecipes = this.root.querySelector<HTMLElement>('.recipes');
     if (nextRecipes) nextRecipes.scrollTop = this.recipeScrollMemo;
@@ -312,6 +316,13 @@ export class Town {
       lines.push(h('div', { class: 'event', text: `◆ ${def.name} (${ev.daysLeft} day${ev.daysLeft === 1 ? '' : 's'} left) — ${def.description}` }));
     }
     for (const n of m.news) if (!m.events.some((ev) => n.startsWith(marketEvent(ev.id).name))) lines.push(h('div', { class: 'dim', text: n }));
+    const grave = this.s.grave;
+    if (grave) {
+      lines.push(h('div', { style: 'color:#9ab8ff', text: `Your Shade holds what you lost at depth ${grave.depth}: ${grave.items.length} stack${grave.items.length === 1 ? '' : 's'}${grave.gold ? ` and ${gold(grave.gold)}` : ''}. Die again first and it is gone.` }));
+    }
+    // The roads open below depth 2 today, named so a delve can be prepared for.
+    const roads = roadsForDay(this.s.saveId ?? '', m.day, m.events).map((b) => ROADS[b]);
+    lines.push(h('div', { class: 'rumour', text: `Below the second floor today the stair splits: ${roads.map((r) => r.name).join(' or ')}.` }));
     if (m.upcoming && metaLevel(this.s.meta, 'insider') >= 2) {
       const def = marketEvent(m.upcoming);
       lines.push(h('div', { class: 'rumour', text: `Rumour: ${def.name} tomorrow. ${def.description}` }));
@@ -1087,6 +1098,71 @@ export class Town {
         ? h('p', { class: 'dim small', text: `You carry one at a time, cast with G or C. ${locked ? 'Attunement is fixed until you are back in town or a portal is open. ' : ''}${vigil ? `Warden's Vigil takes ${25 * vigil}% more off the cooldown on every kill, up to a fifth of it.` : "Warden's Vigil, on the Warden's board, shortens the cooldown with every kill."}` })
         : null,
     );
+  }
+
+  /**
+   * The oath stone, above the tabs: a reward waiting to be chosen comes first,
+   * and between delves, the oaths you can swear for the next one. One or none;
+   * swearing again changes it, and it can be taken back until you descend.
+   */
+  private oathPanes(running: boolean): HTMLElement[] {
+    const s = this.s;
+    const out: HTMLElement[] = [];
+    const reward = s.oathReward;
+    if (reward) {
+      const oath = findOath(reward.oath);
+      out.push(h(
+        'div',
+        { class: 'pane frame gold' },
+        h('h3', { text: `Oath kept: ${oath?.name ?? ''}` }),
+        h('p', { class: 'dim', text: 'The old wardens paid a kept oath in knowledge. Choose one inscription to learn; it can be cut into your gear at the forge.' }),
+        h('div', { class: 'col' }, ...reward.choices.map((id) => {
+          const def = findProperty(id);
+          if (!def) return null;
+          return h(
+            'div',
+            { class: 'row repair-row' },
+            h('div', { class: 'grow' },
+              h('div', { style: `color:${def.color}`, text: `${def.name} · ${def.slots.join(', ')}` }),
+              bothRegisters(def.rule, def.detail, 'dim small'),
+            ),
+            btn('Learn', () => {
+              learnProperty(s, id);
+              s.oathReward = null;
+              this.ctx.toast(`${def.name} learned. Cut it into your gear at the forge.`, def.color);
+              this.commit('study');
+            }, 'small primary'),
+          );
+        })),
+      ));
+    }
+    if (running) return out;
+    const sworn = s.pendingOath ?? null;
+    out.push(h(
+      'div',
+      { class: 'pane frame' },
+      h('h3', { text: 'The Oath Stone' }),
+      h('p', { class: 'dim small', text: 'Swear one before you go down, or none. Keep it and come home alive, and it pays an inscription you have not learned. Break it and you lose only the reward.' }),
+      h('div', { class: 'col' }, ...OATH_IDS.map((id) => {
+        const def = OATHS[id];
+        const on = sworn === id;
+        return h(
+          'div',
+          { class: `row repair-row${on ? ' gold' : ''}` },
+          h('div', { class: 'grow' },
+            h('div', { style: `color:${def.color}`, text: def.name + (on ? ' · sworn' : '') }),
+            h('div', { class: 'dim small', text: def.rule }),
+            h('div', { class: 'small', text: def.objective }),
+          ),
+          btn(on ? 'Unswear' : 'Swear', () => {
+            if (!swearOath(s, on ? null : id)) return this.ctx.toast('Choose your inscription from the last oath first.', '#e8c060');
+            this.ctx.toast(on ? `${def.name} unsworn.` : `You swear the ${def.name}. It takes hold when you descend.`, def.color);
+            this.commit('ui');
+          }, `small${on ? '' : ' primary'}`),
+        );
+      })),
+    ));
+    return out;
   }
 
   /**

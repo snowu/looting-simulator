@@ -1,3 +1,7 @@
+import { digGrave, placeShade } from './grave';
+import { itemBase } from '../data/items';
+import { roadsForDay } from '../data/routes';
+import { beginOath, settleOath } from './oaths';
 import { createRng, randomSeed } from '../core/rng';
 import { Item } from '../types';
 import { GameState, RunState, RunSummary } from '../state/game-state';
@@ -72,6 +76,9 @@ export function startRun(state: GameState, seed = randomSeed()): RunState {
     stats: { kills: 0, goldFound: 0, itemsFound: 0, deepest: 1, time: 0, bossKilled: false },
     outcome: 'active',
   };
+  beginOath(state, run);
+  if (placeShade(state, floor, seed, difficulty)) run.shadePlaced = true;
+  run.roads = roadsForDay(state.saveId ?? '', state.market.day, state.market.events);
   state.run = run;
   state.lifetime.runs += 1;
   recordDepth(state.contracts, 1);
@@ -105,6 +112,16 @@ export function endRun(state: GameState, outcome: 'dead' | 'extracted'): RunSumm
   state.lifetime.bestDepth = Math.max(state.lifetime.bestDepth, run.stats.deepest);
   const renown = renownForRun(run.stats.deepest, outcome === 'extracted', run.stats.bossKilled);
   state.renown += renown;
+  const oath = settleOath(state, run, outcome);
+  // The corpse run: what was lost waits on the depth you fell, with your Shade.
+  // A Hardcore death ends the save, so there is nothing to come back for.
+  const oneLife = difficultyOf(run.difficulty ?? state.difficulty).oneLife;
+  let graveDepth: number | undefined;
+  if (outcome === 'dead' && !oneLife) {
+    const weapon = state.equipment.weapon;
+    digGrave(state, run.depth, lost, run.gold - gold, (weapon && itemBase(weapon.ref).damageType) || 'blunt');
+    graveDepth = state.grave?.depth;
+  }
   const dayTurned = run.stats.deepest > 1;
 
   const summary: RunSummary = {
@@ -119,6 +136,8 @@ export function endRun(state: GameState, outcome: 'dead' | 'extracted'): RunSumm
     bossKilled: run.stats.bossKilled,
     killedBy: run.killedBy,
     dayTurned,
+    ...(oath ? { oath } : {}),
+    ...(graveDepth ? { graveDepth } : {}),
   };
   // One life: the grave is dug before anything else is saved, so there is no
   // moment where the save holds a dead Hardcore hero who is still playable.

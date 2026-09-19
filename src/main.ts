@@ -913,6 +913,9 @@ function handle(ev: WorldEvent): void {
       break;
     case 'secret':
       break;
+    case 'fork':
+      overlays.open('fork', w);
+      break;
     case 'town':
       returnToTown();
       break;

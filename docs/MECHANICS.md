@@ -131,6 +131,33 @@ Every generated floor is checked: all walkable tiles reachable, keys reachable w
 
 ---
 
+### The route fork
+
+*Files: `src/data/routes.ts`, `forkPending` / `chooseRoad` in `src/world/world.ts`, the fork overlay in `src/ui/dungeon-ui.ts`*
+
+The first time you take the down stair on **depth 2**, it splits. A panel shows the day's **two roads**, each with its biome, main danger and what it tends to pay. Take one (click, or press **1** or **2**) and you go straight down; the other is sealed for the rest of the delve. **Esc** steps you back from the stair, and it asks again next time. The road sets the biome of **depths 3 and 4**; depth 5 rolls its own.
+
+| Road | Biome | Danger | Pays |
+|---|---|---|---|
+| The Mine Road | Deep Mines | shieldbearers, the Barrow Champion, burrowers | metal, ore seams |
+| The Frozen Road | Frost Vault | frost wisps, icebound guards (bring fire) | frost shards, moonstone |
+| The Ember Road | Emberworks | flame wraiths, molten floors (bring frost) | flame shards, sunstone |
+| The Spore Road | Sporegrove | spore hunters, the Bog Seraph | leather, crystal |
+
+**Which two roads are open depends on the day**, not the delve: `roadsForDay(saveId, day, events)`, drawn without repeats. Active market events make a road likelier: Iron Shortage ×3 and War Drums ×2 for the Mines; Harsh Winter ×3 for the Frost Vault; Dragon Sighting ×3 and The Great Forge Burns ×2 for the Emberworks; Arcane Study ×3 and Royal Wedding ×2 for the Sporegrove. The town news names the day's two roads, so you can prepare for one. A new delve snapshots them into `run.roads`, and the choice is saved as `run.road`. Delves started before the fork existed have no roads and never fork.
+
+### Biome laws
+
+*Files: `src/data/laws.ts`, `ossuaryStir` / `collapse` / `noise` / `breakProp` in `src/world/world.ts`*
+
+Three biomes each have one rule you can turn to your advantage. The first time you arrive on such a floor, the log says so.
+
+| Biome | Law | How it works |
+|---|---|---|
+| The Ossuary | **The dead do not stay down** | An undead monster's remains **stir 8s** after it dies (they glow and rise into view) and **stand 2s later** at **50%** health, `risen`, so they pay nothing twice and never rise again. Shattered or sanctified remains (see *The Gravecaller and remains*) stay down, as do the living and bosses. It only triggers as the 8s mark passes, so corpses you left behind don't all stand when you come back |
+| The Deep Mines | **Braced walls come down hard** | Bringing down a cracked wall collapses its timbering: every monster on a tile beside the wall takes `30 + 12 × depth` blunt damage (× its blunt resistance) and reels for **1.2s** (bosses don't reel). You strike from beside it, so the roof never falls on you. The blows' noise draws monsters to you, often right beside the crack |
+| The Vermin Burrows | **Noise carries** | Every noise reaches **×1.75** further: cracked-wall blows, Wardcry's shout, alarm wards and a struck chest's clang. Breaking a **root cache** makes a racket that draws every monster within **12** tiles to the **cache**, not to you, which makes it a lure |
+
 ### Elemental surfaces and residents
 
 Wall choices use a position hash, without generation RNG. Emberworks uses five
@@ -347,6 +374,19 @@ Eligible monsters independently roll a morsel at `0.28 − 0.024 × (depth − 1
 - **Skittish** (goblins): flee below 35% health.
 - **Thieves** (the Goblin Cutpurse, and any *Thieving* elite): a melee blow that gets through (not parried, not blocked, and you survive it) takes one thing from your backpack: a piece of gear whole, or half a stack rounded up. Equipped gear is never at risk. The thief then flees at once, glowing gold so you can chase it in the dark, and the target bar says what it is carrying. It is a chase you can win, but have to work for. It runs at its normal pace (`THIEF_LADEN` is 1: you already outpace a goblin). After a step in your sight it has a **5%** chance to fumble its prize and stand still for **0.7s**. It runs in a panic, not cleverly: any step that isn't towards you, preferring to keep going straight, so it will bolt into a dead end. When it loses you it keeps sprinting for **2s** (`THIEF_BOLT`), then goes to ground, creeping one tile every **1s** (`THIEF_CREEP`) and still glowing. Every 4 steps, up to 3 times, 1–3 coins spill from its purse, leaving a short trail. Kill it and it drops what it took. If it spends **25 seconds** (`THIEF_ESCAPE`) out of your sight, it gets away and the item is gone. Cornered, it fights. It steals once; a thief that is already carrying does not steal again.
 - **Boss:** melee when adjacent, otherwise a three-bolt shadow volley when aligned.
+
+### Floor lieutenants
+
+*Files: `src/data/lieutenants.ts`, `placeLieutenant` / `rally` / `updateHoarder` / `lieutenantFalls` in `src/world/world.ts`*
+
+When a floor from **depth 2 to 5** is first generated in a delve, it has a **40%** chance of a **lieutenant**, rolled on its own stream (`lt:<runSeed>:<depth>`). Never on the throne floor, placed at least 10 steps from the arrival stair, and announced by a clue in the log rather than by name.
+
+| Lieutenant | Where | While it lives | When it dies |
+|---|---|---|---|
+| **Goblin Quartermaster** (70 HP, 10 attack, 6 defense; a goblin under a red war banner) | only on floors with at least 2 goblins, placed in the room with the most | every goblin on the floor deals **×1.25** damage and never flees | every goblin on the floor breaks and **flees**, and its **strongbox** drops: a vault-tier roll |
+| **The Hoarder** (90 HP, 8 attack, 4 defense; a bloated rat with a sack of coin, glowing gold) | any floor | it walks to the nearest loot pile within **18** steps (never a key or a flask shard), stuffs it into its sack, and keeps **3** tiles away from you, fighting only when cornered in reach | everything it gathered spills out, plus its own gold and loot |
+
+Clues: *"The goblins here move in formation. Somewhere on this floor, someone is giving orders."* and *"Coin scrapes across stone somewhere on this floor. Leave nothing lying around."*
 
 ### The Gravecaller and remains
 
@@ -948,6 +988,20 @@ The roll never offers a sigil you already know or are already carrying anywhere 
 
 A stone is **inscribed at the forge**, on its *Sigils* bench, which consumes it permanently into `state.spells`; you **attune** from the same bench. The forge's right-hand column is three tabs — Recipes, Repairs, Sigils — each badged when it wants attention, because stacking them put the recipe list a screen and a half down. Attunement cannot change mid-delve unless a town portal is open — the same rule that governs restocking.
 
+### Delve Oaths
+
+*Files: `src/data/oaths.ts`, `src/systems/oaths.ts`, the hooks in `src/world/world.ts`, the Oath Stone in `src/ui/town.ts`*
+
+Between delves, the **Oath Stone** above the town tabs offers every oath. You may swear one or none; swearing again changes it, and it can be taken back until you descend. On descending it moves onto the run (`run.oath`) and takes hold. **Keep it and come home alive** (by the stairs or the King's portal; a town-portal trip doesn't end the delve) and a reward waits in town: choose **1 of 3** build properties you haven't learned, drawn from the run's seed so a reload can't reroll them. With every property learned, it pays **10 renown** instead. A broken or unkept oath costs only the reward. You can't swear a new oath while a reward is still unchosen.
+
+| Oath | Rule | Objective |
+|---|---|---|
+| Blood Price | You start cursed with **Frailty** (−20% max health). A Font of Mending won't lift it this delve | Come home with at least **250 gold found** in the dungeon (`run.stats.goldFound`) |
+| Unbroken | Everything you wear wears **×2** | Reach **depth 4** with nothing you wear breaking (kept the moment you arrive), then come home. Any worn item breaking before that breaks the oath |
+| Hunter | Monsters see you **2** tiles further | A **marked** elite is placed on each of depths **2, 3, 4** when the floor is first generated: one of the three toughest monsters at least 8 steps from the stairs, promoted to an elite if it isn't one. Kill all **3**, then come home |
+
+A marked monster's name reads "Marked …" on the target bar, in gold. The HUD's status block shows the oath and its progress.
+
 ### Build properties
 
 *Files: `src/data/properties.ts`, `src/systems/properties.ts`, `applyProperty` in `src/systems/player.ts`, the hooks in `src/world/world.ts`, the Inscribe bench in `src/ui/town.ts`*
@@ -1179,6 +1233,12 @@ Five upgrades were **not** repriced, because the harness cannot see them and a n
 - Coins and keys are picked up automatically; everything else goes through the loot window and needs space.
 
 ---
+
+### The corpse run
+
+*Files: `src/systems/grave.ts`, `endRun` in `src/systems/run.ts`, the Shade hooks in `src/world/world.ts`*
+
+When you die, what you lost (the backpack beyond any Soul Pouch slots, and the carried coin beyond its share) goes into a **grave** on the depth where you fell (`state.grave`). The next delve that reaches that depth finds **Your Shade** there, at least **10** steps from the arrival stair and never in the throne room. Its stats: 60 health, 12 attack, 6 defense, holy ×1.5, shadow ×0.5, scaled by depth like any monster. It strikes with the **damage type of the weapon you fell holding**, is drawn as a pale, cold version of the knight's frame, and glows blue. **Kill it and the whole pack drops where it stood**, coin included. Only one grave exists at a time: **die again before reclaiming it and it is replaced**, and the old pack is gone for good. Coming home without reclaiming it leaves it where it is. The Shade is placed once per delve (`run.shadePlaced`), and never on **Hardcore**, where a death ends the save. The town news and the results screen say where it waits.
 
 ## 15. Saving
 

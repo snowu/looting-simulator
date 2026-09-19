@@ -1,4 +1,5 @@
 import { EquipSlot, Item, STAT_LABELS } from '../types';
+import { ROADS } from '../data/routes';
 import { consumable, itemBase } from '../data/items';
 import { enemyDef } from '../data/enemies';
 import { biomeForFloor } from '../data/biomes';
@@ -11,7 +12,7 @@ import { btn, h, hideTooltip, isTouchMode, itemSlot, itemTooltip, rarityColor } 
 import { audio } from '../audio/sfx';
 import { GAMEPAD_HELP_ROWS } from './gamepad';
 
-export type OverlayMode = 'inventory' | 'loot' | 'map' | 'help';
+export type OverlayMode = 'inventory' | 'loot' | 'map' | 'help' | 'fork';
 
 const DOLL: { slot: EquipSlot; area: string; label: string }[] = [
   { slot: 'ring1', area: '1 / 1', label: 'Ring' },
@@ -127,6 +128,11 @@ export class DungeonOverlays {
       this.close();
       return true;
     }
+    if (this.mode === 'fork' && (k === '1' || k === '2')) {
+      const road = this.world.run.roads?.[Number(k) - 1];
+      if (road && this.world.chooseRoad(road)) this.close();
+      return true;
+    }
     if (this.mode === 'loot' && (k === ' ' || k === 'e' || k === 'f' || k === 'enter')) {
       this.world.take(this.pickupId);
       this.afterLoot();
@@ -166,6 +172,9 @@ export class DungeonOverlays {
         break;
       case 'help':
         body = this.help();
+        break;
+      case 'fork':
+        body = this.fork(w);
         break;
     }
     const wrap = h('div', { class: 'modal-wrap' }, body);
@@ -430,6 +439,32 @@ export class DungeonOverlays {
         h('span', { style: 'color:#c08850', text: '■ chest ' }),
         ` · ${kills} slain here${bosses ? ' · the King waits' : ''}`,
       ),
+    );
+  }
+
+  /**
+   * The fork below depth 2: the day's two roads, side by side, each saying what
+   * it is, what waits on it and what it pays. Choosing goes down at once; Esc
+   * or a tap outside steps back, and the stair asks again next time.
+   */
+  private fork(w: World): HTMLElement {
+    const roads = (w.run.roads ?? []).map((b) => ROADS[b]).filter(Boolean);
+    return h(
+      'div',
+      { class: 'modal frame', style: 'max-width:640px' },
+      h('h2', { text: 'The stair splits' }),
+      h('p', { class: 'dim', text: 'Two roads lead down to depths 3 and 4. Take one and the other is sealed for the rest of this delve.' }),
+      h('div', { class: 'col' }, ...roads.map((r, i) => h(
+        'div',
+        { class: 'row repair-row' },
+        h('div', { class: 'grow' },
+          h('div', { style: `color:${r.color}`, text: `${i + 1}. ${r.name}` }),
+          h('div', { class: 'dim small', text: r.danger }),
+          h('div', { class: 'small', text: r.reward }),
+        ),
+        btn('Take it', () => { if (w.chooseRoad(r.biome)) this.close(); }, 'primary'),
+      ))),
+      h('p', { class: 'dim small', text: 'Esc to step back from the stair.' }),
     );
   }
 

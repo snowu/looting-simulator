@@ -175,7 +175,50 @@ const gravecallerChant = rows(`
   ................................
 `);
 
+
+/**
+ * The Goblin Quartermaster: a goblin under a tall war banner, red with a gold
+ * mark, so the one giving the orders stands out of a goblin crowd. The Hoarder:
+ * a giant rat bloated round a sack of coin, the sack's gold the thing you see.
+ */
+const quartermasterColors = { B: '#a83028', Y: '#e8c060', P: '#6a4424', K: '#120e08' };
+const quartermasterBanner = rows(`
+  KKKKKKK
+  KBBBBBK
+  KBBYBBK
+  KBYYYBK
+  KBBYBBK
+  KBBBBK.
+  KBBBK..
+  KBBK...
+  KP.....
+  KP.....
+  KP.....
+  KP.....
+  KP.....
+  KP.....
+  KP.....
+  KP.....
+`);
+const hoarderColors = { G: '#b08a30', H: '#6a5020', Y: '#ffe890fa', Q: '#2a1c0c' };
+const hoarderSack = rows(`
+  ....QQQQ....
+  ...QHHHHQ...
+  ..QQQQQQQQ..
+  .QGGGGGGGGQ.
+  QGGGYGGGGGGQ
+  QGGGGGGGYGGQ
+  QGGYGGGGGGGQ
+  QGGGGGGGGGGQ
+  .QGGGGGYGGQ.
+  ..QQQQQQQQ..
+`);
+
 export const ENEMY_ART_VARIETY: ArtDef[] = [
+  frame('quartermaster_0', 'goblin_0', quartermasterBanner, 0, 2, quartermasterColors),
+  frame('quartermaster_atk', 'goblin_atk', quartermasterBanner, 0, 2, quartermasterColors),
+  frame('hoarder_0', 'rat_0', hoarderSack, 10, 6, hoarderColors),
+  frame('hoarder_atk', 'rat_atk', hoarderSack, 10, 4, hoarderColors),
   { id: 'gravecaller_0', palette: gravecallerColors, rows: gravecallerIdle },
   { id: 'gravecaller_atk', palette: gravecallerColors, rows: gravecallerChant },
   { id: 'drowned_0', palette: { ...original.get('skeleton_0')!.palette, ...drownedColors }, rows: stamp(drownedIdle, drownedMaul, 22, 10) },

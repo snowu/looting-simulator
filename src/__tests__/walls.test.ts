@@ -117,6 +117,8 @@ describe('breaking', () => {
   it('is loud: monsters within range come to look, through walls', () => {
     const { w, c } = facingCrack('shortcut');
     const f = w.floor;
+    // Plain range: the Burrows carry noise further, which laws.test.ts covers.
+    f.biome = 'crypt';
     const spot = (r: number) => {
       for (let y = 1; y < f.height - 1; y++) for (let x = 1; x < f.width - 1; x++) {
         const d = Math.abs(x - c.x) + Math.abs(y - c.y);

@@ -12,6 +12,18 @@ import {
   BULWARK_MULT, BULWARK_SOAK, BULWARK_WINDOW, EXECUTION_REFUND_MULT, KINDLING_AT, KINDLING_SPREAD, LAST_FLASK_MULT,
   RETRIEVAL_MULT, RIPOSTE_MULT, RIPOSTE_WINDOW,
 } from '../data/properties';
+import { FORK_DEPTH, ROADS, ROAD_DEPTHS } from '../data/routes';
+import { SHADE_ID, placeShade } from '../systems/grave';
+import {
+  HOARDER_REACH, HOARDER_SHY, LIEUTENANTS, LIEUTENANT_MIN_DISTANCE, LieutenantId, QUARTERMASTER_MIN_GOBLINS, RALLY_DAMAGE,
+  ROUT_SECONDS, isGoblin, lieutenantChance,
+} from '../data/lieutenants';
+import {
+  BURROWS_NOISE_MULT, COLLAPSE_BASE, COLLAPSE_PER_DEPTH, COLLAPSE_STUN, LAWS, OSSUARY_RISE_HP, OSSUARY_STIR, OSSUARY_STIR_AFTER,
+  ROOT_CACHE_LURE, lawFor,
+} from '../data/laws';
+import { HUNTER_DEPTHS, HUNTER_MARKS, HUNTER_SIGHT, OATHS, UNBROKEN_DEPTH, UNBROKEN_WEAR } from '../data/oaths';
+import { eligibleTraits } from '../data/elites';
 import { RAISE_BEAT, RAISE_CHANNEL, RAISE_COOLDOWN, RAISE_HP, RAISE_LIMIT, RAISE_REACH, SHATTER_OVERKILL } from '../data/necromancy';
 import {
   AMBUSH_BEAT, AMBUSH_TRIGGER, BURROW_MAX, BURROW_MIN, DIVE_AT, DROP_SECONDS, KNOCKOUT_STUN, MOUND_STEP, SURFACE_SECONDS,
@@ -32,6 +44,7 @@ import {
   doorAt,
   enemyAt,
   lurkerAt,
+  promoteElite,
   crackAt,
   generateFloor,
   inBounds,
@@ -88,6 +101,7 @@ export type WorldEvent =
   | { type: 'end'; outcome: 'dead' | 'extracted' }
   | { type: 'secret'; x: number; y: number }
   | { type: 'crack'; id: string; hits: number }
+  | { type: 'fork' }
   | { type: 'trap'; id: string; x: number; y: number; kind: Trap['kind'] }
   | { type: 'town' };
 
@@ -610,6 +624,8 @@ export class World {
   private wear(slot: EquipSlot, amount = 1): void {
     const it = this.state.equipment[slot];
     if (this.run.curse === 'brittle') amount += 1;
+    const oath = this.run.oath;
+    if (oath?.id === 'unbroken') amount *= UNBROKEN_WEAR;
     const crossed = wearItem(it, amount);
     if (crossed === 'none' || !it) return;
     const name = itemName(it);
@@ -618,6 +634,10 @@ export class World {
       this.msg(`Your ${name} breaks!`, '#ff7070');
       this.sfx('break');
       this.emit({ type: 'shake', amount: 0.3 });
+      if (oath?.id === 'unbroken' && oath.status === 'active') {
+        oath.status = 'broken';
+        this.msg('Your oath breaks with it. Unbroken is lost.', OATHS.unbroken.color);
+      }
     }
     this.refreshDerived();
   }
@@ -643,7 +663,7 @@ export class World {
 
   /** Extra tiles of sight the floor has on you, from the Hunted curse. */
   private get sightPenalty(): number {
-    return (this.run.curse === 'hunted' ? 3 : 0) - this.derived.traits.unseen - (this.anim?.unseenT > 0 ? 99 : 0);
+    return (this.run.curse === 'hunted' ? 3 : 0) + (this.run.oath?.id === 'hunter' ? HUNTER_SIGHT : 0) - this.derived.traits.unseen - (this.anim?.unseenT > 0 ? 99 : 0);
   }
 
   private emit(e: WorldEvent): void {
@@ -1018,6 +1038,11 @@ export class World {
         this.finish('extracted');
         return;
       }
+      // The fork: the first time down from depth 2, the road is chosen first.
+      if (s.down && this.forkPending()) {
+        this.emit({ type: 'fork' });
+        return;
+      }
       this.anim.transition = { t: 0, dir: s.down ? 'down' : 'up', done: false };
       this.sfx('stairs');
       return;
@@ -1069,11 +1094,24 @@ export class World {
     }
     this.retrieve(false);
     run.depth += dir === 'down' ? 1 : -1;
-    if (!run.floors[run.depth - 1]) {
+    const fresh = !run.floors[run.depth - 1];
+    if (fresh) {
       // Pity guarantees: ≥1 shrine in depths 1–3, ≥2 in 4–6. Natural rolls
       // cover most runs; the force only bites on a drought.
       const force = shrinePityFor(run.floors, run.depth);
-      run.floors[run.depth - 1] = generateFloor(run.seed, run.depth, this.difficultyId, force);
+      const road = run.road && ROAD_DEPTHS.includes(run.depth) ? run.road : undefined;
+      run.floors[run.depth - 1] = generateFloor(run.seed, run.depth, this.difficultyId, force, road);
+      this.placeHunterMark(run.floors[run.depth - 1]!);
+      this.placeLieutenant(run.floors[run.depth - 1]!);
+      if (!run.shadePlaced && placeShade(this.state, run.floors[run.depth - 1]!, run.seed, this.difficultyId)) {
+        run.shadePlaced = true;
+        this.msg('Something that wears your shape waits on this floor, holding what you lost.', '#9ab8ff');
+      }
+    }
+    // Unbroken is kept the moment you stand on its depth with everything whole.
+    if (run.oath?.id === 'unbroken' && run.oath.status === 'active' && run.depth >= UNBROKEN_DEPTH) {
+      run.oath.status = 'kept';
+      this.msg(`Depth ${UNBROKEN_DEPTH}, and nothing broken. The oath is kept: now bring it home.`, OATHS.unbroken.color);
     }
     const f = this.floor;
     const arrive = f.stairs.find((s) => s.down === (dir === 'up'))!;
@@ -1103,8 +1141,32 @@ export class World {
     this.reveal();
     const biome = biomeForFloor(f);
     this.msg(`Depth ${run.depth} — ${biome.name}`, '#d8c8a8');
+    const law = lawFor(f.biome);
+    if (law && fresh) this.msg(law.arrival, law.color);
     if (run.depth === FINAL_DEPTH && dir === 'down') this.msg('The air is thick with ash. Something waits below the throne.', '#c080ff');
     this.emit({ type: 'floor' });
+  }
+
+  /** Whether the stair down from here forks and no road has been taken yet. */
+  forkPending(): boolean {
+    const run = this.run;
+    return run.depth === FORK_DEPTH && !!run.roads?.length && !run.road && !run.floors[FORK_DEPTH];
+  }
+
+  /**
+   * Take one of the two roads at the fork and go down it. The other is sealed
+   * for the rest of the delve. Refused unless standing on the forking stair.
+   */
+  chooseRoad(biome: string): boolean {
+    const run = this.run;
+    const s = stairsAt(this.floor, this.player.x, this.player.y);
+    if (!s?.down || !this.forkPending() || !run.roads!.includes(biome)) return false;
+    run.road = biome;
+    const other = run.roads!.find((b) => b !== biome);
+    this.msg(`You take ${ROADS[biome].name}.${other ? ` ${ROADS[other].name} is sealed behind you.` : ''}`, ROADS[biome].color);
+    this.anim.transition = { t: 0, dir: 'down', done: false };
+    this.sfx('stairs');
+    return true;
   }
 
   /** Debug/playtest hook: jump a floor without walking to the stairs. */
@@ -1179,7 +1241,7 @@ export class World {
       let woken = 0;
       for (const e of this.floor.enemies) {
         if (e.ai === 'dead') continue;
-        if (Math.abs(e.x - trap.x) + Math.abs(e.y - trap.y) > 12) continue;
+        if (Math.abs(e.x - trap.x) + Math.abs(e.y - trap.y) > this.noise(12)) continue;
         e.alert = Math.max(e.alert, 10);
         e.lastSeenX = trap.x;
         e.lastSeenY = trap.y;
@@ -1658,7 +1720,7 @@ export class World {
 
   private castWardcry(): void {
     for (const e of this.floor.enemies) {
-      if (e.ai === 'dead' || Math.abs(e.x - this.player.x) + Math.abs(e.y - this.player.y) > 8) continue;
+      if (e.ai === 'dead' || Math.abs(e.x - this.player.x) + Math.abs(e.y - this.player.y) > this.noise(8)) continue;
       e.alert = Math.max(e.alert, 8);
       e.lastSeenX = this.player.x;
       e.lastSeenY = this.player.y;
@@ -1870,7 +1932,7 @@ export class World {
    * reading the fields they always read.
    */
   private view(e: EnemyState): EnemyDef {
-    return enemyView(enemyDef(e.def), e.hp, e.maxHp, { elite: e.elite, carrying: !!e.stolen?.length });
+    return enemyView(enemyDef(e.def), e.hp, e.maxHp, { elite: e.elite, carrying: !!e.stolen?.length, marked: e.marked, shadeType: e.shadeType });
   }
 
   private guardReaction(e: EnemyState, def: EnemyDef): 'bash' | 'chip' | null {
@@ -2060,6 +2122,199 @@ export class World {
   }
 
   /**
+   * A freshly generated floor from depth 2 may get a lieutenant, on its own
+   * stream: a Goblin Quartermaster where there are goblins to command, or the
+   * Hoarder anywhere. Placed far from the arrival stair, and announced by a
+   * clue rather than by name.
+   */
+  private placeLieutenant(f: Floor): void {
+    if (f.rooms.some((r) => r.role === 'throne')) return;
+    const rng = createRng(hashString(`lt:${this.run.seed}:${f.depth}`));
+    if (!rng.chance(lieutenantChance(f.depth))) return;
+    const goblins = f.enemies.filter((e) => e.ai !== 'dead' && isGoblin(e.def));
+    const options: LieutenantId[] = goblins.length >= QUARTERMASTER_MIN_GOBLINS ? ['quartermaster', 'hoarder'] : ['hoarder'];
+    const id = rng.pick(options);
+    const up = f.stairs.find((st) => !st.down);
+    const busy = new Set(f.enemies.filter((e) => e.ai !== 'dead').map((e) => `${e.x},${e.y}`));
+    const roomOf = (x: number, y: number) => f.rooms.find((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h);
+    const tiles = (r: (typeof f.rooms)[number]) => {
+      const out: [number, number][] = [];
+      for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
+        if (blocksMove(f, x, y) || busy.has(`${x},${y}`) || stairsAt(f, x, y)) continue;
+        if (up && Math.abs(x - up.x) + Math.abs(y - up.y) < LIEUTENANT_MIN_DISTANCE) continue;
+        out.push([x, y]);
+      }
+      return out;
+    };
+    const rooms = f.rooms.filter((r) => r.role !== 'start' && r.role !== 'secret' && tiles(r).length);
+    if (!rooms.length) return;
+    // A Quartermaster stands with the most goblins; the Hoarder anywhere.
+    const room = id === 'quartermaster'
+      ? [...rooms].sort((a, b) => goblins.filter((g) => roomOf(g.x, g.y) === b).length - goblins.filter((g) => roomOf(g.x, g.y) === a).length)[0]
+      : rng.pick(rooms);
+    const [x, y] = rng.pick(tiles(room));
+    const def = LIEUTENANTS[id];
+    const e = createEnemy(enemyDef(def.enemy), x, y, rng.int(0, 3) as Dir, `lt${f.depth}`, f.depth, this.difficultyId);
+    e.lieutenant = id;
+    f.enemies.push(e);
+    this.msg(def.clue, def.color);
+  }
+
+  /** Goblins under a living Quartermaster hit harder (and never flee): the damage multiplier. */
+  private rally(e: EnemyState): number {
+    if (!isGoblin(e.def)) return 1;
+    return this.floor.enemies.some((q) => q.lieutenant === 'quartermaster' && q.ai !== 'dead') ? RALLY_DAMAGE : 1;
+  }
+
+  /**
+   * The Hoarder's tick. Returns true when it has acted. It goes for the nearest
+   * loot pile on its floor (never a key or a flask shard), stuffs it into its
+   * sack, and keeps away from you; only cornered and in reach does it fight.
+   */
+  private updateHoarder(e: EnemyState, def: EnemyDef, dist: number, sees: boolean): boolean {
+    const f = this.floor;
+    const p = this.player;
+    const here = f.pickups.find((k) => k.x === e.x && k.y === e.y && !k.keyId && !k.flaskShard && (k.items.length || k.gold > 0));
+    if (here) {
+      (e.hoard ??= []).push(...here.items);
+      e.hoardGold = (e.hoardGold ?? 0) + here.gold;
+      f.pickups = f.pickups.filter((k) => k !== here);
+      if (sees) this.msg('The Hoarder stuffs the pile into its sack.', LIEUTENANTS.hoarder.color);
+      return true;
+    }
+    if (sees && dist <= HOARDER_SHY) {
+      const away = DIRS.map((d) => [e.x + DX[d], e.y + DY[d]] as [number, number])
+        .filter(([x, y]) => this.canStep(e, x, y) && Math.abs(x - p.x) + Math.abs(y - p.y) > dist)[0];
+      if (away) {
+        this.stepEnemy(e, away[0], away[1]);
+        return true;
+      }
+      // Cornered: in reach, it fights like anything else.
+      return dist > 1;
+    }
+    const target = f.pickups
+      .filter((k) => !k.keyId && !k.flaskShard && (k.items.length || k.gold > 0) && Math.abs(k.x - e.x) + Math.abs(k.y - e.y) <= HOARDER_REACH)
+      .sort((a, b) => Math.abs(a.x - e.x) + Math.abs(a.y - e.y) - (Math.abs(b.x - e.x) + Math.abs(b.y - e.y)))[0];
+    if (target) {
+      // pathStep stops short of its goal (it was written for closing on you),
+      // so the last step onto the pile is taken here.
+      const adjacent = Math.abs(target.x - e.x) + Math.abs(target.y - e.y) === 1;
+      const next = adjacent ? (this.canStep(e, target.x, target.y) ? [target.x, target.y] as [number, number] : null) : this.pathStep(e, target.x, target.y);
+      if (next) this.stepEnemy(e, next[0], next[1]);
+      return true;
+    }
+    // Nothing to take: it keeps its distance rather than hunting you.
+    return dist > 1;
+  }
+
+  /** A lieutenant dies: its floor changes, and it pays in kind. */
+  private lieutenantFalls(e: EnemyState): void {
+    if (e.lieutenant === 'quartermaster') {
+      let routed = 0;
+      for (const g of this.floor.enemies) {
+        if (g.ai === 'dead' || !isGoblin(g.def)) continue;
+        g.ai = 'flee';
+        g.alert = Math.max(g.alert, ROUT_SECONDS);
+        routed++;
+      }
+      const rng = createRng(hashString(`strongbox:${this.floor.seed}:${e.id}`));
+      const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
+      const box = rollContainerLoot(rng, this.run.depth, this.derived.find, 'vault', idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId);
+      this.dropLoot(e.x, e.y, box.items, box.gold);
+      this.msg(routed ? 'The banner falls. The goblins break and run! The strongbox key is yours.' : 'The banner falls. The strongbox key is yours.', LIEUTENANTS.quartermaster.color);
+    } else if (e.lieutenant === 'hoarder') {
+      const n = e.hoard?.length ?? 0;
+      this.dropLoot(e.x, e.y, e.hoard ?? [], e.hoardGold ?? 0);
+      delete e.hoard;
+      delete e.hoardGold;
+      this.msg(n ? 'The sack splits. Everything the Hoarder gathered spills across the floor.' : 'The sack splits, heavy with coin.', LIEUTENANTS.hoarder.color);
+    }
+  }
+
+  /**
+   * Hunter: a freshly generated floor on one of the hunt's depths gets its
+   * mark. One of the three toughest monsters far from the stairs is chosen on
+   * the run's own stream, promoted to an elite if it is not one, and marked. Placed when the
+   * floor is first generated, so a floor is only ever marked once.
+   */
+  private placeHunterMark(f: Floor): void {
+    const oath = this.run.oath;
+    if (oath?.id !== 'hunter' || !HUNTER_DEPTHS.includes(f.depth) || (oath.placed ?? []).includes(f.depth)) return;
+    const up = f.stairs.find((st) => !st.down);
+    const far = (e: EnemyState) => up ? Math.abs(e.x - up.x) + Math.abs(e.y - up.y) : 0;
+    const pool = f.enemies.filter((e) => e.ai !== 'dead' && !e.lurk && enemyDef(e.def).behavior !== 'boss' && far(e) >= 8);
+    const quarry = pool.length ? pool : f.enemies.filter((e) => e.ai !== 'dead' && !e.lurk && enemyDef(e.def).behavior !== 'boss');
+    if (!quarry.length) return;
+    // Quarry worth the name: one of the three toughest on the floor, never
+    // whatever rat happened to be furthest from the stairs.
+    const rng = createRng(hashString(`hunt:${this.run.seed}:${f.depth}`));
+    const toughest = [...quarry].sort((a, b) => enemyDef(b.def).hp - enemyDef(a.def).hp || a.id.localeCompare(b.id)).slice(0, 3);
+    const e = rng.pick(toughest);
+    if (!e.elite) {
+      const traits = eligibleTraits(enemyDef(e.def));
+      if (traits.length) promoteElite(e, rng.pick(traits));
+    }
+    e.marked = true;
+    (oath.placed ??= []).push(f.depth);
+  }
+
+  /** Burrows: how far a noise of radius `r` actually carries on this floor. */
+  private noise(r: number): number {
+    return this.floor.biome === 'burrows' ? Math.round(r * BURROWS_NOISE_MULT) : r;
+  }
+
+  /**
+   * Ossuary: undead remains that were neither shattered nor sanctified stir
+   * `OSSUARY_STIR_AFTER` seconds after death, then stand `OSSUARY_STIR` later
+   * at `OSSUARY_RISE_HP`, risen, so they pay nothing twice and never rise
+   * again. Only on the crossing, so corpses left behind on a floor you walk
+   * back onto do not all stand at once.
+   */
+  private ossuaryStir(e: EnemyState, before: number, dt: number): void {
+    if (e.stirT !== undefined) {
+      e.stirT -= dt;
+      if (e.stirT > 0) return;
+      delete e.stirT;
+      if (e.remains) return;
+      this.raiseCorpse(e);
+      e.hp = Math.max(1, Math.round(e.maxHp * OSSUARY_RISE_HP));
+      return;
+    }
+    if (before >= OSSUARY_STIR_AFTER || e.deadT < OSSUARY_STIR_AFTER) return;
+    const def = enemyDef(e.def);
+    if (!def.undead || def.behavior === 'boss' || e.risen || e.remains || e.burstT !== undefined || e.mimicTier) return;
+    e.stirT = OSSUARY_STIR;
+    if (Math.abs(e.x - this.player.x) + Math.abs(e.y - this.player.y) <= 10) this.msg(`The ${def.name}'s bones stir.`, LAWS.crypt.color);
+  }
+
+  /**
+   * Mines: a cracked wall brought down drops its rotten timbering on every
+   * monster beside it, for a crushing blow and a stagger. You are the one
+   * striking it, from beside it, so the roof never falls on you.
+   */
+  private collapse(x: number, y: number): void {
+    const dealtTo: string[] = [];
+    for (const e of this.floor.enemies) {
+      if (e.ai === 'dead' || e.lurk || Math.abs(e.x - x) + Math.abs(e.y - y) !== 1) continue;
+      const def = enemyDef(e.def);
+      const dealt = Math.max(1, Math.round((COLLAPSE_BASE + COLLAPSE_PER_DEPTH * this.run.depth) * (def.resist.blunt ?? 1)));
+      e.hp -= dealt;
+      e.hurtT = 0.3;
+      e.alert = Math.max(e.alert, 8);
+      if (def.behavior !== 'boss') {
+        e.ai = 'recover';
+        e.timer = Math.max(e.timer, COLLAPSE_STUN);
+        e.attackCd = Math.max(e.attackCd, COLLAPSE_STUN + 0.2);
+      }
+      this.emit({ type: 'float', x: e.x, y: e.y, text: `${dealt}!`, color: LAWS.mines.color });
+      dealtTo.push(def.name);
+      if (e.hp <= 0) this.killEnemy(e);
+    }
+    this.emit({ type: 'shake', amount: 0.5 });
+    this.msg(dealtTo.length ? `The timbers give and the roof comes down on the ${dealtTo.join(' and the ')}!` : 'The timbers give. Rock rains down where the wall stood.', LAWS.mines.color);
+  }
+
+  /**
    * Kindling: a blow with fire in it, landing on a monster below `KINDLING_AT`
    * of its health, also burns one monster beside it for the fire share.
    */
@@ -2118,6 +2373,20 @@ export class World {
     if (e.risen) {
       this.msg(`${def.name} falls still again.`, '#c8c0b0');
       return;
+    }
+    if (e.lieutenant) this.lieutenantFalls(e);
+    if (e.def === SHADE_ID && this.state.grave) {
+      const grave = this.state.grave;
+      this.state.grave = null;
+      this.dropLoot(e.x, e.y, grave.items, grave.gold);
+      this.msg('Your Shade comes apart. What you lost is yours again.', '#9ab8ff');
+    }
+    if (e.marked && this.run.oath?.id === 'hunter') {
+      const oath = this.run.oath;
+      oath.marks = (oath.marks ?? 0) + 1;
+      this.msg(oath.marks >= HUNTER_MARKS
+        ? `The last marked quarry falls. The hunt is done: now bring it home.`
+        : `Marked quarry slain: ${oath.marks} of ${HUNTER_MARKS}.`, OATHS.hunter.color);
     }
     this.refundSigil(def, this.derived.traits.execution && (e.vuln ?? 0) > 0 ? EXECUTION_REFUND_MULT : 1);
     this.run.stats.kills++;
@@ -2306,7 +2575,7 @@ export class World {
     let woken = 0;
     for (const e of this.floor.enemies) {
       if (e.ai === 'dead' || this.protectedByFog(e)) continue;
-      if (Math.abs(e.x - p.x) + Math.abs(e.y - p.y) > CHEST_CLANG_RADIUS) continue;
+      if (Math.abs(e.x - p.x) + Math.abs(e.y - p.y) > this.noise(CHEST_CLANG_RADIUS)) continue;
       if (e.alert <= 0) woken++;
       e.alert = Math.max(e.alert, 6);
       e.lastSeenX = this.player.x;
@@ -2351,6 +2620,19 @@ export class World {
   private breakProp(p: Prop): void {
     p.used = true;
     this.sfx('break', p.x, p.y);
+    // Burrows: the crack of old roots is a lure. What hears it comes to the
+    // cache, not to you — so break it and be somewhere else.
+    if (p.kind === 'root_cache' && this.floor.biome === 'burrows') {
+      let drawn = 0;
+      for (const e of this.floor.enemies) {
+        if (e.ai === 'dead' || e.lurk || Math.abs(e.x - p.x) + Math.abs(e.y - p.y) > ROOT_CACHE_LURE) continue;
+        e.alert = Math.max(e.alert, 8);
+        e.lastSeenX = p.x;
+        e.lastSeenY = p.y;
+        drawn++;
+      }
+      this.msg(drawn ? 'The roots crack like a shot. Something skitters towards the sound.' : 'The roots crack like a shot. Nothing answers.', LAWS.burrows.color);
+    }
     const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
     const loot = rollContainerLoot(this.propRng(p), this.run.depth, this.derived.find, 'urn', idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId);
     this.dropLoot(p.x, p.y, loot.items, loot.gold);
@@ -2729,8 +3011,11 @@ export class World {
       // The safe one. A large mend and it washes off a curse — which is what
       // makes a font worth crossing a floor for once an idol has marked you.
       case 'font': {
-        const lifted = this.run.curse;
-        this.run.curse = null;
+        // Blood Price's Frailty is sworn, not suffered: the water leaves it.
+        const sworn = this.run.oath?.id === 'blood_price' && this.run.curse === 'frailty';
+        const lifted = sworn ? null : this.run.curse;
+        if (!sworn) this.run.curse = null;
+        if (sworn) this.msg('The water will not touch a sworn price. Frailty stays.', OATHS.blood_price.color);
         this.refreshDerived();
         this.restore(true);
         if (lifted) this.msg(`The water runs black and clears. ${CURSES[lifted].name} is washed away.`, '#a0c8ff');
@@ -3421,7 +3706,9 @@ export class World {
     const p = this.player;
     for (const e of f.enemies) {
       if (e.ai === 'dead') {
+        const before = e.deadT;
         e.deadT += dt;
+        if (f.biome === 'crypt') this.ossuaryStir(e, before, dt);
         if (e.burstT !== undefined) {
           e.burstT -= dt;
           if (e.burstT <= 0) {
@@ -3542,7 +3829,8 @@ export class World {
         this.dive(e, def);
         continue;
       }
-      if (def.behavior === 'skittish' && e.hp < e.maxHp * 0.35 && sees && this.rng.chance(0.02)) {
+      if (e.lieutenant === 'hoarder' && this.updateHoarder(e, def, dist, sees)) continue;
+      if (def.behavior === 'skittish' && e.hp < e.maxHp * 0.35 && sees && this.rally(e) === 1 && this.rng.chance(0.02)) {
         e.ai = 'flee';
         this.msg(`The ${def.name} tries to flee!`, '#c8c0b0');
         continue;
@@ -3636,7 +3924,7 @@ export class World {
         if (off !== 0 && blocksSight(this.floor, e.x + ox, e.y + oy)) continue;
         this.projectiles.push({
           id: this.projN++, x: e.x + ox + 0.5, y: e.y + oy + 0.5, dx, dy, speed: pr.speed,
-          damage: Math.round(def.attack * attackPower(e.power) * (e.scavengerAttack ?? 1) * this.diff.enemyDamage), type: pr.damageType, sprite: pr.sprite, light: pr.light,
+          damage: Math.round(def.attack * attackPower(e.power) * (e.scavengerAttack ?? 1) * this.rally(e) * this.diff.enemyDamage), type: pr.damageType, sprite: pr.sprite, light: pr.light,
           tileX: e.x + ox, tileY: e.y + oy, source: def.name, sourceId: def.id,
         });
       }
@@ -3646,7 +3934,7 @@ export class World {
     // Melee lands only if you're still in the tile it aimed at.
     this.sfx('swing', e.x, e.y);
     if (p.x === e.lastSeenX && p.y === e.lastSeenY && dist === 1) {
-      this.damagePlayer(Math.max(1, Math.round(def.attack * attackPower(e.power) * (e.scavengerAttack ?? 1) * this.diff.enemyDamage)), def.damageType, e.x, e.y, def.name, def.id, e);
+      this.damagePlayer(Math.max(1, Math.round(def.attack * attackPower(e.power) * (e.scavengerAttack ?? 1) * this.rally(e) * this.diff.enemyDamage)), def.damageType, e.x, e.y, def.name, def.id, e);
     } else {
       this.sfx('miss', e.x, e.y);
     }
@@ -4107,7 +4395,7 @@ export class World {
     this.emit({ type: 'crack', id: c.id, hits: c.hits });
     for (const e of f.enemies) {
       if (e.ai === 'dead' || e.lurk || this.protectedByFog(e)) continue;
-      if (Math.abs(e.x - c.x) + Math.abs(e.y - c.y) > CRACK_NOISE) continue;
+      if (Math.abs(e.x - c.x) + Math.abs(e.y - c.y) > this.noise(CRACK_NOISE)) continue;
       e.alert = Math.max(e.alert, 6);
       e.lastSeenX = this.player.x;
       e.lastSeenY = this.player.y;
@@ -4119,6 +4407,7 @@ export class World {
     c.broken = true;
     f.tiles[c.y * f.width + c.x] = FLOOR;
     if (pick) this.msg('The pick finds the fault line. The wall comes down in one.', '#e8d8a0');
+    if (f.biome === 'mines') this.collapse(c.x, c.y);
     this.reveal();
     const rng = createRng(hashString(`crack:${f.seed}:${c.id}`));
     if (c.kind === 'seam') {

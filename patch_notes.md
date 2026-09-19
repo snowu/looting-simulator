@@ -1,3 +1,86 @@
+# Lieutenants
+
+*No save change. Floors you've already been to are untouched.*
+
+From depth 2, a floor sometimes has a **lieutenant**, a named monster that changes the whole floor while it lives. A clue on arrival tells you something is wrong; whether to hunt it down is up to you.
+
+- **The Goblin Quartermaster** carries a red war banner. While it stands, every goblin on its floor hits harder and never runs. Kill it and they break and flee, and its strongbox is yours.
+- **The Hoarder** is a bloated rat with a sack of coin on its back. It wanders the floor carrying off any loot left lying around, and it keeps away from you. Kill it and everything it gathered spills back out, with its own hoard on top.
+
+Validation: typecheck, production build, and the full test suite (712 tests), twice. New tests cover placement (from depth 2, at most one a floor, far from the stairs, a Quartermaster only with goblins to command), the Quartermaster's rally while it stands and the rout and strongbox when it falls, and the Hoarder carrying off a pile and giving it back, never taking a key, and keeping away from you. The first test run caught the Hoarder stopping one step short of every pile; that's fixed. Checked in the dev lab in Chrome: both sprites in the dungeon, and "The Hoarder" on the target bar. The balance harness moved within 9 points either way. Not played through a real delve yet.
+
+---
+
+# Your Shade keeps what you lost
+
+*Additive save change (revision 27): no grave waiting. Every existing save loads as it was.*
+
+Dying no longer throws your pack away. What you lose (the backpack and the coin you carried, beyond what a Soul Pouch keeps) waits on the depth where you fell, held by **your Shade**: a pale, cold version of you that fights with the kind of weapon you died holding. Reach it on a later delve and kill it, and everything drops back at your feet.
+
+There's only ever one grave. Die again before you get back to it, and the old pack is gone for good; the new one takes its place. Coming home without reclaiming it leaves it waiting. The town news and the results screen tell you where it is. On Hardcore a death ends the save, so there's no Shade to go back for.
+
+Validation: typecheck, production build, and the full test suite (707 tests), twice. New tests cover the grave (dug on the depth you fell with what you lost, replaced by a second death, left alone when you come home, never on Hardcore), the save migration, the Shade (on the grave's depth only, far from the stair, once per delve, on depth 1 from the start, striking with your weapon's damage type), and killing it giving the whole pack back. Checked in the dev lab in Chrome: the Shade reads as a pale, cold figure, and the target bar says "Your Shade". The balance harness plays exactly as before, since its bot starts every delve without a grave. While measuring, I found that the harness had stopped being reproducible when the route fork arrived (the day's roads were seeded from a random save id); that's fixed.
+
+---
+
+# Every floor its own law
+
+*No save change.*
+
+Three biomes now each have a rule of their own. The first time you arrive on one, it tells you.
+
+- **The Ossuary: the dead do not stay down.** A skeleton you put down stirs a few seconds later and stands back up at half its health. Shatter the bones with a blunt killing blow, or sanctify them with holy damage, and they stay down. A corpse only rises once.
+- **The Deep Mines: braced walls come down hard.** Bring down a cracked wall and its rotten timbers fall on whatever stands beside it: a crushing blow, and they reel. The noise of the blows draws monsters to you, so let them come, then bring it down.
+- **The Vermin Burrows: noise carries.** Every sound reaches further here: a cracked wall, Wardcry, an alarm ward, a struck chest. A broken root cache is a lure: whatever hears it goes to the cache, not to you.
+
+The Mine Road's description at the fork now mentions its walls.
+
+Validation: typecheck, production build, and the full test suite (698 tests), twice. New tests cover the Ossuary (remains stirring and standing once at half health, shattered, sanctified, living and non-Ossuary corpses staying down, long-dead corpses not all rising at once), a Mines collapse crushing and staggering what stands beside the wall and only in the Mines, the Burrows carrying a wall's noise further, and a root cache drawing monsters to itself. One existing test was pinned to a floor that isn't the Burrows, since its whole point is the normal noise range. Checked in the dev lab in Chrome: a skeleton's bones stirring with the log line, and it standing back up at 15 of 30 health. The balance harness moved within noise against the previous build, with no rise in deaths on depths 1–2. Not played through a real delve yet.
+
+---
+
+# The stair splits
+
+*No save change. A delve already under way keeps going the old way; the fork appears from your next delve.*
+
+The first time you go down from depth 2, the stair splits into **two roads**. The one you take decides what depths 3 and 4 are, and the other is sealed for the rest of the delve.
+
+- **The Mine Road** (Deep Mines): shieldbearers and the Barrow Champion. Pays in metal.
+- **The Frozen Road** (Frost Vault): frost wisps and icebound guards; bring fire. Pays in frost shards and moonstone.
+- **The Ember Road** (Emberworks): flame wraiths and molten floors; bring frost. Pays in flame shards and sunstone.
+- **The Spore Road** (Sporegrove): spore hunters and the Bog Seraph. Pays in leather and crystal.
+
+Which two roads are open changes each day, and what's happening in Bleakmere tilts it: an Iron Shortage opens the mines, a Harsh Winter the frozen road, a dragon sighting the ember one. The town news names the day's roads, so you can pack for the one you mean to take.
+
+Validation: typecheck, production build, and the full test suite (692 tests), twice. New tests cover the day's roads (always two different ones, the same all day, leaning towards the road a market event favours, handed to a new delve), the fork stopping you at the stair instead of descending, the road setting depths 3 and 4 and nothing else, asking only once, delves from before the fork, and generation ignoring a road where its biome can't be. Checked in the dev lab in Chrome at 500px wide: the town news naming the roads, the fork panel, taking the Spore Road with the log line, and arriving at depth 3 in the Sporegrove. The headless bot takes the first road; its death rates moved a few points either way, as expected with different biomes on depths 3 and 4. Not played through a real delve yet.
+
+---
+
+# Oaths and inscriptions
+
+*Additive save change (revisions 25 and 26): nothing learned, nothing sworn. Every existing save loads as it was.*
+
+**The Oath Stone.** Between delves, above the town tabs, you can swear an oath for your next delve, or none. Keep it and come home alive, and it pays an inscription you haven't learned yet. Break it and you lose only the reward.
+
+- **Blood Price:** you go down cursed with Frailty, and no font will wash it off. Come home with 250 gold found in the dungeon.
+- **Unbroken:** everything you wear wears twice as fast. Reach depth 4 with nothing breaking, then come home.
+- **Hunter:** monsters see you from further away, and a marked elite, one of the toughest on its floor, waits on each of depths 2, 3 and 4. Kill all three, then come home.
+
+The HUD shows how your oath stands.
+
+**Inscriptions.** A kept oath lets you choose one of three to learn. At the forge, the new **Inscribe** bench cuts a learned inscription into a piece of your gear for 150 gold, one per item. Inscribing again replaces it, and relics can't take one.
+
+- **Riposte** (weapon): after a parry, your next swing is free and hits harder.
+- **Execution** (weapon): finishing a reeling monster feeds your sigil twice over.
+- **Kindling** (weapon): your fire leaps from a badly wounded monster to one beside it.
+- **Bulwark** (shield): taking a heavy blow on the shield charges your next strike.
+- **Retrieval** (thrown belt): shafts you call back cut what they pass through.
+- **Last Flask** (helm, body or gloves): with your flask empty, food and life leech heal more.
+
+Validation: typecheck, production build, and the full test suite (684 tests), twice. New tests cover learning and inscribing (slot fit, no relics, cost, replacing, identified and worn gear only), one behaviour test per inscription, each oath's rule and objective (Frailty surviving a font, double wear and a break ending Unbroken, keeping it at depth 4, Hunter's sight and its three marks placed once each on tough monsters and counted), the reward drawing only unlearned inscriptions or paying renown, no new oath while a reward waits, and both save migrations. Checked in the dev lab in Chrome: the Inscribe bench, inscribing Riposte onto a sword, the Oath Stone and the reward picker at 500px wide with no overflow, learning from a reward, swearing Hunter, the HUD oath line, and marked elites on depths 2–4. Not played through a real delve with an oath to the end, and not checked on a real phone.
+
+---
+
 # The Gravecaller
 
 *No save change. Floors you've already generated are untouched; Gravecallers appear on floors generated from now on.*
