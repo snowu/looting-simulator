@@ -198,6 +198,90 @@ describe('healing rework', () => {
     expect(w.derived.stats.leech).toBe(baseLeech);
   });
 
+  it('a breath draught refills stamina, and costs less healing at higher tiers', () => {
+    const sip = (ref: string): { stamina: number; max: number; healed: number } => {
+      const w = arena(18);
+      w.state.flask.infusion = ref;
+      w.player.hp = 10;
+      w.player.stamina = 0;
+      w.sipFlask();
+      tick(w, 0.55);
+      return { stamina: w.player.stamina, max: w.derived.maxStamina, healed: w.player.hp - 10 };
+    };
+    const linen = sip('linen');
+    expect(linen.stamina).toBeGreaterThanOrEqual(linen.max - 1);
+    expect(sip('astral_silk').healed).toBeGreaterThan(linen.healed);
+  });
+
+  it('an iron draught soaks only its share of a blow bigger than the ward, then lapses unused', () => {
+    const blow = (ref: string | null): { taken: number; max: number } => {
+      const w = arena(19);
+      w.state.flask.infusion = ref;
+      w.player.hp = 20;
+      w.sipFlask();
+      tick(w, 0.6);
+      w.player.hp = w.derived.maxHp;
+      (w as unknown as { rng: unknown }).rng = createRng(7);
+      const t = w.frontTile(1);
+      (w as unknown as { damagePlayer: (a: number, t: string, x: number, y: number, s: string) => void }).damagePlayer(60, 'slash', t.x, t.y, 'Test');
+      return { taken: w.derived.maxHp - w.player.hp, max: w.derived.maxHp };
+    };
+    const plain = blow(null);
+    const copper = blow('copper');
+    expect(copper.taken).toBeGreaterThan(0);
+    expect(plain.taken - copper.taken).toBe(Math.round(copper.max * 0.1));
+
+    const w = arena(19);
+    w.state.flask.infusion = 'copper';
+    w.player.hp = 20;
+    w.sipFlask();
+    tick(w, 0.6);
+    expect(w.anim.draught?.kind).toBe('iron');
+    tick(w, 12.1);
+    expect(w.anim.draught).toBeNull();
+  });
+
+  it('a marrow draught hits the King harder but never staggers him', () => {
+    const w = arena(20);
+    w.state.flask.infusion = 'titan_bone';
+    w.player.hp = 20;
+    w.sipFlask();
+    tick(w, 0.6);
+    const t = w.frontTile(1);
+    const e = createEnemy(enemyDef(BOSS_ID), t.x, t.y, turnAround(w.player.facing), 'striker', 1);
+    e.hp = e.maxHp = 99999;
+    e.ai = 'windup'; e.timer = 1;
+    w.floor.enemies.push(e);
+    (w as unknown as { hitEnemy: (e: unknown) => void }).hitEnemy(e);
+    expect(e.hp).toBeLessThan(99999);
+    expect(e.ai).toBe('windup');
+    expect(w.anim.draught).toBeNull();
+  });
+
+  it('a marrow draught lapses if no blow lands in time', () => {
+    const w = arena(21);
+    w.state.flask.infusion = 'bone';
+    w.player.hp = 20;
+    w.sipFlask();
+    tick(w, 0.6);
+    expect(w.anim.draught?.kind).toBe('marrow');
+    tick(w, 6.1);
+    expect(w.anim.draught).toBeNull();
+  });
+
+  it('an elemental gem kindles its element, not attack', () => {
+    const w = arena(22);
+    const base = w.derived.attack;
+    const baseFire = w.derived.stats.fire;
+    w.state.flask.infusion = 'flame_shard';
+    w.player.hp = 20;
+    w.sipFlask();
+    tick(w, 0.6);
+    expect(w.anim.draught?.kind).toBe('kindled');
+    expect(w.derived.stats.fire - baseFire).toBe(draught('flame_shard')!.kindle!.fire);
+    expect(w.derived.attack).toBe(base);
+  });
+
   it('gives back a stat gem that can no longer sit in the flask', () => {
     const state = newGame(createRng(17));
     state.flask.infusion = 'emerald';
