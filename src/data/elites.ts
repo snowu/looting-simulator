@@ -50,7 +50,7 @@ export const ELITES: Record<EliteTrait, EliteDef> = {
   },
   thieving: {
     id: 'thieving', name: 'Thieving', color: '#e8c060', weight: 2,
-    rule: 'A blow that gets through steals from your pack, and it runs. Kill it to take the item back.',
+    rule: 'A blow that gets through steals from your pack, and it runs, slowed by the loot. Kill it to take the item back.',
   },
 };
 
@@ -75,7 +75,17 @@ export const VENGEFUL_FUSE = 1.0;
 export const VENGEFUL_DAMAGE_MULT = 1.5;
 
 /** Seconds a thief carrying your things must spend out of your sight to get away with them. */
-export const THIEF_ESCAPE = 20;
+export const THIEF_ESCAPE = 30;
+/** A thief carrying loot steps this much slower: you are faster, and the chase is yours to win. */
+export const THIEF_LADEN = 1.25;
+/** After a step in your sight, the chance it stops to clutch the loot, and for how long. */
+export const THIEF_FUMBLE_CHANCE = 0.12;
+export const THIEF_FUMBLE = 0.7;
+/** Out of your sight it goes to ground: one creeping step every this many seconds. */
+export const THIEF_CREEP = 1.5;
+/** Every this many steps, a coin or two spills from its purse, up to this many times. */
+export const THIEF_TRAIL_EVERY = 3;
+export const THIEF_TRAIL_MAX = 6;
 
 /** What an elite pays over an ordinary kill of its kind. */
 export const ELITE_GOLD_MULT = 2.5;
