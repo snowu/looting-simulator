@@ -188,6 +188,8 @@ export interface GameState {
   /** Permanently inscribed sigils and the one selected for the next delve. */
   spells: string[];
   attuned: string | null;
+  /** Build properties learned, ready to inscribe at the forge. See `src/data/properties.ts`. */
+  properties: string[];
   /** Packed in town for the next delve; becomes the backpack when you descend. */
   loadout: Container;
   run: RunState | null;
@@ -227,6 +229,7 @@ export function newGame(rng: Rng): GameState {
     flask: { shards: 0, potency: 0, infusion: null },
     spells: [],
     attuned: null,
+    properties: [],
     loadout: createContainer(BASE_BACKPACK),
     run: null,
     lifetime: { runs: 0, deaths: 0, extractions: 0, bestDepth: 0, goldEarned: 0, kills: 0, uniquesSeen: [], uniquesKnown: [] },

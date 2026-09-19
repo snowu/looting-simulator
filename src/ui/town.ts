@@ -1,4 +1,6 @@
 import { GameState } from '../state/game-state';
+import { INSCRIBE_COST, PropertyDef, findProperty } from '../data/properties';
+import { inscribe, inscribeTargets } from '../systems/properties';
 import { EQUIP_SLOTS, Item, MaterialCategory, Rarity, RARITY_COLORS, RARITY_ORDER, STAT_KEYS, STAT_LABELS, Stats } from '../types';
 import { MATERIALS, catalystAffixBonus, material, secondaryMaterialMods } from '../data/materials';
 import { consumable, itemBase } from '../data/items';
@@ -130,7 +132,9 @@ export class Town {
    * that something is broken or that a stone is waiting, without the pane
    * itself taking the room.
    */
-  private forgeSide: 'recipes' | 'repairs' | 'sigils' | 'infusions' = 'recipes';
+  private forgeSide: 'recipes' | 'repairs' | 'sigils' | 'inscribe' | 'infusions' = 'recipes';
+  /** The item picked for each property on the Inscribe bench, by property id. */
+  private inscribeTarget: Record<string, string> = {};
   private forgeRecipe = 'r_short_sword';
   private forgeMats: (string | null)[] = [];
   /** Secondary (grip / extra) pickers live behind a modal so the forge pane stays compact. */
@@ -883,6 +887,7 @@ export class Town {
       ['recipes', 'Recipes', readyBlueprints],
       ['repairs', 'Repairs', wornCount],
       ['sigils', 'Sigils', stones],
+      ['inscribe', 'Inscribe', 0],
       ['infusions', 'Flask', 0],
     ];
     const bar = h(
@@ -899,6 +904,8 @@ export class Town {
       ? this.repairs()
       : this.forgeSide === 'sigils'
         ? this.sigils()
+        : this.forgeSide === 'inscribe'
+        ? this.inscribeBench()
         : this.forgeSide === 'infusions'
           ? this.infusions()
           : h('div', { class: 'col' }, learn, h('div', { class: 'pane frame' }, h('h3', { text: 'Recipes' }), list));
@@ -1079,6 +1086,58 @@ export class Town {
       known.length
         ? h('p', { class: 'dim small', text: `You carry one at a time, cast with G or C. ${locked ? 'Attunement is fixed until you are back in town or a portal is open. ' : ''}${vigil ? `Warden's Vigil takes ${25 * vigil}% more off the cooldown on every kill, up to a fifth of it.` : "Warden's Vigil, on the Warden's board, shortens the cooldown with every kill."}` })
         : null,
+    );
+  }
+
+  /**
+   * The Inscribe bench: put a learned build property onto a piece of gear.
+   * Each property lists only the gear that can take it, worn or stashed; the
+   * choice is remembered per property while the screen is open.
+   */
+  private inscribeBench(): HTMLElement {
+    const s = this.s;
+    const known = (s.properties ?? []).map((id) => findProperty(id)).filter((d): d is PropertyDef => !!d);
+    const rows = known.map((def) => {
+      const targets = inscribeTargets(s, def.id);
+      const chosen = targets.find((it) => it.uid === this.inscribeTarget[def.id]) ?? targets[0];
+      const select = h('select', { attrs: { 'aria-label': `Item for ${def.name}` }, style: 'max-width:100%' }) as HTMLSelectElement;
+      select.addEventListener('change', () => { this.inscribeTarget[def.id] = select.value; this.render(); });
+      for (const it of targets) {
+        const worn = EQUIP_SLOTS.some((slot) => s.equipment[slot]?.uid === it.uid);
+        const current = findProperty(it.property);
+        const o = document.createElement('option');
+        o.value = it.uid;
+        o.textContent = `${itemName(it)}${worn ? ' (worn)' : ''}${current ? ` · ${current.name}` : ''}`;
+        o.selected = it.uid === chosen?.uid;
+        select.append(o);
+      }
+      const already = chosen?.property === def.id;
+      return h(
+        'div',
+        { class: 'row repair-row' },
+        h('div', { class: 'grow' },
+          h('div', { style: `color:${def.color}`, text: def.name }),
+          bothRegisters(def.rule, def.detail, 'dim small'),
+          targets.length ? select : h('div', { class: 'dim small', text: `Nothing you own can take it: ${def.slots.join(', ')} only.` }),
+        ),
+        btn(already ? 'Inscribed' : `Inscribe · ${INSCRIBE_COST}g`, () => {
+          if (!chosen) return;
+          const r = inscribe(s, chosen.uid, def.id);
+          if (r === 'gold') return this.ctx.toast(`It costs ${INSCRIBE_COST} gold.`, '#ff9070');
+          if (r !== 'ok') return;
+          this.ctx.toast(`${def.name} is cut into the ${itemName(chosen)}.`, def.color);
+          this.commit('craft');
+        }, 'small', !chosen || already || s.gold < INSCRIBE_COST),
+      );
+    });
+    return h(
+      'div',
+      { class: 'pane frame' },
+      h('h3', { text: 'Inscribe' }),
+      rows.length
+        ? h('div', { class: 'col' }, ...rows)
+        : h('p', { class: 'dim', text: 'You know no inscriptions yet. They are learned, not found: an oath kept below is how the old wardens earned theirs.' }),
+      rows.length ? h('p', { class: 'dim small', text: 'One inscription per item; inscribing again replaces it. Relics already carry their own.' }) : null,
     );
   }
 

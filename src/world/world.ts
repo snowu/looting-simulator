@@ -8,6 +8,10 @@ import {
   VENGEFUL_DAMAGE_MULT, VENGEFUL_FUSE,
 } from '../data/elites';
 import { CACHE_MIN_GOLD, CRACK_BLOWS, CRACK_NOISE, CRACK_WEAR, Crack, SEAM_ORE } from '../data/walls';
+import {
+  BULWARK_MULT, BULWARK_SOAK, BULWARK_WINDOW, EXECUTION_REFUND_MULT, KINDLING_AT, KINDLING_SPREAD, LAST_FLASK_MULT,
+  RETRIEVAL_MULT, RIPOSTE_MULT, RIPOSTE_WINDOW,
+} from '../data/properties';
 import { RAISE_BEAT, RAISE_CHANNEL, RAISE_COOLDOWN, RAISE_HP, RAISE_LIMIT, RAISE_REACH, SHATTER_OVERKILL } from '../data/necromancy';
 import {
   AMBUSH_BEAT, AMBUSH_TRIGGER, BURROW_MAX, BURROW_MIN, DIVE_AT, DROP_SECONDS, KNOCKOUT_STUN, MOUND_STEP, SURFACE_SECONDS,
@@ -112,6 +116,8 @@ export interface Projectile {
   returning?: boolean;
   /** Recoverable player throw. Its combat snapshot prevents gear swaps changing a shot in flight. */
   thrownBase?: string;
+  /** Monsters a Retrieval shaft has already cut on its way home. */
+  hitIds?: string[];
   thrownRange?: number;
   traveled?: number;
   player?: PlayerDerived;
@@ -172,6 +178,11 @@ export interface PlayerAnim {
   cast: { id: SigilId; t: number } | null;
   snuffT: number;
   unseenT: number;
+  /** Riposte: seconds left in which the next swing is free and harder, and whether the swing in flight is one. */
+  riposteT: number;
+  riposteSwing: boolean;
+  /** Bulwark: seconds left in which the next landed strike is charged. */
+  bulwarkT: number;
   ward: { x: number; y: number; t: number } | null;
   transition: { t: number; dir: 'down' | 'up'; done: boolean } | null;
   sip: number | null;
@@ -490,7 +501,7 @@ export class World {
       attackBase: null, attackWeaponUid: null, attackSnapshot: null,
       blockRaise: 0, blockT: Infinity, parryArmed: false, parryCd: 0,
       rangedParryT: 0, parryInvulnT: 0, stunT: 0, steps: 0, parryStacks: 0,
-      sinceStamina: 10, windedCd: 0, recall: null, cast: null, snuffT: 0, unseenT: 0, ward: null, transition: null,
+      sinceStamina: 10, windedCd: 0, recall: null, cast: null, snuffT: 0, unseenT: 0, riposteT: 0, riposteSwing: false, bulwarkT: 0, ward: null, transition: null,
       sip: null, chew: null, draught: null,
     };
     this.trail.push({ x: this.player.x, y: this.player.y, facing: this.player.facing, time: this.run.stats.time });
@@ -560,8 +571,10 @@ export class World {
    * suit of armour halve all of it at once. Returns what was actually restored.
    * Difficulty mends faster on Normal; Hard multiplies by exactly 1.
    */
-  private heal(amount: number): number {
-    const scaled = Math.round(amount * this.derived.traits.healing * this.diff.playerHealing);
+  private heal(amount: number, source?: 'food' | 'leech'): number {
+    // Last Flask: with the flask dry, food and leech carry you.
+    const lastFlask = source && this.derived.traits.lastFlask && (this.run.flask?.charges ?? 1) <= 0 ? LAST_FLASK_MULT : 1;
+    const scaled = Math.round(amount * lastFlask * this.derived.traits.healing * this.diff.playerHealing);
     const healed = Math.min(Math.max(0, scaled), this.derived.maxHp - this.player.hp);
     this.player.hp += healed;
     const overflow = Math.max(0, scaled - healed);
@@ -770,6 +783,8 @@ export class World {
     this.run.thrown ??= { held: {}, retrieveCd: 0 };
     this.run.thrown.retrieveCd = Math.max(0, (this.run.thrown.retrieveCd ?? 0) - dt);
     a.snuffT = Math.max(0, a.snuffT - dt);
+    a.riposteT = Math.max(0, a.riposteT - dt);
+    a.bulwarkT = Math.max(0, a.bulwarkT - dt);
     a.unseenT = Math.max(0, a.unseenT - dt);
     if (a.ward) {
       a.ward.t -= dt;
@@ -902,7 +917,7 @@ export class World {
       const target = Math.round(a.chew.total * (1 - a.chew.left / CHEW_SECONDS));
       const portion = Math.max(0, target - a.chew.delivered);
       if (portion) {
-        this.heal(portion);
+        this.heal(portion, 'food');
         a.chew.delivered += portion;
       }
       if (a.chew.left <= 0) {
@@ -1262,6 +1277,7 @@ export class World {
 
   /** Shared feedback for any parry: it should feel like a moment. */
   private parryFlourish(x: number, y: number): void {
+    if (this.derived.traits.riposte) this.anim.riposteT = RIPOSTE_WINDOW;
     this.anim.blockT = Infinity;
     this.anim.parryArmed = false;
     this.sfx('parry', x, y);
@@ -1307,7 +1323,10 @@ export class World {
     // zero, which kept the free swings coming. How tired you are still shows
     // in the damage, through staminaPower — it just is not free any more.
     const profile: SwingProfile = this.derived.swing;
-    const cost = profile.staminaCost;
+    // Riposte: the swing after a parry is free.
+    a.riposteSwing = this.derived.traits.riposte && a.riposteT > 0;
+    if (a.riposteSwing) a.riposteT = 0;
+    const cost = a.riposteSwing ? 0 : profile.staminaCost;
     if (this.player.stamina < cost) {
       // Throttled hard: at the bottom of the bar almost every frame is a
       // refusal, and without this the breath loops under a held button.
@@ -1528,12 +1547,16 @@ export class World {
       x: fromX + 0.5, y: fromY + 0.5,
       dx: dx / len, dy: dy / len,
       speed: RETURN_SPEED,
-      damage: 0, type: 'pierce',
+      // Retrieval: a shaft on its way home cuts what it passes through.
+      damage: this.derived.traits.retrieval && thrown ? thrown.power * RETRIEVAL_MULT : 0,
+      type: this.derived.damageType,
       sprite: thrown?.sprite ?? 'proj_knife',
       tileX: fromX, tileY: fromY,
       source: 'your hand',
       returning: true,
       thrownBase: base,
+      player: this.derived.traits.retrieval ? this.derived : undefined,
+      hitIds: [],
     });
   }
 
@@ -2001,7 +2024,14 @@ export class World {
       }
       this.emit({ type: 'shake', amount: 0.4 });
     }
+    // Riposte rides on the whole swing after a parry; Bulwark on the next blow that lands.
+    if (this.anim.riposteSwing) hit.damage = Math.round(hit.damage * RIPOSTE_MULT);
+    if (this.anim.bulwarkT > 0 && this.derived.traits.bulwark) {
+      hit.damage = Math.round(hit.damage * BULWARK_MULT);
+      this.anim.bulwarkT = 0;
+    }
     e.hp -= hit.damage;
+    if (this.derived.traits.kindling) this.kindle(e);
     const life = this.state.lifetime;
     if (hit.damage > (life.bestHit ?? 0)) life.bestHit = hit.damage;
     recordDamageDealt(this.state.bestiary, def.id, hit.damage);
@@ -2015,7 +2045,7 @@ export class World {
     if (hit.effective === 'resist' && this.rng.chance(0.3)) this.msg(`The ${def.name} shrugs off your ${this.derived.damageType} blows.`, '#9a9aa8');
     if (hit.effective === 'weak' && this.rng.chance(0.3)) this.msg(`The ${def.name} reels!`, '#ff9a40');
     if (this.derived.stats.leech > 0) {
-      this.heal(Math.max(1, Math.round((hit.damage * this.derived.stats.leech) / 100)));
+      this.heal(Math.max(1, Math.round((hit.damage * this.derived.stats.leech) / 100)), 'leech');
     }
     // Lighter foes are staggered out of their wind-up.
     if (this.derived.swing.stagger) e.attackCd += this.derived.swing.stagger;
@@ -2027,6 +2057,26 @@ export class World {
       this.markRemains(e);
       this.killEnemy(e);
     }
+  }
+
+  /**
+   * Kindling: a blow with fire in it, landing on a monster below `KINDLING_AT`
+   * of its health, also burns one monster beside it for the fire share.
+   */
+  private kindle(e: EnemyState): void {
+    const fire = this.derived.stats.fire ?? 0;
+    if (fire <= 0 || e.hp >= e.maxHp * KINDLING_AT) return;
+    const near = this.floor.enemies.filter((o) => o !== e && o.ai !== 'dead' && !o.lurk && Math.abs(o.x - e.x) + Math.abs(o.y - e.y) === 1);
+    if (!near.length) return;
+    const o = this.rng.pick(near);
+    const mult = enemyDef(o.def).resist.fire ?? 1;
+    const dealt = Math.round(fire * KINDLING_SPREAD * this.anim.attackPower * mult);
+    if (dealt <= 0) return;
+    o.hp -= dealt;
+    o.hurtT = 0.3;
+    o.alert = Math.max(o.alert, 8);
+    this.emit({ type: 'float', x: o.x, y: o.y, text: `${dealt}`, color: '#ff9a50' });
+    if (o.hp <= 0) this.killEnemy(o);
   }
 
   /**
@@ -2069,7 +2119,7 @@ export class World {
       this.msg(`${def.name} falls still again.`, '#c8c0b0');
       return;
     }
-    this.refundSigil(def);
+    this.refundSigil(def, this.derived.traits.execution && (e.vuln ?? 0) > 0 ? EXECUTION_REFUND_MULT : 1);
     this.run.stats.kills++;
     recordKill(this.state.contracts, def.id);
     recordBestiaryKill(this.state.bestiary, def.id);
@@ -2145,11 +2195,11 @@ export class World {
     return (this.state.lifetime.uniquesKnown ??= []);
   }
 
-  private refundSigil(def: EnemyDef): void {
+  private refundSigil(def: EnemyDef, mult = 1): void {
     const active = this.run.sigil;
     if (!active || active.cd <= 0) return;
     const spell = sigil(active.id);
-    const base = 2 + 8 * Math.min(1, def.hp / 140);
+    const base = (2 + 8 * Math.min(1, def.hp / 140)) * mult;
     const multiplier = 1 + 0.25 * metaLevel(this.state.meta, 'attunement') + this.derived.stats.focus / 100;
     active.cd = Math.max(0, active.cd - Math.min(base * multiplier, spell.cooldown * 0.2));
   }
@@ -3658,6 +3708,11 @@ export class World {
         p.stamina -= cost;
         dmg = Math.round(dmg - absorbed);
         blocked = true;
+        // Bulwark: a heavy blow taken on the shield charges the next strike.
+        if (this.derived.traits.bulwark && absorbed >= this.derived.maxHp * BULWARK_SOAK) {
+          if (this.anim.bulwarkT <= 0) this.msg('The shield takes it. Your next blow is charged.', '#a8bccc');
+          this.anim.bulwarkT = BULWARK_WINDOW;
+        }
         // Blocking grinds the shield down (2 per block, was 1); a parry
         // costs it nothing, which is one more reason to meet the swing
         // instead of hiding behind it.
@@ -3751,8 +3806,16 @@ export class World {
         }
         pr.dx = ddx / dist;
         pr.dy = ddy / dist;
-        pr.tileX = Math.floor(pr.x);
-        pr.tileY = Math.floor(pr.y);
+        const rx = Math.floor(pr.x), ry = Math.floor(pr.y);
+        if (pr.damage > 0 && (rx !== pr.tileX || ry !== pr.tileY)) {
+          const cut = enemyAt(f, rx, ry);
+          if (cut && !pr.hitIds?.includes(cut.id)) {
+            (pr.hitIds ??= []).push(cut.id);
+            this.thrownHit(pr, cut);
+          }
+        }
+        pr.tileX = rx;
+        pr.tileY = ry;
         continue;
       }
       const tx = Math.floor(pr.x), ty = Math.floor(pr.y);
@@ -3848,7 +3911,7 @@ export class World {
     recordDamageDealt(this.state.bestiary, def.id, hit.damage);
     this.emit({ type: 'float', x: e.x, y: e.y, text: hit.crit ? `${hit.damage}!` : `${hit.damage}`, color: hit.crit ? '#ffe040' : hit.effective === 'weak' ? '#ff9a40' : hit.effective === 'resist' ? '#9a9aa8' : '#ffffff' });
     this.sfx(hit.crit ? 'crit' : 'hit', e.x, e.y);
-    if (player.stats.leech > 0) this.heal(Math.max(1, Math.round(hit.damage * player.stats.leech / 100)));
+    if (player.stats.leech > 0) this.heal(Math.max(1, Math.round(hit.damage * player.stats.leech / 100)), 'leech');
     this.wearThrown(pr.weaponUid);
     if (e.hp <= 0) this.killEnemy(e);
   }

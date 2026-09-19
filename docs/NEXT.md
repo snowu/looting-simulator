@@ -299,7 +299,9 @@ the same commit as the work it describes**, so any session can resume from it.
 | 2 | `feat/ri-2-ambushers` | Step 2: ceiling droppers, burrowing Mole and Stalker | [#19](https://github.com/snowu/looting-simulator/pull/19) open — needs a real delve on desktop and phone |
 | 3 | `feat/ri-3-walls` | Step 2: cracked walls, ore seams, sealed niches | [#20](https://github.com/snowu/looting-simulator/pull/20) open — needs a real delve on desktop and phone |
 | 4 | `feat/ri-4-gravecaller` | Step 2: the Gravecaller, shattered and sanctified remains | built, PR open — needs a real delve on desktop and phone |
-| 5+ | `feat/ri-5-oaths` … | Steps 3–7: Oaths, route fork and biome laws, lieutenants and corpse run, build properties, Seals | not started |
+| 5 | `feat/ri-5-properties` | Step 6 pulled forward: six build properties and the forge's Inscribe bench | built, PR open |
+| 6 | `feat/ri-6-oaths` | Step 3: Delve Oaths, paying out properties | not started |
+| 7+ | — | Steps 4, 5, 7: route fork and biome laws, lieutenants and corpse run, Seals | not started |
 
 Log (newest last), one line per landed piece with what is and is not done:
 
@@ -350,6 +352,18 @@ Log (newest last), one line per landed piece with what is and is not done:
   only). Not done: thrown/trap/burst kills never set remains; the Ossuary
   lieutenant (floor-wide rising) is step 5. **Step 2 is complete with this PR.**
   Next up: step 3, Delve Oaths (new branch `feat/ri-5-oaths` off this one).
+- 2026-09-19 — **Oath rewards decided: build properties now.** Asked the user
+  what Oaths should pay before step 6 existed; answer: build step 6 first. So
+  PR 5 is properties and PR 6 is Oaths.
+- 2026-09-19 — **PR 5 built** (stacked on PR 4). Six properties in
+  `src/data/properties.ts`: Riposte, Execution, Kindling (weapon), Bulwark
+  (shield), Retrieval (thrown belt), Last Flask (armour). Learned into
+  `state.properties` (save revision 25, additive), inscribed onto `Item.property`
+  at a new forge **Inscribe** bench for 150g, one per item, never on a relic.
+  Read into `UniqueTraits` flags by `applyProperty`. The dev lab learns all six.
+  No player-facing way to learn one until PR 6, so PR 5 carries no patch note;
+  PR 6's covers both. Not done: phone-width check of the bench (the browser
+  window couldn't be resized here).
 - Art previews for PR descriptions are PNG sheets from `npm run art:sheet`,
   committed under `docs/previews/ri-*.png` and embedded by raw URL (user's
   request, 2026-09-19).

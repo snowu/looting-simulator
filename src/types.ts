@@ -326,6 +326,11 @@ export interface Item {
   lootDepth?: number;
   /** Multiplier on base stats, ~0.85–1.25. */
   quality?: number;
+  /**
+   * An inscribed build property (`src/data/properties.ts`), set at the forge's
+   * Inscribe bench. **Absent means none.** One per item, never on a relic.
+   */
+  property?: string;
   crafted?: boolean;
   /** Recipe rank when forged. Absent on drops and old crafts means rank 1. */
   craftRank?: number;

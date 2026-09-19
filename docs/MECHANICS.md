@@ -948,6 +948,23 @@ The roll never offers a sigil you already know or are already carrying anywhere 
 
 A stone is **inscribed at the forge**, on its *Sigils* bench, which consumes it permanently into `state.spells`; you **attune** from the same bench. The forge's right-hand column is three tabs — Recipes, Repairs, Sigils — each badged when it wants attention, because stacking them put the recipe list a screen and a half down. Attunement cannot change mid-delve unless a town portal is open — the same rule that governs restocking.
 
+### Build properties
+
+*Files: `src/data/properties.ts`, `src/systems/properties.ts`, `applyProperty` in `src/systems/player.ts`, the hooks in `src/world/world.ts`, the Inscribe bench in `src/ui/town.ts`*
+
+A property is an effect that changes how a combat verb plays. Properties are **learned** (Delve Oaths pay them out) and kept for good in `state.properties`. At the forge's **Inscribe** bench you put a learned property onto a piece of gear, worn or stashed, for **150 gold** (`INSCRIBE_COST`). Each item holds one property, and inscribing again replaces it. Relics can't take one, and a property only counts on identified gear worn in a slot it was made for.
+
+| Property | Gear | Effect |
+|---|---|---|
+| Riposte | weapon | After a parry, your next swing within **2s** costs no stamina and deals **×1.3** |
+| Execution | weapon | Killing a monster that is reeling (`vuln`: parried or knocked out) refunds **×2** the usual sigil cooldown, within the usual 20% cap |
+| Kindling | weapon | A blow with Fire damage on a monster below **50%** health also burns one adjacent monster for its fire share (× that monster's fire resistance) |
+| Bulwark | shield | A block that soaks at least **10%** of your max health makes your next landed strike within **3s** deal **×1.5** |
+| Retrieval | thrown belt | Called-back shafts hit each monster they pass through once, for **50%** of a throw |
+| Last Flask | head, body, hands | While the flask has no charges, morsels and life leech heal **×1.5** |
+
+Riposte, Bulwark, the parry vulnerability and Marrow all multiply together. The tooltip shows the property in plain words, and its numbers on Shift or a tap.
+
 ## The bestiary codex
 
 *Files: `src/systems/bestiary.ts`, the Bestiary tab in `src/ui/town.ts`*
