@@ -38,6 +38,7 @@ import { artUrl } from '../render/art-cache';
 import { paperDoll, statSheet } from './dungeon-ui';
 import { audio } from '../audio/sfx';
 import { difficultyOf } from '../data/difficulty';
+import { PLAIN_FLASK_RAMP, draught } from '../systems/infusion';
 import { AccountSummary } from './account';
 import { openSettings, settingsGearButton } from './settings';
 import { FLASK_POTENCY, FLASK_UPGRADE_COSTS } from '../systems/healing';
@@ -904,30 +905,52 @@ export class Town {
     return h('div', { class: 'col' }, bar, body);
   }
 
+  /**
+   * The flask bench. Every candidate says what a sip would do with it in, in
+   * this material's numbers, because the draught is the whole decision.
+   */
   private infusions(): HTMLElement {
     const s = this.s;
-    const current = s.flask?.infusion;
-    const choices = s.stash.items.filter((it) =>
-      (it.kind === 'material' && material(it.ref).category !== 'valuable') ||
-      (it.kind === 'consumable' && it.ref === 'fight_milk'),
+    const current = draught(s.flask?.infusion);
+    const currentName = s.flask?.infusion === 'fight_milk' ? 'Fight Milk' : s.flask?.infusion ? material(s.flask.infusion).name : null;
+    const card = h('div', { class: 'row infusion-now' },
+      artImg('ic_potion', current?.ramp ?? PLAIN_FLASK_RAMP, 40),
+      h('div', { class: 'grow' },
+        h('div', { style: `color:${current?.color ?? '#9fe0cf'}`, text: current ? `${current.name} · ${currentName}` : 'Plain flask' }),
+        h('div', { class: 'dim small', text: current ? current.effect : 'No infusion. Every sip heals at full potency.' }),
+      ),
+      current ? btn('Make plain', () => { s.flask.infusion = null; this.commit('craft'); }, 'small') : null,
     );
-    const grid = h('div', { class: 'grid-slots' });
-    for (const it of choices) {
+    const seen = new Set<string>();
+    const choices = s.stash.items.filter((it) => {
+      if (it.kind !== 'material' && !(it.kind === 'consumable' && it.ref === 'fight_milk')) return false;
+      if (!draught(it.ref) || it.ref === s.flask?.infusion || seen.has(it.ref)) return false;
+      seen.add(it.ref);
+      return true;
+    });
+    const rows = choices.map((it) => {
+      const d = draught(it.ref)!;
       const name = it.ref === 'fight_milk' ? 'Fight Milk' : material(it.ref).name;
-      grid.append(itemSlot(it, { size: 44, tip: () => itemTooltip(it, { hint: 'Consume one and replace the current flask infusion' }), onclick: () => {
-        if (it.kind === 'material') removeOf(s.stash, 'material', it.ref, 1);
-        else removeOf(s.stash, 'consumable', it.ref, 1);
-        s.flask.infusion = it.ref;
-        this.ctx.toast(`The flask is infused with ${name}.`, '#9fe0cf');
-        this.commit('craft');
-      }}));
-    }
+      return h('div', { class: 'row repair-row' },
+        itemSlot(it, { size: 34, tip: () => itemTooltip(it) }),
+        h('div', { class: 'grow' },
+          h('div', { style: `color:${d.color}`, text: `${d.name} · ${name}` }),
+          h('div', { class: 'dim small', text: d.effect }),
+        ),
+        btn('Infuse', () => {
+          if (it.kind === 'material') removeOf(s.stash, 'material', it.ref, 1);
+          else removeOf(s.stash, 'consumable', it.ref, 1);
+          s.flask.infusion = it.ref;
+          this.ctx.toast(`The flask holds a ${d.name}.`, d.color);
+          this.commit('craft');
+        }, 'small'),
+      );
+    });
     return h('div', { class: 'pane frame' },
       h('h3', { text: 'Flask infusion' }),
-      h('p', { text: current ? `Current: ${current === 'fight_milk' ? 'Fight Milk' : material(current).name}` : 'Current: plain flask' }),
-      h('p', { class: 'dim small', text: 'A material is consumed. Replacing it destroys the old infusion. Most infusions trade 10 points of healing for a six-second effect.' }),
-      current ? btn('Make flask plain', () => { s.flask.infusion = null; this.commit('craft'); }, 'small') : null,
-      choices.length ? grid : h('p', { class: 'dim', text: 'No suitable material in the stash.' }),
+      card,
+      h('p', { class: 'dim small', text: 'One material goes into the flask and changes what a sip does: hide heals more, cloth restores breath, wood sips faster, metal wards the next blow, bone readies a strike, and fire, frost, holy and shadow gems kindle your weapon. The material is consumed; replacing it destroys the old one.' }),
+      rows.length ? h('div', { class: 'col' }, ...rows) : h('p', { class: 'dim', text: 'Nothing in the stash will take to the flask.' }),
     );
   }
 

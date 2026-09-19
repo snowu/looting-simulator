@@ -8,6 +8,8 @@ import { createEnemy, FLOOR } from '../systems/dungeon';
 import { makeConsumable, makeMaterial } from '../systems/items';
 import { startRun } from '../systems/run';
 import { World } from '../world/world';
+import { migrateSave } from '../state/migrations';
+import { draught } from '../systems/infusion';
 
 function tick(w: World, seconds: number): void {
   for (let t = 0; t < seconds; t += 1 / 60) w.update(1 / 60);
@@ -126,26 +128,85 @@ describe('healing rework', () => {
     expect(w.anim.blockRaise).toBeLessThan(0.5);
   });
 
-  it('grants a bone infusion attack once, not twice', () => {
-    const w = arena(13);
-    const base = w.derived.attack;
-    const baseStats = w.derived.stats.attack;
-    w.state.flask.infusion = 'bone';
-    w.anim.infusionT = 6;
-    w.refreshDerived();
-    expect(w.derived.stats.attack - baseStats).toBe(1);
-    expect(w.derived.attack - base).toBe(1);
+  it('a quick draught shortens the sip and a thick one heals more', () => {
+    const quick = arena(13);
+    quick.state.flask.infusion = 'starwood';
+    quick.player.hp = 20;
+    expect(quick.sipFlask()).toBe(true);
+    expect(quick.anim.sip).toBeCloseTo(0.2);
+
+    const heal = (ref: string | null): number => {
+      const w = arena(13);
+      w.state.flask.infusion = ref;
+      w.player.hp = 10;
+      w.sipFlask();
+      tick(w, 0.6);
+      return w.player.hp - 10;
+    };
+    expect(heal('rat_hide')).toBeGreaterThan(heal(null));
+    expect(heal('timber')).toBeLessThan(heal(null));
   });
 
-  it('grants a gem infusion as its catalyst affix without touching attack', () => {
+  it('an iron draught blunts the next blow once', () => {
     const w = arena(14);
+    w.state.flask.infusion = 'star_iron';
+    w.player.hp = 20;
+    w.sipFlask();
+    tick(w, 0.6);
+    expect(w.anim.draught?.kind).toBe('iron');
+    const hp = w.player.hp;
+    const t = w.frontTile(1);
+    (w as unknown as { damagePlayer: (a: number, t: string, x: number, y: number, s: string) => void }).damagePlayer(10, 'slash', t.x, t.y, 'Test');
+    expect(w.player.hp).toBe(hp);
+    expect(w.anim.draught).toBeNull();
+  });
+
+  it('a marrow draught doubles the next landed strike and staggers it', () => {
+    const strike = (ref: string | null): { dealt: number; ai: string; left: unknown } => {
+      const w = arena(15);
+      w.state.flask.infusion = ref;
+      w.player.hp = 20;
+      w.sipFlask();
+      tick(w, 0.6);
+      const t = w.frontTile(1);
+      const e = createEnemy(enemyDef('skeleton'), t.x, t.y, turnAround(w.player.facing), 'striker', 1);
+      e.hp = e.maxHp = 9999;
+      e.ai = 'windup'; e.timer = 1;
+      w.floor.enemies.push(e);
+      (w as unknown as { rng: unknown }).rng = createRng(7);
+      (w as unknown as { hitEnemy: (e: unknown) => void }).hitEnemy(e);
+      return { dealt: 9999 - e.hp, ai: e.ai, left: w.anim.draught };
+    };
+    const plain = strike(null);
+    const marrow = strike('titan_bone');
+    expect(marrow.dealt).toBeGreaterThanOrEqual(plain.dealt * 2 - 1);
+    expect(marrow.ai).toBe('recover');
+    expect(marrow.left).toBeNull();
+  });
+
+  it('a kindled draught lends the gem its catalyst for a while, without touching attack', () => {
+    const w = arena(16);
     const base = w.derived.attack;
     const baseLeech = w.derived.stats.leech;
     w.state.flask.infusion = 'shadow_essence';
-    w.anim.infusionT = 6;
-    w.refreshDerived();
+    w.player.hp = 20;
+    w.sipFlask();
+    tick(w, 0.6);
     expect(w.derived.stats.leech - baseLeech).toBeGreaterThan(0);
     expect(w.derived.attack - base).toBe(0);
+    tick(w, 8.1);
+    expect(w.derived.stats.leech).toBe(baseLeech);
+  });
+
+  it('gives back a stat gem that can no longer sit in the flask', () => {
+    const state = newGame(createRng(17));
+    state.flask.infusion = 'emerald';
+    (state as { revision?: number }).revision = 23;
+    const out = migrateSave(state);
+    expect(out.flask.infusion).toBeNull();
+    expect(out.stash.items.some((it) => it.ref === 'emerald')).toBe(true);
+    expect(draught('emerald')).toBeNull();
+    expect(draught('flame_shard')?.kind).toBe('kindled');
   });
 
   it('refuses to drink fight milk and points at the forge instead', () => {

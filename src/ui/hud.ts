@@ -8,6 +8,7 @@ import { itemIcon } from '../systems/items';
 import { DungeonRenderer } from '../render/dungeon-renderer';
 import { BLESSINGS, CURSES, World } from '../world/world';
 import { drawMap } from './automap';
+import { PLAIN_FLASK_RAMP, draught } from '../systems/infusion';
 import { artImg, esc, h } from './dom';
 import { settingsGearButton } from './settings';
 
@@ -44,6 +45,7 @@ export class Hud {
   private floats: Float[] = [];
   private lines: LogLine[] = [];
   private quickKey = '';
+  private flaskSlot: HTMLElement | null = null;
   private statusKey = '';
   /**
    * The sigil readout. It had none at all: a cast spent stamina and the only
@@ -299,7 +301,8 @@ export class Hud {
       counts.set(it.ref, (counts.get(it.ref) ?? 0) + it.qty);
     }
     const flask = world.run.flask;
-    const qk = `${flask.charges}/${world.state.flask?.shards ?? 0}:${flask.dregs.toFixed(1)}|${seen.slice(0, 3).map((r) => `${r}:${counts.get(r)}`).join('|')}`;
+    const infusion = world.state.flask?.infusion ?? '';
+    const qk = `${infusion}|${flask.charges}/${world.state.flask?.shards ?? 0}:${flask.dregs.toFixed(1)}|${seen.slice(0, 3).map((r) => `${r}:${counts.get(r)}`).join('|')}`;
     if (qk !== this.quickKey) {
       this.quickKey = qk;
       this.quickDrag = null;
@@ -309,9 +312,12 @@ export class Hud {
       // Charges left as one number, like every other stack on the bar: "3/3"
       // in the pixel font ran into the bottle and the dregs bar and read as
       // noise. The maximum lives in the tooltip.
-      const flaskSlot = h('div', { class: `slot flask-slot${flask.charges ? '' : ' dry'}`, style: `--sz:44px;--dregs:${dregs}%`, title: `Flask: ${flask.charges} of ${max} charges` });
+      const d = draught(infusion);
+      const title = `Flask: ${flask.charges} of ${max} charges${d ? `\n${d.name}: ${d.effect}` : ''}`;
+      const flaskSlot = h('div', { class: `slot flask-slot${flask.charges ? '' : ' dry'}`, style: `--sz:44px;--dregs:${dregs}%;--fxc:${d?.color ?? '#63d5bd'}`, title });
       flaskSlot.addEventListener('click', () => this.actions.flask());
-      flaskSlot.append(artImg('ic_potion', ['#173536', '#27706d', '#63b9a9', '#d2fff0'], 36), h('span', { class: 'qty', text: String(flask.charges) }));
+      flaskSlot.append(artImg('ic_potion', d?.ramp ?? PLAIN_FLASK_RAMP, 36), h('span', { class: 'qty', text: String(flask.charges) }));
+      this.flaskSlot = flaskSlot;
       this.quick.replaceChildren(
         h('div', { class: 'qs' }, flaskSlot, h('span', { class: 'key', text: '1' })),
         ...[0, 1, 2].map((i) => {
@@ -341,6 +347,10 @@ export class Hud {
         }),
       );
     }
+
+    // The draught waiting to be spent drains across the top of the flask.
+    const fx = world.anim.draught;
+    this.flaskSlot?.style.setProperty('--fx', fx ? String(Math.max(0, fx.t / fx.total)) : '0');
 
     const hint = world.interactionHint();
     this.prompt.hidden = !hint || world.busy;

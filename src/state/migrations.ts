@@ -6,7 +6,8 @@ import { newId } from '../core/id';
 import { STARTER_RECIPES } from '../data/recipes';
 import { MATERIALS } from '../data/materials';
 import { itemBase } from '../data/items';
-import { itemValue } from '../systems/items';
+import { itemValue, makeMaterial } from '../systems/items';
+import { draught } from '../systems/infusion';
 import { flaskMax } from '../systems/healing';
 import { findSigil } from '../data/spells';
 
@@ -25,7 +26,7 @@ import { findSigil } from '../data/spells';
  */
 
 /** Bump this (and push a migration) whenever a field is added to the save. */
-export const SAVE_REVISION = 23;
+export const SAVE_REVISION = 24;
 
 type AnyState = GameState & Record<string, unknown>;
 
@@ -220,6 +221,18 @@ const MIGRATIONS: ((s: AnyState) => void)[] = [
   // from uploading a Hardcore save it cannot honestly play.
   (s) => {
     s.fallen ??= null;
+  },
+  // 23 → 24: flask infusions became draughts. The gems whose stat has no sip
+  // to give (Jade, Crystal, Moonstone, Emerald, Wardstone) can no longer sit
+  // in the flask; whoever had one in gets the gem back, or its value if the
+  // stash is full.
+  (s) => {
+    const ref = s.flask?.infusion;
+    if (!ref || draught(ref)) return;
+    const mat = MATERIALS.find((m) => m.id === ref);
+    s.flask.infusion = null;
+    if (!mat) return;
+    if (!s.stash || addItem(s.stash, makeMaterial(ref)) > 0) s.gold = Math.max(0, Number(s.gold) || 0) + mat.value;
   },
 ];
 

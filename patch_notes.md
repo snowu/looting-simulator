@@ -1,3 +1,23 @@
+# The flask takes draughts
+
+*Additive save change (revision 24). A flask holding Jade, Crystal, Moonstone, Emerald or Wardstone is emptied and the gem goes back to the stash (or its value in gold if the stash is full). Every other infusion carries over and now does its new thing.*
+
+Flask infusions used to add a small stat for six seconds after each sip. You couldn't feel it, and two of them were broken outright: wood's Speed never reached swing timing, and Emerald's loot find went to a stat the loot rolls never read. Each family now changes what the sip itself does, scaled by the material's tier:
+
+- **Thick** (hide): the sip heals 4–12 points more.
+- **Breath** (cloth): refills stamina; costs 10 points of healing at tier 1, down to 2 at tier 5.
+- **Quick** (wood): the sip takes 0.40s down to 0.20s instead of 0.5s, so your guard is down for less.
+- **Iron** (metal): the next blow within 12s is reduced by up to 10–35% of your max health.
+- **Marrow** (bone): the next strike you land within 6s deals x1.3 to x2 and staggers anything but the King.
+- **Kindled** (fire, frost, holy and shadow gems): your weapon carries the gem's element, or leech, for 8s at twice the strength the forge would give it.
+- **Fight Milk** is unchanged: always on from the moment you enter.
+
+Every draught except Thick costs healing, as before. The forge bench now lists each material with its draught name and its exact effect, and shows the current infusion at the top. In a delve the flask icon takes the draught's colour, its tooltip says what it does, each sip names its effect in the log, and a bar across the top of the flask drains while an Iron, Marrow or Kindled effect is waiting to be used.
+
+Validation: typecheck, production build, full test suite, and new tests for the Quick sip time, Thick and costed heals, the Iron ward absorbing one blow, Marrow doubling and staggering one strike, Kindled leech expiring after 8s without touching Attack, and the gem refund migration.
+
+---
+
 # Hardcore: Hard with one life
 
 *Additive save change (revision 23). Existing saves migrate alive and keep their difficulty; nothing about Normal or Hard changes.*

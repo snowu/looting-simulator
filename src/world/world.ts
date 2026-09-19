@@ -53,9 +53,8 @@ import type { SfxName } from '../audio/sfx';
 import { SigilId, findSigil, sigil } from '../data/spells';
 import { makeSigil, unknownSigils } from '../systems/spells';
 import { CHEW_SECONDS, DREGS_FRACTION, FLASK_POTENCY, MORSEL_HEAL, MORSEL_ROT_SECONDS, SIP_BUFFER_SECONDS, SIP_SECONDS, flaskMax, morselChance } from '../systems/healing';
-import { findMaterial, secondaryMaterialMods, catalystAffixBonus } from '../data/materials';
-import { affix } from '../data/affixes';
-import { medianAffix } from '../systems/crafting';
+import { findMaterial } from '../data/materials';
+import { Draught, KINDLE_SECONDS, MARROW_SECONDS, WARD_SECONDS, draught } from '../systems/infusion';
 import { addStats, Stats } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -165,7 +164,8 @@ export interface PlayerAnim {
   transition: { t: number; dir: 'down' | 'up'; done: boolean } | null;
   sip: number | null;
   chew: { id: string; left: number; delivered: number; total: number } | null;
-  infusionT: number;
+  /** The infused flask's on-sip effect, waiting to be spent. One at a time. */
+  draught: { kind: 'iron' | 'marrow' | 'kindled'; t: number; total: number } | null;
 }
 
 const STEP_TIME = 0.24;
@@ -479,7 +479,7 @@ export class World {
       blockRaise: 0, blockT: Infinity, parryArmed: false, parryCd: 0,
       rangedParryT: 0, parryInvulnT: 0, stunT: 0, steps: 0, parryStacks: 0,
       sinceStamina: 10, windedCd: 0, recall: null, cast: null, snuffT: 0, unseenT: 0, ward: null, transition: null,
-      sip: null, chew: null, infusionT: 0,
+      sip: null, chew: null, draught: null,
     };
     this.trail.push({ x: this.player.x, y: this.player.y, facing: this.player.facing, time: this.run.stats.time });
     this.reveal();
@@ -523,20 +523,12 @@ export class World {
     // hunted is read in sightPenalty (+3); brittle is read in wear (+1).
     for (const id of this.run.tonics ?? []) TONICS[id]?.apply(this.derived);
     if (this.state.flask?.infusion === 'fight_milk') TONICS.fight_milk.apply(this.derived);
-    const infused = this.state.flask?.infusion ? findMaterial(this.state.flask.infusion) : undefined;
-    if (infused && this.anim?.infusionT > 0) {
-      // One material-bonus table, not two: structural infusions grant the same
-      // family mods secondary crafting uses, and a gem grants its catalyst
-      // affix at the value the forge would roll for it. Elemental stats deal
-      // damage through the ELEMENTS loop in combat, so they must NOT also land
-      // in attack — that dealt every gem twice, and bone's attack twice over.
-      const mods: Partial<Stats> = infused.category === 'gem' && infused.catalystAffix
-        ? { [affix(infused.catalystAffix).stat]: medianAffix(infused.catalystAffix, infused.tier * 2) + catalystAffixBonus(infused) }
-        : secondaryMaterialMods(infused);
-      addStats(this.derived.stats, mods);
-      this.derived.attack += mods.attack ?? 0;
-      this.derived.maxHp += mods.health ?? 0;
-      this.derived.maxStamina += mods.stamina ?? 0;
+    // A kindled blade carries its gem's catalyst stat. Elemental stats deal
+    // damage through the ELEMENTS loop in combat, so they must NOT also land
+    // in attack — that dealt every gem twice.
+    if (this.anim?.draught?.kind === 'kindled') {
+      const kindle = draught(this.state.flask?.infusion)?.kindle;
+      if (kindle) addStats(this.derived.stats, kindle);
     }
     this.player.hp = Math.min(this.player.hp, this.derived.maxHp);
     this.player.stamina = Math.min(this.player.stamina, this.derived.maxStamina);
@@ -673,6 +665,38 @@ export class World {
     return this.anim.moveT < 1 || this.anim.turnT < 1;
   }
 
+  /**
+   * What the infusion does once the sip has landed. Named every time, so the
+   * player learns what their flask is by drinking it.
+   */
+  private drinkDraught(d: Draught | null): void {
+    if (!d) return;
+    const a = this.anim;
+    switch (d.kind) {
+      case 'breath':
+        this.player.stamina = this.derived.maxStamina;
+        this.msg(`${d.name}: your wind comes back.`, d.color);
+        break;
+      case 'iron':
+        a.draught = { kind: 'iron', t: WARD_SECONDS, total: WARD_SECONDS };
+        this.msg(`${d.name}: iron settles over you. The next blow is blunted.`, d.color);
+        break;
+      case 'marrow':
+        a.draught = { kind: 'marrow', t: MARROW_SECONDS, total: MARROW_SECONDS };
+        this.msg(`${d.name}: your arm fills. Make the next strike count.`, d.color);
+        break;
+      case 'kindled':
+        a.draught = { kind: 'kindled', t: KINDLE_SECONDS, total: KINDLE_SECONDS };
+        this.refreshDerived();
+        this.msg(`${d.name}: your weapon takes it. ${d.kindleLabel}.`, d.color);
+        break;
+      default:
+        // Thick, Quick and Fight Milk are in the heal, the sip time and the
+        // delve itself; there is nothing further to announce.
+        break;
+    }
+  }
+
   /** Begin the flask commitment. The charge is spent only when the sip lands. */
   sipFlask(): boolean {
     const flask = (this.run.flask ??= { charges: flaskMax(this.state.flask?.shards ?? 0), dregs: 0 });
@@ -694,7 +718,7 @@ export class World {
       this.sipBuffered = SIP_BUFFER_SECONDS;
       return false;
     }
-    this.anim.sip = SIP_SECONDS;
+    this.anim.sip = draught(this.state.flask?.infusion)?.sipSeconds ?? SIP_SECONDS;
     this.held.clear();
     this.setBlock(false);
     return true;
@@ -714,9 +738,16 @@ export class World {
     if (this.run.outcome !== 'active') return;
     this.run.stats.time += dt;
     const a = this.anim;
-    if (a.infusionT > 0) {
-      a.infusionT = Math.max(0, a.infusionT - dt);
-      if (a.infusionT === 0) this.refreshDerived();
+    if (a.draught) {
+      a.draught.t -= dt;
+      if (a.draught.t <= 0) {
+        const kind = a.draught.kind;
+        a.draught = null;
+        if (kind === 'kindled') {
+          this.refreshDerived();
+          this.msg('The kindling on your blade gutters out.', '#9a9aa8');
+        }
+      }
     }
 
     // Rot is run-clock based and therefore pauses naturally in town. Floors
@@ -846,18 +877,10 @@ export class World {
         if (flask.charges > 0) {
           flask.charges--;
           const level = Math.max(0, Math.min(4, this.state.flask?.potency ?? 0));
-          let fraction = FLASK_POTENCY[level];
-          const infusion = this.state.flask?.infusion;
-          const mat = infusion ? findMaterial(infusion) : undefined;
-          if (infusion) fraction -= 0.1;
-          if (mat?.category === 'hide') fraction = FLASK_POTENCY[level] + 0.05;
-          this.heal(this.derived.maxHp * fraction);
-          if (mat?.category === 'cloth') this.player.stamina = this.derived.maxStamina;
-          if (mat && mat.category !== 'hide' && mat.category !== 'cloth') {
-            a.infusionT = 6;
-            this.refreshDerived();
-          }
+          const d = draught(this.state.flask?.infusion);
+          this.heal(this.derived.maxHp * (FLASK_POTENCY[level] + (d?.heal ?? 0) / 100));
           this.sfx('drink');
+          this.drinkDraught(d);
         }
       }
     }
@@ -1925,6 +1948,18 @@ export class World {
     // Banked parries ride on the next blows and only the next blows.
     const fed = this.anim.parryStacks * this.derived.traits.parryFeed;
     if (fed > 0) hit.damage = Math.round(hit.damage * (1 + fed));
+    // A Marrow Draught rides on the first blow that lands, and only that one.
+    const marrow = this.anim.draught?.kind === 'marrow' ? draught(this.state.flask?.infusion)?.marrowMult ?? 1 : 1;
+    if (marrow > 1) {
+      hit.damage = Math.round(hit.damage * marrow);
+      this.anim.draught = null;
+      if (def.behavior !== 'boss') {
+        e.ai = 'recover';
+        e.timer = Math.max(e.timer, 0.8);
+        e.attackCd = Math.max(e.attackCd, 1);
+      }
+      this.emit({ type: 'shake', amount: 0.4 });
+    }
     e.hp -= hit.damage;
     const life = this.state.lifetime;
     if (hit.damage > (life.bestHit ?? 0)) life.bestHit = hit.damage;
@@ -3557,6 +3592,17 @@ export class World {
     if (dmg > 0 && !blocked && this.anim.parryStacks > 0) {
       this.anim.parryStacks = 0;
       if (this.derived.traits.parryFeedMax > 0) this.msg('The blade goes cold.', '#9a9aa8');
+    }
+    // An Iron Draught blunts the next blow that gets through, then is spent.
+    if (dmg > 0 && this.anim.draught?.kind === 'iron') {
+      const cap = Math.round(this.derived.maxHp * (draught(this.state.flask?.infusion)?.wardFrac ?? 0));
+      const soaked = Math.min(dmg, cap);
+      dmg -= soaked;
+      this.anim.draught = null;
+      if (soaked > 0) {
+        this.emit({ type: 'float', x: p.x, y: p.y, text: `-${soaked}`, color: '#a8c0e0' });
+        this.msg(dmg > 0 ? 'The iron takes the worst of it.' : 'The iron takes the blow.', '#a8c0e0');
+      }
     }
     p.hp -= dmg;
     if (this.anim.cast) {

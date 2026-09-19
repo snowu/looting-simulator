@@ -119,6 +119,8 @@ health a weak choice rather than a wasted one. It resets each delve.
 
 ## 2. Infusions
 
+> **Superseded 2026-09-19:** the per-sip six-second stat buffs below were replaced by draughts, one sip verb per family (Thick, Breath, Quick, Iron, Marrow, Kindled). `docs/MECHANICS.md` and `src/systems/infusion.ts` hold the current rules.
+
 At the forge (a bench next to Sigils), you place **one material** into the
 flask. The material is **consumed**. The infusion **stays until you replace it**,
 and replacing destroys the old one. It can only be changed in town (or while a
