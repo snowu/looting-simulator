@@ -8,6 +8,7 @@ import {
   VENGEFUL_DAMAGE_MULT, VENGEFUL_FUSE,
 } from '../data/elites';
 import { CACHE_MIN_GOLD, CRACK_BLOWS, CRACK_NOISE, CRACK_WEAR, Crack, SEAM_ORE } from '../data/walls';
+import { RAISE_BEAT, RAISE_CHANNEL, RAISE_COOLDOWN, RAISE_HP, RAISE_LIMIT, RAISE_REACH, SHATTER_OVERKILL } from '../data/necromancy';
 import {
   AMBUSH_BEAT, AMBUSH_TRIGGER, BURROW_MAX, BURROW_MIN, DIVE_AT, DROP_SECONDS, KNOCKOUT_STUN, MOUND_STEP, SURFACE_SECONDS,
 } from '../data/ambush';
@@ -2022,7 +2023,28 @@ export class World {
       e.ai = 'recover';
       e.timer = 0.5;
     }
-    if (e.hp <= 0) this.killEnemy(e);
+    if (e.hp <= 0) {
+      this.markRemains(e);
+      this.killEnemy(e);
+    }
+  }
+
+  /**
+   * How an undead monster fell, for any Gravecaller nearby: a blunt killing
+   * blow, or one that overkills by `SHATTER_OVERKILL`, shatters the bones; a
+   * killing blow carrying holy damage, or struck from consecrated ground,
+   * sanctifies them. Either way nothing raises it.
+   */
+  private markRemains(e: EnemyState): void {
+    if (!enemyDef(e.def).undead) return;
+    const overkill = -e.hp >= e.maxHp * SHATTER_OVERKILL;
+    const ward = this.anim.ward;
+    const consecrated = !!ward && ward.x === this.player.x && ward.y === this.player.y;
+    if (this.derived.damageType === 'blunt' || overkill) e.remains = 'shattered';
+    else if ((this.derived.stats.holy ?? 0) > 0 || consecrated) e.remains = 'sanctified';
+    else return;
+    const caller = this.floor.enemies.some((g) => g.ai !== 'dead' && enemyDef(g.def).raises && Math.abs(g.x - e.x) + Math.abs(g.y - e.y) <= 10);
+    if (caller) this.msg(e.remains === 'shattered' ? 'The bones shatter. Nothing will call these back.' : 'The remains are sanctified. They will stay down.', '#e8e0c0');
   }
 
   private killEnemy(e: EnemyState): void {
@@ -3436,6 +3458,9 @@ export class World {
       // The guard rhythm ticks while the bearer is free to hold it.
       this.updateGuard(e, def, dt, e.alert > 0 && dist <= GUARD_RANGE);
 
+      // A Gravecaller chanting over a corpse stands still until it finishes or is broken.
+      if (def.raises && this.updateRaiser(e, def, dt)) continue;
+
       // A thief with your things in its hands does nothing but run.
       if (e.stolen?.length && e.ai !== 'windup' && e.ai !== 'recover') {
         if (this.runWithLoot(e, def, dist, sees, dt)) continue;
@@ -4047,6 +4072,75 @@ export class World {
     } else {
       this.msg('The wall gives way. A way through!', '#e8d8a0');
     }
+  }
+
+  /**
+   * One tick of a Gravecaller's necromancy. Returns true while it is chanting,
+   * which is all it does then. Any blow breaks the chant (`hurtT` is set by
+   * every hit), as does the corpse being shattered, sanctified or already up.
+   */
+  private updateRaiser(e: EnemyState, def: EnemyDef, dt: number): boolean {
+    const f = this.floor;
+    e.raiseCd = Math.max(0, (e.raiseCd ?? 0) - dt);
+    if (e.channel) {
+      const target = f.enemies.find((g) => g.id === e.channel!.target);
+      if (e.hurtT > 0 || e.ai === 'recover') {
+        delete e.channel;
+        e.raiseCd = 1.5;
+        this.msg('The chant breaks!', '#ffe8a0');
+        return false;
+      }
+      if (!target || target.ai !== 'dead' || target.remains) {
+        delete e.channel;
+        return false;
+      }
+      e.channel.t -= dt;
+      if (e.channel.t <= 0) {
+        delete e.channel;
+        e.raiseCd = RAISE_COOLDOWN;
+        e.raised = (e.raised ?? 0) + 1;
+        this.raiseCorpse(target);
+      }
+      return true;
+    }
+    if (e.alert <= 0 || e.raiseCd > 0 || (e.raised ?? 0) >= RAISE_LIMIT || e.ai === 'windup' || e.ai === 'recover') return false;
+    const taken = new Set(f.enemies.map((g) => g.channel?.target).filter(Boolean));
+    const corpse = f.enemies
+      .filter((g) => g.ai === 'dead' && g !== e && !g.remains && g.burstT === undefined && !taken.has(g.id)
+        && enemyDef(g.def).undead && enemyDef(g.def).behavior !== 'boss'
+        && Math.abs(g.x - e.x) + Math.abs(g.y - e.y) <= RAISE_REACH && this.los(e.x, e.y, g.x, g.y))
+      .sort((a, b) => Math.abs(a.x - e.x) + Math.abs(a.y - e.y) - (Math.abs(b.x - e.x) + Math.abs(b.y - e.y)))[0];
+    if (!corpse) return false;
+    e.channel = { target: corpse.id, t: RAISE_CHANNEL };
+    const d = dirOf(Math.sign(corpse.x - e.x), Math.sign(corpse.y - e.y));
+    if (d !== null) e.facing = d;
+    this.sfx('magic', e.x, e.y);
+    this.msg(`The ${def.name} begins to chant over the fallen ${enemyDef(corpse.def).name}.`, '#a0e0a0');
+    return true;
+  }
+
+  /** A corpse stands back up: risen, so it pays nothing twice, and not swinging yet. */
+  private raiseCorpse(g: EnemyState): void {
+    const spot = this.freeTileForRise(g.x, g.y);
+    g.hp = Math.max(1, Math.round(g.maxHp * RAISE_HP));
+    g.risen = true;
+    g.ai = 'recover';
+    g.timer = RAISE_BEAT;
+    g.attackCd = RAISE_BEAT + 0.2;
+    g.deadT = 0;
+    g.hurtT = 0;
+    g.alert = 8;
+    g.vuln = 0;
+    g.guard = 'down';
+    g.blocks = 0;
+    g.x = g.fromX = spot.x;
+    g.y = g.fromY = spot.y;
+    g.moveT = 1;
+    g.lastSeenX = this.player.x;
+    g.lastSeenY = this.player.y;
+    this.sfx('alert', g.x, g.y);
+    this.emit({ type: 'shake', amount: 0.2 });
+    this.msg(`The ${enemyDef(g.def).name} stands back up!`, '#a0e0a0');
   }
 
   /** Struck where it hides: dragged out early, reeling, open to double damage. */

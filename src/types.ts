@@ -437,6 +437,12 @@ export interface EnemyDef {
    * surfaces beside you — behind you, if it can. See `src/data/ambush.ts`.
    */
   burrows?: boolean;
+  /**
+   * Raises the undead: channels over a fallen one nearby and stands it back
+   * up, unless its remains were shattered or sanctified. See
+   * `src/data/necromancy.ts`.
+   */
+  raises?: boolean;
   minDepth: number;
   maxDepth: number;
   weight: number;

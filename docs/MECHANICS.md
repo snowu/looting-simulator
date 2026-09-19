@@ -348,6 +348,21 @@ Eligible monsters independently roll a morsel at `0.28 − 0.024 × (depth − 1
 - **Thieves** (the Goblin Cutpurse, and any *Thieving* elite): a melee blow that gets through (not parried, not blocked, and you survive it) takes one thing from your backpack: a piece of gear whole, or half a stack rounded up. Equipped gear is never at risk. The thief then flees at once, glowing gold so you can chase it in the dark, and the target bar says what it is carrying. It is a chase you are meant to win. Laden, it steps **1.25×** slower (`THIEF_LADEN`). After a step in your sight it has a **12%** chance to fumble its prize and stand still for **0.7s**. It runs in a panic, not cleverly: any step that isn't towards you, preferring to keep going straight, so it will bolt into a dead end. Out of your sight it goes to ground, creeping one tile every **1.5s** (`THIEF_CREEP`) and still glowing. Every 3 steps, up to 6 times, 1–3 coins spill from its purse, leaving a trail. Kill it and it drops what it took. If it spends **30 seconds** (`THIEF_ESCAPE`) out of your sight, it gets away and the item is gone. Cornered, it fights. It steals once; a thief that is already carrying does not steal again.
 - **Boss:** melee when adjacent, otherwise a three-bolt shadow volley when aligned.
 
+### The Gravecaller and remains
+
+*Files: `src/data/necromancy.ts`, the Gravecaller pass at the end of generation in `src/systems/dungeon.ts`, `markRemains` / `updateRaiser` / `raiseCorpse` in `src/world/world.ts`*
+
+**The Gravecaller** is a hooded skeleton with a skull-topped staff: 34 health, 7 shadow attack, undead resistances (weak to blunt and holy), sight 8. It is never in the ordinary spawn pool. Its own pass places one on an **Ossuary or Catacombs** floor at depth 2+, with a `50% + 10% × (depth − 2)` chance, in a room that already has undead in it where possible. Those biomes only appear at depths 1–3, so in practice that means depths 2–3. It keeps about 3 tiles away and only swings if cornered.
+
+**The chant.** When it's aware of you, off cooldown and has raised fewer than **3** this life, it picks the nearest fallen **undead** within **4 tiles** in its line of sight and chants over it for **2s** (`RAISE_CHANNEL`). The corpse glows green and is drawn upright as the chant runs. When the chant completes, the corpse stands at **50%** health, `risen` (it pays nothing when it falls again), in recovery for 0.8s before it may wind up. Then **6s** of cooldown. Goblins, rats and the like stay dead.
+
+**Three answers:**
+- **Break the chant.** Any damage to the Gravecaller breaks it (1.5s before it can start again). It's under the stagger threshold, so thrown shafts and reflected bolts work at range.
+- **Shatter the remains.** A blunt killing blow, or one that overkills by **25%** of the monster's health (`SHATTER_OVERKILL`), leaves bones that can't be raised.
+- **Sanctify them.** A killing blow while you have any Holy damage, or struck while standing on Threshold's consecrated tile, leaves remains that can't be raised.
+
+The log says so ("The bones shatter…", "The remains are sanctified…") when a Gravecaller is within 10 tiles to care. Only melee killing blows set remains; a kill by a trap, a thrown shaft or a Vengeful burst leaves ordinary remains. The placement pass doesn't mark its tile as occupied, so loose loot and keys land exactly where they always did. The Hard golden test removes it and still matches the pre-elite hash.
+
 ### Ambushers
 
 *Files: `src/data/ambush.ts`, the ambush pass at the end of generation in `src/systems/dungeon.ts`, `updateLurker` / `emerge` / `knockOut` / `dive` in `src/world/world.ts`*
