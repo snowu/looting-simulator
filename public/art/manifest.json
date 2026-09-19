@@ -94,6 +94,7 @@
   "ward_threshold_dim",
   "trap_dart_spent",
   "trap_spikes_spent",
+  "mound",
   "trap_alarm_spent",
   "town_portal",
   "sconce",

@@ -296,7 +296,7 @@ the same commit as the work it describes**, so any session can resume from it.
 | # | Branch | Scope | Status |
 |---|---|---|---|
 | 1 | `feat/ri-1-elites` | Step 1: elite traits, thieving Cutpurse | [#18](https://github.com/snowu/looting-simulator/pull/18) open — needs a real delve on desktop and phone |
-| 2 | `feat/ri-2-ambushers` | Step 2: ceiling droppers, burrowing Mole and Stalker | not started |
+| 2 | `feat/ri-2-ambushers` | Step 2: ceiling droppers, burrowing Mole and Stalker | built, PR open — needs a real delve on desktop and phone |
 | 3 | `feat/ri-3-walls` | Step 2: cracked walls, ore seams, sealed niches | not started |
 | 4 | `feat/ri-4-gravecaller` | Step 2: the Gravecaller, shattered and sanctified remains | not started |
 | 5+ | — | Steps 3–7: Oaths, route fork and biome laws, lieutenants and corpse run, build properties, Seals | not started |
@@ -317,6 +317,19 @@ Log (newest last), one line per landed piece with what is and is not done:
   Checked in the dev lab (elite picker added to the F3 console); not yet played
   through a real delve or on a phone. Harness: careful iron kit deaths
   29% → 46%, other profiles within noise; watch this in play.
+- 2026-09-19 — **PR 2 built** (stacked on PR 1). `EnemyState.lurk`
+  ('ceiling' | 'buried'): lurkers are invisible to `enemyAt`, `threatNear`,
+  `occupied`, the map and light until they come out. Ceiling Crawler (new
+  weight-0 def, Cave Spider art) placed over corridors on the `ambush:` stream,
+  1 at D2–3 and 2 at D4–5; spotted like traps and by Sounding; drops 0.6s after
+  you come within 1 tile. Half of Tunnel Stalkers on Burrows/Mines start
+  buried. The Delver Mole (`burrows: true`) dives once below 35% and tunnels to
+  your back for 2–4s. Nothing strikes on arrival (0.5s beat); a visible lurker
+  struck where it hides comes out stunned for 1.5s with double damage. New
+  `mound` art, synced to `public/art`. Not done: thrown shafts and reflected
+  bolts don't knock droppers down (only a melee swing does), Crawlers reuse the
+  Cave Spider sprite, the Frost Vault icicle variant of the dropper doesn't
+  exist yet, and no real delve or phone check.
 - 2026-09-19 — **Thief chase fix** (user: "nearly impossible to chase").
   The old flee took the step that maximised distance every tick and kept
   sprinting away from your last-seen position out of sight. Now: laden ×1.25

@@ -1,3 +1,19 @@
+# Look up. Watch the floor.
+
+*No save change. Floors you have already generated are untouched; ambushers appear on floors generated from now on.*
+
+Some monsters are no longer standing where you can see them.
+
+- **Ceiling Crawlers** cling over corridors from depth 2, one or two a floor. You spot them the way you spot a trap, by looking down the corridor ahead: "Something clings to the ceiling ahead", and a dark shape with red eyes high in the gloom. Walk close and it drops, after a beat of falling dust and skittering. Spot it first and you can hit it off the ceiling, and it lands stunned and open to double damage.
+- **Buried Tunnel Stalkers** lie under Vermin Burrows and Deep Mines floors as mounds of turned earth. Come close and the ground heaves, or strike the mound first to drag it out stunned.
+- **The Delver Mole dives.** Badly hurt, it goes under instead of running, then comes up beside you, behind you if it can reach. You can watch the mound travel and turn to meet it.
+
+An ambusher **never hits you as it arrives**. It lands or surfaces next to you and needs half a second before it can start a swing, with the usual red flash. What an ambush costs you is position, not health.
+
+Validation: typecheck, production build, and the full test suite (642 tests). New tests cover where droppers and buried stalkers are placed (corridors only, depths 2–5, never near the arrival point or on the throne floor, earth biomes only), that lurkers are invisible to targeting, the threat check and the map, spotting, the drop timing with no blow during the landing beat, dropping onto you putting it beside you, striking a spotted dropper or a mound for the stun, a buried stalker rising, and the mole diving once and surfacing behind you. The Hard golden test still matches the hash pinned before elites once ambushers are removed. Checked in the dev lab in Chrome: a spotted crawler as red eyes on the ceiling, the mound in dark Burrows and lit crypt corridors (its colours were brightened after the first look, because it vanished into the Burrows' dirt floor), the crawler mid-fall, and its landing with health unchanged. Balance harness, 24 runs per profile: the two careful profiles die more often across elites and ambushers together (iron 29% → 50%, moonsilver 33% → 42% against master), and the rest are within noise. The bot doesn't look up or read mounds. Not played through a real delve yet, and not checked on a phone.
+
+---
+
 # Elites, and a Cutpurse that earns the name
 
 *No save change. Floors you have already generated keep their monsters exactly as they were; elites appear on floors generated from now on.*

@@ -8,6 +8,9 @@ import {
   VENGEFUL_DAMAGE_MULT, VENGEFUL_FUSE,
 } from '../data/elites';
 import {
+  AMBUSH_BEAT, AMBUSH_TRIGGER, BURROW_MAX, BURROW_MIN, DIVE_AT, DROP_SECONDS, KNOCKOUT_STUN, MOUND_STEP, SURFACE_SECONDS,
+} from '../data/ambush';
+import {
   EnemyState,
   Floor,
   FLOOR,
@@ -22,6 +25,7 @@ import {
   defensePower,
   doorAt,
   enemyAt,
+  lurkerAt,
   generateFloor,
   inBounds,
   isBossDoor,
@@ -1111,11 +1115,21 @@ export class World {
    */
   private spotTraps(): void {
     const f = this.floor;
-    if (!f.traps?.length) return;
     const p = this.player;
     const look: { x: number; y: number }[] = [];
     for (let d = 1; d <= this.lookAhead; d++) look.push(this.frontTile(d));
     for (const d of DIRS) look.push({ x: p.x + DX[d], y: p.y + DY[d] });
+    // The same look reads the ceiling: whatever clings up there is found by
+    // the same glance that finds a seam in the flagstones.
+    for (const t of look) {
+      const up = lurkerAt(f, t.x, t.y);
+      if (!up || up.lurk !== 'ceiling' || up.spotted) continue;
+      if (!this.los(p.x, p.y, t.x, t.y)) continue;
+      up.spotted = true;
+      this.msg('Something clings to the ceiling ahead.', '#d0b080');
+      this.sfx('ui');
+    }
+    if (!f.traps?.length) return;
     for (const t of look) {
       const trap = trapAt(f, t.x, t.y);
       if (!trap || trap.found || !trap.armed) continue;
@@ -1676,6 +1690,12 @@ export class World {
         this.msg(TRAPS[trap.kind].spotted, '#e0c060');
       }
     }
+    for (const e of f.enemies) {
+      if (e.lurk !== 'ceiling' || e.spotted || e.ai === 'dead') continue;
+      if (Math.abs(e.x - this.player.x) + Math.abs(e.y - this.player.y) > 6) continue;
+      e.spotted = true;
+      this.msg('Something clings to the ceiling nearby.', '#d0b080');
+    }
     for (const secret of f.secrets) {
       const dx = secret.x - this.player.x, dy = secret.y - this.player.y;
       if (secret.found || Math.abs(dx) + Math.abs(dy) > 6) continue;
@@ -1712,6 +1732,14 @@ export class World {
     this.sfx('swing');
     for (let d = 1; d <= this.derived.swing.reach; d++) {
       const t = this.frontTile(d);
+      // A spotted dropper overhead, or any mound, can be struck where it
+      // hides: it comes out early, reeling and open.
+      const hidden = d === 1 ? lurkerAt(f, t.x, t.y) : undefined;
+      if (hidden && (hidden.lurk === 'buried' || hidden.spotted)) {
+        this.knockOut(hidden);
+        this.wear('weapon', 2);
+        return;
+      }
       const e = enemyAt(f, t.x, t.y);
       if (e) {
         this.hitEnemy(e);
@@ -2300,6 +2328,9 @@ export class World {
     for (let d = 1; d <= this.derived.swing.reach; d++) {
       const t = this.frontTile(d);
       if (enemyAt(f, t.x, t.y)) return { kind: 'attack', label: '' };
+      // Something you can see hiding right in front of you is a target too.
+      const hidden = d === 1 ? lurkerAt(f, t.x, t.y) : undefined;
+      if (hidden && (hidden.lurk === 'buried' || hidden.spotted)) return { kind: 'attack', label: '' };
       if (blocksSight(f, t.x, t.y)) break;
     }
     const hint = this.interactionHint();
@@ -2316,7 +2347,8 @@ export class World {
   private threatNear(): boolean {
     const p = this.player;
     for (const e of this.floor.enemies) {
-      if (e.ai === 'dead') continue;
+      // A lurker is not in the fight until it drops: counting it would give it away.
+      if (e.ai === 'dead' || e.lurk) continue;
       const dist = Math.abs(e.x - p.x) + Math.abs(e.y - p.y);
       if (dist <= 2) return true;
       if (dist <= 4 && e.alert > 0 && this.los(p.x, p.y, e.x, e.y)) return true;
@@ -3042,7 +3074,7 @@ export class World {
 
   private occupied(x: number, y: number, self: EnemyState): boolean {
     if (x === this.player.x && y === this.player.y) return true;
-    return this.floor.enemies.some((o) => o !== self && o.ai !== 'dead' && o.x === x && o.y === y);
+    return this.floor.enemies.some((o) => o !== self && o.ai !== 'dead' && !o.lurk && o.x === x && o.y === y);
   }
 
   private canStep(e: EnemyState, x: number, y: number): boolean {
@@ -3319,6 +3351,10 @@ export class World {
         continue;
       }
       if (this.protectedByFog(e)) continue;
+      if (e.lurk) {
+        this.updateLurker(e, dt);
+        continue;
+      }
       const def = this.view(e);
       if (def.behavior === 'boss') this.checkBossPhase(e);
       e.hurtT = Math.max(0, e.hurtT - dt);
@@ -3418,6 +3454,10 @@ export class World {
         }
       }
 
+      if (def.burrows && !e.dived && e.hp < e.maxHp * DIVE_AT) {
+        this.dive(e, def);
+        continue;
+      }
       if (def.behavior === 'skittish' && e.hp < e.maxHp * 0.35 && sees && this.rng.chance(0.02)) {
         e.ai = 'flee';
         this.msg(`The ${def.name} tries to flee!`, '#c8c0b0');
@@ -3556,7 +3596,7 @@ export class World {
         attacker.attackCd = Math.max(attacker.attackCd, PARRY_STUN + 0.2);
         attacker.vuln = PARRY_STUN;
         for (const other of this.floor.enemies) {
-          if (other === attacker || other.ai === 'dead') continue;
+          if (other === attacker || other.ai === 'dead' || other.lurk) continue;
           if (Math.abs(other.x - p.x) + Math.abs(other.y - p.y) !== 1) continue;
           other.ai = 'recover';
           other.timer = Math.max(other.timer, MELEE_PARRY_SPLASH_STUN);
@@ -3856,6 +3896,137 @@ export class World {
    * coming back — the shield returns the blow, it does not translate it.
    */
   /**
+   * One tick of a hidden monster. A ceiling dropper waits until you come
+   * within `AMBUSH_TRIGGER`, sifts dust for `DROP_SECONDS`, then lands. A
+   * buried one does the same with a rumble. A tunnelling burrower travels
+   * towards your back first. None of them strike on arrival (see `emerge`).
+   */
+  private updateLurker(e: EnemyState, dt: number): void {
+    const p = this.player;
+    const dist = Math.abs(e.x - p.x) + Math.abs(e.y - p.y);
+    if (e.tunnelling) {
+      e.lurkT = (e.lurkT ?? 0) - dt;
+      if (e.moveT < 1) {
+        e.moveT = Math.min(1, e.moveT + dt / MOUND_STEP);
+        return;
+      }
+      if (e.lurkT <= 0 || dist <= 1) {
+        this.emerge(e, true);
+        return;
+      }
+      // Head for the tile at your back. The floor is no obstacle to it, but
+      // walls and doors are; it goes greedily, which you can read and turn to.
+      const back = { x: p.x - DX[p.facing], y: p.y - DY[p.facing] };
+      const step = DIRS.map((d) => ({ x: e.x + DX[d], y: e.y + DY[d] }))
+        .filter((t) => !blocksMove(this.floor, t.x, t.y) && !(t.x === p.x && t.y === p.y))
+        .sort((a, b) => Math.abs(a.x - back.x) + Math.abs(a.y - back.y) - (Math.abs(b.x - back.x) + Math.abs(b.y - back.y)))[0];
+      if (step) {
+        e.fromX = e.x; e.fromY = e.y;
+        e.x = step.x; e.y = step.y;
+        e.moveT = 0;
+      }
+      return;
+    }
+    if (e.lurkT === undefined) {
+      if (dist > AMBUSH_TRIGGER) return;
+      if (e.lurk === 'ceiling') {
+        e.lurkT = DROP_SECONDS;
+        this.sfx('drip', e.x, e.y);
+        this.msg(e.spotted ? 'It lets go of the ceiling!' : 'Dust sifts down from above — something skitters!', '#d0b080');
+      } else {
+        e.lurkT = SURFACE_SECONDS;
+        this.sfx('break', e.x, e.y);
+        this.msg('The ground heaves!', '#c8a070');
+      }
+      return;
+    }
+    e.lurkT -= dt;
+    if (e.lurkT <= 0) this.emerge(e, false);
+  }
+
+  /**
+   * A lurker comes out onto the floor. Its own tile if that is free, otherwise
+   * a free tile beside you — behind you, for a burrower that went looking for
+   * your back. **It never strikes on arrival**: it lands in recovery, with a
+   * beat before it may start a wind-up, so an ambush costs position and never
+   * a free hit.
+   */
+  private emerge(e: EnemyState, preferBack: boolean): void {
+    const p = this.player;
+    const def = enemyDef(e.def);
+    const open = (x: number, y: number) =>
+      !blocksMove(this.floor, x, y) && !(x === p.x && y === p.y) && !enemyAt(this.floor, x, y);
+    let spot = open(e.x, e.y) && !preferBack ? { x: e.x, y: e.y } : null;
+    if (!spot) {
+      const around = DIRS.map((d) => ({ x: p.x + DX[d], y: p.y + DY[d], d }))
+        .filter((t) => open(t.x, t.y))
+        .sort((a, b) => (preferBack ? (a.d === turnAround(p.facing) ? -1 : 0) - (b.d === turnAround(p.facing) ? -1 : 0) : 0));
+      spot = around[0] ?? (open(e.x, e.y) ? { x: e.x, y: e.y } : null);
+    }
+    if (!spot) {
+      // Nowhere to come out: it waits a little longer.
+      e.lurkT = 0.3;
+      return;
+    }
+    const was = e.lurk;
+    delete e.lurk;
+    delete e.lurkT;
+    delete e.tunnelling;
+    e.x = e.fromX = spot.x;
+    e.y = e.fromY = spot.y;
+    e.moveT = 1;
+    const d = dirOf(Math.sign(p.x - e.x), Math.sign(p.y - e.y));
+    if (d !== null) e.facing = d;
+    e.ai = 'recover';
+    e.timer = AMBUSH_BEAT;
+    e.attackCd = Math.max(e.attackCd, AMBUSH_BEAT + 0.2);
+    e.alert = 8;
+    e.lastSeenX = p.x;
+    e.lastSeenY = p.y;
+    this.sfx(was === 'ceiling' ? 'plop' : 'break', e.x, e.y);
+    this.emit({ type: 'shake', amount: 0.2 });
+    const behind = e.x === p.x - DX[p.facing] && e.y === p.y - DY[p.facing];
+    this.msg(was === 'ceiling'
+      ? `A ${def.name} drops down${behind ? ' behind you' : ''}!`
+      : `A ${def.name} bursts from the earth${behind ? ' behind you' : ''}!`, '#e0a070');
+  }
+
+  /** Struck where it hides: dragged out early, reeling, open to double damage. */
+  private knockOut(e: EnemyState): void {
+    const def = enemyDef(e.def);
+    const was = e.lurk;
+    delete e.lurk;
+    delete e.lurkT;
+    delete e.tunnelling;
+    e.moveT = 1;
+    e.fromX = e.x; e.fromY = e.y;
+    e.ai = 'recover';
+    e.timer = KNOCKOUT_STUN;
+    e.vuln = KNOCKOUT_STUN;
+    e.attackCd = Math.max(e.attackCd, KNOCKOUT_STUN + 0.2);
+    e.alert = 8;
+    e.hurtT = 0.3;
+    e.lastSeenX = this.player.x;
+    e.lastSeenY = this.player.y;
+    this.sfx('hit', e.x, e.y);
+    this.emit({ type: 'shake', amount: 0.25 });
+    this.msg(was === 'ceiling' ? `You knock the ${def.name} off the ceiling!` : `You drag the ${def.name} out of the earth!`, '#ffe8a0');
+  }
+
+  /** A burrower, badly hurt, goes under: a mound heading for your back. */
+  private dive(e: EnemyState, def: EnemyDef): void {
+    e.dived = true;
+    e.lurk = 'buried';
+    e.tunnelling = true;
+    e.lurkT = this.rng.float(BURROW_MIN, BURROW_MAX);
+    e.moveT = 1;
+    e.ai = 'idle';
+    e.guard = 'down';
+    this.sfx('break', e.x, e.y);
+    this.msg(`The ${def.name} dives into the earth!`, '#c8a070');
+  }
+
+  /**
    * A thief lifts one thing from your pack: a piece of gear whole, or half a
    * stack. Equipped gear is never at risk — only what you are carrying home,
    * which is the thing this whole game is about.
@@ -3958,7 +4129,7 @@ export class World {
     this.sfx('lava_burst', e.x, e.y);
     this.emit({ type: 'float', x: e.x, y: e.y, text: 'Burst!', color: '#c070ff' });
     for (const other of this.floor.enemies) {
-      if (other === e || other.ai === 'dead' || !inBlast(other.x, other.y)) continue;
+      if (other === e || other.ai === 'dead' || other.lurk || !inBlast(other.x, other.y)) continue;
       const odef = enemyDef(other.def);
       const dealt = Math.max(1, Math.round(def.attack * attackPower(e.power) * VENGEFUL_DAMAGE_MULT * (odef.resist[def.damageType] ?? 1)));
       other.hp -= dealt;
@@ -4022,7 +4193,7 @@ export class World {
     const out = new Set<string>();
     const p = this.player;
     for (const e of this.floor.enemies) {
-      if (e.ai === 'dead') continue;
+      if (e.ai === 'dead' || e.lurk) continue;
       if (Math.abs(e.x - p.x) + Math.abs(e.y - p.y) <= 8 && this.los(p.x, p.y, e.x, e.y)) out.add(e.id);
     }
     return out;
