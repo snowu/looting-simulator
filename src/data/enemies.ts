@@ -2,7 +2,7 @@ import { ELEMENTAL_VARIANTS, elementalVariant } from './elemental-variants';
 import { EnemyDef } from '../types';
 import {
   ELITES, EliteTrait, FRENZIED_RECOVERY_MULT, FRENZIED_STEP_MULT, FRENZIED_WINDUP_MULT, FRENZY_AT,
-  HASTED_RECOVERY_MULT, HASTED_STEP_MULT, HASTED_WINDUP_MULT, IRONHIDE_DEFENSE_MULT, IRONHIDE_STEP_MULT,
+  HASTED_RECOVERY_MULT, HASTED_STEP_MULT, HASTED_WINDUP_MULT, IRONHIDE_DEFENSE_MULT, IRONHIDE_STEP_MULT, THIEF_LADEN,
 } from './elites';
 
 /*
@@ -519,7 +519,11 @@ export function enemyView(def: EnemyDef, hp: number, maxHp: number, mods?: ViewM
       view.thief = true;
     }
   }
-  if (mods.carrying) view.glow = THIEF_GLOW;
+  if (mods.carrying) {
+    view.glow = THIEF_GLOW;
+    // Laden: running with your things slows it down. See `runWithLoot`.
+    view.step = view.step * THIEF_LADEN;
+  }
   VIEW_CACHE.set(key, view);
   return view;
 }
