@@ -91,6 +91,12 @@ h3 { font-size: 26px; color: var(--ink); margin-bottom: 6px; }
 .btn.big { font-size: 30px; padding: 8px 28px 10px; font-family: var(--font-title); }
 /* An icon and nothing else: centers the sprite and keeps the frame snug. */
 .btn.icon-btn { display: inline-flex; align-items: center; justify-content: center; padding: 3px 7px 4px; }
+/* Pane headers with a "?" help toggle, and the separator under the help text. */
+.pane-head { display: flex; gap: 8px; align-items: center; }
+.pane-head h3 { flex: 1; }
+.btn.help-btn { flex: none; min-width: 32px; }
+.btn.help-btn.on { color: #fff4d0; }
+.pane-sep { border: none; border-top: 1px solid #3a3244; margin: 2px 0 8px; }
 
 /* Settings: one row per difficulty, button left and meaning right, so picking
    one only repaints the highlight instead of reflowing the text below. */

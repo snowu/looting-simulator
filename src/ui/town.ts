@@ -40,7 +40,7 @@ import { findSigil, sigil } from '../data/spells';
 import { derivePlayer } from '../systems/player';
 import { defaultSlot, equipFrom, unequipTo } from '../systems/equip';
 import { createRng, hashString, randomSeed } from '../core/rng';
-import { artImg, bothRegisters, btn, gold, h, hideTooltip, isTouchMode, itemSlot, itemTooltip, rarityColor, sparkline, statLines, toggleDetailed } from './dom';
+import { artImg, bothRegisters, btn, gold, h, helpBlock, helpButton, hideTooltip, isTouchMode, itemSlot, itemTooltip, rarityColor, sparkline, statLines, toggleDetailed } from './dom';
 import { esc } from '../core/escape';
 import { artUrl } from '../render/art-cache';
 import { paperDoll, statSheet } from './dungeon-ui';
@@ -1203,8 +1203,11 @@ export class Town {
     return h(
       'div',
       { class: 'pane frame' },
-      h('h3', { text: 'The Oath Stone' }),
-      h('p', { class: 'dim small', text: `Today's oaths: two hard, three medium, and they change with the days. Swear as many as you dare, or none. Each kept oath pays inscriptions you have not learned (one for medium, two for hard), keep every one of two or more and you learn one more, and a broken oath loses only its own reward.` }),
+      h('div', { class: 'pane-head' },
+        h('h3', { text: 'The Oath Stone' }),
+        helpButton('oaths', () => { audio.play('ui'); this.render(); }),
+      ),
+      helpBlock('oaths'),
       h('div', { class: 'col' }, ...today.map((id) => {
         const def = OATHS[id];
         const on = sworn.includes(id);

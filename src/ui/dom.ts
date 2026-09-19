@@ -5,6 +5,7 @@ import { material } from '../data/materials';
 import { affix } from '../data/affixes';
 import { masteryBonus, recipe } from '../data/recipes';
 import { findSigil } from '../data/spells';
+import { HELP, HelpId } from '../data/help';
 import { durability, isIdentified, itemCraftRank, itemIcon, itemName, itemRarity, itemStats, itemValue, thrownCapacity, uniqueOf } from '../systems/items';
 import { artUrl } from '../render/art-cache';
 import type { Ramp } from '../art/raster';
@@ -41,6 +42,75 @@ export function h<K extends keyof HTMLElementTagNameMap>(tag: K, props: Props = 
 
 export function btn(label: string, onclick: () => void, cls = '', disabled = false): HTMLButtonElement {
   return h('button', { class: `btn ${cls}`, text: label, onclick: () => onclick(), disabled });
+}
+
+// ---------------------------------------------------------------------------
+// Pane help ("?" system).
+// ---------------------------------------------------------------------------
+//
+// Panes with a paragraph of explanation (the Oath Stone's "today's oaths..."
+// blurb was the first) keep the text behind a "?" button in the pane header,
+// hidden by default, so repeat visits don't spend the room on words already
+// read. One click expands it inline, with a separator between the text and
+// the pane body.
+//
+// Content lives in the registry (`HELP` in `src/data/help.ts`), keyed by a
+// stable id — never inline in UI code. Open/closed state lives in a
+// module-level map keyed by the same id, so it survives re-renders (which
+// rebuild every element) without touching save data: it is a UI preference,
+// not game state, and resets with the page.
+//
+// To adopt it in another pane (future PRs welcome):
+//   1. Add the pane's entry to `HELP` (title + body).
+//   2. Put `helpButton(ID, () => this.render())` beside the pane's `h3`,
+//      inside a `.pane-head` row. Play the 'ui' blip in the callback, the way
+//      the pane's other toggles do.
+//   3. Put `helpBlock(ID)` where the description used to be.
+// That is the whole contract: the button flips the map and re-renders, the
+// block renders only while open. `h()` already skips the nulls, so the call
+// sites stay flat.
+//
+// Future direction: a full game-guide modal rendering every `HELP` entry,
+// where a pane's "?" jumps straight to its entry and highlights it. The
+// registry is already that modal's table of contents, and the open-behavior
+// is centralized in `helpButton`, so that PR only adds presentation — these
+// call sites won't change.
+
+/** Open/closed help by pane id. Absent means closed: help is hidden by default. */
+const helpOpenState = new Map<string, boolean>();
+
+/** Whether a pane's help is currently expanded. */
+export function helpOpen(id: string): boolean {
+  return helpOpenState.get(id) ?? false;
+}
+
+/** Set a pane's help open or closed. The caller re-renders. */
+export function setHelpOpen(id: string, open: boolean): void {
+  helpOpenState.set(id, open);
+}
+
+/** The "?" button for a pane header. `rerender` is the pane owner's render. */
+export function helpButton(id: HelpId, rerender: () => void): HTMLButtonElement {
+  const open = helpOpen(id);
+  return h('button', {
+    class: `btn small help-btn${open ? ' on' : ''}`,
+    text: '?',
+    title: open ? 'Hide the explanation' : 'What is this?',
+    onclick: () => { setHelpOpen(id, !open); rerender(); },
+  });
+}
+
+/**
+ * A pane's help block: its registry body, then a separator between the text
+ * and the pane body. Null while its "?" is closed.
+ */
+export function helpBlock(id: HelpId): HTMLElement | null {
+  const entry = HELP[id];
+  if (!entry || !helpOpen(id)) return null;
+  return h('div', { class: 'col' },
+    h('p', { class: 'dim small', text: entry.body }),
+    h('hr', { class: 'pane-sep' }),
+  );
 }
 
 export function artImg(id: string, ramp?: Ramp, size = 32): HTMLImageElement {
