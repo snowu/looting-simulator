@@ -1,3 +1,13 @@
+# Fixed: cloud saves after the update
+
+*No save change.*
+
+The first sign-in on this update could refuse to upload your save and ask you to choose between it and an older cloud copy, even though nothing else had touched the cloud save. The update adds new fields to saves, which changed their fingerprint; the sync mistook that for another device having played. It now trusts the cloud save's own write counter to tell whether anything else wrote to it, so your progress uploads as it always did. A genuine save from another device still asks, as before.
+
+Validation: typecheck, production build, and the full test suite (724 tests). New tests reproduce the bug (a sign-in after a save-format change asked instead of uploading), and check that a real write from another device still asks and that a cloud-only change is still taken silently.
+
+---
+
 # The Ashen Seals, and a panel on the way down
 
 *Additive save change (revision 28): no Seals set. Every existing save loads as it was.*

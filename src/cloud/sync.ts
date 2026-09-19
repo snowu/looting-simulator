@@ -243,7 +243,15 @@ export class CloudSync {
       const localHash = contentHash(serializeSave(localState));
       const cloudHash = contentHash(match.raw);
       const localUnchanged = localHash === meta.hash;
-      const cloudUnchanged = match.generation === meta.generation && cloudHash === meta.hash;
+      // The generation is the truth about the row: every write bumps it, so
+      // the same generation means nobody has written since the agreement. The
+      // hash cannot say that across a save-revision bump: this build migrates
+      // the downloaded row before hashing it (new fields, new revision stamp),
+      // so an untouched row hashes differently from what the previous build
+      // recorded. Requiring the hash as well made every sign-in after an
+      // update read as both sides having moved on, which blocked the upload
+      // and asked the player to choose between their save and an older copy.
+      const cloudUnchanged = match.generation === meta.generation;
       if (cloudUnchanged && !localUnchanged) {
         const ok = await this.push(true);
         return ok ? { kind: 'uploaded' } : { kind: 'none' };
