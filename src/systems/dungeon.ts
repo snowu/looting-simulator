@@ -276,6 +276,11 @@ export interface EnemyState {
   tunnelling?: boolean;
   /** A burrower that has already dived once this life. */
   dived?: boolean;
+  /** A fleeing thief's pause: fumbling its prize, or waiting between creeps out of sight. */
+  pauseT?: number;
+  /** Steps a thief has run with its loot, and how many coin drops it has left as a trail. */
+  trailN?: number;
+  trailDrops?: number;
 }
 
 export interface Morsel {

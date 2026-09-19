@@ -3,7 +3,10 @@ import { Dir, DIR_NAMES, DIRS, DX, DY, dirOf, turnAround, turnLeft, turnRight } 
 import { DamageType, EnemyDef, EquipSlot, EQUIP_SLOTS, Item, SwingProfile } from '../types';
 import { GameState, RunState } from '../state/game-state';
 import { addItem, canFit, findItem, removeItem, roomFor, takeQty } from '../state/inventory';
-import { THIEF_ESCAPE, VENGEFUL_DAMAGE_MULT, VENGEFUL_FUSE } from '../data/elites';
+import {
+  THIEF_CREEP, THIEF_ESCAPE, THIEF_FUMBLE, THIEF_FUMBLE_CHANCE, THIEF_TRAIL_EVERY, THIEF_TRAIL_MAX,
+  VENGEFUL_DAMAGE_MULT, VENGEFUL_FUSE,
+} from '../data/elites';
 import {
   AMBUSH_BEAT, AMBUSH_TRIGGER, BURROW_MAX, BURROW_MIN, DIVE_AT, DROP_SECONDS, KNOCKOUT_STUN, MOUND_STEP, SURFACE_SECONDS,
 } from '../data/ambush';
@@ -4036,6 +4039,8 @@ export class World {
     if (!taken) return;
     e.stolen = [taken];
     e.stolenT = 0;
+    e.trailN = 0;
+    e.trailDrops = 0;
     e.ai = 'flee';
     e.alert = Math.max(e.alert, 6);
     this.emit({ type: 'float', x: this.player.x, y: this.player.y, text: 'Stolen!', color: '#e8c060' });
@@ -4045,9 +4050,19 @@ export class World {
 
   /**
    * One tick of a thief running with your things. Returns true when it has
-   * acted. It flees your last known position, never gives up while you can see
-   * it, and gets clean away after `THIEF_ESCAPE` seconds out of your sight —
-   * taking what it stole with it. Cornered and in reach, it fights.
+   * acted. It is meant to be a chase you can win, not a vanishing act:
+   *
+   * - **Laden**: carrying makes it slower (`THIEF_LADEN`, via `enemyView`).
+   * - **Clumsy**: after a step it sometimes stops to clutch the loot
+   *   (`THIEF_FUMBLE_CHANCE` for `THIEF_FUMBLE` seconds).
+   * - **Panicked, not clever**: it takes any step that is not closer to you,
+   *   preferring to keep running straight, so it bolts down dead ends.
+   * - **Goes to ground**: out of sight it stops running and creeps a tile only
+   *   every `THIEF_CREEP` seconds, still glowing where it hides.
+   * - **Leaves a trail**: every few steps a coin or two spills from its purse.
+   *
+   * It gets clean away after `THIEF_ESCAPE` seconds out of your sight, taking
+   * what it stole. Cornered and in reach, it fights.
    */
   private runWithLoot(e: EnemyState, def: EnemyDef, dist: number, sees: boolean, dt: number): boolean {
     const p = this.player;
@@ -4063,14 +4078,35 @@ export class World {
       return true;
     }
     e.ai = 'flee';
-    const fromX = sees ? p.x : e.lastSeenX, fromY = sees ? p.y : e.lastSeenY;
+    if ((e.pauseT ?? 0) > 0) {
+      e.pauseT = e.pauseT! - dt;
+      return true;
+    }
     if (sees) { e.lastSeenX = p.x; e.lastSeenY = p.y; }
+    if (!sees) {
+      e.pauseT = THIEF_CREEP;
+      // Creep one tile at most, then wait again.
+    }
+    const fromX = sees ? p.x : e.lastSeenX, fromY = sees ? p.y : e.lastSeenY;
     const here = Math.abs(e.x - fromX) + Math.abs(e.y - fromY);
-    const away = DIRS.map((d) => [e.x + DX[d], e.y + DY[d]] as [number, number])
-      .filter(([x, y]) => this.canStep(e, x, y) && Math.abs(x - fromX) + Math.abs(y - fromY) > here)
-      .sort((a, b) => Math.abs(b[0] - fromX) + Math.abs(b[1] - fromY) - (Math.abs(a[0] - fromX) + Math.abs(a[1] - fromY)))[0];
-    if (away) {
-      this.stepEnemy(e, away[0], away[1]);
+    const options = DIRS.map((d) => ({ d, x: e.x + DX[d], y: e.y + DY[d] }))
+      .filter((t) => this.canStep(e, t.x, t.y) && Math.abs(t.x - fromX) + Math.abs(t.y - fromY) >= here);
+    if (options.length) {
+      // Keep running the way it was going, if it can; otherwise any way that
+      // is not towards you. No lookahead: a dead end is as good as a door.
+      const pick = options.find((t) => t.d === e.facing && this.rng.chance(0.75)) ?? this.rng.pick(options);
+      const fromTileX = e.x, fromTileY = e.y;
+      this.stepEnemy(e, pick.x, pick.y);
+      e.trailN = (e.trailN ?? 0) + 1;
+      if (e.trailN % THIEF_TRAIL_EVERY === 0 && (e.trailDrops ?? 0) < THIEF_TRAIL_MAX) {
+        e.trailDrops = (e.trailDrops ?? 0) + 1;
+        this.dropLoot(fromTileX, fromTileY, [], this.rng.int(1, 3));
+        if (e.trailDrops === 1 && sees) this.msg(`Coins spill from the ${def.name}'s purse as it runs.`, '#e8c060');
+      }
+      if (sees && this.rng.chance(THIEF_FUMBLE_CHANCE)) {
+        e.pauseT = THIEF_FUMBLE;
+        this.msg(`The ${def.name} fumbles its prize!`, '#e8c060');
+      }
       return true;
     }
     if (dist === 1 && e.attackCd <= 0) {
