@@ -131,6 +131,21 @@ Every generated floor is checked: all walkable tiles reachable, keys reachable w
 
 ---
 
+### The route fork
+
+*Files: `src/data/routes.ts`, `forkPending` / `chooseRoad` in `src/world/world.ts`, the fork overlay in `src/ui/dungeon-ui.ts`*
+
+The first time you take the down stair on **depth 2**, it splits. A panel shows the day's **two roads**, each with its biome, main danger and what it tends to pay. Take one (click, or press **1** or **2**) and you go straight down; the other is sealed for the rest of the delve. **Esc** steps you back from the stair, and it asks again next time. The road sets the biome of **depths 3 and 4**; depth 5 rolls its own.
+
+| Road | Biome | Danger | Pays |
+|---|---|---|---|
+| The Mine Road | Deep Mines | shieldbearers, the Barrow Champion, burrowers | metal, ore seams |
+| The Frozen Road | Frost Vault | frost wisps, icebound guards (bring fire) | frost shards, moonstone |
+| The Ember Road | Emberworks | flame wraiths, molten floors (bring frost) | flame shards, sunstone |
+| The Spore Road | Sporegrove | spore hunters, the Bog Seraph | leather, crystal |
+
+**Which two roads are open depends on the day**, not the delve: `roadsForDay(saveId, day, events)`, drawn without repeats. Active market events make a road likelier: Iron Shortage ×3 and War Drums ×2 for the Mines; Harsh Winter ×3 for the Frost Vault; Dragon Sighting ×3 and The Great Forge Burns ×2 for the Emberworks; Arcane Study ×3 and Royal Wedding ×2 for the Sporegrove. The town news names the day's two roads, so you can prepare for one. A new delve snapshots them into `run.roads`, and the choice is saved as `run.road`. Delves started before the fork existed have no roads and never fork.
+
 ### Elemental surfaces and residents
 
 Wall choices use a position hash, without generation RNG. Emberworks uses five
