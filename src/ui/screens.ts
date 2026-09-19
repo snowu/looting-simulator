@@ -106,7 +106,7 @@ function oathLine(o: { id: string; kept: boolean; renown: number }): HTMLElement
     text: o.kept
       ? o.renown
         ? `Oath kept: ${def.name}. You have learned every inscription, so it pays ${o.renown} renown instead.`
-        : `Oath kept: ${def.name}. An inscription waits for you in Bleakmere: choose one of three.`
+        : `Oath kept: ${def.name}. ${def.tier === 'hard' ? 'Two inscriptions wait' : 'An inscription waits'} for you in Bleakmere: choose from three.`
       : `Oath broken: ${def.name}. It costs you nothing but the reward.`,
   });
 }

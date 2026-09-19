@@ -3,7 +3,7 @@ import { SEALS, SEAL_FIND, SEAL_IDS, SEAL_RENOWN, validSeals } from '../data/sea
 import { sealsUnlocked, toggleSeal } from '../systems/seals';
 import { ROADS, roadsForDay } from '../data/routes';
 import { OATHS, OATH_IDS, findOath } from '../data/oaths';
-import { swearOath } from '../systems/oaths';
+import { claimOathReward, swearOath } from '../systems/oaths';
 import { learnProperty } from '../systems/properties';
 import { INSCRIBE_COST, PropertyDef, findProperty } from '../data/properties';
 import { inscribe, inscribeTargets } from '../systems/properties';
@@ -1121,7 +1121,7 @@ export class Town {
         'div',
         { class: 'pane frame gold' },
         h('h3', { text: `Oath kept: ${oath?.name ?? ''}` }),
-        h('p', { class: 'dim', text: 'The old wardens paid a kept oath in knowledge. Choose one inscription to learn; it can be cut into your gear at the forge.' }),
+        h('p', { class: 'dim', text: `The old wardens paid a kept oath in knowledge. Choose ${(reward.picks ?? 1) > 1 ? `${reward.picks} inscriptions` : 'one inscription'} to learn; they can be cut into your gear at the forge.` }),
         h('div', { class: 'col' }, ...reward.choices.map((id) => {
           const def = findProperty(id);
           if (!def) return null;
@@ -1133,9 +1133,8 @@ export class Town {
               bothRegisters(def.rule, def.detail, 'dim small'),
             ),
             btn('Learn', () => {
-              learnProperty(s, id);
-              s.oathReward = null;
-              this.ctx.toast(`${def.name} learned. Cut it into your gear at the forge.`, def.color);
+              if (!claimOathReward(s, id)) return;
+              this.ctx.toast(`${def.name} learned.${s.oathReward ? ' Choose one more.' : ' Cut it into your gear at the forge.'}`, def.color);
               this.commit('study');
             }, 'small primary'),
           );
@@ -1182,7 +1181,7 @@ export class Town {
       'div',
       { class: 'pane frame' },
       h('h3', { text: 'The Oath Stone' }),
-      h('p', { class: 'dim small', text: 'Swear one before you go down, or none. Keep it and come home alive, and it pays an inscription you have not learned. Break it and you lose only the reward.' }),
+      h('p', { class: 'dim small', text: 'Swear one before you go down, or none. Keep it and come home alive, and it pays inscriptions you have not learned: one for a medium oath, two for the hard one. Break it and you lose only the reward.' }),
       h('div', { class: 'col' }, ...OATH_IDS.map((id) => {
         const def = OATHS[id];
         const on = sworn === id;
@@ -1190,7 +1189,7 @@ export class Town {
           'div',
           { class: `row repair-row${on ? ' gold' : ''}` },
           h('div', { class: 'grow' },
-            h('div', { style: `color:${def.color}`, text: def.name + (on ? ' · sworn' : '') }),
+            h('div', { style: `color:${def.color}`, text: `${def.name} · ${def.tier === 'hard' ? 'hard oath, learn two' : 'learn one'}${on ? ' · sworn' : ''}` }),
             h('div', { class: 'dim small', text: def.rule }),
             h('div', { class: 'small', text: def.objective }),
           ),

@@ -1,3 +1,13 @@
+# Hard and medium oaths
+
+*No save change. A reward already waiting in town still lets you learn one.*
+
+Blood Price asked a lot more than the other oaths for the same reward, so oaths now come in tiers. **Blood Price is the hard oath**: keep it and you learn **two** of the three inscriptions offered instead of one (or 20 renown instead of 10 once you know them all). Unbroken and Hunter are medium oaths and pay as before. The Descend panel lists the hard oath first and says what each one pays.
+
+Validation: typecheck, production build, and the full test suite (726 tests). New tests cover the tiers, the hard oath's two picks (the reward stays until both are chosen), a reward from before the tiers still paying one, and the doubled renown when nothing is left to learn. Not checked in a browser: the change is to the reward's text and count, and the flow is covered by the tests.
+
+---
+
 # Fixed: cloud saves after the update
 
 *No save change.*

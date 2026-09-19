@@ -992,13 +992,13 @@ A stone is **inscribed at the forge**, on its *Sigils* bench, which consumes it 
 
 *Files: `src/data/oaths.ts`, `src/systems/oaths.ts`, the hooks in `src/world/world.ts`, the Oath Stone in `src/ui/town.ts`*
 
-Pressing **Descend** for a new delve opens a *Before you go down* panel. Its **Oath Stone** offers every oath: you may swear one or none, swearing again changes it, and **Not yet** (or Esc, or a click outside) closes the panel without descending. Returning through a town portal or resuming an open delve skips the panel. A kept oath's reward waits above the town tabs until chosen. On descending it moves onto the run (`run.oath`) and takes hold. **Keep it and come home alive** (by the stairs or the King's portal; a town-portal trip doesn't end the delve) and a reward waits in town: choose **1 of 3** build properties you haven't learned, drawn from the run's seed so a reload can't reroll them. With every property learned, it pays **10 renown** instead. A broken or unkept oath costs only the reward. You can't swear a new oath while a reward is still unchosen.
+Pressing **Descend** for a new delve opens a *Before you go down* panel. Its **Oath Stone** offers every oath: you may swear one or none, swearing again changes it, and **Not yet** (or Esc, or a click outside) closes the panel without descending. Returning through a town portal or resuming an open delve skips the panel. A kept oath's reward waits above the town tabs until chosen. On descending it moves onto the run (`run.oath`) and takes hold. **Keep it and come home alive** (by the stairs or the King's portal; a town-portal trip doesn't end the delve) and a reward waits in town: **three** build properties you haven't learned, drawn from the run's seed so a reload can't reroll them. A **medium** oath learns **one** of them, the **hard** oath **two** (the reward stays until both are chosen). With every property learned, it pays renown instead: **10** for medium, **20** for hard. A broken or unkept oath costs only the reward. You can't swear a new oath while a reward is still unchosen.
 
-| Oath | Rule | Objective |
-|---|---|---|
-| Blood Price | You start cursed with **Frailty** (−20% max health). A Font of Mending won't lift it this delve | Come home with at least **250 gold found** in the dungeon (`run.stats.goldFound`) |
-| Unbroken | Everything you wear wears **×2** | Reach **depth 4** with nothing you wear breaking (kept the moment you arrive), then come home. Any worn item breaking before that breaks the oath |
-| Hunter | Monsters see you **2** tiles further | A **marked** elite is placed on each of depths **2, 3, 4** when the floor is first generated: one of the three toughest monsters at least 8 steps from the stairs, promoted to an elite if it isn't one. Kill all **3**, then come home |
+| Oath | Tier | Rule | Objective |
+|---|---|---|---|
+| Blood Price | **hard** | You start cursed with **Frailty** (−20% max health). A Font of Mending won't lift it this delve | Come home with at least **250 gold found** in the dungeon (`run.stats.goldFound`) |
+| Unbroken | medium | Everything you wear wears **×2** | Reach **depth 4** with nothing you wear breaking (kept the moment you arrive), then come home. Any worn item breaking before that breaks the oath |
+| Hunter | medium | Monsters see you **2** tiles further | A **marked** elite is placed on each of depths **2, 3, 4** when the floor is first generated: one of the three toughest monsters at least 8 steps from the stairs, promoted to an elite if it isn't one. Kill all **3**, then come home |
 
 A marked monster's name reads "Marked …" on the target bar, in gold. The HUD's status block shows the oath and its progress.
 

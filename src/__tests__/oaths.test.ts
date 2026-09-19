@@ -5,10 +5,10 @@ import { migrateSave } from '../state/migrations';
 import { EnemyState } from '../systems/dungeon';
 import { enemyDef } from '../data/enemies';
 import {
-  BLOOD_PRICE_GOLD, HUNTER_DEPTHS, HUNTER_MARKS, HUNTER_SIGHT, OATH_FALLBACK_RENOWN, UNBROKEN_DEPTH,
+  BLOOD_PRICE_GOLD, HUNTER_DEPTHS, HUNTER_MARKS, HUNTER_SIGHT, OATHS, OATH_FALLBACK, OATH_IDS, UNBROKEN_DEPTH,
 } from '../data/oaths';
 import { PROPERTY_IDS } from '../data/properties';
-import { oathKept, settleOath, swearOath } from '../systems/oaths';
+import { claimOathReward, oathKept, settleOath, swearOath } from '../systems/oaths';
 import { endRun, startRun } from '../systems/run';
 import { durability, makeEquipment } from '../systems/items';
 import { Rarity } from '../types';
@@ -79,6 +79,8 @@ describe('Blood Price', () => {
     const sum = endRun(state, 'extracted');
     expect(sum.oath).toEqual({ id: 'blood_price', kept: true, renown: 0 });
     expect(state.oathReward?.choices).toHaveLength(3);
+    // The hard oath: learn two of the three.
+    expect(state.oathReward?.picks).toBe(2);
     for (const c of state.oathReward!.choices) expect(PROPERTY_IDS).toContain(c);
   });
 });
@@ -147,8 +149,8 @@ describe('the reward', () => {
     again.state.properties = [...PROPERTY_IDS];
     again.state.run!.stats.goldFound = BLOOD_PRICE_GOLD;
     const renown = again.state.renown;
-    expect(settleOath(again.state, again.state.run!, 'extracted')).toEqual({ id: 'blood_price', kept: true, renown: OATH_FALLBACK_RENOWN });
-    expect(again.state.renown).toBe(renown + OATH_FALLBACK_RENOWN);
+    expect(settleOath(again.state, again.state.run!, 'extracted')).toEqual({ id: 'blood_price', kept: true, renown: OATH_FALLBACK.hard });
+    expect(again.state.renown).toBe(renown + OATH_FALLBACK.hard);
     expect(again.state.oathReward ?? null).toBeNull();
   });
 
@@ -158,6 +160,29 @@ describe('the reward', () => {
     expect(swearOath(state, 'unbroken')).toBe(false);
     state.oathReward = null;
     expect(swearOath(state, 'unbroken')).toBe(true);
+  });
+
+  it('tiers: one hard oath listed first, and the medium ones', () => {
+    expect(OATHS.blood_price.tier).toBe('hard');
+    expect(OATHS.unbroken.tier).toBe('medium');
+    expect(OATHS.hunter.tier).toBe('medium');
+    expect(OATH_IDS[0]).toBe('blood_price');
+  });
+
+  it('a medium oath learns one; a hard one learns two, then the reward is spent', () => {
+    const state = newGame(createRng(311));
+    state.oathReward = { oath: 'blood_price', choices: ['riposte', 'bulwark', 'retrieval'], picks: 2 };
+    expect(claimOathReward(state, 'not-offered')).toBe(false);
+    expect(claimOathReward(state, 'bulwark')).toBe(true);
+    expect(state.properties).toContain('bulwark');
+    expect(state.oathReward).toEqual({ oath: 'blood_price', choices: ['riposte', 'retrieval'], picks: 1 });
+    expect(claimOathReward(state, 'retrieval')).toBe(true);
+    expect(state.oathReward).toBeNull();
+
+    // A reward from before tiers has no picks: one.
+    state.oathReward = { oath: 'hunter', choices: ['riposte', 'kindling'] };
+    claimOathReward(state, 'riposte');
+    expect(state.oathReward).toBeNull();
   });
 
   it('a broken oath pays nothing', () => {

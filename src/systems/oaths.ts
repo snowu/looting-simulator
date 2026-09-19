@@ -1,7 +1,7 @@
 import { createRng, hashString } from '../core/rng';
 import { GameState, RunState } from '../state/game-state';
-import { BLOOD_PRICE_GOLD, HUNTER_MARKS, OATH_FALLBACK_RENOWN, OathId, OathState, findOath } from '../data/oaths';
-import { unlearnedProperties } from './properties';
+import { BLOOD_PRICE_GOLD, HUNTER_MARKS, OATH_FALLBACK, OATH_PICKS, OathId, OathState, findOath } from '../data/oaths';
+import { learnProperty, unlearnedProperties } from './properties';
 
 /**
  * Swear (or, with null, unswear) the oath for the next delve. Only in town,
@@ -38,8 +38,9 @@ export function oathKept(run: RunState, outcome: 'dead' | 'extracted'): boolean 
 
 /**
  * Settle the oath at the end of a delve. A kept oath leaves a reward waiting in
- * town: three unlearned properties to choose from, drawn from the run's seed so
- * a reload cannot reroll them. With nothing left to learn it pays renown.
+ * town: three unlearned properties, drawn from the run's seed so a reload
+ * cannot reroll them, of which a medium oath learns one and a hard oath two.
+ * With nothing left to learn it pays renown, twice as much for a hard oath.
  * Returns what happened, for the results screen.
  */
 export function settleOath(state: GameState, run: RunState, outcome: 'dead' | 'extracted'): { id: OathId; kept: boolean; renown: number } | null {
@@ -48,14 +49,30 @@ export function settleOath(state: GameState, run: RunState, outcome: 'dead' | 'e
   const kept = oathKept(run, outcome);
   let renown = 0;
   if (kept) {
+    const tier = findOath(oath.id)!.tier;
     const pool = unlearnedProperties(state);
     if (pool.length) {
       const rng = createRng(hashString(`oath:${run.seed}:${oath.id}`));
-      state.oathReward = { oath: oath.id, choices: rng.shuffle([...pool]).slice(0, 3) };
+      const choices = rng.shuffle([...pool]).slice(0, 3);
+      state.oathReward = { oath: oath.id, choices, picks: Math.min(OATH_PICKS[tier], choices.length) };
     } else {
-      renown = OATH_FALLBACK_RENOWN;
+      renown = OATH_FALLBACK[tier];
       state.renown += renown;
     }
   }
   return { id: oath.id, kept, renown };
+}
+
+/**
+ * Learn one of a waiting reward's choices. The reward stays until its picks are
+ * used up (a hard oath's two), with the learned one taken off the list.
+ */
+export function claimOathReward(state: GameState, id: string): boolean {
+  const reward = state.oathReward;
+  if (!reward || !reward.choices.includes(id)) return false;
+  learnProperty(state, id);
+  const left = (reward.picks ?? 1) - 1;
+  const choices = reward.choices.filter((c) => c !== id);
+  state.oathReward = left > 0 && choices.length ? { ...reward, choices, picks: left } : null;
+  return true;
 }
