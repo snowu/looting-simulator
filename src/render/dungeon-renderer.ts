@@ -6,6 +6,7 @@ import { enemyDef, enemyView } from '../data/enemies';
 import { ELITES } from '../data/elites';
 import { DROP_SECONDS } from '../data/ambush';
 import { RAISE_CHANNEL } from '../data/necromancy';
+import { OSSUARY_STIR } from '../data/laws';
 
 /** The sickly green of a Gravecaller's chant, on the corpse it is calling. */
 const RAISE_GLOW = '#8ce07a';
@@ -360,6 +361,8 @@ export class DungeonRenderer {
     // Corpses a Gravecaller is chanting over: they rise into view and glow.
     const called = new Map<string, number>();
     for (const en of floor.enemies) if (en.channel) called.set(en.channel.target, 1 - en.channel.t / RAISE_CHANNEL);
+    // Ossuary: restless remains rise into view the same way, on their own.
+    for (const en of floor.enemies) if (en.stirT !== undefined) called.set(en.id, 1 - Math.max(0, en.stirT) / OSSUARY_STIR);
     this.called = called;
     for (const en of floor.enemies) {
       const def = enemyDef(en.def);

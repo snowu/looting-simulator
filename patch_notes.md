@@ -1,3 +1,19 @@
+# Every floor its own law
+
+*No save change.*
+
+Three biomes now each have a rule of their own. The first time you arrive on one, it tells you.
+
+- **The Ossuary: the dead do not stay down.** A skeleton you put down stirs a few seconds later and stands back up at half its health. Shatter the bones with a blunt killing blow, or sanctify them with holy damage, and they stay down. A corpse only rises once.
+- **The Deep Mines: braced walls come down hard.** Bring down a cracked wall and its rotten timbers fall on whatever stands beside it: a crushing blow, and they reel. The noise of the blows draws monsters to you, so let them come, then bring it down.
+- **The Vermin Burrows: noise carries.** Every sound reaches further here: a cracked wall, Wardcry, an alarm ward, a struck chest. A broken root cache is a lure: whatever hears it goes to the cache, not to you.
+
+The Mine Road's description at the fork now mentions its walls.
+
+Validation: typecheck, production build, and the full test suite (698 tests), twice. New tests cover the Ossuary (remains stirring and standing once at half health, shattered, sanctified, living and non-Ossuary corpses staying down, long-dead corpses not all rising at once), a Mines collapse crushing and staggering what stands beside the wall and only in the Mines, the Burrows carrying a wall's noise further, and a root cache drawing monsters to itself. One existing test was pinned to a floor that isn't the Burrows, since its whole point is the normal noise range. Checked in the dev lab in Chrome: a skeleton's bones stirring with the log line, and it standing back up at 15 of 30 health. The balance harness moved within noise against the previous build, with no rise in deaths on depths 1–2. Not played through a real delve yet.
+
+---
+
 # The stair splits
 
 *No save change. A delve already under way keeps going the old way; the fork appears from your next delve.*

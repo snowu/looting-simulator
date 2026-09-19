@@ -301,8 +301,8 @@ the same commit as the work it describes**, so any session can resume from it.
 | 4 | `feat/ri-4-gravecaller` | Step 2: the Gravecaller, shattered and sanctified remains | built, PR open — needs a real delve on desktop and phone |
 | 5 | `feat/ri-5-properties` | Step 6 pulled forward: six build properties and the forge's Inscribe bench | [#22](https://github.com/snowu/looting-simulator/pull/22) open |
 | 6 | `feat/ri-6-oaths` | Step 3: Delve Oaths, paying out properties | [#23](https://github.com/snowu/looting-simulator/pull/23) open |
-| 7 | `feat/ri-7-routes` | Step 4, part 1: the route fork below depth 2 | built, PR open |
-| 8 | `feat/ri-8-laws` | Step 4, part 2: biome laws for Ossuary, Deep Mines, Vermin Burrows | not started |
+| 7 | `feat/ri-7-routes` | Step 4, part 1: the route fork below depth 2 | [#24](https://github.com/snowu/looting-simulator/pull/24) open |
+| 8 | `feat/ri-8-laws` | Step 4, part 2: biome laws for Ossuary, Deep Mines, Vermin Burrows | built, PR open |
 | 9+ | — | Steps 5 and 7: lieutenants and corpse run, Seals | not started |
 
 Log (newest last), one line per landed piece with what is and is not done:
@@ -384,6 +384,14 @@ Log (newest last), one line per landed piece with what is and is not done:
   `generateFloor(..., biomeId)` honours the road on depths 3–4 only where the
   biome can appear. Town news names the day's roads. Bot takes roads[0]. No
   save-revision bump (run fields optional; absent means no fork).
+- 2026-09-19 — **PR 8 built** (stacked on PR 7). `src/data/laws.ts`. Ossuary:
+  undead remains stir as `deadT` crosses 8s (`stirT`, rendered like a
+  Gravecaller's chant) and stand 2s later at 50%, risen, once. Mines: a crack
+  broken on a mines floor collapses onto every monster beside it (30 + 12×depth
+  blunt, 1.2s reel). Burrows: `noise()` scales crack, Wardcry, alarm and chest
+  radii ×1.75; a broken root cache lures monsters within 12 to the cache. The
+  arrival message plays on a floor's first generation. **Step 4 done with this
+  PR.** Next: step 5, lieutenants and the corpse run.
 - Art previews for PR descriptions are PNG sheets from `npm run art:sheet`,
   committed under `docs/previews/ri-*.png` and embedded by raw URL (user's
   request, 2026-09-19).

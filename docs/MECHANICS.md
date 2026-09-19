@@ -146,6 +146,18 @@ The first time you take the down stair on **depth 2**, it splits. A panel shows 
 
 **Which two roads are open depends on the day**, not the delve: `roadsForDay(saveId, day, events)`, drawn without repeats. Active market events make a road likelier: Iron Shortage ×3 and War Drums ×2 for the Mines; Harsh Winter ×3 for the Frost Vault; Dragon Sighting ×3 and The Great Forge Burns ×2 for the Emberworks; Arcane Study ×3 and Royal Wedding ×2 for the Sporegrove. The town news names the day's two roads, so you can prepare for one. A new delve snapshots them into `run.roads`, and the choice is saved as `run.road`. Delves started before the fork existed have no roads and never fork.
 
+### Biome laws
+
+*Files: `src/data/laws.ts`, `ossuaryStir` / `collapse` / `noise` / `breakProp` in `src/world/world.ts`*
+
+Three biomes each have one rule you can turn to your advantage. The first time you arrive on such a floor, the log says so.
+
+| Biome | Law | How it works |
+|---|---|---|
+| The Ossuary | **The dead do not stay down** | An undead monster's remains **stir 8s** after it dies (they glow and rise into view) and **stand 2s later** at **50%** health, `risen`, so they pay nothing twice and never rise again. Shattered or sanctified remains (see *The Gravecaller and remains*) stay down, as do the living and bosses. It only triggers as the 8s mark passes, so corpses you left behind don't all stand when you come back |
+| The Deep Mines | **Braced walls come down hard** | Bringing down a cracked wall collapses its timbering: every monster on a tile beside the wall takes `30 + 12 × depth` blunt damage (× its blunt resistance) and reels for **1.2s** (bosses don't reel). You strike from beside it, so the roof never falls on you. The blows' noise draws monsters to you, often right beside the crack |
+| The Vermin Burrows | **Noise carries** | Every noise reaches **×1.75** further: cracked-wall blows, Wardcry's shout, alarm wards and a struck chest's clang. Breaking a **root cache** makes a racket that draws every monster within **12** tiles to the **cache**, not to you, which makes it a lure |
+
 ### Elemental surfaces and residents
 
 Wall choices use a position hash, without generation RNG. Emberworks uses five

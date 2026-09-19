@@ -297,6 +297,8 @@ export interface EnemyState {
   trailDrops?: number;
   /** Hunter's quarry: one of the marked elites the oath asks you to kill. */
   marked?: boolean;
+  /** Ossuary: restless remains stirring, seconds until they stand. Absent when still. */
+  stirT?: number;
 }
 
 export interface Morsel {
