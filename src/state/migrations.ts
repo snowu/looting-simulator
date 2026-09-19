@@ -26,7 +26,7 @@ import { findSigil } from '../data/spells';
  */
 
 /** Bump this (and push a migration) whenever a field is added to the save. */
-export const SAVE_REVISION = 24;
+export const SAVE_REVISION = 25;
 
 type AnyState = GameState & Record<string, unknown>;
 
@@ -233,6 +233,10 @@ const MIGRATIONS: ((s: AnyState) => void)[] = [
     s.flask.infusion = null;
     if (!mat) return;
     if (!s.stash || addItem(s.stash, makeMaterial(ref)) > 0) s.gold = Math.max(0, Number(s.gold) || 0) + mat.value;
+  },
+  // 24 → 25: build properties. Nothing learned yet; items simply have none.
+  (s) => {
+    s.properties ??= [];
   },
 ];
 

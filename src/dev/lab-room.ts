@@ -16,6 +16,7 @@
  * - inventory works as normal in the dungeon (I / Tab); the forge itself is
  *   town-side, and recall scrolls are in the pack for going back to craft
  */
+import { PROPERTY_IDS } from '../data/properties';
 import { GameState } from '../state/game-state';
 import { Equipment } from '../systems/player';
 import { makeConsumable, makeEquipment, makeMaterial, repairItem, thrownCapacity } from '../systems/items';
@@ -59,6 +60,8 @@ export function prepare(state: GameState): void {
 
   // All sigils inscribed and attuned, with spares for the forge bench.
   state.spells = ['wardcry', 'snuff', 'sounding', 'threshold', 'temper'];
+  // Every build property learned, so the Inscribe bench can be tried without keeping an oath.
+  state.properties = [...PROPERTY_IDS];
   state.attuned = 'wardcry';
 
   // 999 of everything in the stash (unlimited, so it fits). The forge is

@@ -1,3 +1,36 @@
+# The Gravecaller
+
+*No save change. Floors you've already generated are untouched; Gravecallers appear on floors generated from now on.*
+
+Something hooded walks the Ossuary and the Catacombs from depth 2. **The Gravecaller** barely fights. It keeps its distance and chants over the undead you've killed, and after two seconds of green light the corpse stands back up at half its health. It does this up to three times in a life.
+
+You have three answers:
+- **Break the chant.** Hit it with anything, even a thrown knife or an arrow sent back at its friends.
+- **Shatter the bones.** Kill the undead with a blunt weapon, or hit hard enough to crush them, and nothing can call them back.
+- **Sanctify them.** A killing blow with any holy damage, or from Threshold's consecrated ground, and they stay down.
+
+The log tells you when remains are shattered or sanctified while a Gravecaller is near. A corpse it raises gives nothing when it falls again, so there's no farming it.
+
+Validation: typecheck, production build, and the full test suite (656 tests), twice. New tests cover placement (Ossuary and Catacombs only, never depth 1), the chant raising a skeleton at half health and marked risen, a blow breaking the chant, goblins staying dead, the three-raise limit, shattered and sanctified remains staying down, how the killing blow marks remains, and a raised corpse paying nothing a second time. The Hard golden test still matches the hash pinned before elites once the Gravecaller is removed. The first run of that test caught the Gravecaller shifting where loose loot and keys land, which is fixed. Checked in the dev lab in Chrome on a Catacombs floor: the Gravecaller in the dark with its green-eyed staff, the corpse glowing and rising during the chant, and the skeleton standing at 25 of 50 health with the player unharmed. Balance harness, 24 runs per profile: death rates rose across the geared profiles against the previous build (the careful iron kit 50% → 67%). The extra deaths are spread over depths 2–4 among many killers, never the Gravecaller itself, so it is likely a mix of attrition from extra fights and noise. Worth watching in play. Not played through a real delve yet, and not checked on a phone.
+
+---
+
+# Walls that give
+
+*No save change. Floors you've already generated have no cracked walls; they appear on floors generated from now on.*
+
+Some walls are **cracked**, and three blows from anything will bring one down. It costs you: every blow wears your weapon like a hit, and the noise carries through the walls to anything within six tiles.
+
+- **A plain crack** is a shortcut: a thin wall between two passages that are a long way apart on foot.
+- **A thin crack with a dull glint in it** is an ore seam. Break it for a few pieces of metal ore for the depth. They're commonest in the Vermin Burrows and the Deep Mines.
+- **A faint outline in the mortar**, where a niche was bricked up, is a cache someone sealed. It's easy to miss. Break it for a hoard like a chest's, and never less than a handful of coin.
+
+A broken wall stays broken for the rest of the delve, and the one-button tap swings at a cracked wall in front of you.
+
+Validation: typecheck, production build, and the full test suite (648 tests). New tests cover placement (on walls, clear of doors and stairs, shortcuts saving at least 12 steps, none on the throne floor), a texture for every wall, three blows with wear each time and the tile passable only after the third, the noise reaching six tiles and no further, ore and cache loot, and the tap swinging at a crack. The first test run caught caches that could open onto nothing, so they now roll like chests with a minimum of coin. Checked in the dev lab in Chrome: an ore seam and a sealed cache on Vermin Burrows walls, and three blows bringing the seam down into a finished alcove with copper ore inside. The balance harness is unchanged, since the bot never breaks walls. Not played through a real delve yet, and not checked on a phone.
+
+---
+
 # Look up. Watch the floor.
 
 *No save change. Floors you have already generated are untouched; ambushers appear on floors generated from now on.*

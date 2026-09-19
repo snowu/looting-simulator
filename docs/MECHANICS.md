@@ -348,6 +348,21 @@ Eligible monsters independently roll a morsel at `0.28 − 0.024 × (depth − 1
 - **Thieves** (the Goblin Cutpurse, and any *Thieving* elite): a melee blow that gets through (not parried, not blocked, and you survive it) takes one thing from your backpack: a piece of gear whole, or half a stack rounded up. Equipped gear is never at risk. The thief then flees at once, glowing gold so you can chase it in the dark, and the target bar says what it is carrying. It is a chase you can win, but have to work for. It runs at its normal pace (`THIEF_LADEN` is 1: you already outpace a goblin). After a step in your sight it has a **5%** chance to fumble its prize and stand still for **0.7s**. It runs in a panic, not cleverly: any step that isn't towards you, preferring to keep going straight, so it will bolt into a dead end. When it loses you it keeps sprinting for **2s** (`THIEF_BOLT`), then goes to ground, creeping one tile every **1s** (`THIEF_CREEP`) and still glowing. Every 4 steps, up to 3 times, 1–3 coins spill from its purse, leaving a short trail. Kill it and it drops what it took. If it spends **25 seconds** (`THIEF_ESCAPE`) out of your sight, it gets away and the item is gone. Cornered, it fights. It steals once; a thief that is already carrying does not steal again.
 - **Boss:** melee when adjacent, otherwise a three-bolt shadow volley when aligned.
 
+### The Gravecaller and remains
+
+*Files: `src/data/necromancy.ts`, the Gravecaller pass at the end of generation in `src/systems/dungeon.ts`, `markRemains` / `updateRaiser` / `raiseCorpse` in `src/world/world.ts`*
+
+**The Gravecaller** is a hooded skeleton with a skull-topped staff: 34 health, 7 shadow attack, undead resistances (weak to blunt and holy), sight 8. It is never in the ordinary spawn pool. Its own pass places one on an **Ossuary or Catacombs** floor at depth 2+, with a `50% + 10% × (depth − 2)` chance, in a room that already has undead in it where possible. Those biomes only appear at depths 1–3, so in practice that means depths 2–3. It keeps about 3 tiles away and only swings if cornered.
+
+**The chant.** When it's aware of you, off cooldown and has raised fewer than **3** this life, it picks the nearest fallen **undead** within **4 tiles** in its line of sight and chants over it for **2s** (`RAISE_CHANNEL`). The corpse glows green and is drawn upright as the chant runs. When the chant completes, the corpse stands at **50%** health, `risen` (it pays nothing when it falls again), in recovery for 0.8s before it may wind up. Then **6s** of cooldown. Goblins, rats and the like stay dead.
+
+**Three answers:**
+- **Break the chant.** Any damage to the Gravecaller breaks it (1.5s before it can start again). It's under the stagger threshold, so thrown shafts and reflected bolts work at range.
+- **Shatter the remains.** A blunt killing blow, or one that overkills by **25%** of the monster's health (`SHATTER_OVERKILL`), leaves bones that can't be raised.
+- **Sanctify them.** A killing blow while you have any Holy damage, or struck while standing on Threshold's consecrated tile, leaves remains that can't be raised.
+
+The log says so ("The bones shatter…", "The remains are sanctified…") when a Gravecaller is within 10 tiles to care. Only melee killing blows set remains; a kill by a trap, a thrown shaft or a Vengeful burst leaves ordinary remains. The placement pass doesn't mark its tile as occupied, so loose loot and keys land exactly where they always did. The Hard golden test removes it and still matches the pre-elite hash.
+
 ### Ambushers
 
 *Files: `src/data/ambush.ts`, the ambush pass at the end of generation in `src/systems/dungeon.ts`, `updateLurker` / `emerge` / `knockOut` / `dive` in `src/world/world.ts`*
@@ -453,6 +468,26 @@ Diablo's, in short: a two-way door that costs one scroll for the round trip.
 - The portal is part of the save, so closing the browser in the middle of a portal trip and coming back still works.
 - A portal trip never heals you: Bleakmere watches, it does not mend. Full health returns only with a new delve — the day turns, the hero rests.
 
+
+### Cracked walls
+
+*Files: `src/data/walls.ts`, `placeCracks` in `src/systems/dungeon.ts`, `strikeCrack` in `src/world/world.ts`, the cracked-wall box in `src/render/level-mesh.ts`*
+
+Some wall tiles are **cracked**: the biome's own wall with a fissure drawn over it. Any weapon breaks one in **3 blows** (`CRACK_BLOWS`), by decision, to be revisited after play. One quiet exception, kept as an easter egg and left out of the patch notes on purpose: an unbroken **Mining Pick** brings any cracked wall down in **one** blow ("The pick finds the fault line."). Every blow:
+- **wears your weapon** by 2, like a landed hit
+- is **loud**: monsters within **6 tiles** (`CRACK_NOISE`) are alerted to where you stand, through walls
+
+A broken wall becomes floor for good. The tile, its floor, ceiling and inner walls are laid when the level is built, so the opening is finished the moment the box sinks away.
+
+| Kind | What shows | Where | Breaking it |
+|---|---|---|---|
+| Shortcut | a plain fissure | a wall one tile thick between two floors at least **12 steps** apart the long way round | opens a new way through |
+| Seam | a thin fissure with a few dull glints, noticed on a second look | a wall tile with exactly one open side | opens an alcove and spills **2–4** metal ore for the depth |
+| Cache | a faint, broken mortar outline of a bricked-up niche with a hairline crack; the subtlest of the three | a wall tile with exactly one open side | opens an alcove with a hoard rolled like a **chest**, never less than `10 + 8 × depth` gold |
+
+Per floor: 2 shortcuts, 1 cache, and `1 + 2 on Burrows/Mines floors + 1 from depth 4` seams, at least 6 tiles apart. None on the border, within a tile of a door, stair, secret or blocking prop, on a wall a torch hangs from, or on the throne floor. Breaking one only ever adds floor, so it can't strand a key or a stair. Placement is the last generation pass, on its own stream (`cracks:<floorSeed>:<depth>`); the Hard golden test removes it before matching the pre-elite hash.
+
+The one-button tap swings at a cracked wall you face.
 
 ---
 
@@ -912,6 +947,23 @@ Sigil stones drop only where nothing else can carry them:
 The roll never offers a sigil you already know or are already carrying anywhere — stash, loadout, backpack or lying in a pickup on any floor of the current delve — so a run can never hand you a duplicate. It uses its own hashed stream (`sigil:<seed>:<depth>:<stream>`), so adding it did not reshuffle any floor that already existed.
 
 A stone is **inscribed at the forge**, on its *Sigils* bench, which consumes it permanently into `state.spells`; you **attune** from the same bench. The forge's right-hand column is three tabs — Recipes, Repairs, Sigils — each badged when it wants attention, because stacking them put the recipe list a screen and a half down. Attunement cannot change mid-delve unless a town portal is open — the same rule that governs restocking.
+
+### Build properties
+
+*Files: `src/data/properties.ts`, `src/systems/properties.ts`, `applyProperty` in `src/systems/player.ts`, the hooks in `src/world/world.ts`, the Inscribe bench in `src/ui/town.ts`*
+
+A property is an effect that changes how a combat verb plays. Properties are **learned** (Delve Oaths pay them out) and kept for good in `state.properties`. At the forge's **Inscribe** bench you put a learned property onto a piece of gear, worn or stashed, for **150 gold** (`INSCRIBE_COST`). Each item holds one property, and inscribing again replaces it. Relics can't take one, and a property only counts on identified gear worn in a slot it was made for.
+
+| Property | Gear | Effect |
+|---|---|---|
+| Riposte | weapon | After a parry, your next swing within **2s** costs no stamina and deals **×1.3** |
+| Execution | weapon | Killing a monster that is reeling (`vuln`: parried or knocked out) refunds **×2** the usual sigil cooldown, within the usual 20% cap |
+| Kindling | weapon | A blow with Fire damage on a monster below **50%** health also burns one adjacent monster for its fire share (× that monster's fire resistance) |
+| Bulwark | shield | A block that soaks at least **10%** of your max health makes your next landed strike within **3s** deal **×1.5** |
+| Retrieval | thrown belt | Called-back shafts hit each monster they pass through once, for **50%** of a throw |
+| Last Flask | head, body, hands | While the flask has no charges, morsels and life leech heal **×1.5** |
+
+Riposte, Bulwark, the parry vulnerability and Marrow all multiply together. The tooltip shows the property in plain words, and its numbers on Shift or a tap.
 
 ## The bestiary codex
 

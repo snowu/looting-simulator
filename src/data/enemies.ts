@@ -22,6 +22,19 @@ export const ENEMIES: EnemyDef[] = [
     description: 'Waterlogged bones swing slowly, but the weight of the blow lingers.',
   },
   {
+    // Never in the ordinary pool (weight 0): placed by its own pass on Ossuary
+    // and Catacombs floors, where there are bones to call. It barely fights:
+    // it keeps its distance and stands your kills back up.
+    // Light enough to stagger, so a blow or a thrown shaft breaks the chant.
+    id: 'gravecaller', name: 'Gravecaller', sprite: 'gravecaller', scale: 0.95,
+    hp: 34, attack: 7, defense: 3, damageType: 'shadow', resist: { ...UNDEAD_RESIST }, undead: true,
+    behavior: 'ranged', range: 3, raises: true, step: 0.5, windup: 0.6, recovery: 1, sight: 8,
+    minDepth: 2, maxDepth: 5, weight: 0,
+    loot: [{ id: 'bone', chance: 0.5, min: 1, max: 2 }, { id: 'ancient_tome', chance: 0.06, min: 1, max: 1 }, { id: 'shadow_essence', chance: 0.04, min: 1, max: 1 }],
+    gold: [2, 10], itemChance: 0.04,
+    description: 'It hums to the dead, and the dead remember how to stand. Break the song, or break the bones.',
+  },
+  {
     id: 'tunnel_stalker', name: 'Tunnel Stalker', sprite: 'stalker', scale: 0.65,
     hp: 25, attack: 9, defense: 1, damageType: 'pierce', resist: { fire: 1.5, slash: 1.35 },
     behavior: 'skittish', step: 0.26, windup: 0.4, recovery: 0.75, sight: 5,

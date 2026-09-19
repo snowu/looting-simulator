@@ -4,6 +4,8 @@ import { EMBER_FLOOR_IDS, EMBER_CEILING_IDS } from '../art/ember-floor';
 import { Dir, DIRS, DX, DY, turnRight } from '../core/dir';
 import { biomeForFloor } from '../data/biomes';
 import { Door, Floor, FLOOR, PILLAR, Secret, WALL, isBossDoor, stairsAt, tileAt } from '../systems/dungeon';
+import type { Crack } from '../data/walls';
+import { CRACKABLE_WALLS, crackTexture } from '../art/textures';
 import { fogGateMaterial } from './fog-gate';
 import { artTexture } from './art-cache';
 import { PS1Material, Shared, ps1Material } from './ps1';
@@ -112,6 +114,9 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
   const materials: THREE.Material[] = [];
   const geometries: THREE.BufferGeometry[] = [];
   const secretAtTile = (x: number, y: number) => floor.secrets.find((s) => s.x === x && s.y === y && !s.found);
+  // An unbroken cracked wall is drawn as its own box (below), so neighbours
+  // skip their wall face towards it exactly as they do for a secret.
+  const crackAtTile = (x: number, y: number) => floor.cracks?.find((c) => c.x === x && c.y === y && !c.broken);
   const half = TILE / 2;
 
   const wallQuad = (tex: string, cx: number, cz: number, d: Dir, y0: number, y1: number, forward = half) => {
@@ -179,13 +184,36 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
 
       for (const d of DIRS) {
         const nx = x + DX[d], ny = y + DY[d];
-        if (tileAt(floor, nx, ny) !== WALL || secretAtTile(nx, ny)) continue;
+        if (tileAt(floor, nx, ny) !== WALL || secretAtTile(nx, ny) || crackAtTile(nx, ny)) continue;
         const tex = biome.id === 'emberworks' ? emberWallTexture(nx, ny, d)
           : biome.wallVariants?.length
           ? biome.wallVariants[hash3(nx, ny, d) % biome.wallVariants.length]
           : hash3(nx, ny, d) < 12 ? biome.wallAlt : biome.wall;
         wallQuad(tex, cx, cz, d, 0, WALL_H);
       }
+    }
+  }
+
+  // Floor, ceiling and inner walls under each unbroken cracked wall (its box
+  // is added further down, once the static geometry is built).
+  for (const crack of floor.cracks ?? []) {
+    if (crack.broken) continue;
+    const cx = tileX(crack.x), cz = tileZ(crack.y);
+    const x0 = cx - half, x1 = cx + half, z0 = cz - half, z1 = cz + half;
+    const floorTex = biome.floorVariants?.length ? biome.floorVariants[hash3(crack.x, crack.y, 4) % biome.floorVariants.length] : biome.floor;
+    B(floorTex).quad([x0, 0, z0], [x1, 0, z0], [x1, 0, z1], [x0, 0, z1], [0, 1, 0]);
+    B(ceiling).quad([x0, WALL_H, z0], [x1, WALL_H, z0], [x1, WALL_H, z1], [x0, WALL_H, z1], [0, -1, 0]);
+    // The walls of the opening it will leave, laid now because the level is
+    // not rebuilt when it breaks. They face into the tile, so while the box
+    // stands they are back faces and never drawn.
+    for (const d of DIRS) {
+      const nx = crack.x + DX[d], ny = crack.y + DY[d];
+      if (tileAt(floor, nx, ny) !== WALL || secretAtTile(nx, ny) || crackAtTile(nx, ny)) continue;
+      const wallTex = biome.id === 'emberworks' ? emberWallTexture(nx, ny, d)
+        : biome.wallVariants?.length
+        ? biome.wallVariants[hash3(nx, ny, d) % biome.wallVariants.length]
+        : hash3(nx, ny, d) < 12 ? biome.wallAlt : biome.wall;
+      wallQuad(wallTex, cx, cz, d, 0, WALL_H);
     }
   }
 
@@ -260,6 +288,32 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
     doors.push({ door, pivot, angle, material: mat, lockedTex, openTex });
   }
 
+  // --- Cracked walls -----------------------------------------------------------
+  // A box in the crack texture over a floor and ceiling already laid, so that
+  // when it breaks and sinks away the tile underneath is finished. A blow
+  // jolts it; breaking sinks it like a secret wall.
+  const cracks: { crack: Crack; mesh: THREE.Mesh; hits: number; jolt: number }[] = [];
+  const crackGeo = new THREE.BoxGeometry(TILE, WALL_H, TILE);
+  crackGeo.translate(0, WALL_H / 2, 0);
+  geometries.push(crackGeo);
+  const crackMats = new Map<string, PS1Material>();
+  const wallForCracks = CRACKABLE_WALLS.includes(biome.wall) ? biome.wall : 'wall_crypt';
+  for (const crack of floor.cracks ?? []) {
+    if (crack.broken) continue;
+    const cx = tileX(crack.x), cz = tileZ(crack.y);
+    const tex = crackTexture(wallForCracks, crack.kind);
+    let mat = crackMats.get(tex);
+    if (!mat) {
+      mat = ps1Material(shared, artTexture(tex));
+      crackMats.set(tex, mat);
+      materials.push(mat);
+    }
+    const mesh = new THREE.Mesh(crackGeo, mat);
+    mesh.position.set(cx, 0, cz);
+    root.add(mesh);
+    cracks.push({ crack, mesh, hits: crack.hits, jolt: 0 });
+  }
+
   // --- Secret walls ------------------------------------------------------------
   const secrets: SecretView[] = [];
   const secretGeo = new THREE.BoxGeometry(TILE, WALL_H, TILE);
@@ -293,6 +347,22 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
         dv.pivot.rotation.y = dv.angle;
         const tex = dv.door.locked ? dv.lockedTex : dv.openTex;
         if (dv.material.uniforms.map.value !== tex) dv.material.uniforms.map.value = tex;
+      }
+      for (const cv of cracks) {
+        if (!cv.mesh.visible) continue;
+        if (cv.crack.hits !== cv.hits) {
+          cv.hits = cv.crack.hits;
+          cv.jolt = 0.18;
+        }
+        const home = { x: tileX(cv.crack.x), z: tileZ(cv.crack.y) };
+        cv.jolt = Math.max(0, cv.jolt - dt);
+        const shake = cv.jolt > 0 ? Math.sin(cv.jolt * 90) * 0.03 : 0;
+        cv.mesh.position.x = home.x + shake;
+        cv.mesh.position.z = home.z - shake;
+        if (cv.crack.broken) {
+          cv.mesh.position.y -= dt * 2.4;
+          if (cv.mesh.position.y < -WALL_H) cv.mesh.visible = false;
+        }
       }
       for (const sv of secrets) {
         if (!sv.secret.found || !sv.mesh.visible) continue;

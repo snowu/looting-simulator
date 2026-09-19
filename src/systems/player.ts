@@ -1,4 +1,5 @@
-import { DamageType, DEFAULT_CRIT_MULT, EquipSlot, EQUIP_SLOTS, Item, Stats, SwingProfile, ThrownProfile, WeaponClass, addStats, emptyStats } from '../types';
+import { DamageType, DEFAULT_CRIT_MULT, EquipSlot, EQUIP_SLOTS, Item, Stats, SwingProfile, ThrownProfile, WeaponClass, addStats, emptyStats, slotOf } from '../types';
+import { findProperty } from '../data/properties';
 import { FIST_ATTACK, FIST_SWING, itemBase } from '../data/items';
 import { DifficultyId, difficultyOf } from '../data/difficulty';
 import { isTwoHanded, itemStats, thrownCapacity, thrownProfile, uniqueOf } from './items';
@@ -38,6 +39,13 @@ export interface UniqueTraits {
   staminaRegen: number;
   /** Tiles of sight the floor loses on you. */
   unseen: number;
+  /** Inscribed build properties in effect. See `src/data/properties.ts`. */
+  riposte: boolean;
+  execution: boolean;
+  kindling: boolean;
+  bulwark: boolean;
+  retrieval: boolean;
+  lastFlask: boolean;
 }
 
 export function emptyTraits(): UniqueTraits {
@@ -51,7 +59,31 @@ export function emptyTraits(): UniqueTraits {
     trapSense: 0,
     staminaRegen: 1,
     unseen: 0,
+    riposte: false,
+    execution: false,
+    kindling: false,
+    bulwark: false,
+    retrieval: false,
+    lastFlask: false,
   };
+}
+
+/**
+ * An inscribed property counts only on identified gear worn in a slot it was
+ * made for; `inscribe` enforces the slot, and this rechecks it so a save edited
+ * by hand cannot put Riposte on a helmet.
+ */
+function applyProperty(t: UniqueTraits, item: Item | null | undefined, slot: EquipSlot): void {
+  const def = findProperty(item?.property);
+  if (!def || !item || item.identified === false || !def.slots.includes(slotOf(slot))) return;
+  switch (def.id) {
+    case 'riposte': t.riposte = true; break;
+    case 'execution': t.execution = true; break;
+    case 'kindling': t.kindling = true; break;
+    case 'bulwark': t.bulwark = true; break;
+    case 'retrieval': t.retrieval = true; break;
+    case 'last_flask': t.lastFlask = true; break;
+  }
 }
 
 /** How many parry stacks a blade that feeds on them can hold. */
@@ -61,6 +93,7 @@ function traitsOf(eq: Equipment, twoHanded = false): UniqueTraits {
   const t = emptyTraits();
   for (const slot of EQUIP_SLOTS) {
     if (twoHanded && slot === 'offhand') continue;
+    applyProperty(t, eq[slot], slot);
     const u = uniqueOf(eq[slot]);
     // An unidentified unique is a lump of metal like any other: you do not get
     // the effect until you know what you are holding.

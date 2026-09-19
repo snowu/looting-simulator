@@ -7,6 +7,12 @@ import {
   THIEF_BOLT, THIEF_CREEP, THIEF_ESCAPE, THIEF_FUMBLE, THIEF_FUMBLE_CHANCE, THIEF_TRAIL_EVERY, THIEF_TRAIL_MAX,
   VENGEFUL_DAMAGE_MULT, VENGEFUL_FUSE,
 } from '../data/elites';
+import { CACHE_MIN_GOLD, CRACK_BLOWS, CRACK_NOISE, CRACK_WEAR, Crack, SEAM_ORE } from '../data/walls';
+import {
+  BULWARK_MULT, BULWARK_SOAK, BULWARK_WINDOW, EXECUTION_REFUND_MULT, KINDLING_AT, KINDLING_SPREAD, LAST_FLASK_MULT,
+  RETRIEVAL_MULT, RIPOSTE_MULT, RIPOSTE_WINDOW,
+} from '../data/properties';
+import { RAISE_BEAT, RAISE_CHANNEL, RAISE_COOLDOWN, RAISE_HP, RAISE_LIMIT, RAISE_REACH, SHATTER_OVERKILL } from '../data/necromancy';
 import {
   AMBUSH_BEAT, AMBUSH_TRIGGER, BURROW_MAX, BURROW_MIN, DIVE_AT, DROP_SECONDS, KNOCKOUT_STUN, MOUND_STEP, SURFACE_SECONDS,
 } from '../data/ambush';
@@ -26,6 +32,7 @@ import {
   doorAt,
   enemyAt,
   lurkerAt,
+  crackAt,
   generateFloor,
   inBounds,
   isBossDoor,
@@ -44,7 +51,7 @@ import { biomeForFloor, FINAL_DEPTH } from '../data/biomes';
 import { PlayerDerived, derivePlayer, thrownView } from '../systems/player';
 import { DifficultyId, DifficultyDef, difficultyOf } from '../data/difficulty';
 import { enemyHitsPlayer, playerHitsEnemy, staminaPower } from '../systems/combat';
-import { ContainerTier, durability, identify, isIdentified, itemName, makeMaterial, rollContainerLoot, rollEnemyLoot, uniqueOf, wearItem } from '../systems/items';
+import { ContainerTier, durability, identify, isIdentified, itemName, makeMaterial, materialForDepth, rollContainerLoot, rollEnemyLoot, uniqueOf, wearItem } from '../systems/items';
 import { nameRelic } from '../systems/relics';
 import { recordDepth, recordKill } from '../systems/contracts';
 import {
@@ -80,6 +87,7 @@ export type WorldEvent =
   | { type: 'floor' }
   | { type: 'end'; outcome: 'dead' | 'extracted' }
   | { type: 'secret'; x: number; y: number }
+  | { type: 'crack'; id: string; hits: number }
   | { type: 'trap'; id: string; x: number; y: number; kind: Trap['kind'] }
   | { type: 'town' };
 
@@ -108,6 +116,8 @@ export interface Projectile {
   returning?: boolean;
   /** Recoverable player throw. Its combat snapshot prevents gear swaps changing a shot in flight. */
   thrownBase?: string;
+  /** Monsters a Retrieval shaft has already cut on its way home. */
+  hitIds?: string[];
   thrownRange?: number;
   traveled?: number;
   player?: PlayerDerived;
@@ -168,6 +178,11 @@ export interface PlayerAnim {
   cast: { id: SigilId; t: number } | null;
   snuffT: number;
   unseenT: number;
+  /** Riposte: seconds left in which the next swing is free and harder, and whether the swing in flight is one. */
+  riposteT: number;
+  riposteSwing: boolean;
+  /** Bulwark: seconds left in which the next landed strike is charged. */
+  bulwarkT: number;
   ward: { x: number; y: number; t: number } | null;
   transition: { t: number; dir: 'down' | 'up'; done: boolean } | null;
   sip: number | null;
@@ -486,7 +501,7 @@ export class World {
       attackBase: null, attackWeaponUid: null, attackSnapshot: null,
       blockRaise: 0, blockT: Infinity, parryArmed: false, parryCd: 0,
       rangedParryT: 0, parryInvulnT: 0, stunT: 0, steps: 0, parryStacks: 0,
-      sinceStamina: 10, windedCd: 0, recall: null, cast: null, snuffT: 0, unseenT: 0, ward: null, transition: null,
+      sinceStamina: 10, windedCd: 0, recall: null, cast: null, snuffT: 0, unseenT: 0, riposteT: 0, riposteSwing: false, bulwarkT: 0, ward: null, transition: null,
       sip: null, chew: null, draught: null,
     };
     this.trail.push({ x: this.player.x, y: this.player.y, facing: this.player.facing, time: this.run.stats.time });
@@ -556,8 +571,10 @@ export class World {
    * suit of armour halve all of it at once. Returns what was actually restored.
    * Difficulty mends faster on Normal; Hard multiplies by exactly 1.
    */
-  private heal(amount: number): number {
-    const scaled = Math.round(amount * this.derived.traits.healing * this.diff.playerHealing);
+  private heal(amount: number, source?: 'food' | 'leech'): number {
+    // Last Flask: with the flask dry, food and leech carry you.
+    const lastFlask = source && this.derived.traits.lastFlask && (this.run.flask?.charges ?? 1) <= 0 ? LAST_FLASK_MULT : 1;
+    const scaled = Math.round(amount * lastFlask * this.derived.traits.healing * this.diff.playerHealing);
     const healed = Math.min(Math.max(0, scaled), this.derived.maxHp - this.player.hp);
     this.player.hp += healed;
     const overflow = Math.max(0, scaled - healed);
@@ -766,6 +783,8 @@ export class World {
     this.run.thrown ??= { held: {}, retrieveCd: 0 };
     this.run.thrown.retrieveCd = Math.max(0, (this.run.thrown.retrieveCd ?? 0) - dt);
     a.snuffT = Math.max(0, a.snuffT - dt);
+    a.riposteT = Math.max(0, a.riposteT - dt);
+    a.bulwarkT = Math.max(0, a.bulwarkT - dt);
     a.unseenT = Math.max(0, a.unseenT - dt);
     if (a.ward) {
       a.ward.t -= dt;
@@ -898,7 +917,7 @@ export class World {
       const target = Math.round(a.chew.total * (1 - a.chew.left / CHEW_SECONDS));
       const portion = Math.max(0, target - a.chew.delivered);
       if (portion) {
-        this.heal(portion);
+        this.heal(portion, 'food');
         a.chew.delivered += portion;
       }
       if (a.chew.left <= 0) {
@@ -1258,6 +1277,7 @@ export class World {
 
   /** Shared feedback for any parry: it should feel like a moment. */
   private parryFlourish(x: number, y: number): void {
+    if (this.derived.traits.riposte) this.anim.riposteT = RIPOSTE_WINDOW;
     this.anim.blockT = Infinity;
     this.anim.parryArmed = false;
     this.sfx('parry', x, y);
@@ -1303,7 +1323,10 @@ export class World {
     // zero, which kept the free swings coming. How tired you are still shows
     // in the damage, through staminaPower — it just is not free any more.
     const profile: SwingProfile = this.derived.swing;
-    const cost = profile.staminaCost;
+    // Riposte: the swing after a parry is free.
+    a.riposteSwing = this.derived.traits.riposte && a.riposteT > 0;
+    if (a.riposteSwing) a.riposteT = 0;
+    const cost = a.riposteSwing ? 0 : profile.staminaCost;
     if (this.player.stamina < cost) {
       // Throttled hard: at the bottom of the bar almost every frame is a
       // refusal, and without this the breath loops under a held button.
@@ -1524,12 +1547,16 @@ export class World {
       x: fromX + 0.5, y: fromY + 0.5,
       dx: dx / len, dy: dy / len,
       speed: RETURN_SPEED,
-      damage: 0, type: 'pierce',
+      // Retrieval: a shaft on its way home cuts what it passes through.
+      damage: this.derived.traits.retrieval && thrown ? thrown.power * RETRIEVAL_MULT : 0,
+      type: this.derived.damageType,
       sprite: thrown?.sprite ?? 'proj_knife',
       tileX: fromX, tileY: fromY,
       source: 'your hand',
       returning: true,
       thrownBase: base,
+      player: this.derived.traits.retrieval ? this.derived : undefined,
+      hitIds: [],
     });
   }
 
@@ -1751,6 +1778,11 @@ export class World {
       const p = propAt(f, t.x, t.y);
       if (p && d === 1 && (p.kind === 'urn' || p.kind === 'barrel' || p.kind === 'root_cache') && !p.used) {
         this.breakProp(p);
+        return;
+      }
+      const crack = d === 1 ? crackAt(f, t.x, t.y) : undefined;
+      if (crack) {
+        this.strikeCrack(crack);
         return;
       }
       // An emptied chest is only boards now: one blow and it is splinters.
@@ -1992,7 +2024,14 @@ export class World {
       }
       this.emit({ type: 'shake', amount: 0.4 });
     }
+    // Riposte rides on the whole swing after a parry; Bulwark on the next blow that lands.
+    if (this.anim.riposteSwing) hit.damage = Math.round(hit.damage * RIPOSTE_MULT);
+    if (this.anim.bulwarkT > 0 && this.derived.traits.bulwark) {
+      hit.damage = Math.round(hit.damage * BULWARK_MULT);
+      this.anim.bulwarkT = 0;
+    }
     e.hp -= hit.damage;
+    if (this.derived.traits.kindling) this.kindle(e);
     const life = this.state.lifetime;
     if (hit.damage > (life.bestHit ?? 0)) life.bestHit = hit.damage;
     recordDamageDealt(this.state.bestiary, def.id, hit.damage);
@@ -2006,7 +2045,7 @@ export class World {
     if (hit.effective === 'resist' && this.rng.chance(0.3)) this.msg(`The ${def.name} shrugs off your ${this.derived.damageType} blows.`, '#9a9aa8');
     if (hit.effective === 'weak' && this.rng.chance(0.3)) this.msg(`The ${def.name} reels!`, '#ff9a40');
     if (this.derived.stats.leech > 0) {
-      this.heal(Math.max(1, Math.round((hit.damage * this.derived.stats.leech) / 100)));
+      this.heal(Math.max(1, Math.round((hit.damage * this.derived.stats.leech) / 100)), 'leech');
     }
     // Lighter foes are staggered out of their wind-up.
     if (this.derived.swing.stagger) e.attackCd += this.derived.swing.stagger;
@@ -2014,7 +2053,48 @@ export class World {
       e.ai = 'recover';
       e.timer = 0.5;
     }
-    if (e.hp <= 0) this.killEnemy(e);
+    if (e.hp <= 0) {
+      this.markRemains(e);
+      this.killEnemy(e);
+    }
+  }
+
+  /**
+   * Kindling: a blow with fire in it, landing on a monster below `KINDLING_AT`
+   * of its health, also burns one monster beside it for the fire share.
+   */
+  private kindle(e: EnemyState): void {
+    const fire = this.derived.stats.fire ?? 0;
+    if (fire <= 0 || e.hp >= e.maxHp * KINDLING_AT) return;
+    const near = this.floor.enemies.filter((o) => o !== e && o.ai !== 'dead' && !o.lurk && Math.abs(o.x - e.x) + Math.abs(o.y - e.y) === 1);
+    if (!near.length) return;
+    const o = this.rng.pick(near);
+    const mult = enemyDef(o.def).resist.fire ?? 1;
+    const dealt = Math.round(fire * KINDLING_SPREAD * this.anim.attackPower * mult);
+    if (dealt <= 0) return;
+    o.hp -= dealt;
+    o.hurtT = 0.3;
+    o.alert = Math.max(o.alert, 8);
+    this.emit({ type: 'float', x: o.x, y: o.y, text: `${dealt}`, color: '#ff9a50' });
+    if (o.hp <= 0) this.killEnemy(o);
+  }
+
+  /**
+   * How an undead monster fell, for any Gravecaller nearby: a blunt killing
+   * blow, or one that overkills by `SHATTER_OVERKILL`, shatters the bones; a
+   * killing blow carrying holy damage, or struck from consecrated ground,
+   * sanctifies them. Either way nothing raises it.
+   */
+  private markRemains(e: EnemyState): void {
+    if (!enemyDef(e.def).undead) return;
+    const overkill = -e.hp >= e.maxHp * SHATTER_OVERKILL;
+    const ward = this.anim.ward;
+    const consecrated = !!ward && ward.x === this.player.x && ward.y === this.player.y;
+    if (this.derived.damageType === 'blunt' || overkill) e.remains = 'shattered';
+    else if ((this.derived.stats.holy ?? 0) > 0 || consecrated) e.remains = 'sanctified';
+    else return;
+    const caller = this.floor.enemies.some((g) => g.ai !== 'dead' && enemyDef(g.def).raises && Math.abs(g.x - e.x) + Math.abs(g.y - e.y) <= 10);
+    if (caller) this.msg(e.remains === 'shattered' ? 'The bones shatter. Nothing will call these back.' : 'The remains are sanctified. They will stay down.', '#e8e0c0');
   }
 
   private killEnemy(e: EnemyState): void {
@@ -2039,7 +2119,7 @@ export class World {
       this.msg(`${def.name} falls still again.`, '#c8c0b0');
       return;
     }
-    this.refundSigil(def);
+    this.refundSigil(def, this.derived.traits.execution && (e.vuln ?? 0) > 0 ? EXECUTION_REFUND_MULT : 1);
     this.run.stats.kills++;
     recordKill(this.state.contracts, def.id);
     recordBestiaryKill(this.state.bestiary, def.id);
@@ -2115,11 +2195,11 @@ export class World {
     return (this.state.lifetime.uniquesKnown ??= []);
   }
 
-  private refundSigil(def: EnemyDef): void {
+  private refundSigil(def: EnemyDef, mult = 1): void {
     const active = this.run.sigil;
     if (!active || active.cd <= 0) return;
     const spell = sigil(active.id);
-    const base = 2 + 8 * Math.min(1, def.hp / 140);
+    const base = (2 + 8 * Math.min(1, def.hp / 140)) * mult;
     const multiplier = 1 + 0.25 * metaLevel(this.state.meta, 'attunement') + this.derived.stats.focus / 100;
     active.cd = Math.max(0, active.cd - Math.min(base * multiplier, spell.cooldown * 0.2));
   }
@@ -2328,6 +2408,7 @@ export class World {
     for (let d = 1; d <= this.derived.swing.reach; d++) {
       const t = this.frontTile(d);
       if (enemyAt(f, t.x, t.y)) return { kind: 'attack', label: '' };
+      if (d === 1 && crackAt(f, t.x, t.y)) return { kind: 'attack', label: '' };
       // Something you can see hiding right in front of you is a target too.
       const hidden = d === 1 ? lurkerAt(f, t.x, t.y) : undefined;
       if (hidden && (hidden.lurk === 'buried' || hidden.spotted)) return { kind: 'attack', label: '' };
@@ -3427,6 +3508,9 @@ export class World {
       // The guard rhythm ticks while the bearer is free to hold it.
       this.updateGuard(e, def, dt, e.alert > 0 && dist <= GUARD_RANGE);
 
+      // A Gravecaller chanting over a corpse stands still until it finishes or is broken.
+      if (def.raises && this.updateRaiser(e, def, dt)) continue;
+
       // A thief with your things in its hands does nothing but run.
       if (e.stolen?.length && e.ai !== 'windup' && e.ai !== 'recover') {
         if (this.runWithLoot(e, def, dist, sees, dt)) continue;
@@ -3624,6 +3708,11 @@ export class World {
         p.stamina -= cost;
         dmg = Math.round(dmg - absorbed);
         blocked = true;
+        // Bulwark: a heavy blow taken on the shield charges the next strike.
+        if (this.derived.traits.bulwark && absorbed >= this.derived.maxHp * BULWARK_SOAK) {
+          if (this.anim.bulwarkT <= 0) this.msg('The shield takes it. Your next blow is charged.', '#a8bccc');
+          this.anim.bulwarkT = BULWARK_WINDOW;
+        }
         // Blocking grinds the shield down (2 per block, was 1); a parry
         // costs it nothing, which is one more reason to meet the swing
         // instead of hiding behind it.
@@ -3717,8 +3806,16 @@ export class World {
         }
         pr.dx = ddx / dist;
         pr.dy = ddy / dist;
-        pr.tileX = Math.floor(pr.x);
-        pr.tileY = Math.floor(pr.y);
+        const rx = Math.floor(pr.x), ry = Math.floor(pr.y);
+        if (pr.damage > 0 && (rx !== pr.tileX || ry !== pr.tileY)) {
+          const cut = enemyAt(f, rx, ry);
+          if (cut && !pr.hitIds?.includes(cut.id)) {
+            (pr.hitIds ??= []).push(cut.id);
+            this.thrownHit(pr, cut);
+          }
+        }
+        pr.tileX = rx;
+        pr.tileY = ry;
         continue;
       }
       const tx = Math.floor(pr.x), ty = Math.floor(pr.y);
@@ -3814,7 +3911,7 @@ export class World {
     recordDamageDealt(this.state.bestiary, def.id, hit.damage);
     this.emit({ type: 'float', x: e.x, y: e.y, text: hit.crit ? `${hit.damage}!` : `${hit.damage}`, color: hit.crit ? '#ffe040' : hit.effective === 'weak' ? '#ff9a40' : hit.effective === 'resist' ? '#9a9aa8' : '#ffffff' });
     this.sfx(hit.crit ? 'crit' : 'hit', e.x, e.y);
-    if (player.stats.leech > 0) this.heal(Math.max(1, Math.round(hit.damage * player.stats.leech / 100)));
+    if (player.stats.leech > 0) this.heal(Math.max(1, Math.round(hit.damage * player.stats.leech / 100)), 'leech');
     this.wearThrown(pr.weaponUid);
     if (e.hp <= 0) this.killEnemy(e);
   }
@@ -3989,6 +4086,124 @@ export class World {
     this.msg(was === 'ceiling'
       ? `A ${def.name} drops down${behind ? ' behind you' : ''}!`
       : `A ${def.name} bursts from the earth${behind ? ' behind you' : ''}!`, '#e0a070');
+  }
+
+  /**
+   * A blow on a cracked wall. It wears the weapon like a landed hit and it is
+   * loud: everything within `CRACK_NOISE` tiles comes to look, through walls.
+   * At `CRACK_BLOWS` the wall goes, for good, and a seam or cache spills.
+   */
+  private strikeCrack(c: Crack): void {
+    const f = this.floor;
+    // A small secret, not a rule: the Mining Pick knows where stone gives, and
+    // brings any cracked wall down in one. Every other weapon takes CRACK_BLOWS.
+    const w = this.state.equipment.weapon;
+    const pick = !!w && itemBase(w.ref).weaponClass === 'pick' && !durability(w).broken;
+    c.hits = pick ? CRACK_BLOWS - 1 : c.hits;
+    c.hits++;
+    this.wear('weapon', CRACK_WEAR);
+    this.sfx('break', c.x, c.y);
+    this.emit({ type: 'shake', amount: 0.2 });
+    this.emit({ type: 'crack', id: c.id, hits: c.hits });
+    for (const e of f.enemies) {
+      if (e.ai === 'dead' || e.lurk || this.protectedByFog(e)) continue;
+      if (Math.abs(e.x - c.x) + Math.abs(e.y - c.y) > CRACK_NOISE) continue;
+      e.alert = Math.max(e.alert, 6);
+      e.lastSeenX = this.player.x;
+      e.lastSeenY = this.player.y;
+    }
+    if (c.hits < CRACK_BLOWS) {
+      this.msg(c.hits === 1 ? 'The cracked stone shifts. The sound carries.' : 'Dust pours from the crack.', '#c8b090');
+      return;
+    }
+    c.broken = true;
+    f.tiles[c.y * f.width + c.x] = FLOOR;
+    if (pick) this.msg('The pick finds the fault line. The wall comes down in one.', '#e8d8a0');
+    this.reveal();
+    const rng = createRng(hashString(`crack:${f.seed}:${c.id}`));
+    if (c.kind === 'seam') {
+      const ore = materialForDepth(rng, this.run.depth, ['metal']);
+      this.dropLoot(c.x, c.y, [makeMaterial(ore.id, rng.int(SEAM_ORE[0], SEAM_ORE[1]))], 0);
+      this.msg(`The wall gives way. Ore spills from the seam: ${ore.name}.`, '#e8d8a0');
+    } else if (c.kind === 'cache') {
+      const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
+      // Three loud blows and the wear on your blade: it pays like a chest,
+      // and never nothing.
+      const loot = rollContainerLoot(rng, this.run.depth, this.derived.find, 'chest', idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId);
+      this.dropLoot(c.x, c.y, loot.items, Math.max(loot.gold, CACHE_MIN_GOLD(this.run.depth)));
+      this.msg('The wall gives way onto a sealed niche. Someone hid something here.', '#e8d8a0');
+    } else {
+      this.msg('The wall gives way. A way through!', '#e8d8a0');
+    }
+  }
+
+  /**
+   * One tick of a Gravecaller's necromancy. Returns true while it is chanting,
+   * which is all it does then. Any blow breaks the chant (`hurtT` is set by
+   * every hit), as does the corpse being shattered, sanctified or already up.
+   */
+  private updateRaiser(e: EnemyState, def: EnemyDef, dt: number): boolean {
+    const f = this.floor;
+    e.raiseCd = Math.max(0, (e.raiseCd ?? 0) - dt);
+    if (e.channel) {
+      const target = f.enemies.find((g) => g.id === e.channel!.target);
+      if (e.hurtT > 0 || e.ai === 'recover') {
+        delete e.channel;
+        e.raiseCd = 1.5;
+        this.msg('The chant breaks!', '#ffe8a0');
+        return false;
+      }
+      if (!target || target.ai !== 'dead' || target.remains) {
+        delete e.channel;
+        return false;
+      }
+      e.channel.t -= dt;
+      if (e.channel.t <= 0) {
+        delete e.channel;
+        e.raiseCd = RAISE_COOLDOWN;
+        e.raised = (e.raised ?? 0) + 1;
+        this.raiseCorpse(target);
+      }
+      return true;
+    }
+    if (e.alert <= 0 || e.raiseCd > 0 || (e.raised ?? 0) >= RAISE_LIMIT || e.ai === 'windup' || e.ai === 'recover') return false;
+    const taken = new Set(f.enemies.map((g) => g.channel?.target).filter(Boolean));
+    const corpse = f.enemies
+      .filter((g) => g.ai === 'dead' && g !== e && !g.remains && g.burstT === undefined && !taken.has(g.id)
+        && enemyDef(g.def).undead && enemyDef(g.def).behavior !== 'boss'
+        && Math.abs(g.x - e.x) + Math.abs(g.y - e.y) <= RAISE_REACH && this.los(e.x, e.y, g.x, g.y))
+      .sort((a, b) => Math.abs(a.x - e.x) + Math.abs(a.y - e.y) - (Math.abs(b.x - e.x) + Math.abs(b.y - e.y)))[0];
+    if (!corpse) return false;
+    e.channel = { target: corpse.id, t: RAISE_CHANNEL };
+    const d = dirOf(Math.sign(corpse.x - e.x), Math.sign(corpse.y - e.y));
+    if (d !== null) e.facing = d;
+    this.sfx('magic', e.x, e.y);
+    this.msg(`The ${def.name} begins to chant over the fallen ${enemyDef(corpse.def).name}.`, '#a0e0a0');
+    return true;
+  }
+
+  /** A corpse stands back up: risen, so it pays nothing twice, and not swinging yet. */
+  private raiseCorpse(g: EnemyState): void {
+    const spot = this.freeTileForRise(g.x, g.y);
+    g.hp = Math.max(1, Math.round(g.maxHp * RAISE_HP));
+    g.risen = true;
+    g.ai = 'recover';
+    g.timer = RAISE_BEAT;
+    g.attackCd = RAISE_BEAT + 0.2;
+    g.deadT = 0;
+    g.hurtT = 0;
+    g.alert = 8;
+    g.vuln = 0;
+    g.guard = 'down';
+    g.blocks = 0;
+    g.x = g.fromX = spot.x;
+    g.y = g.fromY = spot.y;
+    g.moveT = 1;
+    g.lastSeenX = this.player.x;
+    g.lastSeenY = this.player.y;
+    this.sfx('alert', g.x, g.y);
+    this.emit({ type: 'shake', amount: 0.2 });
+    this.msg(`The ${enemyDef(g.def).name} stands back up!`, '#a0e0a0');
   }
 
   /** Struck where it hides: dragged out early, reeling, open to double damage. */

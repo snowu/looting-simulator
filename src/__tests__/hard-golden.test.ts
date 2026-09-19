@@ -30,12 +30,13 @@ const hash = (parts: string[]) => hashString(parts.join(' ')).toString(16);
 
 /**
  * Undo the post-generation passes on a copy of the floor: `promoteElite` (the
- * trait goes, and the health it baked in) and the ambush pass (placed ceiling
- * droppers removed, buried stalkers stood back up).
+ * trait goes, and the health it baked in), the ambush pass (placed ceiling
+ * droppers removed, buried stalkers stood back up) and the cracked walls.
  */
 function demote(f: Floor): Floor {
   const copy: Floor = JSON.parse(JSON.stringify(f));
-  copy.enemies = copy.enemies.filter((e) => !e.id.startsWith('amb'));
+  copy.enemies = copy.enemies.filter((e) => !e.id.startsWith('amb') && e.id !== 'grave0');
+  delete copy.cracks;
   for (const e of copy.enemies) delete e.lurk;
   for (const e of copy.enemies) {
     if (!e.elite) continue;
