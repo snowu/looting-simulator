@@ -475,7 +475,11 @@ class Bot {
       // Watching `anim.transition` right after interact() sees nothing at all,
       // which is how the old harness filed three reports for depth 1.
       w.interact();
-      for (let i = 0; i < 240 && w.run.depth === was && w.run.outcome === 'active'; i++) w.update(DT);
+      for (let i = 0; i < 240 && w.run.depth === was && w.run.outcome === 'active'; i++) {
+        // The stair below depth 2 forks: the bot takes the first road offered.
+        if (goDown && w.forkPending()) w.chooseRoad(w.run.roads![0]);
+        w.update(DT);
+      }
       if (w.run.outcome !== 'active') { this.collect(); return false; }
       if (w.run.depth === was) { this.trace('stairs did not take'); return this.giveUp(); }
       this.beginFloor();

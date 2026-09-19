@@ -47,6 +47,10 @@ export interface PortalState {
 export interface RunState {
   /** The oath sworn for this delve, and how it stands. Absent means none. */
   oath?: OathState;
+  /** The two roads open at the fork below depth 2 (`src/data/routes.ts`). Absent on runs from before the fork. */
+  roads?: string[];
+  /** The road taken: the biome of depths 3 and 4. Absent until chosen. */
+  road?: string;
   seed: number;
   rngState: number;
   depth: number;

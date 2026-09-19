@@ -1,3 +1,4 @@
+import { roadsForDay } from '../data/routes';
 import { beginOath, settleOath } from './oaths';
 import { createRng, randomSeed } from '../core/rng';
 import { Item } from '../types';
@@ -74,6 +75,7 @@ export function startRun(state: GameState, seed = randomSeed()): RunState {
     outcome: 'active',
   };
   beginOath(state, run);
+  run.roads = roadsForDay(state.saveId ?? '', state.market.day, state.market.events);
   state.run = run;
   state.lifetime.runs += 1;
   recordDepth(state.contracts, 1);

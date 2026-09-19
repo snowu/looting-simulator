@@ -2,7 +2,7 @@ import { ELEMENTAL_VARIANT_IDS } from '../data/elemental-variants';
 import { iciclesFor } from './ceiling-decor';
 import { Rng, createRng, hashString } from '../core/rng';
 import { Dir, DIRS, DX, DY, turnAround, turnLeft, turnRight } from '../core/dir';
-import { biomeForDepth, FINAL_DEPTH } from '../data/biomes';
+import { BIOMES, biomeForDepth, FINAL_DEPTH } from '../data/biomes';
 import { BOSS_ID, ENEMIES, enemyDef } from '../data/enemies';
 import { DifficultyId, DifficultyDef, DIFFICULTIES, difficultyOf } from '../data/difficulty';
 import { EnemyDef, Item } from '../types';
@@ -565,6 +565,8 @@ export function generateFloor(
   depth: number,
   difficulty?: DifficultyId,
   forceShrine = false,
+  /** The route fork's choice, for the depths it covers. Absent means the depth's own roll. */
+  biomeId?: string,
 ): Floor {
   const seed = hashString(`floor:${runSeed}:${depth}`);
   // Difficulty deliberately stays out of the seed: a Hard floor is generated
@@ -572,7 +574,7 @@ export function generateFloor(
   // *which* walls stand where.
   const diff = difficultyOf(difficulty);
   for (let attempt = 0; attempt < 40; attempt++) {
-    const f = tryGenerate(seed, depth, createRng((seed + Math.imul(attempt + 1, 0x9e3779b1)) >>> 0), diff, forceShrine);
+    const f = tryGenerate(seed, depth, createRng((seed + Math.imul(attempt + 1, 0x9e3779b1)) >>> 0), diff, forceShrine, biomeId);
     if (f) return f;
   }
   throw new Error(`dungeon generation failed for depth ${depth}`);
@@ -660,8 +662,9 @@ function tryGenerate(
   rng: Rng,
   diff: DifficultyDef = DIFFICULTIES.hard,
   forceShrine = false,
+  biomeId?: string,
 ): Floor | null {
-  const biome = biomeForDepth(depth, seed);
+  const biome = (biomeId && BIOMES.find((b) => b.id === biomeId && b.depths.includes(depth))) || biomeForDepth(depth, seed);
   const isBoss = depth >= FINAL_DEPTH;
   // Expand every depth: 39 → 59 tiles per side, with extra rooms below
   // so the larger bounds also provide more playable space.

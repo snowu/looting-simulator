@@ -300,8 +300,10 @@ the same commit as the work it describes**, so any session can resume from it.
 | 3 | `feat/ri-3-walls` | Step 2: cracked walls, ore seams, sealed niches | [#20](https://github.com/snowu/looting-simulator/pull/20) open — needs a real delve on desktop and phone |
 | 4 | `feat/ri-4-gravecaller` | Step 2: the Gravecaller, shattered and sanctified remains | built, PR open — needs a real delve on desktop and phone |
 | 5 | `feat/ri-5-properties` | Step 6 pulled forward: six build properties and the forge's Inscribe bench | [#22](https://github.com/snowu/looting-simulator/pull/22) open |
-| 6 | `feat/ri-6-oaths` | Step 3: Delve Oaths, paying out properties | built, PR open |
-| 7+ | — | Steps 4, 5, 7: route fork and biome laws, lieutenants and corpse run, Seals | not started |
+| 6 | `feat/ri-6-oaths` | Step 3: Delve Oaths, paying out properties | [#23](https://github.com/snowu/looting-simulator/pull/23) open |
+| 7 | `feat/ri-7-routes` | Step 4, part 1: the route fork below depth 2 | built, PR open |
+| 8 | `feat/ri-8-laws` | Step 4, part 2: biome laws for Ossuary, Deep Mines, Vermin Burrows | not started |
+| 9+ | — | Steps 5 and 7: lieutenants and corpse run, Seals | not started |
 
 Log (newest last), one line per landed piece with what is and is not done:
 
@@ -375,6 +377,13 @@ Log (newest last), one line per landed piece with what is and is not done:
   bar overlaps the status block at ~500px width (layout issue from before,
   longer "Marked …" names make it worse); oath choice isn't seeded per day
   (all three always on offer, since there are only three).
+- 2026-09-19 — **PR 7 built** (stacked on PR 6). The fork is at depth 2's down
+  stair, not a second stair (no generation change): `forkPending` emits a
+  `fork` event, a panel offers `run.roads` (snapshot of `roadsForDay(saveId,
+  day, events)` at `startRun`), `chooseRoad` sets `run.road` and descends.
+  `generateFloor(..., biomeId)` honours the road on depths 3–4 only where the
+  biome can appear. Town news names the day's roads. Bot takes roads[0]. No
+  save-revision bump (run fields optional; absent means no fork).
 - Art previews for PR descriptions are PNG sheets from `npm run art:sheet`,
   committed under `docs/previews/ri-*.png` and embedded by raw URL (user's
   request, 2026-09-19).

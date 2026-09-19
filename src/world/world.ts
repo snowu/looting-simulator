@@ -12,6 +12,7 @@ import {
   BULWARK_MULT, BULWARK_SOAK, BULWARK_WINDOW, EXECUTION_REFUND_MULT, KINDLING_AT, KINDLING_SPREAD, LAST_FLASK_MULT,
   RETRIEVAL_MULT, RIPOSTE_MULT, RIPOSTE_WINDOW,
 } from '../data/properties';
+import { FORK_DEPTH, ROADS, ROAD_DEPTHS } from '../data/routes';
 import { HUNTER_DEPTHS, HUNTER_MARKS, HUNTER_SIGHT, OATHS, UNBROKEN_DEPTH, UNBROKEN_WEAR } from '../data/oaths';
 import { eligibleTraits } from '../data/elites';
 import { RAISE_BEAT, RAISE_CHANNEL, RAISE_COOLDOWN, RAISE_HP, RAISE_LIMIT, RAISE_REACH, SHATTER_OVERKILL } from '../data/necromancy';
@@ -91,6 +92,7 @@ export type WorldEvent =
   | { type: 'end'; outcome: 'dead' | 'extracted' }
   | { type: 'secret'; x: number; y: number }
   | { type: 'crack'; id: string; hits: number }
+  | { type: 'fork' }
   | { type: 'trap'; id: string; x: number; y: number; kind: Trap['kind'] }
   | { type: 'town' };
 
@@ -1027,6 +1029,11 @@ export class World {
         this.finish('extracted');
         return;
       }
+      // The fork: the first time down from depth 2, the road is chosen first.
+      if (s.down && this.forkPending()) {
+        this.emit({ type: 'fork' });
+        return;
+      }
       this.anim.transition = { t: 0, dir: s.down ? 'down' : 'up', done: false };
       this.sfx('stairs');
       return;
@@ -1082,7 +1089,8 @@ export class World {
       // Pity guarantees: ≥1 shrine in depths 1–3, ≥2 in 4–6. Natural rolls
       // cover most runs; the force only bites on a drought.
       const force = shrinePityFor(run.floors, run.depth);
-      run.floors[run.depth - 1] = generateFloor(run.seed, run.depth, this.difficultyId, force);
+      const road = run.road && ROAD_DEPTHS.includes(run.depth) ? run.road : undefined;
+      run.floors[run.depth - 1] = generateFloor(run.seed, run.depth, this.difficultyId, force, road);
       this.placeHunterMark(run.floors[run.depth - 1]!);
     }
     // Unbroken is kept the moment you stand on its depth with everything whole.
@@ -1120,6 +1128,28 @@ export class World {
     this.msg(`Depth ${run.depth} — ${biome.name}`, '#d8c8a8');
     if (run.depth === FINAL_DEPTH && dir === 'down') this.msg('The air is thick with ash. Something waits below the throne.', '#c080ff');
     this.emit({ type: 'floor' });
+  }
+
+  /** Whether the stair down from here forks and no road has been taken yet. */
+  forkPending(): boolean {
+    const run = this.run;
+    return run.depth === FORK_DEPTH && !!run.roads?.length && !run.road && !run.floors[FORK_DEPTH];
+  }
+
+  /**
+   * Take one of the two roads at the fork and go down it. The other is sealed
+   * for the rest of the delve. Refused unless standing on the forking stair.
+   */
+  chooseRoad(biome: string): boolean {
+    const run = this.run;
+    const s = stairsAt(this.floor, this.player.x, this.player.y);
+    if (!s?.down || !this.forkPending() || !run.roads!.includes(biome)) return false;
+    run.road = biome;
+    const other = run.roads!.find((b) => b !== biome);
+    this.msg(`You take ${ROADS[biome].name}.${other ? ` ${ROADS[other].name} is sealed behind you.` : ''}`, ROADS[biome].color);
+    this.anim.transition = { t: 0, dir: 'down', done: false };
+    this.sfx('stairs');
+    return true;
   }
 
   /** Debug/playtest hook: jump a floor without walking to the stairs. */

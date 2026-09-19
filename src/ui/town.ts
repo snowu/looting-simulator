@@ -1,4 +1,5 @@
 import { GameState } from '../state/game-state';
+import { ROADS, roadsForDay } from '../data/routes';
 import { OATHS, OATH_IDS, findOath } from '../data/oaths';
 import { swearOath } from '../systems/oaths';
 import { learnProperty } from '../systems/properties';
@@ -315,6 +316,9 @@ export class Town {
       lines.push(h('div', { class: 'event', text: `◆ ${def.name} (${ev.daysLeft} day${ev.daysLeft === 1 ? '' : 's'} left) — ${def.description}` }));
     }
     for (const n of m.news) if (!m.events.some((ev) => n.startsWith(marketEvent(ev.id).name))) lines.push(h('div', { class: 'dim', text: n }));
+    // The roads open below depth 2 today, named so a delve can be prepared for.
+    const roads = roadsForDay(this.s.saveId ?? '', m.day, m.events).map((b) => ROADS[b]);
+    lines.push(h('div', { class: 'rumour', text: `Below the second floor today the stair splits: ${roads.map((r) => r.name).join(' or ')}.` }));
     if (m.upcoming && metaLevel(this.s.meta, 'insider') >= 2) {
       const def = marketEvent(m.upcoming);
       lines.push(h('div', { class: 'rumour', text: `Rumour: ${def.name} tomorrow. ${def.description}` }));

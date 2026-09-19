@@ -1,3 +1,20 @@
+# The stair splits
+
+*No save change. A delve already under way keeps going the old way; the fork appears from your next delve.*
+
+The first time you go down from depth 2, the stair splits into **two roads**. The one you take decides what depths 3 and 4 are, and the other is sealed for the rest of the delve.
+
+- **The Mine Road** (Deep Mines): shieldbearers and the Barrow Champion. Pays in metal.
+- **The Frozen Road** (Frost Vault): frost wisps and icebound guards; bring fire. Pays in frost shards and moonstone.
+- **The Ember Road** (Emberworks): flame wraiths and molten floors; bring frost. Pays in flame shards and sunstone.
+- **The Spore Road** (Sporegrove): spore hunters and the Bog Seraph. Pays in leather and crystal.
+
+Which two roads are open changes each day, and what's happening in Bleakmere tilts it: an Iron Shortage opens the mines, a Harsh Winter the frozen road, a dragon sighting the ember one. The town news names the day's roads, so you can pack for the one you mean to take.
+
+Validation: typecheck, production build, and the full test suite (692 tests), twice. New tests cover the day's roads (always two different ones, the same all day, leaning towards the road a market event favours, handed to a new delve), the fork stopping you at the stair instead of descending, the road setting depths 3 and 4 and nothing else, asking only once, delves from before the fork, and generation ignoring a road where its biome can't be. Checked in the dev lab in Chrome at 500px wide: the town news naming the roads, the fork panel, taking the Spore Road with the log line, and arriving at depth 3 in the Sporegrove. The headless bot takes the first road; its death rates moved a few points either way, as expected with different biomes on depths 3 and 4. Not played through a real delve yet.
+
+---
+
 # Oaths and inscriptions
 
 *Additive save change (revisions 25 and 26): nothing learned, nothing sworn. Every existing save loads as it was.*
