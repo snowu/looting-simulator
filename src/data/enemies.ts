@@ -164,7 +164,7 @@ export const ENEMIES: EnemyDef[] = [
     thief: true,
     hp: 28, attack: 8, defense: 2, damageType: 'slash', resist: { slash: 1.4, pierce: 1.25 },
     behavior: 'skittish', step: 0.4, windup: 0.45, recovery: 0.7, sight: 7,
-    minDepth: 1, maxDepth: 4, weight: 3,
+    minDepth: 1, maxDepth: 4, weight: 1,
     loot: [
       { id: 'copper', chance: 0.35, min: 1, max: 2 },
       { id: 'linen', chance: 0.28, min: 1, max: 2 },

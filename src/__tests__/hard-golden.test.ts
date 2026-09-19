@@ -60,6 +60,9 @@ describe('Hard generation, loot and stats have explicit balance baselines', () =
       }
     }
     // Material rolls embedded in pickups now use consistent family tier weights.
+    // Re-pinned on 2026-09-19 when the Goblin Cutpurse's spawn weight went from
+    // 3 to 1: once it stole from the pack, a quarter of every depth-1 floor
+    // being pickpockets was too many.
     // Elites are stripped first: they are rolled on their own stream after
     // generation, so with them undone every floor must be byte-identical to the
     // one pinned before they existed.
