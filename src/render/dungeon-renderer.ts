@@ -3,6 +3,7 @@ import { LavaEffects, LavaSound } from './lava-effects';
 import { DX, DY, turnRight } from '../core/dir';
 import { biomeForFloor, ceilingForFloor } from '../data/biomes';
 import { enemyDef, enemyView } from '../data/enemies';
+import { ELITES } from '../data/elites';
 import { findMaterial } from '../data/materials';
 import { findSigil } from '../data/spells';
 import { itemBase, viewmodelFor } from '../data/items';
@@ -326,8 +327,10 @@ export class DungeonRenderer {
     }
     for (const en of floor.enemies) {
       const def = enemyDef(en.def);
-      const view = enemyView(def, en.hp, en.maxHp);
+      const view = enemyView(def, en.hp, en.maxHp, { elite: en.elite, carrying: !!en.stolen?.length });
       if (view.glow && en.ai !== 'dead') lights.push({ x: tileX(en.x), y: 1.2, z: tileZ(en.y), r: 4.5, color: new THREE.Color(view.glow), intensity: 0.9 });
+      // A Vengeful corpse's fuse: a swelling violet light over the body.
+      if (en.burstT !== undefined) lights.push({ x: tileX(en.x), y: 0.6, z: tileZ(en.y), r: 3.5, color: new THREE.Color(ELITES.vengeful.color), intensity: 0.8 + 0.8 * Math.abs(Math.sin(this.time * 14)) });
     }
     for (const pr of world.projectiles) {
       if (pr.light) lights.push({ x: pr.x * TILE, y: 1.3, z: pr.y * TILE, r: 3.5, color: new THREE.Color(pr.light), intensity: 1.1 });
@@ -350,8 +353,10 @@ export class DungeonRenderer {
       if (!near(en.x, en.y)) continue;
       // The phase view, so the King's sprite family, glow and guard all follow
       // the fight. Everything else gets its own stat block back unchanged.
-      const def = enemyView(enemyDef(en.def), en.hp, en.maxHp);
-      if (en.ai === 'dead' && en.deadT > 0.9) continue;
+      const def = enemyView(enemyDef(en.def), en.hp, en.maxHp, { elite: en.elite, carrying: !!en.stolen?.length });
+      // A Vengeful corpse stays up, pulsing, until it goes off.
+      const fused = en.burstT !== undefined;
+      if (en.ai === 'dead' && en.deadT > 0.9 && !fused) continue;
       const s = this.sprite(`e:${en.id}`);
       const t = en.moveT < 1 ? en.moveT : 1;
       const ex = en.fromX + (en.x - en.fromX) * t;
@@ -374,11 +379,20 @@ export class DungeonRenderer {
       wz += DY[en.facing] * pose.lunge;
       const height = def.scale * 1.9 * (en.scavenged ? 1.15 : 1);
       let y = (def.floats ? 0.35 + Math.sin(this.time * 2.5 + en.x) * 0.1 : 0) + (en.moveT < 1 ? Math.abs(Math.sin(en.moveT * Math.PI)) * 0.08 : 0);
-      if (en.ai === 'dead') y -= en.deadT * 1.4;
+      if (en.ai === 'dead') y -= (fused ? Math.min(en.deadT, 0.3) : en.deadT) * 1.4;
       this.place(s, `${def.sprite}_${pose.frame}`, wx, y, wz, height);
       if (en.hurtT > 0) s.mat.uniforms.uTint.value.set(1, 0.95, 0.9, Math.min(0.8, en.hurtT * 3));
       else if (en.ai === 'windup' || (en.grabT ?? 0) > 0) s.mat.uniforms.uTint.value.set(1, 0.2, 0.1, 0.12 + 0.12 * Math.sin(this.time * 30));
-      if (en.ai === 'dead') s.mat.uniforms.uTint.value.set(0, 0, 0, Math.min(1, en.deadT * 1.2));
+      else if (en.elite && en.ai !== 'dead') {
+        // A slow pulse in the trait's colour: readable at a glance, and never
+        // confusable with the fast red flicker of a wind-up.
+        const c = new THREE.Color(ELITES[en.elite].color);
+        s.mat.uniforms.uTint.value.set(c.r, c.g, c.b, 0.1 + 0.08 * Math.sin(this.time * 3));
+      }
+      if (fused) {
+        const c = new THREE.Color(ELITES.vengeful.color);
+        s.mat.uniforms.uTint.value.set(c.r, c.g, c.b, 0.35 + 0.3 * Math.abs(Math.sin(this.time * 14)));
+      } else if (en.ai === 'dead') s.mat.uniforms.uTint.value.set(0, 0, 0, Math.min(1, en.deadT * 1.2));
     }
 
     for (const tr of floor.traps ?? []) {

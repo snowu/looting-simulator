@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { createRng, hashString } from '../core/rng';
 import { Dir } from '../core/dir';
 import { ENEMIES, enemyDef } from '../data/enemies';
-import { createEnemy, generateFloor } from '../systems/dungeon';
+import { Floor, createEnemy, generateFloor } from '../systems/dungeon';
+import { ELITE_HP_MULT, IRONHIDE_HP_MULT } from '../data/elites';
 import { derivePlayer, emptyEquipment } from '../systems/player';
 import { rollEnemyLoot, rollContainerLoot, rollEquipment } from '../systems/items';
 import golden from './fixtures/hard-golden.json';
@@ -27,14 +28,37 @@ import golden from './fixtures/hard-golden.json';
 const scrub = (v: unknown) => JSON.stringify(v, (k, x) => (k === 'uid' ? undefined : x));
 const hash = (parts: string[]) => hashString(parts.join(' ')).toString(16);
 
+/** Undo `promoteElite` on a copy of the floor: the trait goes, and the health it baked in. */
+function demote(f: Floor): Floor {
+  const copy: Floor = JSON.parse(JSON.stringify(f));
+  for (const e of copy.enemies) {
+    if (!e.elite) continue;
+    const mult = ELITE_HP_MULT * (e.elite === 'ironhide' ? IRONHIDE_HP_MULT : 1);
+    const base = [-1, 0, 1].map((d) => Math.round(e.maxHp / mult) + d).find((c) => Math.round(c * mult) === e.maxHp)!;
+    e.maxHp = e.hp = base;
+    delete e.elite;
+  }
+  return copy;
+}
+
 describe('Hard generation, loot and stats have explicit balance baselines', () => {
   it('generates the pinned 1,200 expanded floors', () => {
     const out: string[] = [];
+    const withElites: string[] = [];
     for (let seed = 0; seed < 200; seed++) {
-      for (let depth = 1; depth <= 6; depth++) out.push(scrub(generateFloor(seed, depth, 'hard')));
+      for (let depth = 1; depth <= 6; depth++) {
+        const f = generateFloor(seed, depth, 'hard');
+        withElites.push(scrub(f));
+        out.push(scrub(demote(f)));
+      }
     }
     // Material rolls embedded in pickups now use consistent family tier weights.
+    // Elites are stripped first: they are rolled on their own stream after
+    // generation, so with them undone every floor must be byte-identical to the
+    // one pinned before they existed.
     expect(hash(out)).toBe(golden.materialFloorHash);
+    // And the elites themselves, pinned separately.
+    expect(hash(withElites)).toBe(golden.eliteFloorHash);
     // Generating 1,200 floors outruns the default 5s budget when the suite
     // runs its files in parallel.
   }, 60_000);
