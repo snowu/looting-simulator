@@ -106,6 +106,21 @@ export interface RunSummary {
   killedBy?: string;
   /** Whether the delve counted: a new day in town, or nothing at all. */
   dayTurned: boolean;
+  /** A one-life death: this was the hero's last delve, not just a lost one. */
+  fallen?: boolean;
+}
+
+/**
+ * The headstone of a one-life hero. Once set the playthrough is over: it can
+ * be looked at and deleted, never played again. Absent (the usual case) means
+ * the hero is alive.
+ */
+export interface FallenRecord {
+  day: number;
+  depth: number;
+  killedBy?: string;
+  /** Which delve killed them, counting from 1. */
+  delve: number;
 }
 
 export interface Lifetime {
@@ -156,6 +171,8 @@ export interface GameState {
    * game changes under it.
    */
   difficulty: DifficultyId;
+  /** Set when a one-life (Hardcore) hero dies. See `FallenRecord`. */
+  fallen?: FallenRecord | null;
   gold: number;
   renown: number;
   stash: Container;

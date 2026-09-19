@@ -1,6 +1,6 @@
 import { GameState } from '../state/game-state';
 import { Slot } from '../state/persistence';
-import { contentHash, progressHash, serializeSave } from '../state/save-format';
+import { contentHash, fallenRecord, progressHash, serializeSave } from '../state/save-format';
 import { CloudFetch, CloudSave, fetchCloudSlots, uploadSave } from './cloud-save';
 import { deviceId } from './device';
 
@@ -209,6 +209,20 @@ export class CloudSync {
         cloudSlot: match.slot,
       });
       return { kind: 'none' };
+    }
+
+    // One life means a death anywhere is a death everywhere. A Hardcore hero
+    // who fell on one device is never offered back alive from another — not
+    // silently, and not through the chooser either — so the grave wins.
+    const cloudFallen = !!fallenRecord(match.state);
+    const localFallen = !!fallenRecord(localState);
+    if (cloudFallen && !localFallen) {
+      this.set('synced');
+      return { kind: 'take-cloud', save: match };
+    }
+    if (localFallen && !cloudFallen) {
+      const ok = await this.push(true);
+      return ok ? { kind: 'uploaded' } : { kind: 'none' };
     }
 
     // Nothing of the player's own on this device, so there is no question to

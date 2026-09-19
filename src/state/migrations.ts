@@ -25,7 +25,7 @@ import { findSigil } from '../data/spells';
  */
 
 /** Bump this (and push a migration) whenever a field is added to the save. */
-export const SAVE_REVISION = 22;
+export const SAVE_REVISION = 23;
 
 type AnyState = GameState & Record<string, unknown>;
 
@@ -212,6 +212,14 @@ const MIGRATIONS: ((s: AnyState) => void)[] = [
       s.run.flask ??= { charges: flaskMax(s.flask.shards), dregs: 0 };
       for (const f of s.run.floors ?? []) if (f) f.morsels ??= [];
     }
+  },
+  // 22 → 23: Hardcore, a third difficulty with one life, and the headstone a
+  // fallen hero leaves. Nothing older can be Hardcore or fallen, so this only
+  // settles the shape: every existing save is alive. Bumping the revision also
+  // stops an out-of-date build — which would read 'hardcore' as plain Hard —
+  // from uploading a Hardcore save it cannot honestly play.
+  (s) => {
+    s.fallen ??= null;
   },
 ];
 

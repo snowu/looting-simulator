@@ -1,3 +1,15 @@
+# Hardcore: Hard with one life
+
+*Additive save change (revision 23). Existing saves migrate alive and keep their difficulty; nothing about Normal or Hard changes.*
+
+A third difficulty on the new-save card: **Hardcore**. Every number is Hard's: monster health, damage and armour, traps, drops, gold, healing, stamina and the loot curve. It is built from Hard's own table, so the two can't drift apart. The only difference is that you get one life. Die once and the hero is dead for good. The results screen says **Fallen**, the way out leads back to the title, and the save stays on its slot as a headstone ("Fallen to Skeleton on day 3"). A headstone can be renamed or deleted, never continued.
+
+Hardcore is chosen when a save begins and never changes. The town settings show it locked, and other saves can't switch onto it. The death is final even if the page closes during the death fade: the save already records the killing blow, and it's settled as a death the next time the slot is touched. Cloud saves respect it too: a hero who fell on one device is never offered back alive from another, so the grave always wins over a living copy.
+
+Validation: typecheck, production build, the full test suite (a load-sensitive timeout in an existing 3-second test needed `--maxWorkers=4` on a busy machine), and new tests showing Hardcore and Hard match: identical floors, spawns, loot and player stats across seeds and depths, the same skeleton fight tick for tick, plus the one-life rules. Checked in a headless dev build: the new-save card and its warning, the locked settings, a death through the Fallen screen to the headstone, a reload during the death fade (still a headstone), a forced delve on a fallen save (refused), Hard's death still going to town, deleting a headstone, and phone width. Cloud sync rules are covered by the typecheck and a code read only; there is no sync test harness.
+
+---
+
 # Mimics bite like they mean it
 
 *No save change. The new grab timer on a mimic is optional; mimics and chests on floors that already exist behave by the new rules.*

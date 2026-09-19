@@ -872,4 +872,5 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
 
 /* Choosing a difficulty for a new save, inline on the slot card. */
 .slot-diff { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
-.slot-diff .btn { min-width: 68px; }
+/* One fixed width, so "Hardcore" does not shove its row out of line with the others. */
+.slot-diff .btn { flex: none; width: 86px; min-width: 0; padding-left: 4px; padding-right: 4px; }

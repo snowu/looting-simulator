@@ -1,7 +1,8 @@
-import { GameState, SAVE_VERSION } from './game-state';
+import { FallenRecord, GameState, SAVE_VERSION } from './game-state';
 import { AFFIXES } from '../data/affixes';
 import { BLESSINGS } from '../world/world';
 import { SAVE_REVISION, migrateSave } from './migrations';
+import { difficultyOf } from '../data/difficulty';
 
 /**
  * The single path a save takes in or out of the game.
@@ -103,7 +104,7 @@ export interface SaveSummary {
   runs: number;
   /** The player-given name, or '' when the save is unnamed. */
   name: string;
-  /** Town-side difficulty setting: 'Normal' or 'Hard'. */
+  /** Town-side difficulty setting: 'Normal', 'Hard' or 'Hardcore'. */
   difficulty: string;
 }
 
@@ -130,6 +131,24 @@ export function displaySaveName(name: string | undefined, slot: number): string 
 }
 
 /**
+ * The headstone of a one-life hero, or null while they live.
+ *
+ * Also reads a death that has happened but not been settled: the World marks
+ * the run dead and saves the instant the killing blow lands, while `endRun`
+ * only runs after the death fade. A page closed in that gap leaves a save
+ * whose hero is dead in every way but the `fallen` field, and anything that
+ * decides "is this save playable?" must see it as the grave it is.
+ */
+export function fallenRecord(state: GameState): FallenRecord | null {
+  if (state.fallen) return state.fallen;
+  const run = state.run;
+  if (run?.outcome === 'dead' && difficultyOf(run.difficulty ?? state.difficulty).oneLife) {
+    return { day: state.market?.day ?? 1, depth: run.stats?.deepest ?? run.depth, killedBy: run.killedBy, delve: state.lifetime?.runs ?? 1 };
+  }
+  return null;
+}
+
+/**
  * The handful of facts that let a player recognize one of their own saves.
  *
  * Deliberately descriptive and never comparative: day, gold and depth can all
@@ -138,9 +157,12 @@ export function displaySaveName(name: string | undefined, slot: number): string 
  */
 export function describeSave(state: GameState): SaveSummary {
   const run = state.run;
-  const place = run && run.outcome === 'active' ? `Depth ${run.depth}, mid-delve` : 'In town';
+  const fallen = fallenRecord(state);
+  const place = fallen
+    ? `Fell at depth ${fallen.depth}`
+    : run && run.outcome === 'active' ? `Depth ${run.depth}, mid-delve` : 'In town';
   const name = typeof state.name === 'string' ? state.name : '';
-  const difficulty = state.difficulty === 'normal' ? 'Normal' : 'Hard';
+  const difficulty = difficultyOf(state.difficulty).name;
   return { day: state.market?.day ?? 1, place, gold: state.gold ?? 0, runs: state.lifetime?.runs ?? 0, name, difficulty };
 }
 

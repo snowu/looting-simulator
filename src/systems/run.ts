@@ -5,6 +5,7 @@ import { Container, addItem, createContainer } from '../state/inventory';
 import { generateFloor, stairsFront } from './dungeon';
 import { backpackCapacity, metaLevel, renownForRun } from './meta';
 import { derivePlayer } from './player';
+import { difficultyOf } from '../data/difficulty';
 import { advanceDay } from './market';
 import { recordDepth, refreshContracts } from './contracts';
 
@@ -34,9 +35,10 @@ export function bankCarriedGold(state: GameState): number {
 }
 
 export function startRun(state: GameState, seed = randomSeed()): RunState {
+  if (state.fallen) throw new Error('A fallen Hardcore hero cannot delve again.');
   // The delve plays at the town difficulty, snapshotted here: whatever the
   // town selector says afterwards does not touch this run.
-  const difficulty = state.difficulty === 'normal' ? 'normal' : 'hard';
+  const difficulty = difficultyOf(state.difficulty).id;
   state.difficulty = difficulty;
   const floor = generateFloor(seed, 1, difficulty);
   const up = floor.stairs.find((s) => !s.down)!;
@@ -118,6 +120,12 @@ export function endRun(state: GameState, outcome: 'dead' | 'extracted'): RunSumm
     killedBy: run.killedBy,
     dayTurned,
   };
+  // One life: the grave is dug before anything else is saved, so there is no
+  // moment where the save holds a dead Hardcore hero who is still playable.
+  if (outcome === 'dead' && difficultyOf(run.difficulty ?? state.difficulty).oneLife) {
+    summary.fallen = true;
+    state.fallen = { day: state.market.day, depth: run.stats.deepest, killedBy: run.killedBy, delve: state.lifetime.runs };
+  }
   state.lastRun = summary;
   state.run = null;
 

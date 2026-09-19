@@ -31,6 +31,9 @@ export interface SettingsCtx {
   showDifficulty?: boolean;
 }
 
+/** What a save can be switched between in town. Hardcore is chosen at creation only. */
+const SWITCHABLE = DIFFICULTY_IDS.filter((id) => !DIFFICULTIES[id].oneLife);
+
 /** True while the settings modal is open. The dungeon loop uses it to pause. */
 export function isSettingsOpen(): boolean {
   return document.querySelector('.settings-wrap') !== null;
@@ -69,9 +72,19 @@ export function openSettings(ctx: SettingsCtx): void {
     // Mid-delve the highlight follows the run snapshot, not town state — the
     // buttons are locked anyway, so this is just saying what you are on.
     const current = running ? difficultyOf(s.run?.difficulty ?? s.difficulty).id : s.difficulty;
+    // One life is a vow made when the save begins: a Hardcore save cannot be
+    // switched off it (that would be a spare life), and no other save can be
+    // switched onto it. So a Hardcore save just says what it is.
+    if (difficultyOf(s.difficulty).oneLife) {
+      difficultyBox.replaceChildren(
+        h('h3', { text: 'Difficulty' }),
+        h('div', { class: 'diff-row' }, btn(DIFFICULTIES.hardcore.name, () => {}, 'small primary', true), h('span', { class: 'dim small', text: DIFFICULTIES.hardcore.description })),
+      );
+      return;
+    }
     difficultyBox.replaceChildren(
       h('h3', { text: 'Difficulty' }),
-      ...DIFFICULTY_IDS.map((id) => {
+      ...SWITCHABLE.map((id) => {
         const def = DIFFICULTIES[id];
         const el = btn(
           def.name,
@@ -108,8 +121,9 @@ export function openSettings(ctx: SettingsCtx): void {
     const s = ctx.state();
     const running = !!s.run && s.run.outcome === 'active';
     const current = running ? difficultyOf(s.run?.difficulty ?? s.difficulty).id : s.difficulty;
+    if (difficultyOf(s.difficulty).oneLife) return;
     const rows = difficultyBox.querySelectorAll('.diff-row');
-    DIFFICULTY_IDS.forEach((id, i) => {
+    SWITCHABLE.forEach((id, i) => {
       rows[i]?.querySelector('button')?.classList.toggle('primary', current === id);
     });
   }

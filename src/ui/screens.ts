@@ -48,6 +48,9 @@ export function titleScreen(slots: HTMLElement, build = '', account?: HTMLElemen
 
 export function summaryScreen(sum: RunSummary, onContinue: () => void): HTMLElement {
   const home = sum.outcome === 'extracted';
+  // A Hardcore death ends the playthrough, so nothing comes home, no new day
+  // dawns for this hero, and the way out leads back to the title.
+  const fallen = !!sum.fallen;
   return h(
     'div',
     { class: 'town' },
@@ -55,7 +58,7 @@ export function summaryScreen(sum: RunSummary, onContinue: () => void): HTMLElem
       'div',
       { class: `summary frame${home ? ' gold' : ''}` },
       h('h1', {
-        text: home ? (sum.bossKilled ? 'Kingslayer' : sum.dayTurned ? 'Home Alive' : 'Turned Back') : 'Slain',
+        text: home ? (sum.bossKilled ? 'Kingslayer' : sum.dayTurned ? 'Home Alive' : 'Turned Back') : fallen ? 'Fallen' : 'Slain',
         style: home ? '' : 'color:#d0443a',
       }),
       h('p', {
@@ -73,18 +76,19 @@ export function summaryScreen(sum: RunSummary, onContinue: () => void): HTMLElem
         h('div', {}, h('div', { class: 'big-num violet-t', text: `✦ ${sum.renown}` }), h('div', { class: 'dim', text: 'renown' })),
         h('div', {}, h('div', { class: 'big-num', text: String(sum.kills) }), h('div', { class: 'dim', text: 'slain' })),
       ),
-      sum.items.length ? h('h3', { text: home ? 'Brought home' : 'Saved by the Soul Pouch' }) : null,
-      sum.items.length ? h('div', { class: 'items' }, ...sum.items.map((it) => itemSlot(it, { size: 44 }))) : null,
+      fallen ? h('p', { class: 'red-t', text: 'Hardcore: there was only one life. This hero is dead for good, and the save stays as their headstone.' }) : null,
+      sum.items.length && !fallen ? h('h3', { text: home ? 'Brought home' : 'Saved by the Soul Pouch' }) : null,
+      sum.items.length && !fallen ? h('div', { class: 'items' }, ...sum.items.map((it) => itemSlot(it, { size: 44 }))) : null,
       sum.lost.length ? h('h3', { class: 'red-t', text: 'Lost in the dark' }) : null,
       sum.lost.length ? h('div', { class: 'items', style: 'opacity:0.6' }, ...sum.lost.map((it) => itemSlot(it, { size: 44 }))) : null,
-      h('p', {
+      fallen ? null : h('p', {
         class: 'dim',
         style: 'margin:10px 0',
         text: sum.dayTurned
           ? 'A new day dawns. Prices have moved and the guild has posted new work.'
           : 'Still the same day in Bleakmere: the same prices, the same work on the board. Renown and a turn of the day are for those who actually go down.',
       }),
-      btn('Back to town', onContinue, 'primary big'),
+      btn(fallen ? 'Back to the title' : 'Back to town', onContinue, 'primary big'),
     ),
   );
 }

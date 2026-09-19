@@ -1,7 +1,7 @@
 import { GameState } from '../state/game-state';
 import { DIFFICULTIES, DIFFICULTY_IDS, DifficultyId } from '../data/difficulty';
 import { Slot } from '../state/persistence';
-import { MAX_SAVE_NAME, describeSave, displaySaveName, progressHash, sanitizeSaveName } from '../state/save-format';
+import { MAX_SAVE_NAME, describeSave, fallenRecord, displaySaveName, progressHash, sanitizeSaveName } from '../state/save-format';
 import { CloudSave } from '../cloud/cloud-save';
 import { btn, h } from './dom';
 
@@ -89,6 +89,24 @@ function card(v: SlotView, onPlay: OnPlay, actions: SlotActions): HTMLElement {
     );
     const n = note(v);
     if (n) kids.push(n);
+    // A fallen Hardcore hero: a headstone, not a game. It can be read, named
+    // and deleted, never continued.
+    const fallen = fallenRecord(shown) ?? (v.cloud ? fallenRecord(v.cloud.state) : null);
+    if (fallen) {
+      kids.push(h('div', {
+        class: 'red-t small',
+        text: `Fallen${fallen.killedBy ? ` to ${fallen.killedBy}` : ''} on day ${fallen.day}`,
+      }));
+      if (actions.onRename || actions.onDelete) {
+        kids.push(h(
+          'div',
+          { class: 'row', style: 'margin-top:4px' },
+          actions.onRename ? btn('Rename', () => { mode = 'rename'; render(); }, 'small') : null,
+          actions.onDelete ? btn('Delete', () => { mode = 'confirm'; render(); }, 'small') : null,
+        ));
+      }
+      return kids;
+    }
     // A save taken mid-delve resumes straight back in the dungeon, so say so:
     // "Continue" undersells the teleport.
     const midDelve = !!shown.run && shown.run.outcome === 'active';
@@ -153,6 +171,11 @@ function card(v: SlotView, onPlay: OnPlay, actions: SlotActions): HTMLElement {
         b.title = def.description;
         return h('div', { class: 'row' }, b, h('span', { class: 'dim small', text: def.tagline }));
       }));
+      // Tooltips never show on a phone, so the one choice that cannot be
+      // undone says so on the card itself.
+      if (DIFFICULTIES[picked].oneLife) {
+        rows.append(h('div', { class: 'red-t small', text: 'One death ends this save for good. Cannot be changed later.' }));
+      }
     };
     paint();
     return [

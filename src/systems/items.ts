@@ -787,7 +787,7 @@ function depthFactor(depth: number): number {
 
 /** Hard bonuses ramp separately from natural rarity; Normal keeps its floors. */
 function specialContainerRarity(rng: Rng, depth: number, difficulty?: DifficultyId): Rarity {
-  if (difficultyOf(difficulty).id !== 'hard') return depth >= 4 ? Rarity.Rare : Rarity.Uncommon;
+  if (difficultyOf(difficulty).id === 'normal') return depth >= 4 ? Rarity.Rare : Rarity.Uncommon;
   const roll = rng.next();
   const rareChance = depth < 3 ? 0 : Math.min(1, (depth - 2) * 0.15);
   const uncommonChance = Math.min(1, 0.2 + (depth - 1) * 0.15);
@@ -845,7 +845,7 @@ export function rollContainerLoot(
       // Guaranteed gear and secret blueprints remain the reward for exploration.
       gold += Math.round(rng.int(40, 75) * depth * diff.gold);
       items.push(rollEquipment(rng, depth, effFind, { minRarity: specialContainerRarity(rng, depth, difficulty), identifyBelow, seenUniques }));
-      if (rng.chance(0.25)) items.push(rollEquipment(rng, depth, effFind, { minRarity: difficultyOf(difficulty).id === 'hard' ? Rarity.Common : Rarity.Uncommon, identifyBelow, seenUniques }));
+      if (rng.chance(0.25)) items.push(rollEquipment(rng, depth, effFind, { minRarity: difficultyOf(difficulty).id === 'normal' ? Rarity.Uncommon : Rarity.Common, identifyBelow, seenUniques }));
       items.push(makeMaterial(rollValuable(rng, depth).id, rng.int(1, 2)));
       addGem(items, rng, depth);
       if (tier === 'secret' || rng.chance(0.35 + 0.03 * Math.min(6, depth))) items.push(rollBlueprint(rng, depth, ranks));

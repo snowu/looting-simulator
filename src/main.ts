@@ -3,7 +3,7 @@ import { createRng, randomSeed } from './core/rng';
 import { DX, DY, turnRight } from './core/dir';
 import { GameState, newGame } from './state/game-state';
 import { SLOTS, Slot, clearSave, lastSlot, loadGame, renameSave, saveGame, setLastSlot, setScratchMode } from './state/persistence';
-import { sanitizeSaveName, serializeSave } from './state/save-format';
+import { displaySaveName, fallenRecord, sanitizeSaveName, serializeSave } from './state/save-format';
 import { startRun, endRun, bankCarriedGold } from './systems/run';
 import { biomeForFloor } from './data/biomes';
 import { World, WorldEvent } from './world/world';
@@ -13,7 +13,7 @@ import { Hud } from './ui/hud';
 import { DungeonOverlays } from './ui/dungeon-ui';
 import { Town } from './ui/town';
 import { summaryScreen, titleScreen } from './ui/screens';
-import { DifficultyId } from './data/difficulty';
+import { DifficultyId, difficultyOf } from './data/difficulty';
 import { AccountPanel } from './ui/account';
 import { saveChooser } from './ui/save-chooser';
 import { SlotView, slotPicker } from './ui/slots';
@@ -497,7 +497,16 @@ let chooserEl: HTMLElement | null = null;
 async function reconcile(): Promise<void> {
   if (!signedIn) return;
   const result = await sync.begin();
-  if (result.kind === 'take-cloud') installCloud(result.save);
+  if (result.kind === 'take-cloud') {
+    // The one cloud save that may interrupt a delve: this hero already died
+    // elsewhere, so the run in front of the player is on borrowed time.
+    if (world && fallenRecord(result.save.state)) {
+      world = null;
+      ending = null;
+      audio.stopAmbient();
+    }
+    installCloud(result.save);
+  }
   else if (result.kind === 'choose') {
     pendingChoice = result.save;
     askAboutSaves();
@@ -512,6 +521,14 @@ async function reconcile(): Promise<void> {
 function askAboutSaves(): void {
   if (!pendingChoice || chooserEl || world || mode === 'dungeon') return;
   const cloud = pendingChoice;
+  // A fallen Hardcore hero is never a choice: the grave wins, from either side.
+  const cloudFallen = !!fallenRecord(cloud.state);
+  if (cloud.saveId === state.saveId && cloudFallen !== !!fallenRecord(state)) {
+    pendingChoice = null;
+    if (cloudFallen) installCloud(cloud);
+    else void sync.keepLocal();
+    return;
+  }
   chooserEl = saveChooser({
     local: state,
     cloud: cloud.state,
@@ -557,6 +574,12 @@ function installCloud(save: CloudSave): void {
   if (state.run?.outcome === 'active') {
     enterDungeon();
     toast('Cloud save loaded.', '#9ac0ff');
+    return;
+  }
+  // The other device buried this hero. Nothing here can be played.
+  if (settleInterruptedDeath() || state.fallen) {
+    enterTitle();
+    toast('This hero fell on another device. Hardcore saves have one life.', '#e08080');
     return;
   }
   if (mode === 'town') {
@@ -733,6 +756,14 @@ function enterSlot(n: Slot, difficulty?: DifficultyId): void {
   // is why nothing is written here for an empty one until then.
   if (existing) commit();
 
+  // A dead Hardcore hero is not playable. The card offers no way in, but a
+  // death interrupted mid-fade is only discovered here.
+  if (settleInterruptedDeath() || state.fallen) {
+    enterTitle();
+    toast(`${displaySaveName(state.name, n)} has fallen. Hardcore saves have one life.`, '#e08080');
+    return;
+  }
+
   // A save taken mid-delve resumes in the dungeon, never in town. Landing in
   // Bleakmere with a run open is a free town portal: the stash, the market and
   // the forge are all reachable with the backpack still on, so anything carried
@@ -762,6 +793,11 @@ function startAmbient(): void {
 
 function enterDungeon(): void {
   closeSettings();
+  if (fallenRecord(state)) {
+    settleInterruptedDeath();
+    enterTitle();
+    return;
+  }
   audio.unlock();
   if (!state.run || state.run.outcome !== 'active') startRun(state);
   const portal = state.run!.portal;
@@ -813,7 +849,22 @@ function finishRun(outcome: 'dead' | 'extracted'): void {
   world = null;
   audio.stopAmbient();
   show('summary');
-  screen.replaceChildren(summaryScreen(summary, () => enterTown()));
+  // A fallen Hardcore hero has no town to go back to: the save is a headstone.
+  screen.replaceChildren(summaryScreen(summary, () => (state.fallen ? enterTitle() : enterTown())));
+}
+
+/**
+ * A Hardcore death that the page closed on before the results screen: the
+ * World had already marked the run dead and saved, but `endRun` never ran.
+ * Settle it now, so reloading during the death fade cannot bring the hero back.
+ */
+function settleInterruptedDeath(): boolean {
+  const run = state.run;
+  if (!run || run.outcome !== 'dead' || state.fallen) return false;
+  if (!difficultyOf(run.difficulty ?? state.difficulty).oneLife) return false;
+  endRun(state, 'dead');
+  commit();
+  return true;
 }
 
 // --- World events --------------------------------------------------------------
