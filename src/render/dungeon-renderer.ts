@@ -5,6 +5,10 @@ import { biomeForFloor, ceilingForFloor } from '../data/biomes';
 import { enemyDef, enemyView } from '../data/enemies';
 import { ELITES } from '../data/elites';
 import { DROP_SECONDS } from '../data/ambush';
+import { RAISE_CHANNEL } from '../data/necromancy';
+
+/** The sickly green of a Gravecaller's chant, on the corpse it is calling. */
+const RAISE_GLOW = '#8ce07a';
 import { findMaterial } from '../data/materials';
 import { findSigil } from '../data/spells';
 import { itemBase, viewmodelFor } from '../data/items';
@@ -77,6 +81,8 @@ export class DungeonRenderer {
   private shake = 0;
   private flash = new THREE.Vector4();
   private time = 0;
+  /** Corpses being chanted over this frame, with how far along the chant is (0..1). */
+  private called = new Map<string, number>();
   private trapTriggeredAt = new Map<string, number>();
   private lowW = 320;
   deathFade = 0;
@@ -351,9 +357,15 @@ export class DungeonRenderer {
       if (tr.kind !== 'alarm' || !tr.found || !tr.armed) continue;
       lights.push({ x: tileX(tr.x), y: 0.2, z: tileZ(tr.y), r: 2.5, color: new THREE.Color('#a070ff'), intensity: 0.5 * flick(7) });
     }
+    // Corpses a Gravecaller is chanting over: they rise into view and glow.
+    const called = new Map<string, number>();
+    for (const en of floor.enemies) if (en.channel) called.set(en.channel.target, 1 - en.channel.t / RAISE_CHANNEL);
+    this.called = called;
     for (const en of floor.enemies) {
       const def = enemyDef(en.def);
       const view = enemyView(def, en.hp, en.maxHp, { elite: en.elite, carrying: !!en.stolen?.length });
+      const call = called.get(en.id);
+      if (call !== undefined) lights.push({ x: tileX(en.x), y: 0.5, z: tileZ(en.y), r: 3 + 2 * call, color: new THREE.Color(RAISE_GLOW), intensity: 0.6 + 0.8 * call });
       // A lurker throws no light: an elite glowing on the ceiling would be no ambush.
       if (view.glow && en.ai !== 'dead' && !en.lurk) lights.push({ x: tileX(en.x), y: 1.2, z: tileZ(en.y), r: 4.5, color: new THREE.Color(view.glow), intensity: 0.9 });
       // A Vengeful corpse's fuse: a swelling violet light over the body.
@@ -387,7 +399,8 @@ export class DungeonRenderer {
       }
       // A Vengeful corpse stays up, pulsing, until it goes off.
       const fused = en.burstT !== undefined;
-      if (en.ai === 'dead' && en.deadT > 0.9 && !fused) continue;
+      const call = this.called.get(en.id);
+      if (en.ai === 'dead' && en.deadT > 0.9 && !fused && call === undefined) continue;
       const s = this.sprite(`e:${en.id}`);
       const t = en.moveT < 1 ? en.moveT : 1;
       const ex = en.fromX + (en.x - en.fromX) * t;
@@ -410,7 +423,8 @@ export class DungeonRenderer {
       wz += DY[en.facing] * pose.lunge;
       const height = def.scale * 1.9 * (en.scavenged ? 1.15 : 1);
       let y = (def.floats ? 0.35 + Math.sin(this.time * 2.5 + en.x) * 0.1 : 0) + (en.moveT < 1 ? Math.abs(Math.sin(en.moveT * Math.PI)) * 0.08 : 0);
-      if (en.ai === 'dead') y -= (fused ? Math.min(en.deadT, 0.3) : en.deadT) * 1.4;
+      // A called corpse lies at the floor and is drawn up as the chant runs.
+      if (en.ai === 'dead') y -= call !== undefined ? (1 - call) * 1.2 : (fused ? Math.min(en.deadT, 0.3) : en.deadT) * 1.4;
       this.place(s, `${def.sprite}_${pose.frame}`, wx, y, wz, height);
       if (en.hurtT > 0) s.mat.uniforms.uTint.value.set(1, 0.95, 0.9, Math.min(0.8, en.hurtT * 3));
       else if (en.ai === 'windup' || (en.grabT ?? 0) > 0) s.mat.uniforms.uTint.value.set(1, 0.2, 0.1, 0.12 + 0.12 * Math.sin(this.time * 30));
@@ -420,7 +434,10 @@ export class DungeonRenderer {
         const c = new THREE.Color(ELITES[en.elite].color);
         s.mat.uniforms.uTint.value.set(c.r, c.g, c.b, 0.1 + 0.08 * Math.sin(this.time * 3));
       }
-      if (fused) {
+      if (call !== undefined) {
+        const c = new THREE.Color(RAISE_GLOW);
+        s.mat.uniforms.uTint.value.set(c.r, c.g, c.b, 0.55 - 0.3 * call + 0.1 * Math.sin(this.time * 9));
+      } else if (fused) {
         const c = new THREE.Color(ELITES.vengeful.color);
         s.mat.uniforms.uTint.value.set(c.r, c.g, c.b, 0.35 + 0.3 * Math.abs(Math.sin(this.time * 14)));
       } else if (en.ai === 'dead') s.mat.uniforms.uTint.value.set(0, 0, 0, Math.min(1, en.deadT * 1.2));

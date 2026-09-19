@@ -19,6 +19,9 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 const SKIP = {
   '55e9f88': 'design doc for the run-identity plan; no player-facing change',
   '8517c39': 'progress tracker update in NEXT.md; no player-facing change',
+  '2b6c9de': 'PR preview image only',
+  e99ce03: 'merge only; stacked branch sync, changes covered by Patches 58 and 59',
+  aa2b693: 'PR preview image only',
   a4347f6: 'merge only; healing rework changes covered by Patch 51',
   '1013973': 'merge only; the master forge layout arrives with its own commit',
   '080e186': 'dev art sheet grouping only; the food art is covered by Patch 52',

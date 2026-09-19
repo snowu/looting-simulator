@@ -35,7 +35,7 @@ const hash = (parts: string[]) => hashString(parts.join(' ')).toString(16);
  */
 function demote(f: Floor): Floor {
   const copy: Floor = JSON.parse(JSON.stringify(f));
-  copy.enemies = copy.enemies.filter((e) => !e.id.startsWith('amb'));
+  copy.enemies = copy.enemies.filter((e) => !e.id.startsWith('amb') && e.id !== 'grave0');
   delete copy.cracks;
   for (const e of copy.enemies) delete e.lurk;
   for (const e of copy.enemies) {

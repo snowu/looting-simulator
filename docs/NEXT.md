@@ -297,9 +297,9 @@ the same commit as the work it describes**, so any session can resume from it.
 |---|---|---|---|
 | 1 | `feat/ri-1-elites` | Step 1: elite traits, thieving Cutpurse | [#18](https://github.com/snowu/looting-simulator/pull/18) open — needs a real delve on desktop and phone |
 | 2 | `feat/ri-2-ambushers` | Step 2: ceiling droppers, burrowing Mole and Stalker | [#19](https://github.com/snowu/looting-simulator/pull/19) open — needs a real delve on desktop and phone |
-| 3 | `feat/ri-3-walls` | Step 2: cracked walls, ore seams, sealed niches | built, PR open — needs a real delve on desktop and phone |
-| 4 | `feat/ri-4-gravecaller` | Step 2: the Gravecaller, shattered and sanctified remains | not started |
-| 5+ | — | Steps 3–7: Oaths, route fork and biome laws, lieutenants and corpse run, build properties, Seals | not started |
+| 3 | `feat/ri-3-walls` | Step 2: cracked walls, ore seams, sealed niches | [#20](https://github.com/snowu/looting-simulator/pull/20) open — needs a real delve on desktop and phone |
+| 4 | `feat/ri-4-gravecaller` | Step 2: the Gravecaller, shattered and sanctified remains | built, PR open — needs a real delve on desktop and phone |
+| 5+ | `feat/ri-5-oaths` … | Steps 3–7: Oaths, route fork and biome laws, lieutenants and corpse run, build properties, Seals | not started |
 
 Log (newest last), one line per landed piece with what is and is not done:
 
@@ -339,6 +339,19 @@ Log (newest last), one line per landed piece with what is and is not done:
   pre-built so no rebuild is needed. Not done: monsters don't break walls (the
   Barrow Champion idea), the Deep Mines collapse law is step 4, the automap
   doesn't mark cracks, and no real delve or phone check.
+- 2026-09-19 — **PR 4 built** (stacked on PR 3). Gravecaller (weight-0 def,
+  new `gravecaller_0/_atk` art) placed by its own `gravecaller:` pass on
+  Ossuary/Catacombs floors from depth 2 (so D2–3 in practice), not marking its
+  tile occupied so loot and keys don't move. It chants 2s over the nearest
+  fallen undead within 4 and stands it up at 50%, risen; limit 3, 6s
+  cooldown; any damage breaks the chant. `EnemyState.remains`: blunt or 25%
+  overkill shatters, holy damage or Threshold sanctifies (melee killing blows
+  only). Not done: thrown/trap/burst kills never set remains; the Ossuary
+  lieutenant (floor-wide rising) is step 5. **Step 2 is complete with this PR.**
+  Next up: step 3, Delve Oaths (new branch `feat/ri-5-oaths` off this one).
+- Art previews for PR descriptions are PNG sheets from `npm run art:sheet`,
+  committed under `docs/previews/ri-*.png` and embedded by raw URL (user's
+  request, 2026-09-19).
 
 ## The problem
 

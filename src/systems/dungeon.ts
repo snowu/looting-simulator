@@ -8,6 +8,7 @@ import { DifficultyId, DifficultyDef, DIFFICULTIES, difficultyOf } from '../data
 import { EnemyDef, Item } from '../types';
 import { ELITE_HP_MULT, EliteTrait, IRONHIDE_HP_MULT, eliteFor } from '../data/elites';
 import { EARTH_BIOMES, STALKER_BURIED, droppersFor } from '../data/ambush';
+import { GRAVE_BIOMES, gravecallerChance } from '../data/necromancy';
 import { Crack, SHORTCUT_MIN_SAVING, cracksFor } from '../data/walls';
 import { ContainerTier, makeMaterial, materialForDepth } from './items';
 
@@ -277,6 +278,18 @@ export interface EnemyState {
   tunnelling?: boolean;
   /** A burrower that has already dived once this life. */
   dived?: boolean;
+  /**
+   * How it fell, for necromancy: `shattered` (a blunt or crushing killing
+   * blow) and `sanctified` (holy, or struck from consecrated ground) remains
+   * cannot be raised. Absent means ordinary remains.
+   */
+  remains?: 'shattered' | 'sanctified';
+  /** A Gravecaller's channel: which corpse, and seconds left. Absent when not chanting. */
+  channel?: { target: string; t: number };
+  /** A Gravecaller's cooldown before its next raising. */
+  raiseCd?: number;
+  /** How many it has raised this life. */
+  raised?: number;
 }
 
 export interface Morsel {
@@ -1170,6 +1183,28 @@ function tryGenerate(
     }
     if (EARTH_BIOMES.has(biome.id)) {
       for (const e of enemies) if (e.def === 'tunnel_stalker' && amb.chance(STALKER_BURIED)) e.lurk = 'buried';
+    }
+    // A Gravecaller among the dead, on its own stream: in a room with undead
+    // already in it where possible, so it has something to call.
+    if (GRAVE_BIOMES.has(biome.id)) {
+      const grave = createRng(hashString(`gravecaller:${seed}:${depth}`));
+      if (grave.chance(gravecallerChance(depth))) {
+        const withDead = hostRooms.filter((r) => enemies.some((e) => enemyDef(e.def).undead && e.x >= r.x && e.x < r.x + r.w && e.y >= r.y && e.y < r.y + r.h));
+        const rooms2 = withDead.length ? withDead : hostRooms;
+        for (const r of grave.shuffle([...rooms2])) {
+          const spots = [];
+          for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
+            if (free(x, y) && distFromSpawn[idx(x, y)] >= 8) spots.push([x, y] as [number, number]);
+          }
+          if (!spots.length) continue;
+          const [x, y] = grave.pick(spots);
+          // Deliberately not marked occupied: loose loot and keys are placed
+          // after this and read that set, and they must land where they
+          // always have. A pile under its feet is harmless.
+          enemies.push(createEnemy(enemyDef('gravecaller'), x, y, grave.pick(DIRS), 'grave0', depth, diff.id));
+          break;
+        }
+      }
     }
   }
 
