@@ -340,6 +340,12 @@ Log (newest last), one line per landed piece with what is and is not done:
   pre-built so no rebuild is needed. Not done: monsters don't break walls (the
   Barrow Champion idea), the Deep Mines collapse law is step 4, the automap
   doesn't mark cracks, and no real delve or phone check.
+- 2026-09-19 — **PR 3 follow-ups** (user feedback). The ore and sealed
+  textures were far too obvious, so both were redrawn quiet: ore is a thin
+  fissure with a few dull, translucent glints; sealed is a faint, broken mortar
+  outline with a hairline crack (the plain shortcut crack is unchanged). Easter
+  egg: an unbroken Mining Pick breaks any crack in one blow; in MECHANICS.md,
+  deliberately not in the patch notes.
 - 2026-09-19 — **Thief chase fix** (user: "nearly impossible to chase").
   The old flee took the step that maximised distance every tick and kept
   sprinting away from your last-seen position out of sight. Now: laden ×1.25

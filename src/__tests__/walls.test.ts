@@ -7,7 +7,8 @@ import { enemyDef } from '../data/enemies';
 import { CRACK_BLOWS, CRACK_NOISE, Crack, SHORTCUT_MIN_SAVING } from '../data/walls';
 import { CRACKABLE_WALLS, crackTexture } from '../art/textures';
 import { getArt } from '../art/registry';
-import { durability } from '../systems/items';
+import { durability, makeEquipment } from '../systems/items';
+import { Rarity } from '../types';
 import { startRun } from '../systems/run';
 import { World } from '../world/world';
 
@@ -141,6 +142,14 @@ describe('breaking', () => {
       if (kind === 'seam') expect(pile!.items.some((i) => i.kind === 'material')).toBe(true);
       else expect(pile!.items.length + pile!.gold).toBeGreaterThan(0);
     }
+  });
+
+  it('a Mining Pick brings one down in a single blow', () => {
+    const { w, c } = facingCrack('shortcut');
+    w.state.equipment.weapon = makeEquipment({ baseId: 'mining_pick', materialId: 'iron', rarity: Rarity.Common, ilvl: 1 });
+    swing(w);
+    expect(c.broken).toBe(true);
+    expect(c.hits).toBe(CRACK_BLOWS);
   });
 
   it('the one-button tap swings at a cracked wall', () => {

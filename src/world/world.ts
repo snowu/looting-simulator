@@ -4007,6 +4007,11 @@ export class World {
    */
   private strikeCrack(c: Crack): void {
     const f = this.floor;
+    // A small secret, not a rule: the Mining Pick knows where stone gives, and
+    // brings any cracked wall down in one. Every other weapon takes CRACK_BLOWS.
+    const w = this.state.equipment.weapon;
+    const pick = !!w && itemBase(w.ref).weaponClass === 'pick' && !durability(w).broken;
+    c.hits = pick ? CRACK_BLOWS - 1 : c.hits;
     c.hits++;
     this.wear('weapon', CRACK_WEAR);
     this.sfx('break', c.x, c.y);
@@ -4025,6 +4030,7 @@ export class World {
     }
     c.broken = true;
     f.tiles[c.y * f.width + c.x] = FLOOR;
+    if (pick) this.msg('The pick finds the fault line. The wall comes down in one.', '#e8d8a0');
     this.reveal();
     const rng = createRng(hashString(`crack:${f.seed}:${c.id}`));
     if (c.kind === 'seam') {

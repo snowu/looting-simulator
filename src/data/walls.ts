@@ -37,7 +37,11 @@ export interface Crack {
   broken: boolean;
 }
 
-/** Blows to break any cracked wall, whatever you swing. */
+/**
+ * Blows to break any cracked wall, whatever you swing, with one quiet
+ * exception kept as an easter egg: an unbroken Mining Pick does it in one
+ * (`strikeCrack`). Not in the patch notes on purpose.
+ */
 export const CRACK_BLOWS = 3;
 /** Every blow alerts monsters this many tiles away, through walls. */
 export const CRACK_NOISE = 6;
