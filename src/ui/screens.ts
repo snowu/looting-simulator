@@ -1,4 +1,5 @@
 import { RunSummary } from '../state/game-state';
+import { findOath } from '../data/oaths';
 import { gold, h, itemSlot, btn } from './dom';
 import { patchNotesButton } from './patch-notes';
 import { settingsGearButton } from './settings';
@@ -77,6 +78,7 @@ export function summaryScreen(sum: RunSummary, onContinue: () => void): HTMLElem
         h('div', {}, h('div', { class: 'big-num', text: String(sum.kills) }), h('div', { class: 'dim', text: 'slain' })),
       ),
       fallen ? h('p', { class: 'red-t', text: 'Hardcore: there was only one life. This hero is dead for good, and the save stays as their headstone.' }) : null,
+      sum.oath ? oathLine(sum.oath) : null,
       sum.items.length && !fallen ? h('h3', { text: home ? 'Brought home' : 'Saved by the Soul Pouch' }) : null,
       sum.items.length && !fallen ? h('div', { class: 'items' }, ...sum.items.map((it) => itemSlot(it, { size: 44 }))) : null,
       sum.lost.length ? h('h3', { class: 'red-t', text: 'Lost in the dark' }) : null,
@@ -91,4 +93,18 @@ export function summaryScreen(sum: RunSummary, onContinue: () => void): HTMLElem
       btn(fallen ? 'Back to the title' : 'Back to town', onContinue, 'primary big'),
     ),
   );
+}
+
+/** How the delve's oath ended, on the results screen. */
+function oathLine(o: { id: string; kept: boolean; renown: number }): HTMLElement | null {
+  const def = findOath(o.id);
+  if (!def) return null;
+  return h('p', {
+    style: `color:${o.kept ? def.color : '#9a9aa8'}`,
+    text: o.kept
+      ? o.renown
+        ? `Oath kept: ${def.name}. You have learned every inscription, so it pays ${o.renown} renown instead.`
+        : `Oath kept: ${def.name}. An inscription waits for you in Bleakmere: choose one of three.`
+      : `Oath broken: ${def.name}. It costs you nothing but the reward.`,
+  });
 }

@@ -1,3 +1,4 @@
+import { beginOath, settleOath } from './oaths';
 import { createRng, randomSeed } from '../core/rng';
 import { Item } from '../types';
 import { GameState, RunState, RunSummary } from '../state/game-state';
@@ -72,6 +73,7 @@ export function startRun(state: GameState, seed = randomSeed()): RunState {
     stats: { kills: 0, goldFound: 0, itemsFound: 0, deepest: 1, time: 0, bossKilled: false },
     outcome: 'active',
   };
+  beginOath(state, run);
   state.run = run;
   state.lifetime.runs += 1;
   recordDepth(state.contracts, 1);
@@ -105,6 +107,7 @@ export function endRun(state: GameState, outcome: 'dead' | 'extracted'): RunSumm
   state.lifetime.bestDepth = Math.max(state.lifetime.bestDepth, run.stats.deepest);
   const renown = renownForRun(run.stats.deepest, outcome === 'extracted', run.stats.bossKilled);
   state.renown += renown;
+  const oath = settleOath(state, run, outcome);
   const dayTurned = run.stats.deepest > 1;
 
   const summary: RunSummary = {
@@ -119,6 +122,7 @@ export function endRun(state: GameState, outcome: 'dead' | 'extracted'): RunSumm
     bossKilled: run.stats.bossKilled,
     killedBy: run.killedBy,
     dayTurned,
+    ...(oath ? { oath } : {}),
   };
   // One life: the grave is dug before anything else is saved, so there is no
   // moment where the save holds a dead Hardcore hero who is still playable.

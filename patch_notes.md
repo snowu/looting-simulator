@@ -1,3 +1,28 @@
+# Oaths and inscriptions
+
+*Additive save change (revisions 25 and 26): nothing learned, nothing sworn. Every existing save loads as it was.*
+
+**The Oath Stone.** Between delves, above the town tabs, you can swear an oath for your next delve, or none. Keep it and come home alive, and it pays an inscription you haven't learned yet. Break it and you lose only the reward.
+
+- **Blood Price:** you go down cursed with Frailty, and no font will wash it off. Come home with 250 gold found in the dungeon.
+- **Unbroken:** everything you wear wears twice as fast. Reach depth 4 with nothing breaking, then come home.
+- **Hunter:** monsters see you from further away, and a marked elite, one of the toughest on its floor, waits on each of depths 2, 3 and 4. Kill all three, then come home.
+
+The HUD shows how your oath stands.
+
+**Inscriptions.** A kept oath lets you choose one of three to learn. At the forge, the new **Inscribe** bench cuts a learned inscription into a piece of your gear for 150 gold, one per item. Inscribing again replaces it, and relics can't take one.
+
+- **Riposte** (weapon): after a parry, your next swing is free and hits harder.
+- **Execution** (weapon): finishing a reeling monster feeds your sigil twice over.
+- **Kindling** (weapon): your fire leaps from a badly wounded monster to one beside it.
+- **Bulwark** (shield): taking a heavy blow on the shield charges your next strike.
+- **Retrieval** (thrown belt): shafts you call back cut what they pass through.
+- **Last Flask** (helm, body or gloves): with your flask empty, food and life leech heal more.
+
+Validation: typecheck, production build, and the full test suite (684 tests), twice. New tests cover learning and inscribing (slot fit, no relics, cost, replacing, identified and worn gear only), one behaviour test per inscription, each oath's rule and objective (Frailty surviving a font, double wear and a break ending Unbroken, keeping it at depth 4, Hunter's sight and its three marks placed once each on tough monsters and counted), the reward drawing only unlearned inscriptions or paying renown, no new oath while a reward waits, and both save migrations. Checked in the dev lab in Chrome: the Inscribe bench, inscribing Riposte onto a sword, the Oath Stone and the reward picker at 500px wide with no overflow, learning from a reward, swearing Hunter, the HUD oath line, and marked elites on depths 2–4. Not played through a real delve with an oath to the end, and not checked on a real phone.
+
+---
+
 # The Gravecaller
 
 *No save change. Floors you've already generated are untouched; Gravecallers appear on floors generated from now on.*
