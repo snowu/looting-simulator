@@ -345,7 +345,28 @@ Eligible monsters independently roll a morsel at `0.28 − 0.024 × (depth − 1
 - **Shields** (Shieldbearer, Shieldguard): while you are close the guard runs a rhythm you can read off the sprite — the shield sweeps center (**raise**, 0.25s), holds (**up**, 1.4s), drops (**down**, 1.6s). A frontal blow into the raise is answered with a shield-bash: your guard drops, you are **stunned for 1 second**, and the bearer starts a swing you cannot dodge. A frontal blow into the hold is **absorbed for 75%** with no stagger; three chips running sag the guard and drop it early. Blows from behind, mid-swing, while reeling, or into the dropped guard land full — and break the chip count. Flank them, meet their swing, or time the drop.
 - **Ranged:** only fire along a row or column with clear sight. They back away if you close to melee and sidestep to line up a shot. Bolts travel tile by tile, so strafing out of the line dodges them.
 - **Skittish** (goblins): flee below 35% health.
+- **Thieves** (the Goblin Cutpurse, and any *Thieving* elite): a melee blow that gets through (not parried, not blocked, and you survive it) takes one thing from your backpack: a piece of gear whole, or half a stack rounded up. Equipped gear is never at risk. The thief then flees at once, glowing gold so you can chase it in the dark, and the target bar says what it is carrying. It is a chase you are meant to win. Laden, it steps **1.25×** slower (`THIEF_LADEN`). After a step in your sight it has a **12%** chance to fumble its prize and stand still for **0.7s**. It runs in a panic, not cleverly: any step that isn't towards you, preferring to keep going straight, so it will bolt into a dead end. Out of your sight it goes to ground, creeping one tile every **1.5s** (`THIEF_CREEP`) and still glowing. Every 3 steps, up to 6 times, 1–3 coins spill from its purse, leaving a trail. Kill it and it drops what it took. If it spends **30 seconds** (`THIEF_ESCAPE`) out of your sight, it gets away and the item is gone. Cornered, it fights. It steals once; a thief that is already carrying does not steal again.
 - **Boss:** melee when adjacent, otherwise a three-bolt shadow volley when aligned.
+
+### Elites
+
+*Files: `src/data/elites.ts`, `promoteElite` in `src/systems/dungeon.ts`, `enemyView` in `src/data/enemies.ts`*
+
+An ordinary spawn can be promoted to an **elite**: the same monster with one trait on top. The chance is **0 on depths 1–2**, then `3% + 2% × (depth − 2)`: **5% at depth 3, 7% at 4, 9% at 5, 11% at 6**, about 1.3 elites per floor from depth 3 down. It applies on every difficulty, with no Oath or Seal needed. The King and his throne guards are never promoted. The roll uses its own hashed stream (`elite:<floorSeed>:<enemyId>`) *after* generation, so it never moves a wall, a chest or another monster. `hard-golden.test.ts` proves this by demoting every elite and matching the pre-elite hash.
+
+**Every elite can be read before it matters.** It throws light in its trait's colour, pulses slowly in that colour (never the fast red flicker of a wind-up), stands 10% taller, and its target bar shows the trait in its name and colour. Hovering the name gives the rule.
+
+| Trait | Colour | Weight | Effect |
+|---|---|---|---|
+| Hasted | yellow | 3 | wind-up ×0.75, recovery ×0.75, step ×0.7 |
+| Ironhide | steel | 3 | armour ×1.6, health ×1.25 more, step ×1.3 (slower) |
+| Frenzied | red | 3 | below 50% health: wind-up ×0.7, recovery ×0.6, step ×0.8 |
+| Vengeful | violet | 2 | 1.0s after it dies, its corpse bursts: its own tile and the four beside it, for 1.5× its blow, of its damage type. It hits you like any blow from that tile, so facing it you can block or parry; standing on the body you cannot. Monsters in the blast take it raw (× their resistance), so it can kill its friends and set off another Vengeful corpse. The corpse stays up, pulsing violet, until it goes off |
+| Thieving | gold | 2 | steals like the Cutpurse (see *Thieves* above). Never on ranged monsters or on a born thief |
+
+Every elite has **×1.5 health** on top of the depth curve (Ironhide ×1.875 in all), baked in at spawn. The timing and armour changes are read live through `enemyView`, so the stat block itself never changes. The name ("Hasted Skeleton") is display only: the codex, contracts and field notes still key off the monster's id, and an elite kill counts as a kill of its kind.
+
+**Rewards:** gold ×2.5, gear chance ×3, material chances ×1.5. They lean on the same draws an ordinary kill makes, never add draws, so ordinary kills are unchanged.
 
 ---
 

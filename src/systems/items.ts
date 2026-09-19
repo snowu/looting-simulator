@@ -1,3 +1,4 @@
+import { ELITE_GOLD_MULT, ELITE_ITEM_MULT, ELITE_MATERIAL_MULT } from '../data/elites';
 import { Rng, createRng, hashString } from '../core/rng';
 import {
   AffixRoll,
@@ -726,8 +727,12 @@ export function rollEnemyLoot(
   bestiary?: BestiaryState,
   seenUniques: string[] = [],
   difficulty?: DifficultyId,
+  elite = false,
 ): LootRoll {
   const items: Item[] = [];
+  // An elite pays more by leaning on the same draws, never by adding any, so an
+  // ordinary kill's sequence is untouched by elites existing.
+  const eliteMat = elite ? ELITE_MATERIAL_MULT : 1;
   if (!isKnown(bestiary, def.id) && (def.behavior === 'boss' || rng.chance(LORE_CHANCE))) {
     items.push(makeLore(def.id));
   }
@@ -751,20 +756,20 @@ export function rollEnemyLoot(
     }
   }
   for (const e of def.loot.filter((entry) => entry.id !== 'wardstone')) {
-    if (rng.chance(Math.min(1, e.chance * f))) {
+    if (rng.chance(Math.min(1, e.chance * f * eliteMat))) {
       const qty = rng.int(e.min, e.max);
       const id = enemyMaterial(e.id, depth);
       if (id) items.push(makeMaterial(id, qty));
     }
   }
-  const gold = Math.round(rng.int(def.gold[0], def.gold[1]) * diff.gold);
+  const gold = Math.round(rng.int(def.gold[0], def.gold[1]) * diff.gold * (elite ? ELITE_GOLD_MULT : 1));
   if (def.behavior === 'boss') {
     // The one guaranteed Legendary in the game, and it is always one you have
     // not held. Killing the King should be progression, not a lottery ticket.
     items.push(rollEquipment(rng, depth, effFind, { rarity: Rarity.Legendary, seenUniques, guaranteeNewUnique: true }));
     items.push(rollEquipment(rng, depth, effFind, { minRarity: Rarity.Epic }));
     items.push(rollBlueprint(rng, depth, ranks, blueprints));
-  } else if (rng.chance(Math.min(0.95, def.itemChance * (1 + effFind / 100) * diff.dropChance))) {
+  } else if (rng.chance(Math.min(0.95, def.itemChance * (1 + effFind / 100) * diff.dropChance * (elite ? ELITE_ITEM_MULT : 1)))) {
     items.push(rollEquipment(rng, depth, effFind, { identifyBelow, seenUniques }));
   }
   if (rng.chance(0.008 + 0.004 * Math.min(6, depth))) items.push(rollBlueprint(rng, depth, ranks, blueprints));

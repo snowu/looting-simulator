@@ -8,6 +8,7 @@
  * Sections: quick spawn, named spawn configurations (save/share as JSON),
  * in-lab forge (town forge without the trip), quick weapon giver, utility.
  */
+import { ELITES, EliteTrait } from '../data/elites';
 import { World } from '../world/world';
 import { BIOMES } from '../data/biomes';
 import { ENEMIES } from '../data/enemies';
@@ -203,7 +204,14 @@ function buildSpawnSection(
     o.textContent = label;
     primeSel.append(o);
   }
-  wrap.append(enemySel, countSel, spacingSel, primeSel);
+  const eliteSel = h('select', { style: 'width:100%;margin-bottom:6px', attrs: { 'aria-label': 'Elite trait' } }) as HTMLSelectElement;
+  for (const [v, label] of [['', 'Ordinary'], ...Object.values(ELITES).map((t) => [t.id, `Elite: ${t.name}`])] as const) {
+    const o = document.createElement('option');
+    o.value = v;
+    o.textContent = label;
+    eliteSel.append(o);
+  }
+  wrap.append(enemySel, countSel, spacingSel, primeSel, eliteSel);
   wrap.append(h('div', { class: 'row', style: 'gap:4px;margin-bottom:4px' },
     btn('Spawn', () => {
       const w = getWorld();
@@ -212,6 +220,7 @@ function buildSpawnSection(
         count: Number(countSel.value),
         spacing: spacingSel.value as 'near' | 'ranged',
         prime: primeSel.value as 'alert' | 'windup',
+        elite: (eliteSel.value || undefined) as EliteTrait | undefined,
       });
       notify(n > 0 ? `Spawned ${n} × ${enemySel.value}.` : 'No free tiles around you.', n > 0 ? '#c080ff' : '#ff9070');
     }, 'small primary'),

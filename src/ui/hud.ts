@@ -1,10 +1,11 @@
 import { DIR_NAMES, DX, DY, turnLeft, turnRight } from '../core/dir';
 import { biomeForFloor } from '../data/biomes';
-import { enemyDef } from '../data/enemies';
+import { THIEF_GLOW, enemyDef, enemyView } from '../data/enemies';
+import { ELITES } from '../data/elites';
 import { consumable } from '../data/items';
 import { findSigil } from '../data/spells';
 import { EnemyState, blocksSight, enemyAt } from '../systems/dungeon';
-import { itemIcon } from '../systems/items';
+import { itemIcon, itemName } from '../systems/items';
 import { DungeonRenderer } from '../render/dungeon-renderer';
 import { BLESSINGS, CURSES, World } from '../world/world';
 import { drawMap } from './automap';
@@ -365,12 +366,19 @@ export class Hud {
     }
     this.target.hidden = !tgt;
     if (tgt) {
-      const def = enemyDef(tgt.def);
+      const def = enemyView(enemyDef(tgt.def), tgt.hp, tgt.maxHp, { elite: tgt.elite });
       const weak = Object.entries(def.resist).filter(([, v]) => (v ?? 1) >= 1.4).map(([k]) => k);
       const res = Object.entries(def.resist).filter(([, v]) => (v ?? 1) <= 0.6).map(([k]) => k);
+      // An elite's name carries its trait in the trait's colour, and hovering
+      // it says what the trait does.
+      const elite = tgt.elite ? ELITES[tgt.elite] : null;
+      const name = elite
+        ? `<div style="color:${elite.color}" title="${esc(elite.rule)}">${esc(def.name)}</div>`
+        : `<div>${esc(def.name)}</div>`;
+      const carrying = tgt.stolen?.length ? `<div class="tag" style="color:${THIEF_GLOW}">carrying your ${esc(tgt.stolen.map(itemName).join(', '))}</div>` : '';
       this.target.innerHTML =
-        `<div>${def.name}</div><div class="bar"><i style="width:${(tgt.hp / tgt.maxHp) * 100}%"></i></div>` +
-        `<div class="tag">${weak.length ? `weak: ${weak.join(', ')}` : ''}${weak.length && res.length ? ' · ' : ''}${res.length ? `resists: ${res.join(', ')}` : ''}</div>`;
+        `${name}<div class="bar"><i style="width:${(tgt.hp / tgt.maxHp) * 100}%"></i></div>` +
+        `<div class="tag">${weak.length ? `weak: ${weak.join(', ')}` : ''}${weak.length && res.length ? ' · ' : ''}${res.length ? `resists: ${res.join(', ')}` : ''}</div>` + carrying;
     }
 
     // Log fade.

@@ -426,6 +426,12 @@ export interface EnemyDef {
   /** Lateral offsets of a volley. Absent means a single bolt. */
   volley?: number[];
   floats?: boolean;
+  /**
+   * Picks pockets: a melee blow that gets through takes something from your
+   * pack, and the thief runs. The Cutpurse is born to it; the Thieving elite
+   * trait gives it to anything that swings.
+   */
+  thief?: boolean;
   minDepth: number;
   maxDepth: number;
   weight: number;
