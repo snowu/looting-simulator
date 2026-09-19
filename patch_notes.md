@@ -6,7 +6,7 @@ Dying no longer throws your pack away. What you lose (the backpack and the coin 
 
 There's only ever one grave. Die again before you get back to it, and the old pack is gone for good; the new one takes its place. Coming home without reclaiming it leaves it waiting. The town news and the results screen tell you where it is. On Hardcore a death ends the save, so there's no Shade to go back for.
 
-HARNESS_LINE
+Validation: typecheck, production build, and the full test suite (707 tests), twice. New tests cover the grave (dug on the depth you fell with what you lost, replaced by a second death, left alone when you come home, never on Hardcore), the save migration, the Shade (on the grave's depth only, far from the stair, once per delve, on depth 1 from the start, striking with your weapon's damage type), and killing it giving the whole pack back. Checked in the dev lab in Chrome: the Shade reads as a pale, cold figure, and the target bar says "Your Shade". The balance harness plays exactly as before, since its bot starts every delve without a grave. While measuring, I found that the harness had stopped being reproducible when the route fork arrived (the day's roads were seeded from a random save id); that's fixed.
 
 ---
 
