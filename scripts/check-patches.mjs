@@ -18,6 +18,7 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 // Commits that must never become patch notes. Short hash -> reason.
 const SKIP = {
   '55e9f88': 'design doc for the run-identity plan; no player-facing change',
+  '8517c39': 'progress tracker update in NEXT.md; no player-facing change',
   a4347f6: 'merge only; healing rework changes covered by Patch 51',
   '1013973': 'merge only; the master forge layout arrives with its own commit',
   '080e186': 'dev art sheet grouping only; the food art is covered by Patch 52',

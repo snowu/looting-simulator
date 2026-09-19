@@ -1,3 +1,19 @@
+# Walls that give
+
+*No save change. Floors you've already generated have no cracked walls; they appear on floors generated from now on.*
+
+Some walls are **cracked**, and three blows from anything will bring one down. It costs you: every blow wears your weapon like a hit, and the noise carries through the walls to anything within six tiles.
+
+- **A plain crack** is a shortcut: a thin wall between two passages that are a long way apart on foot.
+- **A crack glinting with ore** is a seam. Break it for a few pieces of metal ore for the depth. They're commonest in the Vermin Burrows and the Deep Mines.
+- **A bricked-up niche with a crack through it** is a cache someone sealed. Break it for a hoard like a chest's, and never less than a handful of coin.
+
+A broken wall stays broken for the rest of the delve, and the one-button tap swings at a cracked wall in front of you.
+
+Validation: typecheck, production build, and the full test suite (648 tests). New tests cover placement (on walls, clear of doors and stairs, shortcuts saving at least 12 steps, none on the throne floor), a texture for every wall, three blows with wear each time and the tile passable only after the third, the noise reaching six tiles and no further, ore and cache loot, and the tap swinging at a crack. The first test run caught caches that could open onto nothing, so they now roll like chests with a minimum of coin. Checked in the dev lab in Chrome: an ore seam and a sealed cache on Vermin Burrows walls, and three blows bringing the seam down into a finished alcove with copper ore inside. The balance harness is unchanged, since the bot never breaks walls. Not played through a real delve yet, and not checked on a phone.
+
+---
+
 # Look up. Watch the floor.
 
 *No save change. Floors you have already generated are untouched; ambushers appear on floors generated from now on.*

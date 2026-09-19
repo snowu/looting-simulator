@@ -8,6 +8,7 @@ import { DifficultyId, DifficultyDef, DIFFICULTIES, difficultyOf } from '../data
 import { EnemyDef, Item } from '../types';
 import { ELITE_HP_MULT, EliteTrait, IRONHIDE_HP_MULT, eliteFor } from '../data/elites';
 import { EARTH_BIOMES, STALKER_BURIED, droppersFor } from '../data/ambush';
+import { Crack, SHORTCUT_MIN_SAVING, cracksFor } from '../data/walls';
 import { ContainerTier, makeMaterial, materialForDepth } from './items';
 
 // ---------------------------------------------------------------------------
@@ -309,6 +310,8 @@ export interface Floor {
   enemies: EnemyState[];
   keys: KeyDef[];
   traps: Trap[];
+  /** Cracked walls. **Absent on floors generated before they existed.** See `src/data/walls.ts`. */
+  cracks?: Crack[];
 }
 
 // ---------------------------------------------------------------------------
@@ -354,6 +357,11 @@ export function propAt(f: Floor, x: number, y: number): Prop | undefined {
 
 export function enemyAt(f: Floor, x: number, y: number): EnemyState | undefined {
   return f.enemies.find((e) => e.ai !== 'dead' && !e.lurk && e.x === x && e.y === y);
+}
+
+/** An unbroken cracked wall on this tile, if any. */
+export function crackAt(f: Floor, x: number, y: number): Crack | undefined {
+  return f.cracks?.find((c) => !c.broken && c.x === x && c.y === y);
 }
 
 /** A hidden monster (ceiling or buried) on this tile, if any. */
@@ -443,6 +451,73 @@ export function promoteElite(e: EnemyState, trait: EliteTrait): void {
   const mult = ELITE_HP_MULT * (trait === 'ironhide' ? IRONHIDE_HP_MULT : 1);
   e.maxHp = Math.round(e.maxHp * mult);
   e.hp = e.maxHp;
+}
+
+/**
+ * Pick the cracked walls for a floor. Only wall tiles that touch open floor and
+ * sit clear of the border, doors, stairs, secrets and torches. A shortcut is a
+ * wall one tile thick between two floors that are at least
+ * `SHORTCUT_MIN_SAVING` steps apart the long way. Seams and caches are wall
+ * tiles with exactly one open side, so breaking them opens an alcove, never a
+ * passage. Breaking any of them only adds floor, which is why none of this can
+ * strand a key or a stair.
+ */
+function placeCracks(
+  seed: number, depth: number, biome: string, tiles: number[], W: number, H: number,
+  near: { avoid: { x: number; y: number }[]; torches: Torch[] },
+): Crack[] {
+  const rng = createRng(hashString(`cracks:${seed}:${depth}`));
+  const at = (x: number, y: number) => (x < 0 || y < 0 || x >= W || y >= H ? WALL : tiles[y * W + x]);
+  const clear = (x: number, y: number) =>
+    !near.avoid.some((a) => Math.abs(a.x - x) + Math.abs(a.y - y) <= 1)
+    // A torch hangs on the wall it faces; that wall must stay.
+    && !near.torches.some((t) => t.x + DX[t.side] === x && t.y + DY[t.side] === y);
+  const distance = (sx: number, sy: number, tx: number, ty: number): number => {
+    const dist = new Int32Array(W * H).fill(-1);
+    const q = [sy * W + sx];
+    dist[q[0]] = 0;
+    for (let h = 0; h < q.length; h++) {
+      const i = q[h], x = i % W, y = (i / W) | 0;
+      if (x === tx && y === ty) return dist[i];
+      for (const d of DIRS) {
+        const nx = x + DX[d], ny = y + DY[d], n = ny * W + nx;
+        if (at(nx, ny) !== FLOOR || dist[n] >= 0) continue;
+        dist[n] = dist[i] + 1;
+        q.push(n);
+      }
+    }
+    return Infinity;
+  };
+  const shortcuts: [number, number][] = [];
+  const alcoves: [number, number][] = [];
+  for (let y = 2; y < H - 2; y++) for (let x = 2; x < W - 2; x++) {
+    if (at(x, y) !== WALL || !clear(x, y)) continue;
+    const open = DIRS.filter((d) => at(x + DX[d], y + DY[d]) === FLOOR);
+    if (open.length === 1) alcoves.push([x, y]);
+    const ew = at(x - 1, y) === FLOOR && at(x + 1, y) === FLOOR && at(x, y - 1) === WALL && at(x, y + 1) === WALL;
+    const ns = at(x, y - 1) === FLOOR && at(x, y + 1) === FLOOR && at(x - 1, y) === WALL && at(x + 1, y) === WALL;
+    if (ew || ns) shortcuts.push([x, y]);
+  }
+  const want = cracksFor(depth, biome);
+  const out: Crack[] = [];
+  const spaced = (x: number, y: number) => out.every((c) => Math.abs(c.x - x) + Math.abs(c.y - y) >= 6);
+  for (const [x, y] of rng.shuffle(shortcuts)) {
+    if (out.length >= want.shortcut) break;
+    if (!spaced(x, y)) continue;
+    const [ax, ay, bx, by] = at(x - 1, y) === FLOOR ? [x - 1, y, x + 1, y] : [x, y - 1, x, y + 1];
+    if (distance(ax, ay, bx, by) < SHORTCUT_MIN_SAVING) continue;
+    out.push({ id: `c${out.length}`, x, y, kind: 'shortcut', hits: 0, broken: false });
+  }
+  const pool = rng.shuffle(alcoves);
+  for (const kind of ['seam', 'cache'] as const) {
+    for (let n = 0; n < want[kind] && pool.length; ) {
+      const [x, y] = pool.pop()!;
+      if (!spaced(x, y)) continue;
+      out.push({ id: `c${out.length}`, x, y, kind, hits: 0, broken: false });
+      n++;
+    }
+  }
+  return out;
 }
 
 /** Mimic rolls use their own stream so adding them never reshuffles a floor. */
@@ -1198,8 +1273,14 @@ function tryGenerate(
 
   if (biome.id === 'frostvault') props.push(...iciclesFor(seed, depth, tiles, W, [...stairs, ...doors]));
 
+  // Cracked walls, last and on their own stream, so they move nothing else.
+  const cracks: Crack[] = throne ? [] : placeCracks(seed, depth, biome.id, tiles, W, H, {
+    avoid: [...doors, ...stairs, ...secrets, ...props.filter((p) => p.blocking)],
+    torches,
+  });
+
   return {
     depth, seed, biome: biome.id, width: W, height: H, tiles, explored: new Array(N).fill(0),
-    rooms, doors, secrets, stairs, torches, props, pickups, morsels: [], enemies, keys, traps,
+    rooms, doors, secrets, stairs, torches, props, pickups, morsels: [], enemies, keys, traps, cracks,
   };
 }

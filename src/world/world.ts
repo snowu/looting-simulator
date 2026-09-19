@@ -4,6 +4,7 @@ import { DamageType, EnemyDef, EquipSlot, EQUIP_SLOTS, Item, SwingProfile } from
 import { GameState, RunState } from '../state/game-state';
 import { addItem, canFit, findItem, removeItem, roomFor, takeQty } from '../state/inventory';
 import { THIEF_ESCAPE, VENGEFUL_DAMAGE_MULT, VENGEFUL_FUSE } from '../data/elites';
+import { CACHE_MIN_GOLD, CRACK_BLOWS, CRACK_NOISE, CRACK_WEAR, Crack, SEAM_ORE } from '../data/walls';
 import {
   AMBUSH_BEAT, AMBUSH_TRIGGER, BURROW_MAX, BURROW_MIN, DIVE_AT, DROP_SECONDS, KNOCKOUT_STUN, MOUND_STEP, SURFACE_SECONDS,
 } from '../data/ambush';
@@ -23,6 +24,7 @@ import {
   doorAt,
   enemyAt,
   lurkerAt,
+  crackAt,
   generateFloor,
   inBounds,
   isBossDoor,
@@ -41,7 +43,7 @@ import { biomeForFloor, FINAL_DEPTH } from '../data/biomes';
 import { PlayerDerived, derivePlayer, thrownView } from '../systems/player';
 import { DifficultyId, DifficultyDef, difficultyOf } from '../data/difficulty';
 import { enemyHitsPlayer, playerHitsEnemy, staminaPower } from '../systems/combat';
-import { ContainerTier, durability, identify, isIdentified, itemName, makeMaterial, rollContainerLoot, rollEnemyLoot, uniqueOf, wearItem } from '../systems/items';
+import { ContainerTier, durability, identify, isIdentified, itemName, makeMaterial, materialForDepth, rollContainerLoot, rollEnemyLoot, uniqueOf, wearItem } from '../systems/items';
 import { nameRelic } from '../systems/relics';
 import { recordDepth, recordKill } from '../systems/contracts';
 import {
@@ -77,6 +79,7 @@ export type WorldEvent =
   | { type: 'floor' }
   | { type: 'end'; outcome: 'dead' | 'extracted' }
   | { type: 'secret'; x: number; y: number }
+  | { type: 'crack'; id: string; hits: number }
   | { type: 'trap'; id: string; x: number; y: number; kind: Trap['kind'] }
   | { type: 'town' };
 
@@ -1750,6 +1753,11 @@ export class World {
         this.breakProp(p);
         return;
       }
+      const crack = d === 1 ? crackAt(f, t.x, t.y) : undefined;
+      if (crack) {
+        this.strikeCrack(crack);
+        return;
+      }
       // An emptied chest is only boards now: one blow and it is splinters.
       if (p && p.kind === 'chest' && p.used && !p.smashed) {
         p.smashed = true;
@@ -2325,6 +2333,7 @@ export class World {
     for (let d = 1; d <= this.derived.swing.reach; d++) {
       const t = this.frontTile(d);
       if (enemyAt(f, t.x, t.y)) return { kind: 'attack', label: '' };
+      if (d === 1 && crackAt(f, t.x, t.y)) return { kind: 'attack', label: '' };
       // Something you can see hiding right in front of you is a target too.
       const hidden = d === 1 ? lurkerAt(f, t.x, t.y) : undefined;
       if (hidden && (hidden.lurk === 'buried' || hidden.spotted)) return { kind: 'attack', label: '' };
@@ -3986,6 +3995,49 @@ export class World {
     this.msg(was === 'ceiling'
       ? `A ${def.name} drops down${behind ? ' behind you' : ''}!`
       : `A ${def.name} bursts from the earth${behind ? ' behind you' : ''}!`, '#e0a070');
+  }
+
+  /**
+   * A blow on a cracked wall. It wears the weapon like a landed hit and it is
+   * loud: everything within `CRACK_NOISE` tiles comes to look, through walls.
+   * At `CRACK_BLOWS` the wall goes, for good, and a seam or cache spills.
+   */
+  private strikeCrack(c: Crack): void {
+    const f = this.floor;
+    c.hits++;
+    this.wear('weapon', CRACK_WEAR);
+    this.sfx('break', c.x, c.y);
+    this.emit({ type: 'shake', amount: 0.2 });
+    this.emit({ type: 'crack', id: c.id, hits: c.hits });
+    for (const e of f.enemies) {
+      if (e.ai === 'dead' || e.lurk || this.protectedByFog(e)) continue;
+      if (Math.abs(e.x - c.x) + Math.abs(e.y - c.y) > CRACK_NOISE) continue;
+      e.alert = Math.max(e.alert, 6);
+      e.lastSeenX = this.player.x;
+      e.lastSeenY = this.player.y;
+    }
+    if (c.hits < CRACK_BLOWS) {
+      this.msg(c.hits === 1 ? 'The cracked stone shifts. The sound carries.' : 'Dust pours from the crack.', '#c8b090');
+      return;
+    }
+    c.broken = true;
+    f.tiles[c.y * f.width + c.x] = FLOOR;
+    this.reveal();
+    const rng = createRng(hashString(`crack:${f.seed}:${c.id}`));
+    if (c.kind === 'seam') {
+      const ore = materialForDepth(rng, this.run.depth, ['metal']);
+      this.dropLoot(c.x, c.y, [makeMaterial(ore.id, rng.int(SEAM_ORE[0], SEAM_ORE[1]))], 0);
+      this.msg(`The wall gives way. Ore spills from the seam: ${ore.name}.`, '#e8d8a0');
+    } else if (c.kind === 'cache') {
+      const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
+      // Three loud blows and the wear on your blade: it pays like a chest,
+      // and never nothing.
+      const loot = rollContainerLoot(rng, this.run.depth, this.derived.find, 'chest', idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId);
+      this.dropLoot(c.x, c.y, loot.items, Math.max(loot.gold, CACHE_MIN_GOLD(this.run.depth)));
+      this.msg('The wall gives way onto a sealed niche. Someone hid something here.', '#e8d8a0');
+    } else {
+      this.msg('The wall gives way. A way through!', '#e8d8a0');
+    }
   }
 
   /** Struck where it hides: dragged out early, reeling, open to double damage. */
