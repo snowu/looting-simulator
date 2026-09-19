@@ -9,7 +9,7 @@ import {
   OATH_FALLBACK, OATH_IDS, OathId, PILGRIM_PRAYERS, SILENCE_DEPTH, SILENCE_NOISE, SILENCE_SIGHT, UNBROKEN_DEPTH, oathsForDay,
 } from '../data/oaths';
 import { PROPERTY_IDS } from '../data/properties';
-import { claimOathReward, oathKept, runOath, settleOaths, todaysOaths, toggleOath } from '../systems/oaths';
+import { claimOathReward, claimOathRewards, oathKept, oathRewardPicks, runOath, settleOaths, todaysOaths, toggleOath } from '../systems/oaths';
 import { endRun, startRun } from '../systems/run';
 import { durability, makeEquipment } from '../systems/items';
 import { Rarity } from '../types';
@@ -36,13 +36,13 @@ function sworn(ids: OathId[], seed = 301): { state: GameState; w: World } {
 }
 
 describe('the stone', () => {
-  it('offers one hard and two medium oaths a day, the same all day, changing with the days', () => {
+  it('offers two hard and three medium oaths a day, the same all day, changing with the days', () => {
     const seen = new Set<string>();
     for (let day = 1; day <= 30; day++) {
       const offer = oathsForDay('save-x', day);
-      expect(offer).toHaveLength(3);
-      expect(offer.filter((id) => OATHS[id].tier === 'hard')).toHaveLength(1);
-      expect(offer.filter((id) => OATHS[id].tier === 'medium')).toHaveLength(2);
+      expect(offer).toHaveLength(5);
+      expect(offer.filter((id) => OATHS[id].tier === 'hard')).toHaveLength(2);
+      expect(offer.filter((id) => OATHS[id].tier === 'medium')).toHaveLength(3);
       expect(oathsForDay('save-x', day)).toEqual(offer);
       offer.forEach((id) => seen.add(id));
     }
@@ -238,6 +238,20 @@ describe('the reward', () => {
     const renown = state.renown;
     expect(settleOaths(state, state.run!, 'extracted')!.renown).toBe(OATH_FALLBACK.hard);
     expect(state.renown).toBe(renown + OATH_FALLBACK.hard);
+  });
+
+  it('learns every pick of a reward together, and only exactly that many', () => {
+    const state = newGame(createRng(312));
+    state.oathReward = { oaths: ['blood_price', 'hunter'], choices: ['riposte', 'bulwark', 'retrieval', 'kindling'], picks: 3 };
+    expect(oathRewardPicks(state)).toBe(3);
+    expect(claimOathRewards(state, ['riposte', 'bulwark'])).toBe(false);
+    expect(claimOathRewards(state, ['riposte', 'riposte', 'bulwark'])).toBe(false);
+    expect(claimOathRewards(state, ['riposte', 'bulwark', 'not-offered'])).toBe(false);
+    expect(state.oathReward).not.toBeNull();
+    expect(claimOathRewards(state, ['riposte', 'bulwark', 'kindling'])).toBe(true);
+    expect(state.oathReward).toBeNull();
+    expect(state.properties).toEqual(expect.arrayContaining(['riposte', 'bulwark', 'kindling']));
+    expect(state.properties).not.toContain('retrieval');
   });
 
   it('claims one pick at a time; a reward from before stacking pays one', () => {

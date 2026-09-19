@@ -101,13 +101,13 @@ export const OATHS: Record<OathId, OathDef> = {
 export const OATH_IDS = (Object.keys(OATHS) as OathId[]).sort((a, b) => (OATHS[a].tier === 'hard' ? 0 : 1) - (OATHS[b].tier === 'hard' ? 0 : 1));
 
 /** How many of each tier the stone offers on a day. */
-export const OFFER: Record<OathTier, number> = { hard: 1, medium: 2 };
+export const OFFER: Record<OathTier, number> = { hard: 2, medium: 3 };
 /** Keep every oath you swore, having sworn at least this many, and learn one more. */
 export const STACK_BONUS_AT = 2;
 export const STACK_BONUS = 1;
 
 /**
- * The oaths on the stone today: one hard and two medium, drawn from the pool
+ * The oaths on the stone today: two hard and three medium, drawn from the pool
  * by the playthrough and the day, so the offer turns with the days and the
  * town and the delve always agree on it.
  */

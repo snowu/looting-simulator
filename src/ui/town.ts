@@ -3,7 +3,7 @@ import { SEALS, SEAL_FIND, SEAL_IDS, SEAL_RENOWN, validSeals } from '../data/sea
 import { sealsUnlocked, toggleSeal } from '../systems/seals';
 import { ROADS, roadsForDay } from '../data/routes';
 import { OATHS, OATH_PICKS, STACK_BONUS, STACK_BONUS_AT, findOath } from '../data/oaths';
-import { claimOathReward, pendingOaths, todaysOaths, toggleOath } from '../systems/oaths';
+import { claimOathRewards, oathRewardPicks, pendingOaths, todaysOaths, toggleOath } from '../systems/oaths';
 import { learnProperty } from '../systems/properties';
 import { INSCRIBE_COST, PropertyDef, findProperty } from '../data/properties';
 import { inscribe, inscribeTargets } from '../systems/properties';
@@ -141,6 +141,8 @@ export class Town {
   private forgeSide: 'recipes' | 'repairs' | 'sigils' | 'inscribe' | 'infusions' = 'recipes';
   /** Whether the Descend panel (oath and Seals) is open. */
   private descendOpen = false;
+  /** Inscriptions picked in the oath reward pane, learned together on confirm. */
+  private oathPicks: string[] = [];
   /** The item picked for each property on the Inscribe bench, by property id. */
   private inscribeTarget: Record<string, string> = {};
   private forgeRecipe = 'r_short_sword';
@@ -1116,29 +1118,48 @@ export class Town {
     const out: HTMLElement[] = [];
     const reward = s.oathReward;
     if (reward) {
+      const picks = oathRewardPicks(s);
+      this.oathPicks = this.oathPicks.filter((id) => reward.choices.includes(id));
+      const learn = (ids: string[]) => {
+        const names = ids.map((id) => findProperty(id)?.name).filter(Boolean);
+        if (!claimOathRewards(s, ids)) return;
+        this.oathPicks = [];
+        this.ctx.toast(`${names.join(' and ')} learned. Cut ${ids.length > 1 ? 'them' : 'it'} into your gear at the forge.`, findProperty(ids[0])?.color);
+        this.commit('study');
+      };
       const kept = (reward.oaths ?? (reward.oath ? [reward.oath] : [])).map((id) => findOath(id)?.name).filter(Boolean);
       out.push(h(
         'div',
         { class: 'pane frame gold' },
         h('h3', { text: `Oath${kept.length === 1 ? '' : 's'} kept: ${kept.join(', ')}` }),
-        h('p', { class: 'dim', text: `The old wardens paid a kept oath in knowledge. Choose ${(reward.picks ?? 1) > 1 ? `${reward.picks} inscriptions` : 'one inscription'} to learn; they can be cut into your gear at the forge.` }),
+        h('p', { class: 'dim', text: `The old wardens paid a kept oath in knowledge. Choose ${picks > 1 ? `${picks} inscriptions` : 'one inscription'} to learn; they can be cut into your gear at the forge.` }),
         h('div', { class: 'col' }, ...reward.choices.map((id) => {
           const def = findProperty(id);
           if (!def) return null;
+          const chosen = this.oathPicks.includes(id);
           return h(
             'div',
             { class: 'row repair-row' },
             h('div', { class: 'grow' },
-              h('div', { style: `color:${def.color}`, text: `${def.name} · ${def.slots.join(', ')}` }),
+              h('div', { style: `color:${def.color}`, text: `${chosen ? '✓ ' : ''}${def.name} · ${def.slots.join(', ')}` }),
               bothRegisters(def.rule, def.detail, 'dim small'),
             ),
-            btn('Learn', () => {
-              if (!claimOathReward(s, id)) return;
-              this.ctx.toast(`${def.name} learned.${s.oathReward ? ' Choose one more.' : ' Cut it into your gear at the forge.'}`, def.color);
-              this.commit('study');
-            }, 'small primary'),
+            picks === 1
+              ? btn('Learn', () => learn([id]), 'small primary')
+              : btn(chosen ? 'Chosen' : 'Choose', () => {
+                if (chosen) this.oathPicks = this.oathPicks.filter((c) => c !== id);
+                else if (this.oathPicks.length < picks) this.oathPicks = [...this.oathPicks, id];
+                else return;
+                audio.play('ui');
+                this.render();
+              }, chosen ? 'small primary' : 'small', !chosen && this.oathPicks.length >= picks),
           );
         })),
+        picks > 1
+          ? h('div', { class: 'row' },
+            h('span', { class: 'dim small grow', text: `${this.oathPicks.length} of ${picks} chosen` }),
+            btn(`Learn ${picks}`, () => learn(this.oathPicks), 'primary', this.oathPicks.length !== picks))
+          : null,
       ));
     }
     return out;
