@@ -17,6 +17,9 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 
 // Commits that must never become patch notes. Short hash -> reason.
 const SKIP = {
+  '3baad71': 'review fixes inside the Patch 69/70 work, before it shipped',
+  e791641: 'review fixes inside the Patch 69/70 work, before it shipped',
+  c2de059: 'ODDITIES.md correction; no player-facing change',
   '4f1dc2f': 'CONTRIBUTING note for the lab selector; no player-facing change',
   '72986d9': 'dev lab only (forces a strange floor for tuning); the floors themselves are Patch 70',
   '8576acc': 'doc correction to Patch 70 wording; no behaviour change',
