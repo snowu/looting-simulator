@@ -21,12 +21,23 @@ import { World } from '../world/world';
 import { artSize, artTexture } from './art-cache';
 import { enemyPose } from './enemy-pose';
 import { moveById } from '../data/attacks';
+import { quirkDef } from '../data/quirks';
 import { LevelView, TILE, WALL_H, buildLevel, tileX, tileZ } from './level-mesh';
 import { MAX_LIGHTS, PS1Material, PostPass, Shared, createLowResTarget, createShared, ps1Material } from './ps1';
 import { brightness } from './brightness';
 import { MORSEL_ART, MORSEL_ROT_SECONDS } from '../systems/healing';
 
 const EYE = 1.32;
+
+/** Seconds a strange floor's grade or roll takes to come on, and to let go. */
+const QUIRK_EASE = 0.9;
+
+/**
+ * The top hat, as a fraction of the wearer's height, and how far its brim sits
+ * down over the skull. Sized off the creature so a rat's is a rat's.
+ */
+const HAT_SCALE = 0.34;
+const HAT_SINK = 0.55;
 
 /** Shrine glow by flavour — the same hues as their flames. */
 const SHRINE_LIGHT: Record<ShrineKind, string> = {
@@ -94,6 +105,14 @@ export class DungeonRenderer {
   private called = new Map<string, number>();
   private trapTriggeredAt = new Map<string, number>();
   private lowW = 320;
+  /**
+   * The Forbidden Pasture's roll, eased rather than snapped. The world turns
+   * over across {@link QUIRK_EASE} seconds when you arrive and turns back when
+   * you leave, because a hard cut to upside down reads as a broken renderer.
+   */
+  private roll = 0;
+  /** The Silent Picture's grade, eased the same way. */
+  private mono = 0;
   deathFade = 0;
 
   // Falling water drops for the Sunken Catacombs: a small pool of billboarded
@@ -337,7 +356,21 @@ export class DungeonRenderer {
       EYE + bob + (Math.random() - 0.5) * sh - this.deathFade * 0.9,
       cz + fwdZ * lunge + (Math.random() - 0.5) * sh,
     );
-    this.camera.rotation.set(0, -a.yaw, this.deathFade * 0.5);
+    // Ease towards whatever this floor is. Sprites stay world-upright and are
+    // billboarded about the camera's yaw only, so a rolled camera turns the
+    // cattle over with the walls — which is what makes the floor read as
+    // upside down rather than as a tilted photograph of a normal one. The
+    // viewmodel lives in its own upright ortho scene, so your own hands stay
+    // where you left them, and with them your bearings.
+    const quirk = quirkDef(world.floor.quirk);
+    const rollTo = quirk?.id === 'pasture' ? Math.PI : 0;
+    const monoTo = quirk?.id === 'silent' ? 1 : 0;
+    const ease = Math.min(1, dt / QUIRK_EASE);
+    this.roll += (rollTo - this.roll) * ease;
+    this.mono += (monoTo - this.mono) * ease;
+    if (Math.abs(this.roll - rollTo) < 0.002) this.roll = rollTo;
+    if (Math.abs(this.mono - monoTo) < 0.002) this.mono = monoTo;
+    this.camera.rotation.set(0, -a.yaw, this.deathFade * 0.5 + this.roll);
 
     this.lava.update(biome.id === 'emberworks' ? dt : 0, this.camera);
 
@@ -485,6 +518,15 @@ export class DungeonRenderer {
         const c = new THREE.Color(ELITES.vengeful.color);
         s.mat.uniforms.uTint.value.set(c.r, c.g, c.b, 0.35 + 0.3 * Math.abs(Math.sin(this.time * 14)));
       } else if (en.ai === 'dead') s.mat.uniforms.uTint.value.set(0, 0, 0, Math.min(1, en.deadT * 1.2));
+
+      // The Silent Picture: everyone is dressed for the occasion. One sprite
+      // billboarded above the head rather than a hat painted into sixty enemy
+      // frames, so it fits a Gravecaller, a mimic and whatever is added next.
+      if (quirk?.id === 'silent' && en.ai !== 'dead') {
+        const hat = this.sprite(`h:${en.id}`);
+        const brim = height * HAT_SCALE;
+        this.place(hat, 'prop_tophat', wx, y + height - brim * HAT_SINK, wz, brim);
+      }
     }
 
     for (const tr of floor.traps ?? []) {
@@ -646,6 +688,7 @@ export class DungeonRenderer {
     pu.uBrightness.value = brightness.get();
     const hpFrac = p.hp / world.derived.maxHp;
     pu.uLowHp.value = hpFrac < 0.3 ? 0.5 + 0.5 * Math.sin(this.time * 5) : 0;
+    pu.uMono.value = this.mono;
     let fade = 0;
     if (a.transition) fade = a.transition.t < 0.45 ? a.transition.t / 0.45 : Math.max(0, 1 - (a.transition.t - 0.45) / 0.45);
     pu.uFade.value = Math.max(fade, this.deathFade * 0.85);

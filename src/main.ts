@@ -6,6 +6,7 @@ import { SLOTS, Slot, clearSave, lastSlot, loadGame, renameSave, saveGame, setLa
 import { displaySaveName, fallenRecord, sanitizeSaveName, serializeSave } from './state/save-format';
 import { startRun, endRun, bankCarriedGold } from './systems/run';
 import { biomeForFloor } from './data/biomes';
+import { quirkDef } from './data/quirks';
 import { World, WorldEvent } from './world/world';
 import { DungeonRenderer } from './render/dungeon-renderer';
 import { artUrl, loadArtOverrides } from './render/art-cache';
@@ -504,6 +505,7 @@ async function reconcile(): Promise<void> {
       world = null;
       ending = null;
       audio.stopAmbient();
+      audio.stopRag();
     }
     installCloud(result.save);
   }
@@ -779,6 +781,7 @@ function enterSlot(n: Slot, difficulty?: DifficultyId): void {
 function enterTown(): void {
   closeSettings();
   audio.stopAmbient();
+  audio.stopRag();
   screen.replaceChildren(town.root);
   show('town');
   town.render();
@@ -787,6 +790,15 @@ function enterTown(): void {
 
 function startAmbient(): void {
   if (!world) return;
+  // The Silent Picture plays instead of the dungeon, not over it: the drone
+  // and the piano together sound like two rooms at once.
+  const quirk = quirkDef(world.floor.quirk);
+  if (quirk?.id === 'silent') {
+    audio.stopAmbient();
+    audio.startRag(quirk.timeScale);
+    return;
+  }
+  audio.stopRag();
   const [hz, br] = AMBIENT[biomeForFloor(world.floor).id] ?? [50, 0.4];
   audio.startAmbient(hz, br);
 }
@@ -836,6 +848,7 @@ function returnToTown(): void {
   flushSync();
   world = null;
   audio.stopAmbient();
+  audio.stopRag();
   town.tab = 'stash';
   enterTown();
   toast(banked > 0 ? `Home through the portal. ${banked} gold banked.` : 'Home through the portal.', '#9ac0ff');
@@ -848,6 +861,7 @@ function finishRun(outcome: 'dead' | 'extracted'): void {
   flushSync();
   world = null;
   audio.stopAmbient();
+  audio.stopRag();
   show('summary');
   // A fallen Hardcore hero has no town to go back to: the save is a headstone.
   screen.replaceChildren(summaryScreen(summary, () => (state.fallen ? enterTitle() : enterTown())));

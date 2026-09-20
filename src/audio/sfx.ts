@@ -39,11 +39,51 @@ function loadStoredMuted(): boolean {
   }
 }
 
+
+// ---------------------------------------------------------------------------
+// The Silent Picture's rag
+// ---------------------------------------------------------------------------
+
+/** Beats per minute at rate 1. Brisk, the way a hand-cranked projector is. */
+const RAG_TEMPO = 132;
+const RAG_BARS = 8;
+
+const midiHz = (n: number): number => 440 * Math.pow(2, (n - 69) / 12);
+
+/** Left hand, per bar: the bass root, and the chord stabbed on the off beats. */
+const RAG_LEFT: [number, number[]][] = [
+  [36, [52, 55, 60]], // C
+  [36, [52, 55, 60]], // C
+  [31, [50, 55, 59]], // G7
+  [31, [50, 55, 59]], // G7
+  [36, [52, 55, 60]], // C
+  [41, [53, 57, 60]], // F
+  [31, [50, 55, 59]], // G7
+  [36, [52, 55, 60]], // C
+];
+
+/**
+ * Right hand: eight eighth-notes a bar, 0 for a rest. The rests land on the
+ * down beats more often than the notes do, which is the whole trick — a rag
+ * is a tune that keeps arriving slightly before you expect it.
+ */
+const RAG_RIGHT: number[][] = [
+  [0, 76, 79, 84, 0, 83, 84, 79],
+  [81, 0, 79, 76, 0, 76, 74, 0],
+  [0, 74, 77, 83, 0, 83, 81, 77],
+  [79, 0, 77, 74, 0, 74, 71, 0],
+  [0, 76, 79, 84, 0, 84, 88, 0],
+  [86, 84, 81, 77, 0, 77, 81, 84],
+  [83, 0, 81, 77, 74, 0, 77, 79],
+  [84, 0, 76, 79, 84, 0, 0, 0],
+];
+
 class AudioEngine {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
   private noise: AudioBuffer | null = null;
   private ambient: { stop: () => void } | null = null;
+  private rag: { stop: () => void } | null = null;
   muted = loadStoredMuted();
   volume = loadStoredVolume();
 
@@ -444,6 +484,117 @@ class AudioEngine {
   stopAmbient(): void {
     this.ambient?.stop();
     this.ambient = null;
+  }
+
+  // -------------------------------------------------------------------------
+  // The Silent Picture's piano
+  // -------------------------------------------------------------------------
+
+  /**
+   * One struck piano note. Two detuned partials with an exponential decay and
+   * a very short noise transient for the hammer — nowhere near a real piano,
+   * but unmistakably *struck* rather than blown, which is the whole job.
+   */
+  private strike(at: number, hz: number, dur: number, gain: number, out: GainNode): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, at);
+    g.gain.linearRampToValueAtTime(gain, at + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    g.connect(out);
+    for (const [type, mult, level] of [['triangle', 1, 1], ['sine', 2.002, 0.32], ['sine', 3.01, 0.1]] as const) {
+      const o = ctx.createOscillator();
+      o.type = type;
+      o.frequency.value = hz * mult;
+      const og = ctx.createGain();
+      og.gain.value = level;
+      o.connect(og).connect(g);
+      o.start(at);
+      o.stop(at + dur + 0.05);
+    }
+    // The hammer.
+    if (this.noise) {
+      const n = ctx.createBufferSource();
+      n.buffer = this.noise;
+      const f = ctx.createBiquadFilter();
+      f.type = 'bandpass';
+      f.frequency.value = hz * 4;
+      const ng = ctx.createGain();
+      ng.gain.setValueAtTime(gain * 0.5, at);
+      ng.gain.exponentialRampToValueAtTime(0.0001, at + 0.03);
+      n.connect(f).connect(ng).connect(out);
+      n.start(at);
+      n.stop(at + 0.05);
+    }
+  }
+
+  /**
+   * A ragtime loop for the Silent Picture: an oom-pah left hand under a
+   * syncopated right, eight bars, repeating.
+   *
+   * Composed here rather than licensed, which is the only sense in which
+   * anything in this game is royalty-free — there are no audio files anywhere
+   * in the project and this is not going to be the first one.
+   *
+   * Scheduled a bar at a time on a lookahead timer, because WebAudio's clock
+   * is the only one accurate enough to swing and `setInterval` is the only one
+   * that can keep feeding it.
+   */
+  startRag(rate = 1): void {
+    this.stopRag();
+    if (!this.ctx || !this.master) return;
+    const ctx = this.ctx;
+    const out = ctx.createGain();
+    out.gain.value = 0;
+    out.gain.linearRampToValueAtTime(0.13, ctx.currentTime + 1.2);
+    out.connect(this.master);
+
+    const beat = 60 / (RAG_TEMPO * rate);
+    const eighth = beat / 2;
+    const bar = beat * 4;
+    let nextBar = ctx.currentTime + 0.12;
+    let barN = 0;
+
+    const scheduleBar = (): void => {
+      const i = barN % RAG_BARS;
+      const [root, chord] = RAG_LEFT[i];
+      // Oom-pah: the root on beats 1 and 3, the chord on 2 and 4.
+      for (let b = 0; b < 4; b++) {
+        const at = nextBar + b * beat;
+        if (b % 2 === 0) this.strike(at, midiHz(b === 0 ? root : root + 7), beat * 0.9, 0.5, out);
+        else for (const n of chord) this.strike(at, midiHz(n), beat * 0.7, 0.16, out);
+      }
+      RAG_RIGHT[i].forEach((n, k) => {
+        if (n === 0) return;
+        this.strike(nextBar + k * eighth, midiHz(n), eighth * 1.7, 0.3, out);
+      });
+      nextBar += bar;
+      barN++;
+    };
+
+    scheduleBar();
+    const timer = setInterval(() => {
+      // Keep roughly a bar in hand. A tab in the background throttles timers,
+      // and the worst that does is leave a gap, never a pile-up.
+      while (nextBar < ctx.currentTime + bar) scheduleBar();
+    }, 120);
+
+    this.rag = {
+      stop: () => {
+        clearInterval(timer);
+        const t = ctx.currentTime;
+        out.gain.cancelScheduledValues(t);
+        out.gain.setValueAtTime(out.gain.value, t);
+        out.gain.linearRampToValueAtTime(0, t + 0.5);
+        setTimeout(() => out.disconnect(), 700);
+      },
+    };
+  }
+
+  stopRag(): void {
+    this.rag?.stop();
+    this.rag = null;
   }
 }
 

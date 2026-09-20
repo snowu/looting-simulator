@@ -356,6 +356,13 @@ export interface Floor {
   traps: Trap[];
   /** Cracked walls. **Absent on floors generated before they existed.** See `src/data/walls.ts`. */
   cracks?: Crack[];
+  /**
+   * A strange floor: the quirk it was dressed as. **Absent means an ordinary
+   * floor**, which is every floor generated before quirks existed and most
+   * floors generated since. Set after generation by `src/systems/quirks.ts`,
+   * never by `generateFloor` — see `src/data/quirks.ts` for why.
+   */
+  quirk?: string;
 }
 
 // ---------------------------------------------------------------------------

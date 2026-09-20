@@ -13,6 +13,8 @@ import {
   RETRIEVAL_MULT, RIPOSTE_MULT, RIPOSTE_WINDOW,
 } from '../data/properties';
 import { AttackMove, COMBO_BEAT, FEINT_AT, FEINT_HOLD, chooseMove, meleeReach, moveById } from '../data/attacks';
+import { quirkDef, quirkTimeScale } from '../data/quirks';
+import { applyQuirk } from '../systems/quirks';
 import { FORK_DEPTH, ROADS, ROAD_DEPTHS } from '../data/routes';
 import { SHADE_ID, placeShade } from '../systems/grave';
 import { LIGHTLESS_LIGHT, SEAL_FIND, sealDifficulty, sealFloorMods } from '../data/seals';
@@ -799,6 +801,12 @@ export class World {
 
   update(dt: number): void {
     dt = Math.min(dt, 0.05);
+    // A strange floor may run the whole dungeon fast. Scaling the clock here —
+    // once, before anything reads it — means the speed-up reaches the player,
+    // the monsters, the shafts in flight, the torches and the run timer
+    // together, rather than being sprinkled over whichever systems remembered
+    // to ask. Nothing hits harder on a fast floor; it only arrives sooner.
+    dt *= quirkTimeScale(this.floor.quirk);
     this.time += dt;
     if (this.run.outcome !== 'active') return;
     this.run.stats.time += dt;
@@ -1104,6 +1112,9 @@ export class World {
 
   private changeFloor(dir: 'down' | 'up'): void {
     const run = this.run;
+    // Said on the way out, while the floor you are leaving is still `this.floor`.
+    const leaving = quirkDef(this.floor.quirk);
+    if (leaving) this.msg(leaving.parting, leaving.color);
     // A floor transition cannot erase a charge that was still in flight.
     for (const pr of this.projectiles) {
       if (!pr.thrownBase) continue;
@@ -1121,6 +1132,9 @@ export class World {
       const force = shrinePityFor(run.floors, run.depth);
       const road = run.road && ROAD_DEPTHS.includes(run.depth) ? run.road : undefined;
       run.floors[run.depth - 1] = generateFloor(run.seed, run.depth, this.difficultyId, force, road, sealFloorMods(run.seals));
+      // Dressed after generation, never during it: a strange floor is an
+      // ordinary floor wearing something. See `src/systems/quirks.ts`.
+      applyQuirk(run.floors[run.depth - 1]!, run.seed, this.difficultyId);
       this.placeHunterMark(run.floors[run.depth - 1]!);
       this.placeLieutenant(run.floors[run.depth - 1]!);
       if (!run.shadePlaced && placeShade(this.state, run.floors[run.depth - 1]!, run.seed, this.difficultyId)) {
@@ -1160,10 +1174,15 @@ export class World {
       }
     }
     this.reveal();
+    const quirk = quirkDef(f.quirk);
     const biome = biomeForFloor(f);
-    this.msg(`Depth ${run.depth} — ${biome.name}`, '#d8c8a8');
+    // A strange floor announces itself instead of its biome. The biome is still
+    // underneath it — the walls are the walls — but naming it would bury the
+    // one thing the player needs to notice.
+    this.msg(`Depth ${run.depth} — ${quirk ? quirk.name : biome.name}`, quirk ? quirk.color : '#d8c8a8');
+    if (quirk) this.msg(quirk.arrival, quirk.color);
     const law = lawFor(f.biome);
-    if (law && fresh) this.msg(law.arrival, law.color);
+    if (law && fresh && !quirk) this.msg(law.arrival, law.color);
     if (run.depth === FINAL_DEPTH && dir === 'down') this.msg('The air is thick with ash. Something waits below the throne.', '#c080ff');
     this.emit({ type: 'floor' });
   }

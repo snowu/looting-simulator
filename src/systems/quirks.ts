@@ -1,0 +1,117 @@
+/**
+ * Rolling a floor strange, and dressing it once it is.
+ *
+ * This runs **after** generation, never inside it. `generateFloor` stays a
+ * pure function of (run seed, depth, difficulty, road, seals) and its golden
+ * hashes keep meaning what they meant; a quirk then walks the finished floor
+ * and swaps creatures on tiles that were already chosen, promotes the
+ * containers that were already placed, and writes one optional string.
+ *
+ * The roll has its own hashed stream (`quirk:…`), so adding it reshuffles
+ * nothing that existed before it.
+ */
+import { Rng, createRng, hashString } from '../core/rng';
+import { DifficultyId } from '../data/difficulty';
+import { enemyDef } from '../data/enemies';
+import {
+  HERD_LARGE_HP, HERD_SMALL_HP, PASTURE_HERD, QUIRKS, QUIRK_CHANCE, QUIRK_CHANCE_PER_DEPTH,
+  QUIRK_IDS, QUIRK_MAX_DEPTH, QUIRK_MIN_DEPTH, QuirkId, quirkDef,
+} from '../data/quirks';
+import { ContainerTier } from './items';
+import { EnemyState, Floor, Prop, createEnemy } from './dungeon';
+
+/** The ladder a promoted container climbs. A secret is already the top. */
+const TIER_LADDER: ContainerTier[] = ['urn', 'chest', 'vault', 'secret'];
+
+/**
+ * Which quirk this floor rolls, if any. Deterministic from the run seed and
+ * the depth, so a floor you walk back up to and down into again is the same
+ * strange floor — and so a bug report can be reproduced from a seed.
+ */
+export function rollQuirk(runSeed: number, depth: number, rng?: Rng): QuirkId | null {
+  if (depth < QUIRK_MIN_DEPTH || depth > QUIRK_MAX_DEPTH) return null;
+  const r = rng ?? createRng(hashString(`quirk:${runSeed}:${depth}`));
+  const chance = QUIRK_CHANCE + QUIRK_CHANCE_PER_DEPTH * (depth - QUIRK_MIN_DEPTH);
+  if (!r.chance(chance)) return null;
+  const eligible = QUIRK_IDS.filter((id) => depth >= QUIRKS[id].minDepth && depth <= QUIRKS[id].maxDepth);
+  if (!eligible.length) return null;
+  return r.weighted(eligible.map((id) => [id, QUIRKS[id].weight] as const));
+}
+
+/**
+ * Which of the herd stands in for a given creature. Matched by health rather
+ * than by name, so a pasture is exactly as dangerous as the depth it sits at
+ * and anything added to the roster later is already covered.
+ */
+export function herdFor(defId: string): string {
+  const def = enemyDef(defId);
+  if (def.hp >= HERD_LARGE_HP) return PASTURE_HERD.large;
+  if (def.hp <= HERD_SMALL_HP) return PASTURE_HERD.small;
+  return PASTURE_HERD.medium;
+}
+
+/** Promote a container by `steps`, stopping at the top of the ladder. */
+function promote(tier: Prop['tier'], steps: number): Prop['tier'] {
+  if (tier === 'none') return 'none';
+  const at = TIER_LADDER.indexOf(tier);
+  if (at < 0) return tier;
+  return TIER_LADDER[Math.min(TIER_LADDER.length - 1, at + steps)];
+}
+
+/**
+ * Dress a freshly generated floor as the quirk it rolled. Mutates the floor and
+ * returns the quirk applied, or null if it rolled ordinary.
+ *
+ * Bosses, lieutenants, your Shade and anything already hidden are left exactly
+ * as they are: a quirk changes what a floor is, never what a run owes you.
+ */
+export function applyQuirk(floor: Floor, runSeed: number, difficulty?: DifficultyId): QuirkId | null {
+  const id = rollQuirk(runSeed, floor.depth);
+  if (!id) return null;
+  const def = QUIRKS[id];
+  floor.quirk = id;
+
+  if (def.lootBoost > 0) {
+    for (const prop of floor.props) prop.tier = promote(prop.tier, def.lootBoost);
+  }
+
+  if (id === 'pasture') {
+    const rng = createRng(hashString(`herd:${runSeed}:${floor.depth}`));
+    const herd: EnemyState[] = [];
+    for (const e of floor.enemies) {
+      // A lieutenant, a Shade or a boss is a thing the run is tracking by id.
+      // The pasture is a costume, not an amnesty.
+      if (e.lieutenant || e.def === 'shade' || enemyDef(e.def).behavior === 'boss') {
+        herd.push(e);
+        continue;
+      }
+      const swap = enemyDef(herdFor(e.def));
+      const cow = createEnemy(swap, e.x, e.y, e.facing, e.id, floor.depth, difficulty);
+      // Whatever the floor had already decided about this creature that is not
+      // about *what* it is: where it lurks, whether it was marked, the elite
+      // trait it was promoted with. A cow can be an elite cow.
+      if (e.lurk) cow.lurk = e.lurk;
+      if (e.marked) cow.marked = true;
+      herd.push(cow);
+    }
+    floor.enemies = herd;
+    // One Prize Bull per pasture, standing where the biggest thing stood.
+    const biggest = floor.enemies
+      .filter((e) => e.def === PASTURE_HERD.large)
+      .sort((a, b) => b.maxHp - a.maxHp)[0];
+    if (biggest) {
+      const prize = createEnemy(enemyDef('prize_bull'), biggest.x, biggest.y, biggest.facing, biggest.id, floor.depth, difficulty);
+      floor.enemies[floor.enemies.indexOf(biggest)] = prize;
+    } else if (floor.enemies.length) {
+      // A pasture with nothing big enough in it still gets its champion: the
+      // rosette is the point of the floor.
+      const any = rng.pick(floor.enemies);
+      const prize = createEnemy(enemyDef('prize_bull'), any.x, any.y, any.facing, any.id, floor.depth, difficulty);
+      floor.enemies[floor.enemies.indexOf(any)] = prize;
+    }
+  }
+
+  return id;
+}
+
+export { quirkDef };

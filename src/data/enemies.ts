@@ -385,6 +385,60 @@ export const ENEMIES: EnemyDef[] = [
     loot: [], gold: [0, 0], itemChance: 0,
     description: 'The lock was a tooth. The hinges were not hinges.',
   },
+  // -------------------------------------------------------------------------
+  // The Forbidden Pasture's herd.
+  //
+  // Weight 0: never in the ordinary pool. The quirk pass swaps a strange
+  // floor's existing monsters for these, matching weight class, so a pasture
+  // at depth 5 is a pasture full of depth-5 cattle. See `src/data/quirks.ts`.
+  //
+  // Everything here is a little tougher and a little slower than what it
+  // replaces, and none of it is subtle. Being upside down is the difficulty of
+  // this floor; the cows are the reward for putting up with it.
+  // -------------------------------------------------------------------------
+  {
+    id: 'pasture_calf', name: 'Calf', sprite: 'cow', scale: 0.5,
+    hp: 26, attack: 7, defense: 3, damageType: 'blunt', resist: { blunt: 0.8, slash: 1.2 },
+    behavior: 'skittish', moves: MOVE_SETS.vermin, step: 0.34, windup: 0.42, recovery: 0.7, sight: 6,
+    minDepth: 2, maxDepth: 5, weight: 0,
+    loot: [{ id: 'leather', chance: 0.45, min: 1, max: 2 }], gold: [0, 4], itemChance: 0.03,
+    morsel: 'cut',
+    description: 'It has not decided whether you are frightening. It is leaning towards no.',
+  },
+  {
+    id: 'pasture_heifer', name: 'Wandering Heifer', sprite: 'cow', scale: 1.0,
+    hp: 64, attack: 12, defense: 7, damageType: 'blunt', resist: { blunt: 0.75, slash: 1.25, pierce: 1.1 },
+    behavior: 'melee', moves: MOVE_SETS.brute, step: 0.8, windup: 0.75, recovery: 1.15, sight: 5,
+    minDepth: 2, maxDepth: 5, weight: 0,
+    loot: [{ id: 'leather', chance: 0.6, min: 1, max: 3 }, { id: 'bone', chance: 0.3, min: 1, max: 2 }],
+    gold: [0, 8], itemChance: 0.06,
+    morsel: 'heart',
+    description: 'Enormous, unhurried, and mostly uninterested. Mostly.',
+  },
+  {
+    id: 'pasture_bull', name: 'Bull', sprite: 'bull', scale: 1.2,
+    hp: 110, attack: 19, defense: 10, damageType: 'blunt', resist: { blunt: 0.7, slash: 1.2, pierce: 1.15 },
+    // It charges. Reach is the whole point of a thing with horns, and the
+    // slam is what happens if you let it plant its feet.
+    behavior: 'melee', moves: MOVE_SETS.champion, step: 0.6, windup: 0.8, recovery: 1.1, sight: 8,
+    minDepth: 2, maxDepth: 5, weight: 0,
+    loot: [{ id: 'leather', chance: 0.7, min: 2, max: 4 }, { id: 'iron', chance: 0.3, min: 1, max: 2 }],
+    gold: [4, 18], itemChance: 0.12,
+    morsel: 'heart',
+    description: 'Horns, shoulders, and a short opinion about where you are standing.',
+  },
+  {
+    id: 'prize_bull', name: 'The Prize Bull', sprite: 'prizebull', scale: 1.4,
+    // The Pasture's one real fight, and the only thing on the floor that drops
+    // the Horn. It is a champion in a rosette, priced like a lieutenant.
+    hp: 190, attack: 24, defense: 14, damageType: 'blunt', resist: { blunt: 0.65, slash: 1.2, pierce: 1.1 },
+    behavior: 'melee', moves: MOVE_SETS.champion, step: 0.55, windup: 0.85, recovery: 1.15, sight: 10,
+    minDepth: 2, maxDepth: 5, weight: 0,
+    loot: [{ id: 'leather', chance: 1, min: 3, max: 5 }, { id: 'star_iron', chance: 0.18, min: 1, max: 1 }],
+    gold: [40, 90], itemChance: 0.4,
+    morsel: 'heart',
+    description: 'First prize, several years running, in a competition nobody down here remembers holding.',
+  },
   {
     id: 'ashen_king', name: 'The Ashen King', sprite: 'king', scale: 1.4,
     // Lower than it was: the fight is three phases now, and the threat is meant
