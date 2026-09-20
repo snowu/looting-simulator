@@ -43,7 +43,7 @@ All of these exist only under `npm run dev`. They sit behind `import.meta.env.DE
 |---|---|
 | `?autostart=1` | Skip the title and open Bleakmere on your last slot |
 | `?autostart=dungeon` | Go straight into a delve |
-| `?autostart=lab` | **Combat lab**: every recipe at Rank 5, 999 of every material, one of every weapon, a cleared room, and a spawn console. Pick a biome, depth and seed, then spawn any enemy (already mid-swing if you like) |
+| `?autostart=lab` | **Combat lab**: every recipe at Rank 5, 999 of every material, one of every weapon, a cleared room, and a spawn console. Pick a biome, depth, seed and **strange floor**, then spawn any enemy (already mid-swing if you like). The strange-floor selector is the only practical way to see the Forbidden Pasture or the Silent Picture, which otherwise roll at 5–9.5% per floor |
 | `?autostart=boss` | Depth-6 kit, standing in the throne room facing the Ashen King |
 | `?autostart=archers` / `?autostart=melee` | Staged rooms for ranged and melee encounter tuning |
 | `?art` or **F2** | In-game art sheet: every sprite, with enemy attack cadences animated |
