@@ -24,6 +24,8 @@ import { addItem } from '../state/inventory';
 import { syncLoadout } from '../systems/run';
 import { Rarity } from '../types';
 import { World } from '../world/world';
+import { quirkDef } from '../data/quirks';
+import { dressFloor } from '../systems/quirks';
 import { ITEM_BASES } from '../data/items';
 import { MATERIALS } from '../data/materials';
 import { MAX_RECIPE_RANK, RECIPES } from '../data/recipes';
@@ -287,12 +289,23 @@ export function refurbish(world: World): void {
 }
 
 /** Pick a seed that naturally generates the requested biome, including its residents. */
-export function loadLabLevel(world: World, biomeId: string, depth: number, seed: number): string {
+/**
+ * Load a map into the lab.
+ *
+ * `quirk` forces a strange floor rather than waiting on its 5–9.5% roll, which
+ * is the only practical way to look at one: the natural path is to delve until
+ * the dungeon decides, and that is the right experience for a player and a
+ * useless one for whoever is tuning the thing. Passing `'none'` (or nothing)
+ * loads an ordinary floor.
+ */
+export function loadLabLevel(world: World, biomeId: string, depth: number, seed: number, quirk?: string): string {
   const biome = BIOMES.find((b) => b.id === biomeId);
   if (!biome || !biome.depths.includes(depth) || !Number.isInteger(seed)) throw new Error('Invalid lab map selection');
   let mapSeed = seed >>> 0;
   while (biomeForDepth(depth, hashString(`floor:${mapSeed}:${depth}`)).id !== biomeId) mapSeed = (mapSeed + 1) >>> 0;
   const floor = generateFloor(mapSeed, depth, world.difficultyId);
+  const forced = quirk && quirk !== 'none' ? quirkDef(quirk) : null;
+  if (forced) dressFloor(floor, forced.id, mapSeed, world.difficultyId);
   // Use normal transitions for projectile recovery, path-cache cleanup and renderer events.
   if (world.run.depth === depth) world.changeFloorForTest(depth === 1 ? 'down' : 'up');
   world.run.floors[depth - 1] = floor;
@@ -301,5 +314,6 @@ export function loadLabLevel(world: World, biomeId: string, depth: number, seed:
   world.anim.recall = null;
   world.anim.cast = null;
   const stage = dropIntoLab(world);
-  return `${biome.name} · depth ${depth} · seed ${seed}: ${stage}`;
+  const dressed = forced ? ` · ${forced.name}` : '';
+  return `${biome.name} · depth ${depth} · seed ${seed}${dressed}: ${stage}`;
 }

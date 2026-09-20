@@ -70,6 +70,19 @@ function promote(tier: Prop['tier'], steps: number): Prop['tier'] {
 export function applyQuirk(floor: Floor, runSeed: number, difficulty?: DifficultyId): QuirkId | null {
   const id = rollQuirk(runSeed, floor.depth);
   if (!id) return null;
+  dressFloor(floor, id, runSeed, difficulty);
+  return id;
+}
+
+/**
+ * Dress a floor as a named quirk, skipping the roll.
+ *
+ * Split out so the dev lab can load a strange floor on demand: the natural
+ * path is to delve until the dungeon decides, which is the right experience
+ * for a player and a useless one for anyone tuning it. Nothing in the game
+ * calls this directly — {@link applyQuirk} is the one the dungeon uses.
+ */
+export function dressFloor(floor: Floor, id: QuirkId, runSeed: number, difficulty?: DifficultyId): void {
   const def = QUIRKS[id];
   floor.quirk = id;
 
@@ -120,7 +133,6 @@ export function applyQuirk(floor: Floor, runSeed: number, difficulty?: Difficult
   }
 
   plantRelic(floor, id, runSeed);
-  return id;
 }
 
 /**
