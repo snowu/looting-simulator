@@ -77,9 +77,19 @@ big thing simply wrong rather than risky. `attacks.test.ts` holds the whole
 table to 0.89–1.10, so a later addition cannot smuggle difficulty in as
 variety.
 
-### Telegraphs
+### Telegraphs, and being answerable
 
-A move that cannot be read before it lands is not variety, it is noise. Each
+A move that cannot be read before it lands is not variety, it is noise. A move
+that cannot be *answered* is worse than either.
+
+The sweep is where that bites. Its flank hits land on tiles diagonal from the
+creature, and both the parry and the shield require the blow to come from an
+orthogonal neighbour — so reporting the creature as the source made a swept
+flank unparryable, unblockable and unanswerable by anything. A swept flank
+therefore comes at you from **the tile the swing is travelling through**, which
+is orthogonal to where you stepped. Punishing is fine; unanswerable is not.
+
+ Each
 move states a `tell` colour, and the renderer tints the creature's wind-up with
 it — faint at the start of the wind-up, full by `TELL_AT`, which is already the
 point at which `enemy-pose` brings the weapon up. `slam` also grows: the sprite
@@ -280,8 +290,17 @@ Flat rather than a multiplier on purpose: a charge weapon whose payoff scales
 with your damage only ever pays off once you have already won the fight. Flat
 Attack means the first blows of a fight are worth something too.
 
+**Attack, and it has to behave like Attack.** The charge is handed to
+`playerHitsEnemy` as `bonusAttack` and mitigated with the rest of your Attack,
+rather than added to the damage afterwards. Added afterwards it would be an
+armour bypass wearing the words "+4 Attack" — worth far more than advertised
+against a plated knight — and it would land 24 damage on a target the hit had
+just reported as immune.
+
 A blow you *blocked* still clears it, which is harsher than the parry-feeding
-blade's rule. It is a charge, and you stopped.
+blade's rule. It is a charge, and you stopped. Read off the blow that arrived
+rather than off what got through the shield, so a 90% guard does not quietly
+preserve it.
 
 ### The Impresario's Cane
 

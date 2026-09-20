@@ -196,16 +196,19 @@ export function moveById(id: string | undefined): AttackMove {
  * world's seeded rng gets in without this module importing it.
  */
 export function chooseMove(moves: MoveWeight[] | undefined, roll: (total: number) => number): AttackMove {
-  if (!moves?.length) return BASIC;
+  // Zero-weight entries are skipped rather than walked over, matching
+  // `rng.weighted`: without this a roll that lands exactly on a boundary can
+  // select a move the set asked never to be chosen.
+  const pool = moves?.filter((m) => m.weight > 0) ?? [];
+  if (!pool.length) return BASIC;
   let total = 0;
-  for (const m of moves) total += m.weight;
-  if (total <= 0) return BASIC;
+  for (const m of pool) total += m.weight;
   let r = roll(total);
-  for (const m of moves) {
+  for (const m of pool) {
     r -= m.weight;
     if (r <= 0) return moveById(m.id);
   }
-  return moveById(moves[moves.length - 1].id);
+  return moveById(pool[pool.length - 1].id);
 }
 
 /**

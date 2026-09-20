@@ -179,6 +179,21 @@ describe("The Prize Bull's Horn", () => {
     expect(hit.effective).toBe('immune');
   });
 
+  it('cannot be parked by swapping the Horn off and back on', () => {
+    const w = arena(23);
+    w.state.equipment.weapon = relic('prize_horn');
+    w.refreshDerived();
+    w.anim.chargeStacks = CHARGE_STACKS;
+    // Put it away. The charge belongs to the weapon, not to you.
+    w.state.equipment.weapon = relic('ordinary_sword');
+    w.refreshDerived();
+    const e = spawn(w, 'ghoul', 1);
+    Object.assign(e, { hp: 99999, maxHp: 99999, ai: 'idle', alert: 0, attackCd: 99 });
+    w.attack();
+    tick(w, 0.8);
+    expect(w.anim.chargeStacks).toBeLessThanOrEqual(1);
+  });
+
   it('hits harder at full charge than at none', () => {
     const measure = (stacks: number): number => {
       const w = arena(13);

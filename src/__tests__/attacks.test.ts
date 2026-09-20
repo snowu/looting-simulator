@@ -114,6 +114,16 @@ describe('choosing a move', () => {
     expect(chooseMove([{ id: 'slam', weight: 0 }], () => 0).id).toBe('basic');
   });
 
+  it('never picks a move the set weighted at zero', () => {
+    // A boundary roll used to be able to walk onto a zero-weight entry, which
+    // `rng.weighted` filters out. Latent today — no set has one — and cheaper
+    // to close than to discover.
+    const set = [{ id: 'slam', weight: 0 }, { id: 'jab', weight: 1 }];
+    for (let i = 0; i <= 20; i++) {
+      expect(chooseMove(set, (total) => (total * i) / 20).id).not.toBe('slam');
+    }
+  });
+
   it('walks the weights in order', () => {
     const set = [{ id: 'jab', weight: 1 }, { id: 'slam', weight: 3 }];
     expect(chooseMove(set, () => 0.5).id).toBe('jab');

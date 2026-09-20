@@ -1137,8 +1137,13 @@ export class World {
       const force = shrinePityFor(run.floors, run.depth);
       const road = run.road && ROAD_DEPTHS.includes(run.depth) ? run.road : undefined;
       run.floors[run.depth - 1] = generateFloor(run.seed, run.depth, this.difficultyId, force, road, sealFloorMods(run.seals));
-      // Dressed after generation, never during it: a strange floor is an
-      // ordinary floor wearing something. See `src/systems/quirks.ts`.
+      // Dressed after generation and **before** the passes that follow, which
+      // is deliberate and load-bearing rather than incidental. The lieutenant
+      // pass then reads the floor it is actually going to stand on: a
+      // Forbidden Pasture has no goblins, so it correctly cannot produce a
+      // Goblin Quartermaster with nothing to command, and gets the Hoarder or
+      // nothing. Your Shade is placed afterwards and so stays your Shade
+      // rather than becoming a cow, which is also what you want.
       applyQuirk(run.floors[run.depth - 1]!, run.seed, this.difficultyId);
       this.placeHunterMark(run.floors[run.depth - 1]!);
       this.placeLieutenant(run.floors[run.depth - 1]!);
@@ -1185,7 +1190,10 @@ export class World {
     // underneath it — the walls are the walls — but naming it would bury the
     // one thing the player needs to notice.
     this.msg(`Depth ${run.depth} — ${quirk ? quirk.name : biome.name}`, quirk ? quirk.color : '#d8c8a8');
-    if (quirk) this.msg(quirk.arrival, quirk.color);
+    // Once, on the floor's first visit — same rule as a biome law's arrival
+    // line below. Walking back up and down again re-announces the floor by
+    // name, which is enough; the whole paragraph again is not.
+    if (quirk && fresh) this.msg(quirk.arrival, quirk.color);
     const law = lawFor(f.biome);
     if (law && fresh && !quirk) this.msg(law.arrival, law.color);
     if (run.depth === FINAL_DEPTH && dir === 'down') this.msg('The air is thick with ash. Something waits below the throne.', '#c080ff');
@@ -2118,6 +2126,10 @@ export class World {
     // armour takes its cut, so "+4 Attack" means what it says and a target
     // immune to the blow is immune to the charge behind it. Counted before
     // this blow is added, so the first hit of a fight lands at plain strength.
+    // Clamped to what you are *currently* holding, so a charge cannot be parked
+    // by swapping the Horn off and restored by swapping it back on.
+    const chargeMax = this.derived.traits.chargeMax;
+    this.anim.chargeStacks = Math.min(this.anim.chargeStacks, chargeMax);
     const charged = this.anim.chargeStacks * this.derived.traits.charge;
     const hit = playerHitsEnemy(this.rng, this.derived, this.anim.attackPower * powerMult, def, defensePower(e.power) * this.diff.enemyDefense, charged);
     // Everything you land while the parry opening lasts hits twice as hard.
@@ -2148,7 +2160,6 @@ export class World {
     // The charge builds on the blow that just landed, so the *next* one is the
     // one that carries it. Counted here rather than on the swing, because a
     // swing that hit nothing is not a charge.
-    const chargeMax = this.derived.traits.chargeMax;
     if (chargeMax > 0 && this.anim.chargeStacks < chargeMax) {
       this.anim.chargeStacks++;
       if (this.anim.chargeStacks === chargeMax) this.msg('The horn is up to speed.', '#f0e0ac');
@@ -4205,6 +4216,10 @@ export class World {
     }
     if (!unavoidable && this.anim.parryInvulnT > 0) return;
     let dmg = enemyHitsPlayer(this.rng, attack, type, this.derived);
+    // What actually arrived, before the shield takes its share. `dmg` is
+    // reduced in place below, so anything that wants to know "were you hit"
+    // rather than "how much got through" has to read this.
+    const landed = dmg;
     const facingSource = this.facingSource(fromX, fromY);
     let blocked = false;
     // Mid-sip the guard is down by design: the blow lands unblocked, and the
@@ -4260,8 +4275,11 @@ export class World {
       if (this.derived.traits.parryFeedMax > 0) this.msg('The blade goes cold.', '#9a9aa8');
     }
     // The Horn is harsher than the blade: a blow you *blocked* still stops the
-    // charge. It is a charge, and you stopped.
-    if (dmg > 0 && this.anim.chargeStacks > 0) {
+    // charge. It is a charge, and you stopped. Read off the blow that arrived
+    // rather than off `dmg`, which is already net of the shield — against a
+    // 90% guard anything under five rounds to nothing, and the charge would
+    // have survived hits the relic says break it.
+    if (landed > 0 && this.anim.chargeStacks > 0) {
       this.anim.chargeStacks = 0;
       if (this.derived.traits.chargeMax > 0) this.msg('The charge breaks.', '#9a9aa8');
     }

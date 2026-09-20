@@ -30,7 +30,10 @@ import { MORSEL_ART, MORSEL_ROT_SECONDS } from '../systems/healing';
 
 const EYE = 1.32;
 
-/** Seconds a strange floor's grade or roll takes to come on, and to let go. */
+/**
+ * Seconds a strange floor's grade or roll takes to come on, and to let go —
+ * a duration, and the code below has to keep it one.
+ */
 const QUIRK_EASE = 0.9;
 
 /**
@@ -57,7 +60,13 @@ const MONOCLE_SIDE = 0.1;
  * is drawn in the middle, a champion nearly to the edge. Hanging the hat off
  * the canvas top would float it a head's height above a bat and bury it in a
  * champion. Measured from the ArtDef's rows (cheap, exact, no raster needed)
- * and cached, because it never changes.
+ * and cached for ever, because it never changes.
+ *
+ * Note that this reads the **code-drawn** art rather than the PNG the renderer
+ * actually samples. Those cannot disagree in a valid build — `npm run art:check`
+ * fails if `public/art` has drifted from `src/art` — so the measurement holds.
+ * If overrides ever stop being generated from the code art, this has to
+ * measure the raster instead, and clearing the cache would not be enough.
  */
 const SPRITE_TOPS = new Map<string, number>();
 
@@ -146,6 +155,12 @@ export class DungeonRenderer {
    * you leave, because a hard cut to upside down reads as a broken renderer.
    */
   private roll = 0;
+  /** Where the turn started and where it is going, and how far along it is. */
+  private rollFrom = 0;
+  private rollTo = 0;
+  private monoFrom = 0;
+  private monoTo = 0;
+  private quirkT = 1;
   /** The Silent Picture's grade, eased the same way. */
   private mono = 0;
   deathFade = 0;
@@ -420,11 +435,24 @@ export class DungeonRenderer {
     // where you left them, and with them your bearings.
     const rollTo = floorQuirk?.id === 'pasture' ? Math.PI : 0;
     const monoTo = floorQuirk?.id === 'silent' ? 1 : 0;
-    const ease = Math.min(1, dt / QUIRK_EASE);
-    this.roll += (rollTo - this.roll) * ease;
-    this.mono += (monoTo - this.mono) * ease;
-    if (Math.abs(this.roll - rollTo) < 0.002) this.roll = rollTo;
-    if (Math.abs(this.mono - monoTo) < 0.002) this.mono = monoTo;
+    // A real duration, not an exponential tail. Smoothing by `dt / QUIRK_EASE`
+    // makes QUIRK_EASE a time *constant*: from upright to upside down took six
+    // or seven seconds, so you arrived on the Pasture the right way up and
+    // were still turning over long after the transition fade had finished.
+    // Progress runs 0→1 over exactly QUIRK_EASE seconds and restarts from
+    // wherever it had got to whenever the target changes.
+    if (rollTo !== this.rollTo || monoTo !== this.monoTo) {
+      this.rollFrom = this.roll;
+      this.monoFrom = this.mono;
+      this.rollTo = rollTo;
+      this.monoTo = monoTo;
+      this.quirkT = 0;
+    }
+    this.quirkT = Math.min(1, this.quirkT + dt / QUIRK_EASE);
+    // Smoothstep, so it eases out of the turn rather than stopping dead.
+    const k = this.quirkT * this.quirkT * (3 - 2 * this.quirkT);
+    this.roll = this.rollFrom + (rollTo - this.rollFrom) * k;
+    this.mono = this.monoFrom + (monoTo - this.monoFrom) * k;
     this.camera.rotation.set(0, -a.yaw, this.deathFade * 0.5 + this.roll);
 
     this.lava.update(biome.id === 'emberworks' ? dt : 0, this.camera);

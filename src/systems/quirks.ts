@@ -94,8 +94,16 @@ export function dressFloor(floor: Floor, id: QuirkId, runSeed: number, difficult
     const rng = createRng(hashString(`herd:${runSeed}:${floor.depth}`));
     const herd: EnemyState[] = [];
     for (const e of floor.enemies) {
-      // A lieutenant, a Shade or a boss is a thing the run is tracking by id.
-      // The pasture is a costume, not an amnesty.
+      // A lieutenant, a Shade or a boss is a thing the run is tracking by id,
+      // and the pasture is a costume rather than an amnesty.
+      //
+      // On the dungeon's own path none of the three is here yet — the
+      // lieutenant and Shade passes run *after* the dressing, on purpose, so
+      // that a pasture with no goblins in it cannot produce a Quartermaster
+      // with nothing to command. The guard is kept anyway because this is the
+      // only place that decides what a creature becomes, `dressFloor` is also
+      // reachable from the dev lab, and an ordering that changes later should
+      // fail by doing nothing rather than by eating your Shade.
       if (e.lieutenant || e.def === 'shade' || enemyDef(e.def).behavior === 'boss') {
         herd.push(e);
         continue;
@@ -123,12 +131,18 @@ export function dressFloor(floor: Floor, id: QuirkId, runSeed: number, difficult
     if (biggest) {
       const prize = createEnemy(enemyDef('prize_bull'), biggest.x, biggest.y, biggest.facing, biggest.id, floor.depth, difficulty);
       floor.enemies[floor.enemies.indexOf(biggest)] = prize;
-    } else if (floor.enemies.length) {
+    } else {
       // A pasture with nothing big enough in it still gets its champion: the
-      // rosette is the point of the floor.
-      const any = rng.pick(floor.enemies);
-      const prize = createEnemy(enemyDef('prize_bull'), any.x, any.y, any.facing, any.id, floor.depth, difficulty);
-      floor.enemies[floor.enemies.indexOf(any)] = prize;
+      // rosette is the point of the floor. Only ever in place of a cow —
+      // picking from the whole array would let the rosette land on the very
+      // lieutenant or Shade the loop above went out of its way to spare, and
+      // destroy an enemy the run is tracking by id.
+      const cattle = floor.enemies.filter((c) => (Object.values(PASTURE_HERD) as string[]).includes(c.def));
+      if (cattle.length) {
+        const any = rng.pick(cattle);
+        const prize = createEnemy(enemyDef('prize_bull'), any.x, any.y, any.facing, any.id, floor.depth, difficulty);
+        floor.enemies[floor.enemies.indexOf(any)] = prize;
+      }
     }
   }
 
