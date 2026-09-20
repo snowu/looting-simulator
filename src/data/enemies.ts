@@ -1,3 +1,4 @@
+import { MOVE_SETS } from './attacks';
 import { ELEMENTAL_VARIANTS, elementalVariant } from './elemental-variants';
 import { DamageType, EnemyDef } from '../types';
 import {
@@ -16,7 +17,7 @@ export const ENEMIES: EnemyDef[] = [
   {
     id: 'drowned_bones', name: 'Drowned Bones', sprite: 'drowned', scale: 0.95,
     hp: 34, attack: 8, defense: 3, damageType: 'blunt', resist: { ...UNDEAD_RESIST, frost: 0.6, fire: 1.4 }, undead: true,
-    behavior: 'melee', step: 0.7, windup: 0.7, recovery: 1, sight: 6,
+    behavior: 'melee', moves: MOVE_SETS.brute, step: 0.7, windup: 0.7, recovery: 1, sight: 6,
     minDepth: 1, maxDepth: 3, weight: 0.8,
     loot: [{ id: 'bone', chance: 0.5, min: 1, max: 2 }], gold: [0, 5], itemChance: 0.025,
     description: 'Waterlogged bones swing slowly, but the weight of the blow lingers.',
@@ -41,7 +42,7 @@ export const ENEMIES: EnemyDef[] = [
     // damage type of the weapon you died holding (`EnemyState.shadeType`).
     id: 'shade', name: 'Your Shade', sprite: 'knight', scale: 0.95,
     hp: 60, attack: 12, defense: 6, damageType: 'shadow', resist: { holy: 1.5, shadow: 0.5 },
-    behavior: 'melee', step: 0.5, windup: 0.6, recovery: 0.9, sight: 7,
+    behavior: 'melee', moves: MOVE_SETS.drilled, step: 0.5, windup: 0.6, recovery: 0.9, sight: 7,
     minDepth: 1, maxDepth: 6, weight: 0,
     loot: [], gold: [0, 0], itemChance: 0,
     glow: '#9ab8ff',
@@ -53,7 +54,7 @@ export const ENEMIES: EnemyDef[] = [
     // matters is what its banner does to the rest of them while it stands.
     id: 'goblin_quartermaster', name: 'Goblin Quartermaster', sprite: 'quartermaster', scale: 0.85,
     hp: 70, attack: 10, defense: 6, damageType: 'slash', resist: { slash: 1.4, pierce: 1.25 },
-    behavior: 'melee', step: 0.45, windup: 0.5, recovery: 0.8, sight: 8,
+    behavior: 'melee', moves: MOVE_SETS.guardian, step: 0.45, windup: 0.5, recovery: 0.8, sight: 8,
     minDepth: 2, maxDepth: 5, weight: 0,
     loot: [{ id: 'copper', chance: 0.6, min: 2, max: 3 }, { id: 'iron', chance: 0.4, min: 1, max: 2 }],
     gold: [15, 40], itemChance: 0.25,
@@ -74,7 +75,7 @@ export const ENEMIES: EnemyDef[] = [
   {
     id: 'tunnel_stalker', name: 'Tunnel Stalker', sprite: 'stalker', scale: 0.65,
     hp: 25, attack: 9, defense: 1, damageType: 'pierce', resist: { fire: 1.5, slash: 1.35 },
-    behavior: 'skittish', step: 0.26, windup: 0.4, recovery: 0.75, sight: 5,
+    behavior: 'skittish', moves: MOVE_SETS.vermin, step: 0.26, windup: 0.4, recovery: 0.75, sight: 5,
     minDepth: 2, maxDepth: 4, weight: 0.8,
     loot: [{ id: 'spider_silk', chance: 0.35, min: 1, max: 1 }], gold: [0, 3], itemChance: 0.01,
     description: 'A quick bite, then it vanishes into the dark.',
@@ -122,7 +123,7 @@ export const ENEMIES: EnemyDef[] = [
   {
     id: 'icebound_guard', name: 'Icebound Guard', sprite: 'iceguard', scale: 1,
     hp: 66, attack: 13, defense: 10, damageType: 'frost', element: 'frost', resist: { ...UNDEAD_RESIST, frost: 0.4, fire: 1.7 }, undead: true,
-    behavior: 'melee', step: 0.65, windup: 0.7, recovery: 1.1, sight: 7,
+    behavior: 'melee', moves: MOVE_SETS.guardian, step: 0.65, windup: 0.7, recovery: 1.1, sight: 7,
     shield: { block: 0.7, stun: 1 }, minDepth: 3, maxDepth: 5, weight: 0.6,
     loot: [{ id: 'frost_shard', chance: 0.25, min: 1, max: 1 }, { id: 'iron', chance: 0.3, min: 1, max: 2 }],
     gold: [2, 9], itemChance: 0.04,
@@ -131,7 +132,7 @@ export const ENEMIES: EnemyDef[] = [
   {
     id: 'spore_hunter', name: 'Spore Hunter', sprite: 'spore', scale: 0.9,
     hp: 63, attack: 14, defense: 5, damageType: 'pierce', resist: { fire: 1.7, slash: 1.2, shadow: 0.7 },
-    behavior: 'skittish', step: 0.42, windup: 0.55, recovery: 0.9, sight: 6,
+    behavior: 'skittish', moves: MOVE_SETS.frenzied, step: 0.42, windup: 0.55, recovery: 0.9, sight: 6,
     minDepth: 3, maxDepth: 5, weight: 0.7,
     loot: [{ id: 'leather', chance: 0.3, min: 1, max: 2 }, { id: 'crystal', chance: 0.13, min: 1, max: 1 }],
     gold: [2, 10], itemChance: 0.035,
@@ -140,7 +141,7 @@ export const ENEMIES: EnemyDef[] = [
   {
     id: 'rat', name: 'Giant Rat', sprite: 'rat', scale: 0.55,
     hp: 14, attack: 5, defense: 0, damageType: 'pierce', resist: { slash: 1.4, pierce: 1.3 },
-    behavior: 'melee', step: 0.3, windup: 0.38, recovery: 0.65, sight: 6,
+    behavior: 'melee', moves: MOVE_SETS.vermin, step: 0.3, windup: 0.38, recovery: 0.65, sight: 6,
     minDepth: 1, maxDepth: 3, weight: 3,
     loot: [{ id: 'rat_hide', chance: 0.42, min: 1, max: 2 }, { id: 'bone', chance: 0.35, min: 1, max: 1 }],
     gold: [0, 2], itemChance: 0,
@@ -149,7 +150,7 @@ export const ENEMIES: EnemyDef[] = [
   {
     id: 'bog_seraph', name: 'Bog Seraph', sprite: 'bogseraph', scale: 1.0,
     hp: 145, attack: 21, defense: 13, damageType: 'pierce', resist: { slash: 1.5, blunt: 0.85 },
-    behavior: 'melee', step: 0.65, windup: 0.7, recovery: 1.0, sight: 6,
+    behavior: 'melee', moves: MOVE_SETS.brute, step: 0.65, windup: 0.7, recovery: 1.0, sight: 6,
     minDepth: 3, maxDepth: 5, weight: 0.6,
     loot: [
       { id: 'leather', chance: 0.5, min: 1, max: 2 },
@@ -163,7 +164,7 @@ export const ENEMIES: EnemyDef[] = [
     id: 'goblin', name: 'Goblin Cutpurse', sprite: 'goblin', scale: 0.8,
     thief: true,
     hp: 28, attack: 8, defense: 2, damageType: 'slash', resist: { slash: 1.4, pierce: 1.25 },
-    behavior: 'skittish', step: 0.4, windup: 0.45, recovery: 0.7, sight: 7,
+    behavior: 'skittish', moves: MOVE_SETS.cunning, step: 0.4, windup: 0.45, recovery: 0.7, sight: 7,
     minDepth: 1, maxDepth: 4, weight: 1,
     loot: [
       { id: 'copper', chance: 0.35, min: 1, max: 2 },
@@ -194,7 +195,7 @@ export const ENEMIES: EnemyDef[] = [
   {
     id: 'goblin_shield', name: 'Goblin Shieldbearer', sprite: 'gobshield', scale: 0.8,
     hp: 40, attack: 8, defense: 6, damageType: 'slash', resist: { slash: 1.4, pierce: 1.25 },
-    behavior: 'melee', step: 0.45, windup: 0.5, recovery: 0.8, sight: 6,
+    behavior: 'melee', moves: MOVE_SETS.drilled, step: 0.45, windup: 0.5, recovery: 0.8, sight: 6,
     shield: { block: 0.75, stun: 1 },
     minDepth: 2, maxDepth: 4, weight: 1.5,
     loot: [
@@ -212,7 +213,7 @@ export const ENEMIES: EnemyDef[] = [
     // Small, fast and soft: a blade opens it, a club swings through the air it
     // just left. It is the first floor's argument for carrying something quick.
     resist: { slash: 1.4, pierce: 1.3, blunt: 0.85 },
-    behavior: 'melee', step: 0.2, windup: 0.24, recovery: 0.4, sight: 5,
+    behavior: 'melee', moves: MOVE_SETS.vermin, step: 0.2, windup: 0.24, recovery: 0.4, sight: 5,
     minDepth: 1, maxDepth: 3, weight: 2.5,
     loot: [{ id: 'bone', chance: 0.35, min: 1, max: 1 }, { id: 'leather', chance: 0.15, min: 1, max: 1 }],
     gold: [0, 3], itemChance: 0.015,
@@ -221,7 +222,7 @@ export const ENEMIES: EnemyDef[] = [
   {
     id: 'skeleton', name: 'Skeleton', sprite: 'skeleton', scale: 0.95,
     hp: 30, attack: 9, defense: 4, damageType: 'slash', resist: UNDEAD_RESIST, undead: true,
-    behavior: 'melee', step: 0.55, windup: 0.55, recovery: 0.9, sight: 7,
+    behavior: 'melee', moves: MOVE_SETS.drilled, step: 0.55, windup: 0.55, recovery: 0.9, sight: 7,
     // Weight 2 rather than 3: a new player is handed a slash weapon and the
     // skeleton is the one thing on the first floor that shrugs slash off. The
     // lesson ("bring a mace") is the point and stays; three of them in the
@@ -248,7 +249,7 @@ export const ENEMIES: EnemyDef[] = [
   {
     id: 'skeleton_shield', name: 'Skeleton Shieldguard', sprite: 'skelshield', scale: 0.95,
     hp: 50, attack: 11, defense: 9, damageType: 'slash', resist: UNDEAD_RESIST, undead: true,
-    behavior: 'melee', step: 0.55, windup: 0.6, recovery: 0.9, sight: 7,
+    behavior: 'melee', moves: MOVE_SETS.guardian, step: 0.55, windup: 0.6, recovery: 0.9, sight: 7,
     shield: { block: 0.75, stun: 1 },
     minDepth: 3, maxDepth: 5, weight: 1.5,
     loot: [{ id: 'bone', chance: 0.49, min: 1, max: 3 }, { id: 'iron', chance: 0.28, min: 1, max: 2 }],
@@ -261,7 +262,7 @@ export const ENEMIES: EnemyDef[] = [
     // little less of it, because the fight starts with you out of position.
     id: 'ceiling_crawler', name: 'Ceiling Crawler', sprite: 'spider', scale: 0.6,
     hp: 30, attack: 10, defense: 2, damageType: 'pierce', resist: { fire: 1.5, slash: 1.3, pierce: 1.35 },
-    behavior: 'melee', step: 0.28, windup: 0.42, recovery: 0.8, sight: 5,
+    behavior: 'melee', moves: MOVE_SETS.frenzied, step: 0.28, windup: 0.42, recovery: 0.8, sight: 5,
     minDepth: 2, maxDepth: 5, weight: 0,
     loot: [{ id: 'spider_silk', chance: 0.5, min: 1, max: 2 }, { id: 'bone', chance: 0.3, min: 1, max: 1 }],
     gold: [0, 5], itemChance: 0.03,
@@ -275,7 +276,7 @@ export const ENEMIES: EnemyDef[] = [
     // it out-damaged the Barrow Champion by simply swinging more often. Still
     // the quickest thing you will trade blows with, now with a wind-up you can
     // actually read and answer.
-    behavior: 'melee', step: 0.28, windup: 0.42, recovery: 0.8, sight: 5,
+    behavior: 'melee', moves: MOVE_SETS.frenzied, step: 0.28, windup: 0.42, recovery: 0.8, sight: 5,
     minDepth: 3, maxDepth: 5, weight: 3,
     loot: [{ id: 'spider_silk', chance: 0.42, min: 1, max: 2 }, { id: 'crystal', chance: 0.06, min: 1, max: 1 }, { id: 'bone', chance: 0.35, min: 1, max: 1 }],
     gold: [0, 4], itemChance: 0.02,
@@ -284,7 +285,7 @@ export const ENEMIES: EnemyDef[] = [
   {
     id: 'ghoul', name: 'Ghoul', sprite: 'ghoul', scale: 1.0,
     hp: 72, attack: 16, defense: 8, damageType: 'slash', resist: { holy: 2, shadow: 0.5, fire: 1.3, slash: 1.35, pierce: 1.3 }, undead: true,
-    behavior: 'melee', step: 0.75, windup: 0.65, recovery: 1.0, sight: 6,
+    behavior: 'melee', moves: MOVE_SETS.frenzied, step: 0.75, windup: 0.65, recovery: 1.0, sight: 6,
     minDepth: 3, maxDepth: 6, weight: 2,
     loot: [
       { id: 'leather', chance: 0.35, min: 1, max: 2 },
@@ -327,7 +328,7 @@ export const ENEMIES: EnemyDef[] = [
   {
     id: 'hollow_knight', name: 'Hollow Knight', sprite: 'knight', scale: 1.05,
     hp: 135, attack: 21, defense: 20, damageType: 'slash', resist: { holy: 1.6, pierce: 1.25, slash: 0.7, blunt: 1.2, shadow: 0.5 }, undead: true,
-    behavior: 'melee', step: 0.65, windup: 0.7, recovery: 1.0, sight: 7,
+    behavior: 'melee', moves: MOVE_SETS.champion, step: 0.65, windup: 0.7, recovery: 1.0, sight: 7,
     shield: { block: 0.75, stun: 1 },
     minDepth: 5, maxDepth: 6, weight: 1.5,
     loot: [
@@ -347,7 +348,7 @@ export const ENEMIES: EnemyDef[] = [
     // it caves in. Depth 6 had no such target, which left the club line with
     // nothing to say on the last floor.
     resist: { blunt: 1.5, slash: 0.55, pierce: 0.5, holy: 2, shadow: 0.5 }, undead: true,
-    behavior: 'melee', step: 0.8, windup: 0.85, recovery: 1.2, sight: 7,
+    behavior: 'melee', moves: MOVE_SETS.champion, step: 0.8, windup: 0.85, recovery: 1.2, sight: 7,
     minDepth: 5, maxDepth: 6, weight: 1.5,
     loot: [
       { id: 'bone', chance: 0.63, min: 2, max: 4 },
@@ -379,7 +380,7 @@ export const ENEMIES: EnemyDef[] = [
   {
     id: 'mimic', name: 'Mimic', sprite: 'mimic', scale: 0.85,
     hp: 58, attack: 17, defense: 8, damageType: 'pierce', resist: { blunt: 1.25, pierce: 1.1, fire: 1.35 },
-    behavior: 'melee', step: 0.32, windup: 0.52, recovery: 0.8, sight: 8,
+    behavior: 'melee', moves: MOVE_SETS.frenzied, step: 0.32, windup: 0.52, recovery: 0.8, sight: 8,
     minDepth: 1, maxDepth: 6, weight: 0,
     loot: [], gold: [0, 0], itemChance: 0,
     description: 'The lock was a tooth. The hinges were not hinges.',
@@ -430,7 +431,7 @@ ENEMIES.push({
   id: 'mole', name: 'Delver Mole', sprite: 'mole', scale: 0.75,
   burrows: true,
   hp: 32, attack: 9, defense: 3, damageType: 'blunt', resist: { blunt: 0.65, pierce: 1.4, slash: 1.3 },
-  behavior: 'skittish', step: 0.65, windup: 0.8, recovery: 1, sight: 5,
+  behavior: 'skittish', moves: MOVE_SETS.vermin, step: 0.65, windup: 0.8, recovery: 1, sight: 5,
   shield: { block: 0.55, stun: 0.6 }, minDepth: 1, maxDepth: 3, weight: 1,
   loot: [{ id: 'rat_hide', chance: 0.42, min: 1, max: 2 }, { id: 'bone', chance: 0.35, min: 1, max: 1 }, { id: 'copper', chance: 0.25, min: 1, max: 2 }],
   gold: [0, 4], itemChance: 0.02,

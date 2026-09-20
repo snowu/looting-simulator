@@ -20,6 +20,7 @@ import { lightIntensity } from '../systems/meta';
 import { World } from '../world/world';
 import { artSize, artTexture } from './art-cache';
 import { enemyPose } from './enemy-pose';
+import { moveById } from '../data/attacks';
 import { LevelView, TILE, WALL_H, buildLevel, tileX, tileZ } from './level-mesh';
 import { MAX_LIGHTS, PS1Material, PostPass, Shared, createLowResTarget, createShared, ps1Material } from './ps1';
 import { brightness } from './brightness';
@@ -53,6 +54,13 @@ interface LightCand {
 }
 
 const TMP = new THREE.Vector3();
+
+/**
+ * Tell colours, parsed once. A wind-up is drawn every frame for every visible
+ * creature, and `new THREE.Color(hex)` in that loop is a string parse per
+ * monster per frame for a palette of seven fixed values.
+ */
+const TELL_COLORS = new Map<string, THREE.Color>();
 
 /**
  * Renders the World into a low-res target with PS1 shading, then upscales
@@ -140,6 +148,16 @@ export class DungeonRenderer {
     const mesh = new THREE.Mesh(this.quad, mat);
     scene.add(mesh);
     return { mesh, mat, seen: true };
+  }
+
+  /** A move's tell colour, parsed once and reused. */
+  private tellColor(hex: string): THREE.Color {
+    let c = TELL_COLORS.get(hex);
+    if (!c) {
+      c = new THREE.Color(hex);
+      TELL_COLORS.set(hex, c);
+    }
+    return c;
   }
 
   private sprite(key: string): SpriteObj {
@@ -411,6 +429,10 @@ export class DungeonRenderer {
       let wx = tileX(ex), wz = tileZ(ey);
       // Which frame, and how far the body is thrown: one shared model, so the
       // dev art sheet previews exactly what the dungeon draws.
+      // The move it committed to owns the beat, so the lean has to gather over
+      // the wind-up it is actually running — a slam that leaned at basic speed
+      // would stand fully wound with a second still to go.
+      const move = moveById(en.move);
       const pose = enemyPose({
         ai: en.ai,
         timer: en.timer,
@@ -418,13 +440,20 @@ export class DungeonRenderer {
         guard: en.guard,
         hasShield: !!def.shield,
         ranged: def.behavior === 'ranged',
-        windup: def.windup,
-        recovery: def.recovery,
+        windup: def.windup * move.windup,
+        recovery: def.recovery * move.recovery,
         grabT: en.grabT,
       });
       wx += DX[en.facing] * pose.lunge;
       wz += DY[en.facing] * pose.lunge;
-      const height = def.scale * 1.9 * (en.scavenged ? 1.15 : 1);
+      // How far into the wind-up it is, for the tell and the swell.
+      const wound = en.ai === 'windup'
+        ? Math.max(0, Math.min(1, 1 - en.timer / Math.max(0.01, def.windup * move.windup)))
+        : 0;
+      // A slam gathers itself upward. Growth is what makes the one attack you
+      // must not stand in front of readable out of the corner of an eye.
+      const swell = 1 + (move.swell ?? 0) * wound;
+      const height = def.scale * 1.9 * (en.scavenged ? 1.15 : 1) * swell;
       let y = (def.floats ? 0.35 + Math.sin(this.time * 2.5 + en.x) * 0.1 : 0) + (en.moveT < 1 ? Math.abs(Math.sin(en.moveT * Math.PI)) * 0.08 : 0);
       // A called corpse lies at the floor and is drawn up as the chant runs.
       if (en.ai === 'dead') y -= call !== undefined ? (1 - call) * 1.2 : (fused ? Math.min(en.deadT, 0.3) : en.deadT) * 1.4;
@@ -432,7 +461,17 @@ export class DungeonRenderer {
       if (en.hurtT > 0) s.mat.uniforms.uTint.value.set(1, 0.95, 0.9, Math.min(0.8, en.hurtT * 3));
       // Your Shade: a pale, cold wash so it never reads as an ordinary knight.
       else if (en.def === 'shade' && en.ai !== 'dead' && en.ai !== 'windup') s.mat.uniforms.uTint.value.set(0.6, 0.72, 1, 0.45 + 0.08 * Math.sin(this.time * 2));
-      else if (en.ai === 'windup' || (en.grabT ?? 0) > 0) s.mat.uniforms.uTint.value.set(1, 0.2, 0.1, 0.12 + 0.12 * Math.sin(this.time * 30));
+      else if (en.ai === 'windup' || (en.grabT ?? 0) > 0) {
+        // The wind-up glows in the colour of the move being thrown, and the
+        // glow deepens as it gathers: which attack is coming, and how soon,
+        // in one signal. A plain blow keeps the old red flicker exactly.
+        const c = this.tellColor(move.tell);
+        const held = (en.feintT ?? 0) > 0;
+        // A feint's stall holds the glow steady instead of flickering — the
+        // creature is *showing* you the blow. That stillness is the tell.
+        const pulse = held ? 0.26 : 0.12 + 0.12 * Math.sin(this.time * 30);
+        s.mat.uniforms.uTint.value.set(c.r, c.g, c.b, pulse + 0.18 * wound * (move.swell ? 1 : 0));
+      }
       else if (en.elite && en.ai !== 'dead') {
         // A slow pulse in the trait's colour: readable at a glance, and never
         // confusable with the fast red flicker of a wind-up.

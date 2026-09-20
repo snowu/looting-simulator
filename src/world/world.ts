@@ -12,6 +12,7 @@ import {
   BULWARK_MULT, BULWARK_SOAK, BULWARK_WINDOW, EXECUTION_REFUND_MULT, KINDLING_AT, KINDLING_SPREAD, LAST_FLASK_MULT,
   RETRIEVAL_MULT, RIPOSTE_MULT, RIPOSTE_WINDOW,
 } from '../data/properties';
+import { AttackMove, COMBO_BEAT, FEINT_AT, FEINT_HOLD, chooseMove, meleeReach, moveById } from '../data/attacks';
 import { FORK_DEPTH, ROADS, ROAD_DEPTHS } from '../data/routes';
 import { SHADE_ID, placeShade } from '../systems/grave';
 import { LIGHTLESS_LIGHT, SEAL_FIND, sealDifficulty, sealFloorMods } from '../data/seals';
@@ -3848,9 +3849,13 @@ export class World {
         if (this.runWithLoot(e, def, dist, sees, dt)) continue;
       }
 
+      // The rest of a flurry lands while the creature is already recovering.
+      this.updateCombo(e, def, dt);
+
       switch (e.ai) {
         case 'windup':
-          e.timer -= dt;
+          // A feint holds the lean once, then runs the rest of the wind-up.
+          if (!this.updateFeint(e, def, dt)) e.timer -= dt;
           if (e.timer <= 0) this.enemyStrike(e, def);
           continue;
         case 'recover':
@@ -3887,6 +3892,13 @@ export class World {
         const ranged = !!def.projectile && (def.behavior === 'ranged' || def.behavior === 'boss');
         if (dist === 1 && e.attackCd <= 0 && (def.behavior !== 'ranged')) {
           this.beginWindup(e, def, p.x, p.y);
+          continue;
+        }
+        // A creature with reach commits from a tile further out, down the line
+        // it is facing — but only with a move that actually reaches, so the
+        // threat it shows is the threat it throws.
+        if (dist === 2 && aligned && e.attackCd <= 0 && def.behavior !== 'ranged' && meleeReach(def) >= 2) {
+          this.beginWindup(e, def, p.x, p.y, 2);
           continue;
         }
         if (ranged && aligned && dist >= 2 && dist <= (def.range ?? 4) + 2 && e.attackCd <= 0) {
@@ -3934,7 +3946,7 @@ export class World {
     }
   }
 
-  private beginWindup(e: EnemyState, def: EnemyDef, tx: number, ty: number): void {
+  private beginWindup(e: EnemyState, def: EnemyDef, tx: number, ty: number, minReach = 1): void {
     const d = dirOf(Math.sign(tx - e.x), Math.sign(ty - e.y));
     if (d !== null) e.facing = d;
     // Swinging means the shield is elsewhere: the guard drops tired.
@@ -3943,16 +3955,84 @@ export class World {
       e.guardT = Math.max(e.guardT ?? 0, GUARD_DOWN);
       e.blocks = 0;
     }
+    // What it commits to is rolled here, not at spawn: a creature knocked out
+    // of a slam and coming back may well answer with something quicker.
+    const pool = minReach > 1 ? def.moves?.filter((m) => moveById(m.id).reach >= minReach) : def.moves;
+    const move = chooseMove(pool, (total) => this.rng.float(0, total));
+    e.move = move.id === 'basic' ? undefined : move.id;
+    delete e.feintT;
+    delete e.feinted;
+    delete e.comboLeft;
+    delete e.comboT;
     e.ai = 'windup';
-    e.timer = def.windup;
+    e.timer = def.windup * move.windup;
     e.lastSeenX = tx;
     e.lastSeenY = ty;
   }
 
+  /**
+   * A feint's stall. Held once per wind-up, at the point an ordinary blow of
+   * the same creature would have landed — which is exactly what makes biting
+   * on it feel like being read rather than being cheated.
+   *
+   * Returns true while the lean is frozen, so the wind-up timer does not run.
+   */
+  private updateFeint(e: EnemyState, def: EnemyDef, dt: number): boolean {
+    const move = moveById(e.move);
+    if (!move.feint) return false;
+    if ((e.feintT ?? 0) > 0) {
+      e.feintT = Math.max(0, e.feintT! - dt);
+      return e.feintT > 0;
+    }
+    if (e.feinted) return false;
+    const full = def.windup * move.windup;
+    if (e.timer <= full * (1 - FEINT_AT)) {
+      e.feinted = true;
+      e.feintT = full * FEINT_HOLD;
+      this.sfx('miss', e.x, e.y);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * The follow-ups of a combo, landing on {@link COMBO_BEAT} while the
+   * creature is already in recovery. They re-aim at where you are now, so
+   * getting out mid-flurry works — the first blow is the one you cannot dodge.
+   */
+  private updateCombo(e: EnemyState, def: EnemyDef, dt: number): void {
+    if (!e.comboLeft) return;
+    // Parried, knocked out or otherwise opened up: the rest of the flurry is
+    // the price. This is what makes meeting the *first* blow worth doing.
+    if ((e.vuln ?? 0) > 0) {
+      delete e.comboLeft;
+      delete e.comboT;
+      return;
+    }
+    e.comboT = (e.comboT ?? 0) - dt;
+    if (e.comboT! > 0) return;
+    e.comboLeft--;
+    if (e.comboLeft <= 0) {
+      delete e.comboLeft;
+      delete e.comboT;
+    } else {
+      e.comboT = COMBO_BEAT;
+    }
+    const p = this.player;
+    e.lastSeenX = p.x;
+    e.lastSeenY = p.y;
+    this.landBlow(e, def, moveById(e.move));
+  }
+
   private enemyStrike(e: EnemyState, def: EnemyDef): void {
+    const move = moveById(e.move);
     e.ai = 'recover';
-    e.timer = def.recovery;
-    e.attackCd = def.recovery + 0.2;
+    e.timer = def.recovery * move.recovery;
+    e.attackCd = def.recovery * move.recovery + 0.2;
+    if (move.combo) {
+      e.comboLeft = move.combo;
+      e.comboT = COMBO_BEAT;
+    }
     // Stamped by the blow itself, so the follow-through is drawn only when
     // there was one. See `enemyPose`.
     e.strikeT = 0;
@@ -3969,20 +4049,51 @@ export class World {
         if (off !== 0 && blocksSight(this.floor, e.x + ox, e.y + oy)) continue;
         this.projectiles.push({
           id: this.projN++, x: e.x + ox + 0.5, y: e.y + oy + 0.5, dx, dy, speed: pr.speed,
-          damage: Math.round(def.attack * attackPower(e.power) * (e.scavengerAttack ?? 1) * this.rally(e) * this.diff.enemyDamage), type: pr.damageType, sprite: pr.sprite, light: pr.light,
+          damage: Math.round(def.attack * move.power * attackPower(e.power) * (e.scavengerAttack ?? 1) * this.rally(e) * this.diff.enemyDamage), type: pr.damageType, sprite: pr.sprite, light: pr.light,
           tileX: e.x + ox, tileY: e.y + oy, source: def.name, sourceId: def.id,
         });
       }
       this.sfx(pr.sprite.startsWith('proj_arrow') ? 'shoot' : 'magic', e.x, e.y);
       return;
     }
-    // Melee lands only if you're still in the tile it aimed at.
+    this.landBlow(e, def, move);
+  }
+
+  /**
+   * One melee blow of a move: where it lands, how wide, and how hard.
+   *
+   * A plain blow is the old rule exactly — the tile it aimed at, and only if
+   * you are still standing in it. `reach` extends the line it will accept,
+   * which is what stops a step backwards from being the universal answer, and
+   * `sweep` accepts the two tiles either side of that line, which is what
+   * stops circling from being the other one.
+   */
+  private landBlow(e: EnemyState, def: EnemyDef, move: AttackMove): void {
+    const p = this.player;
     this.sfx('swing', e.x, e.y);
-    if (p.x === e.lastSeenX && p.y === e.lastSeenY && dist === 1) {
-      this.damagePlayer(Math.max(1, Math.round(def.attack * attackPower(e.power) * (e.scavengerAttack ?? 1) * this.rally(e) * this.diff.enemyDamage)), def.damageType, e.x, e.y, def.name, def.id, e);
-    } else {
-      this.sfx('miss', e.x, e.y);
+    const dx = DX[e.facing], dy = DY[e.facing];
+    let hit = false;
+    for (let d = 1; d <= move.reach && !hit; d++) {
+      const x = e.x + dx * d, y = e.y + dy * d;
+      // Reach is a longer arm, not a spear through stone: anything solid on the
+      // way — a wall, a door, a pillar — stops the blow short of you.
+      if (d > 1 && blocksMove(this.floor, e.x + dx * (d - 1), e.y + dy * (d - 1))) break;
+      if (p.x === x && p.y === y) hit = true;
+      else if (move.sweep) {
+        // The flanks of the tile it is swinging through — a sidestep's landing.
+        const sx = dy, sy = dx;
+        if ((p.x === x + sx && p.y === y + sy) || (p.x === x - sx && p.y === y - sy)) hit = true;
+      }
     }
+    // A plain blow keeps its old contract: the tile it *aimed* at, so a
+    // creature that turned after committing still misses.
+    if (move.reach === 1 && !move.sweep && !(p.x === e.lastSeenX && p.y === e.lastSeenY)) hit = false;
+    if (!hit) {
+      this.sfx('miss', e.x, e.y);
+      return;
+    }
+    const raw = def.attack * move.power * attackPower(e.power) * (e.scavengerAttack ?? 1) * this.rally(e) * this.diff.enemyDamage;
+    this.damagePlayer(Math.max(1, Math.round(raw)), def.damageType, e.x, e.y, def.name, def.id, e);
   }
 
   private damagePlayer(
