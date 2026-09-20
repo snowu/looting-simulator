@@ -17,6 +17,12 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 
 // Commits that must never become patch notes. Short hash -> reason.
 const SKIP = {
+  '4f1dc2f': 'CONTRIBUTING note for the lab selector; no player-facing change',
+  '72986d9': 'dev lab only (forces a strange floor for tuning); the floors themselves are Patch 70',
+  '8576acc': 'doc correction to Patch 70 wording; no behaviour change',
+  e57d6bf: 'fixes elite preservation inside the Patch 70 work, before it shipped',
+  '973e67c': 'save round-trip tests for the Patch 70 fields; no player-facing change',
+  '0ea84d1': 'PR art sheets, dev art-sheet grouping and NEXT.md log; no player-facing change',
   d21092c: 'patch-note citation only; the work is cited by Patches 69 and 70',
   '55e9f88': 'design doc for the run-identity plan; no player-facing change',
   '8517c39': 'progress tracker update in NEXT.md; no player-facing change',
