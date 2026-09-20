@@ -17,6 +17,7 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 
 // Commits that must never become patch notes. Short hash -> reason.
 const SKIP = {
+  d21092c: 'patch-note citation only; the work is cited by Patches 69 and 70',
   '55e9f88': 'design doc for the run-identity plan; no player-facing change',
   '8517c39': 'progress tracker update in NEXT.md; no player-facing change',
   '2b6c9de': 'PR preview image only',
