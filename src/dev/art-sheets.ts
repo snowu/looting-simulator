@@ -343,6 +343,9 @@ function propGroups(): SheetGroup[] {
     { title: 'Thrown · on the ground', cells: onGround },
     { title: 'Floor food', cells: foodCells() },
     { title: 'Props', cells: plain(PROPS.map((p) => p.id).filter((id) => !covered.has(id))) },
+    // Worn rather than stood on the floor: the Silent Picture billboards these
+    // above every creature, so they live with the herd art but belong here.
+    { title: 'Worn on a strange floor', cells: plain(['prop_tophat', 'prop_monocle']) },
   ];
 }
 
