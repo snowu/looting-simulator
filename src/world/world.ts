@@ -2114,20 +2114,18 @@ export class World {
       return;
     }
     e.blocks = 0;
-    const hit = playerHitsEnemy(this.rng, this.derived, this.anim.attackPower * powerMult, def, defensePower(e.power) * this.diff.enemyDefense);
+    // The Horn's charge is Attack, not damage: it goes into the swing before
+    // armour takes its cut, so "+4 Attack" means what it says and a target
+    // immune to the blow is immune to the charge behind it. Counted before
+    // this blow is added, so the first hit of a fight lands at plain strength.
+    const charged = this.anim.chargeStacks * this.derived.traits.charge;
+    const hit = playerHitsEnemy(this.rng, this.derived, this.anim.attackPower * powerMult, def, defensePower(e.power) * this.diff.enemyDefense, charged);
     // Everything you land while the parry opening lasts hits twice as hard.
     const exposed = !!e.vuln && e.vuln > 0;
     if (exposed) hit.damage = Math.round(hit.damage * PARRY_VULN_MULT);
     // Banked parries ride on the next blows and only the next blows.
     const fed = this.anim.parryStacks * this.derived.traits.parryFeed;
     if (fed > 0) hit.damage = Math.round(hit.damage * (1 + fed));
-    // The Horn's charge is flat Attack rather than a multiplier: it has to be
-    // worth something on the first blows of a fight, when there is nothing
-    // banked yet, or a charge weapon only ever pays off once you have already
-    // won. It is counted before this blow is added, so the first hit of a
-    // fight lands at the Horn's plain strength.
-    const charged = this.anim.chargeStacks * this.derived.traits.charge;
-    if (charged > 0) hit.damage += Math.round(charged);
     // A Marrow Draught rides on the first blow that lands, and only that one.
     const marrow = this.anim.draught?.kind === 'marrow' ? draught(this.state.flask?.infusion)?.marrowMult ?? 1 : 1;
     if (marrow > 1) {
@@ -4130,6 +4128,12 @@ export class World {
     this.sfx('swing', e.x, e.y);
     const dx = DX[e.facing], dy = DY[e.facing];
     let hit = false;
+    // Where the blow comes at you *from*, which is what the guard and the parry
+    // are answered against. Usually the creature itself; for a flank caught by
+    // a sweep it is the tile the swing is travelling through, because a guard
+    // can only ever be raised at an orthogonal neighbour and a blow nobody can
+    // answer is not a wide swing, it is an unfair one.
+    let srcX = e.x, srcY = e.y;
     for (let d = 1; d <= move.reach && !hit; d++) {
       const x = e.x + dx * d, y = e.y + dy * d;
       // Reach is a longer arm, not a spear through stone: anything solid on the
@@ -4139,7 +4143,11 @@ export class World {
       else if (move.sweep) {
         // The flanks of the tile it is swinging through — a sidestep's landing.
         const sx = dy, sy = dx;
-        if ((p.x === x + sx && p.y === y + sy) || (p.x === x - sx && p.y === y - sy)) hit = true;
+        if ((p.x === x + sx && p.y === y + sy) || (p.x === x - sx && p.y === y - sy)) {
+          hit = true;
+          srcX = x;
+          srcY = y;
+        }
       }
     }
     // A plain blow keeps its old contract: the tile it *aimed* at, so a
@@ -4150,7 +4158,7 @@ export class World {
       return;
     }
     const raw = def.attack * move.power * attackPower(e.power) * (e.scavengerAttack ?? 1) * this.rally(e) * this.diff.enemyDamage;
-    this.damagePlayer(Math.max(1, Math.round(raw)), def.damageType, e.x, e.y, def.name, def.id, e);
+    this.damagePlayer(Math.max(1, Math.round(raw)), def.damageType, srcX, srcY, def.name, def.id, e);
   }
 
   private damagePlayer(

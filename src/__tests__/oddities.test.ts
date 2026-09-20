@@ -10,6 +10,7 @@ import { itemBase } from '../data/items';
 import { GEAR_UNIQUES, ROLLABLE_UNIQUES, findUnique, uniqueForQuirk } from '../data/uniques';
 import { makeUnique, pickUnique } from '../systems/items';
 import { CHARGE_STACKS, derivePlayer, emptyEquipment } from '../systems/player';
+import { playerHitsEnemy } from '../systems/combat';
 import { applyQuirk, rollQuirk } from '../systems/quirks';
 import { QUIRK_IDS, QUIRK_MAX_DEPTH, QUIRK_MIN_DEPTH } from '../data/quirks';
 import { Item } from '../types';
@@ -129,6 +130,53 @@ describe("The Prize Bull's Horn", () => {
     tick(w, 4);
     expect(w.player.hp).toBeLessThan(hp);
     expect(w.anim.chargeStacks).toBe(0);
+  });
+
+  it('pays the charge as Attack, so armour still takes its cut', () => {
+    // Added to the damage after mitigation, "+4 Attack" would have been an
+    // armour bypass: +24 against a heavily armoured thing is worth far more as
+    // damage than as Attack. The charge must be worth *less* against armour.
+    const gain = (defenseMult: number): number => {
+      const w = arena(21);
+      w.state.equipment.weapon = relic('prize_horn');
+      w.refreshDerived();
+      const measure = (stacks: number): number => {
+        const e = spawn(w, 'ghoul', 1);
+        Object.assign(e, { hp: 999999, maxHp: 999999, ai: 'idle', alert: 0, attackCd: 99, power: defenseMult });
+        w.anim.chargeStacks = stacks;
+        w.player.stamina = w.derived.maxStamina;
+        const before = e.hp;
+        w.attack();
+        tick(w, 0.8);
+        const dealt = before - e.hp;
+        w.floor.enemies = [];
+        return dealt;
+      };
+      return measure(CHARGE_STACKS) - measure(0);
+    };
+    const soft = gain(1);
+    const armoured = gain(6);
+    expect(soft).toBeGreaterThan(0);
+    expect(armoured).toBeGreaterThan(0);
+    expect(armoured, 'the charge should buy less against armour').toBeLessThan(soft);
+  });
+
+  it('cannot hurt something the blow itself could not', () => {
+    // The charge rides on the swing rather than sitting on top of it: a target
+    // immune to the damage type is immune to the charge behind it, instead of
+    // taking a flat 24 from a blow the game just reported as doing nothing.
+    const eq = emptyEquipment();
+    eq.weapon = relic('prize_horn');
+    const d = derivePlayer(eq, {}, 'hard');
+    const immune = {
+      ...enemyDef('ghoul'),
+      resist: { slash: 0, pierce: 0, blunt: 0, fire: 0, frost: 0, shadow: 0, holy: 0 },
+    };
+    const charge = CHARGE_STACKS * d.traits.charge;
+    expect(charge).toBeGreaterThan(0);
+    const hit = playerHitsEnemy(createRng(1), d, 1, immune, 1, charge);
+    expect(hit.damage).toBe(0);
+    expect(hit.effective).toBe('immune');
   });
 
   it('hits harder at full charge than at none', () => {

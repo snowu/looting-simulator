@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createRng } from '../core/rng';
-import { DIRS, DX, DY, turnAround } from '../core/dir';
+import { DIRS, DX, DY, dirOf, turnAround } from '../core/dir';
 import { newGame } from '../state/game-state';
 import { startRun } from '../systems/run';
 import { World } from '../world/world';
@@ -228,6 +228,32 @@ describe('what a move does in the dungeon', () => {
     // ...and the blow still landed. A feint is a real attack, not a bluff,
     // which is what makes spending a parry on the stall cost something.
     expect(struck).toBeGreaterThan(def.windup * MOVES.feint.windup);
+  });
+
+  it('lets a swept flank be parried, like every other blow in the game', () => {
+    // Punishing is fine; unanswerable is not. A sweep that caught a sidestep
+    // used to report the *creature* as its source, which is diagonal from the
+    // tile you stepped to — and both the parry and the shield require an
+    // orthogonal source, so the blow could never be met at all. It now comes
+    // at you from the tile the swing travels through.
+    const w = arena(9);
+    const e = spawn(w, 'skeleton', 1);
+    const d = w.player.facing;
+    // The tile the swing travels through is the one you are standing on now:
+    // the creature is facing you, and its blow passes over your tile into the
+    // flanks either side of it.
+    const through = { x: w.player.x, y: w.player.y };
+    windUp(w, e, 'sweep');
+    // Step aside into a flank, then turn to meet the swing coming through.
+    w.player.x += DY[d];
+    w.player.y += DX[d];
+    w.player.facing = dirOf(Math.sign(through.x - w.player.x), Math.sign(through.y - w.player.y))!;
+    // Guard up and armed, the way a parry is made.
+    w.setBlock(true);
+    Object.assign(w.anim, { parryArmed: true, blockT: 0, blockRaise: 1 });
+    const hp = w.player.hp;
+    tick(w, 0.2);
+    expect(w.player.hp, 'a met sweep should cost nothing').toBe(hp);
   });
 
   it('catches a sidestep with a sweep, which a plain blow does not', () => {
