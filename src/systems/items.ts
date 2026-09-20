@@ -23,7 +23,7 @@ import { ITEM_BASES, CONSUMABLES, itemBase, consumable } from '../data/items';
 import { MATERIALS, findMaterial, material, secondaryMaterialMods } from '../data/materials';
 import { AFFIXES, affix } from '../data/affixes';
 import { DifficultyId, difficultyOf } from '../data/difficulty';
-import { GEAR_UNIQUES, UniqueDef, UniqueEffectId, findUnique, tonicUnique } from '../data/uniques';
+import { ROLLABLE_UNIQUES, UniqueDef, UniqueEffectId, findUnique, tonicUnique } from '../data/uniques';
 import { MAX_RECIPE_RANK, RECIPES, blueprintDropWeight, masteryBonus, recipe, recipeRank } from '../data/recipes';
 import { BestiaryState, isKnown, loreName } from './bestiary';
 import { sigil } from '../data/spells';
@@ -156,11 +156,14 @@ const UNSEEN_UNIQUE_BONUS = 6;
  * that his drop is always new until there is nothing new left.
  */
 export function pickUnique(rng: Rng, depth: number, seen: string[] = [], onlyUnseen = false): UniqueDef | null {
-  const atDepth = GEAR_UNIQUES.filter((u) => u.minDepth <= depth);
+  // ROLLABLE_UNIQUES, not GEAR_UNIQUES: a relic locked to a strange floor is
+  // never handed out by a roll, not even the King's guaranteed one. Its floor
+  // is the only place it exists.
+  const atDepth = ROLLABLE_UNIQUES.filter((u) => u.minDepth <= depth);
   // An ordinary roll respects depth and simply stays a plain Legendary when
   // nothing is deep enough yet. A guaranteed drop does not get to lapse: the
   // King owes you a relic wherever he is standing when he falls.
-  const eligible = atDepth.length ? atDepth : onlyUnseen ? GEAR_UNIQUES : [];
+  const eligible = atDepth.length ? atDepth : onlyUnseen ? ROLLABLE_UNIQUES : [];
   if (!eligible.length) return null;
   const unseen = eligible.filter((u) => !seen.includes(u.id));
   if (onlyUnseen) return unseen.length ? rng.pick(unseen) : rng.pick(eligible);

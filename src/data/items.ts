@@ -93,6 +93,42 @@ export const ITEM_BASES: ItemBaseDef[] = [
     value: 172, minDepth: 5, weight: 0.3,
   },
 
+  // --- Oddities -----------------------------------------------------------
+  // Three weapons that are jokes with real numbers attached. Each one hooks a
+  // system the game already runs rather than adding a new rule, and each one
+  // is priced so that picking it is a trade rather than a punchline you pay
+  // for. See docs/ODDITIES.md.
+  {
+    // A preserved toe the size of a forearm. Terrible reach — you have to be
+    // *on* something to hit it with this — bought back with the widest cleave
+    // and the heaviest stagger of any one-hander. It does not cut, it shoves,
+    // which makes it a corridor weapon: a real niche, held in a real toe.
+    id: 'big_toe', name: 'Big Toe', slot: 'weapon', icon: 'ic_big_toe', viewmodel: 'vm_big_toe',
+    weaponClass: 'blunt', damageType: 'blunt',
+    base: { attack: 17, speed: -4 }, perTier: { attack: 4 }, primary: ['bone', 'hide'],
+    swing: { windup: 0.30, recovery: 0.58, staminaCost: 19, reach: 1, cleave: 0.4, stagger: 0.35, chips: 2 },
+    value: 44, minDepth: 2, weight: 0.5,
+  },
+  {
+    // The Prize Bull's. A spear that keeps a spear's reach and answers to a
+    // charge rather than to a poke: see UNIQUES.
+    id: 'prize_horn', name: 'Horn', slot: 'weapon', icon: 'ic_prize_horn', viewmodel: 'vm_prize_horn',
+    weaponClass: 'spear', damageType: 'pierce',
+    base: { attack: 20 }, perTier: { attack: 4.5 }, primary: ['bone'],
+    swing: { windup: 0.26, recovery: 0.54, staminaCost: 18, reach: 2 },
+    // Never in the ordinary pool: the Pasture hands this out or nobody does.
+    value: 60, minDepth: 2, weight: 0,
+  },
+  {
+    // A cane. It is worth almost nothing as a thing to hit people with, and
+    // that is the trade — see UNIQUES.
+    id: 'cane', name: 'Cane', slot: 'weapon', icon: 'ic_cane', viewmodel: 'vm_cane',
+    weaponClass: 'blunt', damageType: 'blunt',
+    base: { attack: 8, speed: 4 }, perTier: { attack: 2 }, primary: ['wood'],
+    swing: { windup: 0.16, recovery: 0.32, staminaCost: 9, reach: 1 },
+    value: 40, minDepth: 2, weight: 0,
+  },
+
   // --- Thrown -------------------------------------------------------------
   // Their own slot, worn alongside a weapon and a shield: a belt of shafts is
   // not the thing in your hands. So `attack` here is what a *throw* is worth on

@@ -85,10 +85,12 @@ describe('Hard generation, loot and stats have explicit balance baselines', () =
         out.push(scrub(rollContainerLoot(createRng(seed), depth, find, tier, undefined, {}, [], 'hard')));
       }
     }
-    // The vault/secret good-consumable pool grew from two scrolls to four
-    // (Flash, Backstep), so this moved off materialLootHash — which stays
-    // frozen in the fixture as the pre-scroll record — onto scrollLootHash.
-    expect(hash(out)).toBe(golden.scrollLootHash);
+    // The Big Toe joined the weapon drop pool (blunt, minDepth 2, weight 0.5),
+    // which shifts every weighted weapon roll after the first. So this moved
+    // off scrollLootHash — which stays frozen in the fixture as the pre-Toe
+    // record — onto oddityLootHash. Monster health is untouched: a change in
+    // `enemyHp` would be a bug, not a rebaseline.
+    expect(hash(out)).toBe(golden.oddityLootHash);
   }, 60_000);
 
   it('spawns every monster with the same health at every depth', () => {
@@ -111,7 +113,10 @@ describe('Hard generation, loot and stats have explicit balance baselines', () =
       }
       out.push(derivePlayer(eq, { toughness: seed % 6 }, 'hard').maxHp);
     }
-    const expected = golden.materialPowerPlayerHp;
+    // Same cause as the loot hash above: these kits are rolled out of the
+    // weapon pool the Big Toe now sits in. materialPowerPlayerHp stays in the
+    // fixture as the pre-Toe record.
+    const expected = golden.oddityPlayerHp;
     expect(out).toEqual(expected);
   });
 });

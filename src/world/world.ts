@@ -193,6 +193,8 @@ export interface PlayerAnim {
   steps: number;
   /** Parries banked by a blade that feeds on them. Never saved: a fight's state. */
   parryStacks: number;
+  /** The Horn's charge: consecutive blows landed without one landing on you. */
+  chargeStacks: number;
   sinceStamina: number;
   /** Throttles the winded cue so a held attack button can't spam it. */
   windedCd: number;
@@ -522,7 +524,7 @@ export class World {
       attack: 'idle', attackT: 0, attackDur: 0, attackPower: 1, attackThrow: false, retrieving: null, attackRecovery: 0,
       attackBase: null, attackWeaponUid: null, attackSnapshot: null,
       blockRaise: 0, blockT: Infinity, parryArmed: false, parryCd: 0,
-      rangedParryT: 0, parryInvulnT: 0, stunT: 0, steps: 0, parryStacks: 0,
+      rangedParryT: 0, parryInvulnT: 0, stunT: 0, steps: 0, parryStacks: 0, chargeStacks: 0,
       sinceStamina: 10, windedCd: 0, recall: null, cast: null, snuffT: 0, unseenT: 0, riposteT: 0, riposteSwing: false, bulwarkT: 0, ward: null, transition: null,
       sip: null, chew: null, draught: null,
     };
@@ -785,7 +787,10 @@ export class World {
       this.sipBuffered = SIP_BUFFER_SECONDS;
       return false;
     }
-    this.anim.sip = draught(this.state.flask?.infusion)?.sipSeconds ?? SIP_SECONDS;
+    // The Cane reaches the sip and the step as well as the swing: what it
+    // sells is doing *everything* a little sooner, which is the only way a
+    // weapon with a cane's Attack is ever worth a weapon slot.
+    this.anim.sip = (draught(this.state.flask?.infusion)?.sipSeconds ?? SIP_SECONDS) * this.derived.traits.haste;
     this.held.clear();
     this.setBlock(false);
     return true;
@@ -1040,7 +1045,7 @@ export class World {
     p.y = ny;
     this.anim.moveT = 0;
     const encumbered = this.derived.stats.speed < -12;
-    this.anim.moveDur = STEP_TIME * (act === 'back' ? 1.25 : 1) * (encumbered ? 1.2 : 1);
+    this.anim.moveDur = STEP_TIME * (act === 'back' ? 1.25 : 1) * (encumbered ? 1.2 : 1) * this.derived.traits.haste;
   }
 
   /** Called when a step completes. */
@@ -2116,6 +2121,13 @@ export class World {
     // Banked parries ride on the next blows and only the next blows.
     const fed = this.anim.parryStacks * this.derived.traits.parryFeed;
     if (fed > 0) hit.damage = Math.round(hit.damage * (1 + fed));
+    // The Horn's charge is flat Attack rather than a multiplier: it has to be
+    // worth something on the first blows of a fight, when there is nothing
+    // banked yet, or a charge weapon only ever pays off once you have already
+    // won. It is counted before this blow is added, so the first hit of a
+    // fight lands at the Horn's plain strength.
+    const charged = this.anim.chargeStacks * this.derived.traits.charge;
+    if (charged > 0) hit.damage += Math.round(charged);
     // A Marrow Draught rides on the first blow that lands, and only that one.
     const marrow = this.anim.draught?.kind === 'marrow' ? draught(this.state.flask?.infusion)?.marrowMult ?? 1 : 1;
     if (marrow > 1) {
@@ -2135,6 +2147,14 @@ export class World {
       this.anim.bulwarkT = 0;
     }
     e.hp -= hit.damage;
+    // The charge builds on the blow that just landed, so the *next* one is the
+    // one that carries it. Counted here rather than on the swing, because a
+    // swing that hit nothing is not a charge.
+    const chargeMax = this.derived.traits.chargeMax;
+    if (chargeMax > 0 && this.anim.chargeStacks < chargeMax) {
+      this.anim.chargeStacks++;
+      if (this.anim.chargeStacks === chargeMax) this.msg('The horn is up to speed.', '#f0e0ac');
+    }
     if (this.derived.traits.kindling) this.kindle(e);
     const life = this.state.lifetime;
     if (hit.damage > (life.bestHit ?? 0)) life.bestHit = hit.damage;
@@ -2482,6 +2502,20 @@ export class World {
             id: `morsel_${e.id}`, kind: def.morsel, x: e.x, y: e.y,
             remaining: MORSEL_HEAL[def.morsel], droppedAt: this.run.stats.time,
           });
+        }
+        // The Big Toe: a second cut, on its own roll and its own stream, so
+        // carrying the toe cannot shift whether the *first* one dropped.
+        const butcher = this.derived.traits.butcher;
+        if (butcher > 0) {
+          const toeRng = createRng(hashString(`butcher:${this.floor.seed}:${e.id}`));
+          if (toeRng.chance(butcher)) {
+            const spot = this.freeTileNear(e.x, e.y, true);
+            (this.floor.morsels ??= []).push({
+              id: `morsel_toe_${e.id}`, kind: def.morsel, x: spot.x, y: spot.y,
+              remaining: MORSEL_HEAL[def.morsel], droppedAt: this.run.stats.time,
+            });
+            this.msg('The toe finds a second cut.', '#d8a88c');
+          }
         }
       }
       this.dropLoot(e.x, e.y, loot.items, loot.gold);
@@ -4212,6 +4246,12 @@ export class World {
     if (dmg > 0 && !blocked && this.anim.parryStacks > 0) {
       this.anim.parryStacks = 0;
       if (this.derived.traits.parryFeedMax > 0) this.msg('The blade goes cold.', '#9a9aa8');
+    }
+    // The Horn is harsher than the blade: a blow you *blocked* still stops the
+    // charge. It is a charge, and you stopped.
+    if (dmg > 0 && this.anim.chargeStacks > 0) {
+      this.anim.chargeStacks = 0;
+      if (this.derived.traits.chargeMax > 0) this.msg('The charge breaks.', '#9a9aa8');
     }
     // An Iron Draught blunts the next blow that gets through, then is spent.
     if (dmg > 0 && this.anim.draught?.kind === 'iron') {

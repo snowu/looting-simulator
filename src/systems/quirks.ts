@@ -17,8 +17,9 @@ import {
   HERD_LARGE_HP, HERD_SMALL_HP, PASTURE_HERD, QUIRKS, QUIRK_CHANCE, QUIRK_CHANCE_PER_DEPTH,
   QUIRK_IDS, QUIRK_MAX_DEPTH, QUIRK_MIN_DEPTH, QuirkId, quirkDef,
 } from '../data/quirks';
-import { ContainerTier } from './items';
-import { EnemyState, Floor, Prop, createEnemy } from './dungeon';
+import { ContainerTier, makeUnique } from './items';
+import { uniqueForQuirk } from '../data/uniques';
+import { EnemyState, Floor, Prop, blocksMove, createEnemy } from './dungeon';
 
 /** The ladder a promoted container climbs. A secret is already the top. */
 const TIER_LADDER: ContainerTier[] = ['urn', 'chest', 'vault', 'secret'];
@@ -111,7 +112,44 @@ export function applyQuirk(floor: Floor, runSeed: number, difficulty?: Difficult
     }
   }
 
+  plantRelic(floor, id, runSeed);
   return id;
+}
+
+/**
+ * The souvenir. Each strange floor carries exactly one relic that exists
+ * nowhere else, dropped as a pickup rather than shuffled into a container, so
+ * that finding the floor *is* finding the relic — no second roll, no chest you
+ * might walk past.
+ *
+ * It goes on the tile furthest from the arrival stair that has nothing else on
+ * it, which on a pasture is usually somewhere past the Prize Bull. The floor
+ * is the reward; the walk across it is the price.
+ */
+function plantRelic(floor: Floor, quirk: QuirkId, runSeed: number): void {
+  const def = uniqueForQuirk(quirk);
+  if (!def) return;
+  const rng = createRng(hashString(`relic:${runSeed}:${floor.depth}`));
+  const up = floor.stairs.find((s) => !s.down) ?? floor.stairs[0];
+  const taken = new Set(floor.pickups.map((p) => `${p.x},${p.y}`));
+  for (const p of floor.props) taken.add(`${p.x},${p.y}`);
+  const far = floor.rooms
+    .flatMap((r) => {
+      const out: { x: number; y: number }[] = [];
+      for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) out.push({ x, y });
+      return out;
+    })
+    .filter((t) => !blocksMove(floor, t.x, t.y) && !taken.has(`${t.x},${t.y}`) && !floor.stairs.some((s) => s.x === t.x && s.y === t.y))
+    .sort((a, b) => (Math.abs(b.x - up.x) + Math.abs(b.y - up.y)) - (Math.abs(a.x - up.x) + Math.abs(a.y - up.y)))[0];
+  if (!far) return;
+  floor.pickups.push({
+    id: `relic_${quirk}_${floor.depth}`,
+    x: far.x, y: far.y,
+    // Unidentified, like every other relic: the name is supposed to land at
+    // the appraiser rather than in a corridor.
+    items: [makeUnique(def, rng, floor.depth, false)],
+    gold: 0,
+  });
 }
 
 export { quirkDef };
