@@ -4050,8 +4050,12 @@ export class World {
 
   /**
    * The follow-ups of a combo, landing on {@link COMBO_BEAT} while the
-   * creature is already in recovery. They re-aim at where you are now, so
-   * getting out mid-flurry works — the first blow is the one you cannot dodge.
+   * creature is already in recovery.
+   *
+   * They re-aim at where you are now, but the creature does not turn between
+   * them, so stepping out of the arc it committed to breaks the rest of the
+   * flurry while backing straight off does not. The first blow is the one you
+   * cannot dodge.
    */
   private updateCombo(e: EnemyState, def: EnemyDef, dt: number): void {
     if (!e.comboLeft) return;

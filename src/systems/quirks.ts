@@ -19,7 +19,8 @@ import {
 } from '../data/quirks';
 import { ContainerTier, makeUnique } from './items';
 import { uniqueForQuirk } from '../data/uniques';
-import { EnemyState, Floor, Prop, blocksMove, createEnemy } from './dungeon';
+import { EnemyState, Floor, Prop, blocksMove, createEnemy, promoteElite } from './dungeon';
+import { eligibleTraits } from '../data/elites';
 
 /** The ladder a promoted container climbs. A secret is already the top. */
 const TIER_LADDER: ContainerTier[] = ['urn', 'chest', 'vault', 'secret'];
@@ -89,10 +90,16 @@ export function applyQuirk(floor: Floor, runSeed: number, difficulty?: Difficult
       const swap = enemyDef(herdFor(e.def));
       const cow = createEnemy(swap, e.x, e.y, e.facing, e.id, floor.depth, difficulty);
       // Whatever the floor had already decided about this creature that is not
-      // about *what* it is: where it lurks, whether it was marked, the elite
-      // trait it was promoted with. A cow can be an elite cow.
+      // about *what* it is carries over: where it lurks, whether it was marked,
+      // and the elite trait it was promoted with. A cow can be an elite cow —
+      // and without this the Pasture would be the one floor in the game with no
+      // elites on it, which is a difficulty change nobody asked for.
       if (e.lurk) cow.lurk = e.lurk;
       if (e.marked) cow.marked = true;
+      // Re-promoted rather than copied, so the trait's health multiplier is
+      // baked into the cow's health rather than the thing it replaced. A trait
+      // the herd cannot carry is dropped rather than faked.
+      if (e.elite && eligibleTraits(swap).includes(e.elite)) promoteElite(cow, e.elite);
       herd.push(cow);
     }
     floor.enemies = herd;

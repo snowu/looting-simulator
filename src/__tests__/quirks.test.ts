@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createRng } from '../core/rng';
 import { newGame } from '../state/game-state';
 import { startRun } from '../systems/run';
-import { generateFloor } from '../systems/dungeon';
+import { createEnemy, generateFloor, promoteElite } from '../systems/dungeon';
 import { applyQuirk, herdFor, rollQuirk } from '../systems/quirks';
 import {
   PASTURE_HERD, QUIRKS, QUIRK_IDS, QUIRK_MAX_DEPTH, QUIRK_MIN_DEPTH, quirkDef, quirkTimeScale,
@@ -146,6 +146,34 @@ describe('dressing a floor', () => {
     // And anything added to the roster later is already covered, because the
     // match is on health rather than on a list of names.
     for (const def of ENEMIES) expect(Object.values(PASTURE_HERD)).toContain(herdFor(def.id));
+  });
+
+  it('keeps an elite an elite when it becomes a cow', () => {
+    // Without this the Pasture would be the one floor in the game with no
+    // elites on it — a difficulty change smuggled in by a costume change.
+    let checked = 0;
+    for (let seed = 0; seed < 5000 && checked < 1; seed++) {
+      for (let depth = QUIRK_MIN_DEPTH; depth <= QUIRK_MAX_DEPTH; depth++) {
+        if (rollQuirk(seed, depth) !== 'pasture') continue;
+        const f = generateFloor(seed, depth, 'hard');
+        const victim = f.enemies.find((e) => !e.lurk && !e.elite && enemyDef(e.def).behavior !== 'boss');
+        if (!victim) continue;
+        promoteElite(victim, 'ironhide');
+        const id = victim.id;
+        applyQuirk(f, seed, 'hard');
+        const swapped = f.enemies.find((e) => e.id === id)!;
+        // The Prize Bull may have taken this one's place; that is its own rule.
+        if (swapped.def === 'prize_bull') continue;
+        expect(swapped.elite).toBe('ironhide');
+        // The trait's health multiplier is baked into the cow, not into the
+        // thing it replaced: an elite cow outweighs a plain one of its kind.
+        const plain = createEnemy(enemyDef(swapped.def), 0, 0, 0, 'plain', depth, 'hard');
+        expect(swapped.maxHp).toBeGreaterThan(plain.maxHp);
+        checked++;
+        break;
+      }
+    }
+    expect(checked, 'no pasture floor with an ordinary monster on it').toBe(1);
   });
 
   it('keeps the herd off the ordinary spawn tables', () => {

@@ -44,9 +44,12 @@ export interface AttackMove {
    */
   sweep?: boolean;
   /**
-   * Extra strikes after this one, each on {@link COMBO_BEAT} seconds. The
-   * follow-ups track you, so walking out mid-flurry is a real escape rather
-   * than a free one — the first blow is what you cannot dodge.
+   * Extra strikes after this one, each on {@link COMBO_BEAT} seconds.
+   *
+   * They re-aim at where you are now, but the creature does **not** turn
+   * between them: stepping out of the arc it committed to breaks the rest of
+   * the flurry, while backing straight off does not. The first blow is the one
+   * you cannot dodge; the other two are a question about your feet.
    */
   combo?: number;
   /**
