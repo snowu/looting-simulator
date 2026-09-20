@@ -56,18 +56,26 @@ existing monster keeps its exact feel until it is deliberately given a set.
 
 ### The moves
 
-| Move | Windup | Recovery | Power | Shape | What it asks of you |
-|---|---|---|---|---|---|
-| `basic` | 1× | 1× | 1× | adjacent | The beat you already know |
-| `jab` | 0.55× | 0.7× | 0.7× | adjacent | Too fast to walk out of; block or eat it |
-| `flurry` | 0.8× | 1.5× | 0.55× | adjacent, ×2 more | One parry is not enough. The gap after is long |
-| `thrust` | 1.15× | 1.1× | 1.1× | reach 2 | Backing off one tile no longer works |
-| `sweep` | 1.3× | 1.25× | 0.85× | adjacent + both flanks | Sidestepping into a flank is punished |
-| `slam` | 2.1× | 1.8× | 2.2× | adjacent | Enormous tell, enormous cost. Leave, or meet it |
-| `feint` | 1.6× | 0.8× | 0.9× | adjacent | The lean stutters. Parry on the stutter and you eat it |
+| Move | Windup | Recovery | Power | Shape | Rel. DPS | What it asks of you |
+|---|---|---|---|---|---|---|
+| `basic` | 1× | 1× | 1× | adjacent | 1.00 | The beat you already know |
+| `jab` | 0.55× | 0.7× | 0.65× | adjacent | 1.04 | Too fast to walk out of; block or eat it |
+| `flurry` | 0.8× | 1.8× | 0.44× | adjacent, ×2 more | 1.02 | One parry is not enough. The gap after is long |
+| `thrust` | 1.15× | 1.1× | 1.1× | reach 2 | 0.98 | Backing off one tile no longer works |
+| `sweep` | 1.3× | 1.25× | 1.15× | adjacent + both flanks | 0.90 | Sidestepping into a flank is punished |
+| `slam` | 2.1× | 1.8× | 1.9× | adjacent | 0.97 | Enormous tell, enormous cost. Leave, or meet it |
+| `feint` | 1.6× | 0.8× | 1.35× | adjacent | 0.98 | The lean stutters. Bite on it and it hurts |
 
 Seven moves is the whole vocabulary, on purpose. The readable-combat rule in
 MECHANICS.md still holds: a player should be able to name what just hit them.
+
+The "Rel. DPS" column is `relativeDps()`, damage over a whole cycle against a
+creature throwing plain blows for ever. Everything sits within 4% of neutral
+except `sweep`, which is deliberately 10% under: what a sweep sells is taking
+a dodge away, and charging for that in damage as well would make circling a
+big thing simply wrong rather than risky. `attacks.test.ts` holds the whole
+table to 0.89–1.10, so a later addition cannot smuggle difficulty in as
+variety.
 
 ### Telegraphs
 
@@ -83,25 +91,61 @@ information is "this creature feints"; the skill is not biting on the stall.
 
 ### Who gets what
 
-Move sets are assigned by what a creature *is*, not by depth:
+Move sets are assigned by what a creature *is*, not by depth. Twenty creatures
+have one; the rest keep the plain blow until somebody decides otherwise.
 
-- **Rats, bats, spiders** — `jab`-heavy. Small fast things should be small and
-  fast, not slow things with less HP.
-- **Ghouls, spore hunters** — `flurry`. Frantic. The long recovery after is the
-  window the whole fight turns on.
-- **Skeleton spears, icebound guards** — `thrust`. Reach is their identity.
-- **Goblins, cinder raiders** — `feint`. Cunning, not strong.
-- **Champions, ogres, lieutenants** — `slam` and `sweep`. A big thing should
-  make you move your feet.
-- **The Ashen King** — keeps its authored phase script. Bosses are not touched.
+- **`vermin`** — rat, bat, tunnel stalker, Delver Mole. Jab-heavy. Small fast
+  things should be small and fast, not slow things with less health.
+- **`frenzied`** — spider, ceiling crawler, ghoul, spore hunter, mimic.
+  Flurries. The long recovery afterwards is the window the fight turns on.
+- **`drilled`** — skeleton, goblin shieldbearer, your Shade. Two crisp blows,
+  then back behind the guard.
+- **`guardian`** — skeleton shieldguard, icebound guard, Goblin Quartermaster.
+  Reach and width, never speed.
+- **`cunning`** — the Goblin Cutpurse. It knows you are watching for the lean.
+- **`brute`** — Drowned Bones, Bog Seraph, Wandering Heifer. Sweeps and the
+  occasional slam.
+- **`champion`** — Hollow Knight, Barrow Champion, the Prize Bull. Everything,
+  and it commits to the big one more often.
+- **`reaching`** — the Bull. Horns are for reaching with.
 
-### Balance intent
+Archers and casters are left alone: their beat is the projectile's, and a move
+set on top of that would be a second system fighting the first. **The Ashen
+King** keeps his authored phase script; bosses are not touched, and
+`attacks.test.ts` pins that.
+
+### Balance intent, and what the harness said
 
 Every non-basic move trades in the same currency: a move that hits harder or
-further pays for it in wind-up or recovery, and the DPS of a full move set is
-held within ±8% of the same creature's basic-only DPS. This is a *variety*
-change, not a difficulty change. The harness (`npm run tables`) gets a move-set
-column so that claim is checkable rather than asserted.
+further pays for it in wind-up or recovery. This is a *variety* change, not a
+difficulty change.
+
+Measured rather than asserted. `npm run playtest` was run twice over the same
+seeds — once with the move sets stripped out, once with them in — across all
+seven bot profiles:
+
+| Profile | Damage taken, no moves | With moves | Hits taken |
+|---|---|---|---|
+| fresh, parry | 132 | 138 | 13.5 → 17.5 |
+| fresh, no parry | 128 | 135 | 12.9 → 16.9 |
+| iron, reckless | 219 | 214 | 24.4 → 30.2 |
+| iron, careful | 202 | 202 | 21.3 → 27.9 |
+| epic, reckless | 307 | 291 | 39.5 → 45.4 |
+| epic, careful | 273 | 274 | 36.2 → 44.8 |
+| prepared expedition | 538 | 539 | 42.7 → 51.2 |
+
+Total damage taken is flat — every profile within 5%, four of them within 1%.
+Hits taken is up about 28% everywhere, which is precisely what jabs and
+flurries are: the same damage arriving in more, smaller pieces.
+
+Average depth reached barely moves (1.71→1.88, 2.83→2.88, 4.25→4.13,
+5.50→5.63). Per-profile death rates wander by up to 25 points in both
+directions, which at 24 runs a profile is noise rather than signal.
+
+The one number that moved in a direction worth naming is the bot's parry
+count, which fell slightly on every profile that parries (5.8→4.9 on the iron
+kit). That is the feature working: a bot that had memorised one rhythm is
+worse against seven.
 
 ## Part 2 — Strange floors
 
@@ -124,20 +168,40 @@ something to lose and the interruption means more.
 
 > *The stairs end in grass. The sky is underneath you.*
 
-The floor is upside down. The camera is rolled 180°, the floor and ceiling
-textures trade places, and the fog goes pale green. Turning left looks like
-turning right, and that is the joke and the whole difficulty of the floor;
-nothing here hits very hard, because being upside down is the tax.
+The floor is upside down. The camera rolls 180° over about a second — which
+puts the real ceiling below you and the real floor overhead, so no texture
+swap is needed or wanted. Turning left looks like turning right, and that is
+the joke and the whole difficulty of the floor; nothing here hits very hard,
+because being upside down is the tax.
+
+Sprites are billboarded about the camera's *yaw* only, so the cattle turn over
+with the walls rather than standing upright in a tilted world. The viewmodel
+lives in its own upright orthographic scene, so your own hands stay where you
+left them — and with them your bearings.
 
 It is populated entirely by cattle:
 
-- **Wandering Heifer** — enormous, slow, mostly uninterested. `basic` only.
-- **Bull** — `slam` and `thrust`. It charges. Do not be in the line.
-- **The Prize Bull** — the floor's lieutenant. Wears a rosette.
+- **Calf** — small, quick, and has not decided whether you are frightening.
+- **Wandering Heifer** — enormous, slow, mostly uninterested. Mostly.
+- **Bull** — `thrust`. It charges. Do not be in the line.
+- **The Prize Bull** — the floor's champion, in a rosette.
 
-Everything moos. Every cow drops **Prime Cut** (the best morsel in the game) and
-the floor's chests are two rarity rolls above their depth. It is a genuinely
-good floor to find, which is what stops it being only a joke.
+Which monster becomes which is matched on **health**, not on a list of names,
+so a pasture is exactly as dangerous as the depth it sits at and any monster
+added later is already covered.
+
+Cattle are weak to blunt and slash and awkward to skewer — the right way round
+for a large soft animal, and the merciful way round too: the early game's
+common weapon is a mace, and cattle that shrugged off blunt made the Pasture a
+wall rather than a joke. Every cow leaves a morsel, and every container on the
+floor is promoted two tiers (an urn becomes a chest, a chest becomes a vault),
+which is what stops the floor being only a joke.
+
+Measured on the ladder bench: at depth 2 against the copper mace it is meant to
+be met with, the Prize Bull takes 11 hits and kills you in 4 — alongside the
+mimic. At depth 5 it is 11 hits and 5, alongside the Barrow Champion. The rank
+and file are *easier* than the ordinary roster at the same depth, which is the
+intent: being upside down is the tax.
 
 Drops here, and only here: **The Prize Bull's Horn**.
 
@@ -189,9 +253,16 @@ happens to be a toe. Whose toe is never established.
 
 ### The Prize Bull's Horn
 
-From the Pasture. A spear-class weapon that keeps the `thrust` reach even on a
-step, and gains Attack for every consecutive hit without being hit, resetting
-when you take a blow. A charge weapon for a charging animal.
+From the Pasture. A spear-class weapon that keeps a spear's reach of 2 and
+pays **flat +4 Attack for each consecutive blow landed without one landing on
+you**, to a maximum of six. A charge weapon for a charging animal.
+
+Flat rather than a multiplier on purpose: a charge weapon whose payoff scales
+with your damage only ever pays off once you have already won the fight. Flat
+Attack means the first blows of a fight are worth something too.
+
+A blow you *blocked* still clears it, which is harsher than the parry-feeding
+blade's rule. It is a charge, and you stopped.
 
 ### The Impresario's Cane
 
