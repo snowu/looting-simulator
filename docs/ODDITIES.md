@@ -210,8 +210,11 @@ Drops here, and only here: **The Prize Bull's Horn**.
 > *The colour goes out of the walls. Somewhere, a piano starts.*
 
 Black and white — a luminance pass in the post shader, contrast pushed, the
-dither left on so it grains like nitrate. Everything runs at **1.25×**: you,
-the monsters, the projectiles, the torches. A synthesised piano rag loops.
+dither left on so it grains like nitrate. The **simulation** runs at **1.25×**: you,
+the monsters, the shafts in flight and the run clock. It is scaled once, at the
+top of the world update, so nothing can fall out of step with anything else —
+and the renderer is deliberately left alone, so the torches gutter at their
+usual rate. A synthesised piano rag loops.
 
 And everyone is dressed for the evening. Every creature on the floor wears a
 **top hat and a monocle**, and whatever melee weapon is actually in your hands

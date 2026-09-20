@@ -6,7 +6,7 @@
 
 Being upside down is the whole price of the floor. Nothing here hits harder than its depth, the cattle are weak to the tools you would actually butcher one with, and every container on the floor is two tiers better than it has any right to be: every urn is a chest, every chest a vault.
 
-**The Silent Picture.** The colour goes out of the walls and somewhere a piano starts. Everything runs at a quarter again as fast — you, the monsters, the shafts in the air, the torches. Every creature on the floor is wearing a top hat and a monocle, and whatever you are actually swinging is drawn as a lacquered cane. It is still a greatsword. It still hits like one. It just looks like a cane, because on that floor everyone is dressed for the evening.
+**The Silent Picture.** The colour goes out of the walls and somewhere a piano starts. Everything runs at a quarter again as fast — you, the monsters, and the shafts in the air. Every creature on the floor is wearing a top hat and a monocle, and whatever you are actually swinging is drawn as a lacquered cane. It is still a greatsword. It still hits like one. It just looks like a cane, because on that floor everyone is dressed for the evening.
 
 Nothing here hits harder either. The clock is the content: a flurry at five-quarters speed is a different problem, not a bigger one.
 
