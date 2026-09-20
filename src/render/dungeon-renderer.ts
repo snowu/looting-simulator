@@ -19,6 +19,7 @@ import { itemIcon } from '../systems/items';
 import { lightIntensity } from '../systems/meta';
 import { World } from '../world/world';
 import { artSize, artTexture } from './art-cache';
+import { getArt } from '../art/registry';
 import { enemyPose } from './enemy-pose';
 import { moveById } from '../data/attacks';
 import { quirkDef } from '../data/quirks';
@@ -33,11 +34,45 @@ const EYE = 1.32;
 const QUIRK_EASE = 0.9;
 
 /**
- * The top hat, as a fraction of the wearer's height, and how far its brim sits
- * down over the skull. Sized off the creature so a rat's is a rat's.
+ * The top hat, as a fraction of the wearer's height, and how far of it sits
+ * down over the skull. Sized off the creature, so a rat's is a rat's.
  */
 const HAT_SCALE = 0.34;
-const HAT_SINK = 0.55;
+const HAT_SINK = 0.42;
+
+/**
+ * The monocle: how big against the wearer, how far below its crown the lens
+ * sits, and how far to one side. Offset along the billboard's own right, so it
+ * stays over the same eye whichever way you walk around the thing.
+ */
+const MONOCLE_SCALE = 0.17;
+const MONOCLE_DROP = 0.2;
+const MONOCLE_SIDE = 0.1;
+
+/**
+ * Where a sprite's drawn content actually starts, as a fraction of its canvas
+ * height down from the top.
+ *
+ * Enemy art is authored on a 32×32 canvas and almost nothing fills it — a bat
+ * is drawn in the middle, a champion nearly to the edge. Hanging the hat off
+ * the canvas top would float it a head's height above a bat and bury it in a
+ * champion. Measured from the ArtDef's rows (cheap, exact, no raster needed)
+ * and cached, because it never changes.
+ */
+const SPRITE_TOPS = new Map<string, number>();
+
+function spriteTop(artId: string): number {
+  let top = SPRITE_TOPS.get(artId);
+  if (top === undefined) {
+    const def = getArt(artId);
+    const rows = def?.rows ?? [];
+    let first = rows.findIndex((r) => /[^.]/.test(r));
+    if (first < 0) first = 0;
+    top = rows.length ? first / rows.length : 0;
+    SPRITE_TOPS.set(artId, top);
+  }
+  return top;
+}
 
 /** Shrine glow by flavour — the same hues as their flames. */
 const SHRINE_LIGHT: Record<ShrineKind, string> = {
@@ -167,6 +202,24 @@ export class DungeonRenderer {
     const mesh = new THREE.Mesh(this.quad, mat);
     scene.add(mesh);
     return { mesh, mat, seen: true };
+  }
+
+  /**
+   * What you appear to be holding.
+   *
+   * On the Silent Picture every melee weapon is a cane, in black lacquer,
+   * whatever is actually strapped to your arm. Nothing about the weapon
+   * changes — the damage, the reach and the timing are the greatsword's, and
+   * the pack still says greatsword. Only the picture is a cane, because on
+   * that floor everyone is dressed for the evening.
+   *
+   * A sigil cast and an empty hand are left alone: the cast frame is the only
+   * tell that a cast is happening, and a fist is already the right gag.
+   */
+  private dressWeapon(art: { id: string; materialId?: string }, world: World): { id: string; materialId?: string } {
+    if (quirkDef(world.floor.quirk)?.id !== 'silent') return art;
+    if (art.id === 'vm_fist' || art.id.startsWith('vm_sigil')) return art;
+    return { id: 'vm_cane', materialId: 'deep_yew' };
   }
 
   /** A move's tell colour, parsed once and reused. */
@@ -312,6 +365,9 @@ export class DungeonRenderer {
     this.shared.uTime.value = this.time;
     const floor = world.floor;
     const biome = biomeForFloor(floor);
+    // A strange floor dresses the biome it was generated in: the walls stay the
+    // walls, but the light, the grade and which way is up are the quirk's.
+    const floorQuirk = quirkDef(floor.quirk);
     if (this.levelFloor !== floor) {
       if (this.level) {
         this.scene.remove(this.level.root);
@@ -327,13 +383,13 @@ export class DungeonRenderer {
         d.mesh.visible = false;
       }
       this.scene.add(this.level.root);
-      this.shared.uFogColor.value.set(biome.fog);
-      this.shared.uAmbient.value.set(biome.ambient);
-      this.shared.uFogNear.value = 4;
-      this.shared.uFogFar.value = 18;
+      this.shared.uFogColor.value.set(floorQuirk?.fog ?? biome.fog);
+      this.shared.uAmbient.value.set(floorQuirk?.ambient ?? biome.ambient);
+      this.shared.uFogNear.value = floorQuirk?.fogNear ?? 4;
+      this.shared.uFogFar.value = floorQuirk?.fogFar ?? 18;
     }
-    this.shared.uAmbient.value.set(biome.ambient);
-    if (biome.id === 'emberworks') {
+    this.shared.uAmbient.value.set(floorQuirk?.ambient ?? biome.ambient);
+    if (biome.id === 'emberworks' && !floorQuirk) {
       this.shared.uAmbient.value.multiplyScalar(1 + 0.08 * Math.sin(this.time * Math.PI * 0.8 + 1.7));
     }
     this.level!.update(dt);
@@ -362,9 +418,8 @@ export class DungeonRenderer {
     // upside down rather than as a tilted photograph of a normal one. The
     // viewmodel lives in its own upright ortho scene, so your own hands stay
     // where you left them, and with them your bearings.
-    const quirk = quirkDef(world.floor.quirk);
-    const rollTo = quirk?.id === 'pasture' ? Math.PI : 0;
-    const monoTo = quirk?.id === 'silent' ? 1 : 0;
+    const rollTo = floorQuirk?.id === 'pasture' ? Math.PI : 0;
+    const monoTo = floorQuirk?.id === 'silent' ? 1 : 0;
     const ease = Math.min(1, dt / QUIRK_EASE);
     this.roll += (rollTo - this.roll) * ease;
     this.mono += (monoTo - this.mono) * ease;
@@ -522,10 +577,22 @@ export class DungeonRenderer {
       // The Silent Picture: everyone is dressed for the occasion. One sprite
       // billboarded above the head rather than a hat painted into sixty enemy
       // frames, so it fits a Gravecaller, a mimic and whatever is added next.
-      if (quirk?.id === 'silent' && en.ai !== 'dead') {
+      if (floorQuirk?.id === 'silent' && en.ai !== 'dead') {
+        // Sat on the creature's own crown, not on the top of its canvas.
+        const crown = y + height * (1 - spriteTop(`${def.sprite}_${pose.frame}`));
         const hat = this.sprite(`h:${en.id}`);
         const brim = height * HAT_SCALE;
-        this.place(hat, 'prop_tophat', wx, y + height - brim * HAT_SINK, wz, brim);
+        this.place(hat, 'prop_tophat', wx, crown - brim * HAT_SINK, wz, brim);
+        // And the monocle, over one eye. The billboard's own right, so it does
+        // not swing round to the other side of the face as you circle.
+        const lens = height * MONOCLE_SCALE;
+        const yaw = this.camera.rotation.y;
+        const side = height * MONOCLE_SIDE;
+        this.place(
+          this.sprite(`m:${en.id}`), 'prop_monocle',
+          wx + Math.cos(yaw) * side, crown - height * MONOCLE_DROP - lens / 2, wz - Math.sin(yaw) * side,
+          lens,
+        );
       }
     }
 
@@ -705,7 +772,7 @@ export class DungeonRenderer {
   private updateViewmodel(world: World, _dt: number, flicker: number): void {
     const a = world.anim;
     const W = this.lowW, H = LOW_H;
-    const art = world.weaponArt();
+    const art = this.dressWeapon(world.weaponArt(), world);
     const ramp = art.materialId ? findMaterial(art.materialId)?.ramp : undefined;
     const key = art.id + (art.materialId ?? '');
     const w = this.vmWeapon;

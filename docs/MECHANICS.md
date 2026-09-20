@@ -158,6 +158,39 @@ Three biomes each have one rule you can turn to your advantage. The first time y
 | The Deep Mines | **Braced walls come down hard** | Bringing down a cracked wall collapses its timbering: every monster on a tile beside the wall takes `30 + 12 × depth` blunt damage (× its blunt resistance) and reels for **1.2s** (bosses don't reel). You strike from beside it, so the roof never falls on you. The blows' noise draws monsters to you, often right beside the crack |
 | The Vermin Burrows | **Noise carries** | Every noise reaches **×1.75** further: cracked-wall blows, Wardcry's shout, alarm wards and a struck chest's clang. Breaking a **root cache** makes a racket that draws every monster within **12** tiles to the **cache**, not to you, which makes it a lure |
 
+### Strange floors
+
+*Files: `src/data/quirks.ts`, `src/systems/quirks.ts`*
+
+Every so often the stairs do not go where stairs go. A floor **from depth 2 to
+5** that is being generated for the first time in a delve has a chance of
+rolling a **quirk** — **5%** at depth 2, rising **1.5 points per depth** to
+9.5% at depth 5 — on its own stream (`quirk:<runSeed>:<depth>`), so the same
+seed always gives the same strange floor and walking back up and down again
+returns to it. Never depth 1, and never the throne.
+
+There is no key, no branch and no rumour. You find out by walking down.
+
+The floor itself is generated exactly like any other floor — same shape, same
+seed, same stairs, same containers — and then **dressed**. Nothing a quirk does
+can move a wall.
+
+| | The Forbidden Pasture | The Silent Picture |
+|---|---|---|
+| Arrival | *The stairs end in grass. The sky is underneath you.* | *The colour goes out of the walls. Somewhere, a piano starts.* |
+| What changes | The world is **upside down** — the camera rolls 180°, so the ceiling is beneath you and turning left looks like turning right. Your own weapon stays upright. Pale green daylight, and you can see **30 tiles** instead of 18 | **Black and white**: a luminance pass with the contrast pushed, the dither left on so it grains. Everything runs at **×1.25** — you, the monsters, the shafts, the torches. A piano rag plays. Every creature wears a **top hat and a monocle**, and every melee weapon in your hands looks like a **cane** |
+| The monsters | Every monster is replaced by **cattle of its own weight class** (matched on health, so the floor is as dangerous as its depth), and one becomes **The Prize Bull**. Cattle are weak to blunt and slash and resist pierce | Unchanged. The speed-up is the whole content: a flurry at ×1.25 is a different problem |
+| Containers | Promoted **two tiers** — every urn is a chest, every chest a vault | Promoted **one tier** |
+| Its relic | **The Prize Bull's Horn**, waiting on the far side of the floor | **The Impresario's Cane**, waiting on the far side of the floor |
+
+The ×1.25 is a **clock**, not a damage number. Nothing on the Silent Picture
+hits harder; it only arrives sooner.
+
+Each floor's relic exists **nowhere else**: both carry a lock that keeps them
+out of every Legendary roll in the game, including the King's guaranteed drop.
+They are planted as a pickup on the walkable tile furthest from the arrival
+stair, unidentified like any other relic.
+
 ### Elemental surfaces and residents
 
 Wall choices use a position hash, without generation RNG. Emberworks uses five
@@ -367,13 +400,57 @@ Eligible monsters independently roll a morsel at `0.28 − 0.024 × (depth − 1
 - **Idle / wander:** a step every 1.2–3.2s, staying within 3 tiles of where it spawned.
 - **Noticing you:** needs line of sight within its sight range; walls, pillars and closed doors block it. Alert lasts 6 seconds after losing sight (8 if you hit it), during which it paths to where it last saw you.
 - **Chasing:** breadth-first pathfinding, recomputed about 3 times a second, up to 18 tiles. Closed doors block monsters, so shutting one behind you works.
-- **Attacking (the telegraph):** the monster commits to the tile you are standing in, leans in and flashes red for its windup, then strikes. **Step out of that tile and it misses.** Then it's in recovery and can't act.
+- **Attacking (the telegraph):** the monster commits to a **move**, leans in and flashes for its windup in that move's colour, then strikes. A plain blow commits to the tile you are standing in, so **stepping out of that tile makes it miss**. Then it's in recovery and can't act. See *Attack moves* below for the rest of the vocabulary.
 - **Staggering:** hitting a monster with under 40 base HP during its windup interrupts it (0.5s recovery). Bosses never stagger.
 - **Shields** (Shieldbearer, Shieldguard): while you are close the guard runs a rhythm you can read off the sprite — the shield sweeps center (**raise**, 0.25s), holds (**up**, 1.4s), drops (**down**, 1.6s). A frontal blow into the raise is answered with a shield-bash: your guard drops, you are **stunned for 1 second**, and the bearer starts a swing you cannot dodge. A frontal blow into the hold is **absorbed for 75%** with no stagger; three chips running sag the guard and drop it early. Blows from behind, mid-swing, while reeling, or into the dropped guard land full — and break the chip count. Flank them, meet their swing, or time the drop.
 - **Ranged:** only fire along a row or column with clear sight. They back away if you close to melee and sidestep to line up a shot. Bolts travel tile by tile, so strafing out of the line dodges them.
 - **Skittish** (goblins): flee below 35% health.
 - **Thieves** (the Goblin Cutpurse, and any *Thieving* elite): a melee blow that gets through (not parried, not blocked, and you survive it) takes one thing from your backpack: a piece of gear whole, or half a stack rounded up. Equipped gear is never at risk. The thief then flees at once, glowing gold so you can chase it in the dark, and the target bar says what it is carrying. It is a chase you can win, but have to work for. It runs at its normal pace (`THIEF_LADEN` is 1: you already outpace a goblin). After a step in your sight it has a **5%** chance to fumble its prize and stand still for **0.7s**. It runs in a panic, not cleverly: any step that isn't towards you, preferring to keep going straight, so it will bolt into a dead end. When it loses you it keeps sprinting for **2s** (`THIEF_BOLT`), then goes to ground, creeping one tile every **1s** (`THIEF_CREEP`) and still glowing. Every 4 steps, up to 3 times, 1–3 coins spill from its purse, leaving a short trail. Kill it and it drops what it took. If it spends **25 seconds** (`THIEF_ESCAPE`) out of your sight, it gets away and the item is gone. Cornered, it fights. It steals once; a thief that is already carrying does not steal again.
 - **Boss:** melee when adjacent, otherwise a three-bolt shadow volley when aligned.
+
+
+### Attack moves
+
+*File: `src/data/attacks.ts`*
+
+A creature carries a weighted **move set** and rolls one at the moment it
+commits, so the same monster does not swing the same way twice running. A
+creature with no set throws the plain blow every time, which is exactly what
+every monster did before move sets existed.
+
+The move multiplies the creature's own `windup`, `recovery` and `attack`, so a
+fast creature's slam is still faster than a slow creature's.
+
+| Move | Windup | Recovery | Power | Reach | Tell | What it does |
+|---|---|---|---|---|---|---|
+| Plain blow | ×1 | ×1 | ×1 | 1 | red flicker | The tile it aimed at, and only that tile |
+| Jab | ×0.55 | ×0.7 | ×0.65 | 1 | pale yellow | Too fast to walk out of. Block it or wear it |
+| Flurry | ×0.8 | ×1.8 | ×0.44 | 1 | pink | Three blows on one commitment, 0.26s apart, each re-aimed at where you are. The recovery afterwards is the longest in the game |
+| Thrust | ×1.15 | ×1.1 | ×1.1 | **2** | blue | Reaches over the gap a step back just made. A wall in between stops it |
+| Sweep | ×1.3 | ×1.25 | ×1.15 | 1 + flanks | orange | Also strikes the two tiles a sidestep would go to |
+| Slam | ×2.1 | ×1.8 | ×1.9 | 1 | red, **growing** | Nearly twice the damage, with the sprite swelling as it gathers |
+| Feint | ×1.6 | ×0.8 | ×1.35 | 1 | violet, **held steady** | The lean stalls once for 22% of the windup, at about the point an ordinary blow would have landed, then finishes. The hardest non-slam blow in the game if you spent your guard on the stall |
+
+Reading them: the wind-up glow is the move. A steady glow instead of a flicker
+is a feint holding its stall; a glow that grows with the sprite is a slam.
+
+**A flurry's follow-ups are cancelled** if you open the creature up — a parry,
+or anything else that leaves it vulnerable — so meeting the first blow is worth
+doing even though two more are coming.
+
+Every move is priced against the plain blow's damage over time and lands within
+4% of it, except the sweep at 10% under. Move sets change what a fight asks of
+you, not how hard it hits: measured across seven bot profiles, total damage
+taken is flat while **hits taken rose about 28%** — the same damage in more,
+smaller pieces. Numbers and method in `docs/ODDITIES.md`.
+
+Who has one: vermin (rat, bat, tunnel stalker, mole) jab; spiders, ghouls,
+spore hunters and mimics flurry; skeletons, goblin shieldbearers and your Shade
+drill; shieldguards, icebound guards and the Quartermaster guard; the Cutpurse
+feints; Drowned Bones, the Bog Seraph and the Wandering Heifer brute; the
+Hollow Knight, the Barrow Champion and the Prize Bull do everything. Archers
+and casters keep the projectile's beat, and **the King keeps his authored phase
+script**.
 
 ### Floor lieutenants
 
@@ -623,7 +700,7 @@ A 6-floor delve runs 150–350 landed blows, so a weapon that starts the run at 
 *Files: `src/data/uniques.ts`, `src/systems/relics.ts`*
 
 **There are no Legendaries but these.** A Legendary roll no longer produces a
-Rare with four affixes and a generated name — it is diverted into one of nine
+Rare with four affixes and a generated name — it is diverted into one of twelve
 hand-authored relics, each a fixed base in a fixed material with one effect that
 hooks a system the game already runs. A relic still takes **two** ordinary
 affixes for texture (never four), rolls quality 1.08–1.26, and arrives
@@ -660,6 +737,9 @@ fails the suite rather than reaching a player.
 | Eulogy Plate | Star-Iron Plate | +14 Defense, +20 Health; **all** healing at exactly 50% |
 | Charlie Work | Silver Band | +2 tiles of trap-reading: 4 ahead instead of 2 |
 | Kitten Mittens | Shadow-Silk Gloves | −2 tiles off every creature's sight; a skeleton's 7 becomes 5 |
+| The Big Toe | Wyrm-Bone Big Toe | +6 Attack; a 17% chance on each kill of a second morsel dropping beside the first |
+| The Prize Bull's Horn | Wyrm-Bone Horn — *Forbidden Pasture only* | +4 Attack per consecutive blow landed without one landing on you, to 6 (+24). Any damage clears it, **including a blow you blocked**. Keeps the spear reach of 2 |
+| The Impresario's Cane | Deep-Yew Cane — *Silent Picture only* | Wind-up, recovery, walking and drinking all take **92%** as long. A cane's Attack is a fraction of any real weapon at its depth, which is the trade |
 | Fight Milk | *Legendary flask infusion* | While infused: stamina regen 22/s → 37.4/s, −20 max stamina; sip potency −10 points |
 
 **Depth.** Legendary only becomes available at depth 6 (`rarityAvailableAtDepth`),
@@ -669,6 +749,18 @@ its own `minDepth`.
 **The King's promise.** The Ashen King's guaranteed Legendary is always one this
 playthrough has **never held**, until the whole set has dropped; after that it is
 any of them. Elsewhere an unseen relic is weighted ×6 against one you have.
+
+**Relics locked to a floor.** The Horn and the Cane carry an `only` marker and
+are kept out of every Legendary roll in the game — a chest cannot produce one,
+and neither can the King's promise. Each waits on the far side of its own
+strange floor instead, which makes them the only relics that can be found
+**above depth 6**, since every other Legendary needs a depth-6 rarity roll.
+Their bases are not in the drop pool either, so the only Horn and the only Cane
+in the game are the ones their floors hand you.
+
+**The Big Toe is not locked.** Its base is an ordinary weapon found from depth
+2 and forged at the bench like any other; only its Legendary is a relic, and
+that comes from the usual depth-6 roll.
 
 **Two records, because holding is not knowing.**
 
@@ -792,6 +884,9 @@ Bases are arranged into **gear lines** (`GEAR_LINES`), each running from the cru
 | Halberd | weapon **2H** | 32 atk, −7 speed | +8 atk | 0.36 / 0.70 / 27 / **2** **cleave** | 118 | 3 |
 | Great Maul | weapon **2H** | 40 atk, −12 speed | +9 atk | 0.48 / 0.78 / 31 / 1 **cleave** | 128 | 4 |
 | Greatsword | weapon **2H** | 36 atk, −8 speed | +8 atk | 0.40 / 0.64 / 29 / 1 **cleave** | 172 | 5 |
+| Big Toe | weapon (bone/hide) | 17 atk, −4 speed | +4 atk | 0.30 / 0.58 / 19 / 1 **cleave 40%, stagger 0.35s, 2 chips** | 44 | 2 |
+| Horn | weapon (bone) — *not in the drop pool* | 20 atk | +4.5 atk | 0.26 / 0.54 / 18 / **2** | 60 | — |
+| Cane | weapon (wood) — *not in the drop pool* | 8 atk, +4 speed | +2 atk | 0.16 / 0.32 / 9 / 1 | 40 | — |
 | Throwing Knives | **thrown** | 5 atk | +1.4 atk | — (thrown only) | 26 | 2 |
 | Throwing Axes | **thrown** | 12 atk | +2.8 atk | — (thrown only) | 58 | 3 |
 | Javelins | **thrown** | 17 atk | +2.9 atk | — (thrown only) | 88 | 4 |

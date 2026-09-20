@@ -53,6 +53,17 @@ export interface QuirkDef {
    * uses, with no second set of numbers to keep in step.
    */
   lootBoost: number;
+  /**
+   * Lighting, replacing the biome's own. A strange floor has to be *legible*
+   * before it can be funny: the first cut of the Pasture inherited a depth-1
+   * Ossuary's near-black fog, and a cow five tiles away in the dark upside
+   * down is not a joke, it is a bug report. Absent keeps the biome's.
+   */
+  fog?: string;
+  ambient?: string;
+  /** How far you can see, replacing the usual 4/18. */
+  fogNear?: number;
+  fogFar?: number;
   /** Shallowest and deepest floor it will dress. */
   minDepth: number;
   maxDepth: number;
@@ -82,6 +93,9 @@ export const QUIRKS: Record<QuirkId, QuirkDef> = {
     // Being upside down is the tax this floor charges. Nothing here needs to
     // hit fast on top of it.
     timeScale: 1,
+    // Daylight, upside down: a pale green sky where the floor should be, and
+    // enough of it to see a cow coming across a field.
+    fog: '#3c5a34', ambient: '#6f8a5e', fogNear: 8, fogFar: 30,
     lootBoost: 2,
     minDepth: 2, maxDepth: 5, weight: 1,
   },
@@ -93,6 +107,10 @@ export const QUIRKS: Record<QuirkId, QuirkDef> = {
     // The speed-up is the floor's entire content: a flurry at five-quarters is
     // a genuinely different problem. Damage is untouched; only time moves.
     timeScale: 1.25,
+    // Projector light: brighter and flatter than any dungeon, because the post
+    // pass is about to take every colour out of it anyway and a black-and-white
+    // image made from near-black is just black.
+    fog: '#1c1c1c', ambient: '#6a6a6a', fogNear: 6, fogFar: 24,
     lootBoost: 1,
     minDepth: 2, maxDepth: 5, weight: 1,
   },

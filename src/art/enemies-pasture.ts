@@ -119,11 +119,17 @@ const bullAtk = sym(stamp(stamp(COW_HALF, COW_HORNS, 1, 3), COW_CHEW, 8, 16));
  * apply to a Gravecaller, a mimic and whatever gets added next year without
  * anyone drawing anything.
  */
+/*
+ * Lighter than a top hat has any business being. The Silent Picture takes
+ * every colour out of the frame, and a black hat on a black ceiling is not a
+ * joke anyone can see — the first cut read as two grey stripes floating over a
+ * skull. Charcoal crown, bright band, so the silhouette survives the grade.
+ */
 const HAT_PAL: Record<string, string> = {
-  A: '#0c0a0e',
-  B: '#2a2630',
-  C: '#6a6270',
-  D: '#4a1820',
+  A: '#1a1820',
+  B: '#6e6a7c',
+  C: '#dcd8e4',
+  D: '#a8384c',
 };
 
 const TOP_HAT: ArtDef = {
@@ -143,9 +149,43 @@ const TOP_HAT: ArtDef = {
     AABBBBBBBBBBBBAA
     ACCCCCCCCCCCCCCA
     AAAAAAAAAAAAAAAA
-    ................
-    ................
-    ................
+  `),
+};
+
+
+/**
+ * A monocle, for the Silent Picture. Billboarded over one eye the way the hat
+ * is billboarded over the skull, and for the same reason: it has to fit a
+ * skeleton, a mimic and a bat without anyone repainting them.
+ *
+ * The lens is left transparent so whatever is behind it still shows through —
+ * the gag only works if you can see the eye being monocled.
+ */
+const MONOCLE_PAL: Record<string, string> = {
+  A: '#e8e4f0',
+  B: '#9a94a8',
+};
+
+const MONOCLE: ArtDef = {
+  id: 'prop_monocle',
+  palette: MONOCLE_PAL,
+  rows: rows(`
+    ....AAAAAA......
+    ..AA......AA....
+    .A..........A...
+    .A..........A...
+    A............A..
+    A............A..
+    A............A..
+    A............A..
+    .A..........A...
+    .A..........A...
+    ..AA......AA....
+    ....AAAAAA..B...
+    ............B...
+    ...........B....
+    ...........B....
+    ..........B.....
   `),
 };
 
@@ -160,4 +200,5 @@ export const ENEMY_ART_PASTURE: ArtDef[] = [
   { id: 'prizebull_atk', palette: PRIZE_PAL, rows: stamp(bullAtk, ROSETTE, 4, 22) },
 
   TOP_HAT,
+  MONOCLE,
 ];

@@ -211,11 +211,27 @@ Drops here, and only here: **The Prize Bull's Horn**.
 
 Black and white — a luminance pass in the post shader, contrast pushed, the
 dither left on so it grains like nitrate. Everything runs at **1.25×**: you,
-the monsters, the projectiles, the torches. A synthesised piano rag loops. And
-every creature on the floor is wearing a top hat.
+the monsters, the projectiles, the torches. A synthesised piano rag loops.
 
-The hat is a billboard sprite drawn above the head, not a repaint of 60 enemy
-frames, so it works on anything — including whatever gets added next year.
+And everyone is dressed for the evening. Every creature on the floor wears a
+**top hat and a monocle**, and whatever melee weapon is actually in your hands
+is drawn as a **lacquered cane** — the greatsword's damage, reach and timing,
+unchanged, in the shape of a cane. The pack still says greatsword. Only the
+picture is a cane.
+
+Both accessories are billboard sprites drawn over the creature rather than a
+repaint of sixty enemy frames, so they work on anything — a mimic, a bat,
+whatever gets added next year. Two details make them land:
+
+- The hat sits on the creature's **drawn crown**, not the top of its 32×32
+  canvas. Almost nothing fills its canvas, so hanging the hat off the canvas
+  top floated it a head's height above a bat. The opaque top row is measured
+  from the ArtDef and cached.
+- The hat is **charcoal, not black**. A black top hat in a black-and-white
+  scene on a dark ceiling read as two grey stripes floating over a skull.
+- The monocle is offset along the **billboard's own right**, so it stays over
+  the same eye as you circle, and its lens is transparent so you can see the
+  eye being monocled.
 
 Mechanically the speed-up is the floor's whole content. A `flurry` at 1.25× is
 a genuinely different problem, which is Part 1 paying for Part 2. Damage is
