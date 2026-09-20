@@ -307,7 +307,18 @@ floor's gimmick, bottled, permanently, at the cost of a weapon slot's damage.
 - Does the Pasture need a way out for a player who genuinely cannot play
   upside down? Leaning no: the stairs are where the stairs always are, and the
   automap is not rolled.
-- Can the headless bot play a strange floor? The Silent Picture yes, since it
-  is only a time scale. The Pasture's roll is a camera concern, so the bot
-  never notices it — which is the correct answer, but means the harness cannot
-  tell us whether it is too hard.
+- **Answered by running it: the bot does walk onto strange floors**, and often.
+  At 5–9.5% a floor across 168 floors per profile it meets both regularly, and
+  retuning the cattle visibly moved the prepared expedition's death rate. So
+  the harness *does* cover the Pasture's monsters.
+
+  What it does not cover is the Pasture's actual difficulty, which is a camera
+  roll the bot has no equivalent of. Its numbers for that floor are therefore
+  an underestimate by an unknown amount, and the only honest reading is "the
+  cattle are priced correctly and the disorientation is untested". If that
+  matters later, the lever is a bot penalty standing in for it — a chance to
+  step the wrong way — rather than a change to the cattle.
+- Does the Silent Picture's ×1.25 belong in the harness's difficulty snapshot?
+  It is a floor property rather than a run property today, which is right, but
+  it means a delve's recorded difficulty does not mention that one of its
+  floors ran fast.
