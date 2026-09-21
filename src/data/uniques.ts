@@ -29,7 +29,13 @@ export type UniqueEffectId =
   /** Breath comes back faster. */
   | 'swift_stamina'
   /** The floor notices you later than it should. */
-  | 'unseen';
+  | 'unseen'
+  /** Kills sometimes leave a second morsel. The toe knows where the meat is. */
+  | 'butcher'
+  /** Attack builds with every consecutive blow landed, and is lost when one lands on you. */
+  | 'charge'
+  /** Everything you do is faster: swing, recovery, step and flask. */
+  | 'haste';
 
 export interface UniqueDef {
   id: string;
@@ -65,9 +71,63 @@ export interface UniqueDef {
   stats?: Partial<Stats>;
   /** Shallowest depth the dungeon will hand it out at. */
   minDepth: number;
+  /**
+   * A strange floor this relic comes from **and nowhere else** — the quirk id
+   * from `src/data/quirks.ts`. Absent means the ordinary Legendary pool.
+   *
+   * A relic locked this way is kept out of `pickUnique` entirely, so it cannot
+   * arrive from a chest, a King, or anything else that rolls a Legendary. The
+   * only way to hold it is to find the floor, which is the point: it is the
+   * souvenir, and a souvenir you can buy is not one.
+   */
+  only?: string;
 }
 
 export const UNIQUES: UniqueDef[] = [
+  {
+    id: 'big_toe',
+    name: 'The Big Toe',
+    kind: 'gear',
+    baseId: 'big_toe',
+    materialId: 'wyrm_bone',
+    effect: 'butcher',
+    power: 0.17,
+    rule: 'What it kills, it tenderises. Some of them leave more behind than they should.',
+    detail: 'A 17% chance on each kill of a second morsel dropping. Rolls per kill, and stacks with nothing — the toe is the only thing in the game that does this. +6 Attack over its base.',
+    flavour: 'Nobody has ever established whose. The prevailing theory at the Bleakmere forge is that it is better not to, and that whatever it came off is probably still down there, limping.',
+    stats: { attack: 6 },
+    minDepth: 2,
+  },
+  {
+    id: 'prize_horn',
+    name: "The Prize Bull's Horn",
+    kind: 'gear',
+    baseId: 'prize_horn',
+    materialId: 'wyrm_bone',
+    effect: 'charge',
+    power: 4,
+    only: 'pasture',
+    rule: 'It gathers as long as you keep going forward. Anything that lands on you puts it back to nothing.',
+    detail: '+4 Attack for each consecutive blow you land without being hit, to a maximum of 6 — +24 Attack at full charge. Any damage you take clears it outright, including a blow you blocked. Keeps the spear reach of 2 tiles.',
+    flavour: 'First prize, several years running, in a competition nobody down here remembers holding. It was still warm when you took it.',
+    stats: { attack: 4 },
+    minDepth: 2,
+  },
+  {
+    id: 'impresario_cane',
+    name: "The Impresario's Cane",
+    kind: 'gear',
+    baseId: 'cane',
+    materialId: 'deep_yew',
+    effect: 'haste',
+    power: 0.92,
+    only: 'silent',
+    rule: 'Everything you do, you do a little sooner than you meant to.',
+    detail: 'Wind-up, recovery, walking and drinking all take 92% as long — about 8.7% faster at everything. It is a cane: the Attack on it is a fraction of any real weapon at its depth, and that is the whole trade.',
+    flavour: 'He kept the time, and the time kept him. When the reel ran out they found the cane on the stage and nothing else, still going a quarter faster than the room.',
+    stats: { attack: 4, speed: 6 },
+    minDepth: 3,
+  },
   {
     id: 'ordinary_sword',
     name: 'An Entirely Ordinary Sword',
@@ -198,6 +258,17 @@ export const UNIQUES: UniqueDef[] = [
 
 /** The relics a Legendary equipment roll can turn into. Tonics are not worn. */
 export const GEAR_UNIQUES: UniqueDef[] = UNIQUES.filter((u) => u.kind === 'gear');
+
+/**
+ * The gear relics an ordinary Legendary roll may become: everything except the
+ * ones locked to a strange floor.
+ */
+export const ROLLABLE_UNIQUES: UniqueDef[] = GEAR_UNIQUES.filter((u) => !u.only);
+
+/** The relic a strange floor hands out, if it has one. */
+export function uniqueForQuirk(quirk: string): UniqueDef | undefined {
+  return GEAR_UNIQUES.find((u) => u.only === quirk);
+}
 
 const BY_ID = new Map(UNIQUES.map((u) => [u.id, u]));
 const BY_BASE = new Map(UNIQUES.filter((u) => u.kind === 'tonic').map((u) => [u.baseId, u]));

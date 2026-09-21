@@ -1,3 +1,7 @@
+// `attacks` is a leaf module (it imports nothing), so this stays acyclic and
+// type-only: shared types keep no runtime dependency on content tables.
+import type { MoveWeight } from './data/attacks';
+
 // ---------------------------------------------------------------------------
 // Rarity
 // ---------------------------------------------------------------------------
@@ -412,6 +416,14 @@ export interface EnemyDef {
   resist: Partial<Record<DamageType, number>>;
   undead?: boolean;
   behavior: EnemyBehavior;
+  /**
+   * What it does when it commits: a weighted set of attack moves, each with
+   * its own timing, reach and consequence. **Absent means the single beat it
+   * has always had** — `windup`, a blow on the tile in front, `recovery` —
+   * so a creature is only as varied as it has deliberately been made.
+   * See `src/data/attacks.ts`.
+   */
+  moves?: MoveWeight[];
   /**
    * Carried shield, if any. Frontal blows that land while the bearer is
    * neither winding up nor reeling are absorbed for `block` (fraction), and

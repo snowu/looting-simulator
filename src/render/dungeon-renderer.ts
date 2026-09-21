@@ -19,13 +19,69 @@ import { itemIcon } from '../systems/items';
 import { lightIntensity } from '../systems/meta';
 import { World } from '../world/world';
 import { artSize, artTexture } from './art-cache';
+import { getArt } from '../art/registry';
 import { enemyPose } from './enemy-pose';
+import { moveById } from '../data/attacks';
+import { quirkDef } from '../data/quirks';
 import { LevelView, TILE, WALL_H, buildLevel, tileX, tileZ } from './level-mesh';
 import { MAX_LIGHTS, PS1Material, PostPass, Shared, createLowResTarget, createShared, ps1Material } from './ps1';
 import { brightness } from './brightness';
 import { MORSEL_ART, MORSEL_ROT_SECONDS } from '../systems/healing';
 
 const EYE = 1.32;
+
+/**
+ * Seconds a strange floor's grade or roll takes to come on, and to let go —
+ * a duration, and the code below has to keep it one.
+ */
+const QUIRK_EASE = 0.9;
+
+/**
+ * The top hat, as a fraction of the wearer's height, and how far of it sits
+ * down over the skull. Sized off the creature, so a rat's is a rat's.
+ */
+const HAT_SCALE = 0.34;
+const HAT_SINK = 0.42;
+
+/**
+ * The monocle: how big against the wearer, how far below its crown the lens
+ * sits, and how far to one side. Offset along the billboard's own right, so it
+ * stays over the same eye whichever way you walk around the thing.
+ */
+const MONOCLE_SCALE = 0.17;
+const MONOCLE_DROP = 0.2;
+const MONOCLE_SIDE = 0.1;
+
+/**
+ * Where a sprite's drawn content actually starts, as a fraction of its canvas
+ * height down from the top.
+ *
+ * Enemy art is authored on a 32×32 canvas and almost nothing fills it — a bat
+ * is drawn in the middle, a champion nearly to the edge. Hanging the hat off
+ * the canvas top would float it a head's height above a bat and bury it in a
+ * champion. Measured from the ArtDef's rows (cheap, exact, no raster needed)
+ * and cached for ever, because it never changes.
+ *
+ * Note that this reads the **code-drawn** art rather than the PNG the renderer
+ * actually samples. Those cannot disagree in a valid build — `npm run art:check`
+ * fails if `public/art` has drifted from `src/art` — so the measurement holds.
+ * If overrides ever stop being generated from the code art, this has to
+ * measure the raster instead, and clearing the cache would not be enough.
+ */
+const SPRITE_TOPS = new Map<string, number>();
+
+function spriteTop(artId: string): number {
+  let top = SPRITE_TOPS.get(artId);
+  if (top === undefined) {
+    const def = getArt(artId);
+    const rows = def?.rows ?? [];
+    let first = rows.findIndex((r) => /[^.]/.test(r));
+    if (first < 0) first = 0;
+    top = rows.length ? first / rows.length : 0;
+    SPRITE_TOPS.set(artId, top);
+  }
+  return top;
+}
 
 /** Shrine glow by flavour — the same hues as their flames. */
 const SHRINE_LIGHT: Record<ShrineKind, string> = {
@@ -53,6 +109,13 @@ interface LightCand {
 }
 
 const TMP = new THREE.Vector3();
+
+/**
+ * Tell colours, parsed once. A wind-up is drawn every frame for every visible
+ * creature, and `new THREE.Color(hex)` in that loop is a string parse per
+ * monster per frame for a palette of seven fixed values.
+ */
+const TELL_COLORS = new Map<string, THREE.Color>();
 
 /**
  * Renders the World into a low-res target with PS1 shading, then upscales
@@ -86,6 +149,20 @@ export class DungeonRenderer {
   private called = new Map<string, number>();
   private trapTriggeredAt = new Map<string, number>();
   private lowW = 320;
+  /**
+   * The Forbidden Pasture's roll, eased rather than snapped. The world turns
+   * over across {@link QUIRK_EASE} seconds when you arrive and turns back when
+   * you leave, because a hard cut to upside down reads as a broken renderer.
+   */
+  private roll = 0;
+  /** Where the turn started and where it is going, and how far along it is. */
+  private rollFrom = 0;
+  private rollTo = 0;
+  private monoFrom = 0;
+  private monoTo = 0;
+  private quirkT = 1;
+  /** The Silent Picture's grade, eased the same way. */
+  private mono = 0;
   deathFade = 0;
 
   // Falling water drops for the Sunken Catacombs: a small pool of billboarded
@@ -140,6 +217,34 @@ export class DungeonRenderer {
     const mesh = new THREE.Mesh(this.quad, mat);
     scene.add(mesh);
     return { mesh, mat, seen: true };
+  }
+
+  /**
+   * What you appear to be holding.
+   *
+   * On the Silent Picture every melee weapon is a cane, in black lacquer,
+   * whatever is actually strapped to your arm. Nothing about the weapon
+   * changes — the damage, the reach and the timing are the greatsword's, and
+   * the pack still says greatsword. Only the picture is a cane, because on
+   * that floor everyone is dressed for the evening.
+   *
+   * A sigil cast and an empty hand are left alone: the cast frame is the only
+   * tell that a cast is happening, and a fist is already the right gag.
+   */
+  private dressWeapon(art: { id: string; materialId?: string }, world: World): { id: string; materialId?: string } {
+    if (quirkDef(world.floor.quirk)?.id !== 'silent') return art;
+    if (art.id === 'vm_fist' || art.id.startsWith('vm_sigil')) return art;
+    return { id: 'vm_cane', materialId: 'deep_yew' };
+  }
+
+  /** A move's tell colour, parsed once and reused. */
+  private tellColor(hex: string): THREE.Color {
+    let c = TELL_COLORS.get(hex);
+    if (!c) {
+      c = new THREE.Color(hex);
+      TELL_COLORS.set(hex, c);
+    }
+    return c;
   }
 
   private sprite(key: string): SpriteObj {
@@ -275,6 +380,9 @@ export class DungeonRenderer {
     this.shared.uTime.value = this.time;
     const floor = world.floor;
     const biome = biomeForFloor(floor);
+    // A strange floor dresses the biome it was generated in: the walls stay the
+    // walls, but the light, the grade and which way is up are the quirk's.
+    const floorQuirk = quirkDef(floor.quirk);
     if (this.levelFloor !== floor) {
       if (this.level) {
         this.scene.remove(this.level.root);
@@ -290,13 +398,13 @@ export class DungeonRenderer {
         d.mesh.visible = false;
       }
       this.scene.add(this.level.root);
-      this.shared.uFogColor.value.set(biome.fog);
-      this.shared.uAmbient.value.set(biome.ambient);
-      this.shared.uFogNear.value = 4;
-      this.shared.uFogFar.value = 18;
+      this.shared.uFogColor.value.set(floorQuirk?.fog ?? biome.fog);
+      this.shared.uAmbient.value.set(floorQuirk?.ambient ?? biome.ambient);
+      this.shared.uFogNear.value = floorQuirk?.fogNear ?? 4;
+      this.shared.uFogFar.value = floorQuirk?.fogFar ?? 18;
     }
-    this.shared.uAmbient.value.set(biome.ambient);
-    if (biome.id === 'emberworks') {
+    this.shared.uAmbient.value.set(floorQuirk?.ambient ?? biome.ambient);
+    if (biome.id === 'emberworks' && !floorQuirk) {
       this.shared.uAmbient.value.multiplyScalar(1 + 0.08 * Math.sin(this.time * Math.PI * 0.8 + 1.7));
     }
     this.level!.update(dt);
@@ -319,7 +427,33 @@ export class DungeonRenderer {
       EYE + bob + (Math.random() - 0.5) * sh - this.deathFade * 0.9,
       cz + fwdZ * lunge + (Math.random() - 0.5) * sh,
     );
-    this.camera.rotation.set(0, -a.yaw, this.deathFade * 0.5);
+    // Ease towards whatever this floor is. Sprites stay world-upright and are
+    // billboarded about the camera's yaw only, so a rolled camera turns the
+    // cattle over with the walls — which is what makes the floor read as
+    // upside down rather than as a tilted photograph of a normal one. The
+    // viewmodel lives in its own upright ortho scene, so your own hands stay
+    // where you left them, and with them your bearings.
+    const rollTo = floorQuirk?.id === 'pasture' ? Math.PI : 0;
+    const monoTo = floorQuirk?.id === 'silent' ? 1 : 0;
+    // A real duration, not an exponential tail. Smoothing by `dt / QUIRK_EASE`
+    // makes QUIRK_EASE a time *constant*: from upright to upside down took six
+    // or seven seconds, so you arrived on the Pasture the right way up and
+    // were still turning over long after the transition fade had finished.
+    // Progress runs 0→1 over exactly QUIRK_EASE seconds and restarts from
+    // wherever it had got to whenever the target changes.
+    if (rollTo !== this.rollTo || monoTo !== this.monoTo) {
+      this.rollFrom = this.roll;
+      this.monoFrom = this.mono;
+      this.rollTo = rollTo;
+      this.monoTo = monoTo;
+      this.quirkT = 0;
+    }
+    this.quirkT = Math.min(1, this.quirkT + dt / QUIRK_EASE);
+    // Smoothstep, so it eases out of the turn rather than stopping dead.
+    const k = this.quirkT * this.quirkT * (3 - 2 * this.quirkT);
+    this.roll = this.rollFrom + (rollTo - this.rollFrom) * k;
+    this.mono = this.monoFrom + (monoTo - this.monoFrom) * k;
+    this.camera.rotation.set(0, -a.yaw, this.deathFade * 0.5 + this.roll);
 
     this.lava.update(biome.id === 'emberworks' ? dt : 0, this.camera);
 
@@ -411,6 +545,10 @@ export class DungeonRenderer {
       let wx = tileX(ex), wz = tileZ(ey);
       // Which frame, and how far the body is thrown: one shared model, so the
       // dev art sheet previews exactly what the dungeon draws.
+      // The move it committed to owns the beat, so the lean has to gather over
+      // the wind-up it is actually running — a slam that leaned at basic speed
+      // would stand fully wound with a second still to go.
+      const move = moveById(en.move);
       const pose = enemyPose({
         ai: en.ai,
         timer: en.timer,
@@ -418,13 +556,20 @@ export class DungeonRenderer {
         guard: en.guard,
         hasShield: !!def.shield,
         ranged: def.behavior === 'ranged',
-        windup: def.windup,
-        recovery: def.recovery,
+        windup: def.windup * move.windup,
+        recovery: def.recovery * move.recovery,
         grabT: en.grabT,
       });
       wx += DX[en.facing] * pose.lunge;
       wz += DY[en.facing] * pose.lunge;
-      const height = def.scale * 1.9 * (en.scavenged ? 1.15 : 1);
+      // How far into the wind-up it is, for the tell and the swell.
+      const wound = en.ai === 'windup'
+        ? Math.max(0, Math.min(1, 1 - en.timer / Math.max(0.01, def.windup * move.windup)))
+        : 0;
+      // A slam gathers itself upward. Growth is what makes the one attack you
+      // must not stand in front of readable out of the corner of an eye.
+      const swell = 1 + (move.swell ?? 0) * wound;
+      const height = def.scale * 1.9 * (en.scavenged ? 1.15 : 1) * swell;
       let y = (def.floats ? 0.35 + Math.sin(this.time * 2.5 + en.x) * 0.1 : 0) + (en.moveT < 1 ? Math.abs(Math.sin(en.moveT * Math.PI)) * 0.08 : 0);
       // A called corpse lies at the floor and is drawn up as the chant runs.
       if (en.ai === 'dead') y -= call !== undefined ? (1 - call) * 1.2 : (fused ? Math.min(en.deadT, 0.3) : en.deadT) * 1.4;
@@ -432,7 +577,17 @@ export class DungeonRenderer {
       if (en.hurtT > 0) s.mat.uniforms.uTint.value.set(1, 0.95, 0.9, Math.min(0.8, en.hurtT * 3));
       // Your Shade: a pale, cold wash so it never reads as an ordinary knight.
       else if (en.def === 'shade' && en.ai !== 'dead' && en.ai !== 'windup') s.mat.uniforms.uTint.value.set(0.6, 0.72, 1, 0.45 + 0.08 * Math.sin(this.time * 2));
-      else if (en.ai === 'windup' || (en.grabT ?? 0) > 0) s.mat.uniforms.uTint.value.set(1, 0.2, 0.1, 0.12 + 0.12 * Math.sin(this.time * 30));
+      else if (en.ai === 'windup' || (en.grabT ?? 0) > 0) {
+        // The wind-up glows in the colour of the move being thrown, and the
+        // glow deepens as it gathers: which attack is coming, and how soon,
+        // in one signal. A plain blow keeps the old red flicker exactly.
+        const c = this.tellColor(move.tell);
+        const held = (en.feintT ?? 0) > 0;
+        // A feint's stall holds the glow steady instead of flickering — the
+        // creature is *showing* you the blow. That stillness is the tell.
+        const pulse = held ? 0.26 : 0.12 + 0.12 * Math.sin(this.time * 30);
+        s.mat.uniforms.uTint.value.set(c.r, c.g, c.b, pulse + 0.18 * wound * (move.swell ? 1 : 0));
+      }
       else if (en.elite && en.ai !== 'dead') {
         // A slow pulse in the trait's colour: readable at a glance, and never
         // confusable with the fast red flicker of a wind-up.
@@ -446,6 +601,27 @@ export class DungeonRenderer {
         const c = new THREE.Color(ELITES.vengeful.color);
         s.mat.uniforms.uTint.value.set(c.r, c.g, c.b, 0.35 + 0.3 * Math.abs(Math.sin(this.time * 14)));
       } else if (en.ai === 'dead') s.mat.uniforms.uTint.value.set(0, 0, 0, Math.min(1, en.deadT * 1.2));
+
+      // The Silent Picture: everyone is dressed for the occasion. One sprite
+      // billboarded above the head rather than a hat painted into sixty enemy
+      // frames, so it fits a Gravecaller, a mimic and whatever is added next.
+      if (floorQuirk?.id === 'silent' && en.ai !== 'dead') {
+        // Sat on the creature's own crown, not on the top of its canvas.
+        const crown = y + height * (1 - spriteTop(`${def.sprite}_${pose.frame}`));
+        const hat = this.sprite(`h:${en.id}`);
+        const brim = height * HAT_SCALE;
+        this.place(hat, 'prop_tophat', wx, crown - brim * HAT_SINK, wz, brim);
+        // And the monocle, over one eye. The billboard's own right, so it does
+        // not swing round to the other side of the face as you circle.
+        const lens = height * MONOCLE_SCALE;
+        const yaw = this.camera.rotation.y;
+        const side = height * MONOCLE_SIDE;
+        this.place(
+          this.sprite(`m:${en.id}`), 'prop_monocle',
+          wx + Math.cos(yaw) * side, crown - height * MONOCLE_DROP - lens / 2, wz - Math.sin(yaw) * side,
+          lens,
+        );
+      }
     }
 
     for (const tr of floor.traps ?? []) {
@@ -607,6 +783,7 @@ export class DungeonRenderer {
     pu.uBrightness.value = brightness.get();
     const hpFrac = p.hp / world.derived.maxHp;
     pu.uLowHp.value = hpFrac < 0.3 ? 0.5 + 0.5 * Math.sin(this.time * 5) : 0;
+    pu.uMono.value = this.mono;
     let fade = 0;
     if (a.transition) fade = a.transition.t < 0.45 ? a.transition.t / 0.45 : Math.max(0, 1 - (a.transition.t - 0.45) / 0.45);
     pu.uFade.value = Math.max(fade, this.deathFade * 0.85);
@@ -623,7 +800,7 @@ export class DungeonRenderer {
   private updateViewmodel(world: World, _dt: number, flicker: number): void {
     const a = world.anim;
     const W = this.lowW, H = LOW_H;
-    const art = world.weaponArt();
+    const art = this.dressWeapon(world.weaponArt(), world);
     const ramp = art.materialId ? findMaterial(art.materialId)?.ramp : undefined;
     const key = art.id + (art.materialId ?? '');
     const w = this.vmWeapon;

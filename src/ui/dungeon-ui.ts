@@ -508,7 +508,9 @@ export class DungeonOverlays {
       h(
         'p',
         { class: 'dim', style: 'margin-top:10px;max-width:640px' },
-        'Enemies telegraph: they lean in and flash red before striking. Step out of the tile they are aiming at, or raise your guard. ' +
+        'Enemies telegraph: they lean in and flash before striking, in the colour of the blow they have chosen. ' +
+        'A pale flicker is quick and cheap, blue reaches two tiles, orange comes round the sides, violet stalls once to bait your guard, ' +
+        'and a red flare that grows is the one to be somewhere else for. Step out of the tile they are aiming at, or raise your guard. ' +
           'Raise it just as the blow lands and you parry instead: no damage at all, melee attackers reel and take double, and arrows and bolts fly back the way they came. ' +
           'Your shield flashes while the window is open. Holding the guard up does not parry — you have to meet the swing. ' +
           'Two-handed weapons leave the offhand disabled and block only 20%, but parry exactly like any other weapon. Their blow cleaves for a quarter into every tile touching the thing they hit, including the one behind it. Thrown shafts ride on their own belt slot, so you carry them alongside a weapon and a shield, and you hurl one with T rather than with the attack button. They land where they stop: walk over one to collect it, or hold R to call them back — one leaves the floor every three quarters of a second and flies to your raised left hand, which is the animation for it. Distant shafts and shafts on other floors return from nearby instead of flying across the dungeon. The call costs no stamina and stopping it never loses a shaft already in the air; it still lands. Swinging, casting, a blow, or releasing R stops the call. Each shaft that lands back in your hand wears the belt by one. ' +

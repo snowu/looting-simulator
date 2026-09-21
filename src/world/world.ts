@@ -12,6 +12,9 @@ import {
   BULWARK_MULT, BULWARK_SOAK, BULWARK_WINDOW, EXECUTION_REFUND_MULT, KINDLING_AT, KINDLING_SPREAD, LAST_FLASK_MULT,
   RETRIEVAL_MULT, RIPOSTE_MULT, RIPOSTE_WINDOW,
 } from '../data/properties';
+import { AttackMove, COMBO_BEAT, FEINT_AT, FEINT_HOLD, chooseMove, meleeReach, moveById } from '../data/attacks';
+import { quirkDef, quirkTimeScale } from '../data/quirks';
+import { applyQuirk } from '../systems/quirks';
 import { FORK_DEPTH, ROADS, ROAD_DEPTHS } from '../data/routes';
 import { SHADE_ID, placeShade } from '../systems/grave';
 import { LIGHTLESS_LIGHT, SEAL_FIND, sealDifficulty, sealFloorMods } from '../data/seals';
@@ -190,6 +193,8 @@ export interface PlayerAnim {
   steps: number;
   /** Parries banked by a blade that feeds on them. Never saved: a fight's state. */
   parryStacks: number;
+  /** The Horn's charge: consecutive blows landed without one landing on you. */
+  chargeStacks: number;
   sinceStamina: number;
   /** Throttles the winded cue so a held attack button can't spam it. */
   windedCd: number;
@@ -519,7 +524,7 @@ export class World {
       attack: 'idle', attackT: 0, attackDur: 0, attackPower: 1, attackThrow: false, retrieving: null, attackRecovery: 0,
       attackBase: null, attackWeaponUid: null, attackSnapshot: null,
       blockRaise: 0, blockT: Infinity, parryArmed: false, parryCd: 0,
-      rangedParryT: 0, parryInvulnT: 0, stunT: 0, steps: 0, parryStacks: 0,
+      rangedParryT: 0, parryInvulnT: 0, stunT: 0, steps: 0, parryStacks: 0, chargeStacks: 0,
       sinceStamina: 10, windedCd: 0, recall: null, cast: null, snuffT: 0, unseenT: 0, riposteT: 0, riposteSwing: false, bulwarkT: 0, ward: null, transition: null,
       sip: null, chew: null, draught: null,
     };
@@ -782,7 +787,10 @@ export class World {
       this.sipBuffered = SIP_BUFFER_SECONDS;
       return false;
     }
-    this.anim.sip = draught(this.state.flask?.infusion)?.sipSeconds ?? SIP_SECONDS;
+    // The Cane reaches the sip and the step as well as the swing: what it
+    // sells is doing *everything* a little sooner, which is the only way a
+    // weapon with a cane's Attack is ever worth a weapon slot.
+    this.anim.sip = (draught(this.state.flask?.infusion)?.sipSeconds ?? SIP_SECONDS) * this.derived.traits.haste;
     this.held.clear();
     this.setBlock(false);
     return true;
@@ -798,6 +806,12 @@ export class World {
 
   update(dt: number): void {
     dt = Math.min(dt, 0.05);
+    // A strange floor may run the whole dungeon fast. Scaling the clock here —
+    // once, before anything reads it — means the speed-up reaches the player,
+    // the monsters, the shafts in flight, the torches and the run timer
+    // together, rather than being sprinkled over whichever systems remembered
+    // to ask. Nothing hits harder on a fast floor; it only arrives sooner.
+    dt *= quirkTimeScale(this.floor.quirk);
     this.time += dt;
     if (this.run.outcome !== 'active') return;
     this.run.stats.time += dt;
@@ -1031,7 +1045,7 @@ export class World {
     p.y = ny;
     this.anim.moveT = 0;
     const encumbered = this.derived.stats.speed < -12;
-    this.anim.moveDur = STEP_TIME * (act === 'back' ? 1.25 : 1) * (encumbered ? 1.2 : 1);
+    this.anim.moveDur = STEP_TIME * (act === 'back' ? 1.25 : 1) * (encumbered ? 1.2 : 1) * this.derived.traits.haste;
   }
 
   /** Called when a step completes. */
@@ -1103,6 +1117,9 @@ export class World {
 
   private changeFloor(dir: 'down' | 'up'): void {
     const run = this.run;
+    // Said on the way out, while the floor you are leaving is still `this.floor`.
+    const leaving = quirkDef(this.floor.quirk);
+    if (leaving) this.msg(leaving.parting, leaving.color);
     // A floor transition cannot erase a charge that was still in flight.
     for (const pr of this.projectiles) {
       if (!pr.thrownBase) continue;
@@ -1120,6 +1137,14 @@ export class World {
       const force = shrinePityFor(run.floors, run.depth);
       const road = run.road && ROAD_DEPTHS.includes(run.depth) ? run.road : undefined;
       run.floors[run.depth - 1] = generateFloor(run.seed, run.depth, this.difficultyId, force, road, sealFloorMods(run.seals));
+      // Dressed after generation and **before** the passes that follow, which
+      // is deliberate and load-bearing rather than incidental. The lieutenant
+      // pass then reads the floor it is actually going to stand on: a
+      // Forbidden Pasture has no goblins, so it correctly cannot produce a
+      // Goblin Quartermaster with nothing to command, and gets the Hoarder or
+      // nothing. Your Shade is placed afterwards and so stays your Shade
+      // rather than becoming a cow, which is also what you want.
+      applyQuirk(run.floors[run.depth - 1]!, run.seed, this.difficultyId);
       this.placeHunterMark(run.floors[run.depth - 1]!);
       this.placeLieutenant(run.floors[run.depth - 1]!);
       if (!run.shadePlaced && placeShade(this.state, run.floors[run.depth - 1]!, run.seed, this.difficultyId)) {
@@ -1159,10 +1184,18 @@ export class World {
       }
     }
     this.reveal();
+    const quirk = quirkDef(f.quirk);
     const biome = biomeForFloor(f);
-    this.msg(`Depth ${run.depth} — ${biome.name}`, '#d8c8a8');
+    // A strange floor announces itself instead of its biome. The biome is still
+    // underneath it — the walls are the walls — but naming it would bury the
+    // one thing the player needs to notice.
+    this.msg(`Depth ${run.depth} — ${quirk ? quirk.name : biome.name}`, quirk ? quirk.color : '#d8c8a8');
+    // Once, on the floor's first visit — same rule as a biome law's arrival
+    // line below. Walking back up and down again re-announces the floor by
+    // name, which is enough; the whole paragraph again is not.
+    if (quirk && fresh) this.msg(quirk.arrival, quirk.color);
     const law = lawFor(f.biome);
-    if (law && fresh) this.msg(law.arrival, law.color);
+    if (law && fresh && !quirk) this.msg(law.arrival, law.color);
     if (run.depth === FINAL_DEPTH && dir === 'down') this.msg('The air is thick with ash. Something waits below the throne.', '#c080ff');
     this.emit({ type: 'floor' });
   }
@@ -2089,7 +2122,16 @@ export class World {
       return;
     }
     e.blocks = 0;
-    const hit = playerHitsEnemy(this.rng, this.derived, this.anim.attackPower * powerMult, def, defensePower(e.power) * this.diff.enemyDefense);
+    // The Horn's charge is Attack, not damage: it goes into the swing before
+    // armour takes its cut, so "+4 Attack" means what it says and a target
+    // immune to the blow is immune to the charge behind it. Counted before
+    // this blow is added, so the first hit of a fight lands at plain strength.
+    // Clamped to what you are *currently* holding, so a charge cannot be parked
+    // by swapping the Horn off and restored by swapping it back on.
+    const chargeMax = this.derived.traits.chargeMax;
+    this.anim.chargeStacks = Math.min(this.anim.chargeStacks, chargeMax);
+    const charged = this.anim.chargeStacks * this.derived.traits.charge;
+    const hit = playerHitsEnemy(this.rng, this.derived, this.anim.attackPower * powerMult, def, defensePower(e.power) * this.diff.enemyDefense, charged);
     // Everything you land while the parry opening lasts hits twice as hard.
     const exposed = !!e.vuln && e.vuln > 0;
     if (exposed) hit.damage = Math.round(hit.damage * PARRY_VULN_MULT);
@@ -2115,6 +2157,13 @@ export class World {
       this.anim.bulwarkT = 0;
     }
     e.hp -= hit.damage;
+    // The charge builds on the blow that just landed, so the *next* one is the
+    // one that carries it. Counted here rather than on the swing, because a
+    // swing that hit nothing is not a charge.
+    if (chargeMax > 0 && this.anim.chargeStacks < chargeMax) {
+      this.anim.chargeStacks++;
+      if (this.anim.chargeStacks === chargeMax) this.msg('The horn is up to speed.', '#f0e0ac');
+    }
     if (this.derived.traits.kindling) this.kindle(e);
     const life = this.state.lifetime;
     if (hit.damage > (life.bestHit ?? 0)) life.bestHit = hit.damage;
@@ -2462,6 +2511,20 @@ export class World {
             id: `morsel_${e.id}`, kind: def.morsel, x: e.x, y: e.y,
             remaining: MORSEL_HEAL[def.morsel], droppedAt: this.run.stats.time,
           });
+        }
+        // The Big Toe: a second cut, on its own roll and its own stream, so
+        // carrying the toe cannot shift whether the *first* one dropped.
+        const butcher = this.derived.traits.butcher;
+        if (butcher > 0) {
+          const toeRng = createRng(hashString(`butcher:${this.floor.seed}:${e.id}`));
+          if (toeRng.chance(butcher)) {
+            const spot = this.freeTileNear(e.x, e.y, true);
+            (this.floor.morsels ??= []).push({
+              id: `morsel_toe_${e.id}`, kind: def.morsel, x: spot.x, y: spot.y,
+              remaining: MORSEL_HEAL[def.morsel], droppedAt: this.run.stats.time,
+            });
+            this.msg('The toe finds a second cut.', '#d8a88c');
+          }
         }
       }
       this.dropLoot(e.x, e.y, loot.items, loot.gold);
@@ -3848,9 +3911,13 @@ export class World {
         if (this.runWithLoot(e, def, dist, sees, dt)) continue;
       }
 
+      // The rest of a flurry lands while the creature is already recovering.
+      this.updateCombo(e, def, dt);
+
       switch (e.ai) {
         case 'windup':
-          e.timer -= dt;
+          // A feint holds the lean once, then runs the rest of the wind-up.
+          if (!this.updateFeint(e, def, dt)) e.timer -= dt;
           if (e.timer <= 0) this.enemyStrike(e, def);
           continue;
         case 'recover':
@@ -3887,6 +3954,13 @@ export class World {
         const ranged = !!def.projectile && (def.behavior === 'ranged' || def.behavior === 'boss');
         if (dist === 1 && e.attackCd <= 0 && (def.behavior !== 'ranged')) {
           this.beginWindup(e, def, p.x, p.y);
+          continue;
+        }
+        // A creature with reach commits from a tile further out, down the line
+        // it is facing — but only with a move that actually reaches, so the
+        // threat it shows is the threat it throws.
+        if (dist === 2 && aligned && e.attackCd <= 0 && def.behavior !== 'ranged' && meleeReach(def) >= 2) {
+          this.beginWindup(e, def, p.x, p.y, 2);
           continue;
         }
         if (ranged && aligned && dist >= 2 && dist <= (def.range ?? 4) + 2 && e.attackCd <= 0) {
@@ -3934,7 +4008,7 @@ export class World {
     }
   }
 
-  private beginWindup(e: EnemyState, def: EnemyDef, tx: number, ty: number): void {
+  private beginWindup(e: EnemyState, def: EnemyDef, tx: number, ty: number, minReach = 1): void {
     const d = dirOf(Math.sign(tx - e.x), Math.sign(ty - e.y));
     if (d !== null) e.facing = d;
     // Swinging means the shield is elsewhere: the guard drops tired.
@@ -3943,16 +4017,88 @@ export class World {
       e.guardT = Math.max(e.guardT ?? 0, GUARD_DOWN);
       e.blocks = 0;
     }
+    // What it commits to is rolled here, not at spawn: a creature knocked out
+    // of a slam and coming back may well answer with something quicker.
+    const pool = minReach > 1 ? def.moves?.filter((m) => moveById(m.id).reach >= minReach) : def.moves;
+    const move = chooseMove(pool, (total) => this.rng.float(0, total));
+    e.move = move.id === 'basic' ? undefined : move.id;
+    delete e.feintT;
+    delete e.feinted;
+    delete e.comboLeft;
+    delete e.comboT;
     e.ai = 'windup';
-    e.timer = def.windup;
+    e.timer = def.windup * move.windup;
     e.lastSeenX = tx;
     e.lastSeenY = ty;
   }
 
+  /**
+   * A feint's stall. Held once per wind-up, at the point an ordinary blow of
+   * the same creature would have landed — which is exactly what makes biting
+   * on it feel like being read rather than being cheated.
+   *
+   * Returns true while the lean is frozen, so the wind-up timer does not run.
+   */
+  private updateFeint(e: EnemyState, def: EnemyDef, dt: number): boolean {
+    const move = moveById(e.move);
+    if (!move.feint) return false;
+    if ((e.feintT ?? 0) > 0) {
+      e.feintT = Math.max(0, e.feintT! - dt);
+      return e.feintT > 0;
+    }
+    if (e.feinted) return false;
+    const full = def.windup * move.windup;
+    if (e.timer <= full * (1 - FEINT_AT)) {
+      e.feinted = true;
+      e.feintT = full * FEINT_HOLD;
+      this.sfx('miss', e.x, e.y);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * The follow-ups of a combo, landing on {@link COMBO_BEAT} while the
+   * creature is already in recovery.
+   *
+   * They re-aim at where you are now, but the creature does not turn between
+   * them, so stepping out of the arc it committed to breaks the rest of the
+   * flurry while backing straight off does not. The first blow is the one you
+   * cannot dodge.
+   */
+  private updateCombo(e: EnemyState, def: EnemyDef, dt: number): void {
+    if (!e.comboLeft) return;
+    // Parried, knocked out or otherwise opened up: the rest of the flurry is
+    // the price. This is what makes meeting the *first* blow worth doing.
+    if ((e.vuln ?? 0) > 0) {
+      delete e.comboLeft;
+      delete e.comboT;
+      return;
+    }
+    e.comboT = (e.comboT ?? 0) - dt;
+    if (e.comboT! > 0) return;
+    e.comboLeft--;
+    if (e.comboLeft <= 0) {
+      delete e.comboLeft;
+      delete e.comboT;
+    } else {
+      e.comboT = COMBO_BEAT;
+    }
+    const p = this.player;
+    e.lastSeenX = p.x;
+    e.lastSeenY = p.y;
+    this.landBlow(e, def, moveById(e.move));
+  }
+
   private enemyStrike(e: EnemyState, def: EnemyDef): void {
+    const move = moveById(e.move);
     e.ai = 'recover';
-    e.timer = def.recovery;
-    e.attackCd = def.recovery + 0.2;
+    e.timer = def.recovery * move.recovery;
+    e.attackCd = def.recovery * move.recovery + 0.2;
+    if (move.combo) {
+      e.comboLeft = move.combo;
+      e.comboT = COMBO_BEAT;
+    }
     // Stamped by the blow itself, so the follow-through is drawn only when
     // there was one. See `enemyPose`.
     e.strikeT = 0;
@@ -3969,20 +4115,61 @@ export class World {
         if (off !== 0 && blocksSight(this.floor, e.x + ox, e.y + oy)) continue;
         this.projectiles.push({
           id: this.projN++, x: e.x + ox + 0.5, y: e.y + oy + 0.5, dx, dy, speed: pr.speed,
-          damage: Math.round(def.attack * attackPower(e.power) * (e.scavengerAttack ?? 1) * this.rally(e) * this.diff.enemyDamage), type: pr.damageType, sprite: pr.sprite, light: pr.light,
+          damage: Math.round(def.attack * move.power * attackPower(e.power) * (e.scavengerAttack ?? 1) * this.rally(e) * this.diff.enemyDamage), type: pr.damageType, sprite: pr.sprite, light: pr.light,
           tileX: e.x + ox, tileY: e.y + oy, source: def.name, sourceId: def.id,
         });
       }
       this.sfx(pr.sprite.startsWith('proj_arrow') ? 'shoot' : 'magic', e.x, e.y);
       return;
     }
-    // Melee lands only if you're still in the tile it aimed at.
+    this.landBlow(e, def, move);
+  }
+
+  /**
+   * One melee blow of a move: where it lands, how wide, and how hard.
+   *
+   * A plain blow is the old rule exactly — the tile it aimed at, and only if
+   * you are still standing in it. `reach` extends the line it will accept,
+   * which is what stops a step backwards from being the universal answer, and
+   * `sweep` accepts the two tiles either side of that line, which is what
+   * stops circling from being the other one.
+   */
+  private landBlow(e: EnemyState, def: EnemyDef, move: AttackMove): void {
+    const p = this.player;
     this.sfx('swing', e.x, e.y);
-    if (p.x === e.lastSeenX && p.y === e.lastSeenY && dist === 1) {
-      this.damagePlayer(Math.max(1, Math.round(def.attack * attackPower(e.power) * (e.scavengerAttack ?? 1) * this.rally(e) * this.diff.enemyDamage)), def.damageType, e.x, e.y, def.name, def.id, e);
-    } else {
-      this.sfx('miss', e.x, e.y);
+    const dx = DX[e.facing], dy = DY[e.facing];
+    let hit = false;
+    // Where the blow comes at you *from*, which is what the guard and the parry
+    // are answered against. Usually the creature itself; for a flank caught by
+    // a sweep it is the tile the swing is travelling through, because a guard
+    // can only ever be raised at an orthogonal neighbour and a blow nobody can
+    // answer is not a wide swing, it is an unfair one.
+    let srcX = e.x, srcY = e.y;
+    for (let d = 1; d <= move.reach && !hit; d++) {
+      const x = e.x + dx * d, y = e.y + dy * d;
+      // Reach is a longer arm, not a spear through stone: anything solid on the
+      // way — a wall, a door, a pillar — stops the blow short of you.
+      if (d > 1 && blocksMove(this.floor, e.x + dx * (d - 1), e.y + dy * (d - 1))) break;
+      if (p.x === x && p.y === y) hit = true;
+      else if (move.sweep) {
+        // The flanks of the tile it is swinging through — a sidestep's landing.
+        const sx = dy, sy = dx;
+        if ((p.x === x + sx && p.y === y + sy) || (p.x === x - sx && p.y === y - sy)) {
+          hit = true;
+          srcX = x;
+          srcY = y;
+        }
+      }
     }
+    // A plain blow keeps its old contract: the tile it *aimed* at, so a
+    // creature that turned after committing still misses.
+    if (move.reach === 1 && !move.sweep && !(p.x === e.lastSeenX && p.y === e.lastSeenY)) hit = false;
+    if (!hit) {
+      this.sfx('miss', e.x, e.y);
+      return;
+    }
+    const raw = def.attack * move.power * attackPower(e.power) * (e.scavengerAttack ?? 1) * this.rally(e) * this.diff.enemyDamage;
+    this.damagePlayer(Math.max(1, Math.round(raw)), def.damageType, srcX, srcY, def.name, def.id, e);
   }
 
   private damagePlayer(
@@ -4029,6 +4216,10 @@ export class World {
     }
     if (!unavoidable && this.anim.parryInvulnT > 0) return;
     let dmg = enemyHitsPlayer(this.rng, attack, type, this.derived);
+    // What actually arrived, before the shield takes its share. `dmg` is
+    // reduced in place below, so anything that wants to know "were you hit"
+    // rather than "how much got through" has to read this.
+    const landed = dmg;
     const facingSource = this.facingSource(fromX, fromY);
     let blocked = false;
     // Mid-sip the guard is down by design: the blow lands unblocked, and the
@@ -4082,6 +4273,15 @@ export class World {
     if (dmg > 0 && !blocked && this.anim.parryStacks > 0) {
       this.anim.parryStacks = 0;
       if (this.derived.traits.parryFeedMax > 0) this.msg('The blade goes cold.', '#9a9aa8');
+    }
+    // The Horn is harsher than the blade: a blow you *blocked* still stops the
+    // charge. It is a charge, and you stopped. Read off the blow that arrived
+    // rather than off `dmg`, which is already net of the shield — against a
+    // 90% guard anything under five rounds to nothing, and the charge would
+    // have survived hits the relic says break it.
+    if (landed > 0 && this.anim.chargeStacks > 0) {
+      this.anim.chargeStacks = 0;
+      if (this.derived.traits.chargeMax > 0) this.msg('The charge breaks.', '#9a9aa8');
     }
     // An Iron Draught blunts the next blow that gets through, then is spent.
     if (dmg > 0 && this.anim.draught?.kind === 'iron') {

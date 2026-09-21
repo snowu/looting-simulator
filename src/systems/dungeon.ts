@@ -205,6 +205,20 @@ export interface EnemyState {
    * without a blow ever landing.
    */
   strikeT?: number;
+  /**
+   * The attack move it committed to when this wind-up began. **Absent means
+   * the plain blow** every creature used to throw, so floors saved before move
+   * sets existed — and every creature that has not been given a set — need no
+   * migration. See `src/data/attacks.ts`.
+   */
+  move?: string;
+  /** Strikes left in a combo, and the beat until the next one. Absent when not mid-combo. */
+  comboLeft?: number;
+  comboT?: number;
+  /** A feint's stall: seconds left of the held lean. Absent when the lean is running. */
+  feintT?: number;
+  /** Whether this wind-up's feint has already stalled once. */
+  feinted?: boolean;
   /** Depth scaling baked in at spawn. */
   power: number;
   /** Seconds left of the opening a parry tore in its guard. */
@@ -342,6 +356,13 @@ export interface Floor {
   traps: Trap[];
   /** Cracked walls. **Absent on floors generated before they existed.** See `src/data/walls.ts`. */
   cracks?: Crack[];
+  /**
+   * A strange floor: the quirk it was dressed as. **Absent means an ordinary
+   * floor**, which is every floor generated before quirks existed and most
+   * floors generated since. Set after generation by `src/systems/quirks.ts`,
+   * never by `generateFloor` — see `src/data/quirks.ts` for why.
+   */
+  quirk?: string;
 }
 
 // ---------------------------------------------------------------------------

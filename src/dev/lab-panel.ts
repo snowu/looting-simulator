@@ -11,6 +11,7 @@
 import { ELITES, EliteTrait } from '../data/elites';
 import { World } from '../world/world';
 import { BIOMES } from '../data/biomes';
+import { QUIRKS, QUIRK_IDS } from '../data/quirks';
 import { ENEMIES } from '../data/enemies';
 import { ITEM_BASES, itemBase } from '../data/items';
 import { MATERIALS } from '../data/materials';
@@ -150,8 +151,17 @@ function buildLevelSection(
   };
   biomeSelect.addEventListener('change', refreshDepths);
   refreshDepths();
+  // Strange floors roll at 5-9.5% and only below depth 1, so the honest way to
+  // see one is to delve until the dungeon decides. That is the right
+  // experience for a player and a useless one for tuning, hence the override.
+  const quirkSelect = h('select', { attrs: { 'aria-label': 'Lab strange floor' }, style: 'width:100%;margin-bottom:4px' }) as HTMLSelectElement;
+  for (const [value, label] of [['none', 'Ordinary floor'], ...QUIRK_IDS.map((id) => [id, QUIRKS[id].name] as const)]) {
+    const option = h('option', { attrs: { value }, text: label }) as HTMLOptionElement;
+    option.selected = value === (world?.floor.quirk ?? 'none');
+    quirkSelect.append(option);
+  }
   const seed = h('input', { attrs: { type: 'number', min: '0', max: '4294967295', step: '1', value: String((world?.run.seed ?? 0) >>> 0), 'aria-label': 'Lab map seed' }, style: 'width:100%;box-sizing:border-box;margin-bottom:4px' }) as HTMLInputElement;
-  wrap.append(biomeSelect, depthSelect, h('label', { text: 'Map seed', class: 'small' }, seed));
+  wrap.append(biomeSelect, depthSelect, quirkSelect, h('label', { text: 'Map seed', class: 'small' }, seed));
   wrap.append(h('div', { class: 'row', style: 'gap:4px;margin-bottom:4px' },
     btn('Load map', () => {
       const world = getWorld();
@@ -161,12 +171,12 @@ function buildLevelSection(
         notify('Enter a whole-number seed from 0 to 4294967295.', '#ff9070');
         return;
       }
-      notify(loadLabLevel(world, biomeSelect.value, Number(depthSelect.value), value), '#c080ff');
+      notify(loadLabLevel(world, biomeSelect.value, Number(depthSelect.value), value, quirkSelect.value), '#c080ff');
     }, 'small primary'),
     btn('Random seed', () => { seed.value = String(randomSeed() >>> 0); }, 'small'),
   ));
   wrap.append(h('p', { class: 'dim small', style: 'margin:0 0 8px',
-    text: 'Load a fresh map of the chosen biome. Same biome, depth and seed reproduce the layout. Gear stays with you.',
+    text: 'Load a fresh map of the chosen biome. Same biome, depth and seed reproduce the layout. Gear stays with you. A strange floor is dressed over the ordinary one, so the layout is the same either way — which is the point of it.',
   }));
 }
 

@@ -39,6 +39,22 @@ export interface UniqueTraits {
   staminaRegen: number;
   /** Tiles of sight the floor loses on you. */
   unseen: number;
+  /**
+   * The Big Toe: the chance a kill leaves a second morsel. The toe knows where
+   * the meat is.
+   */
+  butcher: number;
+  /**
+   * The Prize Bull's Horn: Attack added per consecutive blow landed without
+   * being hit, and the ceiling on it. A charge weapon for a charging animal.
+   */
+  charge: number;
+  chargeMax: number;
+  /**
+   * The Impresario's Cane: a multiplier on everything you do — swing, recovery,
+   * step and flask. Under 1 means faster, because these are durations.
+   */
+  haste: number;
   /** Inscribed build properties in effect. See `src/data/properties.ts`. */
   riposte: boolean;
   execution: boolean;
@@ -59,6 +75,10 @@ export function emptyTraits(): UniqueTraits {
     trapSense: 0,
     staminaRegen: 1,
     unseen: 0,
+    butcher: 0,
+    charge: 0,
+    chargeMax: 0,
+    haste: 1,
     riposte: false,
     execution: false,
     kindling: false,
@@ -88,6 +108,9 @@ function applyProperty(t: UniqueTraits, item: Item | null | undefined, slot: Equ
 
 /** How many parry stacks a blade that feeds on them can hold. */
 const PARRY_FEED_STACKS = 3;
+
+/** How far a charge can build before it stops paying. */
+export const CHARGE_STACKS = 6;
 
 function traitsOf(eq: Equipment, twoHanded = false): UniqueTraits {
   const t = emptyTraits();
@@ -123,6 +146,16 @@ function traitsOf(eq: Equipment, twoHanded = false): UniqueTraits {
         break;
       case 'unseen':
         t.unseen += u.power;
+        break;
+      case 'butcher':
+        t.butcher += u.power;
+        break;
+      case 'charge':
+        t.charge = u.power;
+        t.chargeMax = CHARGE_STACKS;
+        break;
+      case 'haste':
+        t.haste *= u.power;
         break;
       // never_dulls is a property of the item, handled in maxDurability.
       case 'never_dulls':
@@ -206,7 +239,11 @@ export function derivePlayer(eq: Equipment, meta: MetaLevels, difficulty?: Diffi
     if (it) addStats(stats, itemStats(it));
   }
   const weapon = eq.weapon ? itemBase(eq.weapon.ref) : null;
-  const speedFactor = Math.max(0.5, 1 + stats.speed / 100);
+  const traits = traitsOf(eq, twoHanded);
+  // The Cane folds straight into the speed factor rather than being a second
+  // multiplier hung off the swing: one number decides how fast you are, and
+  // everything that reads it — the sim, the harness, the tooltip — agrees.
+  const speedFactor = Math.max(0.5, (1 + stats.speed / 100) / traits.haste);
   const baseSwing = weapon?.swing ?? FIST_SWING;
   const hasShield = !twoHanded && !!eq.offhand;
   // Difficulty pads the health bar on Normal; Hard multiplies by exactly 1, so
@@ -240,6 +277,6 @@ export function derivePlayer(eq: Equipment, meta: MetaLevels, difficulty?: Diffi
     thrownAttack: eq.thrown ? Math.max(1, itemStats(eq.thrown).attack) : 0,
     thrownDamageType: (eq.thrown ? itemBase(eq.thrown.ref).damageType : undefined) ?? 'pierce',
     find: stats.find + FIND_PER_TREASURE_SENSE * metaLevel(meta, 'treasure_sense'),
-    traits: traitsOf(eq, twoHanded),
+    traits,
   };
 }

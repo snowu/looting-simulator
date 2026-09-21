@@ -604,6 +604,119 @@ ink(TOWER_SHIELD, rows(`
   .....khk
 `), 18, 25);
 
+
+// ---------------------------------------------------------------------------
+// Oddities
+// ---------------------------------------------------------------------------
+
+/**
+ * The Big Toe. A preserved toe the size of a forearm, held by the stump.
+ *
+ * It gets its own palette rather than the shared metal ramp for the obvious
+ * reason: it is not metal, and a toe drawn in steel greys reads as a badly
+ * drawn club. The nail is the one hard, bright thing on it, so that is what
+ * the light catches — which is also the end that does the damage.
+ */
+const TOE_PAL = {
+  ...PAL,
+  1: '#3a2428', 2: '#6d4a44', 3: '#a87a68', 4: '#d8a88c',
+  n: '#f0e4cc', m: '#c8b08c', p: '#8a6a58', q: '#5a3c38',
+};
+
+const BIG_TOE = canvas();
+ink(BIG_TOE, rows(`
+  ......kkkkkk......
+  ....kk444444kk....
+  ...k4444444444k...
+  ..k444nnnnnn444k..
+  .k4444nnnnnn4444k.
+  .k4443nnnnnn3444k.
+  k44433nnnnnn33444k
+  k44333nnnnnn333444k
+  k443333mmmm3333344k
+  k4433333333333344k
+  k44333333333333344k
+  k4433333333333333k
+  k443333333333332k
+  k44333333333332k
+  k4433333333332k
+  k443333333332k
+  .k4333333322k
+  .k433333322k
+  .k43333322k
+  ..k3333221k
+  ..k333221k
+  ..k33221k
+  ..kp3221k
+  ..kpq221k
+  ..kpq21k
+  ..kqq11k
+  ..kqq1k
+  ..kqq1k
+`), 15, 14);
+grip(BIG_TOE);
+
+/**
+ * The Prize Bull's Horn, socketed onto a short shaft. Bone-yellow, ridged
+ * across the growth rings, and coming to a point that is entirely serious.
+ */
+const HORN_PAL = {
+  ...PAL,
+  1: '#4a3a1c', 2: '#8a7038', 3: '#c8ab63', 4: '#f0e0ac',
+};
+
+const PRIZE_HORN = canvas();
+haft(PRIZE_HORN, 30, 54);
+ink(PRIZE_HORN, rows(`
+  .....k
+  .....k4k
+  ....k44k
+  ....k443k
+  ...k4433k
+  ...k4433k
+  ..k44332k
+  ..k44332k
+  ..k443321k
+  .k443321k
+  .k4433221k
+  .k4433221k
+  k44332221k
+  k44332221k
+  k443322211k
+  k44332221k
+  k4433221k
+  k1111111k
+  k4433221k
+  k443221k
+  kk3221kk
+  .kkkkk.
+`), 18, 8);
+grip(PRIZE_HORN);
+
+/**
+ * The Impresario's Cane. Lacquer black, silver knob, and worth almost nothing
+ * as a thing to hit people with — which is the trade it asks you to make.
+ */
+const CANE_PAL = {
+  ...PAL,
+  1: '#0e0c12', 2: '#22202a', 3: '#6a6878', 4: '#c8c8d8',
+};
+
+const CANE = canvas();
+ink(CANE, rows(`
+  ..kkkkkk..
+  .k444444k.
+  k44444444k
+  k44333334k
+  k43333334k
+  .k3333332k
+  ..k33332k.
+  ...kkkk...
+`), 19, 8);
+for (let y = 16; y <= 56; y++) ink(CANE, ['k2331k'], 21, y);
+ink(CANE, ['k4444k'], 21, 16);
+grip(CANE);
+
 export const VIEWMODELS: ArtDef[] = [
   { id: 'vm_dagger', palette: PAL, rows: DAGGER },
   { id: 'vm_short_sword', palette: PAL, rows: SHORT_SWORD },
@@ -611,6 +724,9 @@ export const VIEWMODELS: ArtDef[] = [
   { id: 'vm_axe', palette: PAL, rows: AXE },
   { id: 'vm_pick', palette: PAL, rows: PICK },
   { id: 'vm_blunt', palette: PAL, rows: MACE },
+  { id: 'vm_big_toe', palette: TOE_PAL, rows: BIG_TOE },
+  { id: 'vm_prize_horn', palette: HORN_PAL, rows: PRIZE_HORN },
+  { id: 'vm_cane', palette: CANE_PAL, rows: CANE },
   { id: 'vm_club', palette: { ...PAL, 1: '#29251f', 2: '#494238', 3: '#75694f', 4: '#ad9873' }, rows: CLUB },
   { id: 'vm_spear', palette: PAL, rows: SPEAR },
   { id: 'vm_maul', palette: PAL, rows: MAUL },

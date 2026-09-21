@@ -49,10 +49,18 @@ export function playerHitsEnemy(
   e: EnemyDef,
   /** Depth armour scaling, from `defensePower`. 1 for a monster at its home floor. */
   defenseMult = 1,
+  /**
+   * Attack added for this swing only — the Prize Bull's Horn banks it as the
+   * charge builds. It goes in **here**, with the rest of your Attack, so armour
+   * takes its cut of it and a target that is immune to the blow is immune to
+   * this too. Added to the damage afterwards it would have been an armour
+   * bypass wearing the words "+4 Attack".
+   */
+  bonusAttack = 0,
 ): PlayerHit {
   const defense = e.defense * defenseMult;
   const physMult = e.resist[p.damageType] ?? 1;
-  let dmg = mitigate(p.attack, defense, ENEMY_ARMOUR_K) * physMult;
+  let dmg = mitigate(p.attack + bonusAttack, defense, ENEMY_ARMOUR_K) * physMult;
   let bestMult = physMult;
   for (const el of ELEMENTS) {
     const v = p.stats[el];

@@ -726,6 +726,50 @@ Every save change is additive and goes through `migrations.ts` with
 stream so existing floors do not reshuffle. Every new number goes into
 MECHANICS.md when it becomes real.
 
+## Shipped 2026-09-20 — Oddities (branch `feat/oddities`)
+
+The run-identity work (#18–#31) answered *why is this delve different from the
+last one*. This answers *why is this fight different from the last one*, and
+adds somewhere to go that nobody planned for. Design, numbers and the harness
+comparison are in **docs/ODDITIES.md**.
+
+1. **Attack moves.** A creature carries a weighted move set and rolls one when
+   it commits: jab, flurry, thrust, sweep, slam, feint, or the plain blow.
+   Every move is priced against the plain blow's damage over time and sits
+   within 4% of it (`relativeDps`, pinned by `attacks.test.ts`). Measured over
+   seven bot profiles: damage taken flat, hits taken up ~28%. Twenty creatures
+   have a set; archers and the King do not.
+2. **Strange floors.** `Floor.quirk`, rolled per fresh floor at depths 2–5 and
+   applied *after* generation, so `generateFloor` stays pure and the golden
+   hashes keep their meaning. The Forbidden Pasture (upside down, cattle) and
+   The Silent Picture (black and white, ×1.25, hats and monocles, every melee
+   weapon drawn as a cane).
+3. **Three weapons.** The Big Toe (ordinary drop pool), and two relics locked
+   to their floors by `UniqueDef.only`, which keeps them out of every
+   Legendary roll including the King's promise.
+
+### What this leaves for next time
+
+- **The bot cannot play a strange floor properly.** The Silent Picture is only
+  a time scale so the harness handles it, but the Pasture's difficulty is a
+  camera roll, which the bot does not experience at all. Its numbers for that
+  floor mean nothing. Either accept that it is a human-only difficulty or give
+  the bot a penalty that stands in for disorientation.
+- **A per-save record of strange floors seen.** The codex has relics and the
+  bestiary has monsters; there is nowhere that remembers you found a Pasture.
+  A line in the codex would cost little and would make them collectable.
+- **More quirks.** The machinery is generic — enemy pool, lighting, post pass,
+  time scale, loot promotion, music — and adding a third is now a data change
+  plus whatever art it needs. Candidates that reuse what exists: a floor where
+  every container is a mimic, a floor lit only by what you are carrying, a
+  floor where the monsters are asleep until you make a noise.
+- **Elite cattle read oddly.** An elite trait's pulse on a cow is correct but
+  unremarked; the Pasture might want its own trait names.
+- **Sweep has no shield answer.** It is priced 10% under neutral because it
+  takes the sidestep away, but a tower shield does nothing special against it.
+  If sweeps end up feeling unfair, the lever is letting a raised guard cover
+  the flanks rather than making the move weaker.
+
 ## Settled 2026-09-19
 
 - **Elites appear on their own, whatever the Oath or Seal.** There is a base

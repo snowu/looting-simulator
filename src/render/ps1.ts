@@ -175,6 +175,7 @@ const POST_FRAG = /* glsl */ `
   uniform float uVignette;
   uniform float uLowHp;
   uniform float uBrightness;
+  uniform float uMono;
   varying vec2 vUv;
   float bayer2(vec2 a) { a = floor(a); return fract(dot(a, vec2(0.5, a.y * 0.75))); }
   float bayer4(vec2 a) { return bayer2(0.5 * a) * 0.25 + bayer2(a); }
@@ -188,6 +189,14 @@ const POST_FRAG = /* glsl */ `
     // stay white — which a linear gain would not.
     c = pow(clamp(c, 0.0, 1.0), vec3(1.0 / uBrightness));
     float g = dot(c, vec3(0.299, 0.587, 0.114));
+    // The Silent Picture. Luminance, then a contrast push about mid grey, so
+    // the walls go to silver and the fog goes to true black rather than to
+    // mud. The dither below is left alone on purpose: it grains the result
+    // the way nitrate stock does.
+    if (uMono > 0.0) {
+      float m = clamp((g - 0.5) * 1.35 + 0.5, 0.0, 1.0);
+      c = mix(c, vec3(m), uMono);
+    }
     c = mix(c, vec3(g * 1.15, g * 0.8, g * 0.8), uLowHp * 0.55);
     c = mix(c, uFlash.rgb, uFlash.a);
     vec2 q = vUv - 0.5;
@@ -215,6 +224,7 @@ export class PostPass {
         uVignette: { value: 1.1 },
         uLowHp: { value: 0 },
         uBrightness: { value: 1 },
+        uMono: { value: 0 },
       },
       vertexShader: POST_VERT,
       fragmentShader: POST_FRAG,

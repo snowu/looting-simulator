@@ -12,6 +12,8 @@ import { GameState } from '../state/game-state';
 import { makeBlueprint, makeConsumable, makeEquipment } from '../systems/items';
 import { MATERIALS } from '../data/materials';
 import { commoditySellPrice } from '../systems/market';
+import { quirkTimeScale } from '../data/quirks';
+import { moveById } from '../data/attacks';
 
 /**
  * A real save captured from the build of 2026-09-12, before revisions existed.
@@ -231,6 +233,48 @@ describe('loading an old save', () => {
     const back = parseSave(JSON.stringify(fresh))!;
     expect(back.revision).toBe(SAVE_REVISION);
     expect(back.gold).toBe(fresh.gold);
+  });
+
+  it('round-trips a strange floor and a monster mid-move', () => {
+    // Every field the Oddities work added is optional, and *absent* is the
+    // meaningful default — an ordinary floor, a creature throwing a plain
+    // blow. That is why none of it needed a revision bump. This is the check
+    // that the ones which are present survive the trip, and it is also the
+    // check that a save written on a strange floor is loadable at all.
+    const s = newGame(createRng(3));
+    startRun(s, 3);
+    const floor = s.run!.floors[0]!;
+    floor.quirk = 'silent';
+    const monster = floor.enemies[0];
+    Object.assign(monster, { move: 'flurry', comboLeft: 2, comboT: 0.2, feintT: 0.1, feinted: true });
+
+    const back = parseSave(JSON.stringify(s))!;
+    const backFloor = back.run!.floors[0]!;
+    expect(backFloor.quirk).toBe('silent');
+    const backMonster = backFloor.enemies.find((e) => e.id === monster.id)!;
+    expect(backMonster.move).toBe('flurry');
+    expect(backMonster.comboLeft).toBe(2);
+    expect(backMonster.comboT).toBeCloseTo(0.2);
+    expect(backMonster.feintT).toBeCloseTo(0.1);
+    expect(backMonster.feinted).toBe(true);
+  });
+
+  it('reads a floor with no quirk and a monster with no move as ordinary', () => {
+    // The other half of the same promise: a save written before any of this
+    // existed — which is every save a player currently has — loads as the
+    // plain game rather than as something half-configured.
+    const s = parseSave(LEGACY)!;
+    for (const floor of s.run?.floors ?? []) {
+      if (!floor) continue;
+      expect(floor.quirk).toBeUndefined();
+      for (const e of floor.enemies) {
+        expect(e.move).toBeUndefined();
+        expect(e.comboLeft).toBeUndefined();
+        expect(e.feinted).toBeUndefined();
+      }
+    }
+    expect(quirkTimeScale(undefined)).toBe(1);
+    expect(moveById(undefined).id).toBe('basic');
   });
 });
 

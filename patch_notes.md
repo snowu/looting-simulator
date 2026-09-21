@@ -1,3 +1,42 @@
+# The stairs do not always go where stairs go
+
+**Every so often, a floor comes out wrong.** Below the first floor and above the throne, a delve can turn up somewhere it has no business turning up. There is no key, no rumour and no choice about it. You find out by walking down the stairs.
+
+**The Forbidden Pasture.** The world is upside down. The sky is under your boots, turning left looks like turning right, and your own weapon is the only thing still the right way up. Every monster on the floor has been replaced by cattle of about its own size — a calf that has not decided whether you are frightening, heifers, bulls, and one animal in a rosette that has taken first prize several years running in a competition nobody down here remembers holding.
+
+Being upside down is the whole price of the floor. Nothing here hits harder than its depth, the cattle are weak to the tools you would actually butcher one with, and every container on the floor is two tiers better than it has any right to be: every urn is a chest, every chest a vault.
+
+**The Silent Picture.** The colour goes out of the walls and somewhere a piano starts. Everything runs at a quarter again as fast — you, the monsters, and the shafts in the air. Every creature on the floor is wearing a top hat and a monocle, and whatever you are actually swinging is drawn as a lacquered cane. It is still a greatsword. It still hits like one. It just looks like a cane, because on that floor everyone is dressed for the evening.
+
+Nothing here hits harder either. The clock is the content: a flurry at five-quarters speed is a different problem, not a bigger one.
+
+**Each floor keeps a relic nobody else can give you.** The Prize Bull's Horn gathers Attack for every blow you land without one landing on you, to a maximum of six, and any hit you take clears it — including one you blocked. It is a charge, and you stopped. The Impresario's Cane is worth almost nothing as a thing to hit people with and makes everything you do about a tenth sooner: swing, recovery, step, sip. Neither can come out of a chest, and neither can come off the King. Find the floor or do without.
+
+**And a toe.** The Big Toe is a preserved toe roughly the size of your forearm, found anywhere from depth 2 and forged at the bench like anything else. It cleaves wider and staggers harder than anything else you can hold in one hand, and it has the worst recovery of any one-hander, so it wants a corridor and something to shove. Whose toe it is has never been established. The prevailing theory at the forge is that it is better not to ask.
+
+---
+
+# Monsters stop swinging the same way twice
+
+**Every melee monster in the game had exactly one rhythm.** A skeleton leaned in, flashed red and struck, and so did everything below it — deeper floors were the same beat with bigger numbers on it. Learn the beat once and you had learned the dungeon.
+
+**They now choose.** A monster picks an attack at the moment it commits, and the wind-up glows in the colour of the one it chose:
+
+- **A pale flicker** is a jab — faster than a step. You cannot walk out of it; block it or wear it.
+- **Pink** is a flurry: three blows on one commitment, each aimed at wherever you have got to. The opening afterwards is the longest in the game.
+- **Blue** reaches **two tiles**. The step back that answers everything else walks you into this one.
+- **Orange** comes round the sides as well as the front, and catches the sidestep.
+- **Violet** holds steady instead of flickering, stalls once about where an ordinary blow would have landed, and then finishes. It is lying to you, and it hits harder than anything but a slam if you spent your guard on the stall.
+- **A red flare that grows**, with the monster swelling as it gathers, is an overhead slam worth nearly two blows. Be somewhere else.
+
+**Meeting the first blow still pays.** Open a monster up mid-flurry — a parry will do — and the rest of the flurry never lands.
+
+**This is variety, not a difficulty increase, and it was measured rather than asserted.** The same seeded runs were played by seven different bot playstyles with the new attacks switched off and on. Total damage taken came out flat on every one of them; hits taken went up about a quarter. The same damage, arriving in more and smaller pieces. The one number that moved in a direction worth naming is that the bot parries slightly *worse* now, which is the entire point.
+
+Twenty monsters have a set, chosen by what they are: vermin jab, ghouls and spiders flurry, shieldguards keep their reach, the Cutpurse feints, champions do everything. Archers and casters keep the beat their projectile gives them, and the Ashen King keeps the phases he was written with.
+
+---
+
 # Oaths stack, and there are more of them
 
 *Additive save change (revision 29): a sworn oath, an oath on a delve in progress and a reward waiting in town all carry over.*
