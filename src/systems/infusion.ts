@@ -5,6 +5,7 @@ import { medianAffix } from './crafting';
 import { SIP_SECONDS } from './healing';
 import type { Stats } from '../types';
 import type { Ramp } from '../art/raster';
+import { clamp } from '../core/math';
 
 /**
  * Flask infusions. One stash material goes into the flask at the forge and
@@ -41,7 +42,7 @@ export const WARD_SECONDS = 12;
 export const MARROW_SECONDS = 6;
 export const KINDLE_SECONDS = 8;
 
-const tierIdx = (tier: number): number => Math.max(0, Math.min(4, tier - 1));
+const tierIdx = (tier: number): number => clamp(tier - 1, 0, 4);
 const pick = (tier: number, ladder: readonly number[]): number => ladder[tierIdx(tier)]!;
 
 const THICK_HEAL = [4, 6, 8, 10, 12] as const;

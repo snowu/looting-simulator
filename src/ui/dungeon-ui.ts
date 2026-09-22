@@ -11,6 +11,7 @@ import { drawMap } from './automap';
 import { btn, gold, h, hideTooltip, isTouchMode, itemSlot, itemTooltip, rarityColor } from './dom';
 import { audio } from '../audio/sfx';
 import { GAMEPAD_HELP_ROWS } from './gamepad';
+import { clamp } from '../core/math';
 
 export type OverlayMode = 'inventory' | 'loot' | 'map' | 'help' | 'fork';
 
@@ -414,7 +415,7 @@ export class DungeonOverlays {
 
   private map(w: World): HTMLElement {
     const f = w.floor;
-    const cell = Math.max(6, Math.min(16, Math.floor(Math.min(window.innerWidth * 0.8, window.innerHeight * 0.72) / f.width)));
+    const cell = clamp(Math.floor(Math.min(window.innerWidth * 0.8, window.innerHeight * 0.72) / f.width), 6, 16);
     const c = h('canvas', { class: 'bigmap', attrs: { width: String(f.width * cell), height: String(f.height * cell) } });
     drawMap(c, f, w.player.x, w.player.y, w.player.facing, { cell, visibleEnemies: w.visibleEnemies() }, 0);
     const kills = f.enemies.filter((e) => e.ai === 'dead').length;

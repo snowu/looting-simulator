@@ -12,6 +12,7 @@ import { gravecallerChance } from '../data/necromancy';
 import { Crack, SHORTCUT_MIN_SAVING, cracksFor } from '../data/walls';
 import type { FloorMods } from '../data/seals';
 import { ContainerTier, makeMaterial, materialForDepth } from './items';
+import { manhattan } from '../core/math';
 
 // ---------------------------------------------------------------------------
 // Floor model (plain data — serialised straight into the save)
@@ -544,7 +545,7 @@ function placeCracks(
   const rng = createRng(hashString(`cracks:${seed}:${depth}`));
   const at = (x: number, y: number) => (x < 0 || y < 0 || x >= W || y >= H ? WALL : tiles[y * W + x]);
   const clear = (x: number, y: number) =>
-    !near.avoid.some((a) => Math.abs(a.x - x) + Math.abs(a.y - y) <= 1)
+    !near.avoid.some((a) => manhattan(a.x, a.y, x, y) <= 1)
     // A torch hangs on the wall it faces; that wall must stay.
     && !near.torches.some((t) => t.x + DX[t.side] === x && t.y + DY[t.side] === y);
   const distance = (sx: number, sy: number, tx: number, ty: number): number => {
@@ -575,7 +576,7 @@ function placeCracks(
   }
   const want = cracksFor(depth, biome);
   const out: Crack[] = [];
-  const spaced = (x: number, y: number) => out.every((c) => Math.abs(c.x - x) + Math.abs(c.y - y) >= 6);
+  const spaced = (x: number, y: number) => out.every((c) => manhattan(c.x, c.y, x, y) >= 6);
   for (const [x, y] of rng.shuffle(shortcuts)) {
     if (out.length >= want.shortcut) break;
     if (!spaced(x, y)) continue;
@@ -781,7 +782,7 @@ function tryGenerate(
   // --- Room graph: MST plus a few loops -----------------------------------
   const cx = (r: Room) => r.x + (r.w >> 1);
   const cy = (r: Room) => r.y + (r.h >> 1);
-  const rdist = (a: Room, b: Room) => Math.abs(cx(a) - cx(b)) + Math.abs(cy(a) - cy(b));
+  const rdist = (a: Room, b: Room) => manhattan(cx(a), cy(a), cx(b), cy(b));
   const edges: [number, number][] = [];
   const hasEdge = (a: number, b: number) => edges.some(([p, q]) => (p === a && q === b) || (p === b && q === a));
   {
@@ -1153,11 +1154,11 @@ function tryGenerate(
   rng.shuffle(torchSpots);
   // Always light the arrival point.
   {
-    const near = torchSpots.filter((t) => Math.abs(t.x - spawn.x) + Math.abs(t.y - spawn.y) <= 2);
+    const near = torchSpots.filter((t) => manhattan(t.x, t.y, spawn.x, spawn.y) <= 2);
     if (near.length) addTorch(near[0].x, near[0].y, near[0].side);
   }
   for (const t of torchSpots) {
-    if (torches.some((o) => Math.abs(o.x - t.x) + Math.abs(o.y - t.y) < 5)) continue;
+    if (torches.some((o) => manhattan(o.x, o.y, t.x, t.y) < 5)) continue;
     const inRoom = roomOf[idx(t.x, t.y)] >= 0;
     if (rng.chance(inRoom ? biome.torchDensity * 5 : biome.torchDensity * 2)) addTorch(t.x, t.y, t.side);
   }
@@ -1322,7 +1323,7 @@ function tryGenerate(
       if (doors.some((d) => d.x === x && d.y === y) || stairs.some((st) => st.x === x && st.y === y)) return false;
       if (pickups.some((p) => p.x === x && p.y === y)) return false;
       // Never on the arrival tile or right on top of it — no ambush on spawn.
-      if (Math.abs(x - spawn.x) + Math.abs(y - spawn.y) <= 3) return false;
+      if (manhattan(x, y, spawn.x, spawn.y) <= 3) return false;
       return true;
     };
     const wallDir = (x: number, y: number): Dir | null => {
@@ -1369,7 +1370,7 @@ function tryGenerate(
       const spot = (rng.chance(0.7) ? corridor.pop() : roomTile.pop()) ?? corridor.pop() ?? roomTile.pop();
       if (!spot) break;
       // Keep them apart: a corridor of back-to-back plates is a wall, not a trap.
-      if (traps.some((t) => Math.abs(t.x - spot[0]) + Math.abs(t.y - spot[1]) < 4)) continue;
+      if (traps.some((t) => manhattan(t.x, t.y, spot[0], spot[1]) < 4)) continue;
       if (add(pickKind(), spot[0], spot[1])) n++;
     }
   }

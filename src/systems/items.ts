@@ -27,6 +27,7 @@ import { ROLLABLE_UNIQUES, UniqueDef, UniqueEffectId, findUnique, tonicUnique } 
 import { MAX_RECIPE_RANK, RECIPES, blueprintDropWeight, masteryBonus, recipe, recipeRank } from '../data/recipes';
 import { BestiaryState, isKnown, loreName } from './bestiary';
 import { sigil } from '../data/spells';
+import { clamp } from '../core/math';
 
 // ---------------------------------------------------------------------------
 // Construction
@@ -294,7 +295,7 @@ export const BROKEN_STAT_FRACTION = 0.15;
 
 export function itemCraftRank(item: Item): number {
   if (item.kind !== 'equipment' || !item.crafted) return 1;
-  return Math.max(1, Math.min(MAX_RECIPE_RANK, Math.floor(item.craftRank ?? 1)));
+  return clamp(Math.floor(item.craftRank ?? 1), 1, MAX_RECIPE_RANK);
 }
 
 /** Zero for gear that never wears, so callers can test with one check. */
@@ -322,7 +323,7 @@ export interface Durability {
 export function durability(item: Item): Durability {
   const max = maxDurability(item);
   if (max <= 0) return { cur: 0, max: 0, frac: 1, broken: false, wears: false };
-  const cur = Math.max(0, Math.min(max, item.dur ?? max));
+  const cur = clamp(item.dur ?? max, 0, max);
   return { cur, max, frac: cur / max, broken: cur <= 0, wears: true };
 }
 
@@ -356,7 +357,7 @@ export function repairCost(item: Item): number {
   const d = durability(item);
   if (!d.wears || d.frac >= 1) return 0;
   const tier = item.kind === 'equipment' && item.materialId ? (findMaterial(item.materialId)?.tier ?? 1) : 1;
-  const floor = REPAIR_TIER_FLOOR[Math.max(0, Math.min(5, tier))] ?? 0;
+  const floor = REPAIR_TIER_FLOOR[clamp(tier, 0, 5)] ?? 0;
   return Math.max(1, Math.ceil(itemValue(item) * 0.5 * (1 - d.frac)) + Math.ceil(floor * (1 - d.frac)));
 }
 
@@ -790,7 +791,7 @@ const FIGHT_MILK_CHANCE = { chest: 0.008, vault: 0.03 };
 
 /** Scales a find with depth: nothing at the top, full odds at the bottom. */
 function depthFactor(depth: number): number {
-  return Math.max(0, Math.min(1, (depth - 1) / 4));
+  return clamp((depth - 1) / 4, 0, 1);
 }
 
 /** Hard bonuses ramp separately from natural rarity; Normal keeps its floors. */

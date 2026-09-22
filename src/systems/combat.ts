@@ -1,6 +1,7 @@
 import { Rng } from '../core/rng';
 import { DamageType, DEFAULT_CRIT_MULT, ELEMENTS, EnemyDef } from '../types';
 import { PlayerDerived } from './player';
+import { clamp } from '../core/math';
 
 /**
  * Physical mitigation: defense shaves a proportion off, never below `floor`.
@@ -12,7 +13,7 @@ export function mitigate(attack: number, defense: number, k: number, floor = 0.2
 
 /** Damage multiplier for staminas at swing time: full power above half a bar. */
 export function staminaPower(stamina: number, maxStamina: number): number {
-  const f = Math.max(0, Math.min(1, stamina / (maxStamina * 0.5)));
+  const f = clamp(stamina / (maxStamina * 0.5), 0, 1);
   return 0.4 + 0.6 * f;
 }
 

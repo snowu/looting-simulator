@@ -1,5 +1,6 @@
 import { createRng, hashString } from '../core/rng';
 import type { Prop } from './dungeon';
+import { manhattan } from '../core/math';
 
 export function iciclesFor(seed: number, depth: number, tiles: number[], width: number, exclude: { x: number; y: number }[]): Prop[] {
   const rng = createRng(hashString(`icicles:${seed}:${depth}`));
@@ -10,8 +11,8 @@ export function iciclesFor(seed: number, depth: number, tiles: number[], width: 
   const target = rng.int(8, 14);
   for (const i of candidates) {
     const x = i % width, y = Math.floor(i / width);
-    if (centres.some((c) => Math.abs(c.x - x) + Math.abs(c.y - y) < 4)) continue;
-    const neighbours = candidates.filter((n) => Math.abs(n % width - x) + Math.abs(Math.floor(n / width) - y) <= 1);
+    if (centres.some((c) => manhattan(c.x, c.y, x, y) < 4)) continue;
+    const neighbours = candidates.filter((n) => manhattan(n % width, Math.floor(n / width), x, y) <= 1);
     if (neighbours.length < 2) continue;
     centres.push({ x, y });
     for (const n of rng.shuffle(neighbours).slice(0, rng.int(2, 5))) {

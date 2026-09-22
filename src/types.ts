@@ -1,6 +1,7 @@
 // `attacks` is a leaf module (it imports nothing), so this stays acyclic and
 // type-only: shared types keep no runtime dependency on content tables.
 import type { MoveWeight } from './data/attacks';
+import { clamp } from './core/math';
 
 // ---------------------------------------------------------------------------
 // Rarity
@@ -37,7 +38,7 @@ export function rarityAtLeast(r: Rarity, min: Rarity): boolean {
 }
 
 export function rarityFromOrder(n: number): Rarity {
-  return RARITIES[Math.max(0, Math.min(RARITIES.length - 1, Math.round(n)))];
+  return RARITIES[clamp(Math.round(n), 0, RARITIES.length - 1)];
 }
 
 // ---------------------------------------------------------------------------

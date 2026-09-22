@@ -49,6 +49,7 @@ import { PLAIN_FLASK_RAMP, draught, infusionName } from '../systems/infusion';
 import { AccountSummary } from './account';
 import { openSettings, settingsGearButton } from './settings';
 import { FLASK_POTENCY, FLASK_UPGRADE_COSTS } from '../systems/healing';
+import { clamp } from '../core/math';
 
 export type TownTab = 'market' | 'forge' | 'guild' | 'stash' | 'bestiary' | 'warden';
 
@@ -499,7 +500,7 @@ export class Town {
     // Sell only valuables beyond the quantity promised to accepted contracts.
     const valuablesOwned = this.valuablesOwned();
     const valuablesQuote = valuablesOwned.reduce((sum, v) => sum + quoteSell(m, v.id, v.qty, this.hag), 0);
-    const potency = Math.max(0, Math.min(4, s.flask?.potency ?? 0));
+    const potency = clamp(s.flask?.potency ?? 0, 0, 4);
     const flaskCost = potency < 4 ? FLASK_UPGRADE_COSTS[potency] : null;
     const flaskPane = h('div', { class: 'pane frame' },
       h('h3', { text: 'Flask potency' }),

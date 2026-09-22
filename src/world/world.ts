@@ -98,6 +98,7 @@ import { CHEW_SECONDS, DREGS_FRACTION, FLASK_POTENCY, MORSEL_HEAL, MORSEL_ROT_SE
 import { findMaterial } from '../data/materials';
 import { Draught, KINDLE_SECONDS, MARROW_SECONDS, WARD_SECONDS, draught } from '../systems/infusion';
 import { addStats } from '../types';
+import { clamp, manhattan } from '../core/math';
 
 // ---------------------------------------------------------------------------
 // Events the world emits for the renderer / UI / audio to react to.
@@ -874,7 +875,7 @@ export class World {
       if (a.ward.t <= 0 || a.ward.x !== this.player.x || a.ward.y !== this.player.y) a.ward = null;
     }
     if (this.run.sigil && this.run.sigil.cd > 0) {
-      const hunted = this.floor.enemies.some((e) => e.ai !== 'dead' && e.alert > 0 && Math.abs(e.x - this.player.x) + Math.abs(e.y - this.player.y) <= 8);
+      const hunted = this.floor.enemies.some((e) => e.ai !== 'dead' && e.alert > 0 && manhattan(e.x, e.y, this.player.x, this.player.y) <= 8);
       this.run.sigil.cd = Math.max(0, this.run.sigil.cd - dt * (hunted ? 0.5 : 1));
     }
 
@@ -924,7 +925,7 @@ export class World {
       a.blockT = Infinity;
       a.parryArmed = false;
     }
-    a.blockRaise = Math.max(0, Math.min(1, a.blockRaise + (wantBlock ? dt : -dt) / 0.12));
+    a.blockRaise = clamp(a.blockRaise + (wantBlock ? dt : -dt) / 0.12, 0, 1);
 
     // Refusing the guard says why, throttled like the winded cue: holding
     // block with a broken shield would otherwise fail in silence.
@@ -986,7 +987,7 @@ export class World {
         const flask = this.run.flask;
         if (flask.charges > 0) {
           flask.charges--;
-          const level = Math.max(0, Math.min(4, this.state.flask?.potency ?? 0));
+          const level = clamp(this.state.flask?.potency ?? 0, 0, 4);
           const d = draught(this.state.flask?.infusion);
           this.heal(this.derived.maxHp * (FLASK_POTENCY[level] + (d?.heal ?? 0) / 100));
           this.sfx('drink');
@@ -1295,7 +1296,7 @@ export class World {
       if (!trap || trap.found || !trap.armed) continue;
       if (!this.los(p.x, p.y, t.x, t.y)) continue;
       // The far tile is only readable if you are facing straight down it.
-      if (Math.abs(t.x - p.x) + Math.abs(t.y - p.y) > 1 && blocksSight(f, t.x, t.y)) continue;
+      if (manhattan(t.x, t.y, p.x, p.y) > 1 && blocksSight(f, t.x, t.y)) continue;
       trap.found = true;
       this.msg(TRAPS[trap.kind].spotted, '#e0c060');
       this.sfx('ui');
@@ -1320,7 +1321,7 @@ export class World {
       let woken = 0;
       for (const e of this.floor.enemies) {
         if (e.ai === 'dead') continue;
-        if (Math.abs(e.x - trap.x) + Math.abs(e.y - trap.y) > this.noise(12)) continue;
+        if (manhattan(e.x, e.y, trap.x, trap.y) > this.noise(12)) continue;
         e.alert = Math.max(e.alert, 10);
         e.lastSeenX = trap.x;
         e.lastSeenY = trap.y;
@@ -1809,7 +1810,7 @@ export class World {
   private castWardcry(): void {
     this.breakSilence('Your shout rings down the halls');
     for (const e of this.floor.enemies) {
-      if (e.ai === 'dead' || Math.abs(e.x - this.player.x) + Math.abs(e.y - this.player.y) > this.noise(8)) continue;
+      if (e.ai === 'dead' || manhattan(e.x, e.y, this.player.x, this.player.y) > this.noise(8)) continue;
       e.alert = Math.max(e.alert, 8);
       e.lastSeenX = this.player.x;
       e.lastSeenY = this.player.y;
@@ -1848,7 +1849,7 @@ export class World {
 
   private castSnuff(): void {
     for (const e of this.floor.enemies) {
-      if (e.ai === 'dead' || e.ai === 'windup' || Math.abs(e.x - this.player.x) + Math.abs(e.y - this.player.y) > 12) continue;
+      if (e.ai === 'dead' || e.ai === 'windup' || manhattan(e.x, e.y, this.player.x, this.player.y) > 12) continue;
       e.alert = 0;
       if (e.ai === 'chase') e.ai = 'idle';
     }
@@ -1860,7 +1861,7 @@ export class World {
   private castSounding(): void {
     const f = this.floor;
     for (let y = this.player.y - 6; y <= this.player.y + 6; y++) for (let x = this.player.x - 6; x <= this.player.x + 6; x++) {
-      if (!inBounds(f, x, y) || Math.abs(x - this.player.x) + Math.abs(y - this.player.y) > 6) continue;
+      if (!inBounds(f, x, y) || manhattan(x, y, this.player.x, this.player.y) > 6) continue;
       f.explored[y * f.width + x] = 1;
       const trap = trapAt(f, x, y);
       if (trap && !trap.found) {
@@ -1870,7 +1871,7 @@ export class World {
     }
     for (const e of f.enemies) {
       if (e.lurk !== 'ceiling' || e.spotted || e.ai === 'dead') continue;
-      if (Math.abs(e.x - this.player.x) + Math.abs(e.y - this.player.y) > 6) continue;
+      if (manhattan(e.x, e.y, this.player.x, this.player.y) > 6) continue;
       e.spotted = true;
       this.msg('Something clings to the ceiling nearby.', '#d0b080');
     }
@@ -2246,7 +2247,7 @@ export class World {
       const out: [number, number][] = [];
       for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
         if (blocksMove(f, x, y) || busy.has(`${x},${y}`) || stairsAt(f, x, y)) continue;
-        if (up && Math.abs(x - up.x) + Math.abs(y - up.y) < LIEUTENANT_MIN_DISTANCE) continue;
+        if (up && manhattan(x, y, up.x, up.y) < LIEUTENANT_MIN_DISTANCE) continue;
         out.push([x, y]);
       }
       return out;
@@ -2289,7 +2290,7 @@ export class World {
     }
     if (sees && dist <= HOARDER_SHY) {
       const away = DIRS.map((d) => [e.x + DX[d], e.y + DY[d]] as [number, number])
-        .filter(([x, y]) => this.canStep(e, x, y) && Math.abs(x - p.x) + Math.abs(y - p.y) > dist)[0];
+        .filter(([x, y]) => this.canStep(e, x, y) && manhattan(x, y, p.x, p.y) > dist)[0];
       if (away) {
         this.stepEnemy(e, away[0], away[1]);
         return true;
@@ -2298,12 +2299,12 @@ export class World {
       return dist > 1;
     }
     const target = f.pickups
-      .filter((k) => !k.keyId && !k.flaskShard && (k.items.length || k.gold > 0) && Math.abs(k.x - e.x) + Math.abs(k.y - e.y) <= HOARDER_REACH)
-      .sort((a, b) => Math.abs(a.x - e.x) + Math.abs(a.y - e.y) - (Math.abs(b.x - e.x) + Math.abs(b.y - e.y)))[0];
+      .filter((k) => !k.keyId && !k.flaskShard && (k.items.length || k.gold > 0) && manhattan(k.x, k.y, e.x, e.y) <= HOARDER_REACH)
+      .sort((a, b) => manhattan(a.x, a.y, e.x, e.y) - manhattan(b.x, b.y, e.x, e.y))[0];
     if (target) {
       // pathStep stops short of its goal (it was written for closing on you),
       // so the last step onto the pile is taken here.
-      const adjacent = Math.abs(target.x - e.x) + Math.abs(target.y - e.y) === 1;
+      const adjacent = manhattan(target.x, target.y, e.x, e.y) === 1;
       const next = adjacent ? (this.canStep(e, target.x, target.y) ? [target.x, target.y] as [number, number] : null) : this.pathStep(e, target.x, target.y);
       if (next) this.stepEnemy(e, next[0], next[1]);
       return true;
@@ -2345,7 +2346,7 @@ export class World {
     const oath = runOath(this.run, 'hunter');
     if (!oath || !HUNTER_DEPTHS.includes(f.depth) || (oath.placed ?? []).includes(f.depth)) return;
     const up = f.stairs.find((st) => !st.down);
-    const far = (e: EnemyState) => up ? Math.abs(e.x - up.x) + Math.abs(e.y - up.y) : 0;
+    const far = (e: EnemyState) => up ? manhattan(e.x, e.y, up.x, up.y) : 0;
     const pool = f.enemies.filter((e) => e.ai !== 'dead' && !e.lurk && enemyDef(e.def).behavior !== 'boss' && far(e) >= 8);
     const quarry = pool.length ? pool : f.enemies.filter((e) => e.ai !== 'dead' && !e.lurk && enemyDef(e.def).behavior !== 'boss');
     if (!quarry.length) return;
@@ -2398,7 +2399,7 @@ export class World {
     const def = enemyDef(e.def);
     if (!def.undead || def.behavior === 'boss' || e.risen || e.remains || e.burstT !== undefined || e.mimicTier) return;
     e.stirT = OSSUARY_STIR;
-    if (Math.abs(e.x - this.player.x) + Math.abs(e.y - this.player.y) <= 10) this.msg(`The ${def.name}'s bones stir.`, LAWS.restless.color);
+    if (manhattan(e.x, e.y, this.player.x, this.player.y) <= 10) this.msg(`The ${def.name}'s bones stir.`, LAWS.restless.color);
   }
 
   /**
@@ -2409,7 +2410,7 @@ export class World {
   private collapse(x: number, y: number): void {
     const dealtTo: string[] = [];
     for (const e of this.floor.enemies) {
-      if (e.ai === 'dead' || e.lurk || Math.abs(e.x - x) + Math.abs(e.y - y) !== 1) continue;
+      if (e.ai === 'dead' || e.lurk || manhattan(e.x, e.y, x, y) !== 1) continue;
       const def = enemyDef(e.def);
       const dealt = Math.max(1, Math.round((COLLAPSE_BASE + COLLAPSE_PER_DEPTH * this.run.depth) * (def.resist.blunt ?? 1)));
       this.hurt(e, dealt, `${dealt}!`, LAWS.collapse.color);
@@ -2433,7 +2434,7 @@ export class World {
   private kindle(e: EnemyState): void {
     const fire = this.derived.stats.fire ?? 0;
     if (fire <= 0 || e.hp >= e.maxHp * KINDLING_AT) return;
-    const near = this.floor.enemies.filter((o) => o !== e && o.ai !== 'dead' && !o.lurk && Math.abs(o.x - e.x) + Math.abs(o.y - e.y) === 1);
+    const near = this.floor.enemies.filter((o) => o !== e && o.ai !== 'dead' && !o.lurk && manhattan(o.x, o.y, e.x, e.y) === 1);
     if (!near.length) return;
     const o = this.rng.pick(near);
     const mult = enemyDef(o.def).resist.fire ?? 1;
@@ -2458,7 +2459,7 @@ export class World {
     if (this.derived.damageType === 'blunt' || overkill) e.remains = 'shattered';
     else if ((this.derived.stats.holy ?? 0) > 0 || consecrated) e.remains = 'sanctified';
     else return;
-    const caller = this.floor.enemies.some((g) => g.ai !== 'dead' && enemyDef(g.def).raises && Math.abs(g.x - e.x) + Math.abs(g.y - e.y) <= 10);
+    const caller = this.floor.enemies.some((g) => g.ai !== 'dead' && enemyDef(g.def).raises && manhattan(g.x, g.y, e.x, e.y) <= 10);
     if (caller) this.msg(e.remains === 'shattered' ? 'The bones shatter. Nothing will call these back.' : 'The remains are sanctified. They will stay down.', '#e8e0c0');
   }
 
@@ -2514,7 +2515,7 @@ export class World {
     const sigilDrop = def.behavior === 'boss'
       ? this.rollSigil(`boss:${e.id}`, 1)
       : e.mimicTier && e.mimicPropId
-        ? this.rollSigil(`chest:${e.mimicPropId}`, e.mimicTier === 'vault' || e.mimicTier === 'secret' ? 0.22 : 0.03 * Math.max(0, Math.min(1, (this.run.depth - 1) / 4)))
+        ? this.rollSigil(`chest:${e.mimicPropId}`, e.mimicTier === 'vault' || e.mimicTier === 'secret' ? 0.22 : 0.03 * clamp((this.run.depth - 1) / 4, 0, 1))
         : null;
     if (sigilDrop) loot.items.push(sigilDrop);
     if (def.behavior === 'boss') {
@@ -2712,7 +2713,7 @@ export class World {
     let woken = 0;
     for (const e of this.floor.enemies) {
       if (e.ai === 'dead' || this.protectedByFog(e)) continue;
-      if (Math.abs(e.x - p.x) + Math.abs(e.y - p.y) > this.noise(CHEST_CLANG_RADIUS)) continue;
+      if (manhattan(e.x, e.y, p.x, p.y) > this.noise(CHEST_CLANG_RADIUS)) continue;
       if (e.alert <= 0) woken++;
       e.alert = Math.max(e.alert, 6);
       e.lastSeenX = this.player.x;
@@ -2762,7 +2763,7 @@ export class World {
     if (p.kind === 'root_cache' && biomeForFloor(this.floor).law === 'noise') {
       let drawn = 0;
       for (const e of this.floor.enemies) {
-        if (e.ai === 'dead' || e.lurk || Math.abs(e.x - p.x) + Math.abs(e.y - p.y) > ROOT_CACHE_LURE) continue;
+        if (e.ai === 'dead' || e.lurk || manhattan(e.x, e.y, p.x, p.y) > ROOT_CACHE_LURE) continue;
         e.alert = Math.max(e.alert, 8);
         e.lastSeenX = p.x;
         e.lastSeenY = p.y;
@@ -2848,7 +2849,7 @@ export class World {
     for (const e of this.floor.enemies) {
       // A lurker is not in the fight until it drops: counting it would give it away.
       if (e.ai === 'dead' || e.lurk) continue;
-      const dist = Math.abs(e.x - p.x) + Math.abs(e.y - p.y);
+      const dist = manhattan(e.x, e.y, p.x, p.y);
       if (dist <= 2) return true;
       if (dist <= 4 && e.alert > 0 && this.los(p.x, p.y, e.x, e.y)) return true;
     }
@@ -3002,7 +3003,7 @@ export class World {
         if (loot.lost.length) this.msg(`Your blows cost you: ${summarizeLost(loot.lost)}.`, '#d0a070');
         const sigilDrop = this.rollSigil(
           `chest:${p.id}`,
-          tier === 'vault' || tier === 'secret' ? 0.22 : 0.03 * Math.max(0, Math.min(1, (this.run.depth - 1) / 4)),
+          tier === 'vault' || tier === 'secret' ? 0.22 : 0.03 * clamp((this.run.depth - 1) / 4, 0, 1),
         );
         if (sigilDrop) loot.items.push(sigilDrop);
         let pk = this.dropLoot(p.x, p.y, loot.items, 0);
@@ -3627,7 +3628,7 @@ export class World {
         const n = ny * W + nx;
         if (prev.has(n)) continue;
         if (n !== goal && (blocksMove(f, nx, ny) || busy.has(n))) continue;
-        if (Math.abs(nx - e.x) + Math.abs(ny - e.y) > 18) continue;
+        if (manhattan(nx, ny, e.x, e.y) > 18) continue;
         prev.set(n, i);
         q.push(n);
       }
@@ -3792,7 +3793,7 @@ export class World {
     // the floor. Nearest first and capped, so this cannot become a mob.
     const fallen = this.floor.enemies
       .filter((g) => g.def === 'hollow_knight' && g.ai === 'dead' && inRoom(room, g.x, g.y))
-      .sort((a, b) => Math.abs(a.x - room.x) + Math.abs(a.y - room.y) - (Math.abs(b.x - room.x) + Math.abs(b.y - room.y)))
+      .sort((a, b) => manhattan(a.x, a.y, room.x, room.y) - manhattan(b.x, b.y, room.x, room.y))
       .slice(0, MAX_RAISED_GUARDS);
     for (const g of fallen) {
       const spot = this.freeTileForRise(g.x, g.y);
@@ -3897,7 +3898,7 @@ export class World {
         e.moveT = Math.min(1, e.moveT + dt / def.step);
         if (e.moveT < 1) continue;
       }
-      const dist = Math.abs(e.x - p.x) + Math.abs(e.y - p.y);
+      const dist = manhattan(e.x, e.y, p.x, p.y);
       if ((e.blind ?? 0) > 0) {
         e.blind = Math.max(0, (e.blind ?? 0) - dt);
         e.guard = 'down';
@@ -3907,7 +3908,7 @@ export class World {
           // step, it stays put.
           const steps = DIRS.map((d) => [e.x + DX[d], e.y + DY[d]] as [number, number])
             .filter(([x, y]) => this.canStep(e, x, y))
-            .filter(([x, y]) => Math.abs(x - p.x) + Math.abs(y - p.y) >= dist);
+            .filter(([x, y]) => manhattan(x, y, p.x, p.y) >= dist);
           if (steps.length) { const [x, y] = this.rng.pick(steps); this.stepEnemy(e, x, y); }
         }
         if (e.blind <= 0) {
@@ -3963,7 +3964,7 @@ export class World {
           }
           const away = DIRS.map((d) => [e.x + DX[d], e.y + DY[d]] as [number, number])
             .filter(([x, y]) => this.canStep(e, x, y))
-            .sort((a, b) => Math.abs(b[0] - p.x) + Math.abs(b[1] - p.y) - (Math.abs(a[0] - p.x) + Math.abs(a[1] - p.y)))[0];
+            .sort((a, b) => manhattan(b[0], b[1], p.x, p.y) - manhattan(a[0], a[1], p.x, p.y))[0];
           if (away) this.stepEnemy(e, away[0], away[1]);
           continue;
         }
@@ -4002,7 +4003,7 @@ export class World {
         if (def.behavior === 'ranged' && dist <= 1) {
           // Back off to shooting range.
           const back = DIRS.map((d) => [e.x + DX[d], e.y + DY[d]] as [number, number]).find(
-            ([x, y]) => this.canStep(e, x, y) && Math.abs(x - p.x) + Math.abs(y - p.y) > dist,
+            ([x, y]) => this.canStep(e, x, y) && manhattan(x, y, p.x, p.y) > dist,
           );
           if (back) this.stepEnemy(e, back[0], back[1]);
           else if (e.attackCd <= 0) this.beginWindup(e, def, p.x, p.y);
@@ -4030,7 +4031,7 @@ export class World {
       if (e.timer <= 0) {
         e.timer = this.rng.float(1.2, 3.2);
         const opts = DIRS.map((d) => [e.x + DX[d], e.y + DY[d]] as [number, number]).filter(
-          ([x, y]) => this.canStep(e, x, y) && Math.abs(x - e.homeX) + Math.abs(y - e.homeY) <= 3,
+          ([x, y]) => this.canStep(e, x, y) && manhattan(x, y, e.homeX, e.homeY) <= 3,
         );
         if (opts.length && this.rng.chance(0.6)) {
           const [x, y] = this.rng.pick(opts);
@@ -4135,7 +4136,7 @@ export class World {
     // there was one. See `enemyPose`.
     e.strikeT = 0;
     const p = this.player;
-    const dist = Math.abs(e.x - p.x) + Math.abs(e.y - p.y);
+    const dist = manhattan(e.x, e.y, p.x, p.y);
     const useRanged = !!def.projectile && (def.behavior === 'ranged' || (def.behavior === 'boss' && dist >= 2));
     if (useRanged) {
       const dx = Math.sign(e.lastSeenX - e.x), dy = Math.sign(e.lastSeenY - e.y);
@@ -4233,7 +4234,7 @@ export class World {
         attacker.vuln = PARRY_STUN;
         for (const other of this.floor.enemies) {
           if (other === attacker || other.ai === 'dead' || other.lurk) continue;
-          if (Math.abs(other.x - p.x) + Math.abs(other.y - p.y) !== 1) continue;
+          if (manhattan(other.x, other.y, p.x, p.y) !== 1) continue;
           other.ai = 'recover';
           other.timer = Math.max(other.timer, MELEE_PARRY_SPLASH_STUN);
           other.attackCd = Math.max(other.attackCd, MELEE_PARRY_SPLASH_STUN);
@@ -4564,7 +4565,7 @@ export class World {
    */
   private updateLurker(e: EnemyState, dt: number): void {
     const p = this.player;
-    const dist = Math.abs(e.x - p.x) + Math.abs(e.y - p.y);
+    const dist = manhattan(e.x, e.y, p.x, p.y);
     if (e.tunnelling) {
       e.lurkT = (e.lurkT ?? 0) - dt;
       if (e.moveT < 1) {
@@ -4580,7 +4581,7 @@ export class World {
       const back = { x: p.x - DX[p.facing], y: p.y - DY[p.facing] };
       const step = DIRS.map((d) => ({ x: e.x + DX[d], y: e.y + DY[d] }))
         .filter((t) => !blocksMove(this.floor, t.x, t.y) && !(t.x === p.x && t.y === p.y))
-        .sort((a, b) => Math.abs(a.x - back.x) + Math.abs(a.y - back.y) - (Math.abs(b.x - back.x) + Math.abs(b.y - back.y)))[0];
+        .sort((a, b) => manhattan(a.x, a.y, back.x, back.y) - manhattan(b.x, b.y, back.x, back.y))[0];
       if (step) {
         e.fromX = e.x; e.fromY = e.y;
         e.x = step.x; e.y = step.y;
@@ -4671,7 +4672,7 @@ export class World {
     this.emit({ type: 'crack', id: c.id, hits: c.hits });
     for (const e of f.enemies) {
       if (e.ai === 'dead' || e.lurk || this.protectedByFog(e)) continue;
-      if (Math.abs(e.x - c.x) + Math.abs(e.y - c.y) > this.noise(CRACK_NOISE)) continue;
+      if (manhattan(e.x, e.y, c.x, c.y) > this.noise(CRACK_NOISE)) continue;
       e.alert = Math.max(e.alert, 6);
       e.lastSeenX = this.player.x;
       e.lastSeenY = this.player.y;
@@ -4735,8 +4736,8 @@ export class World {
     const corpse = f.enemies
       .filter((g) => g.ai === 'dead' && g !== e && !g.remains && g.burstT === undefined && !taken.has(g.id)
         && enemyDef(g.def).undead && enemyDef(g.def).behavior !== 'boss'
-        && Math.abs(g.x - e.x) + Math.abs(g.y - e.y) <= RAISE_REACH && this.los(e.x, e.y, g.x, g.y))
-      .sort((a, b) => Math.abs(a.x - e.x) + Math.abs(a.y - e.y) - (Math.abs(b.x - e.x) + Math.abs(b.y - e.y)))[0];
+        && manhattan(g.x, g.y, e.x, e.y) <= RAISE_REACH && this.los(e.x, e.y, g.x, g.y))
+      .sort((a, b) => manhattan(a.x, a.y, e.x, e.y) - manhattan(b.x, b.y, e.x, e.y))[0];
     if (!corpse) return false;
     e.channel = { target: corpse.id, t: RAISE_CHANNEL };
     const d = dirOf(Math.sign(corpse.x - e.x), Math.sign(corpse.y - e.y));
@@ -4867,9 +4868,9 @@ export class World {
     // Out of sight it bolts for a moment, then goes to ground and creeps.
     if (!sees && e.stolenT >= THIEF_BOLT) e.pauseT = THIEF_CREEP;
     const fromX = sees ? p.x : e.lastSeenX, fromY = sees ? p.y : e.lastSeenY;
-    const here = Math.abs(e.x - fromX) + Math.abs(e.y - fromY);
+    const here = manhattan(e.x, e.y, fromX, fromY);
     const options = DIRS.map((d) => ({ d, x: e.x + DX[d], y: e.y + DY[d] }))
-      .filter((t) => this.canStep(e, t.x, t.y) && Math.abs(t.x - fromX) + Math.abs(t.y - fromY) >= here);
+      .filter((t) => this.canStep(e, t.x, t.y) && manhattan(t.x, t.y, fromX, fromY) >= here);
     if (options.length) {
       // Keep running the way it was going, if it can; otherwise any way that
       // is not towards you. No lookahead: a dead end is as good as a door.
@@ -4904,7 +4905,7 @@ export class World {
   private vengefulBurst(e: EnemyState): void {
     const def = enemyDef(e.def);
     const attack = Math.max(1, Math.round(def.attack * attackPower(e.power) * VENGEFUL_DAMAGE_MULT * this.diff.enemyDamage));
-    const inBlast = (x: number, y: number) => Math.abs(x - e.x) + Math.abs(y - e.y) <= 1;
+    const inBlast = (x: number, y: number) => manhattan(x, y, e.x, e.y) <= 1;
     this.sfx('lava_burst', e.x, e.y);
     this.emit({ type: 'float', x: e.x, y: e.y, text: 'Burst!', color: '#c070ff' });
     for (const other of this.floor.enemies) {
@@ -4966,7 +4967,7 @@ export class World {
     const p = this.player;
     for (const e of this.floor.enemies) {
       if (e.ai === 'dead' || e.lurk) continue;
-      if (Math.abs(e.x - p.x) + Math.abs(e.y - p.y) <= 8 && this.los(p.x, p.y, e.x, e.y)) out.add(e.id);
+      if (manhattan(e.x, e.y, p.x, p.y) <= 8 && this.los(p.x, p.y, e.x, e.y)) out.add(e.id);
     }
     return out;
   }

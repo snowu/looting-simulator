@@ -5,6 +5,7 @@ import {
   ELITES, EliteTrait, FRENZIED_RECOVERY_MULT, FRENZIED_STEP_MULT, FRENZIED_WINDUP_MULT, FRENZY_AT,
   HASTED_RECOVERY_MULT, HASTED_STEP_MULT, HASTED_WINDUP_MULT, IRONHIDE_DEFENSE_MULT, IRONHIDE_STEP_MULT, THIEF_LADEN,
 } from './elites';
+import { clamp } from '../core/math';
 
 /*
  * Physical damage is a triangle, not a ladder. Blunt crushes bone and rigid
@@ -574,7 +575,7 @@ export function phaseForHp(frac: number): number {
 
 /** The profile for a phase, clamped so an out-of-range number cannot throw. */
 export function kingPhase(phase: number): BossPhase {
-  return KING_PHASES[Math.max(0, Math.min(KING_PHASES.length - 1, phase - 1))];
+  return KING_PHASES[clamp(phase - 1, 0, KING_PHASES.length - 1)];
 }
 
 /**

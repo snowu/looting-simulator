@@ -22,6 +22,7 @@ import { uniqueForQuirk } from '../data/uniques';
 import { EnemyState, Floor, Prop, blocksMove, createEnemy, promoteElite } from './dungeon';
 import { SHADE_ID } from './grave';
 import { eligibleTraits } from '../data/elites';
+import { manhattan } from '../core/math';
 
 /** The ladder a promoted container climbs. A secret is already the top. */
 const TIER_LADDER: ContainerTier[] = ['urn', 'chest', 'vault', 'secret'];
@@ -174,7 +175,7 @@ function plantRelic(floor: Floor, quirk: QuirkId, runSeed: number): void {
       return out;
     })
     .filter((t) => !blocksMove(floor, t.x, t.y) && !taken.has(`${t.x},${t.y}`) && !floor.stairs.some((s) => s.x === t.x && s.y === t.y))
-    .sort((a, b) => (Math.abs(b.x - up.x) + Math.abs(b.y - up.y)) - (Math.abs(a.x - up.x) + Math.abs(a.y - up.y)))[0];
+    .sort((a, b) => manhattan(b.x, b.y, up.x, up.y) - manhattan(a.x, a.y, up.x, up.y))[0];
   if (!far) return;
   floor.pickups.push({
     id: `relic_${quirk}_${floor.depth}`,

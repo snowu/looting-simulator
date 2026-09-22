@@ -28,6 +28,7 @@ import { LevelView, TILE, WALL_H, buildLevel, tileX, tileZ } from './level-mesh'
 import { MAX_LIGHTS, PS1Material, PostPass, Shared, createLowResTarget, createShared, ps1Material } from './ps1';
 import { brightness } from './brightness';
 import { MORSEL_ART, MORSEL_ROT_SECONDS } from '../systems/healing';
+import { clamp, manhattan } from '../core/math';
 
 const EYE = 1.32;
 
@@ -544,7 +545,7 @@ export class DungeonRenderer {
 
     // --- Sprites ---------------------------------------------------------------
     for (const s of this.sprites.values()) s.seen = false;
-    const near = (x: number, y: number) => Math.abs(x - p.x) + Math.abs(y - p.y) <= 14;
+    const near = (x: number, y: number) => manhattan(x, y, p.x, p.y) <= 14;
 
     for (const en of floor.enemies) {
       if (!near(en.x, en.y)) continue;
@@ -585,7 +586,7 @@ export class DungeonRenderer {
       wz += DY[en.facing] * pose.lunge;
       // How far into the wind-up it is, for the tell and the swell.
       const wound = en.ai === 'windup'
-        ? Math.max(0, Math.min(1, 1 - en.timer / Math.max(0.01, def.windup * move.windup)))
+        ? clamp(1 - en.timer / Math.max(0.01, def.windup * move.windup), 0, 1)
         : 0;
       // A slam gathers itself upward. Growth is what makes the one attack you
       // must not stand in front of readable out of the corner of an eye.
@@ -735,7 +736,7 @@ export class DungeonRenderer {
       const dish = MORSEL_ART[morsel.kind];
       this.place(s, dish.art, tileX(morsel.x), 0.08, tileZ(morsel.y), dish.height);
       // Over the last third of its life it goes off: a mouldy olive creeping in.
-      const rot = Math.max(0, Math.min(1, (age - MORSEL_ROT_SECONDS * 2 / 3) / (MORSEL_ROT_SECONDS / 3)));
+      const rot = clamp((age - MORSEL_ROT_SECONDS * 2 / 3) / (MORSEL_ROT_SECONDS / 3), 0, 1);
       if (rot > 0) s.mat.uniforms.uTint.value.set(0.2, 0.22, 0.1, 0.65 * rot);
     }
 
@@ -861,7 +862,7 @@ export class DungeonRenderer {
     if (casting) {
       // `t` counts down, so this runs 0 → 1 over the cast.
       const total = Math.max(0.01, findSigil(casting.id)?.cast ?? 0.5);
-      const k = 1 - Math.max(0, Math.min(1, casting.t / total));
+      const k = 1 - clamp(casting.t / total, 0, 1);
       y += 26 * k;
       rot = Math.sin(this.time * 22) * 0.05 * k;
     } else if (a.attackThrow) {

@@ -16,6 +16,7 @@ import { DamageType, Item } from '../types';
 import { enemyDef } from '../data/enemies';
 import { EnemyState, Floor, FLOOR, createEnemy, doorAt, inRoom, stairsAt, tileAt } from './dungeon';
 import { DifficultyId } from '../data/difficulty';
+import { manhattan } from '../core/math';
 
 export interface Grave {
   depth: number;
@@ -56,7 +57,7 @@ export function placeShade(state: GameState, floor: Floor, runSeed: number, diff
     if (tileAt(floor, x, y) !== FLOOR || busy.has(`${x},${y}`)) continue;
     if (doorAt(floor, x, y) || stairsAt(floor, x, y)) continue;
     if (floor.props.some((p) => p.blocking && p.x === x && p.y === y)) continue;
-    if (up && Math.abs(x - up.x) + Math.abs(y - up.y) < SHADE_MIN_DISTANCE) continue;
+    if (up && manhattan(x, y, up.x, up.y) < SHADE_MIN_DISTANCE) continue;
     // Not inside the throne room: the King's fight is his own.
     if (floor.rooms.some((r) => r.role === 'throne' && inRoom(r, x, y))) continue;
     spots.push([x, y]);

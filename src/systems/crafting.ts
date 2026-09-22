@@ -5,6 +5,7 @@ import { itemBase } from '../data/items';
 import { MAX_RECIPE_RANK, blueprintCostForNextRank, recipe, recipeForBase, recipeRank } from '../data/recipes';
 import { Container, countOf, removeOf } from '../state/inventory';
 import { makeEquipment, rollAffixValue, rollAffixes } from './items';
+import { clamp } from '../core/math';
 
 export interface CraftSelection {
   recipeId: string;
@@ -86,7 +87,7 @@ export function buildCrafted(sel: CraftSelection, smithLevel: number, rng?: Rng,
     identified: true,
     quality: Math.round(quality * 100) / 100,
     crafted: true,
-    craftRank: Math.max(1, Math.min(MAX_RECIPE_RANK, Math.floor(rank))),
+    craftRank: clamp(Math.floor(rank), 1, MAX_RECIPE_RANK),
   });
 }
 

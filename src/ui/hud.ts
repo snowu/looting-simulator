@@ -14,6 +14,7 @@ import { drawMap } from './automap';
 import { PLAIN_FLASK_RAMP, draught } from '../systems/infusion';
 import { artImg, esc, gold, h } from './dom';
 import { settingsGearButton } from './settings';
+import { clamp } from '../core/math';
 
 interface Float {
   el: HTMLElement;
@@ -240,7 +241,7 @@ export class Hud {
     this.sigilWrap.classList.toggle('ready', ready);
     this.sigilWrap.classList.toggle('casting', !!casting);
     // Wedge of darkness over the icon, unwinding anticlockwise as it recovers.
-    const left = def.cooldown > 0 ? Math.max(0, Math.min(1, active.cd / def.cooldown)) : 0;
+    const left = def.cooldown > 0 ? clamp(active.cd / def.cooldown, 0, 1) : 0;
     this.sigilDial.hidden = left <= 0;
     if (left > 0) this.sigilDial.style.background = `conic-gradient(#000000a0 ${left * 360}deg, transparent 0deg)`;
     setText(this.sigilText, active.cd > 0 ? `${Math.ceil(active.cd)}s` : '');
