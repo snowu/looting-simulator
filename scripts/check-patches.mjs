@@ -52,6 +52,8 @@ const SKIP = {
   '540b97c': 'refactor: fill/mirror art helpers, art output byte-identical; no player-facing change',
   ba542a7: 'Patch 73 citation, skip reasons and PR screenshot only',
   '9f785e4': 'merge only; stacked branch sync, changes covered by Patches 57-59',
+  'f6fc8dd': 'refactor: clamp and manhattan in core/math; no player-facing change',
+  'b4474ac': 'skip reasons only',
   'f5d74d0': 'merge only; stacked branch sync, changes covered by Patches 57-59',
   a8894b0: 'patch-note skip reasons only',
   '409822a': 'Patch 71 citation, refactor skip reasons and PR previews; no player-facing change',
