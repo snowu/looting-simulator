@@ -32,12 +32,12 @@ import { UniqueDef } from '../data/uniques';
 import { ELEMENTS } from '../types';
 import { buildCrafted, craft, materialsForSlot, selectionError, salvageForNextRank, salvageStudy, studySalvagedWeapon, studyBlueprint } from '../systems/crafting';
 import { durability, identify, identifyCost, itemIcon, itemName, itemStats, itemValue, makeConsumable, makeUnique, repairCost, repairItem, salvage, uniqueOf } from '../systems/items';
-import { Container, addItem, canFit, countOf, freeSlots, removeItem, removeOf, roomFor, sortContainer, takeQty } from '../state/inventory';
+import { Container, addItem, canFit, countOf, findItem, freeSlots, removeItem, removeOf, roomFor, sortContainer, takeQty } from '../state/inventory';
 import { syncLoadout } from '../systems/run';
 import { attuneSigil, inscribeSigil } from '../systems/spells';
 import { findSigil, sigil } from '../data/spells';
 import { derivePlayer } from '../systems/player';
-import { defaultSlot, equipFrom, unequipTo } from '../systems/equip';
+import { defaultSlot, equipFrom, unequipTo, wornFor } from '../systems/equip';
 import { createRng, hashString, randomSeed } from '../core/rng';
 import { artImg, bothRegisters, btn, gold, h, helpBlock, helpButton, hideTooltip, isTouchMode, itemSlot, itemTooltip, rarityColor, sparkline, statLines, toggleDetailed } from './dom';
 import { esc } from '../core/escape';
@@ -814,8 +814,7 @@ export class Town {
     let preview: HTMLElement | null = null;
     if (selectedPreview) {
       const item = selectedPreview;
-      const cmpSlot = defaultSlot(item, s.equipment);
-      const cmp = cmpSlot ? s.equipment[cmpSlot] : null;
+      const cmp = wornFor(item, s.equipment);
       preview = h(
         'div',
         { class: 'preview' },
@@ -1384,7 +1383,7 @@ export class Town {
   private toPack(uid: string): void {
     const s = this.s;
     const { c } = this.pack;
-    const it = s.stash.items.find((i) => i.uid === uid);
+    const it = findItem(s.stash, uid);
     if (!it) return;
     const room = roomFor(c, it);
     if (room <= 0) {

@@ -1,5 +1,5 @@
 import { PATCHES } from '../data/patches';
-import { btn, h } from './dom';
+import { btn, closeOverlays, h, mountOverlay } from './dom';
 
 /** Scroll icon button for the home (title) page. Opens the patch-notes overlay. */
 export function patchNotesButton(): HTMLElement {
@@ -73,27 +73,11 @@ export function openPatchNotes(): void {
     h('p', { class: 'dim small', text: 'Gameplay changes only, newest first. Patch numbers are stable — Patch 1 is the oldest.' }),
     list,
   );
-  const onKey = (e: KeyboardEvent): void => {
-    if (e.key === 'Escape') {
-      e.stopPropagation();
-      closePatchNotes();
-    }
-  };
-  wrap.addEventListener('pointerdown', (e) => {
-    if (e.target === wrap) closePatchNotes();
-  });
-  // Capture so the dungeon key handler (if any) does not see the Escape first.
-  window.addEventListener('keydown', onKey, true);
-  (wrap as unknown as Record<string, unknown>).__close = () =>
-    window.removeEventListener('keydown', onKey, true);
   wrap.append(modal);
-  document.getElementById('app')?.append(wrap) ?? document.body.append(wrap);
+  mountOverlay(wrap, closePatchNotes);
   render();
 }
 
 export function closePatchNotes(): void {
-  for (const el of document.querySelectorAll('.patch-wrap')) {
-    (el as unknown as Record<string, (() => void) | undefined>).__close?.();
-    el.remove();
-  }
+  closeOverlays('.patch-wrap');
 }

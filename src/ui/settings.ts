@@ -2,7 +2,7 @@ import { GameState } from '../state/game-state';
 import { DIFFICULTIES, DIFFICULTY_IDS, difficultyOf } from '../data/difficulty';
 import { audio } from '../audio/sfx';
 import { BRIGHTNESS_MAX, BRIGHTNESS_MIN, applyBrightnessGain, brightness, brightnessToPercent, percentToBrightness } from '../render/brightness';
-import { artImg, btn, h } from './dom';
+import { artImg, btn, closeOverlays, h, mountOverlay } from './dom';
 
 /**
  * Settings, behind the gear in the town header, on the title screen, and in
@@ -254,37 +254,16 @@ export function openSettings(ctx: SettingsCtx): void {
     h('p', { class: 'dim small', text: 'Optional. Signed out, the game plays exactly as it always has.' }),
     accountBox,
   );
-  const onKey = (e: KeyboardEvent): void => {
-    if (e.key === 'Escape') {
-      e.stopPropagation();
-      closeSettings();
-    }
-  };
-  wrap.addEventListener('pointerdown', (e) => {
-    if (e.target === wrap) closeSettings();
-  });
-  window.addEventListener('keydown', onKey, true);
-  (wrap as unknown as Record<string, unknown>).__close = () => {
-    window.removeEventListener('keydown', onKey, true);
-    ctx.onClose();
-  };
   // The account panel is one persistent element shared with the title screen:
   // appending it here moves it, it does not copy it, so its sign-in state and
   // any half-typed code survive the trip.
   const acc = ctx.account();
   if (acc) accountBox.append(acc);
   wrap.append(modal);
-  document.getElementById('app')?.append(wrap) ?? document.body.append(wrap);
+  mountOverlay(wrap, closeSettings, ctx.onClose);
   if (showDifficulty) renderDifficulty();
 }
 
 export function closeSettings(): void {
-  for (const el of document.querySelectorAll('.settings-wrap')) {
-    // Remove first, then run the close callback: on the title screen onClose
-    // re-enters the title, which itself calls closeSettings — if the wrap were
-    // still attached that would recurse forever and the modal would never go
-    // away.
-    el.remove();
-    (el as unknown as Record<string, (() => void) | undefined>).__close?.();
-  }
+  closeOverlays('.settings-wrap');
 }

@@ -513,3 +513,41 @@ export function sparkline(values: number[], w = 90, hgt = 22, color = '#e8b84a')
   ctx.fillRect(w - 3, Math.round(hgt - 2 - ((last - min) / span) * (hgt - 4)) - 1, 2, 2);
   return c;
 }
+
+type Closable = HTMLElement & { __close?: () => void };
+
+/**
+ * Mount a modal overlay on the app. Escape and a press on the backdrop both
+ * call `close`. Escape is caught in the capture phase so the dungeon's own key
+ * handler never sees it. `onClosed` runs once the overlay is taken down by
+ * `closeOverlays`.
+ */
+export function mountOverlay(wrap: HTMLElement, close: () => void, onClosed?: () => void): void {
+  const onKey = (e: KeyboardEvent): void => {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      close();
+    }
+  };
+  wrap.addEventListener('pointerdown', (e) => {
+    if (e.target === wrap) close();
+  });
+  window.addEventListener('keydown', onKey, true);
+  (wrap as Closable).__close = () => {
+    window.removeEventListener('keydown', onKey, true);
+    onClosed?.();
+  };
+  document.getElementById('app')?.append(wrap) ?? document.body.append(wrap);
+}
+
+/** Take down every overlay matching `selector` that `mountOverlay` put up. */
+export function closeOverlays(selector: string): void {
+  for (const el of document.querySelectorAll<Closable>(selector)) {
+    // Remove first, then run the close callback: on the title screen the
+    // settings' onClose re-enters the title, which itself closes settings — if
+    // the wrap were still attached that would recurse forever and the modal
+    // would never go away.
+    el.remove();
+    el.__close?.();
+  }
+}

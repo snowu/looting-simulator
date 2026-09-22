@@ -4,7 +4,7 @@ import { consumable } from '../data/items';
 import { enemyDef } from '../data/enemies';
 import { biomeForFloor } from '../data/biomes';
 import { isTwoHanded, itemName } from '../systems/items';
-import { equipFrom, unequipTo, defaultSlot } from '../systems/equip';
+import { equipFrom, unequipTo, wornFor } from '../systems/equip';
 import { sortContainer } from '../state/inventory';
 import { World } from '../world/world';
 import { drawMap } from './automap';
@@ -247,8 +247,7 @@ export class DungeonOverlays {
         grid.append(itemSlot(null, { size: 44 }));
         continue;
       }
-      const slot = defaultSlot(it, eq);
-      const cmp = slot ? eq[slot] : null;
+      const cmp = wornFor(it, eq);
       const dropWhere = dropPickupId ? 'onto the pile' : 'on the ground';
       const el = itemSlot(it, {
         size: 44,
@@ -317,8 +316,7 @@ export class DungeonOverlays {
     const pack = w.run.backpack;
     const list = h('div', { class: 'loot-list' });
     for (const it of pk?.items ?? []) {
-      const cmpSlot = defaultSlot(it, w.state.equipment);
-      const cmp = cmpSlot ? w.state.equipment[cmpSlot] : null;
+      const cmp = wornFor(it, w.state.equipment);
       list.append(
         h(
           'div',
@@ -337,8 +335,7 @@ export class DungeonOverlays {
     // the Drop button below does the same one tap at a time.
     const packRows = h('div', { class: 'loot-list pack-swap' });
     for (const it of pack.items) {
-      const slot = defaultSlot(it, w.state.equipment);
-      const cmp = slot ? w.state.equipment[slot] : null;
+      const cmp = wornFor(it, w.state.equipment);
       packRows.append(
         h(
           'div',

@@ -114,10 +114,6 @@ export function settleOaths(state: GameState, run: RunState, outcome: 'dead' | '
   return { results, picks, renown, bonus };
 }
 
-/**
- * Learn one of a waiting reward's choices. The reward stays until its picks are
- * used up, with the learned one taken off the list.
- */
 /** How many inscriptions the waiting reward still lets you learn. */
 export function oathRewardPicks(state: GameState): number {
   const reward = state.oathReward;
@@ -137,6 +133,10 @@ export function claimOathRewards(state: GameState, ids: string[]): boolean {
   return true;
 }
 
+/**
+ * Learn one of a waiting reward's choices. The reward stays until its picks are
+ * used up, with the learned one taken off the list.
+ */
 export function claimOathReward(state: GameState, id: string): boolean {
   const reward = state.oathReward;
   if (!reward || !reward.choices.includes(id)) return false;

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { tileHash } from '../core/tile-hash';
 import { emberWallTexture } from './ember-wall';
 import { EMBER_FLOOR_IDS, EMBER_CEILING_IDS } from '../art/ember-floor';
 import { Dir, DIRS, DX, DY, turnRight } from '../core/dir';
@@ -98,11 +99,19 @@ export interface LevelView {
 }
 
 function hash3(x: number, y: number, d: number): number {
-  return (((x * 73856093) ^ (y * 19349663) ^ (d * 83492791)) >>> 0) % 100;
+  return tileHash(x, y, d) % 100;
 }
 
 export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string): LevelView {
   const biome = biomeForFloor(floor);
+  const floorTexAt = (x: number, y: number) =>
+    biome.floorVariants?.length ? biome.floorVariants[hash3(x, y, 4) % biome.floorVariants.length] : biome.floor;
+  /** The face of wall tile (x, y) seen from side `d`. Pillars pick differently, below. */
+  const wallTexAt = (x: number, y: number, d: number) =>
+    biome.id === 'emberworks' ? emberWallTexture(x, y, d)
+      : biome.wallVariants?.length
+        ? biome.wallVariants[hash3(x, y, d) % biome.wallVariants.length]
+        : hash3(x, y, d) < 12 ? biome.wallAlt : biome.wall;
   const ceiling = ceilingTexture ?? biome.ceiling;
   const builders = new Map<string, Builder>();
   const B = (tex: string) => {
@@ -147,8 +156,7 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
         continue;
       }
 
-      const floorTex = biome.floorVariants?.length ? biome.floorVariants[hash3(x, y, 4) % biome.floorVariants.length] : biome.floor;
-      B(floorTex).quad([x0, 0, z0], [x1, 0, z0], [x1, 0, z1], [x0, 0, z1], [0, 1, 0]);
+      B(floorTexAt(x, y)).quad([x0, 0, z0], [x1, 0, z0], [x1, 0, z1], [x0, 0, z1], [0, 1, 0]);
       const ceilingTex = ceiling === biome.ceiling && biome.ceilingVariants?.length
         ? biome.ceilingVariants[hash3(x, y, 6) % biome.ceilingVariants.length] : ceiling;
       B(ceilingTex).quad([x0, WALL_H, z0], [x1, WALL_H, z0], [x1, WALL_H, z1], [x0, WALL_H, z1], [0, -1, 0]);
@@ -185,11 +193,7 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
       for (const d of DIRS) {
         const nx = x + DX[d], ny = y + DY[d];
         if (tileAt(floor, nx, ny) !== WALL || secretAtTile(nx, ny) || crackAtTile(nx, ny)) continue;
-        const tex = biome.id === 'emberworks' ? emberWallTexture(nx, ny, d)
-          : biome.wallVariants?.length
-          ? biome.wallVariants[hash3(nx, ny, d) % biome.wallVariants.length]
-          : hash3(nx, ny, d) < 12 ? biome.wallAlt : biome.wall;
-        wallQuad(tex, cx, cz, d, 0, WALL_H);
+        wallQuad(wallTexAt(nx, ny, d), cx, cz, d, 0, WALL_H);
       }
     }
   }
@@ -200,8 +204,7 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
     if (crack.broken) continue;
     const cx = tileX(crack.x), cz = tileZ(crack.y);
     const x0 = cx - half, x1 = cx + half, z0 = cz - half, z1 = cz + half;
-    const floorTex = biome.floorVariants?.length ? biome.floorVariants[hash3(crack.x, crack.y, 4) % biome.floorVariants.length] : biome.floor;
-    B(floorTex).quad([x0, 0, z0], [x1, 0, z0], [x1, 0, z1], [x0, 0, z1], [0, 1, 0]);
+    B(floorTexAt(crack.x, crack.y)).quad([x0, 0, z0], [x1, 0, z0], [x1, 0, z1], [x0, 0, z1], [0, 1, 0]);
     B(ceiling).quad([x0, WALL_H, z0], [x1, WALL_H, z0], [x1, WALL_H, z1], [x0, WALL_H, z1], [0, -1, 0]);
     // The walls of the opening it will leave, laid now because the level is
     // not rebuilt when it breaks. They face into the tile, so while the box
@@ -209,11 +212,7 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
     for (const d of DIRS) {
       const nx = crack.x + DX[d], ny = crack.y + DY[d];
       if (tileAt(floor, nx, ny) !== WALL || secretAtTile(nx, ny) || crackAtTile(nx, ny)) continue;
-      const wallTex = biome.id === 'emberworks' ? emberWallTexture(nx, ny, d)
-        : biome.wallVariants?.length
-        ? biome.wallVariants[hash3(nx, ny, d) % biome.wallVariants.length]
-        : hash3(nx, ny, d) < 12 ? biome.wallAlt : biome.wall;
-      wallQuad(wallTex, cx, cz, d, 0, WALL_H);
+      wallQuad(wallTexAt(nx, ny, d), cx, cz, d, 0, WALL_H);
     }
   }
 
