@@ -1,3 +1,21 @@
+# Smoother frames in the dungeon
+
+*Save revision 29, unchanged: nothing about a save or a floor moves.*
+
+**The dungeon does less work per frame, which matters most on a phone.** Nothing looks or plays differently. The game just stops redoing work it had already done:
+
+- Damage numbers no longer make the browser re-measure the page once per number, every frame of a fight.
+- The compass, health, prompt and target panel are only redrawn when they actually change.
+- The minimap draws only the patch around you instead of walking the whole floor every frame.
+- Torches, props and pickups at the edge of your sight are kept and hidden rather than rebuilt from scratch on every step.
+- Lights and tints are parsed once rather than every frame.
+- Monsters looking for a path around each other check where everyone is once per search, not once per tile.
+- On lava floors, the drips and bursts only check what you can see when it's time to pick a new spot, every few seconds.
+
+Validation: all 780 tests pass, including the golden floor hashes, and the build is clean. In the browser, in the dev lab's throwaway game: fought and killed skeletons with the minimap and damage numbers on screen, at a steady 16.7 ms per frame. The Silent Picture and the Forbidden Pasture both still dress the floor as before.
+
+---
+
 # The stairs do not always go where stairs go
 
 **Every so often, a floor comes out wrong.** Below the first floor and above the throne, a delve can turn up somewhere it has no business turning up. There is no key, no rumour and no choice about it. You find out by walking down the stairs.

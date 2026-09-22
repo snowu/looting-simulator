@@ -17,6 +17,10 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 
 // Commits that must never become patch notes. Short hash -> reason.
 const SKIP = {
+  '437f69b': 'refactor: shared tile hash, texture pickers, overlays and gear lookup; no player-facing change',
+  '6616b25': 'refactor: loot context, quirk looks and spawn rules moved into data; no player-facing change',
+  '06c69f2': 'refactor: blessings, curses, vessels and portals driven from data; no player-facing change',
+  '55fd7ab': 'refactor: dead code removed, room and dev-room helpers shared; no player-facing change',
   '3baad71': 'review fixes inside the Patch 69/70 work, before it shipped',
   e791641: 'review fixes inside the Patch 69/70 work, before it shipped',
   c2de059: 'ODDITIES.md correction; no player-facing change',
