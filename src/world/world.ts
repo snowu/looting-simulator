@@ -56,6 +56,7 @@ import {
   crackAt,
   generateFloor,
   inBounds,
+  inRoom,
   isBossDoor,
   propAt,
   secretAt,
@@ -91,7 +92,7 @@ import { makeSigil, unknownSigils } from '../systems/spells';
 import { CHEW_SECONDS, DREGS_FRACTION, FLASK_POTENCY, MORSEL_HEAL, MORSEL_ROT_SECONDS, SIP_BUFFER_SECONDS, SIP_SECONDS, flaskMax, morselChance } from '../systems/healing';
 import { findMaterial } from '../data/materials';
 import { Draught, KINDLE_SECONDS, MARROW_SECONDS, WARD_SECONDS, draught } from '../systems/infusion';
-import { addStats, Stats } from '../types';
+import { addStats } from '../types';
 
 // ---------------------------------------------------------------------------
 // Events the world emits for the renderer / UI / audio to react to.
@@ -567,6 +568,15 @@ export class World {
   /** The raw id behind `diff`, for passing into loot and generation calls. */
   get difficultyId(): DifficultyId {
     return this.diff.id;
+  }
+
+  /** Stand the player on a tile, facing a way, with no step or turn left to animate. */
+  placePlayer(x: number, y: number, facing: Dir): void {
+    this.player.x = x;
+    this.player.y = y;
+    this.player.facing = facing;
+    const yaw = facing * (Math.PI / 2);
+    Object.assign(this.anim, { fromX: x, fromY: y, moveT: 1, yaw, yawFrom: yaw, yawTo: yaw, turnT: 1 });
   }
 
   refreshDerived(): void {
@@ -1161,11 +1171,7 @@ export class World {
     const f = this.floor;
     const arrive = f.stairs.find((s) => s.down === (dir === 'up'))!;
     const spot = stairsFront(arrive);
-    this.player.x = spot.x;
-    this.player.y = spot.y;
-    this.player.facing = spot.facing;
-    const yaw = spot.facing * (Math.PI / 2);
-    Object.assign(this.anim, { fromX: spot.x, fromY: spot.y, moveT: 1, yaw, yawFrom: yaw, yawTo: yaw, turnT: 1 });
+    this.placePlayer(spot.x, spot.y, spot.facing);
     this.projectiles = [];
     this.pathCache.clear();
     // A new floor means a new path: stale trail entries point at tiles on the
@@ -2207,7 +2213,7 @@ export class World {
     const id = rng.pick(options);
     const up = f.stairs.find((st) => !st.down);
     const busy = new Set(f.enemies.filter((e) => e.ai !== 'dead').map((e) => `${e.x},${e.y}`));
-    const roomOf = (x: number, y: number) => f.rooms.find((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h);
+    const roomOf = (x: number, y: number) => f.rooms.find((r) => inRoom(r, x, y));
     const tiles = (r: (typeof f.rooms)[number]) => {
       const out: [number, number][] = [];
       for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
@@ -3490,9 +3496,7 @@ export class World {
           this.msg('The scroll comes to nothing. You have been nowhere.', '#888');
           break;
         }
-        this.player.x = dest.x; this.player.y = dest.y; this.player.facing = dest.facing;
-        const yaw = dest.facing * Math.PI / 2;
-        Object.assign(this.anim, { fromX: dest.x, fromY: dest.y, moveT: 1, yaw, yawFrom: yaw, yawTo: yaw, turnT: 1 });
+        this.placePlayer(dest.x, dest.y, dest.facing);
         this.reveal();
         this.sfx('recall'); this.emit({ type: 'shake', amount: 0.22 });
         this.msg('The scroll snaps you back along your path.', '#9ac0ff');
@@ -3671,14 +3675,10 @@ export class World {
     return this.floor.rooms.find((r) => r.role === 'throne');
   }
 
-  private inRoom(r: Room, x: number, y: number): boolean {
-    return x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
-  }
-
   /** The living throne is a combat boundary even while its entrance is open. */
   private crossesBossBoundary(x0: number, y0: number, x1: number, y1: number): boolean {
     const room = this.throneRoom();
-    return !!room && this.bossAlive() && this.inRoom(room, x0, y0) !== this.inRoom(room, x1, y1);
+    return !!room && this.bossAlive() && inRoom(room, x0, y0) !== inRoom(room, x1, y1);
   }
 
   private protectedByFog(e: EnemyState): boolean {
@@ -3697,7 +3697,7 @@ export class World {
 
   private playerInThrone(): boolean {
     const r = this.throneRoom();
-    return !!r && this.inRoom(r, this.player.x, this.player.y);
+    return !!r && inRoom(r, this.player.x, this.player.y);
   }
 
   /**
@@ -3744,7 +3744,7 @@ export class World {
     const room = this.throneRoom();
     if (!room) return;
     const before = this.floor.torches.length;
-    this.floor.torches = this.floor.torches.filter((t) => !this.inRoom(room, t.x, t.y));
+    this.floor.torches = this.floor.torches.filter((t) => !inRoom(room, t.x, t.y));
     if (this.floor.torches.length !== before) this.sfx('snuff');
   }
 
@@ -3760,7 +3760,7 @@ export class World {
     // monsters, and without the bounds test he would be calling every corpse on
     // the floor. Nearest first and capped, so this cannot become a mob.
     const fallen = this.floor.enemies
-      .filter((g) => g.def === 'hollow_knight' && g.ai === 'dead' && this.inRoom(room, g.x, g.y))
+      .filter((g) => g.def === 'hollow_knight' && g.ai === 'dead' && inRoom(room, g.x, g.y))
       .sort((a, b) => Math.abs(a.x - room.x) + Math.abs(a.y - room.y) - (Math.abs(b.x - room.x) + Math.abs(b.y - room.y)))
       .slice(0, MAX_RAISED_GUARDS);
     for (const g of fallen) {

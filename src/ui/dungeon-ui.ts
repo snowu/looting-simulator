@@ -1,6 +1,6 @@
 import { EquipSlot, Item, STAT_LABELS } from '../types';
 import { ROADS } from '../data/routes';
-import { consumable, itemBase } from '../data/items';
+import { consumable } from '../data/items';
 import { enemyDef } from '../data/enemies';
 import { biomeForFloor } from '../data/biomes';
 import { isTwoHanded, itemName } from '../systems/items';
@@ -520,8 +520,4 @@ export class DungeonOverlays {
       ),
     );
   }
-}
-
-export function slotLabel(item: Item): string {
-  return item.kind === 'equipment' ? itemBase(item.ref).slot : item.kind;
 }

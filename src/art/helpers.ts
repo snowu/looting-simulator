@@ -26,9 +26,3 @@ export function stamp(base: string[], over: string[], ox = 0, oy = 0): string[] 
   });
   return out.map((r) => r.join(''));
 }
-
-/** Pad rows at the top so a sprite sits on the bottom of a taller canvas. */
-export function padTop(r: string[], height: number): string[] {
-  const w = r[0].length;
-  return [...Array.from({ length: Math.max(0, height - r.length) }, () => '.'.repeat(w)), ...r];
-}

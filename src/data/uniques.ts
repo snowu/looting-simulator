@@ -1,4 +1,4 @@
-import { Rarity, Stats } from '../types';
+import { Stats } from '../types';
 
 /**
  * Bespoke legendaries.
@@ -281,6 +281,3 @@ export function tonicUnique(consumableId: string): UniqueDef | undefined {
 export function findUnique(id: string | undefined): UniqueDef | undefined {
   return id ? BY_ID.get(id) : undefined;
 }
-
-/** Uniques are Legendary by definition; stated once so callers never guess. */
-export const UNIQUE_RARITY = Rarity.Legendary;

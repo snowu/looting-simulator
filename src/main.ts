@@ -2,7 +2,7 @@ import './style.css';
 import { createRng, randomSeed } from './core/rng';
 import { DX, DY, turnRight } from './core/dir';
 import { GameState, newGame } from './state/game-state';
-import { SLOTS, Slot, clearSave, lastSlot, loadGame, renameSave, saveGame, setLastSlot, setScratchMode } from './state/persistence';
+import { SLOTS, Slot, clearSave, lastSlot, loadGame, renameSave, saveGame, isScratchMode, setLastSlot, setScratchMode } from './state/persistence';
 import { displaySaveName, fallenRecord, sanitizeSaveName, serializeSave } from './state/save-format';
 import { startRun, endRun, bankCarriedGold } from './systems/run';
 import { biomeForFloor } from './data/biomes';
@@ -351,14 +351,6 @@ const town = new Town(screen, {
  * forgotten, and a cloud failure can never stop a local save from landing.
  */
 /**
- * The dev boss arena runs on a throwaway game that must never reach the
- * player's slot — it hands out endgame gear and maxed renown, and writing that
- * over a real save would be exactly the thing this project never does. Set
- * once, cleared by reloading the page.
- */
-let devScratch = false;
-
-/**
  * The current slot was deleted from the title screen. Nothing may be written
  * back to it until a slot is entered again — otherwise the next autosave or
  * unload would resurrect a fresh game in the slot just emptied.
@@ -366,7 +358,8 @@ let devScratch = false;
 let slotDeleted = false;
 
 function commit(): void {
-  if (devScratch || slotDeleted) return;
+  // A dev room's throwaway game (see `enterScratch`) must never reach a slot.
+  if (isScratchMode() || slotDeleted) return;
   saveGame(state, slot);
   hadLocalSave = true;
   sync.touch();
@@ -374,7 +367,7 @@ function commit(): void {
 
 /** Never push a scratch game to the cloud either. */
 function flushSync(): void {
-  if (!devScratch) sync.flush();
+  if (!isScratchMode()) sync.flush();
 }
 
 function toast(text: string, color = '#e8dcc4'): void {
@@ -566,7 +559,6 @@ function installCloud(save: CloudSave): void {
   hadLocalSave = true;
   slotDeleted = false;
   // Adopting a cloud save also leaves the scratch game behind, if we were in one.
-  devScratch = false;
   setScratchMode(false);
   saveGame(state, slot);
   cloudSlots.set(save.slot, { kind: 'save', save });
@@ -1175,64 +1167,54 @@ setInterval(() => {
 void checkForUpdate();
 
 /**
- * Dev only: a throwaway game, kitted for depth six, standing in the throne room.
+ * Dev only: swap `state` for a fresh throwaway game, prepared by a dev module,
+ * and drop the player into its room.
  *
- * It swaps `state` for a fresh one and latches `devScratch`, so the gear and
- * renown it hands out can never be written over the playthrough in the slot —
- * the only way out is to reload the page, which is the honest contract for a
- * debug button. The module is dynamically imported behind the same DEV guard,
- * so neither it nor this path survives into a production bundle.
+ * It latches scratch mode, the lock on the storage door itself, so the gear
+ * and renown a dev room hands out can never be written over the playthrough
+ * in the slot — the only way out is to reload the page, which is the honest
+ * contract for a debug button. Each dev module is dynamically imported behind
+ * a DEV guard, so neither it nor this path survives into a production bundle.
  */
-async function enterArcherRoom(): Promise<void> {
-  const dev = await import('./dev/archer-room');
-  devScratch = true;
-  // Same scratch contract as the boss arena: nothing here is saved.
+async function enterScratch<M extends { prepare(state: GameState): void }>(
+  load: () => Promise<M>,
+  drop: (dev: M, world: World) => string,
+  lines: (at: string) => string[],
+): Promise<boolean> {
+  const dev = await load();
   setScratchMode(true);
   state = newGame(createRng(randomSeed()));
   dev.prepare(state);
   enterTown();
   enterDungeon();
-  if (!world) return;
-  const at = dev.dropIntoArcherRoom(world);
-  hud.message(`Dev archers — ${at}. Hold block and time the raise to parry the volley.`, '#c080ff');
+  if (!world) return false;
+  const at = drop(dev, world);
+  for (const line of lines(at)) hud.message(line, '#c080ff');
   hud.message('Scratch game: nothing here is saved. Reload to get your slot back.', '#c8a060');
+  return true;
+}
+
+async function enterArcherRoom(): Promise<void> {
+  await enterScratch(() => import('./dev/archer-room'), (dev, w) => dev.dropIntoArcherRoom(w),
+    (at) => [`Dev archers — ${at}. Hold block and time the raise to parry the volley.`]);
 }
 
 async function enterMeleeRoom(): Promise<void> {
-  const dev = await import('./dev/melee-room');
-  devScratch = true;
-  // Same scratch contract as the boss arena: nothing here is saved.
-  setScratchMode(true);
-  state = newGame(createRng(randomSeed()));
-  dev.prepare(state);
-  enterTown();
-  enterDungeon();
-  if (!world) return;
-  const at = dev.dropIntoMeleeRoom(world);
-  hud.message(`Dev melee — ${at}. Hold block as they swing: one parry staggers the pack.`, '#c080ff');
-  hud.message('Scratch game: nothing here is saved. Reload to get your slot back.', '#c8a060');
+  await enterScratch(() => import('./dev/melee-room'), (dev, w) => dev.dropIntoMeleeRoom(w),
+    (at) => [`Dev melee — ${at}. Hold block as they swing: one parry staggers the pack.`]);
 }
 
 /**
  * Dev only: the combat lab. Throwaway game with every recipe mastered, 999 of
  * every material in the stash, and a weapon rack in the pack — standing in a
- * cleared room with the spawn console ready. Same scratch contract as the
- * boss arena: nothing here is saved, reload to get your slot back.
+ * cleared room with the spawn console ready.
  */
 async function enterLabArena(): Promise<void> {
-  const dev = await import('./dev/lab-room');
-  devScratch = true;
-  setScratchMode(true);
-  state = newGame(createRng(randomSeed()));
-  dev.prepare(state);
-  enterTown();
-  enterDungeon();
-  if (!world) return;
-  const at = dev.dropIntoLab(world);
-  hud.message(`Dev lab — ${at}. F3: spawn console. I: pack & gear (weapon rack inside).`, '#c080ff');
-  hud.message('All recipes Rank 5 · 999 mats in stash (forge is town-side, recall scrolls in pack).', '#c080ff');
-  hud.message('Scratch game: nothing here is saved. Reload to get your slot back.', '#c8a060');
-  toggleLabConsole();
+  const entered = await enterScratch(() => import('./dev/lab-room'), (dev, w) => dev.dropIntoLab(w), (at) => [
+    `Dev lab — ${at}. F3: spawn console. I: pack & gear (weapon rack inside).`,
+    'All recipes Rank 5 · 999 mats in stash (forge is town-side, recall scrolls in pack).',
+  ]);
+  if (entered) toggleLabConsole();
 }
 
 /** Dev only: the floating spawn/weapon console for the lab. F3 toggles. */
@@ -1242,29 +1224,10 @@ async function toggleLabConsole(): Promise<void> {
   toggleLabPanel(app, () => world, (t, c) => hud.message(t, c));
 }
 
-/**
- * Dev only: a throwaway game, kitted for depth six, standing in the throne room.
- *
- * It swaps `state` for a fresh one and latches `devScratch`, so the gear and
- * renown it hands out can never be written over the playthrough in the slot —
- * the only way out is to reload the page, which is the honest contract for a
- * debug button. The module is dynamically imported behind the same DEV guard,
- * so neither it nor this path survives into a production bundle.
- */
+/** Dev only: a throwaway game, kitted for depth six, standing in the throne room. */
 async function enterBossArena(): Promise<void> {
-  const dev = await import('./dev/boss-arena');
-  devScratch = true;
-  // Belt and braces: the lock on the storage door itself, so no future call
-  // path can write this game to a slot the way `beforeunload` once did.
-  setScratchMode(true);
-  state = newGame(createRng(randomSeed()));
-  dev.prepare(state);
-  enterTown();
-  enterDungeon();
-  if (!world) return;
-  const at = dev.dropIntoThroneRoom(world);
-  hud.message(`Dev arena — ${at}. He turns at 65% and 30%.`, '#c080ff');
-  hud.message('Scratch game: nothing here is saved. Reload to get your slot back.', '#c8a060');
+  await enterScratch(() => import('./dev/boss-arena'), (dev, w) => dev.dropIntoThroneRoom(w),
+    (at) => [`Dev arena — ${at}. He turns at 65% and 30%.`]);
 }
 
 // --- Boot ------------------------------------------------------------------------
@@ -1273,10 +1236,10 @@ const params = new URLSearchParams(location.search);
 if (import.meta.env.DEV && params.has('art')) void openArtSheet();
 if (params.has('autostart')) {
   const where = params.get('autostart');
-  if (import.meta.env.DEV && where === 'boss') void enterBossArena();
-  else if (import.meta.env.DEV && where === 'lab') void enterLabArena();
-  else if (import.meta.env.DEV && where === 'archers') void enterArcherRoom();
-  else if (import.meta.env.DEV && where === 'melee') void enterMeleeRoom();
+  const devRoom = import.meta.env.DEV && where
+    ? ({ boss: enterBossArena, lab: enterLabArena, archers: enterArcherRoom, melee: enterMeleeRoom } as Record<string, () => Promise<void>>)[where]
+    : undefined;
+  if (devRoom) void devRoom();
   else {
     enterTown();
     if (where === 'dungeon') enterDungeon();
@@ -1317,7 +1280,6 @@ if (import.meta.env.DEV) {
       slot = n;
       setLastSlot(n);
       slotDeleted = false;
-      devScratch = false;
       setScratchMode(false);
       saveGame(state, slot);
       hadLocalSave = true;

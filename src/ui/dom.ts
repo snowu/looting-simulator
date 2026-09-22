@@ -1,4 +1,4 @@
-import { DEFAULT_CRIT_MULT, ELEMENTS, EquipSlot, EQUIP_SLOTS, Item, RARITY_COLORS, STAT_KEYS, STAT_LABELS, Stats, slotOf } from '../types';
+import { DEFAULT_CRIT_MULT, ELEMENTS, Item, RARITY_COLORS, STAT_KEYS, STAT_LABELS, Stats } from '../types';
 import { findProperty } from '../data/properties';
 import { consumable, itemBase } from '../data/items';
 import { material } from '../data/materials';
@@ -242,10 +242,6 @@ export function itemSlot(
  */
 let detailed = false;
 let liveTip: (() => string) | null = null;
-
-export function isDetailed(): boolean {
-  return detailed;
-}
 
 export function setDetailed(on: boolean): void {
   if (detailed === on) return;
@@ -494,14 +490,6 @@ function elementClass(text: string): string {
   const lower = text.toLowerCase();
   const element = ELEMENTS.find((candidate) => lower.includes(candidate));
   return element ? `element-${element}` : '';
-}
-
-/** Equipment slot an item would go into (ring → first free ring slot). */
-export function targetSlot(item: Item, eq: Record<EquipSlot, Item | null>): EquipSlot | null {
-  if (item.kind !== 'equipment') return null;
-  const slot = itemBase(item.ref).slot;
-  if (slot === 'ring') return !eq.ring1 ? 'ring1' : !eq.ring2 ? 'ring2' : 'ring1';
-  return EQUIP_SLOTS.find((s) => slotOf(s) === slot) ?? null;
 }
 
 export function sparkline(values: number[], w = 90, hgt = 22, color = '#e8b84a'): HTMLCanvasElement {

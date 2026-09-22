@@ -127,8 +127,6 @@ export interface Prop {
  */
 export type ShrineKind = 'font' | 'idol' | 'coffer' | 'blood' | 'combat';
 
-export const SHRINE_KINDS: ShrineKind[] = ['font', 'idol', 'coffer', 'blood', 'combat'];
-
 /**
  * Floor hazards. Every trap is hidden until you spot the seam in the flagstones
  * from the tile in front of it, which makes walking into one a question of
@@ -371,6 +369,10 @@ export interface Floor {
 
 export function inBounds(f: Floor, x: number, y: number): boolean {
   return x >= 0 && y >= 0 && x < f.width && y < f.height;
+}
+
+export function inRoom(r: Room, x: number, y: number): boolean {
+  return x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
 }
 
 export function tileAt(f: Floor, x: number, y: number): number {
@@ -1233,7 +1235,7 @@ function tryGenerate(
     if (GRAVE_BIOMES.has(biome.id)) {
       const grave = createRng(hashString(`gravecaller:${seed}:${depth}`));
       if (grave.chance(gravecallerChance(depth))) {
-        const withDead = hostRooms.filter((r) => enemies.some((e) => enemyDef(e.def).undead && e.x >= r.x && e.x < r.x + r.w && e.y >= r.y && e.y < r.y + r.h));
+        const withDead = hostRooms.filter((r) => enemies.some((e) => enemyDef(e.def).undead && inRoom(r, e.x, e.y)));
         const rooms2 = withDead.length ? withDead : hostRooms;
         for (const r of grave.shuffle([...rooms2])) {
           const spots = [];

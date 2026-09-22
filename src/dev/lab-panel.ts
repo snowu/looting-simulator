@@ -46,10 +46,6 @@ function materialsFor(baseId: string): typeof MATERIALS {
   return MATERIALS.filter((m) => (base.primary as string[]).includes(m.category));
 }
 
-export function labPanelOpen(): boolean {
-  return el !== null;
-}
-
 export function closeLabPanel(): void {
   if (godTimer) {
     clearInterval(godTimer);

@@ -61,8 +61,6 @@ let raf = 0;
 let state = { sheet: 'melee', zoom: 3, play: true, bg: 'dark' as Bg, filter: '', tier: DEFAULT_TIER, material: null as string | null };
 let playing: Playing[] = [];
 
-export const isArtSheetOpen = (): boolean => root !== null;
-
 export function toggleArtSheet(into: HTMLElement): void {
   if (root) closeArtSheet();
   else openArtSheet(into);

@@ -11,7 +11,7 @@
  * `scripts/` is test infrastructure and must not be pulled into the app.
  */
 import { GameState } from '../state/game-state';
-import { Equipment } from '../systems/player';
+import { Equipment, emptyEquipment } from '../systems/player';
 import { makeConsumable, makeEquipment } from '../systems/items';
 import { addItem } from '../state/inventory';
 import { syncLoadout } from '../systems/run';
@@ -26,8 +26,7 @@ const aff = (id: string, value: number): AffixRoll => ({ id, value });
 
 /** What a player who got here honestly would plausibly be wearing. */
 function throneKit(): Equipment {
-  const e = {} as Equipment;
-  for (const s of ['weapon', 'offhand', 'head', 'body', 'hands', 'ring1', 'ring2', 'amulet'] as const) e[s] = null;
+  const e = emptyEquipment();
   e.weapon = makeEquipment({ baseId: 'war_axe', materialId: 'moonsilver', rarity: Rarity.Epic, ilvl: 14, affixes: [aff('brutal', 12), aff('swiftness', 10)] });
   e.body = makeEquipment({ baseId: 'plate', materialId: 'moonsilver', rarity: Rarity.Rare, ilvl: 14, affixes: [aff('sturdy', 8)] });
   e.head = makeEquipment({ baseId: 'great_helm', materialId: 'moonsilver', rarity: Rarity.Rare, ilvl: 14 });
@@ -63,22 +62,12 @@ export function dropIntoThroneRoom(world: World): string {
     for (let dx = 1; dx < room.w - 1; dx++) {
       const x = room.x + dx, y = room.y + dy;
       if (blocksMove(f, x, y) || f.enemies.some((e) => e.ai !== 'dead' && e.x === x && e.y === y)) continue;
-      world.player.x = x;
-      world.player.y = y;
       // Turn to face him. Landing in the throne room looking at the back wall
       // is a debug tool wasting the first thing you wanted to look at.
       const facing = boss
         ? dirOf(Math.sign(boss.x - x), Math.sign(boss.y - y)) ?? dirOf(0, Math.sign(boss.y - y))
         : null;
-      if (facing !== null) world.player.facing = facing;
-      Object.assign(world.anim, {
-        fromX: x,
-        fromY: y,
-        moveT: 1,
-        yaw: (world.player.facing * Math.PI) / 2,
-        yawTo: (world.player.facing * Math.PI) / 2,
-        turnT: 1,
-      });
+      world.placePlayer(x, y, facing ?? world.player.facing);
       return boss ? `depth ${run.depth}, ${boss.hp} hp on the throne` : `depth ${run.depth}, no King`;
     }
   }
