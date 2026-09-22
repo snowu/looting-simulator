@@ -1,3 +1,15 @@
+# Cloud saves stop asking about a save you never touched
+
+*Save revision 29, unchanged. The fix changes how a save is read on load; it writes nothing new into it.*
+
+**Signing in after an update could put an untouched save in front of you as a conflict.** Say you last synced on your laptop, then played on your phone. After the next update that changed the save format, signing in on the laptop asked you to choose between the laptop's save and the phone's, as if you had played both. You hadn't. The update had reshaped the laptop's save on load, and sync mistook that reshaping for play.
+
+**Now an update's reshaping doesn't count as play.** If the save on this device is exactly what the last sync agreed on, it is still that agreement after the update. When only the other device moved on, its progress is taken without a question, which is what already happened between updates. If both devices really did move on, you are still asked, as before.
+
+Validation: two new tests in `sync.test.ts` load a save one revision older, exactly as the previous build left it on disk. In the first, another device has since written, and sign-in now takes the cloud instead of asking; with the fix turned off, the same test gets the chooser. The second checks that a save that had moved on from the agreement keeps its old agreement. All 782 tests pass.
+
+---
+
 # Smoother frames in the dungeon
 
 *Save revision 29, unchanged: nothing about a save or a floor moves.*
