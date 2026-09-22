@@ -1,6 +1,7 @@
 import { defineConfig, Plugin } from 'vite';
 import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { encodeArtPack } from './src/render/art-pack';
 
 function buildId(): string {
   if (process.env.GITHUB_SHA) return process.env.GITHUB_SHA.slice(0, 7);
@@ -36,8 +37,24 @@ const versionFile = (): Plugin => ({
   },
 });
 
+/**
+ * Emits art/pack.bin: every PNG in public/art in one file, in manifest order,
+ * so a cold start fetches the art in one request (see src/render/art-pack.ts).
+ * The loose PNGs still ship beside it as the fallback.
+ */
+const artPack = (): Plugin => ({
+  name: 'art-pack',
+  apply: 'build',
+  generateBundle() {
+    const dir = new URL('./public/art/', import.meta.url);
+    const ids = JSON.parse(readFileSync(new URL('manifest.json', dir), 'utf8')) as string[];
+    const pack = encodeArtPack(ids.map((id) => ({ id, png: readFileSync(new URL(`${id}.png`, dir)) })));
+    this.emitFile({ type: 'asset', fileName: 'art/pack.bin', source: pack });
+  },
+});
+
 export default defineConfig({
   base: '/looting-simulator/',
   define: { __BUILD_ID__: JSON.stringify(BUILD_ID), __APP_VERSION__: JSON.stringify(APP_VERSION) },
-  plugins: [versionFile()],
+  plugins: [versionFile(), artPack()],
 });
