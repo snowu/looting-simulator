@@ -8,7 +8,7 @@ import { equipFrom, unequipTo, wornFor } from '../systems/equip';
 import { sortContainer } from '../state/inventory';
 import { World } from '../world/world';
 import { drawMap } from './automap';
-import { btn, h, hideTooltip, isTouchMode, itemSlot, itemTooltip, rarityColor } from './dom';
+import { btn, gold, h, hideTooltip, isTouchMode, itemSlot, itemTooltip, rarityColor } from './dom';
 import { audio } from '../audio/sfx';
 import { GAMEPAD_HELP_ROWS } from './gamepad';
 
@@ -302,7 +302,7 @@ export class DungeonOverlays {
         h(
           'div',
           {},
-          h('div', { class: 'row' }, h('h3', { text: `Backpack ${pack.items.length}/${pack.capacity}` }), h('span', { class: 'gold-t right', text: `${w.run.gold}g carried` })),
+          h('div', { class: 'row' }, h('h3', { text: `Backpack ${pack.items.length}/${pack.capacity}` }), h('span', { class: 'gold-t right', text: `${gold(w.run.gold)} carried` })),
           h('div', { class: 'row', style: 'margin:2px 0 6px' }, btn('Sort pack', () => this.sortPack(w), 'small', pack.items.length < 2)),
           this.packGrid(w),
           h('p', { class: 'dim small', style: 'margin-top:8px', text: 'Everything in the pack is lost if you die. Get it home.' }),

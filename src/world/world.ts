@@ -1,8 +1,9 @@
 import { Rng, createRng, hashString } from '../core/rng';
+import { gold } from '../core/format';
 import { Dir, DIR_NAMES, DIRS, DX, DY, dirOf, turnAround, turnLeft, turnRight } from '../core/dir';
 import { DamageType, EnemyDef, EquipSlot, EQUIP_SLOTS, Item, SwingProfile } from '../types';
 import { GameState, RunState } from '../state/game-state';
-import { addItem, canFit, findItem, removeItem, roomFor, takeQty } from '../state/inventory';
+import { addItem, canFit, findItem, freeSlots, removeItem, roomFor, takeQty } from '../state/inventory';
 import {
   THIEF_BOLT, THIEF_CREEP, THIEF_ESCAPE, THIEF_FUMBLE, THIEF_FUMBLE_CHANCE, THIEF_TRAIL_EVERY, THIEF_TRAIL_MAX,
   VENGEFUL_DAMAGE_MULT, VENGEFUL_FUSE,
@@ -1121,7 +1122,7 @@ export class World {
     if (pk.gold > 0) {
       this.run.gold += pk.gold;
       this.run.stats.goldFound += pk.gold;
-      this.emit({ type: 'float', x: pk.x, y: pk.y, text: `+${pk.gold}g`, color: '#ffd24a' });
+      this.emit({ type: 'float', x: pk.x, y: pk.y, text: `+${gold(pk.gold)}`, color: '#ffd24a' });
       this.msg(`Picked up ${pk.gold} gold.`, '#ffd24a');
       this.sfx('gold');
       pk.gold = 0;
@@ -3013,7 +3014,7 @@ export class World {
         if (loot.gold) {
           this.run.gold += loot.gold;
           this.run.stats.goldFound += loot.gold;
-          this.emit({ type: 'float', x: p.x, y: p.y, text: `+${loot.gold}g`, color: '#ffd24a' });
+          this.emit({ type: 'float', x: p.x, y: p.y, text: `+${gold(loot.gold)}`, color: '#ffd24a' });
           this.sfx('gold');
         }
         if (pk) this.emit({ type: 'loot', pickupId: pk.id });
@@ -3230,7 +3231,7 @@ export class World {
         this.player.hp -= pay;
         this.run.gold += prize;
         this.run.stats.goldFound += prize;
-        this.emit({ type: 'float', x: p.x, y: p.y, text: `+${prize}g`, color: '#ffd24a' });
+        this.emit({ type: 'float', x: p.x, y: p.y, text: `+${gold(prize)}`, color: '#ffd24a' });
         this.msg(`Your blood runs into the brass bowl. +${prize} gold.`, '#ff8090');
         this.sfx('hurt');
         return;
@@ -3310,7 +3311,7 @@ export class World {
     this.run.trial = null;
     const prize = 60 + 40 * this.run.depth;
     this.dropLoot(this.player.x, this.player.y, [], prize);
-    this.emit({ type: 'float', x: this.player.x, y: this.player.y, text: `+${prize}g`, color: '#ffd24a' });
+    this.emit({ type: 'float', x: this.player.x, y: this.player.y, text: `+${gold(prize)}`, color: '#ffd24a' });
     this.msg('The trial is survived. The shrine pays its prize.', '#ffb050');
     this.sfx('gold');
   }
@@ -3497,7 +3498,7 @@ export class World {
           this.sfx('magic', this.player.x, this.player.y);
           break;
         }
-        if (target.def === BOSS_ID) {
+        if (enemyDef(target.def).behavior === 'boss') {
           // No blind, no cancelled wind-up, no lost trail: a blind that ran
           // through the ordinary AI reset his wind-up and could drop his aggro.
           this.msg('The King does not blink.', '#c0a0ff');
@@ -4972,7 +4973,7 @@ export class World {
 
   /** Remaining free backpack slots (for the HUD). */
   get freeSlots(): number {
-    return this.run.backpack.capacity - this.run.backpack.items.length;
+    return freeSlots(this.run.backpack);
   }
 
   /** Carried light after temporary sigil effects. */

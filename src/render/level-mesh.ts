@@ -104,6 +104,10 @@ function hash3(x: number, y: number, d: number): number {
 
 export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string): LevelView {
   const biome = biomeForFloor(floor);
+  // The roof varies only when it is the biome's own; a roof borrowed from the
+  // floor above (the Burrows) is laid plain.
+  const ceilingTexAt = (x: number, y: number) =>
+    ceiling === biome.ceiling && biome.ceilingVariants?.length ? biome.ceilingVariants[hash3(x, y, 6) % biome.ceilingVariants.length] : ceiling;
   const floorTexAt = (x: number, y: number) =>
     biome.floorVariants?.length ? biome.floorVariants[hash3(x, y, 4) % biome.floorVariants.length] : biome.floor;
   /** The face of wall tile (x, y) seen from side `d`. Pillars pick differently, below. */
@@ -157,9 +161,7 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
       }
 
       B(floorTexAt(x, y)).quad([x0, 0, z0], [x1, 0, z0], [x1, 0, z1], [x0, 0, z1], [0, 1, 0]);
-      const ceilingTex = ceiling === biome.ceiling && biome.ceilingVariants?.length
-        ? biome.ceilingVariants[hash3(x, y, 6) % biome.ceilingVariants.length] : ceiling;
-      B(ceilingTex).quad([x0, WALL_H, z0], [x1, WALL_H, z0], [x1, WALL_H, z1], [x0, WALL_H, z1], [0, -1, 0]);
+      B(ceilingTexAt(x, y)).quad([x0, WALL_H, z0], [x1, WALL_H, z0], [x1, WALL_H, z1], [x0, WALL_H, z1], [0, -1, 0]);
       if (biome.flooded) {
         B('water_catacombs').quad(
           [x0, 0.018, z0], [x1, 0.018, z0], [x1, 0.018, z1], [x0, 0.018, z1], [0, 1, 0],
@@ -205,7 +207,7 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
     const cx = tileX(crack.x), cz = tileZ(crack.y);
     const x0 = cx - half, x1 = cx + half, z0 = cz - half, z1 = cz + half;
     B(floorTexAt(crack.x, crack.y)).quad([x0, 0, z0], [x1, 0, z0], [x1, 0, z1], [x0, 0, z1], [0, 1, 0]);
-    B(ceiling).quad([x0, WALL_H, z0], [x1, WALL_H, z0], [x1, WALL_H, z1], [x0, WALL_H, z1], [0, -1, 0]);
+    B(ceilingTexAt(crack.x, crack.y)).quad([x0, WALL_H, z0], [x1, WALL_H, z0], [x1, WALL_H, z1], [x0, WALL_H, z1], [0, -1, 0]);
     // The walls of the opening it will leave, laid now because the level is
     // not rebuilt when it breaks. They face into the tile, so while the box
     // stands they are back faces and never drawn.

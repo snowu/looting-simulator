@@ -12,7 +12,7 @@ import { DungeonRenderer } from '../render/dungeon-renderer';
 import { BLESSINGS, CURSES, World } from '../world/world';
 import { drawMap } from './automap';
 import { PLAIN_FLASK_RAMP, draught } from '../systems/infusion';
-import { artImg, esc, h } from './dom';
+import { artImg, esc, gold, h } from './dom';
 import { settingsGearButton } from './settings';
 
 interface Float {
@@ -305,7 +305,7 @@ export class Hud {
             : `<div class="coin">Belt ${belt.held}/${belt.cap}</div>`;
       this.status.innerHTML =
         `<div class="depth">Depth ${world.run.depth}</div><div class="biome">${biome.name}</div>` +
-        `<div class="coin">${world.run.gold}g carried · pack ${world.run.backpack.items.length}/${world.run.backpack.capacity}</div>` +
+        `<div class="coin">${gold(world.run.gold)} carried · pack ${world.run.backpack.items.length}/${world.run.backpack.capacity}</div>` +
         beltLine +
         (keyNames.length ? `<div class="keys">${keyNames.join(', ')}</div>` : '') +
         (bless ? `<div class="bless">Blessing of ${bless}</div>` : '') +

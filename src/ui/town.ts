@@ -426,7 +426,7 @@ export class Town {
       const idCost = unid ? identifyCost(it, metaLevel(s.meta, 'appraiser')) : 0;
       const el = itemSlot(it, {
         size: 44,
-        tip: () => itemTooltip(it, { price: { label: 'Sells for', value: price }, hint: unid ? `Click: sell · Right-click: identify for ${idCost}g` : 'Click: sell' }),
+        tip: () => itemTooltip(it, { price: { label: 'Sells for', value: price }, hint: unid ? `Click: sell · Right-click: identify for ${gold(idCost)}` : 'Click: sell' }),
         onclick: () => {
           removeItem(s.stash, it.uid);
           s.gold += price;
@@ -1293,7 +1293,7 @@ export class Town {
           bothRegisters(def.rule, def.detail, 'dim small'),
           targets.length ? select : h('div', { class: 'dim small', text: `Nothing you own can take it: ${def.slots.join(', ')} only.` }),
         ),
-        btn(already ? 'Inscribed' : `Inscribe · ${INSCRIBE_COST}g`, () => {
+        btn(already ? 'Inscribed' : `Inscribe · ${gold(INSCRIBE_COST)}`, () => {
           if (!chosen) return;
           const r = inscribe(s, chosen.uid, def.id);
           if (r === 'gold') return this.ctx.toast(`It costs ${INSCRIBE_COST} gold.`, '#ff9070');

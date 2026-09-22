@@ -379,6 +379,10 @@ export function itemBase(id: string): ItemBaseDef {
   return b;
 }
 
+export function findItemBase(id: string): ItemBaseDef | undefined {
+  return BASE_BY_ID.get(id);
+}
+
 export function consumable(id: string): ConsumableDef {
   const c = CONS_BY_ID.get(id);
   if (!c) throw new Error(`unknown consumable ${id}`);

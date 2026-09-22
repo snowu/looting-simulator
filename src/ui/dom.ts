@@ -1,3 +1,4 @@
+import { gold } from '../core/format';
 import { DEFAULT_CRIT_MULT, ELEMENTS, Item, RARITY_COLORS, STAT_KEYS, STAT_LABELS, Stats } from '../types';
 import { findProperty } from '../data/properties';
 import { consumable, itemBase } from '../data/items';
@@ -121,9 +122,7 @@ export function artImg(id: string, ramp?: Ramp, size = 32): HTMLImageElement {
 import { esc } from '../core/escape';
 export { esc };
 
-export function gold(n: number): string {
-  return `${Math.floor(n).toLocaleString()}g`;
-}
+export { gold };
 
 export function rarityColor(item: Item): string {
   return RARITY_COLORS[itemRarity(item)];
@@ -423,7 +422,7 @@ export function itemTooltip(item: Item, opts: TipOpts = {}): string {
         const def = affix(a.id);
         lines.push(`<div class="tt-affix ${elementClass(STAT_LABELS[def.stat])}">${esc(def.name)}: +${a.value} ${STAT_LABELS[def.stat]}</div>`);
       }
-      if (detailed) lines.push(`<div class="tt-dim">Item level ${item.ilvl ?? 0} · quality ${((item.quality ?? 1) * 100).toFixed(0)}% · base value ${itemValue(item)}g</div>`);
+      if (detailed) lines.push(`<div class="tt-dim">Item level ${item.ilvl ?? 0} · quality ${((item.quality ?? 1) * 100).toFixed(0)}% · base value ${gold(itemValue(item))}</div>`);
       if (opts.compare) lines.push(`<div class="tt-dim">Compared with: ${esc(itemName(opts.compare))}</div>`);
       break;
     }
