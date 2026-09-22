@@ -17,8 +17,8 @@ Validation: two new tests in `sync.test.ts` load a save one revision older, exac
 **The dungeon does less work per frame, which matters most on a phone.** Nothing looks or plays differently. The game just stops redoing work it had already done:
 
 - Damage numbers no longer make the browser re-measure the page once per number, every frame of a fight.
-- The compass, health, prompt and target panel are only redrawn when they actually change.
-- The minimap draws only the patch around you instead of walking the whole floor every frame.
+- The compass, health, prompt, target and oath lines are only redrawn when they actually change.
+- The minimap draws only the patch around you, and only redraws it when you move, explore or a wall comes down.
 - Torches, props and pickups at the edge of your sight are kept and hidden rather than rebuilt from scratch on every step.
 - Lights and tints are parsed once rather than every frame.
 - Monsters looking for a path around each other check where everyone is once per search, not once per tile.

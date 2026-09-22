@@ -44,6 +44,7 @@ const SKIP = {
   db177c1: 'skip reasons and PR screenshot only',
   e99ce03: 'merge only; stacked branch sync, changes covered by Patches 58 and 59',
   aa2b693: 'PR preview image only',
+  c6f02f3: 'skip reasons only',
   d245536: 'patch-note citation only; the fix is cited by Patch 57',
   f25027a: 'merge only; stacked branch sync, changes covered by Patches 57 and 58',
   '9f785e4': 'merge only; stacked branch sync, changes covered by Patches 57-59',
