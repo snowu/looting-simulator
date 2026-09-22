@@ -1,3 +1,15 @@
+# Gold reads the same everywhere
+
+*Save revision 29, unchanged: nothing about a save moves.*
+
+**Large sums of gold are grouped everywhere.** The town already wrote 12,345g. The dungeon HUD, the pack header and the floating +gold numbers over a pickup, chest, coffer or shrine prize wrote 12345g. They all write 12,345g now, and so do the appraiser's price hint, the inscribe button and an item's base value in the detailed tooltip.
+
+**No more mismatched roof over a broken wall.** In the Emberworks, the only biome whose roof comes in several patterns, the roof above a cracked wall was always the plain pattern. Once the wall came down, that left one odd panel overhead. It now uses the same patterns as the rest of the roof.
+
+Validation: all 788 tests pass. Checked the HUD in the browser with 12,345 gold carried.
+
+---
+
 # Cloud saves stop asking about a save you never touched
 
 *Save revision 29, unchanged. The fix changes how a save is read on load; it writes nothing new into it.*

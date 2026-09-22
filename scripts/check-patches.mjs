@@ -46,6 +46,8 @@ const SKIP = {
   aa2b693: 'PR preview image only',
   c6f02f3: 'skip reasons only',
   d245536: 'patch-note citation only; the fix is cited by Patch 57',
+  d7b9416: 'Patch 71 citation for the minimap caching only',
+  '9fb9d43': 'PR screenshot only',
   f25027a: 'merge only; stacked branch sync, changes covered by Patches 57 and 58',
   '9f785e4': 'merge only; stacked branch sync, changes covered by Patches 57-59',
   'f5d74d0': 'merge only; stacked branch sync, changes covered by Patches 57-59',
