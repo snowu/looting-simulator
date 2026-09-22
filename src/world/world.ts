@@ -711,6 +711,17 @@ export class World {
     this.events.push(e);
   }
 
+  /**
+   * Take `dealt` off a monster: the flinch, and the number floating off it.
+   * Deciding whether that killed it stays with the caller, because what gets
+   * said first — and when `killEnemy` rolls its loot — differs by source.
+   */
+  private hurt(e: EnemyState, dealt: number, text: string, color: string): void {
+    e.hp -= dealt;
+    e.hurtT = 0.3;
+    this.emit({ type: 'float', x: e.x, y: e.y, text, color });
+  }
+
   private msg(text: string, color?: string): void {
     this.emit({ type: 'msg', text, color });
   }
@@ -1328,10 +1339,8 @@ export class World {
       // Deliberately unscaled by difficulty: a softer trap that still thins
       // the pack for you is help enough on Normal.
       const dealt = Math.max(1, Math.round(damage * 0.8));
-      victim.hp -= dealt;
-      victim.hurtT = 0.3;
+      this.hurt(victim, dealt, `${dealt}`, '#ffb060');
       const vdef = enemyDef(victim.def);
-      this.emit({ type: 'float', x: victim.x, y: victim.y, text: `${dealt}`, color: '#ffb060' });
       if (victim.hp <= 0) {
         this.msg(`The ${vdef.name} blunders into ${def.source}.`, '#e0c060');
         this.killEnemy(victim);
@@ -2402,15 +2411,13 @@ export class World {
       if (e.ai === 'dead' || e.lurk || Math.abs(e.x - x) + Math.abs(e.y - y) !== 1) continue;
       const def = enemyDef(e.def);
       const dealt = Math.max(1, Math.round((COLLAPSE_BASE + COLLAPSE_PER_DEPTH * this.run.depth) * (def.resist.blunt ?? 1)));
-      e.hp -= dealt;
-      e.hurtT = 0.3;
+      this.hurt(e, dealt, `${dealt}!`, LAWS.collapse.color);
       e.alert = Math.max(e.alert, 8);
       if (def.behavior !== 'boss') {
         e.ai = 'recover';
         e.timer = Math.max(e.timer, COLLAPSE_STUN);
         e.attackCd = Math.max(e.attackCd, COLLAPSE_STUN + 0.2);
       }
-      this.emit({ type: 'float', x: e.x, y: e.y, text: `${dealt}!`, color: LAWS.collapse.color });
       dealtTo.push(def.name);
       if (e.hp <= 0) this.killEnemy(e);
     }
@@ -2431,10 +2438,8 @@ export class World {
     const mult = enemyDef(o.def).resist.fire ?? 1;
     const dealt = Math.round(fire * KINDLING_SPREAD * this.anim.attackPower * mult);
     if (dealt <= 0) return;
-    o.hp -= dealt;
-    o.hurtT = 0.3;
+    this.hurt(o, dealt, `${dealt}`, '#ff9a50');
     o.alert = Math.max(o.alert, 8);
-    this.emit({ type: 'float', x: o.x, y: o.y, text: `${dealt}`, color: '#ff9a50' });
     if (o.hp <= 0) this.killEnemy(o);
   }
 
@@ -3701,7 +3706,9 @@ export class World {
   /** The living throne is a combat boundary even while its entrance is open. */
   private crossesBossBoundary(x0: number, y0: number, x1: number, y1: number): boolean {
     const room = this.throneRoom();
-    return !!room && this.bossAlive() && inRoom(room, x0, y0) !== inRoom(room, x1, y1);
+    // Boundary first: it is two comparisons, and the King check scans every
+    // enemy — this runs for each monster, every tick, on the throne floor.
+    return !!room && inRoom(room, x0, y0) !== inRoom(room, x1, y1) && this.bossAlive();
   }
 
   private protectedByFog(e: EnemyState): boolean {
@@ -4461,13 +4468,11 @@ export class World {
       return;
     }
     const hit = playerHitsEnemy(this.rng, player, pr.damage, def, defensePower(e.power) * this.diff.enemyDefense);
-    e.hp -= hit.damage;
-    e.hurtT = 0.3;
+    this.hurt(e, hit.damage, hit.crit ? `${hit.damage}!` : `${hit.damage}`, hit.crit ? '#ffe040' : hit.effective === 'weak' ? '#ff9a40' : hit.effective === 'resist' ? '#9a9aa8' : '#ffffff');
     e.alert = 8;
     e.lastSeenX = this.player.x;
     e.lastSeenY = this.player.y;
     recordDamageDealt(this.state.bestiary, def.id, hit.damage);
-    this.emit({ type: 'float', x: e.x, y: e.y, text: hit.crit ? `${hit.damage}!` : `${hit.damage}`, color: hit.crit ? '#ffe040' : hit.effective === 'weak' ? '#ff9a40' : hit.effective === 'resist' ? '#9a9aa8' : '#ffffff' });
     this.sfx(hit.crit ? 'crit' : 'hit', e.x, e.y);
     if (player.stats.leech > 0) this.heal(Math.max(1, Math.round(hit.damage * player.stats.leech / 100)), 'leech');
     this.wearThrown(pr.weaponUid);
@@ -4905,9 +4910,7 @@ export class World {
       if (other === e || other.ai === 'dead' || other.lurk || !inBlast(other.x, other.y)) continue;
       const odef = enemyDef(other.def);
       const dealt = Math.max(1, Math.round(def.attack * attackPower(e.power) * VENGEFUL_DAMAGE_MULT * (odef.resist[def.damageType] ?? 1)));
-      other.hp -= dealt;
-      other.hurtT = 0.3;
-      this.emit({ type: 'float', x: other.x, y: other.y, text: `${dealt}`, color: '#c070ff' });
+      this.hurt(other, dealt, `${dealt}`, '#c070ff');
       if (other.hp <= 0) this.killEnemy(other);
     }
     if (inBlast(this.player.x, this.player.y)) {
@@ -4925,10 +4928,8 @@ export class World {
     const mult = def.resist[type] ?? 1;
     const damage = Math.max(mult > 0 ? 1 : 0, Math.round(attack * mult));
     if (damage <= 0) return;
-    e.hp -= damage;
-    e.hurtT = 0.3;
+    this.hurt(e, damage, `${damage}!`, '#ffe8a0');
     recordDamageDealt(this.state.bestiary, def.id, damage);
-    this.emit({ type: 'float', x: e.x, y: e.y, text: `${damage}!`, color: '#ffe8a0' });
     this.sfx('hit', e.x, e.y);
     this.msg(`The shield answers for you.`, '#ffe8a0');
     if (e.hp <= 0) this.killEnemy(e);
@@ -4940,13 +4941,10 @@ export class World {
     const def = enemyDef(e.def);
     const mult = def.resist[pr.type] ?? 1;
     const damage = Math.max(mult > 0 ? 1 : 0, Math.round(pr.damage * mult));
-    e.hp -= damage;
-    e.hurtT = 0.3;
+    this.hurt(e, damage, `${damage}`, mult >= 1.4 ? '#ff9a40' : mult <= 0.7 ? '#9a9aa8' : '#ffe8a0');
     e.alert = Math.max(e.alert, 8);
     e.lastSeenX = this.player.x;
     e.lastSeenY = this.player.y;
-    const color = mult >= 1.4 ? '#ff9a40' : mult <= 0.7 ? '#9a9aa8' : '#ffe8a0';
-    this.emit({ type: 'float', x: e.x, y: e.y, text: `${damage}`, color });
     this.sfx('hit', e.x, e.y);
     if (mult >= 1.4) this.msg(`Its own ${pr.type} burns it.`, '#ff9a40');
     if (e.hp <= 0) this.killEnemy(e);
