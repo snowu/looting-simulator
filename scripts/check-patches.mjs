@@ -31,6 +31,8 @@ const SKIP = {
   '973e67c': 'save round-trip tests for the Patch 70 fields; no player-facing change',
   '0ea84d1': 'PR art sheets, dev art-sheet grouping and NEXT.md log; no player-facing change',
   d21092c: 'patch-note citation only; the work is cited by Patches 69 and 70',
+  aba2f06: 'refactor: biome traits moved onto BiomeDef; no player-facing change',
+  fff3442: 'Patch 72 citation and a skip reason only',
   '55e9f88': 'design doc for the run-identity plan; no player-facing change',
   '8517c39': 'progress tracker update in NEXT.md; no player-facing change',
   '2b6c9de': 'PR preview image only',
