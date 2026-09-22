@@ -45,7 +45,7 @@ import { artUrl } from '../render/art-cache';
 import { paperDoll, statSheet } from './dungeon-ui';
 import { audio } from '../audio/sfx';
 import { difficultyOf } from '../data/difficulty';
-import { PLAIN_FLASK_RAMP, draught } from '../systems/infusion';
+import { PLAIN_FLASK_RAMP, draught, infusionName } from '../systems/infusion';
 import { AccountSummary } from './account';
 import { openSettings, settingsGearButton } from './settings';
 import { FLASK_POTENCY, FLASK_UPGRADE_COSTS } from '../systems/healing';
@@ -936,7 +936,7 @@ export class Town {
   private infusions(): HTMLElement {
     const s = this.s;
     const current = draught(s.flask?.infusion);
-    const currentName = s.flask?.infusion === 'fight_milk' ? 'Fight Milk' : s.flask?.infusion ? material(s.flask.infusion).name : null;
+    const currentName = s.flask?.infusion ? infusionName(s.flask.infusion) : null;
     const card = h('div', { class: 'row infusion-now' },
       artImg('ic_potion', current?.ramp ?? PLAIN_FLASK_RAMP, 40),
       h('div', { class: 'grow' },
@@ -947,14 +947,14 @@ export class Town {
     );
     const seen = new Set<string>();
     const choices = s.stash.items.filter((it) => {
-      if (it.kind !== 'material' && !(it.kind === 'consumable' && it.ref === 'fight_milk')) return false;
+      if (it.kind !== 'material' && it.kind !== 'consumable') return false;
       if (!draught(it.ref) || it.ref === s.flask?.infusion || seen.has(it.ref)) return false;
       seen.add(it.ref);
       return true;
     });
     const rows = choices.map((it) => {
       const d = draught(it.ref)!;
-      const name = it.ref === 'fight_milk' ? 'Fight Milk' : material(it.ref).name;
+      const name = infusionName(it.ref);
       return h('div', { class: 'row repair-row' },
         itemSlot(it, { size: 34, tip: () => itemTooltip(it) }),
         h('div', { class: 'grow' },

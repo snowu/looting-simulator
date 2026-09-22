@@ -72,7 +72,7 @@ import {
   trapAt,
 } from '../systems/dungeon';
 import { BOSS_ID, ENEMIES, enemyDef, enemyView, kingPhase, phaseForHp } from '../data/enemies';
-import { consumable, itemBase, viewmodelFor } from '../data/items';
+import { consumable, findConsumable, itemBase, viewmodelFor } from '../data/items';
 import { biomeForFloor, FINAL_DEPTH } from '../data/biomes';
 import { PlayerDerived, derivePlayer, thrownView } from '../systems/player';
 import { DifficultyId, DifficultyDef, difficultyOf } from '../data/difficulty';
@@ -598,7 +598,9 @@ export class World {
     if (this.run.blessing) BLESSINGS[this.run.blessing]?.apply?.(this.derived, this.run.depth);
     if (this.run.curse) CURSES[this.run.curse]?.apply?.(this.derived, this.run.depth);
     for (const id of this.run.tonics ?? []) TONICS[id]?.apply(this.derived);
-    if (this.state.flask?.infusion === 'fight_milk') TONICS.fight_milk.apply(this.derived);
+    // A tonic in the flask works as if drunk, for as long as it stays infused.
+    const infused = findConsumable(this.state.flask?.infusion ?? '')?.effect;
+    if (infused?.type === 'tonic') TONICS[infused.tonicId]?.apply(this.derived);
     // A kindled blade carries its gem's catalyst stat. Elemental stats deal
     // damage through the ELEMENTS loop in combat, so they must NOT also land
     // in attack — that dealt every gem twice.
@@ -3409,11 +3411,11 @@ export class World {
       case 'tonic': {
         const tonic = TONICS[e.tonicId];
         if (!tonic) return;
-        // Fight Milk stopped being drunk when the flask took over healing. The
-        // bottle is a forge infusion now; drinking it would bypass the potency
-        // trade the infusion charges for. Legacy delves that already drank keep
-        // their run.tonics effect until that run ends.
-        if (e.tonicId === 'fight_milk') {
+        // Fight Milk stopped being drunk when the flask took over healing. A
+        // bottle the flask can take is a forge infusion now; drinking it would
+        // bypass the potency trade the infusion charges for. Legacy delves that
+        // already drank keep their run.tonics effect until that run ends.
+        if (draught(it.ref)) {
           this.msg('Too precious to drink raw. The forge can infuse the flask with it.', '#e8b84a');
           return;
         }
@@ -3535,9 +3537,9 @@ export class World {
     const present: string[] = [];
     for (const it of this.run.backpack.items) {
       if (it.kind !== 'consumable' || present.includes(it.ref)) continue;
-      // Fight Milk rides in the pack as an infusion ingredient, not a drink.
+      // An infusion ingredient (Fight Milk) rides in the pack, not as a drink.
       // It is spent at the forge bench, so it never takes a quick-bar slot.
-      if (it.ref === 'fight_milk') continue;
+      if (draught(it.ref)) continue;
       present.push(it.ref);
     }
     const saved = this.run.quickOrder ?? [];

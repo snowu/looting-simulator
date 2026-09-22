@@ -1,4 +1,5 @@
 import { findMaterial, catalystAffixBonus } from '../data/materials';
+import { findConsumable } from '../data/items';
 import { affix } from '../data/affixes';
 import { medianAffix } from './crafting';
 import { SIP_SECONDS } from './healing';
@@ -54,6 +55,14 @@ const INFUSION_COST = 10;
 const KINDLING_AFFIXES = new Set(['blazing', 'rimed', 'blessed', 'umbral', 'leeching']);
 
 const pct = (n: number): string => `${Math.round(n * 100)}%`;
+
+/**
+ * What the ingredient behind an infusion is called: a material, or one of the
+ * rare consumables (Fight Milk) that go in the flask instead of down a throat.
+ */
+export function infusionName(ref: string): string {
+  return findMaterial(ref)?.name ?? findConsumable(ref)?.name ?? ref;
+}
 
 /**
  * What a flask infused with `ref` does, or null when the ref cannot be put in

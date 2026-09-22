@@ -385,6 +385,10 @@ export function consumable(id: string): ConsumableDef {
   return c;
 }
 
+export function findConsumable(id: string): ConsumableDef | undefined {
+  return CONS_BY_ID.get(id);
+}
+
 /** Unarmed swing when no weapon is equipped. */
 export const FIST_SWING: SwingProfile = { windup: 0.14, recovery: 0.3, staminaCost: 9, reach: 1 };
 export const FIST_ATTACK = 3;
