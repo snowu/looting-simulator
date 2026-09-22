@@ -1,3 +1,15 @@
+# Faster start
+
+*Save revision 29, unchanged: nothing about a save moves.*
+
+**All the art now arrives in one download.** Before the title screen could appear, the game fetched every sprite, texture and icon as its own file, more than three hundred of them. On a phone that was most of the wait. It now fetches them as a single file of about 110 kB, and because each update gets its own copy of that file, the browser can keep it until the next update.
+
+Nothing looks different. Hand-painted art still overrides the built-in art exactly as before. If the combined file is ever missing, the game falls back to fetching the sprites one by one, so a problem with it can't stop the game starting.
+
+Validation: all 792 tests pass, including new tests that the combined file carries every shipped image byte for byte and that the fallback works. Served the production build locally: one art request instead of 322, and the title screen, the town's icons and the dungeon's textures all come from it.
+
+---
+
 # Gold reads the same everywhere
 
 *Save revision 29, unchanged: nothing about a save moves.*
