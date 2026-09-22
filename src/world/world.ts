@@ -1080,7 +1080,7 @@ export class World {
       if (this.run.outcome !== 'active') return;
     }
     const s = stairsAt(f, p.x, p.y);
-    this.sfx(biomeForFloor(f).id === 'catacombs' && !s ? 'splash' : 'step');
+    this.sfx(biomeForFloor(f).flooded && !s ? 'splash' : 'step');
     if (s) {
       if (!s.down && this.run.depth === 1) {
         this.msg('You climb back into the daylight.', '#e8d8a0');
@@ -1206,7 +1206,7 @@ export class World {
     // line below. Walking back up and down again re-announces the floor by
     // name, which is enough; the whole paragraph again is not.
     if (quirk && fresh) this.msg(quirk.arrival, quirk.color);
-    const law = lawFor(f.biome);
+    const law = lawFor(biomeForFloor(f));
     if (law && fresh && !quirk) this.msg(law.arrival, law.color);
     if (run.depth === FINAL_DEPTH && dir === 'down') this.msg('The air is thick with ash. Something waits below the throne.', '#c080ff');
     this.emit({ type: 'floor' });
@@ -2352,7 +2352,7 @@ export class World {
 
   /** Burrows: how far a noise of radius `r` actually carries on this floor. */
   private noise(r: number): number {
-    const burrows = this.floor.biome === 'burrows' ? BURROWS_NOISE_MULT : 1;
+    const burrows = biomeForFloor(this.floor).law === 'noise' ? BURROWS_NOISE_MULT : 1;
     const silence = runOath(this.run, 'silence') ? SILENCE_NOISE : 1;
     return Math.round(r * burrows * silence);
   }
@@ -2386,7 +2386,7 @@ export class World {
     const def = enemyDef(e.def);
     if (!def.undead || def.behavior === 'boss' || e.risen || e.remains || e.burstT !== undefined || e.mimicTier) return;
     e.stirT = OSSUARY_STIR;
-    if (Math.abs(e.x - this.player.x) + Math.abs(e.y - this.player.y) <= 10) this.msg(`The ${def.name}'s bones stir.`, LAWS.crypt.color);
+    if (Math.abs(e.x - this.player.x) + Math.abs(e.y - this.player.y) <= 10) this.msg(`The ${def.name}'s bones stir.`, LAWS.restless.color);
   }
 
   /**
@@ -2408,12 +2408,12 @@ export class World {
         e.timer = Math.max(e.timer, COLLAPSE_STUN);
         e.attackCd = Math.max(e.attackCd, COLLAPSE_STUN + 0.2);
       }
-      this.emit({ type: 'float', x: e.x, y: e.y, text: `${dealt}!`, color: LAWS.mines.color });
+      this.emit({ type: 'float', x: e.x, y: e.y, text: `${dealt}!`, color: LAWS.collapse.color });
       dealtTo.push(def.name);
       if (e.hp <= 0) this.killEnemy(e);
     }
     this.emit({ type: 'shake', amount: 0.5 });
-    this.msg(dealtTo.length ? `The timbers give and the roof comes down on the ${dealtTo.join(' and the ')}!` : 'The timbers give. Rock rains down where the wall stood.', LAWS.mines.color);
+    this.msg(dealtTo.length ? `The timbers give and the roof comes down on the ${dealtTo.join(' and the ')}!` : 'The timbers give. Rock rains down where the wall stood.', LAWS.collapse.color);
   }
 
   /**
@@ -2751,7 +2751,7 @@ export class World {
     this.sfx('break', p.x, p.y);
     // Burrows: the crack of old roots is a lure. What hears it comes to the
     // cache, not to you — so break it and be somewhere else.
-    if (p.kind === 'root_cache' && this.floor.biome === 'burrows') {
+    if (p.kind === 'root_cache' && biomeForFloor(this.floor).law === 'noise') {
       let drawn = 0;
       for (const e of this.floor.enemies) {
         if (e.ai === 'dead' || e.lurk || Math.abs(e.x - p.x) + Math.abs(e.y - p.y) > ROOT_CACHE_LURE) continue;
@@ -2760,7 +2760,7 @@ export class World {
         e.lastSeenY = p.y;
         drawn++;
       }
-      this.msg(drawn ? 'The roots crack like a shot. Something skitters towards the sound.' : 'The roots crack like a shot. Nothing answers.', LAWS.burrows.color);
+      this.msg(drawn ? 'The roots crack like a shot. Something skitters towards the sound.' : 'The roots crack like a shot. Nothing answers.', LAWS.noise.color);
     }
     const loot = this.containerLoot(this.propRng(p), 'urn');
     this.dropLoot(p.x, p.y, loot.items, loot.gold);
@@ -3833,11 +3833,12 @@ export class World {
   private updateEnemies(dt: number): void {
     const f = this.floor;
     const p = this.player;
+    const restless = biomeForFloor(f).law === 'restless';
     for (const e of f.enemies) {
       if (e.ai === 'dead') {
         const before = e.deadT;
         e.deadT += dt;
-        if (f.biome === 'crypt') this.ossuaryStir(e, before, dt);
+        if (restless) this.ossuaryStir(e, before, dt);
         if (e.burstT !== undefined) {
           e.burstT -= dt;
           if (e.burstT <= 0) {
@@ -4674,7 +4675,7 @@ export class World {
     c.broken = true;
     f.tiles[c.y * f.width + c.x] = FLOOR;
     if (pick) this.msg('The pick finds the fault line. The wall comes down in one.', '#e8d8a0');
-    if (f.biome === 'mines') this.collapse(c.x, c.y);
+    if (biomeForFloor(f).law === 'collapse') this.collapse(c.x, c.y);
     this.reveal();
     const rng = createRng(hashString(`crack:${f.seed}:${c.id}`));
     if (c.kind === 'seam') {

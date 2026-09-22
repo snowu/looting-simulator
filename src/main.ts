@@ -70,7 +70,7 @@ const renderer = new DungeonRenderer(canvas);
 // not the glassy distant plink.
 renderer.onDripLand = () => {
   if (mode !== 'dungeon' || !world) return;
-  if (biomeForFloor(world.floor).id !== 'catacombs') return;
+  if (!biomeForFloor(world.floor).flooded) return;
   audio.play('plop', {
     volume: 0.35 + Math.random() * 0.45,
     pan: Math.random() * 1.2 - 0.6,
@@ -78,7 +78,7 @@ renderer.onDripLand = () => {
   });
 };
 renderer.onLavaSound = ({ name, x, z }) => {
-  if (mode !== 'dungeon' || !world || world.floor.biome !== 'emberworks') return;
+  if (mode !== 'dungeon' || !world || !biomeForFloor(world.floor).molten) return;
   const dx = x - renderer.camera.position.x, dz = z - renderer.camera.position.z;
   const distance = Math.hypot(dx, dz);
   const pan = (dx * Math.cos(world.anim.yaw) + dz * Math.sin(world.anim.yaw)) / Math.max(1, distance);
@@ -998,7 +998,7 @@ function frame(now: number): void {
       dripTimer -= dt;
       if (dripTimer <= 0) {
         dripTimer = 2.5 + Math.random() * 6;
-        if (biomeForFloor(world.floor).id === 'catacombs') {
+        if (biomeForFloor(world.floor).flooded) {
           if (Math.random() < 0.45) renderer.spawnDrip();
           else {
             audio.play('drip', {

@@ -424,7 +424,7 @@ export class DungeonRenderer {
       this.shared.uFogFar.value = floorQuirk?.fogFar ?? 18;
     }
     this.shared.uAmbient.value.set(floorQuirk?.ambient ?? biome.ambient);
-    if (biome.id === 'emberworks' && !floorQuirk) {
+    if (biome.molten && !floorQuirk) {
       this.shared.uAmbient.value.multiplyScalar(1 + 0.08 * Math.sin(this.time * Math.PI * 0.8 + 1.7));
     }
     this.level!.update(dt);
@@ -475,7 +475,7 @@ export class DungeonRenderer {
     this.mono = this.monoFrom + (monoTo - this.monoFrom) * k;
     this.camera.rotation.set(0, -a.yaw, this.deathFade * 0.5 + this.roll);
 
-    this.lava.update(biome.id === 'emberworks' ? dt : 0, this.camera);
+    this.lava.update(biome.molten ? dt : 0, this.camera);
 
     // --- Lights ---------------------------------------------------------------
     const flick = (seed: number) => 0.9 + Math.sin(this.time * 11 + seed) * 0.06 + Math.sin(this.time * 23.7 + seed * 3) * 0.04;

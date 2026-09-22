@@ -7,33 +7,35 @@
  * exploit once you know them. Arriving on a floor that has one says so.
  */
 
-export type LawBiome = 'crypt' | 'mines' | 'burrows';
+import type { BiomeDef } from './biomes';
+
+/** Each law belongs to the biome that names it in `BiomeDef.law`. */
+export type LawId = 'restless' | 'collapse' | 'noise';
 
 export interface LawDef {
-  biome: LawBiome;
   name: string;
   /** Said in the log on arriving. */
   arrival: string;
   color: string;
 }
 
-export const LAWS: Record<LawBiome, LawDef> = {
-  crypt: {
-    biome: 'crypt', name: 'The dead do not stay down', color: '#e8e0c0',
+export const LAWS: Record<LawId, LawDef> = {
+  restless: {
+    name: 'The dead do not stay down', color: '#e8e0c0',
     arrival: 'The Ossuary keeps its dead restless: the bones you put down will try to stand again. Shatter them, or sanctify them.',
   },
-  mines: {
-    biome: 'mines', name: 'Braced walls come down hard', color: '#c8a070',
+  collapse: {
+    name: 'Braced walls come down hard', color: '#c8a070',
     arrival: 'The Deep Mines are shored with rotten timber: bring down a cracked wall and the roof comes with it, onto whatever stands beside it.',
   },
-  burrows: {
-    biome: 'burrows', name: 'Noise carries', color: '#c8a070',
+  noise: {
+    name: 'Noise carries', color: '#c8a070',
     arrival: 'The Vermin Burrows carry every sound a long way, and something is always listening. A broken root cache makes a fine lure.',
   },
 };
 
-export function lawFor(biome: string): LawDef | undefined {
-  return LAWS[biome as LawBiome];
+export function lawFor(biome: BiomeDef): LawDef | undefined {
+  return biome.law ? LAWS[biome.law] : undefined;
 }
 
 /** Ossuary: seconds after death before undead remains stir, then how long they stir before standing. */

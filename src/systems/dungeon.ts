@@ -7,8 +7,8 @@ import { BOSS_ID, ENEMIES, enemyDef } from '../data/enemies';
 import { DifficultyId, DifficultyDef, DIFFICULTIES, difficultyOf } from '../data/difficulty';
 import { DamageType, EnemyDef, Item } from '../types';
 import { ELITE_HP_MULT, EliteTrait, IRONHIDE_HP_MULT, eliteFor } from '../data/elites';
-import { EARTH_BIOMES, STALKER_BURIED, droppersFor } from '../data/ambush';
-import { GRAVE_BIOMES, gravecallerChance } from '../data/necromancy';
+import { STALKER_BURIED, droppersFor } from '../data/ambush';
+import { gravecallerChance } from '../data/necromancy';
 import { Crack, SHORTCUT_MIN_SAVING, cracksFor } from '../data/walls';
 import type { FloorMods } from '../data/seals';
 import { ContainerTier, makeMaterial, materialForDepth } from './items';
@@ -1081,7 +1081,7 @@ function tryGenerate(
     });
     return true;
   };
-  const vessel: PropKind = biome.id === 'burrows' ? 'root_cache' : biome.id === 'mines' || biome.id === 'caverns' || biome.id === 'sporegrove' ? 'barrel' : 'urn';
+  const vessel: PropKind = biome.vessel ?? 'urn';
   for (const r of rooms) {
     const spots = edgeTiles(r);
     const take = () => spots.pop();
@@ -1249,12 +1249,12 @@ function tryGenerate(
       e.lurk = 'ceiling';
       enemies.push(e);
     }
-    if (EARTH_BIOMES.has(biome.id)) {
+    if (biome.earth) {
       for (const e of enemies) if (e.def === 'tunnel_stalker' && amb.chance(STALKER_BURIED)) e.lurk = 'buried';
     }
     // A Gravecaller among the dead, on its own stream: in a room with undead
     // already in it where possible, so it has something to call.
-    if (GRAVE_BIOMES.has(biome.id)) {
+    if (biome.graves) {
       const grave = createRng(hashString(`gravecaller:${seed}:${depth}`));
       if (grave.chance(gravecallerChance(depth))) {
         const withDead = hostRooms.filter((r) => enemies.some((e) => enemyDef(e.def).undead && inRoom(r, e.x, e.y)));
@@ -1374,7 +1374,7 @@ function tryGenerate(
     }
   }
 
-  if (biome.id === 'frostvault') props.push(...iciclesFor(seed, depth, tiles, W, [...stairs, ...doors]));
+  if (biome.frozen) props.push(...iciclesFor(seed, depth, tiles, W, [...stairs, ...doors]));
 
   // Cracked walls, last and on their own stream, so they move nothing else.
   const cracks: Crack[] = throne ? [] : placeCracks(seed, depth, biome.id, tiles, W, H, {

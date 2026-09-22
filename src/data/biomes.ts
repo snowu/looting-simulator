@@ -1,3 +1,5 @@
+import type { LawId } from './laws';
+
 export interface BiomeDef {
   id: string;
   name: string;
@@ -25,6 +27,22 @@ export interface BiomeDef {
   favoredEnemies?: string[];
   /** Elemental theme: aligned creatures are favored and the opposite is excluded. */
   element?: 'fire' | 'frost';
+  /** Soft ground: Tunnel Stalkers start buried, and cracked walls hide more ore. */
+  earth?: boolean;
+  /** Burial ground: a Gravecaller may come to raise the dead here. */
+  graves?: boolean;
+  /** The breakable container its rooms are furnished with. Absent means urns. */
+  vessel?: 'barrel' | 'root_cache';
+  /** Ice: icicles hang from the roof, and the walls and floor glint. */
+  frozen?: boolean;
+  /** Heat: lava drips and bursts, glowing crust and iron, and furnace walls. */
+  molten?: boolean;
+  /** Standing water over the floor: every step splashes and the roof drips. */
+  flooded?: boolean;
+  /** Its roof is the ground of the floor above, which it tunnels under. */
+  ceilingFromAbove?: boolean;
+  /** The biome's law (`src/data/laws.ts`): a rule you can turn against the floor. */
+  law?: LawId;
 }
 
 export const FINAL_DEPTH = 6;
@@ -35,12 +53,14 @@ export const BIOMES: BiomeDef[] = [
     wall: 'wall_crypt', wallAlt: 'wall_crypt_b', wallSecret: 'wall_crypt_s',
     floor: 'floor_crypt', ceiling: 'ceil_crypt', door: 'door_wood',
     fog: '#040308', ambient: '#24212e', torch: '#ffc488', torchDensity: 0.07,
+    graves: true, law: 'restless',
   },
   {
     id: 'mines', name: 'The Deep Mines', depths: [3, 4],
     wall: 'wall_mine', wallAlt: 'wall_mine_b', wallSecret: 'wall_mine_s',
     floor: 'floor_mine', ceiling: 'ceil_mine', door: 'door_wood',
     fog: '#080503', ambient: '#2a2016', torch: '#ffb870', torchDensity: 0.06,
+    earth: true, vessel: 'barrel', law: 'collapse',
   },
   {
     id: 'throne', name: 'The Ashen Throne', depths: [6],
@@ -55,6 +75,7 @@ export const BIOMES: BiomeDef[] = [
     fog: '#061013', ambient: '#20333b', torch: '#86c9d4', torchDensity: 0.035,
     glow: { color: '#55b9bc', density: 0.025, sprite: 'fungus' },
     favoredEnemies: ['rat', 'bat', 'skeleton', 'drowned_bones'],
+    graves: true, flooded: true,
   },
   {
     id: 'burrows', name: 'The Vermin Burrows', depths: [1, 2, 3],
@@ -64,6 +85,7 @@ export const BIOMES: BiomeDef[] = [
     floor: 'floor_burrows', ceiling: 'ceil_burrows', door: 'door_wood',
     fog: '#0e0904', ambient: '#3a2b1a', torch: '#ffbb70', torchDensity: 0.055,
     favoredEnemies: ['rat', 'bat', 'spider', 'goblin', 'tunnel_stalker', 'mole'],
+    earth: true, vessel: 'root_cache', ceilingFromAbove: true, law: 'noise',
   },
   {
     id: 'frostvault', name: 'The Frost Vault', depths: [3, 4, 5],
@@ -73,6 +95,7 @@ export const BIOMES: BiomeDef[] = [
     floor: 'floor_frostvault', ceiling: 'ceil_frostvault', door: 'door_iron',
     fog: '#050b17', ambient: '#23344c', torch: '#a9d5ff', torchDensity: 0.04, element: 'frost',
     favoredEnemies: ['frost_wisp', 'skeleton_archer', 'skeleton_shield', 'icebound_guard', 'elemental_frost'],
+    frozen: true,
   },
   {
     id: 'emberworks', name: 'The Emberworks', depths: [3, 4, 5],
@@ -83,6 +106,7 @@ export const BIOMES: BiomeDef[] = [
     floor: 'floor_emberworks', ceiling: 'ceil_emberworks', door: 'door_iron',
     fog: '#160603', ambient: '#483022', torch: '#ff7848', torchDensity: 0.09, element: 'fire',
     favoredEnemies: ['ember_wisp', 'flame_wraith', 'goblin_shield', 'cinder_raider'],
+    molten: true,
   },
   {
     id: 'sporegrove', name: 'The Sporegrove', depths: [3, 4, 5],
@@ -91,6 +115,7 @@ export const BIOMES: BiomeDef[] = [
     fog: '#071007', ambient: '#293c22', torch: '#b8dc78', torchDensity: 0.025,
     glow: { color: '#9acf65', density: 0.085, sprite: 'fungus' },
     favoredEnemies: ['spider', 'ghoul', 'bat', 'spore_hunter', 'bog_seraph'],
+    vessel: 'barrel',
   },
 ];
 
@@ -106,6 +131,7 @@ const LEGACY_BIOMES: BiomeDef[] = [
     floor: 'floor_cave', ceiling: 'ceil_cave', door: 'door_iron',
     fog: '#020705', ambient: '#1c3028', torch: '#ffc890', torchDensity: 0.045,
     glow: { color: '#40e0c0', density: 0.05, sprite: 'fungus' },
+    vessel: 'barrel',
   },
 ];
 
@@ -127,5 +153,5 @@ export function ceilingForFloor(
   previous?: { biome: string; depth: number },
 ): string {
   const biome = biomeForFloor(floor);
-  return biome.id === 'burrows' && previous ? biomeForFloor(previous).floor : biome.ceiling;
+  return biome.ceilingFromAbove && previous ? biomeForFloor(previous).floor : biome.ceiling;
 }

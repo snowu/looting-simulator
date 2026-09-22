@@ -108,7 +108,7 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
     biome.floorVariants?.length ? biome.floorVariants[hash3(x, y, 4) % biome.floorVariants.length] : biome.floor;
   /** The face of wall tile (x, y) seen from side `d`. Pillars pick differently, below. */
   const wallTexAt = (x: number, y: number, d: number) =>
-    biome.id === 'emberworks' ? emberWallTexture(x, y, d)
+    biome.molten ? emberWallTexture(x, y, d)
       : biome.wallVariants?.length
         ? biome.wallVariants[hash3(x, y, d) % biome.wallVariants.length]
         : hash3(x, y, d) < 12 ? biome.wallAlt : biome.wall;
@@ -160,7 +160,7 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
       const ceilingTex = ceiling === biome.ceiling && biome.ceilingVariants?.length
         ? biome.ceilingVariants[hash3(x, y, 6) % biome.ceilingVariants.length] : ceiling;
       B(ceilingTex).quad([x0, WALL_H, z0], [x1, WALL_H, z0], [x1, WALL_H, z1], [x0, WALL_H, z1], [0, -1, 0]);
-      if (biome.id === 'catacombs') {
+      if (biome.flooded) {
         B('water_catacombs').quad(
           [x0, 0.018, z0], [x1, 0.018, z0], [x1, 0.018, z1], [x0, 0.018, z1], [0, 1, 0],
         );
@@ -169,7 +169,7 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
       if (t === PILLAR) {
         const p = 0.42 * TILE;
         // Outward-facing column faces.
-        const tex = biome.id === 'emberworks' ? biome.wall
+        const tex = biome.molten ? biome.wall
           : biome.wallVariants?.length
           ? biome.wallVariants[hash3(x, y, 9) % biome.wallVariants.length]
           : hash3(x, y, 9) < 50 ? biome.wall : biome.wallAlt;
@@ -226,7 +226,7 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
       : roof >= 0 ? [0.20 + roof * 0.06, 0.5 + roof * 0.27] : [0.35, 3.8];
     const mat = ps1Material(shared, artTexture(tex), water
       ? { transparent: true, depthWrite: false, side: THREE.DoubleSide }
-      : { fillLight: crust >= 0 || roof >= 0 ? [0.48, 0.32, 0.26] : undefined, pulse: biome.id === 'emberworks' ? heat : biome.id === 'frostvault' && tex !== ceiling ? [0.15, 1.1] : undefined });
+      : { fillLight: crust >= 0 || roof >= 0 ? [0.48, 0.32, 0.26] : undefined, pulse: biome.molten ? heat : biome.frozen && tex !== ceiling ? [0.15, 1.1] : undefined });
     if (water) mat.uniforms.uOpacity.value = 0.16;
     geometries.push(geo);
     materials.push(mat);
@@ -273,7 +273,7 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
     }
     const pivot = new THREE.Group();
     pivot.position.set(-(TILE - 0.08) / 2, 0, 0);
-    const hotIron = biome.id === 'emberworks';
+    const hotIron = !!biome.molten;
     const openTex = artTexture(hotIron ? 'door_emberworks' : door.iron ? 'door_iron' : biome.door);
     const lockedTex = artTexture(hotIron ? 'door_emberworks_locked' : 'door_locked');
     const mat = ps1Material(shared, door.locked ? lockedTex : openTex, hotIron ? { pulse: [0.18, 0.8] } : {});

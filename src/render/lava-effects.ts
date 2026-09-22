@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { EMBER_VENTS, emberFloorIndex, EMBER_CEILING_VENTS, emberCeilingIndex } from '../art/ember-floor';
 import { createRng, hashString } from '../core/rng';
+import { biomeForFloor } from '../data/biomes';
 import { Floor, FLOOR, WALL, PILLAR, tileAt } from '../systems/dungeon';
 import { Shared, ps1Material } from './ps1';
 import { TILE, WALL_H } from './level-mesh';
@@ -64,7 +65,7 @@ export class LavaEffects {
     this.bubble.visible = false;
     for (const d of this.drops) { d.active = false; d.body.visible = d.neck.visible = d.core.visible = false; }
     for (const s of this.sparks) { s.life = 0; s.mesh.visible = false; }
-    if (floor.biome !== 'emberworks') return;
+    if (!biomeForFloor(floor).molten) return;
     this.rng = createRng(hashString(`lava-decor:${floor.seed}:${floor.depth}`));
     for (let y = 0; y < floor.height; y++) for (let x = 0; x < floor.width; x++) {
       if (tileAt(floor, x, y) !== FLOOR || floor.stairs.some(s => s.x === x && s.y === y)
