@@ -34,6 +34,8 @@ const SKIP = {
   aba2f06: 'refactor: biome traits moved onto BiomeDef; no player-facing change',
   fff3442: 'Patch 72 citation and a skip reason only',
   '55e9f88': 'design doc for the run-identity plan; no player-facing change',
+  '24754b2': 'refactor: Fight Milk handled as a flask ingredient rather than by id; no player-facing change',
+  dfbb942: 'skip reasons and PR screenshots only',
   '8517c39': 'progress tracker update in NEXT.md; no player-facing change',
   '2b6c9de': 'PR preview image only',
   e99ce03: 'merge only; stacked branch sync, changes covered by Patches 58 and 59',
