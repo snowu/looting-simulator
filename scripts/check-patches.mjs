@@ -37,6 +37,8 @@ const SKIP = {
   '24754b2': 'refactor: Fight Milk handled as a flask ingredient rather than by id; no player-facing change',
   dfbb942: 'skip reasons and PR screenshots only',
   '8517c39': 'progress tracker update in NEXT.md; no player-facing change',
+  'bc3ef6d': 'refactor: oath objectives written once in oathProgress; no player-facing change',
+  '3541f56': 'skip reasons and PR screenshot only',
   '2b6c9de': 'PR preview image only',
   e99ce03: 'merge only; stacked branch sync, changes covered by Patches 58 and 59',
   aa2b693: 'PR preview image only',
