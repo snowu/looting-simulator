@@ -236,9 +236,10 @@ export class DungeonRenderer {
    * tell that a cast is happening, and a fist is already the right gag.
    */
   private dressWeapon(art: { id: string; materialId?: string }, world: World): { id: string; materialId?: string } {
-    if (quirkDef(world.floor.quirk)?.id !== 'silent') return art;
+    const dress = quirkDef(world.floor.quirk)?.dress;
+    if (!dress) return art;
     if (art.id === 'vm_fist' || art.id.startsWith('vm_sigil')) return art;
-    return { id: 'vm_cane', materialId: 'deep_yew' };
+    return { id: dress.weapon, materialId: dress.materialId };
   }
 
   /** A move's tell colour, parsed once and reused. */
@@ -437,8 +438,8 @@ export class DungeonRenderer {
     // upside down rather than as a tilted photograph of a normal one. The
     // viewmodel lives in its own upright ortho scene, so your own hands stay
     // where you left them, and with them your bearings.
-    const rollTo = floorQuirk?.id === 'pasture' ? Math.PI : 0;
-    const monoTo = floorQuirk?.id === 'silent' ? 1 : 0;
+    const rollTo = floorQuirk?.roll ?? 0;
+    const monoTo = floorQuirk?.mono ? 1 : 0;
     // A real duration, not an exponential tail. Smoothing by `dt / QUIRK_EASE`
     // makes QUIRK_EASE a time *constant*: from upright to upside down took six
     // or seven seconds, so you arrived on the Pasture the right way up and
@@ -609,7 +610,7 @@ export class DungeonRenderer {
       // The Silent Picture: everyone is dressed for the occasion. One sprite
       // billboarded above the head rather than a hat painted into sixty enemy
       // frames, so it fits a Gravecaller, a mimic and whatever is added next.
-      if (floorQuirk?.id === 'silent' && en.ai !== 'dead') {
+      if (floorQuirk?.dress && en.ai !== 'dead') {
         // Sat on the creature's own crown, not on the top of its canvas.
         const crown = y + height * (1 - spriteTop(`${def.sprite}_${pose.frame}`));
         const hat = this.sprite(`h:${en.id}`);

@@ -785,7 +785,7 @@ function startAmbient(): void {
   // The Silent Picture plays instead of the dungeon, not over it: the drone
   // and the piano together sound like two rooms at once.
   const quirk = quirkDef(world.floor.quirk);
-  if (quirk?.id === 'silent') {
+  if (quirk?.rag) {
     audio.stopAmbient();
     audio.startRag(quirk.timeScale);
     return;

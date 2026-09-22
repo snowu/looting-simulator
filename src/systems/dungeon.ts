@@ -1176,8 +1176,7 @@ function tryGenerate(
     enemies.push(createEnemy(def, x, y, rng.pick(DIRS), `e${enemyN++}`, depth, diff.id));
   };
   const pool = ENEMIES.filter((e) => e.weight > 0 && e.minDepth <= depth && depth <= e.maxDepth
-    && (e.id !== 'mole' || biome.id === 'burrows')
-    && (e.id !== 'bog_seraph' || biome.id === 'sporegrove')
+    && (!e.onlyIn || e.onlyIn.includes(biome.id))
     && (!ELEMENTAL_VARIANT_IDS.has(e.id) || e.element === biome.element)
     && !(biome.element && e.element && e.element !== biome.element));
   const roomTiles = (r: Room) => {
@@ -1209,7 +1208,8 @@ function tryGenerate(
       * (biome.favoredEnemies?.includes(e.id) ? FAVORED_ENEMY_WEIGHT : 1)
       * (biome.element && e.element === biome.element ? ELEMENTAL_ENEMY_WEIGHT : 1),
     ] as const));
-    const group = def.id === 'rat' || def.id === 'spider' ? rng.int(1, 3) : rng.int(1, 2);
+    const [packMin, packMax] = def.pack ?? [1, 2];
+    const group = rng.int(packMin, packMax);
     if (rng.chance(0.15)) {
       // A wanderer in the tunnels.
       const x = rng.int(1, W - 2), y = rng.int(1, H - 2);

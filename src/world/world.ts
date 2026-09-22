@@ -77,7 +77,7 @@ import { biomeForFloor, FINAL_DEPTH } from '../data/biomes';
 import { PlayerDerived, derivePlayer, thrownView } from '../systems/player';
 import { DifficultyId, DifficultyDef, difficultyOf } from '../data/difficulty';
 import { enemyHitsPlayer, playerHitsEnemy, staminaPower } from '../systems/combat';
-import { ContainerTier, durability, identify, isIdentified, itemName, makeMaterial, materialForDepth, rollContainerLoot, rollEnemyLoot, uniqueOf, wearItem } from '../systems/items';
+import { ContainerTier, LootRoll, durability, identify, isIdentified, itemName, makeMaterial, materialForDepth, rollContainerLoot, rollEnemyLoot, uniqueOf, wearItem } from '../systems/items';
 import { nameRelic } from '../systems/relics';
 import { recordDepth, recordKill } from '../systems/contracts';
 import {
@@ -2300,8 +2300,7 @@ export class World {
         routed++;
       }
       const rng = createRng(hashString(`strongbox:${this.floor.seed}:${e.id}`));
-      const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
-      const box = rollContainerLoot(rng, this.run.depth, this.lootFind, 'vault', idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId);
+      const box = this.containerLoot(rng, 'vault');
       this.dropLoot(e.x, e.y, box.items, box.gold);
       this.msg(routed ? 'The banner falls. The goblins break and run! The strongbox key is yours.' : 'The banner falls. The strongbox key is yours.', LIEUTENANTS.quartermaster.color);
     } else if (e.lieutenant === 'hoarder') {
@@ -2490,10 +2489,9 @@ export class World {
     this.run.stats.kills++;
     recordKill(this.state.contracts, def.id);
     recordBestiaryKill(this.state.bestiary, def.id);
-    const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
     const loot = e.mimicTier && e.mimicPropId
-      ? rollContainerLoot(createRng(hashString(`${this.floor.seed}:${e.mimicPropId}`)), this.run.depth, this.lootFind, e.mimicTier, idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId)
-      : rollEnemyLoot(this.rng, def, this.run.depth, this.lootFind, idBelow, this.state.recipeRanks, this.state.bestiary, this.seenUniques, this.difficultyId, !!e.elite);
+      ? this.containerLoot(createRng(hashString(`${this.floor.seed}:${e.mimicPropId}`)), e.mimicTier)
+      : rollEnemyLoot(this.rng, def, this.run.depth, this.lootFind, this.identifyBelow, this.state.recipeRanks, this.state.bestiary, this.seenUniques, this.difficultyId, !!e.elite);
     const sigilDrop = def.behavior === 'boss'
       ? this.rollSigil(`boss:${e.id}`, 1)
       : e.mimicTier && e.mimicPropId
@@ -2570,6 +2568,16 @@ export class World {
     return (this.state.lifetime.uniquesSeen ??= []);
   }
 
+  /** Gear below this rarity drops identified: the Appraiser's second rank. */
+  private get identifyBelow(): Rarity | undefined {
+    return metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
+  }
+
+  /** A container's loot, rolled with this run's depth, find and unlocks. */
+  private containerLoot(rng: Rng, tier: ContainerTier): LootRoll {
+    return rollContainerLoot(rng, this.run.depth, this.lootFind, tier, this.identifyBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId);
+  }
+
   /** Relics this playthrough has identified, which is what opens a codex entry. */
   private get knownUniques(): string[] {
     return (this.state.lifetime.uniquesKnown ??= []);
@@ -2642,8 +2650,7 @@ export class World {
    * the gear, and once nothing else is left, a quarter of the coin.
    */
   private chestLoot(p: Prop, tier: ContainerTier): { items: Item[]; gold: number; lost: string[] } {
-    const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
-    const loot = rollContainerLoot(this.propRng(p), this.run.depth, this.lootFind, tier, idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId);
+    const loot = this.containerLoot(this.propRng(p), tier);
     // Its own stream, so which piece broke never moves the loot roll itself.
     const pick = createRng(hashString(`chest-shatter:${this.floor.seed}:${p.id}`));
     const lost: string[] = [];
@@ -2744,8 +2751,7 @@ export class World {
       }
       this.msg(drawn ? 'The roots crack like a shot. Something skitters towards the sound.' : 'The roots crack like a shot. Nothing answers.', LAWS.burrows.color);
     }
-    const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
-    const loot = rollContainerLoot(this.propRng(p), this.run.depth, this.lootFind, 'urn', idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId);
+    const loot = this.containerLoot(this.propRng(p), 'urn');
     this.dropLoot(p.x, p.y, loot.items, loot.gold);
   }
 
@@ -4662,10 +4668,9 @@ export class World {
       this.dropLoot(c.x, c.y, [makeMaterial(ore.id, rng.int(SEAM_ORE[0], SEAM_ORE[1]))], 0);
       this.msg(`The wall gives way. Ore spills from the seam: ${ore.name}.`, '#e8d8a0');
     } else if (c.kind === 'cache') {
-      const idBelow = metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
       // Three loud blows and the wear on your blade: it pays like a chest,
       // and never nothing.
-      const loot = rollContainerLoot(rng, this.run.depth, this.lootFind, 'chest', idBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId);
+      const loot = this.containerLoot(rng, 'chest');
       this.dropLoot(c.x, c.y, loot.items, Math.max(loot.gold, CACHE_MIN_GOLD(this.run.depth)));
       this.msg('The wall gives way onto a sealed niche. Someone hid something here.', '#e8d8a0');
     } else {

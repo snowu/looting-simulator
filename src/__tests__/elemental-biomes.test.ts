@@ -36,7 +36,8 @@ function arena(): World {
 
 describe('elemental relatives', () => {
   it('inherits every non-overridden stat, timing, AI, drop rate and scale', () => {
-    const overrides = new Set(['id', 'name', 'sprite', 'element', 'damageType', 'resist', 'loot', 'description', 'weight']);
+    // `pack` is not inherited: variants have always spawned 1–2 at a time.
+    const overrides = new Set(['id', 'name', 'sprite', 'element', 'damageType', 'resist', 'loot', 'description', 'weight', 'pack']);
     for (const v of ELEMENTAL_VARIANTS) {
       const base = enemyDef(v.base), actual = enemyDef(v.id);
       const stable = (e: typeof base) => Object.fromEntries(Object.entries(e).filter(([key]) => !overrides.has(key)));

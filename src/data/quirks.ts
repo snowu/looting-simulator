@@ -64,6 +64,17 @@ export interface QuirkDef {
   /** How far you can see, replacing the usual 4/18. */
   fogNear?: number;
   fogFar?: number;
+  /** Camera roll in radians, eased in on arrival: the Pasture hangs you upside down. */
+  roll?: number;
+  /** Draw the floor in black and white. */
+  mono?: boolean;
+  /**
+   * Evening dress: every melee weapon is drawn as this viewmodel, and every
+   * living creature wears a top hat and monocle. Only the picture changes.
+   */
+  dress?: { weapon: string; materialId: string };
+  /** Play ragtime at the floor's own speed instead of the biome's drone. */
+  rag?: boolean;
   /** Shallowest and deepest floor it will dress. */
   minDepth: number;
   maxDepth: number;
@@ -96,6 +107,7 @@ export const QUIRKS: Record<QuirkId, QuirkDef> = {
     // Daylight, upside down: a pale green sky where the floor should be, and
     // enough of it to see a cow coming across a field.
     fog: '#3c5a34', ambient: '#6f8a5e', fogNear: 8, fogFar: 30,
+    roll: Math.PI,
     lootBoost: 2,
     minDepth: 2, maxDepth: 5, weight: 1,
   },
@@ -111,6 +123,7 @@ export const QUIRKS: Record<QuirkId, QuirkDef> = {
     // pass is about to take every colour out of it anyway and a black-and-white
     // image made from near-black is just black.
     fog: '#1c1c1c', ambient: '#6a6a6a', fogNear: 6, fogFar: 24,
+    mono: true, dress: { weapon: 'vm_cane', materialId: 'deep_yew' }, rag: true,
     lootBoost: 1,
     minDepth: 2, maxDepth: 5, weight: 1,
   },

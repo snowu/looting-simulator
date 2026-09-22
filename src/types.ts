@@ -463,6 +463,10 @@ export interface EnemyDef {
   minDepth: number;
   maxDepth: number;
   weight: number;
+  /** Biomes it spawns in. Absent means any biome its depth and element allow. */
+  onlyIn?: string[];
+  /** How many turn up together when it spawns in a room. Absent means 1–2. */
+  pack?: [number, number];
   loot: LootEntry[];
   gold: [number, number];
   itemChance: number;

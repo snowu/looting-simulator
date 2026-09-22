@@ -150,7 +150,7 @@ export const ENEMIES: EnemyDef[] = [
     id: 'rat', name: 'Giant Rat', sprite: 'rat', scale: 0.55,
     hp: 14, attack: 5, defense: 0, damageType: 'pierce', resist: { slash: 1.4, pierce: 1.3 },
     behavior: 'melee', moves: MOVE_SETS.vermin, step: 0.3, windup: 0.38, recovery: 0.65, sight: 6,
-    minDepth: 1, maxDepth: 3, weight: 3,
+    minDepth: 1, maxDepth: 3, weight: 3, pack: [1, 3],
     loot: [{ id: 'rat_hide', chance: 0.42, min: 1, max: 2 }, { id: 'bone', chance: 0.35, min: 1, max: 1 }],
     gold: [0, 2], itemChance: 0,
     description: 'Big as a dog, twice as hungry.',
@@ -159,7 +159,7 @@ export const ENEMIES: EnemyDef[] = [
     id: 'bog_seraph', name: 'Bog Seraph', sprite: 'bogseraph', scale: 1.0,
     hp: 145, attack: 21, defense: 13, damageType: 'pierce', resist: { slash: 1.5, blunt: 0.85 },
     behavior: 'melee', moves: MOVE_SETS.brute, step: 0.65, windup: 0.7, recovery: 1.0, sight: 6,
-    minDepth: 3, maxDepth: 5, weight: 0.6,
+    minDepth: 3, maxDepth: 5, weight: 0.6, onlyIn: ['sporegrove'],
     loot: [
       { id: 'leather', chance: 0.5, min: 1, max: 2 },
       { id: 'bone', chance: 0.35, min: 1, max: 2 },
@@ -285,7 +285,7 @@ export const ENEMIES: EnemyDef[] = [
     // the quickest thing you will trade blows with, now with a wind-up you can
     // actually read and answer.
     behavior: 'melee', moves: MOVE_SETS.frenzied, step: 0.28, windup: 0.42, recovery: 0.8, sight: 5,
-    minDepth: 3, maxDepth: 5, weight: 3,
+    minDepth: 3, maxDepth: 5, weight: 3, pack: [1, 3],
     loot: [{ id: 'spider_silk', chance: 0.42, min: 1, max: 2 }, { id: 'crystal', chance: 0.06, min: 1, max: 1 }, { id: 'bone', chance: 0.35, min: 1, max: 1 }],
     gold: [0, 4], itemChance: 0.02,
     description: 'You hear it before you see it. Then you don\'t hear it.',
@@ -494,7 +494,7 @@ ENEMIES.push({
   burrows: true,
   hp: 32, attack: 9, defense: 3, damageType: 'blunt', resist: { blunt: 0.65, pierce: 1.4, slash: 1.3 },
   behavior: 'skittish', moves: MOVE_SETS.vermin, step: 0.65, windup: 0.8, recovery: 1, sight: 5,
-  shield: { block: 0.55, stun: 0.6 }, minDepth: 1, maxDepth: 3, weight: 1,
+  shield: { block: 0.55, stun: 0.6 }, minDepth: 1, maxDepth: 3, weight: 1, onlyIn: ['burrows'],
   loot: [{ id: 'rat_hide', chance: 0.42, min: 1, max: 2 }, { id: 'bone', chance: 0.35, min: 1, max: 1 }, { id: 'copper', chance: 0.25, min: 1, max: 2 }],
   gold: [0, 4], itemChance: 0.02,
   description: 'It folds its digging claws over its snout when threatened. Strike from behind; those shovels were made to split rock.',
