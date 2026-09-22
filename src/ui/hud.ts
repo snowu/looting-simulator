@@ -288,10 +288,14 @@ export class Hud {
     const belt = world.thrownCounts();
     const beltKey = belt ? `${belt.held}|${belt.floor}|${belt.flying}|${belt.calling}` : '';
     const sealCount = world.run.seals?.length ?? 0;
-    const oathLine = oathStatus(world) + (sealCount ? `<div style="color:#c080ff">Sealed ×${sealCount}</div>` : '');
-    const statusKey = `${world.run.depth}|${biome.id}|${world.run.gold}|${keyNames.join()}|${bless}|${curse}|${world.freeSlots}|${ward}|${snuffed}|${beltKey}|${oathLine}`;
+    // Everything the oath lines read, so their markup is only built on change.
+    const stats = world.run.stats;
+    const oathKey = runOaths(world.run).map((o) => `${o.id}:${o.status}:${o.marks}:${o.kills}:${o.prayers}`).join()
+      + `|${stats.goldFound}|${stats.deepest}|${stats.bossKilled}|${sealCount}`;
+    const statusKey = `${world.run.depth}|${biome.id}|${world.run.gold}|${keyNames.join()}|${bless}|${curse}|${world.freeSlots}|${ward}|${snuffed}|${beltKey}|${oathKey}`;
     if (statusKey !== this.statusKey) {
       this.statusKey = statusKey;
+      const oathLine = oathStatus(world) + (sealCount ? `<div style="color:#c080ff">Sealed ×${sealCount}</div>` : '');
       const beltLine = !belt
         ? ''
         : belt.calling

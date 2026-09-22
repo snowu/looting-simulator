@@ -117,7 +117,15 @@ export function artUrl(id: string, ramp?: Ramp): string {
   return url;
 }
 
-export function artSize(id: string): { w: number; h: number } {
+const SIZES = new WeakMap<HTMLCanvasElement, { readonly w: number; readonly h: number }>();
+
+/** An art's pixel size. Read for every sprite placed, every frame, so it is kept rather than rebuilt. */
+export function artSize(id: string): { readonly w: number; readonly h: number } {
   const c = artCanvas(id);
-  return { w: c.width, h: c.height };
+  let size = SIZES.get(c);
+  if (!size) {
+    size = { w: c.width, h: c.height };
+    SIZES.set(c, size);
+  }
+  return size;
 }
