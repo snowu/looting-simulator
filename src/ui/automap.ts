@@ -35,6 +35,8 @@ const C = {
   trapSpent: '#4a4038',
 };
 
+const NEIGHBOURS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
+
 export function drawMap(canvas: HTMLCanvasElement, f: Floor, px: number, py: number, facing: Dir, view: MapView, time = 0): void {
   const ctx = canvas.getContext('2d')!;
   const W = canvas.width, H = canvas.height;
@@ -48,8 +50,12 @@ export function drawMap(canvas: HTMLCanvasElement, f: Floor, px: number, py: num
   const inView = (x: number, y: number) => !view.radius || (x - cx) ** 2 + (y - cy) ** 2 <= view.radius ** 2;
   const seen = (x: number, y: number) => x >= 0 && y >= 0 && x < f.width && y < f.height && f.explored[y * f.width + x] === 1;
 
-  for (let y = 0; y < f.height; y++) {
-    for (let x = 0; x < f.width; x++) {
+  // With a radius, only the tiles inside its bounding box can be drawn.
+  const r = view.radius ? Math.ceil(view.radius) : Infinity;
+  const y0 = Math.max(0, Math.floor(cy - r)), y1 = Math.min(f.height - 1, Math.ceil(cy + r));
+  const x0 = Math.max(0, Math.floor(cx - r)), x1 = Math.min(f.width - 1, Math.ceil(cx + r));
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
       if (!inView(x, y)) continue;
       const t = f.tiles[y * f.width + x];
       const sx = ox + x * cell, sy = oy + y * cell;
@@ -60,7 +66,7 @@ export function drawMap(canvas: HTMLCanvasElement, f: Floor, px: number, py: num
         ctx.fillRect(sx, sy, cell, cell);
       } else if (t === WALL) {
         // Draw walls only where they border explored floor, with a light edge.
-        const nb = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => seen(x + dx, y + dy) && f.tiles[(y + dy) * f.width + x + dx] !== WALL);
+        const nb = NEIGHBOURS.some(([dx, dy]) => seen(x + dx, y + dy) && f.tiles[(y + dy) * f.width + x + dx] !== WALL);
         if (!nb) continue;
         ctx.fillStyle = C.wall;
         ctx.fillRect(sx, sy, cell, cell);

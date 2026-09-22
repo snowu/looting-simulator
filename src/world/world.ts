@@ -846,7 +846,8 @@ export class World {
     // Rot is run-clock based and therefore pauses naturally in town. Floors
     // are cleaned lazily when visited; no background ticking is needed.
     this.floor.morsels ??= [];
-    this.floor.morsels = this.floor.morsels.filter((m) => this.run.stats.time - m.droppedAt < MORSEL_ROT_SECONDS);
+    const fresh = (m: { droppedAt: number }) => this.run.stats.time - m.droppedAt < MORSEL_ROT_SECONDS;
+    if (!this.floor.morsels.every(fresh)) this.floor.morsels = this.floor.morsels.filter(fresh);
 
     this.run.thrown ??= { held: {}, retrieveCd: 0 };
     this.run.thrown.retrieveCd = Math.max(0, (this.run.thrown.retrieveCd ?? 0) - dt);
@@ -1580,14 +1581,24 @@ export class World {
       .map(marker => ({ floor: floor!, marker })));
   }
 
+  /** Shafts of this kind lying on any floor. Allocation-free: the HUD asks every frame. */
+  private thrownOnFloors(base: string): number {
+    let n = 0;
+    for (const floor of this.run.floors) {
+      if (!floor || floor === this.floor) continue;
+      for (const marker of floor.thrown ?? []) if (marker.base === base && marker.n > 0) n += marker.n;
+    }
+    for (const marker of this.floor.thrown ?? []) if (marker.base === base && marker.n > 0) n += marker.n;
+    return n;
+  }
+
   private outgoingThrows(base: string): Projectile[] {
     return this.projectiles.filter(pr => pr.thrownBase === base && !pr.returning && pr.speed > 0);
   }
 
   private retrievableCount(base: string): number {
     const windingUp = this.anim.attackThrow && this.anim.attack === 'windup' && this.anim.attackBase === base ? 1 : 0;
-    return this.retrievalStock(base).reduce((n, { marker }) => n + marker.n, 0)
-      + this.outgoingThrows(base).length + windingUp;
+    return this.thrownOnFloors(base) + this.outgoingThrows(base).length + windingUp;
   }
 
   /** One tick of the retrieval channel. */
@@ -1698,7 +1709,7 @@ export class World {
     const base = this.state.equipment.thrown?.ref;
     const thrown = this.derived.thrown;
     if (!base || !thrown) return null;
-    const floor = this.retrievalStock(base).reduce((n, { marker }) => n + marker.n, 0);
+    const floor = this.thrownOnFloors(base);
     let flying = 0;
     for (const pr of this.projectiles) if (pr.returning && pr.thrownBase === base) flying++;
     return {
@@ -3590,6 +3601,9 @@ export class World {
     const prev = new Map<number, number>();
     const start = e.y * W + e.x;
     const goal = ty * W + tx;
+    // What `occupied` answers, gathered once: nobody moves during a search.
+    const busy = new Set<number>([this.player.y * W + this.player.x]);
+    for (const o of f.enemies) if (o !== e && o.ai !== 'dead' && !o.lurk) busy.add(o.y * W + o.x);
     const q = [start];
     prev.set(start, -1);
     let found = false;
@@ -3604,7 +3618,7 @@ export class World {
         const nx = x + DX[d], ny = y + DY[d];
         const n = ny * W + nx;
         if (prev.has(n)) continue;
-        if (n !== goal && (blocksMove(f, nx, ny) || this.occupied(nx, ny, e))) continue;
+        if (n !== goal && (blocksMove(f, nx, ny) || busy.has(n))) continue;
         if (Math.abs(nx - e.x) + Math.abs(ny - e.y) > 18) continue;
         prev.set(n, i);
         q.push(n);
@@ -4409,7 +4423,7 @@ export class World {
         this.damagePlayer(pr.damage, pr.type, tx - pr.dx, ty - pr.dy, pr.source, pr.reflected ? undefined : pr.sourceId);
       }
     }
-    this.projectiles = this.projectiles.filter((pr) => pr.speed > 0);
+    if (this.projectiles.some((pr) => pr.speed <= 0)) this.projectiles = this.projectiles.filter((pr) => pr.speed > 0);
     const receiving = this.anim.retrieving;
     if (receiving && receiving.left <= 0
       && !this.projectiles.some(pr => pr.returning && pr.thrownBase === receiving.base)) {

@@ -29,6 +29,22 @@ interface LogLine {
   t: number;
 }
 
+/**
+ * Per-frame DOM writes, made only on change. Assigning the same text or markup
+ * still replaces the element's children and dirties layout, every frame.
+ */
+const lastHtml = new WeakMap<HTMLElement, string>();
+
+function setHtml(el: HTMLElement, html: string): void {
+  if (lastHtml.get(el) === html) return;
+  lastHtml.set(el, html);
+  el.innerHTML = html;
+}
+
+function setText(el: HTMLElement, text: string): void {
+  if (el.textContent !== text) el.textContent = text;
+}
+
 /** Everything drawn over the 3D view while in the dungeon. */
 export class Hud {
   readonly root = h('div', { class: 'layer', attrs: { id: 'hud' } });
@@ -229,7 +245,7 @@ export class Hud {
     const left = def.cooldown > 0 ? Math.max(0, Math.min(1, active.cd / def.cooldown)) : 0;
     this.sigilDial.hidden = left <= 0;
     if (left > 0) this.sigilDial.style.background = `conic-gradient(#000000a0 ${left * 360}deg, transparent 0deg)`;
-    this.sigilText.textContent = active.cd > 0 ? `${Math.ceil(active.cd)}s` : '';
+    setText(this.sigilText, active.cd > 0 ? `${Math.ceil(active.cd)}s` : '');
     this.sigilCastWrap.hidden = !casting;
     if (casting) this.sigilCastBar.style.width = `${(1 - casting.t / Math.max(0.01, def.cast)) * 100}%`;
   }
@@ -242,7 +258,7 @@ export class Hud {
     const hpPct = Math.max(0, (p.hp / d.maxHp) * 100);
     this.hpBar.style.width = `${hpPct}%`;
     this.hpGhost.style.width = `${hpPct}%`;
-    this.hpText.textContent = `${Math.ceil(p.hp)} / ${d.maxHp}`;
+    setText(this.hpText, `${Math.ceil(p.hp)} / ${d.maxHp}`);
     const stPct = Math.max(0, (p.stamina / d.maxStamina) * 100);
     this.stBar.style.width = `${stPct}%`;
     this.stWrap.classList.toggle('low', stPct < 50);
@@ -250,7 +266,7 @@ export class Hud {
     if (world.anim.recall !== null) this.recallBar.style.width = `${(1 - world.anim.recall / 5) * 100}%`;
 
     const f = world.facingName();
-    this.compass.innerHTML = `<span class="side">${DIR_NAMES[turnLeft(p.facing)][0]}</span>${f}<span class="side">${DIR_NAMES[turnRight(p.facing)][0]}</span>`;
+    setHtml(this.compass, `<span class="side">${DIR_NAMES[turnLeft(p.facing)][0]}</span>${f}<span class="side">${DIR_NAMES[turnRight(p.facing)][0]}</span>`);
 
     const biome = biomeForFloor(world.floor);
     // Key names are generated, but they live in the save file, so they are the
@@ -362,7 +378,7 @@ export class Hud {
 
     const hint = world.interactionHint();
     this.prompt.hidden = !hint || world.busy;
-    if (hint) this.prompt.innerHTML = `<kbd>F</kbd>${hint}`;
+    if (hint) setHtml(this.prompt, `<kbd>F</kbd>${hint}`);
 
     // Target: the first living enemy straight ahead within 3 tiles.
     let tgt: EnemyState | undefined;
@@ -383,9 +399,9 @@ export class Hud {
         ? `<div style="color:${elite.color}" title="${esc(elite.rule)}">${esc(def.name)}</div>`
         : `<div>${esc(def.name)}</div>`;
       const carrying = tgt.stolen?.length ? `<div class="tag" style="color:${THIEF_GLOW}">carrying your ${esc(tgt.stolen.map(itemName).join(', '))}</div>` : '';
-      this.target.innerHTML =
+      setHtml(this.target,
         `${name}<div class="bar"><i style="width:${(tgt.hp / tgt.maxHp) * 100}%"></i></div>` +
-        `<div class="tag">${weak.length ? `weak: ${weak.join(', ')}` : ''}${weak.length && res.length ? ' · ' : ''}${res.length ? `resists: ${res.join(', ')}` : ''}</div>` + carrying;
+        `<div class="tag">${weak.length ? `weak: ${weak.join(', ')}` : ''}${weak.length && res.length ? ' · ' : ''}${res.length ? `resists: ${res.join(', ')}` : ''}</div>` + carrying);
     }
 
     // Log fade.
