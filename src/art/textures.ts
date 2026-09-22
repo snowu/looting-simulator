@@ -1,7 +1,7 @@
 import { EMBER_DOOR } from './ember-door';
 import { EMBER_FLOORS, EMBER_CEILINGS } from './ember-floor';
 import { ArtDef } from './raster';
-import { rows, stamp } from './helpers';
+import { fill, rows, stamp } from './helpers';
 
 // Palette values with alpha 'fa' (250) are EMISSIVE: the renderer draws them
 // at full brightness regardless of lighting (glowing mortar, crystals...).
@@ -46,7 +46,7 @@ const BRICK_ROWS = rows(`
   mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
   `);
 
-const EMPTY_WALL_ROWS = BRICK_ROWS.map(() => '.'.repeat(32));
+const EMPTY_WALL_ROWS = fill(32, BRICK_ROWS.length);
 
 // The Catacombs keep the crypt's masonry, but damp seepage follows the joints
 // and algae gathers low on the wall.
@@ -413,7 +413,7 @@ const BANNER_ROWS = [
   pad10('...gsrrtg...'),
   pad10('....gstg....'),
   pad10('.....gg.....'),
-  ...Array.from({ length: 5 }, () => '.'.repeat(32)),
+  ...fill(32, 5),
 ];
 
 // Obsidian checker for the throne floor.
@@ -613,7 +613,7 @@ const FOG_ROWS = [
 
 const d12 = '............';
 const LOCK_ROWS = [
-  ...Array.from({ length: 12 }, () => '.'.repeat(32)),
+  ...fill(32, 12),
   d12 + 'oggggggo' + d12,
   d12 + 'ghhhhhho' + d12,
   d12 + 'ghhkkhho' + d12,
@@ -623,7 +623,7 @@ const LOCK_ROWS = [
   d12 + 'ghhkkhho' + d12,
   d12 + 'ghhhhhho' + d12,
   d12 + 'oooooooo' + d12,
-  ...Array.from({ length: 11 }, () => '.'.repeat(32)),
+  ...fill(32, 11),
 ];
 
 // ---------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 import { ArtDef } from './raster';
-import { rows, stamp, sym } from './helpers';
+import { fill, rows, stamp, sym } from './helpers';
 
 // --- Ghoul -----------------------------------------------------------------------
 const GHOUL_HALF = rows(`
@@ -200,21 +200,7 @@ const KNIGHT_RAISED = rows(`
   ..kcccck.
   ...kkkk..
 `);
-const KNIGHT_ERASE_RIGHT = rows(`
-  _______
-  _______
-  _______
-  _______
-  _______
-  _______
-  _______
-  _______
-  _______
-  _______
-  _______
-  _______
-  _______
-`);
+const KNIGHT_ERASE_RIGHT = fill(7, 13, '_');
 const KNIGHT_PAL = {
   k: '#0a0a0e', a: '#2a2a32', b: '#464652', c: '#6a6a78', d: '#9a9aa8', e: '#ff3830fa', r: '#ff3830fa',
   t: '#5a1616', u: '#3a0c0c', s: '#b0b0bc', j: '#707080', h: '#4a2a10',
@@ -233,20 +219,7 @@ const KNIGHT_SHIELD = rows(`
   .kccck.
   ..kkk..
 `);
-const KNIGHT_ERASE_LEFT = rows(`
-  _______
-  _______
-  _______
-  _______
-  _______
-  _______
-  _______
-  _______
-  _______
-  _______
-  _______
-  _______
-`);
+const KNIGHT_ERASE_LEFT = fill(7, 12, '_');
 const KNIGHT_BENT_ARM = rows(`
   kck.....
   kckk....

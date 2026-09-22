@@ -6,6 +6,16 @@ export function rows(block: string): string[] {
     .filter((l) => l.length > 0);
 }
 
+/** A `w`×`h` block of one character: '.' for a blank canvas, '_' for an eraser to stamp. */
+export function fill(w: number, h: number, ch = '.'): string[] {
+  return Array.from({ length: h }, () => ch.repeat(w));
+}
+
+/** Flip rows left to right. */
+export function mirror(r: string[]): string[] {
+  return r.map((row) => [...row].reverse().join(''));
+}
+
 /** Mirror left-half rows into full symmetric rows. */
 export function sym(half: string[]): string[] {
   return half.map((r) => r + [...r].reverse().join(''));

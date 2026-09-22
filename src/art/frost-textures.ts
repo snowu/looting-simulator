@@ -1,7 +1,7 @@
 import { ArtDef } from './raster';
-import { rows, stamp } from './helpers';
+import { fill, rows, stamp } from './helpers';
 
-const blank = () => Array.from({ length: 32 }, () => '.'.repeat(32));
+const blank = () => fill(32, 32);
 const ICE = { h: '#eefaff', b: '#83bad780', d: '#32608098', c: '#b9e6f470', q: '#bdeafffa', r: '#578aaa' };
 const glaze = rows(`
   ..hhhhhhhh.....

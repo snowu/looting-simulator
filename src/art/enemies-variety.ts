@@ -1,5 +1,5 @@
 import { ArtDef } from './raster';
-import { rows, stamp } from './helpers';
+import { fill, rows, stamp } from './helpers';
 import { ENEMY_ART_A } from './enemies-a';
 import { ENEMY_ART_B } from './enemies-b';
 
@@ -86,7 +86,7 @@ const iceShield = rows(`
 
 // The skeleton it is built from carries a sword. Clear the blade before the
 // maul goes on, or the idle frame holds both and reads as neither.
-const eraseSword = Array.from({ length: 18 }, () => '_'.repeat(6));
+const eraseSword = fill(6, 18, '_');
 const drownedIdle = stamp(stamp(original.get('skeleton_0')!.rows, eraseSword, 23, 8), drownedCrown, 10, 0);
 const drownedAttack = stamp(original.get('skeleton_atk')!.rows, drownedCrown, 10, 0);
 
