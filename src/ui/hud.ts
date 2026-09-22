@@ -1,8 +1,6 @@
 import { DIR_NAMES, DX, DY, turnLeft, turnRight } from '../core/dir';
-import {
-  BLOOD_PRICE_GOLD, DRY_THROAT_DEPTH, DUELIST_KILLS, HUNTER_MARKS, OATHS, PILGRIM_PRAYERS, SILENCE_DEPTH, UNBROKEN_DEPTH, findOath,
-} from '../data/oaths';
-import { runOaths } from '../systems/oaths';
+import { OATHS, findOath } from '../data/oaths';
+import { oathProgress, runOaths } from '../systems/oaths';
 import { biomeForFloor } from '../data/biomes';
 import { THIEF_GLOW, enemyDef, enemyView } from '../data/enemies';
 import { ELITES } from '../data/elites';
@@ -448,19 +446,8 @@ function oathStatus(world: World): string {
   return runOaths(run).map((oath) => {
     const def = findOath(oath.id);
     if (!def) return '';
-    const home = 'done, bring it home';
-    let progress: string;
-    if (oath.status === 'broken') progress = 'broken';
-    else switch (oath.id) {
-      case 'blood_price': progress = run.stats.goldFound >= BLOOD_PRICE_GOLD ? home : `${run.stats.goldFound}/${BLOOD_PRICE_GOLD} gold`; break;
-      case 'unbroken': progress = oath.status === 'kept' ? home : `reach depth ${UNBROKEN_DEPTH}`; break;
-      case 'hunter': progress = (oath.marks ?? 0) >= HUNTER_MARKS ? home : `${oath.marks ?? 0}/${HUNTER_MARKS} marked`; break;
-      case 'dry_throat': progress = run.stats.deepest >= DRY_THROAT_DEPTH ? home : `reach depth ${DRY_THROAT_DEPTH}`; break;
-      case 'duelist': progress = (oath.kills ?? 0) >= DUELIST_KILLS ? home : `${oath.kills ?? 0}/${DUELIST_KILLS} kills`; break;
-      case 'kingsbane': progress = run.stats.bossKilled ? home : 'the King'; break;
-      case 'silence': progress = run.stats.deepest >= SILENCE_DEPTH ? `${home}, quietly` : `reach depth ${SILENCE_DEPTH}, quietly`; break;
-      case 'pilgrim': progress = (oath.prayers ?? 0) >= PILGRIM_PRAYERS ? home : `${oath.prayers ?? 0}/${PILGRIM_PRAYERS} shrines`; break;
-    }
+    let progress = oath.status === 'broken' ? 'broken' : oathProgress(run, oath).left || 'done, bring it home';
+    if (oath.id === 'silence' && oath.status !== 'broken') progress += ', quietly';
     return `<div style="color:${def.color}">Oath: ${def.name} · ${progress}</div>`;
   }).join('');
 }

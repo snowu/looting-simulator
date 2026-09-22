@@ -9,7 +9,7 @@ import {
   OATH_FALLBACK, OATH_IDS, OathId, PILGRIM_PRAYERS, SILENCE_DEPTH, SILENCE_NOISE, SILENCE_SIGHT, UNBROKEN_DEPTH, oathsForDay,
 } from '../data/oaths';
 import { PROPERTY_IDS } from '../data/properties';
-import { claimOathReward, claimOathRewards, oathKept, oathRewardPicks, runOath, settleOaths, todaysOaths, toggleOath } from '../systems/oaths';
+import { claimOathReward, claimOathRewards, oathKept, oathProgress, oathRewardPicks, runOath, settleOaths, todaysOaths, toggleOath } from '../systems/oaths';
 import { endRun, startRun } from '../systems/run';
 import { durability, makeEquipment } from '../systems/items';
 import { Rarity } from '../types';
@@ -265,5 +265,44 @@ describe('the reward', () => {
     state.oathReward = { oath: 'hunter', choices: ['riposte', 'kindling'] };
     claimOathReward(state, 'riposte');
     expect(state.oathReward).toBeNull();
+  });
+});
+
+describe('oath progress', () => {
+  // The HUD line and oathKept both read oathProgress, so its words and its
+  // verdict are the contract. These are the strings the HUD always showed.
+  it('says what is left, and nothing once the task is done', () => {
+    const { w } = sworn(['blood_price', 'hunter', 'duelist', 'pilgrim', 'dry_throat', 'silence', 'kingsbane']);
+    const run = w.run;
+    const left = (id: OathId) => oathProgress(run, runOath(run, id)!).left;
+    expect(left('blood_price')).toBe(`0/${BLOOD_PRICE_GOLD} gold`);
+    expect(left('hunter')).toBe(`0/${HUNTER_MARKS} marked`);
+    expect(left('duelist')).toBe(`0/${DUELIST_KILLS} kills`);
+    expect(left('pilgrim')).toBe(`0/${PILGRIM_PRAYERS} shrines`);
+    expect(left('dry_throat')).toBe(`reach depth ${DRY_THROAT_DEPTH}`);
+    expect(left('silence')).toBe(`reach depth ${SILENCE_DEPTH}`);
+    expect(left('kingsbane')).toBe('the King');
+    run.stats.goldFound = BLOOD_PRICE_GOLD;
+    run.stats.deepest = Math.max(DRY_THROAT_DEPTH, SILENCE_DEPTH);
+    run.stats.bossKilled = true;
+    runOath(run, 'hunter')!.marks = HUNTER_MARKS;
+    runOath(run, 'duelist')!.kills = DUELIST_KILLS;
+    runOath(run, 'pilgrim')!.prayers = PILGRIM_PRAYERS;
+    for (const o of run.oaths!) {
+      expect(oathProgress(run, o)).toEqual({ met: true, left: '' });
+      expect(oathKept(run, o, 'extracted')).toBe(true);
+      expect(oathKept(run, o, 'dead')).toBe(false);
+    }
+  });
+
+  it('counts Unbroken as met at its depth, but shows it done only once the oath recorded it', () => {
+    const { w } = sworn(['unbroken']);
+    const run = w.run, oath = runOath(run, 'unbroken')!;
+    run.stats.deepest = UNBROKEN_DEPTH;
+    expect(oathProgress(run, oath)).toEqual({ met: true, left: `reach depth ${UNBROKEN_DEPTH}` });
+    oath.status = 'kept';
+    expect(oathProgress(run, oath)).toEqual({ met: true, left: '' });
+    oath.status = 'broken';
+    expect(oathKept(run, oath, 'extracted')).toBe(false);
   });
 });
