@@ -40,6 +40,8 @@ const SKIP = {
   'bc3ef6d': 'refactor: oath objectives written once in oathProgress; no player-facing change',
   '3541f56': 'skip reasons and PR screenshot only',
   '2b6c9de': 'PR preview image only',
+  '0851582': 'refactor: shared monster-damage tail and a cheaper throne-boundary check; no player-facing change',
+  db177c1: 'skip reasons and PR screenshot only',
   e99ce03: 'merge only; stacked branch sync, changes covered by Patches 58 and 59',
   aa2b693: 'PR preview image only',
   d245536: 'patch-note citation only; the fix is cited by Patch 57',
