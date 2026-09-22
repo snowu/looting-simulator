@@ -11,7 +11,7 @@ import { Contract, refreshContracts } from '../systems/contracts';
 import { MetaLevels } from '../systems/meta';
 import { BestiaryState } from '../systems/bestiary';
 import { Floor } from '../systems/dungeon';
-import { makeConsumable, makeEquipment, makeMaterial } from '../systems/items';
+import { makeEquipment, makeMaterial } from '../systems/items';
 import { starterRecipeRanks } from '../data/recipes';
 import { SAVE_REVISION } from './migrations';
 import { newId } from '../core/id';

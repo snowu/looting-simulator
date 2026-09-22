@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createRng } from '../core/rng';
 import { rollRarity, rollEquipment, itemValue } from '../systems/items';
-import { Rarity, RARITY_ORDER } from '../types';
+import { RARITY_ORDER } from '../types';
 import { playtest, geared, MID_META } from '../../scripts/playtest';
 import { LADDER } from '../../scripts/tables';
 

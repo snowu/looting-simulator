@@ -13,7 +13,8 @@ const RAISE_GLOW = '#8ce07a';
 import { findMaterial } from '../data/materials';
 import { findSigil } from '../data/spells';
 import { itemBase, viewmodelFor } from '../data/items';
-import { EnemyState, Floor, ShrineKind } from '../systems/dungeon';
+import { EnemyState, Floor, ShrineKind, VesselKind, shrineKind } from '../systems/dungeon';
+import { SHADE_ID } from '../systems/grave';
 import type { EnemyDef } from '../types';
 import { itemIcon } from '../systems/items';
 import { lightIntensity } from '../systems/meta';
@@ -91,6 +92,9 @@ const SHRINE_LIGHT: Record<ShrineKind, string> = {
   blood: '#ff4a5a',
   combat: '#ff7a30',
 };
+
+/** Sprite height of each breakable container, whole or broken. */
+const VESSEL_SCALE: Record<VesselKind, number> = { urn: 1.4, barrel: 1.5, root_cache: 1.2 };
 const LOW_H = 240;
 
 interface SpriteObj {
@@ -483,7 +487,7 @@ export class DungeonRenderer {
       if (pr.kind === 'town_portal') lights.push({ x: tileX(pr.x), y: 1.2, z: tileZ(pr.y), r: 6, color: new THREE.Color('#70b0ff'), intensity: 1.1 * flick(4) });
       // The colour it throws is the tell you can read from across a room.
       if (pr.kind === 'shrine' && !pr.used) {
-        lights.push({ x: tileX(pr.x), y: 1.3, z: tileZ(pr.y), r: 4.5, color: new THREE.Color(SHRINE_LIGHT[pr.shrine ?? 'font']), intensity: 0.95 });
+        lights.push({ x: tileX(pr.x), y: 1.3, z: tileZ(pr.y), r: 4.5, color: new THREE.Color(SHRINE_LIGHT[shrineKind(pr)]), intensity: 0.95 });
       }
     }
     for (const tr of floor.traps ?? []) {
@@ -576,7 +580,7 @@ export class DungeonRenderer {
       this.place(s, `${def.sprite}_${pose.frame}`, wx, y, wz, height);
       if (en.hurtT > 0) s.mat.uniforms.uTint.value.set(1, 0.95, 0.9, Math.min(0.8, en.hurtT * 3));
       // Your Shade: a pale, cold wash so it never reads as an ordinary knight.
-      else if (en.def === 'shade' && en.ai !== 'dead' && en.ai !== 'windup') s.mat.uniforms.uTint.value.set(0.6, 0.72, 1, 0.45 + 0.08 * Math.sin(this.time * 2));
+      else if (en.def === SHADE_ID && en.ai !== 'dead' && en.ai !== 'windup') s.mat.uniforms.uTint.value.set(0.6, 0.72, 1, 0.45 + 0.08 * Math.sin(this.time * 2));
       else if (en.ai === 'windup' || (en.grabT ?? 0) > 0) {
         // The wind-up glows in the colour of the move being thrown, and the
         // glow deepens as it gathers: which attack is coming, and how soon,
@@ -654,19 +658,15 @@ export class DungeonRenderer {
           break;
         }
         case 'root_cache':
-          this.place(s, pr.used ? 'root_cache_broken' : 'root_cache', wx, 0, wz, 1.2);
-          break;
         case 'urn':
-          this.place(s, pr.used ? 'urn_broken' : 'urn', wx, 0, wz, 1.4);
-          break;
         case 'barrel':
-          this.place(s, pr.used ? 'barrel_broken' : 'barrel', wx, 0, wz, 1.5);
+          this.place(s, pr.used ? `${pr.kind}_broken` : pr.kind, wx, 0, wz, VESSEL_SCALE[pr.kind]);
           break;
         case 'bones':
           this.place(s, 'bones', wx, 0, wz, 1.4);
           break;
         case 'shrine': {
-          const kind = pr.shrine ?? 'font';
+          const kind = shrineKind(pr);
           this.place(s, `shrine_${kind}${pr.used ? '_used' : ''}`, wx, 0, wz, 1.9);
           break;
         }

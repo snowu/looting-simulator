@@ -58,6 +58,10 @@ import {
   inBounds,
   inRoom,
   isBossDoor,
+  isVessel,
+  portalAt,
+  shrineKind,
+  VESSELS,
   propAt,
   secretAt,
   shrinePityFor,
@@ -394,7 +398,6 @@ export const TRAPS: Record<
     perDepth: number;
     damageType: DamageType;
     source: string;
-    article: string;
     sfx: SfxName;
     spotted: string;
     hit: string;
@@ -407,7 +410,6 @@ export const TRAPS: Record<
     perDepth: 3,
     damageType: 'pierce',
     source: 'a dart trap',
-    article: 'a dart trap',
     sfx: 'shoot',
     spotted: 'A pinhole in the wall, and a plate underfoot.',
     hit: 'A dart snaps out of the wall!',
@@ -419,7 +421,6 @@ export const TRAPS: Record<
     perDepth: 5,
     damageType: 'pierce',
     source: 'a spike pit',
-    article: 'a spike pit',
     sfx: 'break',
     spotted: 'The flagstones here sit loose over a gap.',
     hit: 'The floor gives way onto spikes!',
@@ -431,7 +432,6 @@ export const TRAPS: Record<
     perDepth: 0,
     damageType: 'shadow',
     source: 'an alarm ward',
-    article: 'an alarm ward',
     sfx: 'alert',
     spotted: 'A ward is scratched into the stone here.',
     hit: 'A ward shrieks!',
@@ -439,11 +439,22 @@ export const TRAPS: Record<
   },
 };
 
-export const BLESSINGS: Record<string, { name: string; text: string }> = {
-  fortune: { name: 'Fortune', text: '+40 loot find this run, more the deeper you pray.' },
-  fury: { name: 'Fury', text: '+30% damage this run.' },
-  ward: { name: 'Warding', text: '+6 defense this run, more the deeper you pray.' },
-  vitality: { name: 'Vitality', text: '+20% maximum health this run.' },
+/**
+ * A run-long boon or bane. `apply` folds it into the derived stats; the depth
+ * is the one the run is at, so a D6 blessing feels like a D6 blessing. Effects
+ * with no `apply` are read where they matter instead.
+ */
+interface RunBoon {
+  name: string;
+  text: string;
+  apply?: (d: PlayerDerived, depth: number) => void;
+}
+
+export const BLESSINGS: Record<string, RunBoon> = {
+  fortune: { name: 'Fortune', text: '+40 loot find this run, more the deeper you pray.', apply: (d, depth) => { d.find += 40 + 5 * Math.max(0, depth - 2); } },
+  fury: { name: 'Fury', text: '+30% damage this run.', apply: (d) => { d.attack = Math.round(d.attack * 1.3); } },
+  ward: { name: 'Warding', text: '+6 defense this run, more the deeper you pray.', apply: (d, depth) => { d.stats.defense += 6 + Math.floor(depth / 2); } },
+  vitality: { name: 'Vitality', text: '+20% maximum health this run.', apply: (d) => { d.maxHp = Math.round(d.maxHp * 1.2); } },
 };
 
 /**
@@ -451,11 +462,13 @@ export const BLESSINGS: Record<string, { name: string; text: string }> = {
  * and the two are independent — you can carry both. A Font of Mending lifts
  * one, which is what makes finding a font worth something once you are cursed.
  */
-export const CURSES: Record<string, { name: string; text: string }> = {
-  frailty: { name: 'Frailty', text: '−20% maximum health this run.' },
-  leaden: { name: 'Leaden Limbs', text: '−15 speed this run.' },
-  dulled: { name: 'Dulled Edge', text: '−25% damage this run.' },
+export const CURSES: Record<string, RunBoon> = {
+  frailty: { name: 'Frailty', text: '−20% maximum health this run.', apply: (d) => { d.maxHp = Math.max(1, Math.round(d.maxHp * 0.8)); } },
+  leaden: { name: 'Leaden Limbs', text: '−15 speed this run.', apply: (d) => { d.stats.speed -= 15; } },
+  dulled: { name: 'Dulled Edge', text: '−25% damage this run.', apply: (d) => { d.attack = Math.max(1, Math.round(d.attack * 0.75)); } },
+  // Read in sightPenalty (+3).
   hunted: { name: 'Hunted', text: 'Monsters see you three tiles further this run.' },
+  // Read in wear (+1).
   brittle: { name: 'Brittle Bones', text: 'Your gear wears faster this run.' },
 };
 
@@ -581,17 +594,9 @@ export class World {
 
   refreshDerived(): void {
     this.derived = derivePlayer(this.state.equipment, this.state.meta, this.difficultyId);
-    // Blessings scale with the depth prayed at: a D6 blessing should feel
-    // like a D6 blessing. Fortune +40 +5/depth past 2, Ward +6 +1 per 2 depths.
-    const depth = this.run.depth;
-    if (this.run.blessing === 'fury') this.derived.attack = Math.round(this.derived.attack * 1.3);
-    if (this.run.blessing === 'fortune') this.derived.find += 40 + 5 * Math.max(0, depth - 2);
-    if (this.run.blessing === 'ward') this.derived.stats.defense += 6 + Math.floor(depth / 2);
-    if (this.run.blessing === 'vitality') this.derived.maxHp = Math.round(this.derived.maxHp * 1.2);
-    if (this.run.curse === 'frailty') this.derived.maxHp = Math.max(1, Math.round(this.derived.maxHp * 0.8));
-    if (this.run.curse === 'leaden') this.derived.stats.speed -= 15;
-    if (this.run.curse === 'dulled') this.derived.attack = Math.max(1, Math.round(this.derived.attack * 0.75));
-    // hunted is read in sightPenalty (+3); brittle is read in wear (+1).
+    // Blessing first, then curse: the rounding depends on the order.
+    if (this.run.blessing) BLESSINGS[this.run.blessing]?.apply?.(this.derived, this.run.depth);
+    if (this.run.curse) CURSES[this.run.curse]?.apply?.(this.derived, this.run.depth);
     for (const id of this.run.tonics ?? []) TONICS[id]?.apply(this.derived);
     if (this.state.flask?.infusion === 'fight_milk') TONICS.fight_milk.apply(this.derived);
     // A kindled blade carries its gem's catalyst stat. Elemental stats deal
@@ -1277,7 +1282,7 @@ export class World {
       // The far tile is only readable if you are facing straight down it.
       if (Math.abs(t.x - p.x) + Math.abs(t.y - p.y) > 1 && blocksSight(f, t.x, t.y)) continue;
       trap.found = true;
-      this.msg(`${TRAPS[trap.kind].spotted}`, '#e0c060');
+      this.msg(TRAPS[trap.kind].spotted, '#e0c060');
       this.sfx('ui');
     }
   }
@@ -1325,7 +1330,7 @@ export class World {
       const vdef = enemyDef(victim.def);
       this.emit({ type: 'float', x: victim.x, y: victim.y, text: `${dealt}`, color: '#ffb060' });
       if (victim.hp <= 0) {
-        this.msg(`The ${vdef.name} blunders into ${def.article}.`, '#e0c060');
+        this.msg(`The ${vdef.name} blunders into ${def.source}.`, '#e0c060');
         this.killEnemy(victim);
       }
       return;
@@ -1799,7 +1804,7 @@ export class World {
     e.attackCd = Math.max(e.attackCd, 1.4);
     if (enemy.shield) { e.guard = 'down'; e.guardT = GUARD_DOWN; e.blocks = 0; }
     const destination = this.frontTile(2);
-    const portal = this.floor.props.some((p) => (p.kind === 'portal' || p.kind === 'town_portal') && p.x === destination.x && p.y === destination.y);
+    const portal = portalAt(this.floor, destination.x, destination.y);
     if (this.canStep(e, destination.x, destination.y) && !portal) {
       this.stepEnemy(e, destination.x, destination.y);
       return;
@@ -1899,7 +1904,7 @@ export class World {
         return;
       }
       const p = propAt(f, t.x, t.y);
-      if (p && d === 1 && (p.kind === 'urn' || p.kind === 'barrel' || p.kind === 'root_cache') && !p.used) {
+      if (p && d === 1 && isVessel(p) && !p.used) {
         this.breakProp(p);
         return;
       }
@@ -2498,7 +2503,7 @@ export class World {
     if (def.behavior === 'boss') {
       // The portal opens where the king fell, so his hoard goes beside it —
       // dropped on the same tile it would be unreachable behind the portal.
-      const spot = this.freeTileNear(e.x, e.y, true);
+      const spot = this.freeTileNear(e.x, e.y);
       this.dropLoot(spot.x, spot.y, loot.items, loot.gold);
       this.run.stats.bossKilled = true;
       if ((this.state.flask?.shards ?? 0) < 3) {
@@ -2524,7 +2529,7 @@ export class World {
         if (butcher > 0) {
           const toeRng = createRng(hashString(`butcher:${this.floor.seed}:${e.id}`));
           if (toeRng.chance(butcher)) {
-            const spot = this.freeTileNear(e.x, e.y, true);
+            const spot = this.freeTileNear(e.x, e.y);
             (this.floor.morsels ??= []).push({
               id: `morsel_toe_${e.id}`, kind: def.morsel, x: spot.x, y: spot.y,
               remaining: MORSEL_HEAL[def.morsel], droppedAt: this.run.stats.time,
@@ -2546,14 +2551,13 @@ export class World {
   }
 
   /**
-   * A walkable tile at or next to (x, y). `avoidCentre` skips the tile itself,
-   * for when something is about to be put there that would cover a loot pile.
+   * A walkable tile next to (x, y) — never the tile itself, since something is
+   * about to be put there that would cover a loot pile. Falls back to (x, y).
    */
-  private freeTileNear(x: number, y: number, avoidCentre = false): { x: number; y: number } {
+  private freeTileNear(x: number, y: number): { x: number; y: number } {
     const f = this.floor;
     const ok = (tx: number, ty: number) =>
-      !blocksMove(f, tx, ty) && !f.props.some((p) => (p.kind === 'portal' || p.kind === 'town_portal') && p.x === tx && p.y === ty);
-    if (!avoidCentre && ok(x, y)) return { x, y };
+      !blocksMove(f, tx, ty) && !portalAt(f, tx, ty);
     for (const d of DIRS) {
       const tx = x + DX[d], ty = y + DY[d];
       if (ok(tx, ty)) return { x: tx, y: ty };
@@ -2767,13 +2771,13 @@ export class World {
       if (p.kind === 'shrine') {
         // A stone that has already taken coin names its rising price and how
         // many offerings it has left, so the second and third are decisions.
-        if ((p.shrine ?? 'font') === 'coffer' && (p.offerings ?? 0) > 0) {
+        if (shrineKind(p) === 'coffer' && (p.offerings ?? 0) > 0) {
           const made = p.offerings ?? 0;
           return `${SHRINE_PROMPT.coffer(this.offeringCost(made))} (${COFFER_MAX_OFFERINGS - made} of ${COFFER_MAX_OFFERINGS} left)`;
         }
-        return SHRINE_PROMPT[p.shrine ?? 'font'](this.offeringCost(p.offerings ?? 0));
+        return SHRINE_PROMPT[shrineKind(p)](this.offeringCost(p.offerings ?? 0));
       }
-      if (p.kind === 'urn' || p.kind === 'barrel' || p.kind === 'root_cache') return `Smash ${p.kind === 'root_cache' ? 'root cache' : p.kind}`;
+      if (isVessel(p)) return `Smash ${VESSELS[p.kind].label}`;
     }
     // A pile sharing the portal's tile wins the prompt, so loot that ended up
     // under a portal (as boss drops used to) can still be picked up.
@@ -2834,7 +2838,7 @@ export class World {
     // In front of you where there is room, so you can see what you opened.
     const front = this.frontTile();
     const clear = (t: { x: number; y: number }) => !blocksMove(this.floor, t.x, t.y) && !propAt(this.floor, t.x, t.y);
-    const spot = clear(front) ? front : this.freeTileNear(this.player.x, this.player.y, true);
+    const spot = clear(front) ? front : this.freeTileNear(this.player.x, this.player.y);
     this.closeTownPortal();
     this.floor.props.push({
       id: `town_portal_${Math.round(this.time * 1000)}`,
@@ -2863,20 +2867,17 @@ export class World {
 
   /** The town portal, if you are standing on it or facing it. */
   private townPortalHere(): Prop | undefined {
-    const f = this.floor;
-    const t = this.frontTile();
-    return f.props.find(
-      (q) => q.kind === 'town_portal' && ((q.x === t.x && q.y === t.y) || (q.x === this.player.x && q.y === this.player.y)),
-    );
+    return this.portalNear('town_portal');
   }
 
   /** The boss's exit portal, if you are standing on it or facing it. */
   private portalHere(): Prop | undefined {
-    const f = this.floor;
+    return this.portalNear('portal');
+  }
+
+  private portalNear(kind: 'portal' | 'town_portal'): Prop | undefined {
     const t = this.frontTile();
-    return f.props.find(
-      (q) => q.kind === 'portal' && ((q.x === t.x && q.y === t.y) || (q.x === this.player.x && q.y === this.player.y)),
-    );
+    return portalAt(this.floor, t.x, t.y, kind) ?? portalAt(this.floor, this.player.x, this.player.y, kind);
   }
 
   pickupNear(): Pickup | undefined {
@@ -2950,7 +2951,7 @@ export class World {
 
     const p = propAt(f, t.x, t.y);
     if (p && !p.used) {
-      if (p.kind === 'urn' || p.kind === 'barrel' || p.kind === 'root_cache') {
+      if (isVessel(p)) {
         this.breakProp(p);
         return;
       }
@@ -3120,7 +3121,7 @@ export class World {
 
   private pray(p: Prop): void {
     this.sfx('magic');
-    switch (p.shrine ?? 'font') {
+    switch (shrineKind(p)) {
       // The safe one. A large mend and it washes off a curse — which is what
       // makes a font worth crossing a floor for once an idol has marked you.
       case 'font': {

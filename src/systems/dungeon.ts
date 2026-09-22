@@ -395,9 +395,31 @@ export function trapAt(f: Floor, x: number, y: number): Trap | undefined {
   return f.traps?.find((t) => t.x === x && t.y === y);
 }
 
+/** Breakable containers: smashed open with a blow or a use, then left as wreckage. */
+export const VESSELS = {
+  urn: { label: 'urn' },
+  barrel: { label: 'barrel' },
+  root_cache: { label: 'root cache' },
+} as const;
+export type VesselKind = keyof typeof VESSELS;
+
+export function isVessel(p: Prop): p is Prop & { kind: VesselKind } {
+  return p.kind in VESSELS;
+}
+
+/** A shrine's kind. Shrines placed before kinds existed are fonts. */
+export function shrineKind(p: Prop): ShrineKind {
+  return p.shrine ?? 'font';
+}
+
+/** A boss or town portal on this tile, or only one of the two with `kind`. */
+export function portalAt(f: Floor, x: number, y: number, kind?: 'portal' | 'town_portal'): Prop | undefined {
+  return f.props.find((p) => (kind ? p.kind === kind : p.kind === 'portal' || p.kind === 'town_portal') && p.x === x && p.y === y);
+}
+
 /** Broken urns, barrels, root caches and smashed chests: scenery now, nothing to act on. */
 function isWreckage(p: Prop): boolean {
-  return p.kind === 'chest' ? !!p.smashed : (p.kind === 'urn' || p.kind === 'barrel' || p.kind === 'root_cache') && p.used;
+  return p.kind === 'chest' ? !!p.smashed : isVessel(p) && !!p.used;
 }
 
 /**

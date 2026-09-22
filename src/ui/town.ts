@@ -4,7 +4,6 @@ import { sealsUnlocked, toggleSeal } from '../systems/seals';
 import { ROADS, roadsForDay } from '../data/routes';
 import { OATHS, OATH_PICKS, STACK_BONUS, STACK_BONUS_AT, findOath } from '../data/oaths';
 import { claimOathRewards, oathRewardPicks, pendingOaths, todaysOaths, toggleOath } from '../systems/oaths';
-import { learnProperty } from '../systems/properties';
 import { INSCRIBE_COST, PropertyDef, findProperty } from '../data/properties';
 import { inscribe, inscribeTargets } from '../systems/properties';
 import { EQUIP_SLOTS, Item, MaterialCategory, Rarity, RARITY_COLORS, RARITY_ORDER, STAT_KEYS, STAT_LABELS, Stats } from '../types';

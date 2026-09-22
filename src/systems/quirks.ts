@@ -20,6 +20,7 @@ import {
 import { ContainerTier, makeUnique } from './items';
 import { uniqueForQuirk } from '../data/uniques';
 import { EnemyState, Floor, Prop, blocksMove, createEnemy, promoteElite } from './dungeon';
+import { SHADE_ID } from './grave';
 import { eligibleTraits } from '../data/elites';
 
 /** The ladder a promoted container climbs. A secret is already the top. */
@@ -104,7 +105,7 @@ export function dressFloor(floor: Floor, id: QuirkId, runSeed: number, difficult
       // only place that decides what a creature becomes, `dressFloor` is also
       // reachable from the dev lab, and an ordering that changes later should
       // fail by doing nothing rather than by eating your Shade.
-      if (e.lieutenant || e.def === 'shade' || enemyDef(e.def).behavior === 'boss') {
+      if (e.lieutenant || e.def === SHADE_ID || enemyDef(e.def).behavior === 'boss') {
         herd.push(e);
         continue;
       }
