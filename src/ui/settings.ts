@@ -3,6 +3,7 @@ import { DIFFICULTIES, DIFFICULTY_IDS, difficultyOf } from '../data/difficulty';
 import { audio } from '../audio/sfx';
 import { BRIGHTNESS_MAX, BRIGHTNESS_MIN, applyBrightnessGain, brightness, brightnessToPercent, percentToBrightness } from '../render/brightness';
 import { artImg, btn, closeOverlays, h, mountOverlay } from './dom';
+import { BugReportCtx, bugReportPanel } from './bug-report';
 
 /**
  * Settings, behind the gear in the town header, on the title screen, and in
@@ -29,6 +30,8 @@ export interface SettingsCtx {
    * the title screen and the dungeon get audio + login only.
    */
   showDifficulty?: boolean;
+  /** Where "Report a bug" gets its facts and screenshot. Absent hides the button. */
+  report?: Pick<BugReportCtx, 'source' | 'screenshot'>;
 }
 
 /** What a save can be switched between in town. Hardcore is chosen at creation only. */
@@ -253,7 +256,18 @@ export function openSettings(ctx: SettingsCtx): void {
     h('h3', { style: 'margin-top:10px', text: 'Cloud saves' }),
     h('p', { class: 'dim small', text: 'Optional. Signed out, the game plays exactly as it always has.' }),
     accountBox,
+    ...(ctx.report ? [h('h3', { style: 'margin-top:10px', text: 'Something wrong?' }), h('div', { class: 'audio-row' }, btn('Report a bug', () => showReport(), 'small'), h('span', { class: 'dim small', text: 'Opens a GitHub issue with where you are and a screenshot.' }))] : []),
   );
+  // The report swaps in over the settings rather than opening a modal of its
+  // own: "settings is open" is what pauses the dungeon and keeps typed keys
+  // away from it, so staying inside this wrap keeps both for free.
+  const settingsPage = [...modal.childNodes];
+  function showReport(): void {
+    if (!ctx.report) return;
+    audio.play('ui');
+    modal.replaceChildren(bugReportPanel({ ...ctx.report, toast: ctx.toast, back: () => modal.replaceChildren(...settingsPage) }));
+    modal.querySelector('textarea')?.focus();
+  }
   // The account panel is one persistent element shared with the title screen:
   // appending it here moves it, it does not copy it, so its sign-in state and
   // any half-typed code survive the trip.

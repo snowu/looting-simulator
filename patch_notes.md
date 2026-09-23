@@ -1,3 +1,17 @@
+# Report a bug from inside the game
+
+*Save revision 29, unchanged: nothing about a save moves.*
+
+**Settings now has a Report a bug button**, in town, on the title screen and mid-delve. It opens a short form: write what happened in any language, and the game opens a GitHub issue in a new tab with everything else already filled in. That covers the build you are on, where you are standing and which way you face, what is right in front of you, any door close by, your gear, the day's market events, and your screen and brightness. You read it all before you post, and nothing is sent until you press Submit on GitHub.
+
+**Inside a delve it takes a screenshot too.** It captures the view as it was when you opened the report and copies it to your clipboard, so you only need to paste it into the Screenshot box on GitHub (Ctrl+V). If your browser won't let the game copy an image, which happens on some phones, "Save screenshot" downloads it for you to attach instead. The dungeon stays paused while you type, and typing never moves you.
+
+For whoever fixes it: every delve report carries a repro code. On a dev build, `?repro=<code>` rebuilds the same floor from the same seed, road and seals, then stands you on the reported tile facing the same way. If the reporter's floor came from an older build (runs survive updates), it says so and names the build to check out, instead of quietly dropping you somewhere else.
+
+Validation: all tests pass, including new tests that a repro code rebuilds the reported depth-4 Mine Road floor tile for tile, that a floor from another build is flagged, and that a very long description is trimmed so the link stays under GitHub's length limit while the game details stay whole. In the browser: opened the report mid-delve (screenshot shown, keys typed into the box didn't move the player, details correct) and in town (no screenshot, tip shown). A code taken on a depth-3 Emberworks floor rebuilt the same walls and doors and put the player on the same tile.
+
+---
+
 # Faster start
 
 *Save revision 29, unchanged: nothing about a save moves.*

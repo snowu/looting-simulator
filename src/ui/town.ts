@@ -47,7 +47,7 @@ import { audio } from '../audio/sfx';
 import { difficultyOf } from '../data/difficulty';
 import { PLAIN_FLASK_RAMP, draught, infusionName } from '../systems/infusion';
 import { AccountSummary } from './account';
-import { openSettings, settingsGearButton } from './settings';
+import { SettingsCtx, openSettings, settingsGearButton } from './settings';
 import { FLASK_POTENCY, FLASK_UPGRADE_COSTS } from '../systems/healing';
 import { clamp } from '../core/math';
 
@@ -67,6 +67,8 @@ export interface TownCtx {
    * starting. The town header itself keeps only the compact status below.
    */
   account?: () => HTMLElement | null;
+  /** Settings → Report a bug. */
+  report?: SettingsCtx['report'];
   /** Compact sync status for the header: "Synced", or a Connect invitation. */
   accountSummary?: () => AccountSummary;
 }
@@ -313,6 +315,7 @@ export class Town {
       account: () => this.ctx.account?.() ?? null,
       onClose: () => this.render(),
       showDifficulty: true,
+      report: this.ctx.report,
     });
   }
 

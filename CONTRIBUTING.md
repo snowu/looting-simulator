@@ -46,6 +46,7 @@ All of these exist only under `npm run dev`. They sit behind `import.meta.env.DE
 | `?autostart=lab` | **Combat lab**: every recipe at Rank 5, 999 of every material, one of every weapon, a cleared room, and a spawn console. Pick a biome, depth, seed and **strange floor**, then spawn any enemy (already mid-swing if you like). The strange-floor selector is the only practical way to see the Forbidden Pasture or the Silent Picture, which otherwise roll at 5–9.5% per floor |
 | `?autostart=boss` | Depth-6 kit, standing in the throne room facing the Ashen King |
 | `?autostart=archers` / `?autostart=melee` | Staged rooms for ranged and melee encounter tuning |
+| `?repro=<code>` | Stand where an in-game bug report was filed: same seed, road, seals and floor, on the reported tile and facing. The code is in the issue's *Game details*. Rebuilds the layout, not the reporter's monsters or loot, and says so if the floor came from an older build |
 | `?art` or **F2** | In-game art sheet: every sprite, with enemy attack cadences animated |
 | **F3** | Toggle the lab spawn console |
 | `window.__game` | Live `state`, `world`, `mode`, plus `enterDungeon()`, `enterTown()`, `useSlot(n)` |

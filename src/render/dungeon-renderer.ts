@@ -396,6 +396,17 @@ export class DungeonRenderer {
     return { x: ((TMP.x + 1) / 2) * this.viewW, y: ((1 - TMP.y) / 2) * this.viewH };
   }
 
+  /**
+   * The current view as a PNG, for bug reports. Draws a frame and reads the
+   * canvas in the same task: without `preserveDrawingBuffer` (which costs
+   * every frame) that is the only moment the WebGL buffer is still readable,
+   * and `toBlob` copies the bitmap synchronously before it encodes.
+   */
+  capture(world: World): Promise<Blob | null> {
+    this.render(world, 0);
+    return new Promise((resolve) => this.canvas.toBlob(resolve, 'image/png'));
+  }
+
   render(world: World, dt: number): void {
     this.time += dt;
     this.shared.uTime.value = this.time;

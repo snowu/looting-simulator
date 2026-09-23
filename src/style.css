@@ -116,6 +116,17 @@ h3 { font-size: 26px; color: var(--ink); margin-bottom: 6px; }
 .brightness-calib { display: flex; gap: 6px; margin: 6px 0 2px; }
 .brightness-swatch { flex: 1; height: 26px; border: 1px solid #2a2430; }
 
+/* Settings → Report a bug: the screenshot preview, a description box, and the
+   GitHub link styled as a button (it is an <a> so no popup blocker stops it). */
+a.btn { display: inline-block; text-decoration: none; }
+.report-shot img { display: block; width: 100%; max-height: 32vh; object-fit: contain; background: #000; border: 1px solid #2a2430; }
+.report-text {
+  display: block; width: 100%; box-sizing: border-box; margin: 8px 0 4px; resize: vertical;
+  font: inherit; font-size: 18px; color: var(--ink); background: #141018; border: 1px solid #3a3240; padding: 6px 8px;
+}
+.report-details pre { white-space: pre-wrap; word-break: break-word; max-height: 24vh; overflow: auto; margin: 4px 0; }
+.report-actions { gap: 10px; margin: 8px 0 2px; }
+
 /* Slots */
 .slot {
   --sz: 40px;
