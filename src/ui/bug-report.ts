@@ -72,12 +72,26 @@ export function bugReportPanel(ctx: BugReportCtx): HTMLElement {
   };
   box.addEventListener('input', refresh);
   refresh();
-  open.addEventListener('click', () => {
-    if (!shot) return;
-    void copyImage(shot).then((ok) =>
-      ctx.toast(ok ? 'Screenshot copied: paste it into the Screenshot box on GitHub.' : 'Could not copy the screenshot. Use "Save screenshot" and attach the file.', ok ? '#9ab0d8' : '#d8a060'),
-    );
+  // Copy first, then open. Opening the tab first moves focus away, and a
+  // clipboard write from an unfocused page is refused, silently. The click's
+  // user activation outlives the copy (a few seconds), so the tab still opens
+  // as the player's own action rather than a blocked popup; if a browser
+  // blocks it anyway, the link is still there to click again.
+  const noteCopy = (ok: boolean) =>
+    ctx.toast(ok ? 'Screenshot copied: paste it into the issue with Ctrl+V.' : 'Could not copy the screenshot. Use "Save screenshot" and attach the file.', ok ? '#9ab0d8' : '#d8a060');
+  let copiedOnce = false;
+  open.addEventListener('click', (e) => {
+    if (!shot || copiedOnce) return;
+    e.preventDefault();
+    void copyImage(shot).then((ok) => {
+      copiedOnce = true;
+      noteCopy(ok);
+      if (!window.open(open.href, '_blank', 'noopener')) ctx.toast('Your browser blocked the new tab: press Open on GitHub again.', '#d8a060');
+      // A later click is a plain link again: the screenshot is already on the clipboard.
+      setTimeout(() => (copiedOnce = false), 3000);
+    });
   });
+  const copyBtn = btn('Copy screenshot', () => void (shot && copyImage(shot).then(noteCopy)), 'small', true);
 
   const preview = h('div', { class: 'report-shot' }, h('span', { class: 'dim small', text: 'Taking a screenshot…' }));
   const saveBtn = btn('Save screenshot', () => void shot?.then((b) => b && saveImage(b)), 'small', true);
@@ -91,6 +105,7 @@ export function bugReportPanel(ctx: BugReportCtx): HTMLElement {
       img.src = URL.createObjectURL(b);
       preview.replaceChildren(img);
       saveBtn.disabled = false;
+      copyBtn.disabled = false;
     });
   }
 
@@ -98,7 +113,7 @@ export function bugReportPanel(ctx: BugReportCtx): HTMLElement {
     class: 'dim small',
     text: 'Opens a GitHub issue in a new tab with all of this filled in. You need a GitHub account, and issues are public. Your save never leaves this device.',
   });
-  const actions = h('div', { class: 'row report-actions' }, open, shot ? saveBtn : null);
+  const actions = h('div', { class: 'row report-actions' }, open, shot ? copyBtn : null, shot ? saveBtn : null);
 
   // Signed in: one button files the issue, screenshot and all, and the link
   // steps back to a plain fallback. Checked after the panel is up, so a slow
