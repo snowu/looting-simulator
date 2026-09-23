@@ -29,6 +29,7 @@ import { btn } from './ui/dom';
 import { audio } from './audio/sfx';
 import { closeSettings, isSettingsOpen, openSettings } from './ui/settings';
 import { ReportSource } from './systems/bug-report';
+import { snapshotScreen } from './ui/snapshot';
 import { brightness, brightnessToPercent } from './render/brightness';
 
 type Mode = 'title' | 'town' | 'dungeon' | 'summary';
@@ -326,10 +327,7 @@ async function checkForUpdate(): Promise<void> {
   if (mode !== 'dungeon') scheduleAutoUpdate();
 }
 
-/**
- * Settings → Report a bug, from wherever settings opens. Only the dungeon has
- * a 3D view to photograph; town and title reports go without.
- */
+/** Settings → Report a bug, from wherever settings opens. */
 const bugReport = {
   source: (): ReportSource => ({
     mode,
@@ -345,7 +343,9 @@ const bugReport = {
       brightness: brightnessToPercent(brightness.get()),
     },
   }),
-  screenshot: () => (mode === 'dungeon' && world ? renderer.capture(world) : null),
+  // The 3D frame is copied now, inside the click; the UI over it is drawn
+  // after, leaving out the settings modal the report lives in.
+  screenshot: () => snapshotScreen(app, mode === 'dungeon' && world ? renderer.captureFrame(world) : null, '.settings-wrap'),
 };
 
 const town = new Town(screen, {

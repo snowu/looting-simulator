@@ -11,7 +11,7 @@ import { btn, h } from './dom';
  */
 export interface BugReportCtx {
   source: () => ReportSource;
-  /** The 3D view as a PNG; null where there is none (town, title). */
+  /** The game screen as a PNG, taken as the panel opens; resolves null if it fails. */
   screenshot?: () => Promise<Blob | null> | null;
   toast: (text: string, color?: string) => void;
   back: () => void;
@@ -63,12 +63,12 @@ export function bugReportPanel(ctx: BugReportCtx): HTMLElement {
     );
   });
 
-  const preview = h('div', { class: 'report-shot' });
+  const preview = h('div', { class: 'report-shot' }, h('span', { class: 'dim small', text: 'Taking a screenshot…' }));
   const saveBtn = btn('Save screenshot', () => void shot?.then((b) => b && saveImage(b)), 'small', true);
   if (shot) {
     void shot.then((b) => {
       if (!b) {
-        preview.replaceChildren(h('span', { class: 'dim small', text: 'No screenshot available here.' }));
+        preview.replaceChildren(h('span', { class: 'dim small', text: 'The screenshot failed: take one yourself and paste it into the issue.' }));
         return;
       }
       const img = h('img', { attrs: { alt: 'Screenshot that will be attached' } }) as HTMLImageElement;
@@ -82,9 +82,7 @@ export function bugReportPanel(ctx: BugReportCtx): HTMLElement {
     'div',
     { class: 'report-panel' },
     h('div', { class: 'row' }, h('h2', { class: 'grow', text: 'Report a bug' }), btn('Back', () => ctx.back(), 'small')),
-    shot
-      ? preview
-      : h('p', { class: 'dim small', text: 'Tip: reports sent from inside a delve include a screenshot and the exact spot you were standing on.' }),
+    shot ? preview : null,
     box,
     h(
       'details',
