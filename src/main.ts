@@ -399,15 +399,18 @@ function flushSync(): void {
   if (!isScratchMode()) sync.flush();
 }
 
-function toast(text: string, color = '#e8dcc4'): void {
-  const el = h('div', {
-    text,
-    style: `position:absolute;left:50%;top:${14 + toastLayer.childElementCount * 30}px;transform:translateX(-50%);color:${color};` +
-      'font-size:clamp(15px,2.4vw,22px);text-shadow:0 2px 0 #000,0 0 8px #000;background:#0e0c10ee;padding:2px 12px;border:1px solid #2a2430;' +
-      'max-width:92vw;width:max-content;text-align:center;z-index:9;transition:opacity .5s',
-  });
+/** A passing message at the top. With `href` it is a link: tappable, and it stays up longer. */
+function toast(text: string, color = '#e8dcc4', href?: string): void {
+  const style = `position:absolute;left:50%;top:${14 + toastLayer.childElementCount * 30}px;transform:translateX(-50%);color:${color};` +
+    'font-size:clamp(15px,2.4vw,22px);text-shadow:0 2px 0 #000,0 0 8px #000;background:#0e0c10ee;padding:2px 12px;border:1px solid #2a2430;' +
+    'max-width:92vw;width:max-content;text-align:center;z-index:9;transition:opacity .5s';
+  // The layer ignores the pointer so toasts never eat a swing; a link toast
+  // opts back in for itself alone.
+  const el = href
+    ? h('a', { text: `${text} ↗`, style: `${style};pointer-events:auto;cursor:pointer;text-decoration:underline`, attrs: { href, target: '_blank', rel: 'noopener' } })
+    : h('div', { text, style });
   toastLayer.append(el);
-  const life = Math.max(2200, text.length * 55);
+  const life = Math.max(href ? 6000 : 2200, text.length * 55);
   setTimeout(() => (el.style.opacity = '0'), life);
   setTimeout(() => el.remove(), life + 600);
 }

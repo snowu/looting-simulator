@@ -58,7 +58,7 @@ export interface TownCtx {
   save: () => void;
   descend: () => void;
   newGame: () => void;
-  toast: (text: string, color?: string) => void;
+  toast: (text: string, color?: string, href?: string) => void;
   /**
    * The account and sync block. It lives on the title screen too, and an
    * element is only ever in one place, so opening settings moves it there —
@@ -311,7 +311,7 @@ export class Town {
     openSettings({
       state: () => this.s,
       save: () => this.ctx.save(),
-      toast: (t, c) => this.ctx.toast(t, c),
+      toast: (t, c, href) => this.ctx.toast(t, c, href),
       account: () => this.ctx.account?.() ?? null,
       onClose: () => this.render(),
       showDifficulty: true,

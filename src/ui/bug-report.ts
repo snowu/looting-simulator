@@ -14,7 +14,7 @@ export interface BugReportCtx {
   source: () => ReportSource;
   /** The game screen as a PNG, taken as the panel opens; resolves null if it fails. */
   screenshot?: () => Promise<Blob | null> | null;
-  toast: (text: string, color?: string) => void;
+  toast: (text: string, color?: string, href?: string) => void;
   back: () => void;
   /**
    * Sending straight to GitHub through the report server, for signed-in
@@ -136,7 +136,7 @@ export function bugReportPanel(ctx: BugReportCtx): HTMLElement {
         const link = h('a', { text: `#${res.number}`, attrs: { href: res.url, target: '_blank', rel: 'noopener' } });
         actions.replaceChildren(h('span', { class: 'small' }, 'Sent, thank you! It is issue ', link, '.'));
         note.textContent = 'Anyone can read it on GitHub. Add more there any time.';
-        ctx.toast(`Bug report sent as #${res.number}. Thank you!`, '#9ad8a0');
+        ctx.toast(`Bug report sent as #${res.number}. Thank you!`, '#9ad8a0', res.url);
         return;
       }
       box.disabled = false;

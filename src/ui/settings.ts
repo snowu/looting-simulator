@@ -20,7 +20,7 @@ import { BugReportCtx, bugReportPanel } from './bug-report';
 export interface SettingsCtx {
   state: () => GameState;
   save: () => void;
-  toast: (text: string, color?: string) => void;
+  toast: (text: string, color?: string, href?: string) => void;
   /** The persistent account element, moved in here while open. */
   account: () => HTMLElement | null;
   /** Town refreshes behind the modal (e.g. the header sync status). */
