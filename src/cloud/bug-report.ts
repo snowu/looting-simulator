@@ -40,8 +40,9 @@ export async function sendBugReport(r: OutgoingReport): Promise<SendResult> {
     // An HTTP error from the function carries our own message in its JSON body.
     const ctx = (error as { context?: unknown } | null)?.context;
     if (ctx instanceof Response) {
-      const body = (await ctx.json().catch(() => null)) as { error?: string } | null;
+      const body = (await ctx.json().catch(() => null)) as { error?: string; code?: string } | null;
       if (body?.error) return { ok: false, message: body.error };
+      if (ctx.status === 404 || body?.code === 'NOT_FOUND') return { ok: false, message: 'The report server is not set up yet.' };
     }
     return { ok: false, message: 'Could not reach the report server.' };
   } catch {

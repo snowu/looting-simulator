@@ -78,10 +78,11 @@ describe('bug report', () => {
   it('keeps the link under GitHub\'s limit and never drops the details', () => {
     const w = reporter();
     const details = detailsMarkdown({ mode: 'dungeon', state: w.state, world: w, device: DEVICE });
-    const url = issueUrl('Walls', 'è'.repeat(6000), details);
+    const url = issueUrl('è'.repeat(6000), details);
     expect(url.length).toBeLessThanOrEqual(MAX_URL);
     const q = new URL(url).searchParams;
     expect(q.get('template')).toBe('in-game-report.yml');
+    expect(q.has('title')).toBe(false);
     expect(q.get('details')).toBe(details);
     expect(q.get('what')).toContain('trimmed to fit');
   });

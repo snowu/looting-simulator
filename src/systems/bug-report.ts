@@ -225,11 +225,13 @@ export function detailsMarkdown(src: ReportSource): string {
   return lines.join('\n');
 }
 
-/** First line of the description, trimmed to a title, or a generic one. */
-export function defaultTitle(src: ReportSource, description: string): string {
-  const first = description.trim().split('\n')[0]?.trim() ?? '';
-  if (first) return first.length > 80 ? `${first.slice(0, 77)}…` : first;
-  return `Bug report: ${where(src)}`;
+/**
+ * The title for a report filed straight from the game (GitHub's API requires
+ * one). It names where, never the player's words: those belong in the body,
+ * and whoever triages writes the real title.
+ */
+export function reportTitle(src: ReportSource): string {
+  return `In-game report: ${where(src)}`;
 }
 
 /**
@@ -237,9 +239,11 @@ export function defaultTitle(src: ReportSource, description: string): string {
  * a note) if it alone would push the URL past GitHub's limit; the facts stay
  * whole, because they are the part nobody can retype later.
  */
-export function issueUrl(title: string, description: string, details: string): string {
+export function issueUrl(description: string, details: string): string {
+  // No title: the reporter's words go in the body, and the title is left for
+  // them (or whoever triages) to write.
   const build = (what: string) => {
-    const q = new URLSearchParams({ template: ISSUE_TEMPLATE, title, what, details });
+    const q = new URLSearchParams({ template: ISSUE_TEMPLATE, what, details });
     return `https://github.com/${ISSUE_REPO}/issues/new?${q.toString()}`;
   };
   let url = build(description);

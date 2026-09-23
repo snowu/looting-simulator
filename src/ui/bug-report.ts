@@ -1,4 +1,4 @@
-import { ReportSource, defaultTitle, detailsMarkdown, issueUrl } from '../systems/bug-report';
+import { ReportSource, detailsMarkdown, encodeRepro, issueUrl, reportRows, reportTitle, reproOf } from '../systems/bug-report';
 import type { OutgoingReport, SendResult } from '../cloud/bug-report';
 import { btn, h } from './dom';
 
@@ -45,6 +45,15 @@ function saveImage(blob: Blob): void {
   setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
 }
 
+/** The same facts as the issue's markdown table, as a compact table to read here. */
+function detailsTable(src: ReportSource): HTMLElement {
+  const rows = reportRows(src).map(([k, v]) => h('tr', {}, h('th', { text: k }), h('td', { text: v })));
+  if (src.mode === 'dungeon' && src.world) {
+    rows.push(h('tr', {}, h('th', { text: 'Repro' }), h('td', { text: encodeRepro(reproOf(src.world)) })));
+  }
+  return h('table', { class: 'report-facts' }, h('tbody', {}, ...rows));
+}
+
 export function bugReportPanel(ctx: BugReportCtx): HTMLElement {
   const src = ctx.source();
   const details = detailsMarkdown(src);
@@ -59,7 +68,7 @@ export function bugReportPanel(ctx: BugReportCtx): HTMLElement {
   // any browser, and it opens a new tab the same way everywhere.
   const open = h('a', { class: 'btn small primary', text: 'Open on GitHub', attrs: { target: '_blank', rel: 'noopener' } }) as HTMLAnchorElement;
   const refresh = () => {
-    open.href = issueUrl(defaultTitle(src, box.value), box.value.trim(), details);
+    open.href = issueUrl(box.value.trim(), details);
   };
   box.addEventListener('input', refresh);
   refresh();
@@ -107,7 +116,7 @@ export function bugReportPanel(ctx: BugReportCtx): HTMLElement {
       send.disabled = true;
       box.disabled = true;
       send.textContent = 'Sending…';
-      const res = await direct.send({ title: defaultTitle(src, what), what, details, screenshot: shot ? await shot : null });
+      const res = await direct.send({ title: reportTitle(src), what, details, screenshot: shot ? await shot : null });
       if (res.ok) {
         const link = h('a', { text: `#${res.number}`, attrs: { href: res.url, target: '_blank', rel: 'noopener' } });
         actions.replaceChildren(h('span', { class: 'small' }, 'Sent, thank you! It is issue ', link, '.'));
@@ -143,7 +152,7 @@ export function bugReportPanel(ctx: BugReportCtx): HTMLElement {
       'details',
       { class: 'report-details' },
       h('summary', { class: 'small', text: 'Game details that will be attached' }),
-      h('pre', { class: 'small', text: details }),
+      detailsTable(src),
     ),
     actions,
     note,

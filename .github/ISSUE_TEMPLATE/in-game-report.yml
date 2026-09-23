@@ -1,6 +1,5 @@
 name: In-game bug report
 description: Opened by Settings → Report a bug. The game fills in where you were; you add what happened and the screenshot.
-title: "Bug report"
 labels: ["from-game", "needs-triage"]
 body:
   - type: textarea

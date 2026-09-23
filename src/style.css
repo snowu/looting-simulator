@@ -124,7 +124,10 @@ a.btn { display: inline-block; text-decoration: none; }
   display: block; width: 100%; box-sizing: border-box; margin: 8px 0 4px; resize: vertical;
   font: inherit; font-size: 18px; color: var(--ink); background: #141018; border: 1px solid #3a3240; padding: 6px 8px;
 }
-.report-details pre { white-space: pre-wrap; word-break: break-word; max-height: 24vh; overflow: auto; margin: 4px 0; }
+.report-details { max-height: 26vh; overflow: auto; }
+.report-facts { border-collapse: collapse; margin: 4px 0; font-size: 14px; line-height: 1.25; }
+.report-facts th { text-align: left; font-weight: normal; color: var(--dim, #8a8090); padding: 1px 12px 1px 0; white-space: nowrap; vertical-align: top; }
+.report-facts td { padding: 1px 0; word-break: break-word; }
 .report-actions { gap: 10px; margin: 8px 0 2px; }
 
 /* Slots */
