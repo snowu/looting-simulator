@@ -31,7 +31,7 @@ export interface SettingsCtx {
    */
   showDifficulty?: boolean;
   /** Where "Report a bug" gets its facts and screenshot. Absent hides the button. */
-  report?: Pick<BugReportCtx, 'source' | 'screenshot'>;
+  report?: Pick<BugReportCtx, 'source' | 'screenshot' | 'direct'>;
 }
 
 /** What a save can be switched between in town. Hardcore is chosen at creation only. */

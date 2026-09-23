@@ -1,4 +1,5 @@
 import { ReportSource, defaultTitle, detailsMarkdown, issueUrl } from '../systems/bug-report';
+import type { OutgoingReport, SendResult } from '../cloud/bug-report';
 import { btn, h } from './dom';
 
 /**
@@ -15,6 +16,12 @@ export interface BugReportCtx {
   screenshot?: () => Promise<Blob | null> | null;
   toast: (text: string, color?: string) => void;
   back: () => void;
+  /**
+   * Sending straight to GitHub through the report server, for signed-in
+   * players. Absent (or unavailable) means the prefilled GitHub link is the
+   * only way, which is also the fallback when sending fails.
+   */
+  direct?: { available: () => Promise<boolean>; send: (r: OutgoingReport) => Promise<SendResult> };
 }
 
 /** Chrome and Safari both take a promise here; that keeps the write inside the click. */
@@ -78,6 +85,54 @@ export function bugReportPanel(ctx: BugReportCtx): HTMLElement {
     });
   }
 
+  const note = h('p', {
+    class: 'dim small',
+    text: 'Opens a GitHub issue in a new tab with all of this filled in. You need a GitHub account, and issues are public. Your save never leaves this device.',
+  });
+  const actions = h('div', { class: 'row report-actions' }, open, shot ? saveBtn : null);
+
+  // Signed in: one button files the issue, screenshot and all, and the link
+  // steps back to a plain fallback. Checked after the panel is up, so a slow
+  // session lookup never delays the form.
+  if (ctx.direct) {
+    const direct = ctx.direct;
+    const send = btn('Send report', () => void submit(), 'small primary', true);
+    const syncSend = () => {
+      send.disabled = !box.value.trim();
+    };
+    box.addEventListener('input', syncSend);
+    const submit = async (): Promise<void> => {
+      const what = box.value.trim();
+      if (!what) return;
+      send.disabled = true;
+      box.disabled = true;
+      send.textContent = 'Sending…';
+      const res = await direct.send({ title: defaultTitle(src, what), what, details, screenshot: shot ? await shot : null });
+      if (res.ok) {
+        const link = h('a', { text: `#${res.number}`, attrs: { href: res.url, target: '_blank', rel: 'noopener' } });
+        actions.replaceChildren(h('span', { class: 'small' }, 'Sent, thank you! It is issue ', link, '.'));
+        note.textContent = 'Anyone can read it on GitHub. Add more there any time.';
+        ctx.toast(`Bug report sent as #${res.number}. Thank you!`, '#9ad8a0');
+        return;
+      }
+      box.disabled = false;
+      send.textContent = 'Send report';
+      syncSend();
+      note.textContent = `${res.message} The GitHub link still works.`;
+      ctx.toast(res.message, '#d8a060');
+    };
+    void direct.available().then((ok) => {
+      if (ok) {
+        open.classList.remove('primary');
+        actions.prepend(send);
+        syncSend();
+        note.textContent = 'Send report files it on GitHub for you, with the screenshot and game details. Issues are public; your email and your save are not included.';
+      } else {
+        note.textContent += ' Signed in under Cloud saves, you could send it straight from here instead.';
+      }
+    });
+  }
+
   return h(
     'div',
     { class: 'report-panel' },
@@ -90,10 +145,7 @@ export function bugReportPanel(ctx: BugReportCtx): HTMLElement {
       h('summary', { class: 'small', text: 'Game details that will be attached' }),
       h('pre', { class: 'small', text: details }),
     ),
-    h('div', { class: 'row report-actions' }, open, shot ? saveBtn : null),
-    h('p', {
-      class: 'dim small',
-      text: 'Opens a GitHub issue in a new tab with all of this filled in. You need a GitHub account, and issues are public. Your save never leaves this device.',
-    }),
+    actions,
+    note,
   );
 }

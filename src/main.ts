@@ -30,6 +30,8 @@ import { audio } from './audio/sfx';
 import { closeSettings, isSettingsOpen, openSettings } from './ui/settings';
 import { ReportSource } from './systems/bug-report';
 import { snapshotScreen } from './ui/snapshot';
+import { canSendReports, sendBugReport } from './cloud/bug-report';
+import { cloudConfigured } from './cloud/supabase';
 import { brightness, brightnessToPercent } from './render/brightness';
 
 type Mode = 'title' | 'town' | 'dungeon' | 'summary';
@@ -346,6 +348,8 @@ const bugReport = {
   // The 3D frame is copied now, inside the click; the UI over it is drawn
   // after, leaving out the settings modal the report lives in.
   screenshot: () => snapshotScreen(app, mode === 'dungeon' && world ? renderer.captureFrame(world) : null, '.settings-wrap'),
+  // Only where cloud saves exist at all; otherwise there is nothing to sign in to.
+  direct: cloudConfigured() ? { available: canSendReports, send: sendBugReport } : undefined,
 };
 
 const town = new Town(screen, {
