@@ -239,11 +239,24 @@ export function reportTitle(src: ReportSource): string {
  * a note) if it alone would push the URL past GitHub's limit; the facts stay
  * whole, because they are the part nobody can retype later.
  */
+/**
+ * The first `n` words of the description, as a starting title. Capped in
+ * characters too, since one pasted run with no spaces is also one word.
+ * Empty stays empty.
+ */
+export function titleFromWords(description: string, n = 10, maxChars = 100): string {
+  const words = description.trim().split(/\s+/).filter(Boolean);
+  const t = words.length > n ? `${words.slice(0, n).join(' ')}…` : words.join(' ');
+  return t.length > maxChars ? `${t.slice(0, maxChars - 1)}…` : t;
+}
+
 export function issueUrl(description: string, details: string): string {
-  // No title: the reporter's words go in the body, and the title is left for
-  // them (or whoever triages) to write.
+  // The title is the first ten words, as a start the reporter can edit; the
+  // whole description still goes in the body.
+  const title = titleFromWords(description);
   const build = (what: string) => {
     const q = new URLSearchParams({ template: ISSUE_TEMPLATE, what, details });
+    if (title) q.set('title', title);
     return `https://github.com/${ISSUE_REPO}/issues/new?${q.toString()}`;
   };
   let url = build(description);

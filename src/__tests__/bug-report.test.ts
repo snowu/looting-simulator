@@ -5,7 +5,7 @@ import { newGame } from '../state/game-state';
 import { startRun } from '../systems/run';
 import { WALL, tileAt } from '../systems/dungeon';
 import { World } from '../world/world';
-import { MAX_URL, ReportSource, decodeRepro, detailsMarkdown, encodeRepro, issueUrl, reproOf } from '../systems/bug-report';
+import { MAX_URL, ReportSource, titleFromWords, decodeRepro, detailsMarkdown, encodeRepro, issueUrl, reproOf } from '../systems/bug-report';
 import { reproRoom } from '../dev/repro-room';
 
 const DEVICE = { version: '1.0.0', build: 'test', userAgent: 'vitest', viewport: '800×600 @1x', touch: false, brightness: 100 };
@@ -75,6 +75,13 @@ describe('bug report', () => {
     expect(town).not.toContain('repro');
   });
 
+  it('titles the link with the first ten words', () => {
+    expect(titleFromWords('  the wall  texture\nnext to the door does not line up with the rest of it ')).toBe('the wall texture next to the door does not line…');
+    expect(titleFromWords('just five words right here')).toBe('just five words right here');
+    expect(titleFromWords('   ')).toBe('');
+    expect(new URL(issueUrl('', 'x')).searchParams.has('title')).toBe(false);
+  });
+
   it('keeps the link under GitHub\'s limit and never drops the details', () => {
     const w = reporter();
     const details = detailsMarkdown({ mode: 'dungeon', state: w.state, world: w, device: DEVICE });
@@ -82,7 +89,7 @@ describe('bug report', () => {
     expect(url.length).toBeLessThanOrEqual(MAX_URL);
     const q = new URL(url).searchParams;
     expect(q.get('template')).toBe('in-game-report.yml');
-    expect(q.has('title')).toBe(false);
+    expect(q.get('title')).toBe(`${'è'.repeat(99)}…`);
     expect(q.get('details')).toBe(details);
     expect(q.get('what')).toContain('trimmed to fit');
   });
