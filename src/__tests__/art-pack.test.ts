@@ -16,18 +16,22 @@ describe('the art pack', () => {
     const entries = shipped();
     const back = decodeArtPack(encodeArtPack(entries));
     expect(back.map((e) => e.id)).toEqual(manifest);
-    back.forEach((e, i) => expect(Buffer.from(e.png).equals(Buffer.from(entries[i].png)), e.id).toBe(true));
+    back.forEach((e, i) => expect(e.png, e.id).toEqual(entries[i].png));
   });
 
   it('refuses anything that is not a pack, or is cut short', () => {
     expect(() => decodeArtPack(new TextEncoder().encode('[]'))).toThrow('Not an art pack');
     const pack = encodeArtPack(shipped().slice(0, 3));
     expect(() => decodeArtPack(pack.subarray(0, pack.byteLength - 1))).toThrow('truncated');
+    expect(() => decodeArtPack(pack.subarray(0, 14))).toThrow('truncated');
+    const padded = new Uint8Array(pack.byteLength + 1);
+    padded.set(pack);
+    expect(() => decodeArtPack(padded)).toThrow('stray bytes');
   });
 
   it('loads the whole art set from one request when the build has a pack', async () => {
     const pack = encodeArtPack(shipped());
-    const fetch = vi.fn().mockResolvedValue(new Response(pack));
+    const fetch = vi.fn().mockResolvedValue(new Response(pack as Uint8Array<ArrayBuffer>));
     vi.stubGlobal('fetch', fetch);
     vi.stubGlobal('createImageBitmap', vi.fn(async () => ({ width: 32, height: 32 })));
     const drawImage = vi.fn();
@@ -42,9 +46,13 @@ describe('the art pack', () => {
     expect(drawImage).toHaveBeenCalled();
   });
 
-  it('falls back to the loose PNGs when there is no pack', async () => {
+  it.each([
+    ['there is no pack', () => new Response('', { status: 404 })],
+    ['the server answers with its HTML fallback page', () => new Response('<!doctype html><html></html>', { status: 200 })],
+    ['the pack download is cut off', () => ({ ok: true, arrayBuffer: () => Promise.reject(new TypeError('network error')) })],
+  ])('falls back to the loose PNGs when %s', async (_, packResponse) => {
     const fetch = vi.fn()
-      .mockResolvedValueOnce(new Response('', { status: 404 }))
+      .mockResolvedValueOnce(packResponse())
       .mockResolvedValueOnce(new Response(JSON.stringify(manifest)));
     vi.stubGlobal('fetch', fetch);
     const loaded: string[] = [];

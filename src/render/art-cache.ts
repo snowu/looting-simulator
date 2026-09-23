@@ -3,7 +3,7 @@ import { ALL_ART, getArt } from '../art/registry';
 import { Ramp, rasterize } from '../art/raster';
 import { recolorIcon } from './recolor-icon';
 import { BUILD_ID, versionedAssetUrl } from '../ui/update';
-import { decodeArtPack } from './art-pack';
+import { decodeArtPack, isArtPack } from './art-pack';
 
 /**
  * Browser-side cache turning art defs into canvases, textures and CSS URLs.
@@ -31,10 +31,12 @@ const keyOf = (id: string, ramp?: Ramp) => (ramp ? `${id}|${ramp.join(',')}` : i
  *
  * A build ships them twice: as one `art/pack.bin` (see `art-pack.ts`), which is
  * one request instead of one per sprite, and as the loose files. The pack is
- * tried first; the dev server has no pack, and a missing one falls back to the
- * loose files, so a failed pack build never stops the game booting.
+ * tried first in a production build. The dev server has no pack, and a
+ * missing one (a 404, a network error, or a host answering with its HTML
+ * fallback page) falls back to the loose files, so it never stops the game
+ * booting.
  */
-export async function loadArtOverrides({ pack = BUILD_ID !== 'dev' } = {}): Promise<number> {
+export async function loadArtOverrides({ pack = import.meta.env.PROD } = {}): Promise<number> {
   const base = import.meta.env.BASE_URL;
   if (pack && (await loadArtPack(base))) return overrides.size;
 
@@ -66,15 +68,19 @@ export async function loadArtOverrides({ pack = BUILD_ID !== 'dev' } = {}): Prom
 async function loadArtPack(base: string): Promise<boolean> {
   // Versioned by build, so the browser may keep it: a new build is a new URL.
   const url = versionedAssetUrl(`${base}art/pack.bin`, BUILD_ID);
-  let res: Response;
+  let bytes: Uint8Array;
   try {
-    res = await fetch(url);
+    const res = await fetch(url);
+    if (!res.ok) return false;
+    bytes = new Uint8Array(await res.arrayBuffer());
   } catch {
+    // Offline, or the connection dropped mid-download: the loose files may still come.
     return false;
   }
-  if (!res.ok) return false;
+  // A server that answers every path with its index page has no pack either.
+  if (!isArtPack(bytes)) return false;
   // A pack that is there but wrong is a broken build, not a missing file.
-  const entries = decodeArtPack(new Uint8Array(await res.arrayBuffer()));
+  const entries = decodeArtPack(bytes);
   checkIds(entries.map((e) => e.id), url);
   const decoded = await Promise.all(
     entries.map(async (e) => [e.id, await createImageBitmap(new Blob([e.png as Uint8Array<ArrayBuffer>], { type: 'image/png' }))] as const),
@@ -86,7 +92,7 @@ async function loadArtPack(base: string): Promise<boolean> {
 /** Every art id exactly once, and nothing else: an override set with gaps must not boot. */
 function checkIds(ids: unknown, from: string): string[] {
   if (!Array.isArray(ids) || ids.some((id) => typeof id !== 'string')) {
-    throw new Error(`Invalid art manifest ${from}: expected an array of IDs`);
+    throw new Error(`Invalid art list in ${from}: expected an array of IDs`);
   }
   const expected = new Set(ALL_ART.map((art) => art.id));
   const listed = new Set(ids);
@@ -95,7 +101,7 @@ function checkIds(ids: unknown, from: string): string[] {
   const unknown = [...listed].filter((id) => !expected.has(id));
   if (duplicates.length || missing.length || unknown.length) {
     throw new Error(
-      `Invalid art manifest ${from}: duplicates [${duplicates.join(', ')}], missing [${missing.join(', ')}], unknown [${unknown.join(', ')}]`,
+      `Invalid art list in ${from}: duplicates [${duplicates.join(', ')}], missing [${missing.join(', ')}], unknown [${unknown.join(', ')}]`,
     );
   }
   return ids as string[];

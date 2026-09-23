@@ -6,7 +6,7 @@
 
 Nothing looks different. Hand-painted art still overrides the built-in art exactly as before. If the combined file is ever missing, the game falls back to fetching the sprites one by one, so a problem with it can't stop the game starting.
 
-Validation: all 792 tests pass, including new tests that the combined file carries every shipped image byte for byte and that the fallback works. Served the production build locally: one art request instead of 322, and the title screen, the town's icons and the dungeon's textures all come from it.
+Validation: all 794 tests pass, including new tests that the combined file carries every shipped image byte for byte and that the game falls back to the loose files when the combined file is missing, cut off mid-download, or answered by a server's HTML page. Served the production build locally: one art request instead of 322, and the title screen, the town's icons and the dungeon's textures all come from it. With the combined file removed, the same build fell back to the loose files and still reached the title screen.
 
 ---
 

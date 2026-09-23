@@ -36,13 +36,19 @@ export function encodeArtPack(entries: ArtPackEntry[]): Uint8Array {
   return out;
 }
 
+/** Whether these bytes start like a pack, rather than, say, a server's HTML fallback page. */
+export function isArtPack(bytes: Uint8Array): boolean {
+  return bytes.byteLength >= 12 && new TextDecoder().decode(bytes.subarray(0, 4)) === MAGIC;
+}
+
 export function decodeArtPack(bytes: Uint8Array): ArtPackEntry[] {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  if (bytes.byteLength < 12 || new TextDecoder().decode(bytes.subarray(0, 4)) !== MAGIC) throw new Error('Not an art pack');
+  if (!isArtPack(bytes)) throw new Error('Not an art pack');
   if (view.getUint32(4) !== VERSION) throw new Error(`Unsupported art pack version ${view.getUint32(4)}`);
   const indexEnd = 12 + view.getUint32(8);
+  if (indexEnd > bytes.byteLength) throw new Error('Art pack truncated in its index');
   const index: unknown = JSON.parse(new TextDecoder().decode(bytes.subarray(12, indexEnd)));
-  if (!Array.isArray(index) || index.some((e) => !Array.isArray(e) || typeof e[0] !== 'string' || typeof e[1] !== 'number')) {
+  if (!Array.isArray(index) || index.some((e) => !Array.isArray(e) || typeof e[0] !== 'string' || !Number.isInteger(e[1]) || e[1] < 0)) {
     throw new Error('Invalid art pack index');
   }
   const out: ArtPackEntry[] = [];
@@ -52,5 +58,6 @@ export function decodeArtPack(bytes: Uint8Array): ArtPackEntry[] {
     out.push({ id, png: bytes.subarray(at, at + length) });
     at += length;
   }
+  if (at !== bytes.byteLength) throw new Error(`Art pack has ${bytes.byteLength - at} stray bytes after its last image`);
   return out;
 }
