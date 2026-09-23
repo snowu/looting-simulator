@@ -57,6 +57,7 @@ const SKIP = {
   'f5d74d0': 'merge only; stacked branch sync, changes covered by Patches 57-59',
   '6825135': 'skip reasons only',
   '5a8faf2': 'Patch 74 citation only',
+  c273d42: 'review fixes inside the Patch 74 work, before it shipped',
   a8894b0: 'patch-note skip reasons only',
   '409822a': 'Patch 71 citation, refactor skip reasons and PR previews; no player-facing change',
   '37bffed': 'patch-note citation only; the retune is cited by Patch 57',
