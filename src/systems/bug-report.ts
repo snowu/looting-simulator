@@ -254,17 +254,28 @@ export function issueUrl(description: string, details: string): string {
   // The title is the first ten words, as a start the reporter can edit; the
   // whole description still goes in the body.
   const title = titleFromWords(description);
-  const build = (what: string) => {
+  const build = (what: string, withBody = true) => {
     const q = new URLSearchParams({ template: ISSUE_TEMPLATE, what, details });
     if (title) q.set('title', title);
+    // The same text as a plain body too. GitHub fills the form's fields when
+    // the form exists on the default branch and ignores `body`; when it does
+    // not (a fork, a renamed file, a branch not merged yet) it opens a blank
+    // issue with `body` in it, so the report never arrives empty.
+    if (withBody) q.set('body', ['### What happened?', '', what, '', '### Screenshot', '', '_Paste it here (Ctrl+V)._', '', '### Game details', '', details].join('\n'));
     return `https://github.com/${ISSUE_REPO}/issues/new?${q.toString()}`;
   };
   let url = build(description);
-  if (url.length <= MAX_URL) return url;
   let keep = description.length;
   while (keep > 0 && url.length > MAX_URL) {
     keep = Math.floor(keep * 0.8);
     url = build(`${description.slice(0, keep)}\n\n[…trimmed to fit the link; please paste the rest]`);
+  }
+  // Still too long with everything twice: the form fields alone will do.
+  if (url.length > MAX_URL) url = build(description, false);
+  keep = description.length;
+  while (keep > 0 && url.length > MAX_URL) {
+    keep = Math.floor(keep * 0.8);
+    url = build(`${description.slice(0, keep)}\n\n[…trimmed to fit the link; please paste the rest]`, false);
   }
   return url;
 }

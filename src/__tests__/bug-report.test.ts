@@ -82,6 +82,13 @@ describe('bug report', () => {
     expect(new URL(issueUrl('', 'x')).searchParams.has('title')).toBe(false);
   });
 
+  it('carries the description as a plain body too, for when the form is not found', () => {
+    const q = new URL(issueUrl('The wall next to the door is wrong', '| Build | x |')).searchParams;
+    expect(q.get('what')).toBe('The wall next to the door is wrong');
+    expect(q.get('body')).toContain('### What happened?\n\nThe wall next to the door is wrong');
+    expect(q.get('body')).toContain('### Game details\n\n| Build | x |');
+  });
+
   it('keeps the link under GitHub\'s limit and never drops the details', () => {
     const w = reporter();
     const details = detailsMarkdown({ mode: 'dungeon', state: w.state, world: w, device: DEVICE });
