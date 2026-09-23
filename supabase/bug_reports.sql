@@ -3,7 +3,7 @@
 -- Paste into the Supabase SQL editor of the project that hosts the games. It is
 -- safe to re-run: every statement is idempotent.
 --
--- The `report-bug` Edge Function (supabase/functions/report-bug) is the only
+-- The `in-game-bug-report` Edge Function (supabase/functions/in-game-bug-report) is the only
 -- writer. It uses the service role, so the table has row-level security on and
 -- no policies: no player can read or write it directly.
 

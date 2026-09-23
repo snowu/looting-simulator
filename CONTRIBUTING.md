@@ -37,11 +37,11 @@ Both values are public by design, since they ship in the browser bundle. **Never
 
 ### In-game bug reports (optional)
 
-Settings → Report a bug always works as a prefilled GitHub link. Signed-in players also get **Send report**, which files the issue for them through the `report-bug` Edge Function. One-time setup on the games project:
+Settings → Report a bug always works as a prefilled GitHub link. Signed-in players also get **Send report**, which files the issue for them through the `in-game-bug-report` Edge Function. One-time setup on the games project:
 
 1. Run `supabase/bug_reports.sql` in the SQL editor. It adds the rate-limit table and the public `bug-screenshots` bucket, and it's safe to re-run.
 2. Create a fine-grained GitHub token with access to this repo only and **Issues: Read and write**, nothing else. Store it as a function secret from your own terminal: `npx supabase secrets set GITHUB_TOKEN=github_pat_... --project-ref yozllinwvvprtguinflm`.
-3. Deploy: `npx supabase functions deploy report-bug --no-verify-jwt --project-ref yozllinwvvprtguinflm`. The function checks the player's session itself, which is why the gateway check is off.
+3. Deploy: `npx supabase functions deploy in-game-bug-report --no-verify-jwt --project-ref yozllinwvvprtguinflm`. The function checks the player's session itself, which is why the gateway check is off.
 
 Limits: 5 reports an hour and 20 a day per player, PNG screenshots under 3 MB, and `@mentions` in player text are defused. When the token expires, Send report fails with a message and players fall back to the GitHub link.
 

@@ -1,8 +1,8 @@
 import { cloudConfigured, currentSession, supabase } from './supabase';
 
 /**
- * Send an in-game bug report straight to GitHub, through the `report-bug`
- * Edge Function (supabase/functions/report-bug). Signed-in players only: the
+ * Send an in-game bug report straight to GitHub, through the `in-game-bug-report`
+ * Edge Function (supabase/functions/in-game-bug-report). Signed-in players only: the
  * session is what keeps an open "create issue" endpoint from being a spam
  * cannon, and the GitHub token lives in the function, never in this bundle.
  * Everyone else gets the prefilled GitHub link instead.
@@ -35,7 +35,7 @@ export async function sendBugReport(r: OutgoingReport): Promise<SendResult> {
   form.append('details', r.details);
   if (r.screenshot) form.append('screenshot', r.screenshot, 'screenshot.png');
   try {
-    const { data, error } = await (await supabase()).functions.invoke<{ number: number; url: string }>('report-bug', { body: form });
+    const { data, error } = await (await supabase()).functions.invoke<{ number: number; url: string }>('in-game-bug-report', { body: form });
     if (!error && data?.number) return { ok: true, number: data.number, url: data.url };
     // An HTTP error from the function carries our own message in its JSON body.
     const ctx = (error as { context?: unknown } | null)?.context;
