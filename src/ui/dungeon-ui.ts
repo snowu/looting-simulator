@@ -1,16 +1,17 @@
 import { EquipSlot, Item, STAT_LABELS } from '../types';
 import { ROADS } from '../data/routes';
-import { consumable, itemBase } from '../data/items';
+import { consumable } from '../data/items';
 import { enemyDef } from '../data/enemies';
 import { biomeForFloor } from '../data/biomes';
 import { isTwoHanded, itemName } from '../systems/items';
-import { equipFrom, unequipTo, defaultSlot } from '../systems/equip';
+import { equipFrom, unequipTo, wornFor } from '../systems/equip';
 import { sortContainer } from '../state/inventory';
 import { World } from '../world/world';
 import { drawMap } from './automap';
-import { btn, h, hideTooltip, isTouchMode, itemSlot, itemTooltip, rarityColor } from './dom';
+import { btn, gold, h, hideTooltip, isTouchMode, itemSlot, itemTooltip, rarityColor } from './dom';
 import { audio } from '../audio/sfx';
 import { GAMEPAD_HELP_ROWS } from './gamepad';
+import { clamp } from '../core/math';
 
 export type OverlayMode = 'inventory' | 'loot' | 'map' | 'help' | 'fork';
 
@@ -247,8 +248,7 @@ export class DungeonOverlays {
         grid.append(itemSlot(null, { size: 44 }));
         continue;
       }
-      const slot = defaultSlot(it, eq);
-      const cmp = slot ? eq[slot] : null;
+      const cmp = wornFor(it, eq);
       const dropWhere = dropPickupId ? 'onto the pile' : 'on the ground';
       const el = itemSlot(it, {
         size: 44,
@@ -303,7 +303,7 @@ export class DungeonOverlays {
         h(
           'div',
           {},
-          h('div', { class: 'row' }, h('h3', { text: `Backpack ${pack.items.length}/${pack.capacity}` }), h('span', { class: 'gold-t right', text: `${w.run.gold}g carried` })),
+          h('div', { class: 'row' }, h('h3', { text: `Backpack ${pack.items.length}/${pack.capacity}` }), h('span', { class: 'gold-t right', text: `${gold(w.run.gold)} carried` })),
           h('div', { class: 'row', style: 'margin:2px 0 6px' }, btn('Sort pack', () => this.sortPack(w), 'small', pack.items.length < 2)),
           this.packGrid(w),
           h('p', { class: 'dim small', style: 'margin-top:8px', text: 'Everything in the pack is lost if you die. Get it home.' }),
@@ -317,8 +317,7 @@ export class DungeonOverlays {
     const pack = w.run.backpack;
     const list = h('div', { class: 'loot-list' });
     for (const it of pk?.items ?? []) {
-      const cmpSlot = defaultSlot(it, w.state.equipment);
-      const cmp = cmpSlot ? w.state.equipment[cmpSlot] : null;
+      const cmp = wornFor(it, w.state.equipment);
       list.append(
         h(
           'div',
@@ -337,8 +336,7 @@ export class DungeonOverlays {
     // the Drop button below does the same one tap at a time.
     const packRows = h('div', { class: 'loot-list pack-swap' });
     for (const it of pack.items) {
-      const slot = defaultSlot(it, w.state.equipment);
-      const cmp = slot ? w.state.equipment[slot] : null;
+      const cmp = wornFor(it, w.state.equipment);
       packRows.append(
         h(
           'div',
@@ -417,7 +415,7 @@ export class DungeonOverlays {
 
   private map(w: World): HTMLElement {
     const f = w.floor;
-    const cell = Math.max(6, Math.min(16, Math.floor(Math.min(window.innerWidth * 0.8, window.innerHeight * 0.72) / f.width)));
+    const cell = clamp(Math.floor(Math.min(window.innerWidth * 0.8, window.innerHeight * 0.72) / f.width), 6, 16);
     const c = h('canvas', { class: 'bigmap', attrs: { width: String(f.width * cell), height: String(f.height * cell) } });
     drawMap(c, f, w.player.x, w.player.y, w.player.facing, { cell, visibleEnemies: w.visibleEnemies() }, 0);
     const kills = f.enemies.filter((e) => e.ai === 'dead').length;
@@ -520,8 +518,4 @@ export class DungeonOverlays {
       ),
     );
   }
-}
-
-export function slotLabel(item: Item): string {
-  return item.kind === 'equipment' ? itemBase(item.ref).slot : item.kind;
 }

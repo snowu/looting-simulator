@@ -1,5 +1,5 @@
 import { ArtDef } from './raster';
-import { rows, stamp, sym } from './helpers';
+import { fill, rows, stamp, sym } from './helpers';
 import { bowAtRest, bowDrawn } from './weapons';
 
 // Front-facing 32×32 enemy sprites, feet on the bottom row. Each enemy has an
@@ -196,15 +196,7 @@ const GOBLIN_RAISED = rows(`
   kgk...
   kk....
 `);
-const ERASE_3x7 = rows(`
-  ___
-  ___
-  ___
-  ___
-  ___
-  ___
-  ___
-`);
+const ERASE_3x7 = fill(3, 7, '_');
 const GOBLIN_SHRIEK = rows(`
   kwmmmmwk
   kkwmmwkk
@@ -287,19 +279,7 @@ const SKELETON_RAISED = rows(`
   .kwk....
   .kwk....
 `);
-const ERASE_4x11 = rows(`
-  ____
-  ____
-  ____
-  ____
-  ____
-  ____
-  ____
-  ____
-  ____
-  ____
-  ____
-`);
+const ERASE_4x11 = fill(4, 11, '_');
 const SKELETON_PAL = {
   k: '#0e0c0a', w: '#e2d9c2', v: '#aa9e84', u: '#6e6452', r: '#ff5030fa',
   s: '#8a8a94', q: '#7a4a2a', j: '#5a5a64', h: '#5a3a1a',
@@ -323,7 +303,7 @@ const ARCHER_PAL = {
  * that read as four limbs. Cut both forearms back to where the pose puts a
  * hand — one closed on the riser, one on the held shaft.
  */
-const ARCHER_TRIM_ARMS = Array.from({ length: 6 }, () => '_'.repeat(4));
+const ARCHER_TRIM_ARMS = fill(4, 6, '_');
 
 const GOB_ARCHER_PAL = {
   ...GOBLIN_PAL,
@@ -335,41 +315,8 @@ const GOB_ARCHER_PAL = {
 // only braced a little higher when the right arm goes up with the weapon.
 // The raised stamps below draw arm *and* weapon, so the attack frame erases
 // the hanging weapon-arm first instead of leaving both hanging and raised.
-const GOB_ERASE_ARM = rows(`
-  ______
-  ______
-  ______
-  ______
-  ______
-  ______
-  ______
-  ______
-  ______
-  ______
-  ______
-  ______
-  ______
-  ______
-  ______
-  ______
-`);
-const SKEL_ERASE_ARM = rows(`
-  ________
-  ________
-  ________
-  ________
-  ________
-  ________
-  ________
-  ________
-  ________
-  ________
-  ________
-  ________
-  ________
-  ________
-  ________
-`);
+const GOB_ERASE_ARM = fill(6, 16, '_');
+const SKEL_ERASE_ARM = fill(8, 15, '_');
 // --- Shield block pose -----------------------------------------------------------
 // The left arm bends across the body and the shield comes center: the same
 // arm, redrawn — not a second shield teleported in. The weapon arm stays
@@ -379,21 +326,7 @@ const SKEL_ERASE_ARM = rows(`
 // covered the face, which is where every one of these creatures keeps the eyes
 // that tell you it has seen you; and the elbow now swings clear of the body,
 // because a shield that only slides across is a shield you do not notice.
-const GOB_ERASE_LEFT = rows(`
-  ________
-  ________
-  ________
-  ________
-  ________
-  ________
-  ________
-  ________
-  ________
-  ________
-  ________
-  ________
-  ________
-`);
+const GOB_ERASE_LEFT = fill(8, 13, '_');
 const GOB_BENT_ARM = rows(`
   kgk.....
   kgkk....
@@ -402,20 +335,7 @@ const GOB_BENT_ARM = rows(`
   ..kgggk.
   ...kkkk.
 `);
-const SKEL_ERASE_LEFT = rows(`
-  _______
-  _______
-  _______
-  _______
-  _______
-  _______
-  _______
-  _______
-  _______
-  _______
-  _______
-  _______
-`);
+const SKEL_ERASE_LEFT = fill(7, 12, '_');
 const SKEL_BENT_ARM = rows(`
   kwk.....
   kwkk....
@@ -609,28 +529,7 @@ const MAUL_RAISED = rows(`
   .kqk.....
   .kqk.....
 `);
-const ERASE_5x20 = rows(`
-  _____
-  _____
-  _____
-  _____
-  _____
-  _____
-  _____
-  _____
-  _____
-  _____
-  _____
-  _____
-  _____
-  _____
-  _____
-  _____
-  _____
-  _____
-  _____
-  _____
-`);
+const ERASE_5x20 = fill(5, 20, '_');
 const BARROW_PAL = {
   ...SKELETON_PAL,
   w: '#c2c8a4', v: '#8e9676', u: '#5e6450', r: '#7cff8afa',

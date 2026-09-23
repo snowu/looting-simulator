@@ -1,3 +1,4 @@
+import { clamp } from '../core/math';
 /**
  * Every sound is synthesised with WebAudio — no asset files. The context is
  * created lazily on the first user gesture (browsers require it).
@@ -159,7 +160,7 @@ class AudioEngine {
     let dest: AudioNode = g;
     if (opts.pan) {
       const p = this.ctx.createStereoPanner();
-      p.pan.value = Math.max(-1, Math.min(1, opts.pan));
+      p.pan.value = clamp(opts.pan, -1, 1);
       g.connect(p);
       p.connect(this.master);
     } else {

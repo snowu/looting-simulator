@@ -14,8 +14,9 @@ import { createRng, hashString } from '../core/rng';
 import { GameState } from '../state/game-state';
 import { DamageType, Item } from '../types';
 import { enemyDef } from '../data/enemies';
-import { EnemyState, Floor, FLOOR, createEnemy } from './dungeon';
+import { EnemyState, Floor, FLOOR, createEnemy, doorAt, inRoom, stairsAt, tileAt } from './dungeon';
 import { DifficultyId } from '../data/difficulty';
+import { manhattan } from '../core/math';
 
 export interface Grave {
   depth: number;
@@ -53,12 +54,12 @@ export function placeShade(state: GameState, floor: Floor, runSeed: number, diff
   const busy = new Set(floor.enemies.filter((e) => e.ai !== 'dead').map((e) => `${e.x},${e.y}`));
   const spots: [number, number][] = [];
   for (let y = 1; y < floor.height - 1; y++) for (let x = 1; x < floor.width - 1; x++) {
-    if (floor.tiles[y * floor.width + x] !== FLOOR || busy.has(`${x},${y}`)) continue;
-    if (floor.doors.some((d) => d.x === x && d.y === y) || floor.stairs.some((s) => s.x === x && s.y === y)) continue;
+    if (tileAt(floor, x, y) !== FLOOR || busy.has(`${x},${y}`)) continue;
+    if (doorAt(floor, x, y) || stairsAt(floor, x, y)) continue;
     if (floor.props.some((p) => p.blocking && p.x === x && p.y === y)) continue;
-    if (up && Math.abs(x - up.x) + Math.abs(y - up.y) < SHADE_MIN_DISTANCE) continue;
+    if (up && manhattan(x, y, up.x, up.y) < SHADE_MIN_DISTANCE) continue;
     // Not inside the throne room: the King's fight is his own.
-    if (floor.rooms.some((r) => r.role === 'throne' && x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h)) continue;
+    if (floor.rooms.some((r) => r.role === 'throne' && inRoom(r, x, y))) continue;
     spots.push([x, y]);
   }
   if (!spots.length) return null;

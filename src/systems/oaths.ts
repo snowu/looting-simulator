@@ -57,20 +57,35 @@ export function beginOaths(state: GameState, run: RunState): void {
   if (ids.includes('dry_throat') && run.flask) run.flask.charges = 0;
 }
 
+/**
+ * Where one oath's task stands on this delve: whether it is done, and what is
+ * left in the HUD's words ('' once there is nothing left to show). The one
+ * place each oath's objective is written; whether it was kept only adds how
+ * the delve ended.
+ */
+export function oathProgress(run: RunState, oath: OathState): { met: boolean; left: string } {
+  const task = (met: boolean, left: string) => ({ met, left: met ? '' : left });
+  const count = (have: number, need: number, what: string) => task(have >= need, `${have}/${need} ${what}`);
+  const reach = (depth: number) => task(run.stats.deepest >= depth, `reach depth ${depth}`);
+  switch (oath.id) {
+    case 'blood_price': return count(run.stats.goldFound, BLOOD_PRICE_GOLD, 'gold');
+    // Kept the moment its depth is reached whole. Reaching it is enough for a
+    // delve saved before that moment was recorded, but only the recorded
+    // moment reads as done on the HUD.
+    case 'unbroken': return { met: oath.status === 'kept' || run.stats.deepest >= UNBROKEN_DEPTH, left: oath.status === 'kept' ? '' : `reach depth ${UNBROKEN_DEPTH}` };
+    case 'hunter': return count(oath.marks ?? 0, HUNTER_MARKS, 'marked');
+    case 'dry_throat': return reach(DRY_THROAT_DEPTH);
+    case 'duelist': return count(oath.kills ?? 0, DUELIST_KILLS, 'kills');
+    case 'kingsbane': return task(run.stats.bossKilled, 'the King');
+    case 'silence': return reach(SILENCE_DEPTH);
+    case 'pilgrim': return count(oath.prayers ?? 0, PILGRIM_PRAYERS, 'shrines');
+  }
+  return { met: false, left: '' };
+}
+
 /** Whether one oath on this run has been kept, given how the delve ended. */
 export function oathKept(run: RunState, oath: OathState, outcome: 'dead' | 'extracted'): boolean {
-  if (outcome !== 'extracted' || oath.status === 'broken') return false;
-  switch (oath.id) {
-    case 'blood_price': return run.stats.goldFound >= BLOOD_PRICE_GOLD;
-    case 'unbroken': return oath.status === 'kept' || run.stats.deepest >= UNBROKEN_DEPTH;
-    case 'hunter': return (oath.marks ?? 0) >= HUNTER_MARKS;
-    case 'dry_throat': return run.stats.deepest >= DRY_THROAT_DEPTH;
-    case 'duelist': return (oath.kills ?? 0) >= DUELIST_KILLS;
-    case 'kingsbane': return run.stats.bossKilled;
-    case 'silence': return run.stats.deepest >= SILENCE_DEPTH;
-    case 'pilgrim': return (oath.prayers ?? 0) >= PILGRIM_PRAYERS;
-  }
-  return false;
+  return outcome === 'extracted' && oath.status !== 'broken' && oathProgress(run, oath).met;
 }
 
 export interface OathOutcome {
@@ -114,10 +129,6 @@ export function settleOaths(state: GameState, run: RunState, outcome: 'dead' | '
   return { results, picks, renown, bonus };
 }
 
-/**
- * Learn one of a waiting reward's choices. The reward stays until its picks are
- * used up, with the learned one taken off the list.
- */
 /** How many inscriptions the waiting reward still lets you learn. */
 export function oathRewardPicks(state: GameState): number {
   const reward = state.oathReward;
@@ -137,6 +148,10 @@ export function claimOathRewards(state: GameState, ids: string[]): boolean {
   return true;
 }
 
+/**
+ * Learn one of a waiting reward's choices. The reward stays until its picks are
+ * used up, with the learned one taken off the list.
+ */
 export function claimOathReward(state: GameState, id: string): boolean {
   const reward = state.oathReward;
   if (!reward || !reward.choices.includes(id)) return false;

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { EMBER_VENTS, emberFloorIndex, EMBER_CEILING_VENTS, emberCeilingIndex } from '../art/ember-floor';
 import { createRng, hashString } from '../core/rng';
+import { biomeForFloor } from '../data/biomes';
 import { Floor, FLOOR, WALL, PILLAR, tileAt } from '../systems/dungeon';
 import { Shared, ps1Material } from './ps1';
 import { TILE, WALL_H } from './level-mesh';
@@ -20,6 +21,8 @@ export class LavaEffects {
   onSound: ((event: LavaSound) => void) | null = null;
   private floor: Floor | null = null;
   private blockers = new Set<number>();
+  /** Rebuild `blockers` before the next sight check: doors and props may have moved. */
+  private blockersStale = true;
   private projected = new THREE.Vector3();
   private rng = createRng(0);
   private sites: Site[] = [];
@@ -62,7 +65,7 @@ export class LavaEffects {
     this.bubble.visible = false;
     for (const d of this.drops) { d.active = false; d.body.visible = d.neck.visible = d.core.visible = false; }
     for (const s of this.sparks) { s.life = 0; s.mesh.visible = false; }
-    if (floor.biome !== 'emberworks') return;
+    if (!biomeForFloor(floor).molten) return;
     this.rng = createRng(hashString(`lava-decor:${floor.seed}:${floor.depth}`));
     for (let y = 0; y < floor.height; y++) for (let x = 0; x < floor.width; x++) {
       if (tileAt(floor, x, y) !== FLOOR || floor.stairs.some(s => s.x === x && s.y === y)
@@ -95,11 +98,7 @@ export class LavaEffects {
       .sort((a, b) => (a.x-camera.position.x)**2+(a.z-camera.position.z)**2 - (b.x-camera.position.x)**2-(b.z-camera.position.z)**2);
     if (step === 0) return;
     this.nextDrop -= step; this.nextBurst -= step;
-    this.blockers.clear();
-    if (this.floor) {
-      for (const d of this.floor.doors) if (!d.open) this.blockers.add(d.y * this.floor.width + d.x);
-      for (const p of this.floor.props) if (p.blocking) this.blockers.add(p.y * this.floor.width + p.x);
-    }
+    this.blockersStale = true;
     camera.updateMatrixWorld();
     camera.getWorldDirection(this.forward);
     const inView = (s: Site) => {
@@ -114,9 +113,9 @@ export class LavaEffects {
       return Math.abs(this.projected.x) < 0.8 && Math.abs(this.projected.y) < 0.78
         && this.projected.z > -1 && this.projected.z < 1;
     };
-    const candidates = this.near.filter(floorVisible).slice(0, 8);
-    const ceilingCandidates = this.ceilingSites.filter(inView);
-    if (this.nextDrop <= 0 && ceilingCandidates.length) {
+    // Sight checks are only worth running on the frames that pick a site.
+    const ceilingCandidates = this.nextDrop <= 0 ? this.ceilingSites.filter(inView) : [];
+    if (ceilingCandidates.length) {
       this.nextDrop = this.rng.float(2.0, 3.7);
       const d = this.drops.find(d => !d.active);
       if (d) {
@@ -151,7 +150,8 @@ export class LavaEffects {
       d.neck.position.set(d.x, (WALL_H + y) / 2, d.z);
       d.neck.scale.set(radius * (0.65 - 0.57 * t), WALL_H - y, radius * (0.65 - 0.57 * t));
     }
-    if (this.nextBurst <= 0 && !this.burstSite && candidates.length) {
+    const candidates = this.nextBurst <= 0 && !this.burstSite ? this.near.filter(floorVisible).slice(0, 8) : [];
+    if (candidates.length) {
       this.burstSite = this.rng.pick(candidates); this.burstAge = 0;
       this.nextBurst = this.rng.float(6, 10);
     }
@@ -183,6 +183,12 @@ export class LavaEffects {
   private clearSight(x: number, z: number, site: Site): boolean {
     const floor = this.floor;
     if (!floor) return false;
+    if (this.blockersStale) {
+      this.blockers.clear();
+      for (const d of floor.doors) if (!d.open) this.blockers.add(d.y * floor.width + d.x);
+      for (const p of floor.props) if (p.blocking) this.blockers.add(p.y * floor.width + p.x);
+      this.blockersStale = false;
+    }
     const steps = Math.ceil(Math.hypot(site.x - x, site.z - z) / 0.2);
     for (let i = 1; i <= steps; i++) {
       const tx = Math.floor((x + (site.x - x) * i / steps) / TILE);

@@ -1,4 +1,5 @@
 import { EnemyAI } from '../systems/dungeon';
+import { clamp } from '../core/math';
 
 /**
  * One place decides what a creature looks like mid-attack: which of its two or
@@ -63,7 +64,7 @@ const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
 function strikeLunge(sinceStrike: number, recovery: number, ranged: boolean): number {
   const peak = ranged ? -RECOIL : PUNCH;
   const out = ranged ? RECOIL_OUT : PUNCH_OUT;
-  const back = Math.max(0.08, Math.min(ranged ? RECOIL_BACK : PUNCH_BACK, recovery - out));
+  const back = clamp(recovery - out, 0.08, ranged ? RECOIL_BACK : PUNCH_BACK);
   if (sinceStrike < 0 || sinceStrike >= out + back) return 0;
   if (sinceStrike < out) return peak * (sinceStrike / out);
   return peak * (1 - (sinceStrike - out) / back);

@@ -4,14 +4,14 @@
  * an `import.meta.env.DEV` guard, so none of this reaches a production bundle.
  */
 import { GameState } from '../state/game-state';
-import { Equipment } from '../systems/player';
+import { emptyEquipment } from '../systems/player';
 import { makeConsumable, makeEquipment } from '../systems/items';
 import { addItem } from '../state/inventory';
 import { syncLoadout } from '../systems/run';
 import { Rarity } from '../types';
 import { World } from '../world/world';
 import { enemyDef } from '../data/enemies';
-import { Room, blocksMove, createEnemy } from '../systems/dungeon';
+import { Floor, Room, blocksMove, createEnemy, inRoom } from '../systems/dungeon';
 import { Dir, dirOf, turnAround } from '../core/dir';
 
 export interface SquadConfig {
@@ -34,8 +34,7 @@ export interface SquadConfig {
 
 /** Honest depth-1 kit: enough shield to mistime a parry or two, nothing more. */
 export function prepareScratch(state: GameState): void {
-  const e = {} as Equipment;
-  for (const s of ['weapon', 'offhand', 'head', 'body', 'hands', 'ring1', 'ring2', 'amulet'] as const) e[s] = null;
+  const e = emptyEquipment();
   e.weapon = makeEquipment({ baseId: 'long_sword', materialId: 'iron', rarity: Rarity.Common, ilvl: 4 });
   e.offhand = makeEquipment({ baseId: 'tower_shield', materialId: 'iron', rarity: Rarity.Common, ilvl: 4 });
   e.body = makeEquipment({ baseId: 'plate', materialId: 'iron', rarity: Rarity.Common, ilvl: 4 });
@@ -46,11 +45,27 @@ export function prepareScratch(state: GameState): void {
 }
 
 /** Face from one tile toward another, falling back through the axes. */
-function face(fromX: number, fromY: number, toX: number, toY: number, fallback: Dir): Dir {
+export function face(fromX: number, fromY: number, toX: number, toY: number, fallback: Dir): Dir {
   return dirOf(Math.sign(toX - fromX), Math.sign(toY - fromY))
     ?? dirOf(Math.sign(toX - fromX), 0)
     ?? dirOf(0, Math.sign(toY - fromY))
     ?? fallback;
+}
+
+/** The biggest room on the floor that isn't a secret or the throne room. */
+export function biggestRoom(f: Floor): Room | null {
+  const rooms = f.rooms.filter((r) => r.role !== 'secret' && r.role !== 'throne');
+  return rooms.length ? rooms.reduce((a, b) => (a.w * a.h >= b.w * b.h ? a : b)) : null;
+}
+
+/**
+ * Wipe a room clean so nothing else joins in: no ambushers, no traps
+ * underfoot, no furniture breaking up the sight lines.
+ */
+export function clearRoom(f: Floor, room: Room): void {
+  f.enemies = f.enemies.filter((e) => !inRoom(room, e.x, e.y));
+  f.traps = f.traps.filter((t) => !inRoom(room, t.x, t.y));
+  f.props = f.props.filter((p) => !p.blocking || !inRoom(room, p.x, p.y));
 }
 
 /**
@@ -60,9 +75,8 @@ function face(fromX: number, fromY: number, toX: number, toY: number, fallback: 
  */
 export function dropSquad(world: World, cfg: SquadConfig): string {
   const f = world.floor;
-  const rooms = f.rooms.filter((r) => r.role !== 'secret' && r.role !== 'throne');
-  if (!rooms.length) return 'no ordinary room on this floor';
-  const room: Room = rooms.reduce((a, b) => (a.w * a.h >= b.w * b.h ? a : b));
+  const room = biggestRoom(f);
+  if (!room) return 'no ordinary room on this floor';
 
   const occupied = new Set(f.enemies.filter((e) => e.ai !== 'dead').map((e) => `${e.x},${e.y}`));
   const free: Array<{ x: number; y: number }> = [];
@@ -75,12 +89,7 @@ export function dropSquad(world: World, cfg: SquadConfig): string {
   }
   if (free.length < cfg.ids.length + 1) return `no room with space for the ${cfg.label}`;
 
-  // Wipe the room clean so nothing else joins in: no ambushers, no traps
-  // underfoot, no furniture breaking up the sight lines.
-  const inside = (x: number, y: number) => x >= room.x && x < room.x + room.w && y >= room.y && y < room.y + room.h;
-  f.enemies = f.enemies.filter((e) => !inside(e.x, e.y));
-  f.traps = f.traps.filter((t) => !inside(t.x, t.y));
-  f.props = f.props.filter((p) => !p.blocking || !inside(p.x, p.y));
+  clearRoom(f, room);
 
   const spot = cfg.stand === 'corner'
     ? [...free].sort((a, b) => (a.x + a.y) - (b.x + b.y))[0]
@@ -88,8 +97,6 @@ export function dropSquad(world: World, cfg: SquadConfig): string {
       (a, b) => Math.abs(a.x - (room.x + room.w / 2)) + Math.abs(a.y - (room.y + room.h / 2))
         - (Math.abs(b.x - (room.x + room.w / 2)) + Math.abs(b.y - (room.y + room.h / 2))),
     )[0];
-  world.player.x = spot.x;
-  world.player.y = spot.y;
   const dist = (t: { x: number; y: number }) => Math.abs(t.x - spot.x) + Math.abs(t.y - spot.y);
   const perches = [...free]
     .filter((t) => t.x !== spot.x || t.y !== spot.y)
@@ -112,14 +119,6 @@ export function dropSquad(world: World, cfg: SquadConfig): string {
   // Face the nearest one. Landing in a scratch room looking at the back wall
   // is a debug tool wasting the first exchange you came to test.
   const nearest = [...perches].sort((a, b) => dist(a) - dist(b))[0];
-  world.player.facing = face(spot.x, spot.y, nearest.x, nearest.y, turnAround(world.player.facing));
-  Object.assign(world.anim, {
-    fromX: spot.x,
-    fromY: spot.y,
-    moveT: 1,
-    yaw: (world.player.facing * Math.PI) / 2,
-    yawTo: (world.player.facing * Math.PI) / 2,
-    turnT: 1,
-  });
+  world.placePlayer(spot.x, spot.y, face(spot.x, spot.y, nearest.x, nearest.y, turnAround(world.player.facing)));
   return `${cfg.ids.length} ${cfg.label}, nearest ${dist(nearest)} tile${dist(nearest) === 1 ? '' : 's'}`;
 }

@@ -1,7 +1,7 @@
 import { Rng } from '../core/rng';
-import { Item, Rarity, RARITY_ORDER, Slot } from '../types';
+import { Item, Rarity, RARITY_ORDER, rarityAtLeast, Slot } from '../types';
 import { MATERIALS, material } from '../data/materials';
-import { ITEM_BASES } from '../data/items';
+import { ITEM_BASES, findItemBase } from '../data/items';
 import { ENEMIES, enemyDef } from '../data/enemies';
 import { FINAL_DEPTH } from '../data/biomes';
 import { Container, countOf } from '../state/inventory';
@@ -104,8 +104,8 @@ export function gearCandidates(c: Contract, stash: Container): Item[] {
     (it) =>
       it.kind === 'equipment' &&
       it.identified !== false &&
-      ITEM_BASES.find((b) => b.id === it.ref)?.slot === c.slot &&
-      RARITY_ORDER[itemRarity(it)] >= RARITY_ORDER[c.minRarity!],
+      findItemBase(it.ref)?.slot === c.slot &&
+      rarityAtLeast(itemRarity(it), c.minRarity!),
   ).sort((a, b) => itemValue(a) - itemValue(b));
 }
 

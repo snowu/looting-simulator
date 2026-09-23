@@ -13,7 +13,8 @@ const RAISE_GLOW = '#8ce07a';
 import { findMaterial } from '../data/materials';
 import { findSigil } from '../data/spells';
 import { itemBase, viewmodelFor } from '../data/items';
-import { EnemyState, Floor, ShrineKind } from '../systems/dungeon';
+import { EnemyState, Floor, ShrineKind, VesselKind, shrineKind } from '../systems/dungeon';
+import { SHADE_ID } from '../systems/grave';
 import type { EnemyDef } from '../types';
 import { itemIcon } from '../systems/items';
 import { lightIntensity } from '../systems/meta';
@@ -27,6 +28,7 @@ import { LevelView, TILE, WALL_H, buildLevel, tileX, tileZ } from './level-mesh'
 import { MAX_LIGHTS, PS1Material, PostPass, Shared, createLowResTarget, createShared, ps1Material } from './ps1';
 import { brightness } from './brightness';
 import { MORSEL_ART, MORSEL_ROT_SECONDS } from '../systems/healing';
+import { clamp, manhattan } from '../core/math';
 
 const EYE = 1.32;
 
@@ -91,6 +93,9 @@ const SHRINE_LIGHT: Record<ShrineKind, string> = {
   blood: '#ff4a5a',
   combat: '#ff7a30',
 };
+
+/** Sprite height of each breakable container, whole or broken. */
+const VESSEL_SCALE: Record<VesselKind, number> = { urn: 1.4, barrel: 1.5, root_cache: 1.2 };
 const LOW_H = 240;
 
 interface SpriteObj {
@@ -111,11 +116,25 @@ interface LightCand {
 const TMP = new THREE.Vector3();
 
 /**
- * Tell colours, parsed once. A wind-up is drawn every frame for every visible
- * creature, and `new THREE.Color(hex)` in that loop is a string parse per
- * monster per frame for a palette of seven fixed values.
+ * Colours drawn every frame — tells, tints and lights — parsed once. A wind-up
+ * is drawn every frame for every visible creature, and `new THREE.Color(hex)`
+ * in that loop is a string parse per monster per frame for a handful of fixed
+ * values. Shared instances: callers read them and never write to them.
  */
-const TELL_COLORS = new Map<string, THREE.Color>();
+const COLORS = new Map<string, THREE.Color>();
+
+function cachedColor(hex: string): THREE.Color {
+  let c = COLORS.get(hex);
+  if (!c) {
+    c = new THREE.Color(hex);
+    COLORS.set(hex, c);
+  }
+  return c;
+}
+
+const WHITE = new THREE.Color('#ffffff');
+/** The viewmodel's torch tint, rebuilt in place each frame. */
+const VM_TINT = new THREE.Color();
 
 /**
  * Renders the World into a low-res target with PS1 shading, then upscales
@@ -132,6 +151,12 @@ export class DungeonRenderer {
   private level: LevelView | null = null;
   private levelFloor: Floor | null = null;
   private sprites = new Map<string, SpriteObj>();
+  /**
+   * Sprites nothing drew last frame, hidden and kept for reuse. Walking moves
+   * the draw radius a row at a time, so without this the torches, props and
+   * pickups on its edge had a material built and disposed on every step.
+   */
+  private spare: SpriteObj[] = [];
   private quad = new THREE.PlaneGeometry(1, 1);
 
   // Viewmodel (drawn in low-res pixel space).
@@ -149,6 +174,9 @@ export class DungeonRenderer {
   private called = new Map<string, number>();
   private trapTriggeredAt = new Map<string, number>();
   private lowW = 320;
+  /** Canvas size in CSS pixels as of the last resize, so `project` never forces a layout. */
+  private viewW = 1;
+  private viewH = 1;
   /**
    * The Forbidden Pasture's roll, eased rather than snapped. The world turns
    * over across {@link QUIRK_EASE} seconds when you arrive and turns back when
@@ -200,6 +228,8 @@ export class DungeonRenderer {
   resize(): void {
     const w = Math.max(1, this.canvas.clientWidth);
     const h = Math.max(1, this.canvas.clientHeight);
+    this.viewW = this.canvas.clientWidth;
+    this.viewH = this.canvas.clientHeight;
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
@@ -232,25 +262,16 @@ export class DungeonRenderer {
    * tell that a cast is happening, and a fist is already the right gag.
    */
   private dressWeapon(art: { id: string; materialId?: string }, world: World): { id: string; materialId?: string } {
-    if (quirkDef(world.floor.quirk)?.id !== 'silent') return art;
+    const dress = quirkDef(world.floor.quirk)?.dress;
+    if (!dress) return art;
     if (art.id === 'vm_fist' || art.id.startsWith('vm_sigil')) return art;
-    return { id: 'vm_cane', materialId: 'deep_yew' };
-  }
-
-  /** A move's tell colour, parsed once and reused. */
-  private tellColor(hex: string): THREE.Color {
-    let c = TELL_COLORS.get(hex);
-    if (!c) {
-      c = new THREE.Color(hex);
-      TELL_COLORS.set(hex, c);
-    }
-    return c;
+    return { id: dress.weapon, materialId: dress.materialId };
   }
 
   private sprite(key: string): SpriteObj {
     let s = this.sprites.get(key);
     if (!s) {
-      s = this.makeSprite(this.shared, this.scene);
+      s = this.spare.pop() ?? this.makeSprite(this.shared, this.scene);
       this.sprites.set(key, s);
     }
     s.seen = true;
@@ -372,7 +393,7 @@ export class DungeonRenderer {
   project(tx: number, ty: number, height: number): { x: number; y: number } | null {
     TMP.set(tileX(tx), height, tileZ(ty)).project(this.camera);
     if (TMP.z > 1) return null;
-    return { x: ((TMP.x + 1) / 2) * this.canvas.clientWidth, y: ((1 - TMP.y) / 2) * this.canvas.clientHeight };
+    return { x: ((TMP.x + 1) / 2) * this.viewW, y: ((1 - TMP.y) / 2) * this.viewH };
   }
 
   render(world: World, dt: number): void {
@@ -404,7 +425,7 @@ export class DungeonRenderer {
       this.shared.uFogFar.value = floorQuirk?.fogFar ?? 18;
     }
     this.shared.uAmbient.value.set(floorQuirk?.ambient ?? biome.ambient);
-    if (biome.id === 'emberworks' && !floorQuirk) {
+    if (biome.molten && !floorQuirk) {
       this.shared.uAmbient.value.multiplyScalar(1 + 0.08 * Math.sin(this.time * Math.PI * 0.8 + 1.7));
     }
     this.level!.update(dt);
@@ -433,8 +454,8 @@ export class DungeonRenderer {
     // upside down rather than as a tilted photograph of a normal one. The
     // viewmodel lives in its own upright ortho scene, so your own hands stay
     // where you left them, and with them your bearings.
-    const rollTo = floorQuirk?.id === 'pasture' ? Math.PI : 0;
-    const monoTo = floorQuirk?.id === 'silent' ? 1 : 0;
+    const rollTo = floorQuirk?.roll ?? 0;
+    const monoTo = floorQuirk?.mono ? 1 : 0;
     // A real duration, not an exponential tail. Smoothing by `dt / QUIRK_EASE`
     // makes QUIRK_EASE a time *constant*: from upright to upside down took six
     // or seven seconds, so you arrived on the Pasture the right way up and
@@ -455,14 +476,14 @@ export class DungeonRenderer {
     this.mono = this.monoFrom + (monoTo - this.monoFrom) * k;
     this.camera.rotation.set(0, -a.yaw, this.deathFade * 0.5 + this.roll);
 
-    this.lava.update(biome.id === 'emberworks' ? dt : 0, this.camera);
+    this.lava.update(biome.molten ? dt : 0, this.camera);
 
     // --- Lights ---------------------------------------------------------------
     const flick = (seed: number) => 0.9 + Math.sin(this.time * 11 + seed) * 0.06 + Math.sin(this.time * 23.7 + seed * 3) * 0.04;
     const lights: LightCand[] = [];
-    const torchColor = new THREE.Color(biome.torch);
+    const torchColor = cachedColor(biome.torch);
     // The player's own light is whiter than the wall torches so colours read true up close.
-    const handLight = new THREE.Color('#ffe6cc');
+    const handLight = cachedColor('#ffe6cc');
     const meta = world.state.meta;
     lights.push({
       x: this.camera.position.x, y: EYE + 0.2, z: this.camera.position.z,
@@ -478,19 +499,19 @@ export class DungeonRenderer {
       lights.push({ x: wx, y: 1.9, z: wz, r: 7, color: torchColor, intensity: 1.0 * flick(t.x * 7 + t.y) });
     }
     for (const pr of floor.props) {
-      if (pr.kind === 'fungus') lights.push({ x: tileX(pr.x), y: 0.4, z: tileZ(pr.y), r: 3, color: new THREE.Color('#40e0c0'), intensity: 0.7 });
-      if (pr.kind === 'portal') lights.push({ x: tileX(pr.x), y: 1.2, z: tileZ(pr.y), r: 7, color: new THREE.Color('#b070ff'), intensity: 1.3 * flick(5) });
-      if (pr.kind === 'town_portal') lights.push({ x: tileX(pr.x), y: 1.2, z: tileZ(pr.y), r: 6, color: new THREE.Color('#70b0ff'), intensity: 1.1 * flick(4) });
+      if (pr.kind === 'fungus') lights.push({ x: tileX(pr.x), y: 0.4, z: tileZ(pr.y), r: 3, color: cachedColor('#40e0c0'), intensity: 0.7 });
+      if (pr.kind === 'portal') lights.push({ x: tileX(pr.x), y: 1.2, z: tileZ(pr.y), r: 7, color: cachedColor('#b070ff'), intensity: 1.3 * flick(5) });
+      if (pr.kind === 'town_portal') lights.push({ x: tileX(pr.x), y: 1.2, z: tileZ(pr.y), r: 6, color: cachedColor('#70b0ff'), intensity: 1.1 * flick(4) });
       // The colour it throws is the tell you can read from across a room.
       if (pr.kind === 'shrine' && !pr.used) {
-        lights.push({ x: tileX(pr.x), y: 1.3, z: tileZ(pr.y), r: 4.5, color: new THREE.Color(SHRINE_LIGHT[pr.shrine ?? 'font']), intensity: 0.95 });
+        lights.push({ x: tileX(pr.x), y: 1.3, z: tileZ(pr.y), r: 4.5, color: cachedColor(SHRINE_LIGHT[shrineKind(pr)]), intensity: 0.95 });
       }
     }
     for (const tr of floor.traps ?? []) {
       // Only the ward glows, because a ward is magic. A dart plate and a spike
       // pit are ironmongery in a dark floor: your lamp has to find them.
       if (tr.kind !== 'alarm' || !tr.found || !tr.armed) continue;
-      lights.push({ x: tileX(tr.x), y: 0.2, z: tileZ(tr.y), r: 2.5, color: new THREE.Color('#a070ff'), intensity: 0.5 * flick(7) });
+      lights.push({ x: tileX(tr.x), y: 0.2, z: tileZ(tr.y), r: 2.5, color: cachedColor('#a070ff'), intensity: 0.5 * flick(7) });
     }
     // Corpses a Gravecaller is chanting over: they rise into view and glow.
     const called = new Map<string, number>();
@@ -502,19 +523,20 @@ export class DungeonRenderer {
       const def = enemyDef(en.def);
       const view = enemyView(def, en.hp, en.maxHp, { elite: en.elite, carrying: !!en.stolen?.length });
       const call = called.get(en.id);
-      if (call !== undefined) lights.push({ x: tileX(en.x), y: 0.5, z: tileZ(en.y), r: 3 + 2 * call, color: new THREE.Color(RAISE_GLOW), intensity: 0.6 + 0.8 * call });
+      if (call !== undefined) lights.push({ x: tileX(en.x), y: 0.5, z: tileZ(en.y), r: 3 + 2 * call, color: cachedColor(RAISE_GLOW), intensity: 0.6 + 0.8 * call });
       // A lurker throws no light: an elite glowing on the ceiling would be no ambush.
-      if (view.glow && en.ai !== 'dead' && !en.lurk) lights.push({ x: tileX(en.x), y: 1.2, z: tileZ(en.y), r: 4.5, color: new THREE.Color(view.glow), intensity: 0.9 });
+      if (view.glow && en.ai !== 'dead' && !en.lurk) lights.push({ x: tileX(en.x), y: 1.2, z: tileZ(en.y), r: 4.5, color: cachedColor(view.glow), intensity: 0.9 });
       // A Vengeful corpse's fuse: a swelling violet light over the body.
-      if (en.burstT !== undefined) lights.push({ x: tileX(en.x), y: 0.6, z: tileZ(en.y), r: 3.5, color: new THREE.Color(ELITES.vengeful.color), intensity: 0.8 + 0.8 * Math.abs(Math.sin(this.time * 14)) });
+      if (en.burstT !== undefined) lights.push({ x: tileX(en.x), y: 0.6, z: tileZ(en.y), r: 3.5, color: cachedColor(ELITES.vengeful.color), intensity: 0.8 + 0.8 * Math.abs(Math.sin(this.time * 14)) });
     }
     for (const pr of world.projectiles) {
-      if (pr.light) lights.push({ x: pr.x * TILE, y: 1.3, z: pr.y * TILE, r: 3.5, color: new THREE.Color(pr.light), intensity: 1.1 });
+      if (pr.light) lights.push({ x: pr.x * TILE, y: 1.3, z: pr.y * TILE, r: 3.5, color: cachedColor(pr.light), intensity: 1.1 });
     }
     const camX = this.camera.position.x, camZ = this.camera.position.z;
-    const [first, ...rest] = lights;
-    rest.sort((l1, l2) => (l1.x - camX) ** 2 + (l1.z - camZ) ** 2 - ((l2.x - camX) ** 2 + (l2.z - camZ) ** 2));
-    const chosen = [first, ...rest].slice(0, MAX_LIGHTS);
+    // The hand light always comes first; the rest go nearest-first.
+    const rest = lights.slice(1).sort((l1, l2) => (l1.x - camX) ** 2 + (l1.z - camZ) ** 2 - ((l2.x - camX) ** 2 + (l2.z - camZ) ** 2));
+    rest.length = Math.min(rest.length, MAX_LIGHTS - 1);
+    const chosen = [lights[0], ...rest];
     chosen.forEach((l, i) => {
       this.shared.uLightPos.value[i].set(l.x, l.y, l.z, l.r);
       this.shared.uLightColor.value[i].set(l.color.r * l.intensity, l.color.g * l.intensity, l.color.b * l.intensity);
@@ -523,7 +545,7 @@ export class DungeonRenderer {
 
     // --- Sprites ---------------------------------------------------------------
     for (const s of this.sprites.values()) s.seen = false;
-    const near = (x: number, y: number) => Math.abs(x - p.x) + Math.abs(y - p.y) <= 14;
+    const near = (x: number, y: number) => manhattan(x, y, p.x, p.y) <= 14;
 
     for (const en of floor.enemies) {
       if (!near(en.x, en.y)) continue;
@@ -564,7 +586,7 @@ export class DungeonRenderer {
       wz += DY[en.facing] * pose.lunge;
       // How far into the wind-up it is, for the tell and the swell.
       const wound = en.ai === 'windup'
-        ? Math.max(0, Math.min(1, 1 - en.timer / Math.max(0.01, def.windup * move.windup)))
+        ? clamp(1 - en.timer / Math.max(0.01, def.windup * move.windup), 0, 1)
         : 0;
       // A slam gathers itself upward. Growth is what makes the one attack you
       // must not stand in front of readable out of the corner of an eye.
@@ -576,12 +598,12 @@ export class DungeonRenderer {
       this.place(s, `${def.sprite}_${pose.frame}`, wx, y, wz, height);
       if (en.hurtT > 0) s.mat.uniforms.uTint.value.set(1, 0.95, 0.9, Math.min(0.8, en.hurtT * 3));
       // Your Shade: a pale, cold wash so it never reads as an ordinary knight.
-      else if (en.def === 'shade' && en.ai !== 'dead' && en.ai !== 'windup') s.mat.uniforms.uTint.value.set(0.6, 0.72, 1, 0.45 + 0.08 * Math.sin(this.time * 2));
+      else if (en.def === SHADE_ID && en.ai !== 'dead' && en.ai !== 'windup') s.mat.uniforms.uTint.value.set(0.6, 0.72, 1, 0.45 + 0.08 * Math.sin(this.time * 2));
       else if (en.ai === 'windup' || (en.grabT ?? 0) > 0) {
         // The wind-up glows in the colour of the move being thrown, and the
         // glow deepens as it gathers: which attack is coming, and how soon,
         // in one signal. A plain blow keeps the old red flicker exactly.
-        const c = this.tellColor(move.tell);
+        const c = cachedColor(move.tell);
         const held = (en.feintT ?? 0) > 0;
         // A feint's stall holds the glow steady instead of flickering — the
         // creature is *showing* you the blow. That stillness is the tell.
@@ -591,21 +613,21 @@ export class DungeonRenderer {
       else if (en.elite && en.ai !== 'dead') {
         // A slow pulse in the trait's colour: readable at a glance, and never
         // confusable with the fast red flicker of a wind-up.
-        const c = new THREE.Color(ELITES[en.elite].color);
+        const c = cachedColor(ELITES[en.elite].color);
         s.mat.uniforms.uTint.value.set(c.r, c.g, c.b, 0.1 + 0.08 * Math.sin(this.time * 3));
       }
       if (call !== undefined) {
-        const c = new THREE.Color(RAISE_GLOW);
+        const c = cachedColor(RAISE_GLOW);
         s.mat.uniforms.uTint.value.set(c.r, c.g, c.b, 0.55 - 0.3 * call + 0.1 * Math.sin(this.time * 9));
       } else if (fused) {
-        const c = new THREE.Color(ELITES.vengeful.color);
+        const c = cachedColor(ELITES.vengeful.color);
         s.mat.uniforms.uTint.value.set(c.r, c.g, c.b, 0.35 + 0.3 * Math.abs(Math.sin(this.time * 14)));
       } else if (en.ai === 'dead') s.mat.uniforms.uTint.value.set(0, 0, 0, Math.min(1, en.deadT * 1.2));
 
       // The Silent Picture: everyone is dressed for the occasion. One sprite
       // billboarded above the head rather than a hat painted into sixty enemy
       // frames, so it fits a Gravecaller, a mimic and whatever is added next.
-      if (floorQuirk?.id === 'silent' && en.ai !== 'dead') {
+      if (floorQuirk?.dress && en.ai !== 'dead') {
         // Sat on the creature's own crown, not on the top of its canvas.
         const crown = y + height * (1 - spriteTop(`${def.sprite}_${pose.frame}`));
         const hat = this.sprite(`h:${en.id}`);
@@ -654,19 +676,15 @@ export class DungeonRenderer {
           break;
         }
         case 'root_cache':
-          this.place(s, pr.used ? 'root_cache_broken' : 'root_cache', wx, 0, wz, 1.2);
-          break;
         case 'urn':
-          this.place(s, pr.used ? 'urn_broken' : 'urn', wx, 0, wz, 1.4);
-          break;
         case 'barrel':
-          this.place(s, pr.used ? 'barrel_broken' : 'barrel', wx, 0, wz, 1.5);
+          this.place(s, pr.used ? `${pr.kind}_broken` : pr.kind, wx, 0, wz, VESSEL_SCALE[pr.kind]);
           break;
         case 'bones':
           this.place(s, 'bones', wx, 0, wz, 1.4);
           break;
         case 'shrine': {
-          const kind = pr.shrine ?? 'font';
+          const kind = shrineKind(pr);
           this.place(s, `shrine_${kind}${pr.used ? '_used' : ''}`, wx, 0, wz, 1.9);
           break;
         }
@@ -718,7 +736,7 @@ export class DungeonRenderer {
       const dish = MORSEL_ART[morsel.kind];
       this.place(s, dish.art, tileX(morsel.x), 0.08, tileZ(morsel.y), dish.height);
       // Over the last third of its life it goes off: a mouldy olive creeping in.
-      const rot = Math.max(0, Math.min(1, (age - MORSEL_ROT_SECONDS * 2 / 3) / (MORSEL_ROT_SECONDS / 3)));
+      const rot = clamp((age - MORSEL_ROT_SECONDS * 2 / 3) / (MORSEL_ROT_SECONDS / 3), 0, 1);
       if (rot > 0) s.mat.uniforms.uTint.value.set(0.2, 0.22, 0.1, 0.65 * rot);
     }
 
@@ -764,8 +782,8 @@ export class DungeonRenderer {
 
     for (const [k, s] of this.sprites) {
       if (!s.seen) {
-        this.scene.remove(s.mesh);
-        s.mat.dispose();
+        s.mesh.visible = false;
+        this.spare.push(s);
         this.sprites.delete(k);
       }
     }
@@ -810,7 +828,7 @@ export class DungeonRenderer {
     }
     // Torch-lit: tint the viewmodel by the torch colour, flickering.
     const biome = biomeForFloor(world.floor);
-    const tc = new THREE.Color(biome.torch).lerp(new THREE.Color('#ffffff'), 0.6);
+    const tc = VM_TINT.copy(cachedColor(biome.torch)).lerp(WHITE, 0.6);
     this.vmShared.uAmbient.value.setRGB(tc.r * 0.85 * flicker, tc.g * 0.85 * flicker, tc.b * 0.85 * flicker);
     this.vmShared.uLightCount.value = 0;
 
@@ -844,7 +862,7 @@ export class DungeonRenderer {
     if (casting) {
       // `t` counts down, so this runs 0 → 1 over the cast.
       const total = Math.max(0.01, findSigil(casting.id)?.cast ?? 0.5);
-      const k = 1 - Math.max(0, Math.min(1, casting.t / total));
+      const k = 1 - clamp(casting.t / total, 0, 1);
       y += 26 * k;
       rot = Math.sin(this.time * 22) * 0.05 * k;
     } else if (a.attackThrow) {
@@ -908,6 +926,7 @@ export class DungeonRenderer {
     this.lava.dispose();
     this.level?.dispose();
     for (const s of this.sprites.values()) s.mat.dispose();
+    for (const s of this.spare) s.mat.dispose();
     this.target.dispose();
     this.renderer.dispose();
   }

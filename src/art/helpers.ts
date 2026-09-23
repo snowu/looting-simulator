@@ -6,6 +6,16 @@ export function rows(block: string): string[] {
     .filter((l) => l.length > 0);
 }
 
+/** A `w`×`h` block of one character: '.' for a blank canvas, '_' for an eraser to stamp. */
+export function fill(w: number, h: number, ch = '.'): string[] {
+  return Array.from({ length: h }, () => ch.repeat(w));
+}
+
+/** Flip rows left to right. */
+export function mirror(r: string[]): string[] {
+  return r.map((row) => [...row].reverse().join(''));
+}
+
 /** Mirror left-half rows into full symmetric rows. */
 export function sym(half: string[]): string[] {
   return half.map((r) => r + [...r].reverse().join(''));
@@ -25,10 +35,4 @@ export function stamp(base: string[], over: string[], ox = 0, oy = 0): string[] 
     });
   });
   return out.map((r) => r.join(''));
-}
-
-/** Pad rows at the top so a sprite sits on the bottom of a taller canvas. */
-export function padTop(r: string[], height: number): string[] {
-  const w = r[0].length;
-  return [...Array.from({ length: Math.max(0, height - r.length) }, () => '.'.repeat(w)), ...r];
 }

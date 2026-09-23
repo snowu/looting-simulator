@@ -1,3 +1,57 @@
+# Faster start
+
+*Save revision 29, unchanged: nothing about a save moves.*
+
+**All the art now arrives in one download.** Before the title screen could appear, the game fetched every sprite, texture and icon as its own file, more than three hundred of them. On a phone that was most of the wait. It now fetches them as a single file of about 110 kB, and because each update gets its own copy of that file, the browser can keep it until the next update.
+
+Nothing looks different. Hand-painted art still overrides the built-in art exactly as before. If the combined file is ever missing, the game falls back to fetching the sprites one by one, so a problem with it can't stop the game starting.
+
+Validation: all 794 tests pass, including new tests that the combined file carries every shipped image byte for byte and that the game falls back to the loose files when the combined file is missing, cut off mid-download, or answered by a server's HTML page. Served the production build locally: one art request instead of 322, and the title screen, the town's icons and the dungeon's textures all come from it. With the combined file removed, the same build fell back to the loose files and still reached the title screen.
+
+---
+
+# Gold reads the same everywhere
+
+*Save revision 29, unchanged: nothing about a save moves.*
+
+**Large sums of gold are grouped everywhere.** The town already wrote 12,345g. The dungeon HUD, the pack header and the floating +gold numbers over a pickup, chest, coffer or shrine prize wrote 12345g. They all write 12,345g now, and so do the appraiser's price hint, the inscribe button and an item's base value in the detailed tooltip.
+
+**No more mismatched roof over a broken wall.** In the Emberworks, the only biome whose roof comes in several patterns, the roof above a cracked wall was always the plain pattern. Once the wall came down, that left one odd panel overhead. It now uses the same patterns as the rest of the roof.
+
+Validation: all 788 tests pass. Checked the HUD in the browser with 12,345 gold carried.
+
+---
+
+# Cloud saves stop asking about a save you never touched
+
+*Save revision 29, unchanged. The fix changes how a save is read on load; it writes nothing new into it.*
+
+**Signing in after an update could put an untouched save in front of you as a conflict.** Say you last synced on your laptop, then played on your phone. After the next update that changed the save format, signing in on the laptop asked you to choose between the laptop's save and the phone's, as if you had played both. You hadn't. The update had reshaped the laptop's save on load, and sync mistook that reshaping for play.
+
+**Now an update's reshaping doesn't count as play.** If the save on this device is exactly what the last sync agreed on, it is still that agreement after the update. When only the other device moved on, its progress is taken without a question, which is what already happened between updates. If both devices really did move on, you are still asked, as before.
+
+Validation: two new tests in `sync.test.ts` load a save one revision older, exactly as the previous build left it on disk. In the first, another device has since written, and sign-in now takes the cloud instead of asking; with the fix turned off, the same test gets the chooser. The second checks that a save that had moved on from the agreement keeps its old agreement. All 782 tests pass.
+
+---
+
+# Smoother frames in the dungeon
+
+*Save revision 29, unchanged: nothing about a save or a floor moves.*
+
+**The dungeon does less work per frame, which matters most on a phone.** Nothing looks or plays differently. The game just stops redoing work it had already done:
+
+- Damage numbers no longer make the browser re-measure the page once per number, every frame of a fight.
+- The compass, health, prompt, target and oath lines are only redrawn when they actually change.
+- The minimap draws only the patch around you, and only redraws it when you move, explore or a wall comes down.
+- Torches, props and pickups at the edge of your sight are kept and hidden rather than rebuilt from scratch on every step.
+- Lights and tints are parsed once rather than every frame.
+- Monsters looking for a path around each other check where everyone is once per search, not once per tile.
+- On lava floors, the drips and bursts only check what you can see when it's time to pick a new spot, every few seconds.
+
+Validation: all 780 tests pass, including the golden floor hashes, and the build is clean. In the browser, in the dev lab's throwaway game: fought and killed skeletons with the minimap and damage numbers on screen, at a steady 16.7 ms per frame. The Silent Picture and the Forbidden Pasture both still dress the floor as before.
+
+---
+
 # The stairs do not always go where stairs go
 
 **Every so often, a floor comes out wrong.** Below the first floor and above the throne, a delve can turn up somewhere it has no business turning up. There is no key, no rumour and no choice about it. You find out by walking down the stairs.

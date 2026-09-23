@@ -149,9 +149,6 @@ export interface OathReward {
   picks?: number;
 }
 
-/** Renown paid instead by a medium oath, when every property is already learned. */
-export const OATH_FALLBACK_RENOWN = OATH_FALLBACK.medium;
-
 export function findOath(id: string | null | undefined): OathDef | undefined {
   return id ? OATHS[id as OathId] : undefined;
 }

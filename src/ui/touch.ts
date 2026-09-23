@@ -1,4 +1,5 @@
 import { artImg, h } from './dom';
+import { clamp } from '../core/math';
 
 export type TouchMove = 'forward' | 'back' | 'left' | 'right' | 'turnLeft' | 'turnRight';
 
@@ -40,7 +41,6 @@ export function isTouchDevice(): boolean {
   return matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
 }
 
-const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 /**
  * Drag anywhere on the view, like holding WASD: up/down walk, left/right

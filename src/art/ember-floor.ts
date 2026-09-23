@@ -1,4 +1,5 @@
 import { ArtDef } from './raster';
+import { tileHash } from '../core/tile-hash';
 
 // Broad, dry basalt plates. Each layout moves the junctions and changes plate
 // sizes; the warm bevel faces DOWN into the gaps rather than lighting the tops.
@@ -40,7 +41,7 @@ export const EMBER_FLOORS: ArtDef[] = LAYOUTS.map((points, i) => ({ id: EMBER_FL
 
 /** Same position-only choice used by the floor mesh and its cosmetic vents. */
 export function emberFloorIndex(x: number, y: number): number {
-  return ((((x * 73856093) ^ (y * 19349663) ^ (4 * 83492791)) >>> 0) % 100) % EMBER_FLOORS.length;
+  return (tileHash(x, y, 4) % 100) % EMBER_FLOORS.length;
 }
 
 export const EMBER_CEILING_IDS = ['ceil_emberworks', 'ceil_emberworks_shelf', 'ceil_emberworks_blister', 'ceil_emberworks_split'];
@@ -50,7 +51,7 @@ export const EMBER_CEILINGS: ArtDef[] = LAYOUTS.map((points, i) => ({
   rows: crust(points.map(([x, y]) => [(y + 7) % 32, (x + 11) % 32]), i + 4),
 }));
 export function emberCeilingIndex(x: number, y: number): number {
-  return ((((x * 73856093) ^ (y * 19349663) ^ (6 * 83492791)) >>> 0) % 100) % EMBER_CEILINGS.length;
+  return (tileHash(x, y, 6) % 100) % EMBER_CEILINGS.length;
 }
 
 function ventsFor(art: ArtDef[]) { return art.map(({ rows }) => {

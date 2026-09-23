@@ -25,6 +25,8 @@
  * wall stays broken across a reload with no new field beyond `Floor.cracks`.
  */
 
+import { EARTH_BIOMES } from './ambush';
+
 export type CrackKind = 'shortcut' | 'seam' | 'cache';
 
 export interface Crack {
@@ -53,7 +55,7 @@ export const SHORTCUT_MIN_SAVING = 12;
 
 /** How many of each kind a floor gets. Earth floors are richer in ore. */
 export function cracksFor(depth: number, biome: string): Record<CrackKind, number> {
-  const earth = biome === 'mines' || biome === 'burrows';
+  const earth = EARTH_BIOMES.has(biome);
   return {
     shortcut: 2,
     seam: 1 + (earth ? 2 : 0) + (depth >= 4 ? 1 : 0),

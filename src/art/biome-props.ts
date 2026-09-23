@@ -1,5 +1,5 @@
 import { ArtDef } from './raster';
-import { rows, stamp } from './helpers';
+import { fill, rows, stamp } from './helpers';
 const ice = { h: '#f0fbff', c: '#acdbea', b: '#588cb1', d: '#2e5175', q: '#b9e4f5fa' };
 // Wide frozen root at y=0. The tip reaches the last row, so the sprite is
 // attached to the roof and the requested height is its visible length.
@@ -103,5 +103,5 @@ export const BIOME_PROPS: ArtDef[] = [
   { id: 'icicle_spike', palette: ice, rows: icicle(6, 1) },
   { id: 'icicle_fang', palette: ice, rows: icicle(4, -2) },
   { id: 'root_cache', palette: rootPalette, rows: cache.map((row) => row.padEnd(32, '.').slice(0, 32)) },
-  { id: 'root_cache_broken', palette: rootPalette, rows: stamp(Array.from({ length: 32 }, () => '.'.repeat(32)), rubble, 0, 22) },
+  { id: 'root_cache_broken', palette: rootPalette, rows: stamp(fill(32, 32), rubble, 0, 22) },
 ];

@@ -1,9 +1,11 @@
 import { findMaterial, catalystAffixBonus } from '../data/materials';
+import { findConsumable } from '../data/items';
 import { affix } from '../data/affixes';
 import { medianAffix } from './crafting';
 import { SIP_SECONDS } from './healing';
 import type { Stats } from '../types';
 import type { Ramp } from '../art/raster';
+import { clamp } from '../core/math';
 
 /**
  * Flask infusions. One stash material goes into the flask at the forge and
@@ -40,7 +42,7 @@ export const WARD_SECONDS = 12;
 export const MARROW_SECONDS = 6;
 export const KINDLE_SECONDS = 8;
 
-const tierIdx = (tier: number): number => Math.max(0, Math.min(4, tier - 1));
+const tierIdx = (tier: number): number => clamp(tier - 1, 0, 4);
 const pick = (tier: number, ladder: readonly number[]): number => ladder[tierIdx(tier)]!;
 
 const THICK_HEAL = [4, 6, 8, 10, 12] as const;
@@ -54,6 +56,14 @@ const INFUSION_COST = 10;
 const KINDLING_AFFIXES = new Set(['blazing', 'rimed', 'blessed', 'umbral', 'leeching']);
 
 const pct = (n: number): string => `${Math.round(n * 100)}%`;
+
+/**
+ * What the ingredient behind an infusion is called: a material, or one of the
+ * rare consumables (Fight Milk) that go in the flask instead of down a throat.
+ */
+export function infusionName(ref: string): string {
+  return findMaterial(ref)?.name ?? findConsumable(ref)?.name ?? ref;
+}
 
 /**
  * What a flask infused with `ref` does, or null when the ref cannot be put in

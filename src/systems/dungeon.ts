@@ -7,11 +7,12 @@ import { BOSS_ID, ENEMIES, enemyDef } from '../data/enemies';
 import { DifficultyId, DifficultyDef, DIFFICULTIES, difficultyOf } from '../data/difficulty';
 import { DamageType, EnemyDef, Item } from '../types';
 import { ELITE_HP_MULT, EliteTrait, IRONHIDE_HP_MULT, eliteFor } from '../data/elites';
-import { EARTH_BIOMES, STALKER_BURIED, droppersFor } from '../data/ambush';
-import { GRAVE_BIOMES, gravecallerChance } from '../data/necromancy';
+import { STALKER_BURIED, droppersFor } from '../data/ambush';
+import { gravecallerChance } from '../data/necromancy';
 import { Crack, SHORTCUT_MIN_SAVING, cracksFor } from '../data/walls';
 import type { FloorMods } from '../data/seals';
 import { ContainerTier, makeMaterial, materialForDepth } from './items';
+import { manhattan } from '../core/math';
 
 // ---------------------------------------------------------------------------
 // Floor model (plain data — serialised straight into the save)
@@ -126,8 +127,6 @@ export interface Prop {
  * prompt names it. Praying is then a decision rather than a coin toss.
  */
 export type ShrineKind = 'font' | 'idol' | 'coffer' | 'blood' | 'combat';
-
-export const SHRINE_KINDS: ShrineKind[] = ['font', 'idol', 'coffer', 'blood', 'combat'];
 
 /**
  * Floor hazards. Every trap is hidden until you spot the seam in the flagstones
@@ -373,6 +372,10 @@ export function inBounds(f: Floor, x: number, y: number): boolean {
   return x >= 0 && y >= 0 && x < f.width && y < f.height;
 }
 
+export function inRoom(r: Room, x: number, y: number): boolean {
+  return x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
+}
+
 export function tileAt(f: Floor, x: number, y: number): number {
   return inBounds(f, x, y) ? f.tiles[y * f.width + x] : WALL;
 }
@@ -393,9 +396,31 @@ export function trapAt(f: Floor, x: number, y: number): Trap | undefined {
   return f.traps?.find((t) => t.x === x && t.y === y);
 }
 
+/** Breakable containers: smashed open with a blow or a use, then left as wreckage. */
+export const VESSELS = {
+  urn: { label: 'urn' },
+  barrel: { label: 'barrel' },
+  root_cache: { label: 'root cache' },
+} as const;
+export type VesselKind = keyof typeof VESSELS;
+
+export function isVessel(p: Prop): p is Prop & { kind: VesselKind } {
+  return p.kind in VESSELS;
+}
+
+/** A shrine's kind. Shrines placed before kinds existed are fonts. */
+export function shrineKind(p: Prop): ShrineKind {
+  return p.shrine ?? 'font';
+}
+
+/** A boss or town portal on this tile, or only one of the two with `kind`. */
+export function portalAt(f: Floor, x: number, y: number, kind?: 'portal' | 'town_portal'): Prop | undefined {
+  return f.props.find((p) => (kind ? p.kind === kind : p.kind === 'portal' || p.kind === 'town_portal') && p.x === x && p.y === y);
+}
+
 /** Broken urns, barrels, root caches and smashed chests: scenery now, nothing to act on. */
 function isWreckage(p: Prop): boolean {
-  return p.kind === 'chest' ? !!p.smashed : (p.kind === 'urn' || p.kind === 'barrel' || p.kind === 'root_cache') && p.used;
+  return p.kind === 'chest' ? !!p.smashed : isVessel(p) && !!p.used;
 }
 
 /**
@@ -520,7 +545,7 @@ function placeCracks(
   const rng = createRng(hashString(`cracks:${seed}:${depth}`));
   const at = (x: number, y: number) => (x < 0 || y < 0 || x >= W || y >= H ? WALL : tiles[y * W + x]);
   const clear = (x: number, y: number) =>
-    !near.avoid.some((a) => Math.abs(a.x - x) + Math.abs(a.y - y) <= 1)
+    !near.avoid.some((a) => manhattan(a.x, a.y, x, y) <= 1)
     // A torch hangs on the wall it faces; that wall must stay.
     && !near.torches.some((t) => t.x + DX[t.side] === x && t.y + DY[t.side] === y);
   const distance = (sx: number, sy: number, tx: number, ty: number): number => {
@@ -551,7 +576,7 @@ function placeCracks(
   }
   const want = cracksFor(depth, biome);
   const out: Crack[] = [];
-  const spaced = (x: number, y: number) => out.every((c) => Math.abs(c.x - x) + Math.abs(c.y - y) >= 6);
+  const spaced = (x: number, y: number) => out.every((c) => manhattan(c.x, c.y, x, y) >= 6);
   for (const [x, y] of rng.shuffle(shortcuts)) {
     if (out.length >= want.shortcut) break;
     if (!spaced(x, y)) continue;
@@ -757,7 +782,7 @@ function tryGenerate(
   // --- Room graph: MST plus a few loops -----------------------------------
   const cx = (r: Room) => r.x + (r.w >> 1);
   const cy = (r: Room) => r.y + (r.h >> 1);
-  const rdist = (a: Room, b: Room) => Math.abs(cx(a) - cx(b)) + Math.abs(cy(a) - cy(b));
+  const rdist = (a: Room, b: Room) => manhattan(cx(a), cy(a), cx(b), cy(b));
   const edges: [number, number][] = [];
   const hasEdge = (a: number, b: number) => edges.some(([p, q]) => (p === a && q === b) || (p === b && q === a));
   {
@@ -1057,7 +1082,7 @@ function tryGenerate(
     });
     return true;
   };
-  const vessel: PropKind = biome.id === 'burrows' ? 'root_cache' : biome.id === 'mines' || biome.id === 'caverns' || biome.id === 'sporegrove' ? 'barrel' : 'urn';
+  const vessel: PropKind = biome.vessel ?? 'urn';
   for (const r of rooms) {
     const spots = edgeTiles(r);
     const take = () => spots.pop();
@@ -1129,11 +1154,11 @@ function tryGenerate(
   rng.shuffle(torchSpots);
   // Always light the arrival point.
   {
-    const near = torchSpots.filter((t) => Math.abs(t.x - spawn.x) + Math.abs(t.y - spawn.y) <= 2);
+    const near = torchSpots.filter((t) => manhattan(t.x, t.y, spawn.x, spawn.y) <= 2);
     if (near.length) addTorch(near[0].x, near[0].y, near[0].side);
   }
   for (const t of torchSpots) {
-    if (torches.some((o) => Math.abs(o.x - t.x) + Math.abs(o.y - t.y) < 5)) continue;
+    if (torches.some((o) => manhattan(o.x, o.y, t.x, t.y) < 5)) continue;
     const inRoom = roomOf[idx(t.x, t.y)] >= 0;
     if (rng.chance(inRoom ? biome.torchDensity * 5 : biome.torchDensity * 2)) addTorch(t.x, t.y, t.side);
   }
@@ -1152,8 +1177,7 @@ function tryGenerate(
     enemies.push(createEnemy(def, x, y, rng.pick(DIRS), `e${enemyN++}`, depth, diff.id));
   };
   const pool = ENEMIES.filter((e) => e.weight > 0 && e.minDepth <= depth && depth <= e.maxDepth
-    && (e.id !== 'mole' || biome.id === 'burrows')
-    && (e.id !== 'bog_seraph' || biome.id === 'sporegrove')
+    && (!e.onlyIn || e.onlyIn.includes(biome.id))
     && (!ELEMENTAL_VARIANT_IDS.has(e.id) || e.element === biome.element)
     && !(biome.element && e.element && e.element !== biome.element));
   const roomTiles = (r: Room) => {
@@ -1185,7 +1209,8 @@ function tryGenerate(
       * (biome.favoredEnemies?.includes(e.id) ? FAVORED_ENEMY_WEIGHT : 1)
       * (biome.element && e.element === biome.element ? ELEMENTAL_ENEMY_WEIGHT : 1),
     ] as const));
-    const group = def.id === 'rat' || def.id === 'spider' ? rng.int(1, 3) : rng.int(1, 2);
+    const [packMin, packMax] = def.pack ?? [1, 2];
+    const group = rng.int(packMin, packMax);
     if (rng.chance(0.15)) {
       // A wanderer in the tunnels.
       const x = rng.int(1, W - 2), y = rng.int(1, H - 2);
@@ -1225,15 +1250,15 @@ function tryGenerate(
       e.lurk = 'ceiling';
       enemies.push(e);
     }
-    if (EARTH_BIOMES.has(biome.id)) {
+    if (biome.earth) {
       for (const e of enemies) if (e.def === 'tunnel_stalker' && amb.chance(STALKER_BURIED)) e.lurk = 'buried';
     }
     // A Gravecaller among the dead, on its own stream: in a room with undead
     // already in it where possible, so it has something to call.
-    if (GRAVE_BIOMES.has(biome.id)) {
+    if (biome.graves) {
       const grave = createRng(hashString(`gravecaller:${seed}:${depth}`));
       if (grave.chance(gravecallerChance(depth))) {
-        const withDead = hostRooms.filter((r) => enemies.some((e) => enemyDef(e.def).undead && e.x >= r.x && e.x < r.x + r.w && e.y >= r.y && e.y < r.y + r.h));
+        const withDead = hostRooms.filter((r) => enemies.some((e) => enemyDef(e.def).undead && inRoom(r, e.x, e.y)));
         const rooms2 = withDead.length ? withDead : hostRooms;
         for (const r of grave.shuffle([...rooms2])) {
           const spots = [];
@@ -1298,7 +1323,7 @@ function tryGenerate(
       if (doors.some((d) => d.x === x && d.y === y) || stairs.some((st) => st.x === x && st.y === y)) return false;
       if (pickups.some((p) => p.x === x && p.y === y)) return false;
       // Never on the arrival tile or right on top of it — no ambush on spawn.
-      if (Math.abs(x - spawn.x) + Math.abs(y - spawn.y) <= 3) return false;
+      if (manhattan(x, y, spawn.x, spawn.y) <= 3) return false;
       return true;
     };
     const wallDir = (x: number, y: number): Dir | null => {
@@ -1345,12 +1370,12 @@ function tryGenerate(
       const spot = (rng.chance(0.7) ? corridor.pop() : roomTile.pop()) ?? corridor.pop() ?? roomTile.pop();
       if (!spot) break;
       // Keep them apart: a corridor of back-to-back plates is a wall, not a trap.
-      if (traps.some((t) => Math.abs(t.x - spot[0]) + Math.abs(t.y - spot[1]) < 4)) continue;
+      if (traps.some((t) => manhattan(t.x, t.y, spot[0], spot[1]) < 4)) continue;
       if (add(pickKind(), spot[0], spot[1])) n++;
     }
   }
 
-  if (biome.id === 'frostvault') props.push(...iciclesFor(seed, depth, tiles, W, [...stairs, ...doors]));
+  if (biome.frozen) props.push(...iciclesFor(seed, depth, tiles, W, [...stairs, ...doors]));
 
   // Cracked walls, last and on their own stream, so they move nothing else.
   const cracks: Crack[] = throne ? [] : placeCracks(seed, depth, biome.id, tiles, W, H, {

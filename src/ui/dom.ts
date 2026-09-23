@@ -1,4 +1,5 @@
-import { DEFAULT_CRIT_MULT, ELEMENTS, EquipSlot, EQUIP_SLOTS, Item, RARITY_COLORS, STAT_KEYS, STAT_LABELS, Stats, slotOf } from '../types';
+import { gold } from '../core/format';
+import { DEFAULT_CRIT_MULT, ELEMENTS, Item, RARITY_COLORS, STAT_KEYS, STAT_LABELS, Stats } from '../types';
 import { findProperty } from '../data/properties';
 import { consumable, itemBase } from '../data/items';
 import { material } from '../data/materials';
@@ -121,9 +122,7 @@ export function artImg(id: string, ramp?: Ramp, size = 32): HTMLImageElement {
 import { esc } from '../core/escape';
 export { esc };
 
-export function gold(n: number): string {
-  return `${Math.floor(n).toLocaleString()}g`;
-}
+export { gold };
 
 export function rarityColor(item: Item): string {
   return RARITY_COLORS[itemRarity(item)];
@@ -242,10 +241,6 @@ export function itemSlot(
  */
 let detailed = false;
 let liveTip: (() => string) | null = null;
-
-export function isDetailed(): boolean {
-  return detailed;
-}
 
 export function setDetailed(on: boolean): void {
   if (detailed === on) return;
@@ -427,7 +422,7 @@ export function itemTooltip(item: Item, opts: TipOpts = {}): string {
         const def = affix(a.id);
         lines.push(`<div class="tt-affix ${elementClass(STAT_LABELS[def.stat])}">${esc(def.name)}: +${a.value} ${STAT_LABELS[def.stat]}</div>`);
       }
-      if (detailed) lines.push(`<div class="tt-dim">Item level ${item.ilvl ?? 0} · quality ${((item.quality ?? 1) * 100).toFixed(0)}% · base value ${itemValue(item)}g</div>`);
+      if (detailed) lines.push(`<div class="tt-dim">Item level ${item.ilvl ?? 0} · quality ${((item.quality ?? 1) * 100).toFixed(0)}% · base value ${gold(itemValue(item))}</div>`);
       if (opts.compare) lines.push(`<div class="tt-dim">Compared with: ${esc(itemName(opts.compare))}</div>`);
       break;
     }
@@ -496,14 +491,6 @@ function elementClass(text: string): string {
   return element ? `element-${element}` : '';
 }
 
-/** Equipment slot an item would go into (ring → first free ring slot). */
-export function targetSlot(item: Item, eq: Record<EquipSlot, Item | null>): EquipSlot | null {
-  if (item.kind !== 'equipment') return null;
-  const slot = itemBase(item.ref).slot;
-  if (slot === 'ring') return !eq.ring1 ? 'ring1' : !eq.ring2 ? 'ring2' : 'ring1';
-  return EQUIP_SLOTS.find((s) => slotOf(s) === slot) ?? null;
-}
-
 export function sparkline(values: number[], w = 90, hgt = 22, color = '#e8b84a'): HTMLCanvasElement {
   const c = h('canvas', { class: 'spark', attrs: { width: String(w), height: String(hgt) } });
   const ctx = c.getContext('2d')!;
@@ -524,4 +511,42 @@ export function sparkline(values: number[], w = 90, hgt = 22, color = '#e8b84a')
   ctx.fillStyle = '#fff';
   ctx.fillRect(w - 3, Math.round(hgt - 2 - ((last - min) / span) * (hgt - 4)) - 1, 2, 2);
   return c;
+}
+
+type Closable = HTMLElement & { __close?: () => void };
+
+/**
+ * Mount a modal overlay on the app. Escape and a press on the backdrop both
+ * call `close`. Escape is caught in the capture phase so the dungeon's own key
+ * handler never sees it. `onClosed` runs once the overlay is taken down by
+ * `closeOverlays`.
+ */
+export function mountOverlay(wrap: HTMLElement, close: () => void, onClosed?: () => void): void {
+  const onKey = (e: KeyboardEvent): void => {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      close();
+    }
+  };
+  wrap.addEventListener('pointerdown', (e) => {
+    if (e.target === wrap) close();
+  });
+  window.addEventListener('keydown', onKey, true);
+  (wrap as Closable).__close = () => {
+    window.removeEventListener('keydown', onKey, true);
+    onClosed?.();
+  };
+  document.getElementById('app')?.append(wrap) ?? document.body.append(wrap);
+}
+
+/** Take down every overlay matching `selector` that `mountOverlay` put up. */
+export function closeOverlays(selector: string): void {
+  for (const el of document.querySelectorAll<Closable>(selector)) {
+    // Remove first, then run the close callback: on the title screen the
+    // settings' onClose re-enters the title, which itself closes settings — if
+    // the wrap were still attached that would recurse forever and the modal
+    // would never go away.
+    el.remove();
+    el.__close?.();
+  }
 }

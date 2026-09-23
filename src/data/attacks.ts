@@ -176,8 +176,6 @@ export function relativeDps(move: AttackMove): number {
   return (move.power * hits) / time / basic;
 }
 
-export type MoveId = keyof typeof MOVES;
-
 /** A move and how often this creature reaches for it. */
 export interface MoveWeight {
   id: string;

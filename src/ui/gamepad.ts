@@ -104,10 +104,10 @@ export function snapshotPad(pad: RawPad | null, prevButtons: Set<number>): PadSn
   }
   const ax = (i: number) => pad.axes[i] ?? 0;
   const moves = new Set<PadMove>();
-  if (ax(1) <= -PAD_DEADZONE) moves.add('forward');
-  else if (ax(1) >= PAD_DEADZONE) moves.add('back');
-  if (ax(0) <= -PAD_DEADZONE) moves.add('left');
-  else if (ax(0) >= PAD_DEADZONE) moves.add('right');
+  const move = stickYToMove(ax(1));
+  if (move) moves.add(move);
+  const strafe = stickXToStrafe(ax(0));
+  if (strafe) moves.add(strafe);
   const turn = stickXToTurn(ax(2));
   if (turn) moves.add(turn);
   if (btn(pad, PAD_BUTTONS.dUp)) moves.add('forward');
@@ -133,16 +133,6 @@ export function pressedSet(pad: RawPad | null): Set<number> {
   if (!pad) return out;
   for (let i = 0; i < pad.buttons.length; i++) if (btn(pad, i)) out.add(i);
   return out;
-}
-
-export function isGamepadConnected(): boolean {
-  try {
-    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
-    for (const p of pads) if (p && p.connected) return true;
-    return false;
-  } catch {
-    return false;
-  }
 }
 
 export interface PadContext {
@@ -181,7 +171,6 @@ export class GamepadController {
   private prevMoves = new Set<PadMove>();
   private prevBlock = false;
   private prevRetrieve = false;
-  private prevAttackHeld = false;
   private navRepeat = 0;
   private navDir: 'next' | 'prev' | null = null;
   private quickIdx = 0;
@@ -209,7 +198,6 @@ export class GamepadController {
     if (this.prevRetrieve) this.ctx?.setRetrieve(false);
     this.prevBlock = false;
     this.prevRetrieve = false;
-    this.prevAttackHeld = false;
     this.prevButtons.clear();
     this.navDir = null;
   }
@@ -276,7 +264,6 @@ export class GamepadController {
         ctx.setRetrieve(false);
         this.prevRetrieve = false;
       }
-      this.prevAttackHeld = snap.attackHeld;
       this.menuRepeat(dt, snap, raw);
       if (edge(P.b)) ctx.closeOverlay();
       if (edge(P.a) || edge(P.x)) {
@@ -311,7 +298,6 @@ export class GamepadController {
       ctx.setRetrieve(snap.retrieveHeld);
       this.prevRetrieve = snap.retrieveHeld;
     }
-    this.prevAttackHeld = snap.attackHeld;
 
     // --- Live dungeon input.
     if (edge(P.x)) ctx.interact();

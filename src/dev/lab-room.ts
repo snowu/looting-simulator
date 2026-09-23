@@ -18,7 +18,7 @@
  */
 import { PROPERTY_IDS } from '../data/properties';
 import { GameState } from '../state/game-state';
-import { Equipment } from '../systems/player';
+import { emptyEquipment } from '../systems/player';
 import { makeConsumable, makeEquipment, makeMaterial, repairItem, thrownCapacity } from '../systems/items';
 import { addItem } from '../state/inventory';
 import { syncLoadout } from '../systems/run';
@@ -30,12 +30,13 @@ import { ITEM_BASES } from '../data/items';
 import { MATERIALS } from '../data/materials';
 import { MAX_RECIPE_RANK, RECIPES } from '../data/recipes';
 import { META_UPGRADES } from '../systems/meta';
-import { ENEMIES, enemyDef } from '../data/enemies';
-import { Room, blocksMove, createEnemy, doorAt, enemyAt, generateFloor, promoteElite, stairsAt } from '../systems/dungeon';
+import { enemyDef } from '../data/enemies';
+import { blocksMove, createEnemy, doorAt, enemyAt, generateFloor, promoteElite, stairsAt } from '../systems/dungeon';
 import { EliteTrait, eligibleTraits } from '../data/elites';
 import { BIOMES, biomeForDepth } from '../data/biomes';
 import { hashString } from '../core/rng';
-import { Dir, dirOf } from '../core/dir';
+import { Dir } from '../core/dir';
+import { biggestRoom, clearRoom, face } from './squad-room';
 import { LabMobEntry } from './lab-configs';
 
 export const LAB_ILVL = 16;
@@ -79,8 +80,7 @@ export function prepare(state: GameState): void {
   }
 
   // A sane kit equipped through direct assignment (dev scratch game only).
-  const e = {} as Equipment;
-  for (const s of ['weapon', 'offhand', 'head', 'body', 'hands', 'ring1', 'ring2', 'amulet'] as const) e[s] = null;
+  const e = emptyEquipment();
   e.weapon = makeEquipment({ baseId: 'long_sword', materialId: 'moonsilver', rarity: Rarity.Epic, ilvl: LAB_ILVL, identified: true });
   e.offhand = makeEquipment({ baseId: 'tower_shield', materialId: 'moonsilver', rarity: Rarity.Epic, ilvl: LAB_ILVL, identified: true });
   e.body = makeEquipment({ baseId: 'plate', materialId: 'moonsilver', rarity: Rarity.Epic, ilvl: LAB_ILVL, identified: true });
@@ -103,27 +103,15 @@ export function prepare(state: GameState): void {
   addItem(pack, makeConsumable('scroll_identify', 3));
 }
 
-function face(fromX: number, fromY: number, toX: number, toY: number, fallback: Dir): Dir {
-  return dirOf(Math.sign(toX - fromX), Math.sign(toY - fromY))
-    ?? dirOf(Math.sign(toX - fromX), 0)
-    ?? dirOf(0, Math.sign(toY - fromY))
-    ?? fallback;
-}
-
 /**
  * Clear the biggest ordinary room on this floor and stand the player in its
  * middle. No enemies to start with — the panel spawns them on command.
  */
 export function dropIntoLab(world: World): string {
   const f = world.floor;
-  const rooms = f.rooms.filter((r) => r.role !== 'secret' && r.role !== 'throne');
-  if (!rooms.length) return 'no ordinary room on this floor';
-  const room: Room = rooms.reduce((a, b) => (a.w * a.h >= b.w * b.h ? a : b));
-
-  const inside = (x: number, y: number) => x >= room.x && x < room.x + room.w && y >= room.y && y < room.y + room.h;
-  f.enemies = f.enemies.filter((e) => !inside(e.x, e.y));
-  f.traps = f.traps.filter((t) => !inside(t.x, t.y));
-  f.props = f.props.filter((p) => !p.blocking || !inside(p.x, p.y));
+  const room = biggestRoom(f);
+  if (!room) return 'no ordinary room on this floor';
+  clearRoom(f, room);
 
   const free: Array<{ x: number; y: number }> = [];
   for (let dy = 1; dy < room.h - 1; dy++) {
@@ -136,12 +124,7 @@ export function dropIntoLab(world: World): string {
   if (!free.length) return 'no free tile in the lab';
   const cx = room.x + room.w / 2, cy = room.y + room.h / 2;
   const spot = [...free].sort((a, b) => Math.abs(a.x - cx) + Math.abs(a.y - cy) - (Math.abs(b.x - cx) + Math.abs(b.y - cy)))[0];
-  world.player.x = spot.x;
-  world.player.y = spot.y;
-  Object.assign(world.anim, {
-    fromX: spot.x, fromY: spot.y, moveT: 1,
-    yaw: (world.player.facing * Math.PI) / 2, yawTo: (world.player.facing * Math.PI) / 2, turnT: 1,
-  });
+  world.placePlayer(spot.x, spot.y, world.player.facing);
   // Thrown belts equipped mid-run miss the delve-start stock fill; top up.
   world.run.thrown ??= { held: {}, retrieveCd: 0 };
   for (const base of ITEM_BASES) {
@@ -164,11 +147,6 @@ export interface LabSpawnOpts {
   prime?: 'alert' | 'windup';
   /** Promote each spawn to this elite trait. */
   elite?: EliteTrait;
-}
-
-/** All spawnable enemy ids for the panel dropdown. */
-export function labEnemyIds(): string[] {
-  return ENEMIES.map((e) => e.id);
 }
 
 /**

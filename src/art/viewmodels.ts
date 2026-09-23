@@ -1,5 +1,5 @@
 import { ArtDef } from './raster';
-import { rows } from './helpers';
+import { fill, mirror, rows, sym } from './helpers';
 
 // See docs/design/viewmodel-style.md. All held art uses the same pixel density,
 // upper-left light, short brown creases, and shared hand/cuff motifs.
@@ -10,7 +10,7 @@ const PAL = {
   1: '#30303c', 2: '#555968', 3: '#929eac', 4: '#dce4e7',
 };
 
-const canvas = (h = 80): string[] => Array.from({ length: h }, () => '.'.repeat(48));
+const canvas = (h = 80): string[] => fill(48, h);
 
 /** Place an authored motif; omitted trailing pixels and dots are transparent. */
 function ink(base: string[], motif: string[], x: number, y: number): void {
@@ -60,7 +60,7 @@ const CUP_HAND = rows(`
 // Side grip: fingers curl horizontally around the vertical hilt. Reflect the
 // authored motif around the shaft so the right forearm approaches from below
 // and to the right, opposite the cutting edge of the asymmetric weapons.
-const HAND = rows(`
+const HAND = mirror(rows(`
   ................kkkkkkkk
   ..............kkcdeeedddck
   .............kcdddddddddcck
@@ -89,7 +89,7 @@ const HAND = rows(`
   kwvvvvjk
   kwvvvjk
   kwvvvjk
-`).map(row => [...row.padEnd(39, '.')].reverse().join(''));
+`).map(row => row.padEnd(39, '.')));
 
 // The smaller far hand wraps across the shaft; its cuff and forearm exit left.
 const FAR_HAND = rows(`
@@ -450,7 +450,7 @@ ink(OPEN_HAND, rows(`
 
 // Left hand cups the rim. A thumb crosses the face; the shared cuff exits left.
 const SIGIL = canvas();
-ink(SIGIL, CUP_HAND.map(row => row.padEnd(25, '.').split('').reverse().join('')), 9, 52);
+ink(SIGIL, mirror(CUP_HAND.map(row => row.padEnd(25, '.'))), 9, 52);
 ink(SIGIL, rows(`
   ........kkkkkkkkkkkk
   .....kkk333333333322kkk
@@ -515,10 +515,7 @@ const SHIELD_HALF = rows(`
   k4333333333333333333333
   k4333333333333333333333
 `);
-const shieldTop = SHIELD_HALF.map(row => {
-  const left = row.padEnd(24, '3');
-  return left + [...left].reverse().join('');
-});
+const shieldTop = sym(SHIELD_HALF.map(row => row.padEnd(24, '3')));
 const shieldBody = [...shieldTop, ...shieldTop.slice().reverse()];
 ink(SHIELD, shieldBody.map((row, y) => [...row].map((ch, x) => {
   if (ch === '4') return x + y > 48 ? '2' : '4';

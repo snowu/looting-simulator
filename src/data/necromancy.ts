@@ -18,6 +18,8 @@
  * Only the undead can be raised: a goblin stays dead.
  */
 
+import { BIOMES } from './biomes';
+
 /** Seconds of chanting over the corpse before it stands. */
 export const RAISE_CHANNEL = 2;
 /** How far (Manhattan) a Gravecaller reaches for a corpse. */
@@ -34,7 +36,7 @@ export const RAISE_BEAT = 0.8;
 export const SHATTER_OVERKILL = 0.25;
 
 /** Floors with bones enough to call. */
-export const GRAVE_BIOMES = new Set(['crypt', 'catacombs']);
+export const GRAVE_BIOMES = new Set(BIOMES.filter((b) => b.graves).map((b) => b.id));
 
 /** The chance an Ossuary or Catacombs floor has a Gravecaller. None on the first floor. */
 export function gravecallerChance(depth: number): number {

@@ -12,6 +12,12 @@ export function defaultSlot(item: Item, eq: Equipment): EquipSlot | null {
   return EQUIP_SLOTS.find((s) => slotOf(s) === slot) ?? null;
 }
 
+/** What equipping an item would replace — the piece to compare it against. */
+export function wornFor(item: Item, eq: Equipment): Item | null {
+  const slot = defaultSlot(item, eq);
+  return slot ? eq[slot] : null;
+}
+
 /**
  * The other piece a two-hander conflicts with, or null when there is no clash.
  *

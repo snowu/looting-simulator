@@ -1,3 +1,4 @@
+import { clamp } from '../core/math';
 export const BASE_FLASK_CHARGES = 3;
 export const MAX_FLASK_SHARDS = 3;
 export const FLASK_POTENCY = [0.3, 0.35, 0.4, 0.45, 0.5] as const;
@@ -22,7 +23,7 @@ export const MORSEL_ART = {
 } as const;
 
 export function flaskMax(shards: number): number {
-  return BASE_FLASK_CHARGES + Math.max(0, Math.min(MAX_FLASK_SHARDS, Math.trunc(shards)));
+  return BASE_FLASK_CHARGES + clamp(Math.trunc(shards), 0, MAX_FLASK_SHARDS);
 }
 
 export function morselChance(depth: number): number {

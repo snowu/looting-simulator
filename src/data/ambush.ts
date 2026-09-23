@@ -17,6 +17,8 @@
  * be struck where it hides to bring it out early, stunned and open.
  */
 
+import { BIOMES } from './biomes';
+
 /** Seconds from a dropper letting go to it landing: the dust-and-skitter beat. */
 export const DROP_SECONDS = 0.6;
 /** How close you get (tiles, Manhattan) before a dropper lets go or a buried ambusher rises. */
@@ -45,4 +47,4 @@ export function droppersFor(depth: number): number {
 export const STALKER_BURIED = 0.5;
 
 /** Biomes with floors soft enough to burrow through. */
-export const EARTH_BIOMES = new Set(['burrows', 'mines']);
+export const EARTH_BIOMES = new Set(BIOMES.filter((b) => b.earth).map((b) => b.id));

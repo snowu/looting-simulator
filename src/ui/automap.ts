@@ -35,21 +35,22 @@ const C = {
   trapSpent: '#4a4038',
 };
 
-export function drawMap(canvas: HTMLCanvasElement, f: Floor, px: number, py: number, facing: Dir, view: MapView, time = 0): void {
-  const ctx = canvas.getContext('2d')!;
-  const W = canvas.width, H = canvas.height;
-  const cell = view.cell;
-  const cx = view.cx ?? f.width / 2;
-  const cy = view.cy ?? f.height / 2;
-  const ox = Math.round(W / 2 - (cx + 0.5) * cell);
-  const oy = Math.round(H / 2 - (cy + 0.5) * cell);
+const NEIGHBOURS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
+
+const LAYERS = new WeakMap<HTMLCanvasElement, { floor: Floor; key: string; layer: HTMLCanvasElement }>();
+
+interface TileFrame { W: number; H: number; cell: number; ox: number; oy: number; x0: number; x1: number; y0: number; y1: number }
+
+/** The background and every explored tile, walls edged where they meet floor. */
+function drawTiles(
+  ctx: CanvasRenderingContext2D, f: Floor, frame: TileFrame,
+  inView: (x: number, y: number) => boolean, seen: (x: number, y: number) => boolean,
+): void {
+  const { W, H, cell, ox, oy, x0, x1, y0, y1 } = frame;
   ctx.fillStyle = C.bg;
   ctx.fillRect(0, 0, W, H);
-  const inView = (x: number, y: number) => !view.radius || (x - cx) ** 2 + (y - cy) ** 2 <= view.radius ** 2;
-  const seen = (x: number, y: number) => x >= 0 && y >= 0 && x < f.width && y < f.height && f.explored[y * f.width + x] === 1;
-
-  for (let y = 0; y < f.height; y++) {
-    for (let x = 0; x < f.width; x++) {
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
       if (!inView(x, y)) continue;
       const t = f.tiles[y * f.width + x];
       const sx = ox + x * cell, sy = oy + y * cell;
@@ -60,7 +61,7 @@ export function drawMap(canvas: HTMLCanvasElement, f: Floor, px: number, py: num
         ctx.fillRect(sx, sy, cell, cell);
       } else if (t === WALL) {
         // Draw walls only where they border explored floor, with a light edge.
-        const nb = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => seen(x + dx, y + dy) && f.tiles[(y + dy) * f.width + x + dx] !== WALL);
+        const nb = NEIGHBOURS.some(([dx, dy]) => seen(x + dx, y + dy) && f.tiles[(y + dy) * f.width + x + dx] !== WALL);
         if (!nb) continue;
         ctx.fillStyle = C.wall;
         ctx.fillRect(sx, sy, cell, cell);
@@ -72,6 +73,47 @@ export function drawMap(canvas: HTMLCanvasElement, f: Floor, px: number, py: num
       }
     }
   }
+}
+
+export function drawMap(canvas: HTMLCanvasElement, f: Floor, px: number, py: number, facing: Dir, view: MapView, time = 0): void {
+  const ctx = canvas.getContext('2d')!;
+  const W = canvas.width, H = canvas.height;
+  const cell = view.cell;
+  const cx = view.cx ?? f.width / 2;
+  const cy = view.cy ?? f.height / 2;
+  const ox = Math.round(W / 2 - (cx + 0.5) * cell);
+  const oy = Math.round(H / 2 - (cy + 0.5) * cell);
+  const inView = (x: number, y: number) => !view.radius || (x - cx) ** 2 + (y - cy) ** 2 <= view.radius ** 2;
+  const seen = (x: number, y: number) => x >= 0 && y >= 0 && x < f.width && y < f.height && f.explored[y * f.width + x] === 1;
+
+  // With a radius, only the tiles inside its bounding box can be drawn.
+  const r = view.radius ? Math.ceil(view.radius) : Infinity;
+  const y0 = Math.max(0, Math.floor(cy - r)), y1 = Math.min(f.height - 1, Math.ceil(cy + r));
+  const x0 = Math.max(0, Math.floor(cx - r)), x1 = Math.min(f.width - 1, Math.ceil(cx + r));
+
+  // The tile layer only changes when you move, explore or a wall comes down,
+  // so it is drawn once into a layer and copied until then. A checksum of the
+  // tiles and exploration in view catches all three; reading ~600 cells is
+  // far cheaper than the fills they would otherwise cost every frame.
+  let sum = 0;
+  for (let y = Math.max(0, y0 - 1); y <= Math.min(f.height - 1, y1 + 1); y++) {
+    for (let x = Math.max(0, x0 - 1); x <= Math.min(f.width - 1, x1 + 1); x++) {
+      const i = y * f.width + x;
+      sum = (Math.imul(sum, 31) + f.tiles[i] * 2 + f.explored[i]) | 0;
+    }
+  }
+  const key = `${W}x${H}|${cell}|${cx},${cy}|${view.radius ?? 0}|${sum}`;
+  let cached = LAYERS.get(canvas);
+  if (!cached || cached.floor !== f || cached.key !== key) {
+    const layer = cached?.layer ?? document.createElement('canvas');
+    layer.width = W;
+    layer.height = H;
+    drawTiles(layer.getContext('2d')!, f, { W, H, cell, ox, oy, x0, x1, y0, y1 }, inView, seen);
+    cached = { floor: f, key, layer };
+    LAYERS.set(canvas, cached);
+  }
+  ctx.clearRect(0, 0, W, H);
+  ctx.drawImage(cached.layer, 0, 0);
 
   const dot = (x: number, y: number, color: string, scale = 0.5) => {
     if (!inView(x, y)) return;

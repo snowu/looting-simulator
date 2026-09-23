@@ -1,8 +1,6 @@
 import { DIR_NAMES, DX, DY, turnLeft, turnRight } from '../core/dir';
-import {
-  BLOOD_PRICE_GOLD, DRY_THROAT_DEPTH, DUELIST_KILLS, HUNTER_MARKS, OATHS, PILGRIM_PRAYERS, SILENCE_DEPTH, UNBROKEN_DEPTH, findOath,
-} from '../data/oaths';
-import { runOaths } from '../systems/oaths';
+import { OATHS, findOath } from '../data/oaths';
+import { oathProgress, runOaths } from '../systems/oaths';
 import { biomeForFloor } from '../data/biomes';
 import { THIEF_GLOW, enemyDef, enemyView } from '../data/enemies';
 import { ELITES } from '../data/elites';
@@ -14,8 +12,9 @@ import { DungeonRenderer } from '../render/dungeon-renderer';
 import { BLESSINGS, CURSES, World } from '../world/world';
 import { drawMap } from './automap';
 import { PLAIN_FLASK_RAMP, draught } from '../systems/infusion';
-import { artImg, esc, h } from './dom';
+import { artImg, esc, gold, h } from './dom';
 import { settingsGearButton } from './settings';
+import { clamp } from '../core/math';
 
 interface Float {
   el: HTMLElement;
@@ -27,6 +26,22 @@ interface Float {
 interface LogLine {
   el: HTMLElement;
   t: number;
+}
+
+/**
+ * Per-frame DOM writes, made only on change. Assigning the same text or markup
+ * still replaces the element's children and dirties layout, every frame.
+ */
+const lastHtml = new WeakMap<HTMLElement, string>();
+
+function setHtml(el: HTMLElement, html: string): void {
+  if (lastHtml.get(el) === html) return;
+  lastHtml.set(el, html);
+  el.innerHTML = html;
+}
+
+function setText(el: HTMLElement, text: string): void {
+  if (el.textContent !== text) el.textContent = text;
 }
 
 /** Everything drawn over the 3D view while in the dungeon. */
@@ -226,10 +241,10 @@ export class Hud {
     this.sigilWrap.classList.toggle('ready', ready);
     this.sigilWrap.classList.toggle('casting', !!casting);
     // Wedge of darkness over the icon, unwinding anticlockwise as it recovers.
-    const left = def.cooldown > 0 ? Math.max(0, Math.min(1, active.cd / def.cooldown)) : 0;
+    const left = def.cooldown > 0 ? clamp(active.cd / def.cooldown, 0, 1) : 0;
     this.sigilDial.hidden = left <= 0;
     if (left > 0) this.sigilDial.style.background = `conic-gradient(#000000a0 ${left * 360}deg, transparent 0deg)`;
-    this.sigilText.textContent = active.cd > 0 ? `${Math.ceil(active.cd)}s` : '';
+    setText(this.sigilText, active.cd > 0 ? `${Math.ceil(active.cd)}s` : '');
     this.sigilCastWrap.hidden = !casting;
     if (casting) this.sigilCastBar.style.width = `${(1 - casting.t / Math.max(0.01, def.cast)) * 100}%`;
   }
@@ -242,7 +257,7 @@ export class Hud {
     const hpPct = Math.max(0, (p.hp / d.maxHp) * 100);
     this.hpBar.style.width = `${hpPct}%`;
     this.hpGhost.style.width = `${hpPct}%`;
-    this.hpText.textContent = `${Math.ceil(p.hp)} / ${d.maxHp}`;
+    setText(this.hpText, `${Math.ceil(p.hp)} / ${d.maxHp}`);
     const stPct = Math.max(0, (p.stamina / d.maxStamina) * 100);
     this.stBar.style.width = `${stPct}%`;
     this.stWrap.classList.toggle('low', stPct < 50);
@@ -250,7 +265,7 @@ export class Hud {
     if (world.anim.recall !== null) this.recallBar.style.width = `${(1 - world.anim.recall / 5) * 100}%`;
 
     const f = world.facingName();
-    this.compass.innerHTML = `<span class="side">${DIR_NAMES[turnLeft(p.facing)][0]}</span>${f}<span class="side">${DIR_NAMES[turnRight(p.facing)][0]}</span>`;
+    setHtml(this.compass, `<span class="side">${DIR_NAMES[turnLeft(p.facing)][0]}</span>${f}<span class="side">${DIR_NAMES[turnRight(p.facing)][0]}</span>`);
 
     const biome = biomeForFloor(world.floor);
     // Key names are generated, but they live in the save file, so they are the
@@ -274,10 +289,14 @@ export class Hud {
     const belt = world.thrownCounts();
     const beltKey = belt ? `${belt.held}|${belt.floor}|${belt.flying}|${belt.calling}` : '';
     const sealCount = world.run.seals?.length ?? 0;
-    const oathLine = oathStatus(world) + (sealCount ? `<div style="color:#c080ff">Sealed ×${sealCount}</div>` : '');
-    const statusKey = `${world.run.depth}|${biome.id}|${world.run.gold}|${keyNames.join()}|${bless}|${curse}|${world.freeSlots}|${ward}|${snuffed}|${beltKey}|${oathLine}`;
+    // Everything the oath lines read, so their markup is only built on change.
+    const stats = world.run.stats;
+    const oathKey = runOaths(world.run).map((o) => `${o.id}:${o.status}:${o.marks}:${o.kills}:${o.prayers}`).join()
+      + `|${stats.goldFound}|${stats.deepest}|${stats.bossKilled}|${sealCount}`;
+    const statusKey = `${world.run.depth}|${biome.id}|${world.run.gold}|${keyNames.join()}|${bless}|${curse}|${world.freeSlots}|${ward}|${snuffed}|${beltKey}|${oathKey}`;
     if (statusKey !== this.statusKey) {
       this.statusKey = statusKey;
+      const oathLine = oathStatus(world) + (sealCount ? `<div style="color:#c080ff">Sealed ×${sealCount}</div>` : '');
       const beltLine = !belt
         ? ''
         : belt.calling
@@ -287,7 +306,7 @@ export class Hud {
             : `<div class="coin">Belt ${belt.held}/${belt.cap}</div>`;
       this.status.innerHTML =
         `<div class="depth">Depth ${world.run.depth}</div><div class="biome">${biome.name}</div>` +
-        `<div class="coin">${world.run.gold}g carried · pack ${world.run.backpack.items.length}/${world.run.backpack.capacity}</div>` +
+        `<div class="coin">${gold(world.run.gold)} carried · pack ${world.run.backpack.items.length}/${world.run.backpack.capacity}</div>` +
         beltLine +
         (keyNames.length ? `<div class="keys">${keyNames.join(', ')}</div>` : '') +
         (bless ? `<div class="bless">Blessing of ${bless}</div>` : '') +
@@ -362,7 +381,7 @@ export class Hud {
 
     const hint = world.interactionHint();
     this.prompt.hidden = !hint || world.busy;
-    if (hint) this.prompt.innerHTML = `<kbd>F</kbd>${hint}`;
+    if (hint) setHtml(this.prompt, `<kbd>F</kbd>${hint}`);
 
     // Target: the first living enemy straight ahead within 3 tiles.
     let tgt: EnemyState | undefined;
@@ -383,9 +402,9 @@ export class Hud {
         ? `<div style="color:${elite.color}" title="${esc(elite.rule)}">${esc(def.name)}</div>`
         : `<div>${esc(def.name)}</div>`;
       const carrying = tgt.stolen?.length ? `<div class="tag" style="color:${THIEF_GLOW}">carrying your ${esc(tgt.stolen.map(itemName).join(', '))}</div>` : '';
-      this.target.innerHTML =
+      setHtml(this.target,
         `${name}<div class="bar"><i style="width:${(tgt.hp / tgt.maxHp) * 100}%"></i></div>` +
-        `<div class="tag">${weak.length ? `weak: ${weak.join(', ')}` : ''}${weak.length && res.length ? ' · ' : ''}${res.length ? `resists: ${res.join(', ')}` : ''}</div>` + carrying;
+        `<div class="tag">${weak.length ? `weak: ${weak.join(', ')}` : ''}${weak.length && res.length ? ' · ' : ''}${res.length ? `resists: ${res.join(', ')}` : ''}</div>` + carrying);
     }
 
     // Log fade.
@@ -432,19 +451,8 @@ function oathStatus(world: World): string {
   return runOaths(run).map((oath) => {
     const def = findOath(oath.id);
     if (!def) return '';
-    const home = 'done, bring it home';
-    let progress: string;
-    if (oath.status === 'broken') progress = 'broken';
-    else switch (oath.id) {
-      case 'blood_price': progress = run.stats.goldFound >= BLOOD_PRICE_GOLD ? home : `${run.stats.goldFound}/${BLOOD_PRICE_GOLD} gold`; break;
-      case 'unbroken': progress = oath.status === 'kept' ? home : `reach depth ${UNBROKEN_DEPTH}`; break;
-      case 'hunter': progress = (oath.marks ?? 0) >= HUNTER_MARKS ? home : `${oath.marks ?? 0}/${HUNTER_MARKS} marked`; break;
-      case 'dry_throat': progress = run.stats.deepest >= DRY_THROAT_DEPTH ? home : `reach depth ${DRY_THROAT_DEPTH}`; break;
-      case 'duelist': progress = (oath.kills ?? 0) >= DUELIST_KILLS ? home : `${oath.kills ?? 0}/${DUELIST_KILLS} kills`; break;
-      case 'kingsbane': progress = run.stats.bossKilled ? home : 'the King'; break;
-      case 'silence': progress = run.stats.deepest >= SILENCE_DEPTH ? `${home}, quietly` : `reach depth ${SILENCE_DEPTH}, quietly`; break;
-      case 'pilgrim': progress = (oath.prayers ?? 0) >= PILGRIM_PRAYERS ? home : `${oath.prayers ?? 0}/${PILGRIM_PRAYERS} shrines`; break;
-    }
+    let progress = oath.status === 'broken' ? 'broken' : oathProgress(run, oath).left || 'done, bring it home';
+    if (oath.id === 'silence' && oath.status !== 'broken') progress += ', quietly';
     return `<div style="color:${def.color}">Oath: ${def.name} · ${progress}</div>`;
   }).join('');
 }

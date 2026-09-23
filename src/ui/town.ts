@@ -4,7 +4,6 @@ import { sealsUnlocked, toggleSeal } from '../systems/seals';
 import { ROADS, roadsForDay } from '../data/routes';
 import { OATHS, OATH_PICKS, STACK_BONUS, STACK_BONUS_AT, findOath } from '../data/oaths';
 import { claimOathRewards, oathRewardPicks, pendingOaths, todaysOaths, toggleOath } from '../systems/oaths';
-import { learnProperty } from '../systems/properties';
 import { INSCRIBE_COST, PropertyDef, findProperty } from '../data/properties';
 import { inscribe, inscribeTargets } from '../systems/properties';
 import { EQUIP_SLOTS, Item, MaterialCategory, Rarity, RARITY_COLORS, RARITY_ORDER, STAT_KEYS, STAT_LABELS, Stats } from '../types';
@@ -33,12 +32,12 @@ import { UniqueDef } from '../data/uniques';
 import { ELEMENTS } from '../types';
 import { buildCrafted, craft, materialsForSlot, selectionError, salvageForNextRank, salvageStudy, studySalvagedWeapon, studyBlueprint } from '../systems/crafting';
 import { durability, identify, identifyCost, itemIcon, itemName, itemStats, itemValue, makeConsumable, makeUnique, repairCost, repairItem, salvage, uniqueOf } from '../systems/items';
-import { Container, addItem, canFit, countOf, freeSlots, removeItem, removeOf, roomFor, sortContainer, takeQty } from '../state/inventory';
+import { Container, addItem, canFit, countOf, findItem, freeSlots, removeItem, removeOf, roomFor, sortContainer, takeQty } from '../state/inventory';
 import { syncLoadout } from '../systems/run';
 import { attuneSigil, inscribeSigil } from '../systems/spells';
 import { findSigil, sigil } from '../data/spells';
 import { derivePlayer } from '../systems/player';
-import { defaultSlot, equipFrom, unequipTo } from '../systems/equip';
+import { defaultSlot, equipFrom, unequipTo, wornFor } from '../systems/equip';
 import { createRng, hashString, randomSeed } from '../core/rng';
 import { artImg, bothRegisters, btn, gold, h, helpBlock, helpButton, hideTooltip, isTouchMode, itemSlot, itemTooltip, rarityColor, sparkline, statLines, toggleDetailed } from './dom';
 import { esc } from '../core/escape';
@@ -46,10 +45,11 @@ import { artUrl } from '../render/art-cache';
 import { paperDoll, statSheet } from './dungeon-ui';
 import { audio } from '../audio/sfx';
 import { difficultyOf } from '../data/difficulty';
-import { PLAIN_FLASK_RAMP, draught } from '../systems/infusion';
+import { PLAIN_FLASK_RAMP, draught, infusionName } from '../systems/infusion';
 import { AccountSummary } from './account';
 import { openSettings, settingsGearButton } from './settings';
 import { FLASK_POTENCY, FLASK_UPGRADE_COSTS } from '../systems/healing';
+import { clamp } from '../core/math';
 
 export type TownTab = 'market' | 'forge' | 'guild' | 'stash' | 'bestiary' | 'warden';
 
@@ -427,7 +427,7 @@ export class Town {
       const idCost = unid ? identifyCost(it, metaLevel(s.meta, 'appraiser')) : 0;
       const el = itemSlot(it, {
         size: 44,
-        tip: () => itemTooltip(it, { price: { label: 'Sells for', value: price }, hint: unid ? `Click: sell · Right-click: identify for ${idCost}g` : 'Click: sell' }),
+        tip: () => itemTooltip(it, { price: { label: 'Sells for', value: price }, hint: unid ? `Click: sell · Right-click: identify for ${gold(idCost)}` : 'Click: sell' }),
         onclick: () => {
           removeItem(s.stash, it.uid);
           s.gold += price;
@@ -500,7 +500,7 @@ export class Town {
     // Sell only valuables beyond the quantity promised to accepted contracts.
     const valuablesOwned = this.valuablesOwned();
     const valuablesQuote = valuablesOwned.reduce((sum, v) => sum + quoteSell(m, v.id, v.qty, this.hag), 0);
-    const potency = Math.max(0, Math.min(4, s.flask?.potency ?? 0));
+    const potency = clamp(s.flask?.potency ?? 0, 0, 4);
     const flaskCost = potency < 4 ? FLASK_UPGRADE_COSTS[potency] : null;
     const flaskPane = h('div', { class: 'pane frame' },
       h('h3', { text: 'Flask potency' }),
@@ -815,8 +815,7 @@ export class Town {
     let preview: HTMLElement | null = null;
     if (selectedPreview) {
       const item = selectedPreview;
-      const cmpSlot = defaultSlot(item, s.equipment);
-      const cmp = cmpSlot ? s.equipment[cmpSlot] : null;
+      const cmp = wornFor(item, s.equipment);
       preview = h(
         'div',
         { class: 'preview' },
@@ -938,7 +937,7 @@ export class Town {
   private infusions(): HTMLElement {
     const s = this.s;
     const current = draught(s.flask?.infusion);
-    const currentName = s.flask?.infusion === 'fight_milk' ? 'Fight Milk' : s.flask?.infusion ? material(s.flask.infusion).name : null;
+    const currentName = s.flask?.infusion ? infusionName(s.flask.infusion) : null;
     const card = h('div', { class: 'row infusion-now' },
       artImg('ic_potion', current?.ramp ?? PLAIN_FLASK_RAMP, 40),
       h('div', { class: 'grow' },
@@ -949,14 +948,14 @@ export class Town {
     );
     const seen = new Set<string>();
     const choices = s.stash.items.filter((it) => {
-      if (it.kind !== 'material' && !(it.kind === 'consumable' && it.ref === 'fight_milk')) return false;
+      if (it.kind !== 'material' && it.kind !== 'consumable') return false;
       if (!draught(it.ref) || it.ref === s.flask?.infusion || seen.has(it.ref)) return false;
       seen.add(it.ref);
       return true;
     });
     const rows = choices.map((it) => {
       const d = draught(it.ref)!;
-      const name = it.ref === 'fight_milk' ? 'Fight Milk' : material(it.ref).name;
+      const name = infusionName(it.ref);
       return h('div', { class: 'row repair-row' },
         itemSlot(it, { size: 34, tip: () => itemTooltip(it) }),
         h('div', { class: 'grow' },
@@ -1295,7 +1294,7 @@ export class Town {
           bothRegisters(def.rule, def.detail, 'dim small'),
           targets.length ? select : h('div', { class: 'dim small', text: `Nothing you own can take it: ${def.slots.join(', ')} only.` }),
         ),
-        btn(already ? 'Inscribed' : `Inscribe · ${INSCRIBE_COST}g`, () => {
+        btn(already ? 'Inscribed' : `Inscribe · ${gold(INSCRIBE_COST)}`, () => {
           if (!chosen) return;
           const r = inscribe(s, chosen.uid, def.id);
           if (r === 'gold') return this.ctx.toast(`It costs ${INSCRIBE_COST} gold.`, '#ff9070');
@@ -1385,7 +1384,7 @@ export class Town {
   private toPack(uid: string): void {
     const s = this.s;
     const { c } = this.pack;
-    const it = s.stash.items.find((i) => i.uid === uid);
+    const it = findItem(s.stash, uid);
     if (!it) return;
     const room = roomFor(c, it);
     if (room <= 0) {

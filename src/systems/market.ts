@@ -4,6 +4,7 @@ import { MATERIALS, material } from '../data/materials';
 import { CONSUMABLES } from '../data/items';
 import { tonicUnique } from '../data/uniques';
 import { ItemCategory, durability, itemCategory, itemValue, isIdentified, materialAvailableAtDepth, rarityAvailableAtDepth, rollBlueprint, rollEquipment } from './items';
+import { clamp } from '../core/math';
 
 // ---------------------------------------------------------------------------
 // Events
@@ -168,7 +169,7 @@ export function advanceDay(m: MarketState, rng: Rng, bestDepth = 1, ranks: Recip
     const fair = (mat.value * eventMultiplier(m, { materialId: mat.id })) / (1 + c.supply * 0.05);
     const vol = 0.06 + RARITY_ORDER[mat.rarity] * 0.015;
     let next = c.price + 0.38 * (fair - c.price) + c.price * vol * gauss(rng);
-    next = Math.max(mat.value * 0.25, Math.min(mat.value * 4, next));
+    next = clamp(next, mat.value * 0.25, mat.value * 4);
     c.price = Math.max(1, Math.round(next));
     c.history.push(c.price);
     if (c.history.length > HISTORY_DAYS) c.history.shift();
@@ -184,7 +185,7 @@ export function advanceDay(m: MarketState, rng: Rng, bestDepth = 1, ranks: Recip
     const fair = eventMultiplier(m, { category: cat });
     let s = m.sentiment[cat];
     s += 0.4 * (fair - s) + 0.05 * gauss(rng);
-    m.sentiment[cat] = Math.max(0.5, Math.min(2.2, Math.round(s * 100) / 100));
+    m.sentiment[cat] = clamp(Math.round(s * 100) / 100, 0.5, 2.2);
     m.sentimentHistory[cat].push(m.sentiment[cat]);
     if (m.sentimentHistory[cat].length > HISTORY_DAYS) m.sentimentHistory[cat].shift();
   }
@@ -203,7 +204,7 @@ const QUIET_NEWS = [
 
 function restockWares(m: MarketState, rng: Rng, bestDepth: number, ranks: RecipeRanks): void {
   const wares: Item[] = [];
-  const depth = Math.max(1, Math.min(6, bestDepth));
+  const depth = clamp(bestDepth, 1, 6);
   for (let i = 0; i < 6; i++) {
     const bands: [Rarity, number][] = [
       [Rarity.Common, 60],

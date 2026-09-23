@@ -3,6 +3,7 @@ import { Slot } from '../state/persistence';
 import { contentHash, fallenRecord, progressHash, serializeSave } from '../state/save-format';
 import { CloudFetch, CloudSave, fetchCloudSlots, uploadSave } from './cloud-save';
 import { deviceId } from './device';
+import { loadMeta, storeMeta } from './sync-meta';
 
 /**
  * The local-first sync coordinator.
@@ -50,54 +51,6 @@ export type Reconciliation =
   | { kind: 'take-cloud'; save: CloudSave }
   | { kind: 'choose'; save: CloudSave }
   | { kind: 'update-required' };
-
-/**
- * The last state this browser and the cloud agreed on, for one playthrough.
- *
- * `CloudSync` lives only as long as the page, but reloads are exactly when
- * the question matters: a local save lands on every unload while its cloud
- * push is still debounced, so after a reload the local snapshot is routinely
- * a checkpoint ahead of the cloud row. Without a memory of the last agreement
- * that looks identical to two devices genuinely diverging, and the player gets
- * interrogated over a few seconds of their own progress. Remembering the last
- * agreed generation and hash tells the two apart: cloud untouched plus local
- * moved on means catch the cloud up; local untouched plus cloud moved on
- * means take the cloud; only both moved on is a real question.
- */
-interface SyncMeta {
-  generation: number;
-  hash: string;
-  cloudSlot: Slot;
-}
-
-const META_PREFIX = 'looting-simulator-sync-v1-';
-
-function metaKey(saveId: string): string {
-  return `${META_PREFIX}${saveId}`;
-}
-
-function loadMeta(saveId: string | undefined | null): SyncMeta | null {
-  try {
-    if (!saveId) return null;
-    const raw = localStorage.getItem(metaKey(saveId));
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<SyncMeta>;
-    if (typeof parsed.generation !== 'number' || typeof parsed.hash !== 'string') return null;
-    return parsed as SyncMeta;
-  } catch {
-    return null;
-  }
-}
-
-function storeMeta(saveId: string | undefined | null, meta: SyncMeta): void {
-  try {
-    if (!saveId) return;
-    localStorage.setItem(metaKey(saveId), JSON.stringify(meta));
-  } catch {
-    // Storage blocked: sync still works, it just cannot tell unsent local
-    // progress from a genuine divergence on the next reload.
-  }
-}
 
 export interface SyncDeps {
   /** The live state. Read at upload time so a delayed upload sends the truth. */

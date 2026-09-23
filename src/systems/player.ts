@@ -4,6 +4,7 @@ import { FIST_ATTACK, FIST_SWING, itemBase } from '../data/items';
 import { DifficultyId, difficultyOf } from '../data/difficulty';
 import { isTwoHanded, itemStats, thrownCapacity, thrownProfile, uniqueOf } from './items';
 import { MetaLevels, metaLevel } from './meta';
+import { clamp } from '../core/math';
 
 export type Equipment = Record<EquipSlot, Item | null>;
 
@@ -269,7 +270,7 @@ export function derivePlayer(eq: Equipment, meta: MetaLevels, difficulty?: Diffi
     // Parrying with a weapon still takes the edge off; shields do the real work.
     // Clamped at zero: a relic that spends Block can drive the stat negative,
     // and a negative absorption would turn raising your guard into taking more.
-    block: hasShield ? Math.max(0, Math.min(0.9, stats.block / 100)) : twoHanded ? 0.2 : weapon ? 0.3 : 0.12,
+    block: hasShield ? clamp(stats.block / 100, 0, 0.9) : twoHanded ? 0.2 : weapon ? 0.3 : 0.12,
     hasShield,
     twoHanded,
     thrown: thrownProfile(eq.thrown),

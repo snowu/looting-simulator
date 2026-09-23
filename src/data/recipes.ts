@@ -1,5 +1,6 @@
 import { MaterialCategory, RecipeDef, RecipeRanks } from '../types';
 import { gearLadderIndex, gearTier } from './items';
+import { clamp } from '../core/math';
 
 export const SECONDARY_CATEGORIES: MaterialCategory[] = ['metal', 'wood', 'hide', 'cloth', 'bone'];
 const EXTRA = { label: 'Extra material', categories: SECONDARY_CATEGORIES, qty: 1, optional: true };
@@ -95,16 +96,16 @@ export const MAX_RECIPE_RANK = 5;
 const MASTERY_BONUSES = [0, 0, 0.08, 0.16, 0.26, 0.4];
 
 export function recipeRank(ranks: RecipeRanks | undefined, id: string): number {
-  return Math.max(0, Math.min(MAX_RECIPE_RANK, Math.floor(ranks?.[id] ?? 0)));
+  return clamp(Math.floor(ranks?.[id] ?? 0), 0, MAX_RECIPE_RANK);
 }
 
 export function masteryBonus(rank: number): number {
-  return MASTERY_BONUSES[Math.max(0, Math.min(MAX_RECIPE_RANK, Math.floor(rank)))] ?? 0;
+  return MASTERY_BONUSES[clamp(Math.floor(rank), 0, MAX_RECIPE_RANK)] ?? 0;
 }
 
 /** Unlocking costs one blueprint; each later rank costs its target rank. */
 export function blueprintCostForNextRank(rank: number): number {
-  const current = Math.max(0, Math.min(MAX_RECIPE_RANK, Math.floor(rank)));
+  const current = clamp(Math.floor(rank), 0, MAX_RECIPE_RANK);
   return current >= MAX_RECIPE_RANK ? 0 : current + 1;
 }
 

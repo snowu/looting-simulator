@@ -1,5 +1,5 @@
 import { ArtDef } from './raster';
-import { rows, stamp, sym } from './helpers';
+import { mirror, rows, stamp, sym } from './helpers';
 import { ENEMY_ART_A } from './enemies-a';
 import { ENEMY_ART_B } from './enemies-b';
 import { ELEMENTAL_VARIANTS } from '../data/elemental-variants';
@@ -73,7 +73,7 @@ function themed(source: ArtDef, variant: typeof ELEMENTAL_VARIANTS[number], pose
     pose === 'block' ? 10 : 1, pose === 'block' ? 18 : pose === 'atk' ? 17 : 19);
   else if (variant.base === 'spider') pixels = stamp(pixels, hotShell, 10, 12);
   else if (variant.base === 'ghoul') pixels = stamp(pixels, hot ? moltenChest : frozenChest, 11, 17);
-  else if (variant.base === 'bat') pixels = stamp(stamp(pixels, batRime, 5, 10), batRime.map(row => [...row].reverse().join('')), 22, 10);
+  else if (variant.base === 'bat') pixels = stamp(stamp(pixels, batRime, 5, 10), mirror(batRime), 22, 10);
   else pixels = stamp(pixels, hot ? ribHeat : iceShoulder, hot ? 12 : 9, 16);
   return { id: `${variant.sprite}_${pose}`, palette, rows: pixels };
 }

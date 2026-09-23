@@ -1,5 +1,6 @@
 import { GameState } from './game-state';
 import { parseSave, sanitizeSaveName, serializeSave } from './save-format';
+import { carryAgreementThroughMigration } from '../cloud/sync-meta';
 
 /**
  * The local store: synchronous, authoritative during play, and never waiting on
@@ -54,7 +55,9 @@ export function loadGame(slot: Slot): GameState | null {
   try {
     const raw = localStorage.getItem(keyFor(slot));
     if (!raw) return null;
-    return parseSave(raw);
+    const state = parseSave(raw);
+    if (state) carryAgreementThroughMigration(raw, state);
+    return state;
   } catch {
     return null;
   }

@@ -3,7 +3,8 @@ import { EnemyDef } from '../types';
 type VariantOverrides = Pick<EnemyDef, 'id' | 'name' | 'sprite' | 'element' | 'damageType' | 'resist' | 'loot' | 'description'>;
 /** Only identity, element and drops vary; combat timing and scaling stay inherited. */
 export function elementalVariant(base: EnemyDef, overrides: VariantOverrides): EnemyDef {
-  return { ...base, ...overrides, weight: base.weight * 0.5 };
+  // A variant spawns in the ordinary 1–2 whatever its base's pack, as it always has.
+  return { ...base, ...overrides, weight: base.weight * 0.5, pack: undefined };
 }
 export const ELEMENTAL_VARIANTS = [
   { base: 'skeleton', id: 'skeleton_ember', name: 'Scorched Bones', sprite: 'skelember', element: 'fire', description: 'The furnace has burned everything away except the worker. Coals still settle between its ribs.' },
