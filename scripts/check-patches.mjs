@@ -17,6 +17,8 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 
 // Commits that must never become patch notes. Short hash -> reason.
 const SKIP = {
+  'aa2418f': 'art handoff doc and pixel painter script; no player-facing change',
+  '334f72d': 'handoff doc wording and a .gitignore line; no player-facing change',
   '1c3c74c': 'round-3 art review notes, PR before/after sheets and patch_notes.md text; the art is Patch 82',
   '3b18234': 'PR preview image only',
   '0160bb4': 'PR preview image only',
