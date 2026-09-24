@@ -22,6 +22,8 @@ import { CloudSync } from './cloud/sync';
 import { CloudFetch, CloudSave, deleteCloudSave, fetchCloudSave, fetchCloudSlots, uploadSave } from './cloud/cloud-save';
 import { h, setTouchMode } from './ui/dom';
 import { TouchControls, TouchMove, isTouchDevice } from './ui/touch';
+import { sideMove, touchPrefs } from './ui/touch-prefs';
+import { TiltStrafe, requestTilt, tiltNeedsPermission } from './ui/tilt';
 import { GamepadController, type PadContext } from './ui/gamepad';
 import { FULLSCREEN_HELP, fullscreenSupported, isFullscreen, isStandalone, mountFullscreenButton, toggleFullscreen, wasButtonExit } from './ui/fullscreen';
 import { APP_VERSION, BUILD_ID, newerBuild, reloadToLatest, shouldAttemptReload } from './ui/update';
@@ -102,12 +104,37 @@ let chestPress: number | null = null;
 const CHEST_HOLD_MS = 350;
 setTouchMode(touchMode);
 let stickDir: TouchMove | null = null;
+/**
+ * Moves held by touch sources, counted: the stick, an edge button and tilt can
+ * ask for the same move at once, and letting go of one must not cancel the
+ * others.
+ */
+const touchHeld = new Map<TouchMove, number>();
+function touchHold(m: TouchMove, on: boolean): void {
+  const n = (touchHeld.get(m) ?? 0) + (on ? 1 : -1);
+  if (n > 0) {
+    touchHeld.set(m, n);
+    if (on && n === 1) world?.press(m);
+    return;
+  }
+  touchHeld.delete(m);
+  world?.release(m);
+}
+function clearTouchHolds(): void {
+  touchHeld.clear();
+  stickDir = null;
+  tiltHeld = null;
+}
+const tilt = new TiltStrafe();
+/** The move tilt is holding right now, so it can be let go when the roll or the pause changes. */
+let tiltHeld: TouchMove | null = null;
 const touch = new TouchControls(app, {
   move: (d) => {
-    if (stickDir) world?.release(stickDir);
+    if (stickDir) touchHold(stickDir, false);
     stickDir = d;
-    if (d) world?.press(d);
+    if (d) touchHold(d, true);
   },
+  side: (m, on) => touchHold(m, on),
   hurl: () => world?.hurl(),
   retrieve: (held) => world?.retrieve(held),
   sigil: () => world?.castSigil(),
@@ -136,6 +163,18 @@ const touch = new TouchControls(app, {
   block: (on) => world?.setBlock(on),
   open: (m) => world && overlays.toggle(m, world),
 });
+// Tilt follows its setting. iOS only lets a page read the sensor after asking
+// from inside a tap, and forgets the answer on reload, so with tilt on the
+// first touch of each visit asks again (no prompt once it has been granted).
+tilt.enabled = touchPrefs.get().tilt;
+touchPrefs.onChange((p) => { tilt.enabled = p.tilt; });
+if (tiltNeedsPermission()) {
+  const ask = () => {
+    window.removeEventListener('touchend', ask);
+    if (touchPrefs.get().tilt) void requestTilt();
+  };
+  window.addEventListener('touchend', ask);
+}
 // Hybrid devices: switch to touch controls the first time a finger lands.
 window.addEventListener('touchstart', () => {
   if (touchMode) return;
@@ -451,7 +490,7 @@ function show(m: Mode): void {
   touch.visible = m === 'dungeon' && touchMode;
   touchAttack = false;
   chestPress = null;
-  stickDir = null;
+  clearTouchHolds();
   pad.reset();
   canvas.style.visibility = m === 'dungeon' ? 'visible' : 'hidden';
   town.visible = m === 'town';
@@ -860,7 +899,7 @@ function enterDungeon(): void {
   if (state.lifetime.runs <= 1) {
     hud.message(
       touchMode
-        ? 'Drag up/down to walk, left/right to turn. Tap to swing or loot. Get the loot back up the stairs.'
+        ? `Drag up/down to walk, left/right to ${touchPrefs.get().padSwipe === 'strafe' ? 'strafe' : 'turn'}. Tap the right side to swing or loot, the left side to block. Get the loot back up the stairs.`
         : 'Press Esc for controls. Find loot, then get it back up the stairs.',
       '#a0a090',
     );
@@ -995,6 +1034,14 @@ function frame(now: number): void {
         calling: !!world.anim.retrieving,
         sigil: !!world.run.sigil && world.run.sigil.cd <= 0,
       });
+    }
+    // Tilt is polled rather than pushed: a roll held through a pause must not
+    // walk you off the moment the menu closes, so it only counts while live.
+    const tiltWant = touchMode && !paused && !ending && tilt.dir ? sideMove(tilt.dir, 'extra', touchPrefs.get().padSwipe) : null;
+    if (tiltWant !== tiltHeld) {
+      if (tiltHeld) touchHold(tiltHeld, false);
+      tiltHeld = tiltWant;
+      if (tiltWant) touchHold(tiltWant, true);
     }
     if (chestPress !== null && (paused || world.interactionHint() !== 'Open chest')) chestPress = null;
     if (chestPress !== null && now - chestPress >= CHEST_HOLD_MS) {
@@ -1150,6 +1197,7 @@ window.addEventListener('mouseup', (e) => {
 });
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 window.addEventListener('blur', () => {
+  clearTouchHolds();
   world?.held.clear();
   world?.retrieve(false);
   world?.setBlock(false);
@@ -1168,7 +1216,9 @@ function goBackground(): void {
   world?.retrieve(false);
   touchAttack = false;
   chestPress = null;
-  stickDir = null;
+  // Hide first: that lifts every finger the pad and buttons were tracking.
+  touch.visible = false;
+  clearTouchHolds();
   pad.reset();
   if (mode === 'dungeon' && world && !overlays.isOpen && !isSettingsOpen() && !ending) overlays.open('help', world);
 }

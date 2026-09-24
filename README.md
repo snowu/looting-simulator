@@ -68,7 +68,7 @@ Pick **Normal** or **Hard** in Bleakmere. Progress saves locally in three named 
 
 ![Playing on a phone](docs/screenshots/mobile.png)
 
-**Touch:** drag on the view to walk and turn. Tap the view or the main button to swing, loot or interact, and hold the shield button to block. Throw, Call, Sigil, Pack and Map have their own buttons. The corner button toggles fullscreen and landscape lock where supported.
+**Touch:** drag on the view to walk and turn. Tap the right half of the view or the main button to swing, loot or interact; tap or hold the left half (or the shield button) to block. Hold the ◀ ▶ buttons on the screen edges to strafe, or turn on tilt-to-strafe in Settings, where you can also swap what a sideways swipe does. The quick bar sits above attack and block. Throw, Call, Sigil, Pack and Map have their own buttons. The corner button toggles fullscreen and landscape lock where supported.
 
 **Gamepad** (PC and mobile, Bluetooth or USB): the left stick steps and strafes, and the right stick or D-pad turns. A / RT swings or loots, X interacts, LT blocks and parries, LB throws, RB (hold) calls shafts back, Y casts the sigil, and B sips the flask. Select opens the pack, L3 the map, R3 uses the next quick-slot item, and Start pauses. In menus, A confirms and B goes back. Hits rumble where the browser supports it.
 

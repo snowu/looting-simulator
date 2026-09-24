@@ -102,6 +102,8 @@ h3 { font-size: 26px; color: var(--ink); margin-bottom: 6px; }
    one only repaints the highlight instead of reflowing the text below. */
 .diff-row { display: flex; gap: 10px; align-items: baseline; margin: 5px 0; }
 .diff-row .btn { flex: none; min-width: 78px; }
+.touch-prefs .diff-row { align-items: center; }
+.touch-prefs .diff-row > .small:first-child { flex: 0 0 11em; }
 
 /* Settings: volume slider sits beside the mute toggle, percentage pinned right
    so dragging never shoves the row around. */
@@ -622,23 +624,42 @@ body.touch #hud .quick, body.touch #hud .prompt { z-index: 3; }
 .ttools {
   position: absolute;
   right: max(12px, env(safe-area-inset-right));
-  bottom: 84px;
+  bottom: calc(max(12px, env(safe-area-inset-bottom)) + 170px);
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
+/* Edge buttons: hold to strafe (or turn, when the swipe strafes). Halfway up
+   each side, where the thumbs sit when you grip the phone in landscape. */
+.tbtn.edge {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 52px;
+  height: 76px;
+  font-size: 24px;
+  color: #d8ccb0;
+  background: #16121b99;
+  border-color: #4a425099;
+}
+.tbtn.edge.on { background: #4a3a1ce6; border-color: var(--gold); color: #fff; }
+.tbtn.edge-left { left: max(8px, env(safe-area-inset-left)); }
+.tbtn.edge-right { right: max(8px, env(safe-area-inset-right)); }
+
 body.touch .hint-keys { display: none; }
 body.touch #hud .status { left: max(14px, env(safe-area-inset-left)); top: max(10px, env(safe-area-inset-top)); font-size: 17px; }
 body.touch #hud .status .depth { font-size: 24px; }
 body.touch #hud .minimap { right: max(12px, env(safe-area-inset-right)); width: 112px; height: 112px; }
-body.touch #hud .bars { left: 50%; transform: translateX(-50%); bottom: calc(max(12px, env(safe-area-inset-bottom)) + 54px); width: min(34vw, 280px); }
+body.touch #hud .bars { left: 50%; transform: translateX(-50%); bottom: calc(max(12px, env(safe-area-inset-bottom)) + 4px); width: min(34vw, 280px); }
 body.touch #hud .bar-label { font-size: 15px; }
-body.touch #hud .quick { right: auto; left: 50%; transform: translateX(-50%); bottom: max(8px, env(safe-area-inset-bottom)); }
+/* The quick bar sits right above attack and block: the thumb that swings is
+   the one that drinks, and down the middle it was small and far to reach. */
+body.touch #hud .quick { right: max(12px, env(safe-area-inset-right)); bottom: calc(max(12px, env(safe-area-inset-bottom)) + 110px); gap: 8px; }
 body.touch #hud .sigil { right: auto; left: max(12px, env(safe-area-inset-left)); bottom: max(76px, calc(env(safe-area-inset-bottom) + 76px)); }
 body.touch #hud .quick .key { display: none; }
 body.touch #hud .prompt {
-  bottom: calc(max(12px, env(safe-area-inset-bottom)) + 142px);
+  bottom: calc(max(12px, env(safe-area-inset-bottom)) + 90px);
   pointer-events: auto;
   cursor: pointer;
   background: #0e0c10d9;
@@ -701,12 +722,13 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
   .town-head { padding-right: 38px; }
   body.touch #hud .compass { font-size: 18px; gap: 8px; }
   body.touch #hud .compass .side { font-size: 13px; }
-  body.touch #hud .bars { width: min(28vw, 190px); gap: 1px; bottom: calc(max(6px, env(safe-area-inset-bottom)) + 38px); }
+  body.touch #hud .bars { width: min(28vw, 190px); gap: 1px; bottom: calc(max(6px, env(safe-area-inset-bottom)) + 2px); }
   body.touch #hud .bar { height: 7px; border-width: 1px; }
   body.touch #hud .bar-label { font-size: 11px; }
-  body.touch #hud .quick { gap: 3px; bottom: max(4px, env(safe-area-inset-bottom)); }
-  body.touch #hud .quick .slot { --sz: 30px !important; }
-  body.touch #hud .prompt { font-size: 15px; padding: 1px 8px; border-width: 1px; bottom: calc(max(6px, env(safe-area-inset-bottom)) + 88px); }
+  body.touch #hud .quick { gap: 5px; right: max(8px, env(safe-area-inset-right)); bottom: calc(max(8px, env(safe-area-inset-bottom)) + 76px); }
+  body.touch #hud .quick .slot { --sz: 42px !important; }
+  body.touch .tbtn.edge { width: 42px; height: 62px; font-size: 18px; }
+  body.touch #hud .prompt { font-size: 15px; padding: 1px 8px; border-width: 1px; bottom: calc(max(6px, env(safe-area-inset-bottom)) + 48px); }
   body.touch #hud .log div { font-size: 13px; }
   body.touch #hud .target { width: min(38vw, 240px); font-size: 14px; }
   body.touch #hud .target .bar { height: 5px; }
@@ -764,7 +786,7 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
 /* Landscape phones: menu buttons in a row across the top. */
 @media (max-height: 500px) {
   body.touch .tmenu { flex-direction: row; right: auto; left: 50%; transform: translateX(-50%); top: max(4px, env(safe-area-inset-top)); gap: 4px; }
-  body.touch .ttools { flex-direction: row; bottom: max(78px, calc(env(safe-area-inset-bottom) + 78px)); gap: 4px; }
+  body.touch .ttools { flex-direction: row; right: max(8px, env(safe-area-inset-right)); bottom: calc(max(8px, env(safe-area-inset-bottom)) + 128px); gap: 4px; }
   body.touch #hud .compass { top: 30px; }
   body.touch #hud .target { top: 52px; }
   body.touch #hud .log { top: 84px; width: min(50vw, 380px); }
@@ -773,7 +795,7 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
 /* Portrait phones: menu column under the minimap. */
 @media (max-width: 560px) and (min-height: 501px) {
   body.touch .tmenu { top: 132px; gap: 4px; }
-  body.touch .ttools { bottom: 96px; gap: 4px; }
+  body.touch .ttools { right: max(8px, env(safe-area-inset-right)); bottom: calc(max(8px, env(safe-area-inset-bottom)) + 130px); gap: 4px; }
   body.touch #hud .log { top: 70px; width: 60vw; }
   body.touch #hud .compass { top: 8px; }
   body.touch #hud .target { top: 36px; }
