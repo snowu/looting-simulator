@@ -17,6 +17,7 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 
 // Commits that must never become patch notes. Short hash -> reason.
 const SKIP = {
+  '3ae69b4': 'Patch 80 citation only',
   '7002394': 'Patch 80 citations and a skip reason only',
   '1bd6ae7': 'playtest report diagnostics only; no player-facing change',
   '1edbb8a': 'playtest harness fix only; no player-facing change',
