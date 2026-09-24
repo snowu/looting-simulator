@@ -84,22 +84,23 @@ export const ICONS: ArtDef[] = [
     ................
     ................
   `)),
+  // A stretched pelt, neck up: four short leg tabs and a tail, so it reads as a skin and not a bat.
   icon('ic_hide', sym(rows(`
     ........
-    ........
-    ..kk....
-    .k43k...
-    .k332kkk
-    ..k33444
-    ...k3443
-    ...k3343
-    ...k3333
+    ......kk
+    .kk..k44
+    k43kk443
+    k3344443
+    .kk34433
+    ..k34333
     ..k33333
-    .k433333
-    .k332kkk
-    ..kk....
-    ........
-    ........
+    ..k33332
+    ..k33332
+    .kk33322
+    k332kk33
+    k22k.k33
+    .kk...k2
+    ......kk
     ........
   `))),
   icon('ic_scale', sym(rows(`
@@ -693,23 +694,24 @@ export const ICONS: ArtDef[] = [
     ........
     ........
   `))),
+  // A hooded robe: the face lost in the hood, flared sleeves, a cord belt, the hem widening to the floor.
   icon('ic_robe', sym(rows(`
     ........
-    ....kkkk
-    ...k44kk
-    ..k443k4
-    .k4433k3
-    .k433k33
-    .kk33333
+    .....kkk
+    ....k444
+    ...k4433
+    ...k43ke
+    ..kk43ke
+    .k4k33ke
+    k443k333
+    k4332k33
+    kk32kggg
     ..k33333
-    ..k33333
-    ..k33232
-    ..k33333
+    ..k33332
     .k333332
-    .k333232
-    k3333333
+    .k333322
+    k3333222
     kkkkkkkk
-    ........
   `))),
   icon('ic_jerkin', sym(rows(`
     ........
