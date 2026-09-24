@@ -90,8 +90,8 @@ const eraseSword = fill(6, 18, '_');
 const drownedIdle = stamp(stamp(original.get('skeleton_0')!.rows, eraseSword, 23, 8), drownedCrown, 10, 0);
 const drownedAttack = stamp(original.get('skeleton_atk')!.rows, drownedCrown, 10, 0);
 
-const stalkerAttack = frame('stalker_atk', 'spider_atk', stalkerCrest, 8, 5, stalkerColors);
-const stalkerBite: ArtDef = { ...stalkerAttack, rows: stamp(stalkerAttack.rows, stalkerFangs, 11, 16) };
+const stalkerAttack = frame('stalker_atk', 'spider_atk', stalkerCrest, 8, 0, stalkerColors);
+const stalkerBite: ArtDef = { ...stalkerAttack, rows: stamp(stalkerAttack.rows, stalkerFangs, 11, 18) };
 
 
 /**
@@ -223,7 +223,7 @@ export const ENEMY_ART_VARIETY: ArtDef[] = [
   { id: 'gravecaller_atk', palette: gravecallerColors, rows: gravecallerChant },
   { id: 'drowned_0', palette: { ...original.get('skeleton_0')!.palette, ...drownedColors }, rows: stamp(drownedIdle, drownedMaul, 22, 10) },
   { id: 'drowned_atk', palette: { ...original.get('skeleton_atk')!.palette, ...drownedColors }, rows: stamp(drownedAttack, drownedMaul, 21, 0) },
-  frame('stalker_0', 'spider_0', stalkerCrest, 8, 8, stalkerColors),
+  frame('stalker_0', 'spider_0', stalkerCrest, 8, 2, stalkerColors),
   stalkerBite,
   { id: 'iceguard_0', palette: { ...original.get('skelshield_0')!.palette, ...iceColors }, rows: stamp(stamp(original.get('skelshield_0')!.rows, iceCrest, 10, 0), iceShield, 1, 17) },
   { id: 'iceguard_block', palette: { ...original.get('skelshield_block')!.palette, ...iceColors }, rows: stamp(stamp(original.get('skelshield_block')!.rows, iceCrest, 10, 0), iceShield, 9, 13) },

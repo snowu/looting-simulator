@@ -1,3 +1,21 @@
+# New art for the weakest sprites
+
+*Save revision 29, unchanged: nothing about a save moves.*
+
+**The pasture herd looks like cattle now.** Calves, heifers and bulls used to be a box stacked on a box. They now have a proper head with ears and eyes, a pink muzzle, shoulders and legs, and patches that differ on each side. The bull has horns and a nose ring. When it charges, its head drops, its eyes turn red and it snorts steam.
+
+**You can see spiders in the dark.** Cave spiders and ceiling crawlers had black legs on a black floor. They now have a round body, eight eyes, pale fangs, and jointed legs a shade lighter than the body. The Tunnel Stalker's crest and the Emberback's glowing shell sit on the new body.
+
+**Each shrine shows what it does.** All five shrines used to be the same skull pedestal in different colours. Each one now has its own object and a matching symbol carved into the front: a basin of clean water for the font, a seated idol, a brass bowl of coins for the coffer, a bowl overflowing with blood, and an ember brazier behind crossed blades. A used shrine's candles go out and its glow fades.
+
+**Stone and water.** The ceilings of the Ossuary, the Catacombs, the Sporegrove, the Throne and the Burrows, and the Ossuary's flagstones, are now worn, cracked and chipped stone instead of flat slabs. They are just as dark as before. The Catacombs water has ripples instead of a grid of dots.
+
+**Smaller things.** Barrels are round instead of looking like crates. Glowing fungus is a cluster of three caps. Wall sconces are torches in iron brackets. The loot bag has a tied neck. The Hollow Knight (and your Shade) wears a great helm with a visor slit instead of a box, and the club icon looks like a club.
+
+Validation: all tests pass, including the rule that every attack frame changes enough of the sprite to be read as a tell. The shipped PNGs are regenerated from the art code (`npm run art:check` is clean). Checked in the 3D view in the dev lab: the new herd reads clearly by torchlight.
+
+---
+
 # Report a bug from inside the game
 
 *Save revision 29, unchanged: nothing about a save moves.*
