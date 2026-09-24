@@ -451,12 +451,44 @@ const BANNER_ROWS = [
   ...fill(32, 5),
 ];
 
-// Obsidian checker for the throne floor.
-const TILE_A = ['rddddddd', 'dbbbbbba', 'dbbbbbba', 'dbbbcbba', 'dbbbbbba', 'dbbbbbba', 'dbbbbbba', 'daaaaaaa'];
-const TILE_B = ['rddddddd', 'dffffffa', 'dffffffa', 'dfffgffa', 'dffffffa', 'dffffffa', 'dffffffa', 'daaaaaaa'];
-const CHECKER_ROWS = [0, 1, 2, 3].flatMap((band) =>
-  TILE_A.map((_, i) => (band % 2 === 0 ? TILE_A[i] + TILE_B[i] : TILE_B[i] + TILE_A[i]).repeat(2)),
-);
+// Obsidian checker for the throne floor, ember showing at the grout
+// crossings. It has been walked on for a long time: the polish is worn
+// through in patches, scorched in others, a few tiles are cracked, one is
+// chipped to the bed, and an ember crack has opened across a row.
+const CHECKER_ROWS = rows(`
+  rdddddddrdddddddrdddddddrddddddd
+  dbbbbbbadgggadgadccccccadggffffa
+  dbbbbbbadgggadgadccccccadggffffa
+  dbbbcbbadggggadadccccccadgffgffa
+  dbbbbbbadggggadadbbbcccadgfffffa
+  dabbbbbadgggggaadbbbbccadgfffaaa
+  daabbbbadgggggaadbbbbccadgfffaaa
+  daaaaaaadaaaaaaadaaaaaaadaaaaaaa
+  rdddddddrdddddddrdddddddrddddddd
+  dffffffadbbbcbbadffffffadbbbbbba
+  dffffffadbbbbbbadffffffadbbbbbba
+  dfffgffadbbbcbbadfffgffadabbcbba
+  dffffffadbbbbbbadfffffaadaabbbba
+  dffffffadbbbbbbadffffffadabbbbba
+  dffffffadbbbbbbadffffffadbbbbbba
+  daaaaaaadaaaaaaadaaaaaaadaaaaaaa
+  rdddddddrdddddddrdddddddrddddddd
+  dbbbbccadgggggfadbbbbaaadgffadfa
+  dbbbcccadgggggfadbabbbaadgfadffa
+  dbbbcccadggggffadbbbcbbadgfadffa
+  dbbbbbbadffffffadbbbbbbadfadfffa
+  dbbbbbbadffffffadbbbbbbadffadffa
+  dbbbbbbadffffffadbbbbbbadfadfffa
+  daaaaaaadaaaaaaadaaaaaaadaaaaaaa
+  rdddddddrdddddddrdddddddrddddddd
+  dfadfffrrrraaabadggggffadbbbbbba
+  dfarrrradbbrrrrrrggggrrrrbbbbbba
+  dfadgffadbbbcbbadrrrrffadbbbcbba
+  dadffffadbbbbbbadgggggfadbbbbbba
+  dadffffadbbbbccadggggggadbbbbbba
+  dfadgggadccccccadggggggadbbbbbba
+  daaaaaaadaaaaaaadaaaaaaadaaaaaaa
+`);
 
 const BURROW_ROOT = rows(`
   r.............
