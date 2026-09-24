@@ -737,45 +737,45 @@ const DOOR_WOOD_ROWS = rows(`
   yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
 `);
 
-const plate = (l: string, r: string) => 'k' + l + 'kk' + r + 'k';
-const P_TOP = 'jjjjjjjjjjjjjj';
-const P_RIV = 'jniiiiiiiiiinj';
-const P_MID = 'jiiiiiiiiiiiik';
-const K32 = 'k'.repeat(32);
-const DOOR_IRON_ROWS = [
-  K32,
-  plate(P_TOP, P_TOP),
-  plate(P_RIV, P_RIV),
-  plate(P_MID, P_MID),
-  plate('jiiiiiriiiiiik', P_MID),
-  plate('jiiiiirsiiiiik', 'jiiiiiiiiriiik'),
-  plate('jiiiiiirsiiiik', 'jiiiiiiiirsiik'),
-  plate('jiiiiiiirsiiik', 'jiiiiiiiiirsik'),
-  plate(P_MID, P_MID),
-  plate(P_RIV, P_RIV),
-  K32,
-  plate(P_TOP, P_TOP),
-  plate(P_RIV, P_RIV),
-  plate(P_MID, P_MID),
-  plate('jiiiiiiiiiriik', P_MID),
-  plate('jiiiiiiiiirsik', 'jiiiriiiiiiiik'),
-  plate('jiiiiiiiiiirsk', 'jiiirsiiiiiiik'),
-  plate(P_MID, 'jiiiirsiiiiiik'),
-  plate(P_MID, P_MID),
-  plate(P_RIV, P_RIV),
-  K32,
-  plate(P_TOP, P_TOP),
-  plate(P_RIV, P_RIV),
-  plate(P_MID, P_MID),
-  plate('jiiriiiiiiiiik', P_MID),
-  plate('jiirsiiiiiiiik', 'jiiiiiiiiiriik'),
-  plate('jiiirsiiiiiiik', 'jiiiiiiiiirsik'),
-  plate(P_MID, P_MID),
-  plate(P_MID, P_MID),
-  plate(P_MID, P_MID),
-  plate(P_RIV, P_RIV),
-  K32,
-];
+
+// An iron door, not an iron wall: a heavy frame, four vertical plates lit on
+// their left edges, two riveted straps running out into hinges, a barred
+// spy-grille, a pull ring, and rust bleeding from a few rivets. The centre is
+// left plain for the lock plate the locked door stamps over it.
+const DOOR_IRON_ROWS = rows(`
+  kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk
+  kjnnnnnnnnnnnnnnnnnnnnnnnnnnnnak
+  kjiiiiiiiiiiiiiiiiiiiiiiiiiiiiak
+  kjikkkkkkkkkkakkkkakkkkkkkkkkiak
+  kjikniiiikniikjkjkkiikniiiikkiak
+  kjikjiiiikjiikkkkkkiikjiiiikkiak
+  kjikjiiiikjiiiikjiiiikjiiiikkiak
+  kjjjjjjjjjjjjjjjjjjjjjjjjjjjjiak
+  nnnnaanaaaaanaaaaanaaaaanaaaaiak
+  kjaaaaaaaaaaaaaaaaaaaaaaaaaaaiak
+  kjikjiriikjiiiikjiriikjiiiikkiak
+  kjikjisiikjiiiikjisiikjiiiikkiak
+  kjikjiiiikjiiiikjiiiikjiiiikkiak
+  kjikjiiiikjiiiikjiiiikjiikkkkiak
+  kjikjiiiikjiiiikjiiiikjiinnkkiak
+  kjikjiiiikjiiiikjiiiikjiniinkiak
+  kjikjiiiikjiiiikjiiiikjiniinkiak
+  kjikjiiiikjiiiikjiiiikjiinnkkiak
+  kjikjiiiikjiiiikjiiiikjiiiikkiak
+  kjikjiiiikjiiiikjiiiikjiiiikkiak
+  kjikjiiiikjiiiikjiiiikjiiiikkiak
+  kjikjiiiikjiiiikjiiiikjiiiikkiak
+  kjjjjjjjjjjjjjjjjjjjjjjjjjjjjiak
+  nnnnaanaaaaanaaaaanaaaaanaaaaiak
+  kjaaaaaaaaaaaaaaaaaaaaaaaaaaaiak
+  kjikjiiiikjiriikjiiiikjiriikkiak
+  kjikjiiiikjisiikjiiiikjisiikkiak
+  kjikjiiiikjiiiikjiiiikjiiiikkiak
+  kjikkkkkkkkkkkkkkkkkkkkkkkkkkiak
+  kjiiiiiiiiiiiiiiiiiiiiiiiiiiiiak
+  kjaaaaaaaaaaaaaaaaaaaaaaaaaaaaak
+  kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk
+`);
 
 /**
  * Throne fog gate. An overlay over the iron leaf (`base: 'door_iron'`), so
@@ -862,7 +862,7 @@ const EMBERWORKS_WALL = { m: '#100d0c', e: '#161313', a: '#211b19', b: '#2c2421'
 const EMBERWORKS_HEAT = { s: '#3a1a1080', r: '#b03a1098', o: '#ff8a20fa', C: '#fff0c0fa', i: '#171416', I: '#252126' };
 
 const WOOD_DOOR = { w: '#5a3a1c', x: '#6e4824', y: '#3a240e', z: '#24160a', i: '#2a2a30', j: '#4a4a54', k: '#15151a', n: '#8a8a94' };
-const IRON_DOOR = { i: '#34343c', j: '#50505a', k: '#1c1c22', n: '#7a7a86', r: '#5a2a1a', s: '#40201a' };
+const IRON_DOOR = { i: '#34343c', j: '#50505a', k: '#1c1c22', n: '#7a7a86', r: '#5a2a1a', s: '#40201a', a: '#26262c' };
 const BRASS = { o: '#503810', g: '#a07a2a', h: '#d0a848', k: '#08080a' };
 /** Ash-fog wash for the throne gate: pale lavender over dark iron. */
 const BOSS_FOG = { f: '#6a6285', g: '#8a80a8', h: '#c8bce8', k: '#08080a' };
