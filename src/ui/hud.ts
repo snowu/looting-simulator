@@ -98,7 +98,7 @@ export class Hud {
     this.recallWrap.append(this.recallBar);
     // Tappable on touch screens.
     this.prompt.addEventListener('click', () => this.actions.interact());
-    const gear = settingsGearButton(() => this.actions.settings(), 'Settings — sound, cloud saves', 22);
+    const gear = settingsGearButton(() => this.actions.settings(), 'Settings — sound, cloud saves');
     gear.classList.add('hud-gear');
     const bars = h(
       'div',
