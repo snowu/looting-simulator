@@ -5,7 +5,7 @@ import { DIFFICULTIES, DifficultyId } from '../data/difficulty';
 import { newGame, GameState } from '../state/game-state';
 import { startRun, endRun } from '../systems/run';
 import { World } from '../world/world';
-import { EnemyState, FLOOR, createEnemy } from '../systems/dungeon';
+import { EnemyState, FLOOR, createEnemy, generateFloor } from '../systems/dungeon';
 import { enemyDef } from '../data/enemies';
 import { derivePlayer, emptyEquipment } from '../systems/player';
 import { durability, makeMaterial, repairCost, rollEquipment } from '../systems/items';
@@ -266,5 +266,39 @@ describe('a mimic on normal', () => {
 
   it('still kills on hard', () => {
     expect(openAt5('hard').run.outcome).toBe('dead');
+  });
+});
+
+describe('the throne on normal', () => {
+  function throne(id: DifficultyId, seed = 77) {
+    const state = newGame(createRng(seed));
+    state.difficulty = id;
+    startRun(state, seed);
+    const w = new World(state);
+    w.run.depth = 6;
+    w.run.floors[5] = generateFloor(seed, 6, id);
+    const room = w.floor.rooms.find((r) => r.role === 'throne')!;
+    return { w, room };
+  }
+  const guards = (w: World, room: { x: number; y: number; w: number; h: number }) =>
+    w.floor.enemies.filter((e) => e.def === 'hollow_knight' && e.x >= room.x && e.x < room.x + room.w && e.y >= room.y && e.y < room.y + room.h).length;
+
+  it('keeps one guard beside the King, not two', () => {
+    for (let seed = 70; seed < 76; seed++) {
+      const n = throne('normal', seed);
+      const h = throne('hard', seed);
+      expect(guards(n.w, n.room), `seed ${seed}`).toBe(1);
+      expect(guards(h.w, h.room), `seed ${seed}`).toBe(2);
+    }
+  });
+
+  it('lets you step back out of the fog', () => {
+    for (const [id, locks] of [['normal', false], ['hard', true]] as const) {
+      const { w, room } = throne(id);
+      Object.assign(w.player, { x: room.x + 1, y: room.y + room.h - 2 });
+      tick(w, 0.1);
+      const gate = w.floor.doors.find((d) => d.boss)!;
+      expect(gate.locked, id).toBe(locks);
+    }
   });
 });

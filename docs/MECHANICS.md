@@ -1379,6 +1379,7 @@ Normal is for someone who wants the dungeon, the loot and the town without the r
 | **Resting** | mends to 50% | after 5s unhurt with nothing hunting you, 2% of max health a second, never above half |
 | Flask | +1 charge | every delve |
 | Parry grace | ×5/3 (0.75s → 1.25s) | |
+| Throne | one guard, not two; the fog lets you back out | you still cannot strike or be struck across the threshold |
 | Mimic bite | ×0.5, and never kills | on top of the damage multiplier; at worst it leaves you on 1 health |
 | Elites / lieutenants | ×0.5 / ×0.6 chance | Seals still add on top |
 | Gear wear / repair price | ×0.5 / ×0.6 | |

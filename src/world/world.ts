@@ -3782,6 +3782,14 @@ export class World {
    */
   private checkBossSeal(): void {
     if (!this.bossAlive() || !this.playerInThrone()) return;
+    if (this.diff.throneRetreat) {
+      // Normal: the fog gathers but does not close. Said once per delve.
+      if (!this.fogWarned) {
+        this.fogWarned = true;
+        this.msg('The fog gathers at your back, but lets you pass. Step out to catch your breath.', '#c0a0ff');
+      }
+      return;
+    }
     const open = this.bossDoors().filter((d) => !d.locked);
     if (!open.length) return;
     for (const g of open) {
@@ -3792,6 +3800,8 @@ export class World {
     this.sfx('door');
     this.emit({ type: 'shake', amount: 0.4 });
   }
+
+  private fogWarned = false;
 
   /** His death thins the fog: the way out stands open. */
   private unsealBossDoors(): void {

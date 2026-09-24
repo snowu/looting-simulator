@@ -94,6 +94,14 @@ export interface DifficultyDef {
    * lid is up, so on Normal it is a scare, not a death.
    */
   mimicMercy: boolean;
+  /** Hollow Knights standing guard beside the Ashen King when the throne floor is made. */
+  throneGuards: number;
+  /**
+   * The throne's fog lets you back out. You still cannot strike across the
+   * threshold or be struck across it, so stepping out is a breather, not a
+   * way to bleed him from the doorway.
+   */
+  throneRetreat: boolean;
   /**
    * Health you slowly mend back to, as a share of the maximum, while nothing
    * is hunting you. 0 is no regeneration at all, which is Hard.
@@ -145,6 +153,8 @@ const HARD: DifficultyDef = {
   flaskBonus: 0,
   mimicBite: 1,
   mimicMercy: false,
+  throneGuards: 2,
+  throneRetreat: false,
   restHeal: 0,
   softDeath: null,
   oneLife: false,
@@ -160,7 +170,7 @@ export const DIFFICULTIES: Record<DifficultyId, DifficultyDef> = {
     id: 'normal',
     name: 'Normal',
     tagline: 'A gentler delve.',
-    description: 'Monsters are slower, softer and fewer: they hit a third less, fall faster, wind up longer, never feint, and no more than two swing at you at once. Your guard holds better, the parry is wider, you have more health, an extra flask charge, and you slowly mend while nothing hunts you. A mimic can bite but never kill. Gear wears half as fast and repairs cost less. Dying keeps your pack and costs a tenth of the gold you carried, which your Shade holds for you.',
+    description: 'Monsters are slower, softer and fewer: they hit a third less, fall faster, wind up longer, never feint, and no more than two swing at you at once. Your guard holds better, the parry is wider, you have more health, an extra flask charge, and you slowly mend while nothing hunts you. A mimic can bite but never kill, and the Ashen King keeps one guard, not two, and lets you step back out of his fog. Gear wears half as fast and repairs cost less. Dying keeps your pack and costs a tenth of the gold you carried, which your Shade holds for you.',
     enemyHp: 0.75,
     enemyDamage: 0.65,
     enemyDefense: 0.8,
@@ -187,6 +197,8 @@ export const DIFFICULTIES: Record<DifficultyId, DifficultyDef> = {
     flaskBonus: 1,
     mimicBite: 0.5,
     mimicMercy: true,
+    throneGuards: 1,
+    throneRetreat: true,
     restHeal: 0.5,
     softDeath: { goldLost: 0.1 },
     oneLife: false,

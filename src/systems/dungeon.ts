@@ -1192,7 +1192,9 @@ function tryGenerate(
     spawnEnemy(enemyDef(BOSS_ID), bx, by);
     const guard = enemyDef('hollow_knight');
     if (free(bx - 2, by + 3)) spawnEnemy(guard, bx - 2, by + 3);
-    if (free(bx + 2, by + 3)) spawnEnemy(guard, bx + 2, by + 3);
+    // Normal keeps one guard. The slot it would have filled goes to the floor
+    // count below, so the throne floor is no emptier elsewhere.
+    if (diff.throneGuards >= 2 && free(bx + 2, by + 3)) spawnEnemy(guard, bx + 2, by + 3);
   }
   // Fights last three to seven swings now instead of one, so the same count
   // would turn a floor into a queue. Fewer and deadlier is the trade.
@@ -1203,7 +1205,7 @@ function tryGenerate(
   const authored = enemies.length;
   const wanted = Math.max(1, Math.round((3 + Math.round(depth * 1.6) + Math.floor(rooms.length / 3)) * diff.enemyCount * (mods?.enemyCount ?? 1)));
   const hostRooms = rooms.filter((r) => r.role !== 'start' && r.role !== 'secret' && r.role !== 'throne');
-  for (let guard = 0; enemies.length < wanted + (throne ? 3 : 0) && guard < 200; guard++) {
+  for (let guard = 0; enemies.length < wanted + (throne ? 1 + diff.throneGuards : 0) && guard < 200; guard++) {
     const def = rng.weighted(pool.map((e) => [e,
       e.weight
       * (biome.favoredEnemies?.includes(e.id) ? FAVORED_ENEMY_WEIGHT : 1)
