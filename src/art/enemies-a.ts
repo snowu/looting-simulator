@@ -34,8 +34,8 @@ const RAT = rows(`
   ....kabbbbaccddddddccabbbbak....
   ....kabbbacccddddddcccabbbak.k..
   ...kaabbbcccccddddcccccbbbaakpk.
-  ...kaabbbccccccccccccccbbbaakpk.
-  ...kaabbbcccrwccccwrcccbbbaakkpk
+  ...kaabbbccrwrccccrwrccbbbaakpk.
+  ...kaabbbccrrrccccrrrccbbbaakkpk
   ...kaabbbbbbbbbbbbbbbbbbbbaakkpk
   ...kaabbbbbbbbddddbbbbbbbbaakkpk
   ....kabbbxxbbccppccbbxxbbbak.kpk
@@ -67,17 +67,17 @@ const RAT_ATK = rows(`
   ...kbqqqqbcaaaddddaaacbqqqqbk...
   ...kbbqqbbaccddddddccabbqqbbk...
   ....kabbbacccddddddcccabbbak.k..
-  ...kaabbbcccccddddcccccbbbaakpk.
-  ...kaabbbcccrccccccrcccbbbaakpk.
-  ...kaabbbcccrrccccrrcccbbbaakkpk
-  ...kaabbbbbbbbbbbbbbbbbbbbaakkpk
-  ...kaabbbbbbbbdppdbbbbbbbbaakkpk
-  ....kabbbxxbbcwmmwcbbxxbbbak.kpk
-  ....kabbbbbxxmwmmwmxxbbbbbak.kpk
-  .....kaaabbbxmmmmmmxxabbbak..kpq
-  ......kaabbbammmmmmaaxbbbkkkkpqk
-  .......kapppawmwwmwaaapppppppqk.
-  ........kaaaaaaaaaaaaaakkqqqqk..
+  ...kaabbbccrccddddccrccbbbaakpk.
+  ...kaabbbccrwrccccrwrccbbbaakpk.
+  ...kaabbbccrrrccccrrrccbbbaakkpk
+  ...kaabbbbbbbbbppbbbbbbbbbaakkpk
+  ...kaabbbbbbbbmmmmbbbbbbbbaakkpk
+  ....kabbbxxwmwmwmwmwmxxbbbak.kpk
+  ....kabbbbmxxmmmmmmxxmbbbbak.kpk
+  .....kaaabbbxmmmmmmxxmbbbak..kpq
+  ......kaabbbmmmmmmmmmxbbbkkkkpqk
+  .......kapppmmmmmmmmmapppppppqk.
+  ........kaaawawmwmwaaaakkqqqqk..
   .........kkkaaaaaaaakkk..kkkk...
   ............kkkkkkkk............
 `);
