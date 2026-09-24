@@ -106,75 +106,80 @@ const RUBBLE_ROWS = rows(`
   mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
 `);
 
-/** Worn flagstones. */
+/**
+ * Worn flagstones. Each stone is bevelled (lit top-left, shaded bottom-right),
+ * mottled in broad patches rather than salted with lone specks, pitted with a
+ * lit lower lip, and carries one hairline crack; a couple of corners are
+ * chipped down to the mortar.
+ */
 const FLAG_ROWS = rows(`
-  ccccccccccccccccccbmccccccccccbm
-  cbbbbbbbbbbbbbbbbbamcbbbbbbbbbam
-  cbbbcbbbbbbbbbbbbbamcbbbbbbebbam
-  cbbbbbbbbbbbebbbbbamcbbbbbbbbbam
-  cbbbbbbbbbbeebbbbbamcbbcbbbbbbam
-  cbbbbbbcbbbbbbbbbbamcbbbbbbbbbam
-  cbbbbbbbbbbbbbbbcbamcbbbbbbbbbam
-  cbebbbbbbbbbbbbbbbamcbbbbbbbcbam
-  cbbbbbbbbbbbbbbbbbamcbbbbbbbbbam
-  cbbbbbbbbcbbbbbbbbamcbebbbbbbbam
-  cbbbbbbbbbbbbbbebbamcbbbbbbbbbam
-  cbbbbbbbbbbbbbbbbbamcbbbbbbbbbam
-  baaaaaaaaaaaaaaaaaambaaaaaaaaaam
+  ccccccccccccccccccamccccccccccmm
+  caabbbbbbbbbbecbbbamcaaecaaaaaam
+  caabbbbbbbbbecbbbbamcbecaaaaaaam
+  caabbbbbbbbbbecbbbamcbbeeaaaaaam
+  caaabbbbbbbbbecbbbamcbbeceaaabam
+  caaaaaaaaabbbecbbbamcbecbcbbbbam
+  caaaaaaaaaabbbbbbbamccbbbbbbbbam
+  caaaeaaaaaabbbbbbbamccbbbbbbbbam
+  caaacaaaaaabbbbbbbamcccbbbbebbam
+  caaaaaaaaaabbbbbebamcccbbbbcbbam
+  cbaaaaaaaaaebbbcccamcbbbbbbbbbam
+  cbbaaaaaaaacbbbcccamcbbbbbbbbbam
+  maaaaaaaaaaaaaaaaammmaaaaaaaaaam
   mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
-  ccccccccbmccccccccccccccccccccbm
-  cbbbbbbbamcbbbbbbbbbbbbbbbbbbbam
-  cbbbbbbbamcbbbbbcbbbbbbbbbbbbbam
-  cbbebbbbamcbbbbbbbbbbbbbbbbbbbam
-  cbbbbbbbamcbbbbbbbbbbbbebbbbbbam
-  cbbbbbbbamcbbbbbbbbbbbeebbbbbbam
-  cbbbbbcbamcbbbbbbbbbbbbbbbbbbbam
-  cbbbbbbbamcbbcbbbbbbbbbbbbbcbbam
-  cbbbbbbbamcbbbbbbbbbbbbbbbbbbbam
-  cbebbbbbamcbbbbbbbbcbbbbbbbbbbam
-  cbbbbbbbamcbbbbbbbbbbbbbbbbbbbam
-  cbbbbbbbamcbbbbbbbbbbbbbbbebbbam
-  cbbbcbbbamcbbbbbbbbbbbbbbbbbbbam
-  cbbbbbbbamcbbbbbebbbbbbbbbbbbbam
-  cbbbbbbbamcbbbbbbbbbbbbbbbbbcbam
-  cbbbbbbbamcbbbbbbbbbbbbbbbbbbbam
-  baaaaaaaambaaaaaaaaaaaaaaaaaaaam
+  mcccccccmmccccccccccccccccccccmm
+  ccbecaaaamccccccccccbbbbbecbbbam
+  ccecbaeaamccccccccccebbbbecbbbam
+  ccecaacaamccccccbbbbcbbbbbecbbam
+  ccbecaaaamcbebbbbbbbbbbbbbecbbam
+  cbbecaaaamcbcbbbbbbbbbbbbbbecbam
+  cbbbecaaamcbbbbbbbbbbbbbbbbbbbam
+  cbbbaaaaamcbbbbbbbbbbbbebbbbbbam
+  cbbbaaaaamcbbbbbbbbbbbbcbbbbbbam
+  cbbbaaaaamcbbbebbbbbbbbbbbbbbbam
+  cbbbaaaaamcbbbcbbbbbbbbbbbbbbbam
+  cbbbaaaaamcbbbbbbbbbbbbbbbbbbbam
+  cbbebbaaamcbbbbbbbbbbbbbbbbbbbam
+  cbbcebbbamcbbbbbbbbbbbbbbbbbbbam
+  cbbbeebbamcbbbbbbbbbbbbbbbbebbam
+  cbbbccbbamcbbbbbbbbbbbbbabbcbbam
+  caaaaaaaammaaaaaaaaaaaaaaaaaaaam
   mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
 `);
 
-/** Big slabs for ceilings. */
+/** Big slabs for ceilings, cut the same way as the flagstones. */
 const SLAB_ROWS = rows(`
-  ddddddddddddddddddddddddddddddcm
-  cbbbbbbbbbbbbbbbbbbbbbbbbbbbbbam
-  cbbbbcbbbbbbbbbbbbbbbbbebbbbbbam
-  cbbbbbbbbbbbebbbbbbbbbbbbbbbbbam
-  cbbbbbbbbbbbbbbbbbbbbbbbbbcbbbam
-  cbbebbbbbbbbbbbbbbbbbbbbbbbbbbam
-  cbbbbbbbbbbbbbbbcbbbbbbbbbbbbbam
-  cbbbbbbbbbbbbbbbbbbbbbbbbbbbbbam
-  cbbbbbbbebbbbbbbbbbbbbbbbbbebbam
-  cbbbbbbbbbbbbbbbbbbbbcbbbbbbbbam
-  cbbbbbcbbbbbbbbbbbbbbbbbbbbbbbam
-  cbbbbbbbbbbbbbbbbebbbbbbbbbbbbam
-  cbbbbbbbbbbbbbbbbbbbbbbbbbbbbbam
-  cbbbbbbbbbbbbbbbbbbbbbbbbbbcbbam
-  baaaaaaaaaaaaaaaaaaaaaaaaaaaaaam
+  mdddddddddddddddddddddddddddddam
+  cbbbbbaaaaabbbbccbbbaecaaaabbbam
+  cbbbbaaaaaabbbbbbbbbbeeaaaaabbam
+  cbbbaaaaaaabbbbbbbbbeccaaaaaabam
+  cbbaaaaaaaabbbbbbbbecbaaaaaaabam
+  cbbaaaaaaaabbbbbbbbbecaaaaaaaaam
+  cbbaaaaaaaaabbbbbbbbbaaaaaaaaaam
+  cbbaaeaaaaaaabbbbbbbaaaaaaaaaaam
+  cabaaceaaaaaabbbbbbaaaaaaaaaaaam
+  caaaaacaaaaaabbbbbbbaaaaaaaaaaam
+  caaaeaaaaaaaabbbbbbbbaaaaaaaaaam
+  caaacaaaaaaaabbbbbbbbbbbbbaaaaam
+  caaaaaaaaaaaabbbbbbbbbbbbbbbbaam
+  caaaaaaaaaaaabbbbbbbbbbbbbbbbaam
+  caaaaaaaaaaaaaaaaaaaaaaaaaaaaamm
   mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
-  ddddddddddddddcmdddddddddddddddd
-  bbbbbbbbbbbbbbamcbbbbbbbbbbbbbbb
-  bbbbbbbbbbbbbbamcbbbbbbbbbbbbbbb
-  bbbbbbbbbbbbbbamcbbbbebbbbbbbbbb
-  bbbbbbbbbbbbbbamcbbbbbbbbbbbbbbb
-  bbbbbcbbbbbbbbamcbbbbbbbbbbbbbbb
-  bbbbbbbbbbbbbbamcbbbbbbbbbbbbbbb
-  bbbbbbbbbbbbbbamcbbbbbbbbbcbbbbb
-  bbbbbbbbbbbbbbamcbbbbbbbbbbbbbbb
-  bbbbbbbbbebbbbamcbbbbbbbbbbbbbbb
-  bbbbbbbbbbbbbbamcbbbbbbbbbbbbbbb
-  bbbbbbbbbbbbbbamcbbcbbbbbbbbbbbb
-  bbbbbbbbbbbbbbamcbbbbbbbbbbbbbbb
-  bbbbbbbbbbbbbbamcbbbbbbbbbbbbbbb
-  aaaaaaaaaaaaaaambaaaaaaaaaaaaaaa
+  ddddddddddddddmmdddddddddddddddd
+  bbbbbbbbbbbbbaamcabbbecccccccbbb
+  bbbbbbbbebbbbbamcabbbeccccccbbbb
+  bbbbbbbbcbbbbbamcbbbbeccccccbbbb
+  bbbbbbbbbbbbbbamcbbbbbeccbbbbbbb
+  bbbbbbbbbbbbbbamcbbbbeebbbbbbbbb
+  bbbbbaaaaaaaabamcbbbbbecbbbbbbbb
+  aaaaaaaaaaaaaaamcbbbbbbbbbbbbbba
+  aaaaaaaaaaaaaaamcbbbbbbbbbbbbeba
+  aaaaaaaaaaaaaaamcbbbbbbbbbbbbcba
+  bbaaaaaaaaabbbamcbbbbbbbbbbbbbbb
+  bbaaaaaabbbbbbamcbbbbbbbbbbbbbbb
+  bbbaaabbbbbbbbamcabbbbbbbbbbbbbb
+  bbbaabbbbbbbbbamcabbbbbbbbbbbbbb
+  aaaaaaaaaaaaaammcaaaaaaaaaaaaaaa
   mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
 `);
 
@@ -392,13 +397,43 @@ const PUDDLE_ROWS = rows(`
   ................................
 `);
 
-// A full, very dark water film. The renderer draws it with low opacity over
-// the floor; the sparse bright pixels catch the light as small ripples.
-const WATER_ROWS = Array.from({ length: 32 }, (_, y) => {
-  const row = Array(32).fill('q');
-  for (let x = (y * 7) % 11; x < 32; x += 13) row[x] = 'r';
-  return row.join('');
-});
+// The water film. The renderer lays it over the floor at low opacity, so
+// what carries is structure, not colour: broken ripple crests with a darker
+// trough under each and one glint apiece, wrapping every 16 px.
+const WATER_ROWS = rows(`
+  qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+  qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+  qqqqqqqqqqqqrrrqqqqqqqqqqqrrrrrq
+  rrqqqqqsrqqqppprrrqqqqqrrqpppppr
+  pprrrrrppqqqqqqppprrrrrppqqqqqqp
+  qqpppppqqqqqqqqqqqpppppqqqqqqqqq
+  qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+  qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+  qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+  qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+  qqqqrrrrrrqqqqqqqqqqrrrrrrqqqqqq
+  qqqqpppppprrqqqqqqqqpppppprrqqqq
+  rrqqqqqqqqpprrrrsqqqqqqqqqpprrrr
+  ppqqqqqqqqqqpppppqqqqqqqqqqqpppp
+  qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+  qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+  qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+  qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+  rrrrrqqqqqqqqqqrrrrrrqqqqqqqqqqr
+  ppppprrqqqqqqqrpppppprrqqqqqqqrp
+  qqqqqpprrrrrqqpqqqqqqpprrsrrqqpq
+  qqqqqqqpppppqqqqqqqqqqqpppppqqqq
+  qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+  qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+  qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+  qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+  qqqqqqqqrrrrqqqqqqqqqqqrrrrrqqqq
+  qqqqrqqqpppprrrqqqqqrqqppppprrrq
+  rrsrpqqqqqqqppprrrrrpqqqqqqqpppr
+  ppppqqqqqqqqqqqpppppqqqqqqqqqqqp
+  qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+  qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+`);
 
 // Throne-room banner with the Ashen King's sigil.
 const pad10 = (seg: string) => '..........' + seg + '..........';
@@ -643,7 +678,7 @@ const TIMBER = { x: '#7a5230', w: '#5e3e22', y: '#3c2614', z: '#1e1209', n: '#9a
 const CAVE = { m: '#050a09', e: '#0c1614', a: '#152420', b: '#1e302b', c: '#294038', d: '#365248' };
 const CAVE_FLOOR = { e: '#0a1210', a: '#101c18', b: '#16241f', c: '#1e2e28', d: '#2a3c34', p: '#44605a' };
 const CAVE_CEIL = { m: '#030605', e: '#070d0b', a: '#0b1411', b: '#101a17', c: '#15221e', d: '#1b2a25' };
-const CATACOMB_WATER = { q: '#286b78', r: '#75c2bf' };
+const CATACOMB_WATER = { q: '#286b78', p: '#3a8a94', r: '#75c2bf', s: '#c8f0e8' };
 
 const THRONE = { m: '#7a2410fa', e: '#1a1218', a: '#241a22', b: '#30232c', c: '#3e2e38', d: '#4e3a46' };
 const THRONE_FLOOR = { r: '#b03c18fa', d: '#3a2c34', b: '#1e161c', f: '#2a2026', g: '#3a2e36', a: '#100a0e', c: '#2a2028' };
