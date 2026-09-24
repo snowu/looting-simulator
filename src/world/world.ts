@@ -2787,7 +2787,7 @@ export class World {
     e.strikeT = 0;
     this.damagePlayer(
       Math.max(1, Math.round(def.attack * MIMIC_BITE * attackPower(e.power) * this.diff.enemyDamage * this.diff.mimicBite)),
-      def.damageType, e.x, e.y, def.name, def.id, e, true,
+      def.damageType, e.x, e.y, def.name, def.id, e, true, this.diff.mimicMercy,
     );
     if (this.run.outcome === 'active') this.msg('It chews, then spits you out. Get up!', '#ff9070');
   }
@@ -4274,6 +4274,8 @@ export class World {
     sourceId?: string,
     attacker?: EnemyState,
     unavoidable = false,
+    /** Leave the player on at least 1 health, however hard this lands. */
+    spare = false,
   ): void {
     const p = this.player;
     // A parry denies the hit outright and leaves the attacker open.
@@ -4387,6 +4389,7 @@ export class World {
         this.msg(dmg > 0 ? 'The iron takes the worst of it.' : 'The iron takes the blow.', '#a8c0e0');
       }
     }
+    if (spare) dmg = Math.max(0, Math.min(dmg, Math.ceil(p.hp) - 1));
     p.hp -= dmg;
     // A thief's blow that gets through takes something with it.
     if (attacker && dmg > 0 && !blocked && p.hp > 0 && !attacker.stolen?.length && this.view(attacker).thief) {

@@ -28,7 +28,7 @@ describe('hard is the game as it was', () => {
     // Knobs whose "does nothing" value is not 1. Anything else numeric must be 1.
     const identity: Record<string, unknown> = {
       findBonus: 0, blockBonus: 0, flaskBonus: 0, restHeal: 0, maxAttackers: Infinity,
-      gentleMoves: false, softDeath: null, oneLife: false,
+      gentleMoves: false, mimicMercy: false, softDeath: null, oneLife: false,
     };
     for (const [k, v] of Object.entries(h)) {
       if (k in identity) expect(v, k).toBe(identity[k]);

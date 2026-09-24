@@ -230,3 +230,41 @@ describe('a death on normal', () => {
     expect(state.grave!.gold).toBe(200);
   });
 });
+
+describe('a mimic on normal', () => {
+  /** Open a mimic on 5 health and let it bite. */
+  function openAt5(id: DifficultyId): World {
+    const state = newGame(createRng(73));
+    state.difficulty = id;
+    startRun(state, 73);
+    const w = new World(state);
+    const f = w.floor;
+    f.enemies = [];
+    f.props = f.props.filter((p) => !p.blocking);
+    const free = (x: number, y: number) =>
+      f.tiles[y * f.width + x] === FLOOR && !f.doors.some((d) => d.x === x && d.y === y) && !f.stairs.some((s) => s.x === x && s.y === y);
+    outer: for (let y = 2; y < f.height - 2; y++) for (let x = 2; x < f.width - 2; x++) for (const d of DIRS) {
+      if (!free(x, y) || !free(x + DX[d], y + DY[d])) continue;
+      Object.assign(w.player, { x, y, facing: d });
+      Object.assign(w.anim, { fromX: x, fromY: y, yaw: d * Math.PI / 2, yawTo: d * Math.PI / 2 });
+      break outer;
+    }
+    const t = w.frontTile();
+    f.props.push({ id: 'jaws', kind: 'chest', x: t.x, y: t.y, used: false, tier: 'chest', blocking: true, mimic: true });
+    w.player.hp = 5;
+    w.interact();
+    const mimic = f.enemies[0];
+    for (let i = 0; i < 25 && (mimic.grabT ?? 0) > 0; i++) w.update(0.05);
+    return w;
+  }
+
+  it('bites, but never kills', () => {
+    const w = openAt5('normal');
+    expect(w.run.outcome).toBe('active');
+    expect(w.player.hp).toBe(1);
+  });
+
+  it('still kills on hard', () => {
+    expect(openAt5('hard').run.outcome).toBe('dead');
+  });
+});

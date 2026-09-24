@@ -89,6 +89,12 @@ export interface DifficultyDef {
   /** Multiplier on a mimic's held bite, the one blow no guard refuses. */
   mimicBite: number;
   /**
+   * A mimic's bite can hurt but never kill: it leaves you on 1 health at
+   * worst. The bite is the one blow in the game you cannot answer once the
+   * lid is up, so on Normal it is a scare, not a death.
+   */
+  mimicMercy: boolean;
+  /**
    * Health you slowly mend back to, as a share of the maximum, while nothing
    * is hunting you. 0 is no regeneration at all, which is Hard.
    */
@@ -138,6 +144,7 @@ const HARD: DifficultyDef = {
   lieutenantChance: 1,
   flaskBonus: 0,
   mimicBite: 1,
+  mimicMercy: false,
   restHeal: 0,
   softDeath: null,
   oneLife: false,
@@ -153,7 +160,7 @@ export const DIFFICULTIES: Record<DifficultyId, DifficultyDef> = {
     id: 'normal',
     name: 'Normal',
     tagline: 'A gentler delve.',
-    description: 'Monsters are slower, softer and fewer: they hit a third less, fall faster, wind up longer, never feint, and no more than two swing at you at once. Your guard holds better, the parry is wider, you have more health, an extra flask charge, and you slowly mend while nothing hunts you. Gear wears half as fast and repairs cost less. Dying keeps your pack and costs a tenth of the gold you carried, which your Shade holds for you.',
+    description: 'Monsters are slower, softer and fewer: they hit a third less, fall faster, wind up longer, never feint, and no more than two swing at you at once. Your guard holds better, the parry is wider, you have more health, an extra flask charge, and you slowly mend while nothing hunts you. A mimic can bite but never kill. Gear wears half as fast and repairs cost less. Dying keeps your pack and costs a tenth of the gold you carried, which your Shade holds for you.',
     enemyHp: 0.75,
     enemyDamage: 0.65,
     enemyDefense: 0.8,
@@ -179,6 +186,7 @@ export const DIFFICULTIES: Record<DifficultyId, DifficultyDef> = {
     lieutenantChance: 0.6,
     flaskBonus: 1,
     mimicBite: 0.5,
+    mimicMercy: true,
     restHeal: 0.5,
     softDeath: { goldLost: 0.1 },
     oneLife: false,
