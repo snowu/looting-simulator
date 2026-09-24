@@ -285,19 +285,19 @@ const BONES = rows(`
   ................................
   ................................
   ................................
-  ..............kkk...............
-  ....kkkkk....kwwwk..............
-  ...kwwwwwkk..kwwwkk.............
-  ..kwwwwwwwvk.kwwvwwkk......kk...
-  .kwwwwwwwwvk..kkwvvwwk....kwwk..
-  .kwkkwwkkwvkkk..kkwvvwkk...kvkk.
-  .kwkkwwkkvvkwwk...kkwvwwkkk.kwwk
-  .kwwwwkwwwvkkvk.....kwvvwwwkkkvk
-  ..kvwwwwwvkwwwkkkkkkkkkwwwwwwwk.
-  ...kwkwkwkkwwwwwwwwwwwwwwwvwwwk.
-  ...kvvvvvkkwwvvvvvvvvvvvvvvwwvk.
-  ....kkkkk..kkkkkkkkkkkkkkkkkkk..
   ................................
+  ................................
+  ...............k................
+  ..............kwk...............
+  .....kkkkk...kkwkk..............
+  ....kwwwwwk.kwwvwwkk.k..........
+  ...kwwwwwwvk.kvvvvwwkwk.........
+  ...kwkkwkkvkk.kkkkvvwwkk.kk.....
+  ...kwwwkwwvkwkkkkkkkvvkwkwwk....
+  ....kvwwwvkkwwwwwwwwwvwwkkvkk...
+  ....kwkwkwkkvvvvvvvvvvvvk.kwwk..
+  .....kvvvk.kvkkkkkkkkkkvk..kvk..
+  ......kkk...k..........k....k...
 `);
 
 const SHRINE = sym(rows(`
@@ -907,63 +907,64 @@ const MOUND = rows(`
 // top of it: a flagstone sitting a pixel proud, an iron board of spike holes,
 // a rune scored into the floor.
 
-// A pressure plate: lit edge top-left, an inset groove, a rivet at each corner.
+// Drawn from mirrored halves so each sits dead centre on its tile.
+// A pressure plate: lit top edge, shaded bottom, an inset groove, a rivet at each corner.
 const TRAP_PLATE = rows(`
   ................
   ................
-  ...ppppppppppp..
-  ..pssssssssssrp.
-  ..psurrrrrrruqp.
-  ..psrqqqqqqqrqp.
-  ..psrqrrrrrsrqp.
-  ..psrqrrrrrsrqp.
-  ..psrqrrrrrsrqp.
-  ..psrqrrrrrsrqp.
-  ..psrqssssssrqp.
-  ..psurrrrrrruqp.
-  ..pqqqqqqqqqqqp.
-  ...ppppppppppp..
+  ..pppppppppppp..
+  .pssssssssssssp.
+  .psurrrrrrrrusp.
+  .psrqqqqqqqqrsp.
+  .psrqrrrrrrqrsp.
+  .psrqrrrrrrqrsp.
+  .psrqrrrrrrqrsp.
+  .psrqrrrrrrqrsp.
+  .psrqssssssqrsp.
+  .psurrrrrrrrusp.
+  .pqqqqqqqqqqqqp.
+  ..pppppppppppp..
   ................
   ................
 `);
 
-// An iron board with staggered holes; each hole shows a lit spike tip.
+// An iron board with holes in a tidy grid; each hole shows a lit spike tip.
 const TRAP_SPIKES = rows(`
   ................
   ................
-  ...ppppppppppp..
-  ..pqqqqqqqqqqqp.
-  ..pqkWkqqkWkqqp.
-  ..pqkkkqqkkkqqp.
-  ..pqqqqkWkqqqqp.
-  ..pqqqqkkkqqkWp.
-  ..pqkWkqqqqqkkp.
-  ..pqkkkqqkWkqqp.
-  ..pqqqqqqkkkqqp.
-  ..pqqkWkqqqqqqp.
-  ..pqqkkkqqqqqqp.
-  ...ppppppppppp..
+  ..pppppppppppp..
+  .pqqqqqqqqqqqqp.
+  .pqkkqqqqqqkkqp.
+  .pqkWqqkkqqWkqp.
+  .pqqqqqWWqqqqqp.
+  .pqqqqqqqqqqqqp.
+  .pqqqqqqqqqqqqp.
+  .pqkkqqqqqqkkqp.
+  .pqkWqqkkqqWkqp.
+  .pqqqqqWWqqqqqp.
+  .pqqqqqqqqqqqqp.
+  ..pppppppppppp..
   ................
   ................
 `);
 
-// A broken ring with a crossed rune inside, faintly lit.
+// A rune like a raised hand inside a broken ring, faintly lit.
 const TRAP_WARD = rows(`
   ................
-  ......c..c......
-  ....cc.cc.cc....
-  ...c........c...
-  ..c....d.....c..
-  ..c...ddd....c..
-  .c...d.d.d....c.
-  .......d........
-  ....ddddddd.....
-  .c.....d......c.
-  ..c...d.d....c..
-  ..c..d...d...c..
-  ...c........c...
-  ....cc.cc.cc....
-  ......c..c......
+  .....cc..cc.....
+  ...cc......cc...
+  ..c..........c..
+  .c.d...dd...d.c.
+  .c..d..dd..d..c.
+  .c...d.dd.d...c.
+  ......dddd......
+  .......dd.......
+  .c.....dd.....c.
+  .c.....dd.....c.
+  .c...dddddd...c.
+  ..c..........c..
+  ...cc......cc...
+  .....cc..cc.....
   ................
 `);
 
@@ -992,38 +993,38 @@ const WARD_THRESHOLD = rows(`
 const TRAP_DART_SPENT = rows(`
   ................
   ................
-  ...ppppppppppp..
-  ..pqqqqqqqqqqqp.
-  ..pqrrrrrrrrrsp.
-  ..pqrrrrrrrrrsp.
-  ..pqrrrrrrrtrsp.
-  ..pqrrrrrrtrrsp.
-  ..pqrrrrrtrrrsp.
-  ..pqrrrrtrrrrsp.
-  ..pqrrrtrrrrrsp.
-  ..pqrrvrrrrrrsp.
-  ..pqssssssssssp.
-  ...ppppppppppp..
+  ..pppppppppppp..
+  .pqqqqqqqqqvqqp.
+  .pqurrrrrrtruqp.
+  .pqrrrrrrtrrrqp.
+  .pqrrrrrtrrrrqp.
+  .pqrrrrtrrrrrqp.
+  .pqrrrrrrrrrrqp.
+  .pqrrrtrrrrrrqp.
+  .pqrrtrrrrrrrqp.
+  .pqurrrrrrrruqp.
+  .pssssssssssssp.
+  ..pppppppppppp..
   ................
   ................
 `);
 
-// The spikes are broken off and lie flat by their holes.
+// The holes are empty and the broken tips lie beside them.
 const TRAP_SPIKES_SPENT = rows(`
   ................
   ................
-  ...ppppppppppp..
-  ..pqqqqqqqqqqqp.
-  ..pqWwqqqWwqqqp.
-  ..pqkkkqqkkkqqp.
-  ..pqqqqqWwqqqqp.
-  ..pqqqqkkkqqWwp.
-  ..pqWwqqqqqqkkp.
-  ..pqkkkqqWwqqqp.
-  ..pqqqqqqkkkqqp.
-  ..pqqWwqqqqqqqp.
-  ..pqqkkkqqqqqqp.
-  ...ppppppppppp..
+  ..pppppppppppp..
+  .pqqqqqqqqqqqqp.
+  .pqkkqqqqqqkkqp.
+  .pqkkqqkkqqkkqp.
+  .pqqwWqkkqWwqqp.
+  .pqqqqqqqqqqqqp.
+  .pqqqqqqqqqqqqp.
+  .pqkkqqqqqqkkqp.
+  .pqkkqqkkqqkkqp.
+  .pqqwWqkkqWwqqp.
+  .pqqqqqqqqqqqqp.
+  ..pppppppppppp..
   ................
   ................
 `);
@@ -1031,20 +1032,20 @@ const TRAP_SPIKES_SPENT = rows(`
 // The rune is scored through and has gone dark.
 const TRAP_ALARM_SPENT = rows(`
   ................
-  ......q..q......
-  ....qq.qq.qq....
-  ...q........s...
-  ..q....r....sq..
-  ..q...rrr..s.q..
-  .q...r.r.rs...q.
-  .......r.s......
-  ....rrrrsrr.....
-  .q.....s......q.
-  ..q...s.r....q..
-  ..q..s...r...q..
-  ...qs.......q...
-  ....qq.qq.qq....
-  ......q..q......
+  .....qq..qq.....
+  ...qq......qq...
+  ..q.........sq..
+  .q.r...rr..sr.q.
+  .q..r..rr.sr..q.
+  .q...r.rrsr...q.
+  ......rrsr......
+  .......sr.......
+  .q....srr.....q.
+  .q...s.rr.....q.
+  .q..srrrrrr...q.
+  ..qs.........q..
+  ...qq......qq...
+  .....qq..qq.....
   ................
 `);
 

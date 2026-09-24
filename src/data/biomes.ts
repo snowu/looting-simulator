@@ -112,7 +112,9 @@ export const BIOMES: BiomeDef[] = [
   {
     id: 'sporegrove', name: 'The Sporegrove', depths: [3, 4, 5],
     wall: 'wall_cave', wallAlt: 'wall_cave_b', wallSecret: 'wall_cave_s',
-    wallVariants: ['wall_cave', 'wall_cave', 'wall_cave_b', 'wall_cave_moss', 'wall_cave_shelf'],
+    // Plain rock most of the time; moss is common, crystal and fungus shelves
+    // rare enough that two shelf faces seldom sit side by side.
+    wallVariants: ['wall_cave', 'wall_cave', 'wall_cave', 'wall_cave', 'wall_cave_b', 'wall_cave_moss', 'wall_cave_moss', 'wall_cave_shelf'],
     floor: 'floor_cave', ceiling: 'ceil_cave', door: 'door_wood',
     fog: '#071007', ambient: '#293c22', torch: '#b8dc78', torchDensity: 0.025,
     glow: { color: '#9acf65', density: 0.085, sprite: 'fungus' },

@@ -42,9 +42,9 @@ is the same judgement applied to the new art.
 | 6 | 7 | Ghoul, Slagborn, Frozen Wretch | Flat box head. → Rounded crown, heavy brow, hollow cheeks, nose slit, narrowing jaw. |
 | 5 | 7 | Cave bat, Hoarfrost bat | One-tone wings, mud at small scale. → Finger bones fan from the wrist, and the leading edge is lit. |
 | 5 | 7 | Throne floor | A spotless checker. → Worn, scorched, cracked, one tile chipped, and an ember crack across a row. |
-| 5 | 7 | Robe icon, hide icons | The robe read as a castle, the hides as bats. → A hooded robe; a stretched pelt. |
+| 5 | 7 | Robe icon, hide icons | The robe read as a castle, the hides as bats. → A hooded robe; a rolled hide tied with cord (a flat pelt read as a turtle). |
 | 5 | 7 | Bones, dropped gold | Sticks and a yellow triangle. → Remains lying on the floor; a coin stack beside a heap. |
-| 6 | 7 | Burrows and Sporegrove walls | One texture stamped down every corridor. → Five-way variant mixes like the Frost Vault's: new stones and claw-gouge faces for the Burrows, moss and bracket-fungus faces for the Sporegrove. |
+| 6 | 7 | Burrows and Sporegrove walls | One texture stamped down every corridor. → Five-way variant mixes like the Frost Vault's: new stones and claw-gouge faces for the Burrows, moss and bracket-fungus faces for the Sporegrove (fungus kept rare, about 1 face in 8). |
 
 ## Not reworked yet, lowest first
 

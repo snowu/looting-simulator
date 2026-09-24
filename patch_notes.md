@@ -10,9 +10,9 @@
 
 **The throne room floor is worn.** The black-and-red checkerboard is scorched, cracked and chipped in places, and an ember crack runs across one row.
 
-**Corridors in the Burrows and the Sporegrove repeat less.** Their walls now mix five kinds of wall instead of one. The Burrows add earth with stones half-buried in it and earth with claw marks. The Sporegrove adds moss hanging down with a few glowing spores, and shelf fungus growing out of the rock.
+**Corridors in the Burrows and the Sporegrove repeat less.** Their walls now mix five kinds of wall instead of one. The Burrows add earth with stones half-buried in it and earth with claw marks. The Sporegrove adds moss hanging down with a few glowing spores, and, more rarely, shelf fungus growing out of the rock.
 
-**Smaller things.** The robe icon is a hooded robe, hides look like pelts, a pile of bones looks like someone who didn't make it, and dropped gold is a heap of coins.
+**Smaller things.** The robe icon is a hooded robe, hides are rolled and tied, a pile of bones looks like someone who didn't make it, and dropped gold is a heap of coins.
 
 Validation: all tests pass, and the shipped PNGs are regenerated from the art code (`npm run art:check` is clean). Checked in the 3D view in the dev lab: in the Sporegrove, the new shelf-fungus and moss walls show with their spores lit, and a cave spider's legs stand out against the floor. In the Burrows, the stones wall shows alongside the old root pattern.
 
