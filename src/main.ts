@@ -24,8 +24,9 @@ import { h, setTouchMode } from './ui/dom';
 import { TouchControls, TouchMove, isTouchDevice } from './ui/touch';
 import { sideMove, touchPrefs } from './ui/touch-prefs';
 import { TiltStrafe, requestTilt, tiltNeedsPermission } from './ui/tilt';
+import { OrientationGate, landscapeNow } from './ui/orientation-gate';
 import { GamepadController, type PadContext } from './ui/gamepad';
-import { FULLSCREEN_HELP, fullscreenSupported, isFullscreen, isStandalone, mountFullscreenButton, toggleFullscreen, wasButtonExit } from './ui/fullscreen';
+import { FULLSCREEN_HELP, fullscreenSupported, isFullscreen, isStandalone, lockLandscape, mountFullscreenButton, wasButtonExit } from './ui/fullscreen';
 import { APP_VERSION, BUILD_ID, newerBuild, reloadToLatest, shouldAttemptReload } from './ui/update';
 import { btn } from './ui/dom';
 import { audio } from './audio/sfx';
@@ -804,7 +805,7 @@ function enterSlot(n: Slot, difficulty?: DifficultyId): void {
   audio.unlock();
   audio.play('ui');
   // On phones and tablets, starting the game is the gesture that takes us fullscreen.
-  if (touchMode && fullscreenSupported() && !isStandalone() && !isFullscreen()) void toggleFullscreen();
+  if (touchMode && fullscreenSupported() && !isStandalone() && !isFullscreen()) void landscapeNow();
 
   slot = n;
   setLastSlot(n);
@@ -1017,7 +1018,7 @@ function frame(now: number): void {
   if (mode === 'dungeon' && world) {
     // Settings pauses like any other overlay: the dungeon keeps rendering
     // behind it, but nothing moves and nothing can hurt you while it is open.
-    const paused = overlays.isOpen || isSettingsOpen();
+    const paused = overlays.isOpen || isSettingsOpen() || gate.blocked;
     if (paused) world.retrieve(false);
     touch.visible = touchMode && !paused && !ending;
     if (touchMode) {
@@ -1222,6 +1223,29 @@ function goBackground(): void {
   pad.reset();
   if (mode === 'dungeon' && world && !overlays.isOpen && !isSettingsOpen() && !ending) overlays.open('help', world);
 }
+// Landscape only. An installed app can hold the lock without a gesture; in
+// the browser it takes fullscreen, which takes a tap, so the first touch asks.
+// Where neither works (iPhone Safari) the gate covers portrait, and turning
+// the phone upright mid-delve pauses it like leaving the app does.
+const gate = new OrientationGate(document.body, (blocked) => {
+  if (!blocked) return;
+  world?.held.clear();
+  world?.setBlock(false);
+  world?.retrieve(false);
+  touchAttack = false;
+  chestPress = null;
+  touch.visible = false;
+  clearTouchHolds();
+  pad.reset();
+  if (mode === 'dungeon' && world && !overlays.isOpen && !isSettingsOpen() && !ending) overlays.open('help', world);
+});
+if (isStandalone()) void lockLandscape();
+const firstTouch = (e: PointerEvent) => {
+  if (e.pointerType !== 'touch') return;
+  window.removeEventListener('pointerup', firstTouch);
+  if (!isFullscreen()) void landscapeNow();
+};
+window.addEventListener('pointerup', firstTouch);
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) goBackground();
   else {

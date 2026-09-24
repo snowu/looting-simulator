@@ -26,6 +26,20 @@ function orientation(): LockableOrientation | undefined {
   return screen.orientation as LockableOrientation | undefined;
 }
 
+/**
+ * Hold the screen in landscape where the browser allows it: an installed app
+ * (Android) or element fullscreen. Everywhere else, iPhone Safari included,
+ * the lock just rejects and the portrait gate asks the player to turn the phone.
+ */
+export async function lockLandscape(): Promise<boolean> {
+  try {
+    await orientation()?.lock?.('landscape');
+    return !!orientation()?.lock;
+  } catch {
+    return false;
+  }
+}
+
 /** Timestamp of the last button-initiated fullscreen exit (ms). */
 let lastButtonExit = 0;
 
@@ -60,7 +74,7 @@ export async function toggleFullscreen(): Promise<'on' | 'off' | 'unsupported'> 
     else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
     else return 'unsupported';
     // Orientation lock only works while fullscreen (Android Chrome); elsewhere it just rejects.
-    await orientation()?.lock?.('landscape').catch(() => undefined);
+    await lockLandscape();
     lockEscape();
     return 'on';
   } catch {

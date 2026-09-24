@@ -919,3 +919,41 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
 .slot-diff { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
 /* One fixed width, so "Hardcore" does not shove its row out of line with the others. */
 .slot-diff .btn { flex: none; width: 86px; min-width: 0; padding-left: 4px; padding-right: 4px; }
+
+/* Landscape only: in portrait on a phone this covers everything (see
+   orientation-gate.ts). Above every modal and the fullscreen button. */
+.rotate-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px;
+  text-align: center;
+  background: #0b0a0d;
+  color: var(--ink);
+  touch-action: none;
+}
+.rotate-gate[hidden] { display: none; }
+.rotate-title { font-family: var(--font-title); font-size: 34px; color: var(--gold); letter-spacing: 1px; }
+.rotate-sub { font-size: 18px; color: var(--dim); }
+/* A phone outline that tips onto its side and back. */
+.rotate-phone {
+  width: 46px;
+  height: 78px;
+  border: 3px solid var(--gold);
+  border-radius: 8px;
+  margin-bottom: 18px;
+  position: relative;
+  animation: rotate-phone 2.4s ease-in-out infinite;
+}
+.rotate-phone::after { content: ''; position: absolute; left: 50%; bottom: 5px; width: 10px; height: 3px; margin-left: -5px; background: var(--gold); border-radius: 2px; }
+@keyframes rotate-phone {
+  0%, 20% { transform: rotate(0deg); }
+  50%, 80% { transform: rotate(-90deg); }
+  100% { transform: rotate(0deg); }
+}
+@media (prefers-reduced-motion: reduce) { .rotate-phone { animation: none; transform: rotate(-90deg); } }
