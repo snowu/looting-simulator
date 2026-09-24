@@ -396,6 +396,20 @@ export class DungeonRenderer {
     return { x: ((TMP.x + 1) / 2) * this.viewW, y: ((1 - TMP.y) / 2) * this.viewH };
   }
 
+  /**
+   * A 2D copy of the current view, for bug reports. Draws a frame and copies
+   * it in the same task: without `preserveDrawingBuffer` (which costs every
+   * frame) that is the only moment the WebGL buffer is still readable.
+   */
+  captureFrame(world: World): { canvas: HTMLCanvasElement; frame: HTMLCanvasElement } {
+    this.render(world, 0);
+    const frame = document.createElement('canvas');
+    frame.width = this.canvas.width;
+    frame.height = this.canvas.height;
+    frame.getContext('2d')?.drawImage(this.canvas, 0, 0);
+    return { canvas: this.canvas, frame };
+  }
+
   render(world: World, dt: number): void {
     this.time += dt;
     this.shared.uTime.value = this.time;

@@ -47,7 +47,7 @@ import { audio } from '../audio/sfx';
 import { difficultyOf } from '../data/difficulty';
 import { PLAIN_FLASK_RAMP, draught, infusionName } from '../systems/infusion';
 import { AccountSummary } from './account';
-import { openSettings, settingsGearButton } from './settings';
+import { SettingsCtx, openSettings, settingsGearButton } from './settings';
 import { FLASK_POTENCY, FLASK_UPGRADE_COSTS } from '../systems/healing';
 import { clamp } from '../core/math';
 
@@ -58,7 +58,7 @@ export interface TownCtx {
   save: () => void;
   descend: () => void;
   newGame: () => void;
-  toast: (text: string, color?: string) => void;
+  toast: (text: string, color?: string, href?: string) => void;
   /**
    * The account and sync block. It lives on the title screen too, and an
    * element is only ever in one place, so opening settings moves it there —
@@ -67,6 +67,8 @@ export interface TownCtx {
    * starting. The town header itself keeps only the compact status below.
    */
   account?: () => HTMLElement | null;
+  /** Settings → Report a bug. */
+  report?: SettingsCtx['report'];
   /** Compact sync status for the header: "Synced", or a Connect invitation. */
   accountSummary?: () => AccountSummary;
 }
@@ -309,10 +311,11 @@ export class Town {
     openSettings({
       state: () => this.s,
       save: () => this.ctx.save(),
-      toast: (t, c) => this.ctx.toast(t, c),
+      toast: (t, c, href) => this.ctx.toast(t, c, href),
       account: () => this.ctx.account?.() ?? null,
       onClose: () => this.render(),
       showDifficulty: true,
+      report: this.ctx.report,
     });
   }
 

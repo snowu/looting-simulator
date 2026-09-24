@@ -28,6 +28,11 @@ import { APP_VERSION, BUILD_ID, newerBuild, reloadToLatest, shouldAttemptReload 
 import { btn } from './ui/dom';
 import { audio } from './audio/sfx';
 import { closeSettings, isSettingsOpen, openSettings } from './ui/settings';
+import { ReportSource } from './systems/bug-report';
+import { snapshotScreen } from './ui/snapshot';
+import { canSendReports, sendBugReport } from './cloud/bug-report';
+import { cloudConfigured } from './cloud/supabase';
+import { brightness, brightnessToPercent } from './render/brightness';
 
 type Mode = 'title' | 'town' | 'dungeon' | 'summary';
 
@@ -324,7 +329,31 @@ async function checkForUpdate(): Promise<void> {
   if (mode !== 'dungeon') scheduleAutoUpdate();
 }
 
+/** Settings → Report a bug, from wherever settings opens. */
+const bugReport = {
+  source: (): ReportSource => ({
+    mode,
+    state,
+    world,
+    townTab: mode === 'town' ? town.tab : undefined,
+    device: {
+      version: APP_VERSION,
+      build: BUILD_ID,
+      userAgent: navigator.userAgent,
+      viewport: `${innerWidth}×${innerHeight} @${Math.round(devicePixelRatio * 100) / 100}x`,
+      touch: touchMode,
+      brightness: brightnessToPercent(brightness.get()),
+    },
+  }),
+  // The 3D frame is copied now, inside the click; the UI over it is drawn
+  // after, leaving out the settings modal the report lives in.
+  screenshot: () => snapshotScreen(app, mode === 'dungeon' && world ? renderer.captureFrame(world) : null, '.settings-wrap'),
+  // Only where cloud saves exist at all; otherwise there is nothing to sign in to.
+  direct: cloudConfigured() ? { available: canSendReports, send: sendBugReport } : undefined,
+};
+
 const town = new Town(screen, {
+  report: bugReport,
   state: () => state,
   save: () => commit(),
   descend: () => enterDungeon(),
@@ -370,15 +399,18 @@ function flushSync(): void {
   if (!isScratchMode()) sync.flush();
 }
 
-function toast(text: string, color = '#e8dcc4'): void {
-  const el = h('div', {
-    text,
-    style: `position:absolute;left:50%;top:${14 + toastLayer.childElementCount * 30}px;transform:translateX(-50%);color:${color};` +
-      'font-size:clamp(15px,2.4vw,22px);text-shadow:0 2px 0 #000,0 0 8px #000;background:#0e0c10ee;padding:2px 12px;border:1px solid #2a2430;' +
-      'max-width:92vw;width:max-content;text-align:center;z-index:9;transition:opacity .5s',
-  });
+/** A passing message at the top. With `href` it is a link: tappable, and it stays up longer. */
+function toast(text: string, color = '#e8dcc4', href?: string): void {
+  const style = `position:absolute;left:50%;top:${14 + toastLayer.childElementCount * 30}px;transform:translateX(-50%);color:${color};` +
+    'font-size:clamp(15px,2.4vw,22px);text-shadow:0 2px 0 #000,0 0 8px #000;background:#0e0c10ee;padding:2px 12px;border:1px solid #2a2430;' +
+    'max-width:92vw;width:max-content;text-align:center;z-index:9;transition:opacity .5s';
+  // The layer ignores the pointer so toasts never eat a swing; a link toast
+  // opts back in for itself alone.
+  const el = href
+    ? h('a', { text: `${text} ↗`, style: `${style};pointer-events:auto;cursor:pointer;text-decoration:underline`, attrs: { href, target: '_blank', rel: 'noopener' } })
+    : h('div', { text, style });
   toastLayer.append(el);
-  const life = Math.max(2200, text.length * 55);
+  const life = Math.max(href ? 6000 : 2200, text.length * 55);
   setTimeout(() => (el.style.opacity = '0'), life);
   setTimeout(() => el.remove(), life + 600);
 }
@@ -395,6 +427,7 @@ function openDungeonSettings(): void {
     account: () => account.el,
     onClose: () => undefined,
     showDifficulty: false,
+    report: bugReport,
   });
 }
 
@@ -407,6 +440,7 @@ function openTitleSettings(): void {
     account: () => account.el,
     onClose: () => enterTitle(),
     showDifficulty: false,
+    report: bugReport,
   });
 }
 
@@ -1230,11 +1264,30 @@ async function enterBossArena(): Promise<void> {
     (at) => [`Dev arena — ${at}. He turns at 65% and 30%.`]);
 }
 
+/**
+ * Dev only: the floor and tile an in-game bug report was filed from, rebuilt
+ * from the `?repro=` code in the issue. Layout only — see `./dev/repro-room`.
+ */
+async function enterRepro(code: string): Promise<void> {
+  const { decodeRepro } = await import('./systems/bug-report');
+  const r = decodeRepro(code);
+  if (!r) {
+    enterTitle();
+    toast(`Bad repro code: ${code || '(empty)'}`, '#d8a060');
+    return;
+  }
+  await enterScratch(async () => (await import('./dev/repro-room')).reproRoom(r), (dev, w) => dev.drop(w), (at) => [
+    `Repro — ${at}. Same walls, doors and props as the report; not the same monsters or loot.`,
+  ]);
+}
+
 // --- Boot ------------------------------------------------------------------------
 audio.loadPrefs();
 const params = new URLSearchParams(location.search);
 if (import.meta.env.DEV && params.has('art')) void openArtSheet();
-if (params.has('autostart')) {
+if (import.meta.env.DEV && params.has('repro')) {
+  void enterRepro(params.get('repro') ?? '');
+} else if (params.has('autostart')) {
   const where = params.get('autostart');
   const devRoom = import.meta.env.DEV && where
     ? ({ boss: enterBossArena, lab: enterLabArena, archers: enterArcherRoom, melee: enterMeleeRoom } as Record<string, () => Promise<void>>)[where]

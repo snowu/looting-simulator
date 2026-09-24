@@ -1,0 +1,21 @@
+name: In-game bug report
+description: Opened by Settings → Report a bug. The game fills in where you were; you add what happened and the screenshot.
+labels: ["from-game", "needs-triage"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you saw, and what you expected instead. Any language is fine.
+    validations:
+      required: true
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: Screenshot
+      description: The game copied one to your clipboard. Click here and paste it (Ctrl+V / ⌘V). On a phone, attach the saved image instead.
+  - type: textarea
+    id: details
+    attributes:
+      label: Game details
+      description: Filled in by the game. Please leave it as is. It tells us exactly where you were.
