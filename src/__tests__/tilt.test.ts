@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { TILT_OFF_DEG, TILT_ON_DEG, tiltDir, tiltRoll } from '../ui/tilt';
+import { TILT_THRESHOLDS, tiltDir, tiltRoll } from '../ui/tilt';
 import { sideMove } from '../ui/touch-prefs';
+
+const { on: TILT_ON_DEG, off: TILT_OFF_DEG } = TILT_THRESHOLDS.medium;
 
 describe('tilt roll', () => {
   it('reads zero when the phone is level, in every orientation', () => {
@@ -39,6 +41,13 @@ describe('tilt direction', () => {
 
   it('a hard roll the other way switches sides at once', () => {
     expect(tiltDir(-TILT_ON_DEG, 'right')).toBe('left');
+  });
+
+  it('sensitivity sets how far you lean: 15° moves you on high and medium, not on low', () => {
+    expect(tiltDir(15, null, 'low')).toBe(null);
+    expect(tiltDir(15, null, 'medium')).toBe('right');
+    expect(tiltDir(8, null, 'high')).toBe('right');
+    for (const t of Object.values(TILT_THRESHOLDS)) expect(t.off).toBeLessThan(t.on);
   });
 });
 

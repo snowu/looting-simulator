@@ -4,7 +4,7 @@ import { audio } from '../audio/sfx';
 import { BRIGHTNESS_MAX, BRIGHTNESS_MIN, applyBrightnessGain, brightness, brightnessToPercent, percentToBrightness } from '../render/brightness';
 import { artImg, btn, closeOverlays, h, isTouchMode, mountOverlay } from './dom';
 import { TouchPrefs, touchPrefs } from './touch-prefs';
-import { requestTilt } from './tilt';
+import { TILT_THRESHOLDS, requestTilt } from './tilt';
 import { BugReportCtx, bugReportPanel } from './bug-report';
 
 /**
@@ -285,6 +285,14 @@ export function openSettings(ctx: SettingsCtx): void {
           }),
           choice('Off', !p.tilt, () => set({ tilt: false })),
         ),
+        ...(p.tilt ? [h('div', { class: 'diff-row' },
+          h('span', { class: 'small', text: 'Tilt needed' }),
+          ...(['low', 'medium', 'high'] as const).map((k) => {
+            const b = choice(`${TILT_THRESHOLDS[k].on}°`, p.tiltSensitivity === k, () => set({ tiltSensitivity: k }));
+            b.title = { low: 'A big lean', medium: 'A moderate lean', high: 'A slight lean' }[k];
+            return b;
+          }),
+        )] : []),
       );
     }
     paint();
@@ -295,7 +303,7 @@ export function openSettings(ctx: SettingsCtx): void {
       row,
       h('p', {
         class: 'dim small',
-        text: 'Tap the left half of the view to block, the right half to swing. Whatever a sideways swipe does, the edge buttons and tilt do the other. Stored on this device.',
+        text: 'Left half of the view: tap to parry, hold to block, drag to walk. Right half: tap to swing. Whatever a sideways swipe does, the edge buttons and tilt do the other. Stored on this device.',
       }),
     );
   }

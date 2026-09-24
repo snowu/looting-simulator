@@ -13,10 +13,19 @@
 
 export type TiltDir = 'left' | 'right';
 
-/** Roll past this many degrees starts a strafe… */
-export const TILT_ON_DEG = 20;
-/** …and it keeps going until the roll comes back inside this. */
-export const TILT_OFF_DEG = 12;
+export type TiltSensitivity = 'low' | 'medium' | 'high';
+
+/**
+ * Roll past `on` degrees starts the move, and it keeps going until the roll
+ * comes back inside `off`. The gap is hysteresis, so a wobble at the edge
+ * doesn't stutter. Low is where the feature started (20°), which play on a
+ * phone found too far to lean; medium is the default.
+ */
+export const TILT_THRESHOLDS: Record<TiltSensitivity, { on: number; off: number }> = {
+  low: { on: 20, off: 12 },
+  medium: { on: 12, off: 7 },
+  high: { on: 7, off: 4 },
+};
 
 const RAD = Math.PI / 180;
 
@@ -36,12 +45,13 @@ export function tiltRoll(beta: number, gamma: number, screenAngle: number): numb
   return Math.asin(Math.max(-1, Math.min(1, -across))) / RAD;
 }
 
-/** Which way to strafe for this roll, with hysteresis so a wobble at the edge doesn't stutter. */
-export function tiltDir(roll: number, current: TiltDir | null): TiltDir | null {
+/** Which way this roll asks to go, if any. */
+export function tiltDir(roll: number, current: TiltDir | null, sensitivity: TiltSensitivity = 'medium'): TiltDir | null {
+  const { on, off } = TILT_THRESHOLDS[sensitivity];
   const mag = Math.abs(roll);
   const side: TiltDir = roll > 0 ? 'right' : 'left';
-  if (current === side && mag > TILT_OFF_DEG) return current;
-  return mag >= TILT_ON_DEG ? side : null;
+  if (current === side && mag > off) return current;
+  return mag >= on ? side : null;
 }
 
 function screenAngle(): number {
@@ -78,10 +88,11 @@ export async function requestTilt(): Promise<boolean> {
 /** Listens to the sensor while enabled; `dir` is what the tilt asks for right now. */
 export class TiltStrafe {
   dir: TiltDir | null = null;
+  sensitivity: TiltSensitivity = 'medium';
   private on = false;
   private readonly listener = (e: DeviceOrientationEvent) => {
     if (e.beta === null || e.gamma === null) return;
-    this.dir = tiltDir(tiltRoll(e.beta, e.gamma, screenAngle()), this.dir);
+    this.dir = tiltDir(tiltRoll(e.beta, e.gamma, screenAngle()), this.dir, this.sensitivity);
   };
 
   get enabled(): boolean {
