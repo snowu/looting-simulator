@@ -1191,9 +1191,9 @@ function tryGenerate(
     const bx = cx(throne), by = throne.y + 2;
     spawnEnemy(enemyDef(BOSS_ID), bx, by);
     const guard = enemyDef('hollow_knight');
-    if (free(bx - 2, by + 3)) spawnEnemy(guard, bx - 2, by + 3);
-    // Normal keeps one guard. The slot it would have filled goes to the floor
-    // count below, so the throne floor is no emptier elsewhere.
+    if (diff.throneGuards >= 1 && free(bx - 2, by + 3)) spawnEnemy(guard, bx - 2, by + 3);
+    // Normal has no guards: the King alone. The slots they would have filled
+    // go to the floor count below, so the rest of the floor is no emptier.
     if (diff.throneGuards >= 2 && free(bx + 2, by + 3)) spawnEnemy(guard, bx + 2, by + 3);
   }
   // Fights last three to seven swings now instead of one, so the same count
