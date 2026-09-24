@@ -162,13 +162,18 @@ const touch = new TouchControls(app, {
     }
   },
   block: (on) => world?.setBlock(on),
+  guardPending: (on) => world?.guardPending(on),
   open: (m) => world && overlays.toggle(m, world),
 });
 // Tilt follows its setting. iOS only lets a page read the sensor after asking
 // from inside a tap, and forgets the answer on reload, so with tilt on the
 // first touch of each visit asks again (no prompt once it has been granted).
 tilt.enabled = touchPrefs.get().tilt;
-touchPrefs.onChange((p) => { tilt.enabled = p.tilt; });
+tilt.sensitivity = touchPrefs.get().tiltSensitivity;
+touchPrefs.onChange((p) => {
+  tilt.enabled = p.tilt;
+  tilt.sensitivity = p.tiltSensitivity;
+});
 if (tiltNeedsPermission()) {
   const ask = () => {
     window.removeEventListener('touchend', ask);

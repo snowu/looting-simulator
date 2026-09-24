@@ -245,6 +245,8 @@ const STAMINA_DELAY = 0.9;
  */
 const PARRY_WINDOW = 0.22;
 const PARRY_COOLDOWN = 0.75;
+/** Longest a touch may stay undecided between block and walk (s); see World.guardPending. */
+const GUARD_PENDING_MAX = 0.5;
 /**
  * Opening a mimic, Dark Souls style: it snaps shut on you, chews for
  * MIMIC_GRAB seconds and bites once for MIMIC_BITE times its normal blow,
@@ -518,6 +520,15 @@ export class World {
   events: WorldEvent[] = [];
   anim: PlayerAnim;
   held = new Set<Action | 'block'>();
+  /**
+   * When a touch that might be a block landed (world time), while it can
+   * still turn out to be a walk. See guardPending.
+   */
+  private guardPendingAt: number | null = null;
+  /** The parry cooldown left when that touch landed, so the window is judged as of then. */
+  private guardPendingCd = 0;
+  /** A blow settled a pending touch into a guard; a drag afterwards still takes it back down. */
+  private guardFromTouch = false;
   private queued: Action | null = null;
   private projN = 0;
   private pathCache = new Map<string, { t: number; next: [number, number] | null }>();
@@ -752,8 +763,59 @@ export class World {
   }
 
   setBlock(on: boolean): void {
+    if (on) this.confirmGuard();
+    else this.guardPendingAt = null;
+    this.guardFromTouch = false;
     if (on) this.held.add('block');
     else this.held.delete('block');
+  }
+
+  /**
+   * A guard that may not be one yet. The left half of a phone screen both
+   * blocks (tap or hold) and walks (drag), and a finger can't say which it
+   * means until it moves or lifts. Raising the shield on touch made every
+   * walk a parry attempt, and waiting to see would make every parry late.
+   *
+   * So the touch is held here, stamped with when it landed, and nothing
+   * shows or costs anything. If the finger drags, `guardPending(false)`
+   * forgets it. If it taps or holds still, `setBlock(true)` raises the guard
+   * backdated to the touch. If a blow arrives first, `parries` settles it
+   * the same way before judging the blow. Either way the parry window runs
+   * from the moment the finger landed, exactly as if the shield had gone
+   * up then.
+   */
+  guardPending(on: boolean): void {
+    if (!on) {
+      this.guardPendingAt = null;
+      if (this.guardFromTouch) {
+        this.guardFromTouch = false;
+        this.held.delete('block');
+      }
+      return;
+    }
+    if (this.guardPendingAt !== null || this.held.has('block')) return;
+    this.guardPendingAt = this.time;
+    this.guardPendingCd = this.anim.parryCd;
+  }
+
+  /** Turn a pending touch into the guard it was, raised when the finger landed. */
+  private confirmGuard(): void {
+    if (this.guardPendingAt === null) return;
+    const since = this.time - this.guardPendingAt;
+    this.guardPendingAt = null;
+    // A real touch settles within a tap (see touch.ts); anything older is a
+    // leftover from a finger the page never heard lift, not a guard.
+    if (since > GUARD_PENDING_MAX) return;
+    this.guardFromTouch = true;
+    this.held.add('block');
+    const a = this.anim;
+    // The same conditions the update loop checks before raising a guard;
+    // if any fails, the held block rises later by the usual path.
+    if (a.blockT !== Infinity || a.attack !== 'idle' || a.cast || a.stunT > 0 || a.sip !== null || this.brokenGuardGear()) return;
+    a.blockT = since;
+    a.parryArmed = this.guardPendingCd <= 0;
+    if (a.parryArmed) a.parryCd = Math.max(0, (a.ward ? PARRY_COOLDOWN * 0.6 : PARRY_COOLDOWN) - since);
+    a.blockRaise = clamp(since / 0.12, 0, 1);
   }
 
   get busy(): boolean {
@@ -1382,6 +1444,9 @@ export class World {
    * the same facing rule blocking uses, since a parry is a sharper block.
    */
   private parries(fromX: number, fromY: number): boolean {
+    // A touch still deciding between block and walk counts from when it
+    // landed: a tap timed to the wind-up parries like a key press would.
+    this.confirmGuard();
     const a = this.anim;
     const window = a.ward ? PARRY_WINDOW * 2 : PARRY_WINDOW;
     if (!a.parryArmed || a.blockT > window) return false;
