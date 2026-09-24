@@ -637,9 +637,9 @@ body.touch #hud .quick, body.touch #hud .prompt { z-index: 3; }
   position: absolute;
   top: 41%;
   transform: translateY(-50%);
-  width: 44px;
-  height: 60px;
-  font-size: 20px;
+  width: 40px;
+  height: 46px;
+  font-size: 18px;
   color: #d8ccb0;
   background: #16121b99;
   border-color: #4a425099;
@@ -729,7 +729,7 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
   body.touch #hud .quick { gap: 5px; right: max(8px, env(safe-area-inset-right)); bottom: calc(max(8px, env(safe-area-inset-bottom)) + 76px); }
   body.touch #hud .quick .slot { --sz: 42px !important; }
   /* Never above the minimap (it ends at 124px) on short landscape phones. */
-  body.touch .tbtn.edge { width: 34px; height: 48px; font-size: 15px; top: max(41%, 158px); }
+  body.touch .tbtn.edge { width: 32px; height: 38px; font-size: 14px; top: max(41%, 158px); }
   body.touch #hud .prompt { font-size: 15px; padding: 1px 8px; border-width: 1px; bottom: calc(max(6px, env(safe-area-inset-bottom)) + 48px); }
   body.touch #hud .log div { font-size: 13px; }
   body.touch #hud .target { width: min(38vw, 240px); font-size: 14px; }
