@@ -2,22 +2,24 @@ import { ArtDef } from './raster';
 import { fill, rows, stamp, sym } from './helpers';
 
 // --- Ghoul -----------------------------------------------------------------------
+// A gaunt head: rounded crown, a heavy brow shading the eyes, hollow cheeks,
+// a nose slit and a jaw that narrows to the teeth.
 const GHOUL_HALF = rows(`
   ................
   ................
   ................
   ................
   ................
-  ................
-  ..........kkkkkk
-  .........khhhhhh
+  ............kkkk
+  ..........kkhhhh
+  .........khhgggg
   ........khgggggg
-  ........kgfkkggg
-  ........kgkyykgg
-  ........kggkkggg
-  ........kfgggggf
-  .........kfmmmmm
+  ........kgkkkkgg
+  ........kfkyykgg
+  ........kgfkkfgk
+  .........kfggggg
   .........kfmwmwm
+  ..........kmmwmw
   ......kkkkkfffff
   ....kkhhhhgggggg
   ...khhgggggggggg
@@ -42,14 +44,14 @@ const GHOUL_ATK_HALF = rows(`
   .khghk..........
   .khggk..........
   .khggk..........
-  ..khggk.........
-  ..khggk...kkkkkk
-  ..khggk..khhhhhh
-  ...khggk.khggggg
-  ...khggkkgfkkggg
-  ....khggkgkyykgg
-  .....khgkggkkggg
-  .....khgkfgggggf
+  ..khggk.....kkkk
+  ..khggk...kkhhhh
+  ..khggk..khhgggg
+  ...khggkkhgggggg
+  ...khggkkgkkkkgg
+  ....khggkfkyykgg
+  .....khgkgfkkfgk
+  .....khgkkfggggg
   ......khgkfmmmmm
   ......khgkfmmmmm
   ......khkkkfmwmw
