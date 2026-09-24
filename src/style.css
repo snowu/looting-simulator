@@ -497,7 +497,7 @@ table.market .market-owned { color: var(--gold); font-weight: 700; }
   touch-action: manipulation;
 }
 .corner-btn svg { width: var(--icon, 18px); height: var(--icon, 18px); display: block; }
-.corner-btn:hover, .corner-btn:active, .corner-btn:focus-visible { color: var(--gold); border-color: var(--gold); }
+.corner-btn:hover, .corner-btn:active { color: var(--gold); border-color: var(--gold); }
 /* The gear owns the top-right corner: it is the one a phone needs. The
    fullscreen button, which matters mostly on a PC, sits one button and a
    6px gap to its left, and takes the corner itself on screens with no gear
