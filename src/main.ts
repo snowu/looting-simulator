@@ -309,11 +309,13 @@ window.addEventListener('gamepaddisconnected', () => {
 });
 app.append(toastLayer);
 // Always-available fullscreen toggle, pinned above every screen and panel.
-mountFullscreenButton(
+// An installed app has none, and the gear takes the corner instead (has-fs).
+const fsButton = mountFullscreenButton(
   app,
   () => toast(FULLSCREEN_HELP),
   () => toast('That is browser (F11) fullscreen — the button cannot leave it. Press F11.'),
 );
+document.body.classList.toggle('has-fs', !!fsButton);
 
 // --- Updates (installed apps have no reload button) ----------------------------
 // A new build re-downloads everything: hashed JS/CSS change filenames, the

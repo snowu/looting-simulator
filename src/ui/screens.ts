@@ -41,7 +41,7 @@ export function titleScreen(slots: HTMLElement, build = '', account?: HTMLElemen
     // Same corner as the in-game gear: pinned top-right beside the fullscreen
     // button, not down by the patch notes.
     onSettings
-      ? h('div', { class: 'title-gear' }, settingsGearButton(onSettings, 'Settings — sound, cloud saves', 22))
+      ? h('div', { class: 'corner-gear' }, settingsGearButton(onSettings, 'Settings — sound, cloud saves'))
       : null,
     h('div', { class: 'patch-corner' }, patchNotesButton()),
   );

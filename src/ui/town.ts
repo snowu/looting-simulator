@@ -227,7 +227,7 @@ export class Town {
         'primary big',
       ),
       this.syncCompact(),
-      settingsGearButton(() => this.openSettings(), 'Settings — difficulty, sound, cloud saves', 28),
+      h('div', { class: 'corner-gear' }, settingsGearButton(() => this.openSettings(), 'Settings — difficulty, sound, cloud saves')),
     );
     const tabBar = h(
       'div',

@@ -45,15 +45,24 @@ export function isSettingsOpen(): boolean {
 }
 
 /**
- * The gear button, shared by town, title and dungeon so all three open the
- * same modal. The icon comes from the sprite sheet, not an emoji, so it reads
- * at 28px without blurring.
+ * Eight square teeth, a solid rim and a hub you can see through, on the same
+ * 16px grid and in the same flat ink as the fullscreen icon beside it, so the
+ * two corner buttons read as one set. Symmetric on every axis.
  */
-export function settingsGearButton(onOpen: () => void, title: string, size = 28): HTMLButtonElement {
-  const el = btn('', onOpen, 'small icon-btn');
+const GEAR_ICON =
+  '<svg viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M6 0h4v3H6zM2 2h2v1H2zM12 2h2v1H12zM2 3h12v1H2zM3 4h10v2H3zM0 6h6v4H0zM10 6h6v4H10zM3 10h10v2H3zM2 12h12v1H2zM2 13h2v1H2zM6 13h4v3H6zM12 13h2v1H12z"/></svg>';
+
+/**
+ * The gear button, shared by town, title and dungeon so all three open the
+ * same modal. It wears the fullscreen button's box (`.corner-btn`): same
+ * size, frame and gold hover, wherever it sits.
+ */
+export function settingsGearButton(onOpen: () => void, title: string, size = 18): HTMLButtonElement {
+  const el = h('button', { class: 'corner-btn gear-btn', onclick: () => onOpen() });
   el.title = title;
   el.setAttribute('aria-label', title);
-  el.append(artImg('ic_gear', undefined, size));
+  el.innerHTML = GEAR_ICON;
+  el.style.setProperty('--icon', `${size}px`);
   return el;
 }
 
