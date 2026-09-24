@@ -333,7 +333,11 @@ class Bot {
           if (this.blockedUntil === -1) w.setBlock(false);
           else w.setBlock(true);
         }
-        if (this.blockedUntil === -1 && e.timer <= 0.10) w.setBlock(true);
+        // Held intent is cleared every decision, so the guard has to be
+        // restated every tick too: a plain block held for one frame was never
+        // up long enough to absorb anything, and every report read "blocked 0".
+        if (this.blockedUntil === -1) { if (e.timer <= 0.10) w.setBlock(true); }
+        else w.setBlock(true);
         return true;
       }
       this.parryFor = null;
