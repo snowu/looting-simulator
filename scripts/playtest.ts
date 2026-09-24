@@ -86,6 +86,8 @@ export interface RunReport {
   capacity: number;
   brokenAtEnd: number;
   perFloor: FloorReport[];
+  /** On a death in the throne room: the King's health left, and whether the bot was already trying to leave. */
+  throneDeath?: { kingHp: number; leaving: boolean };
 }
 
 export interface FloorReport {
@@ -651,6 +653,12 @@ class Bot {
     r.kills = w.run.stats.kills;
     r.time = w.run.stats.time;
     r.killedBy = w.run.killedBy;
+    const throne = w.floor.rooms.find((room) => room.role === 'throne');
+    const p = w.player;
+    if (w.run.outcome === 'dead' && throne && p.x >= throne.x && p.x < throne.x + throne.w && p.y >= throne.y && p.y < throne.y + throne.h) {
+      const king = w.floor.enemies.find((e) => e.def === BOSS_ID);
+      r.throneDeath = { kingHp: king ? Math.max(0, king.hp) / king.maxHp : 0, leaving: this.leaving };
+    }
     const died = w.run.outcome === 'dead';
     r.outcome = died ? 'dead' : 'extracted';
     for (const slot of ['weapon', 'offhand', 'body', 'head', 'hands'] as const) {
@@ -766,7 +774,10 @@ export function summarise(reports: RunReport[], label: string): string {
     [1, 2, 3, 4, 5, 6].map((d) => `D${d}:${pct(reports.filter((r) => r.deepest >= d).length, n)}`).join(' '));
   const deathDepth = [1, 2, 3, 4, 5, 6].map((d) => `D${d}:${deaths.filter((r) => r.deepest === d).length}`).join(' ');
   L.push(`deaths by depth: ${deathDepth}`);
-  L.push(`Ashen King slain: ${reports.filter((r) => r.bossKilled).length}/${n}`);
+  const throneDeaths = reports.filter((r) => r.throneDeath);
+  L.push(`Ashen King slain: ${reports.filter((r) => r.bossKilled).length}/${n}` + (throneDeaths.length
+    ? `   died in the throne room: ${throneDeaths.length} (King left at avg ${(avg(throneDeaths.map((r) => r.throneDeath!.kingHp)) * 100).toFixed(0)}%, ${throneDeaths.filter((r) => r.throneDeath!.leaving).length} while trying to leave; ${throneDeaths.map((r) => r.killedBy).join(', ')})`
+    : ''));
   const killers = new Map<string, number>();
   for (const r of deaths) killers.set(r.killedBy ?? '?', (killers.get(r.killedBy ?? '?') ?? 0) + 1);
   L.push(`killed by: ${[...killers].sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} x${v}`).join(', ') || '—'}`);
