@@ -1,3 +1,23 @@
+# More new art: traps, ghouls, bats, the throne floor, and busier walls
+
+*Save revision 29, unchanged: nothing about a save moves.*
+
+**Traps look like part of the floor.** A spotted trap used to be a flat square marker. A dart trap is now a pressure plate sitting slightly raised from the flagstones, a spike trap is an iron board with a spike tip in each hole, and an alarm is a rune scratched into the floor inside a broken ring. Once a trap goes off, the plate sinks under a snapped dart, the spikes lie broken, and the rune goes dark.
+
+**Ghouls have faces.** The Ghoul, the Slagborn and the Frozen Wretch had a square box for a head. They now have a rounded skull, a heavy brow over the eyes, hollow cheeks and a jaw full of teeth.
+
+**Bats have wings you can see.** Their wings were a single flat colour that blurred together at a distance. They now have finger bones and a lit front edge, on both the cave bat and the Hoarfrost bat.
+
+**The throne room floor is worn.** The black-and-red checkerboard is scorched, cracked and chipped in places, and an ember crack runs across one row.
+
+**Corridors in the Burrows and the Sporegrove repeat less.** Their walls now mix five kinds of wall instead of one. The Burrows add earth with stones half-buried in it and earth with claw marks. The Sporegrove adds moss hanging down with a few glowing spores, and shelf fungus growing out of the rock.
+
+**Smaller things.** The robe icon is a hooded robe, hides look like pelts, a pile of bones looks like someone who didn't make it, and dropped gold is a heap of coins.
+
+Validation: all tests pass, and the shipped PNGs are regenerated from the art code (`npm run art:check` is clean). Checked in the 3D view in the dev lab: in the Sporegrove, the new shelf-fungus and moss walls show with their spores lit, and a cave spider's legs stand out against the floor. In the Burrows, the stones wall shows alongside the old root pattern.
+
+---
+
 # New art for the weakest sprites
 
 *Save revision 29, unchanged: nothing about a save moves.*

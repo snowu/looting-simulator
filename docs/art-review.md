@@ -11,10 +11,11 @@ heavy and legible. The best sprites here already manage it: the Ashen King, the
 wisps, the Emberworks surfaces. The worst were drawn as placeholders and never
 came back.
 
-Everything scored 5 or below in the first table has been redrawn in this pass.
-The "after" column is the same judgement applied to the new art.
+Round 1 redrew everything that scored 5 or below. Round 2 took the next tier,
+plus the wall repetition in the Burrows and the Sporegrove. The "after" column
+is the same judgement applied to the new art.
 
-## Reworked
+## Reworked, round 1
 
 | Before | After | Sprite | What was wrong → what changed |
 |---|---|---|---|
@@ -33,23 +34,29 @@ The "after" column is the same judgement applied to the new art.
 | 5 | 7 | Hollow Knight / Your Shade (`knight_*`) | A box helmet with a face-sized hole. → Domed great helm, one visor slit, centre ridge, breath holes. |
 | 4 | 6 | Club icon (`ic_club`) | A flat slab that read as a cleaver. → Knotted cudgel on a wrapped grip. |
 
+## Reworked, round 2
+
+| Before | After | Sprite | What was wrong → what changed |
+|---|---|---|---|
+| 4 | 7 | Traps: dart, spikes, alarm, and their sprung states | Flat UI tiles. → Set into the floor: a pressure plate with a groove and rivets, an iron board of lit spike tips, a rune scored inside a broken ring. When sprung, the plate sinks under a snapped dart, the spikes lie broken, and the rune is scored through and dark. |
+| 6 | 7 | Ghoul, Slagborn, Frozen Wretch | Flat box head. → Rounded crown, heavy brow, hollow cheeks, nose slit, narrowing jaw. |
+| 5 | 7 | Cave bat, Hoarfrost bat | One-tone wings, mud at small scale. → Finger bones fan from the wrist, and the leading edge is lit. |
+| 5 | 7 | Throne floor | A spotless checker. → Worn, scorched, cracked, one tile chipped, and an ember crack across a row. |
+| 5 | 7 | Robe icon, hide icons | The robe read as a castle, the hides as bats. → A hooded robe; a stretched pelt. |
+| 5 | 7 | Bones, dropped gold | Sticks and a yellow triangle. → Remains lying on the floor; a coin stack beside a heap. |
+| 6 | 7 | Burrows and Sporegrove walls | One texture stamped down every corridor. → Five-way variant mixes like the Frost Vault's: new stones and claw-gouge faces for the Burrows, moss and bracket-fungus faces for the Sporegrove. |
+
 ## Not reworked yet, lowest first
 
 | Score | Sprite | Note |
 |---|---|---|
-| 4 | Traps: dart, spikes, alarm, ward threshold (and spent) | Flat UI tiles rather than things set into the floor. They are only drawn once spotted, so they work as markers, but a seam in the flagstone would suit the world better. |
-| 5 | Cave bat, Hoarfrost bat | Good silhouette, but muddy at 0.45 scale; the wing membrane needs one lighter tone. |
-| 5 | Bones prop | Reads as scattered sticks. |
+| 5 | Big toe icon | Reads as a lilac blob. |
 | 5 | Urn (broken) | Fine intact; the broken one is a brown smear. |
 | 5 | Floor: sunken/sporegrove (`floor_cave`) | Puddles are good; the dirt under them is flat. |
-| 5 | Throne floor (`floor_throne`) | Obsidian checker with no wear; too clean for a ruin. |
-| 5 | Pickup gold | A yellow triangle. |
-| 5 | Icons: robe, big toe, rat hide / leather / wyrm leather | Robe reads as a castle; hides read as bats. |
-| 5 | Bare fist viewmodel (`vm_fist`) | A hand with no wrist. |
-| 6 | Ghoul, Slagborn, Frozen Wretch | Strong attack pose; the idle head is a flat box. |
+| 6 | Iron door | Fine, but plain next to the wood door. |
+| 6 | Bare fist viewmodel (`vm_fist`) | Up close it holds up better than the sheet suggests. |
 | 6 | Bog Seraph | Striking, but too busy to read at range. |
 | 6 | Delver mole, Hoarder, Spore hunter, Giant rat, Gravecaller | Solid; small readability wins possible. |
-| 6 | Burrows walls, Sporegrove walls, iron door | The X scratches repeat visibly on a long wall. |
 | 6 | Secret wall marks, town portal, projectiles | Subtle by design; fine. |
 | 7 | Skeleton family (skeleton, archer, shieldguard, drowned, scorched, rimebound, cinder guard, ice guard, barrow champion) | Consistent and readable; the elemental skins are good. |
 | 7 | Goblins (cutpurse, archer, shieldbearer, glacier, quartermaster) | Good faces, good silhouettes. |
@@ -71,4 +78,5 @@ pass, tileable noise), then the grid was tuned by hand. Overlays that other
 sprites stamp onto a redrawn base (the stalker crest, the emberback shell, the
 knight's shield and sword) were checked and moved where they needed to.
 
-Before/after sheets are in `docs/previews/art-rework/`.
+Before/after sheets are in `docs/previews/art-rework/` (round 1) and
+`docs/previews/art-rework-2/` (round 2).
