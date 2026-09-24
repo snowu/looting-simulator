@@ -106,6 +106,13 @@ export interface DifficultyDef {
    */
   throneRetreat: boolean;
   /**
+   * The King speeds up as he comes apart, and his last stand carries a shield
+   * that realistically only a parry gets through. Off, his later phases keep
+   * the first phase's rhythm and never raise a shield: the dark, the burning
+   * sprite and the lines all stay, the tempo and the guard do not.
+   */
+  kingEscalates: boolean;
+  /**
    * Health you slowly mend back to, as a share of the maximum, while nothing
    * is hunting you. 0 is no regeneration at all, which is Hard.
    */
@@ -157,6 +164,7 @@ const HARD: DifficultyDef = {
   mimicMercy: false,
   throneGuards: 2,
   throneRetreat: false,
+  kingEscalates: true,
   restHeal: 0,
   softDeath: null,
   oneLife: false,
@@ -172,7 +180,7 @@ export const DIFFICULTIES: Record<DifficultyId, DifficultyDef> = {
     id: 'normal',
     name: 'Normal',
     tagline: 'A gentler delve.',
-    description: 'Monsters are slower, softer and fewer: they hit a third less, fall faster, wind up longer, never feint, and no more than two swing at you at once. Your guard holds better, the parry is wider, you have more health, an extra flask charge, and you slowly mend while nothing hunts you. A mimic can bite but never kill, and the Ashen King faces you alone and lets you step back out of his fog. Gear never wears or breaks, so there is nothing to repair. Dying keeps your pack and costs a tenth of the gold you carried, which your Shade holds for you.',
+    description: 'Monsters are slower, softer and fewer: they hit a third less, fall faster, wind up longer, never feint, and no more than two swing at you at once. Your guard holds better, the parry is wider, you have more health, an extra flask charge, and you slowly mend while nothing hunts you. A mimic can bite but never kill, and the Ashen King faces you alone, never speeds up or raises a shield, and lets you step back out of his fog. Gear never wears or breaks, so there is nothing to repair. Dying keeps your pack and costs a tenth of the gold you carried, which your Shade holds for you.',
     enemyHp: 0.75,
     enemyDamage: 0.65,
     enemyDefense: 0.8,
@@ -200,6 +208,7 @@ export const DIFFICULTIES: Record<DifficultyId, DifficultyDef> = {
     mimicMercy: true,
     throneGuards: 0,
     throneRetreat: true,
+    kingEscalates: false,
     restHeal: 0.5,
     softDeath: { goldLost: 0.1 },
     oneLife: false,

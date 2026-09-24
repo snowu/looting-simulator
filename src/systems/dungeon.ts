@@ -315,6 +315,8 @@ export interface EnemyState {
   stirT?: number;
   /** Your Shade: the damage type of the weapon you fell with. */
   shadeType?: DamageType;
+  /** A King who keeps his first rhythm and never shields (`DifficultyDef.kingEscalates` off). Set at spawn. */
+  calm?: boolean;
   /** A floor lieutenant (`src/data/lieutenants.ts`). Absent for everything else. */
   lieutenant?: 'quartermaster' | 'hoarder';
   /** The Hoarder's sack: loot it has carried off, and coin. */
@@ -510,11 +512,14 @@ export function createEnemy(def: EnemyDef, x: number, y: number, facing: Dir, id
   // read `power` back through attackPower/defensePower, and those stay on the
   // old curve so Hard is untouched and Normal's softening is explicit per
   // system (damage in the world, armour via enemyDefense, drops in items.ts).
-  const hp = Math.round(def.hp * power * difficultyOf(difficulty).enemyHp);
-  return {
+  const diff = difficultyOf(difficulty);
+  const hp = Math.round(def.hp * power * diff.enemyHp);
+  const e: EnemyState = {
     id, def: def.id, x, y, fromX: x, fromY: y, moveT: 1, facing, hp, maxHp: hp, ai: 'idle', timer: 0, alert: 0,
     lastSeenX: -1, lastSeenY: -1, homeX: x, homeY: y, hurtT: 0, deadT: 0, attackCd: 0, power,
   };
+  if (def.behavior === 'boss' && !diff.kingEscalates) e.calm = true;
+  return e;
 }
 
 /**

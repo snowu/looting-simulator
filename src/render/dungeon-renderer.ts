@@ -535,7 +535,7 @@ export class DungeonRenderer {
     this.called = called;
     for (const en of floor.enemies) {
       const def = enemyDef(en.def);
-      const view = enemyView(def, en.hp, en.maxHp, { elite: en.elite, carrying: !!en.stolen?.length });
+      const view = enemyView(def, en.hp, en.maxHp, { elite: en.elite, carrying: !!en.stolen?.length, calm: en.calm });
       const call = called.get(en.id);
       if (call !== undefined) lights.push({ x: tileX(en.x), y: 0.5, z: tileZ(en.y), r: 3 + 2 * call, color: cachedColor(RAISE_GLOW), intensity: 0.6 + 0.8 * call });
       // A lurker throws no light: an elite glowing on the ceiling would be no ambush.
@@ -565,7 +565,7 @@ export class DungeonRenderer {
       if (!near(en.x, en.y)) continue;
       // The phase view, so the King's sprite family, glow and guard all follow
       // the fight. Everything else gets its own stat block back unchanged.
-      const def = enemyView(enemyDef(en.def), en.hp, en.maxHp, { elite: en.elite, carrying: !!en.stolen?.length });
+      const def = enemyView(enemyDef(en.def), en.hp, en.maxHp, { elite: en.elite, carrying: !!en.stolen?.length, calm: en.calm });
       if (en.lurk && en.ai !== 'dead') {
         this.drawLurker(en, def);
         continue;

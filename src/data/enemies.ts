@@ -616,16 +616,18 @@ export interface ViewMods {
   marked?: boolean;
   /** A Shade strikes with the damage type of the weapon you fell with. */
   shadeType?: DamageType;
+  /** A calm King: later phases keep the first one's rhythm and carry no shield. */
+  calm?: boolean;
 }
 
 /** The glow of a thief carrying your things: a lamp to chase by. */
 export const THIEF_GLOW = '#e8c060';
 
 export function enemyView(def: EnemyDef, hp: number, maxHp: number, mods?: ViewMods): EnemyDef {
-  const base = phaseView(def, hp, maxHp);
+  const base = phaseView(def, hp, maxHp, !!mods?.calm);
   if (!mods || (!mods.elite && !mods.carrying && !mods.marked && !mods.shadeType)) return base;
   const frenzy = mods.elite === 'frenzied' && maxHp > 0 && hp < maxHp * FRENZY_AT;
-  const key = `${base.id}:${base.sprite}:${mods.elite ?? ''}:${frenzy ? 1 : 0}:${mods.carrying ? 1 : 0}:${mods.marked ? 1 : 0}:${mods.shadeType ?? ''}`;
+  const key = `${base.id}:${base.sprite}${mods.calm ? ':calm' : ''}:${mods.elite ?? ''}:${frenzy ? 1 : 0}:${mods.carrying ? 1 : 0}:${mods.marked ? 1 : 0}:${mods.shadeType ?? ''}`;
   let view = VIEW_CACHE.get(key);
   if (view) return view;
   view = { ...base };
@@ -661,19 +663,21 @@ export function enemyView(def: EnemyDef, hp: number, maxHp: number, mods?: ViewM
   return view;
 }
 
-function phaseView(def: EnemyDef, hp: number, maxHp: number): EnemyDef {
+function phaseView(def: EnemyDef, hp: number, maxHp: number, calm = false): EnemyDef {
   const phase = bossPhase(def, hp, maxHp);
   if (!phase || phase === KING_PHASES[0]) return def;
-  const key = `${def.id}:${phase.sprite}`;
+  const key = `${def.id}:${phase.sprite}${calm ? ':calm' : ''}`;
   let view = VIEW_CACHE.get(key);
   if (!view) {
+    // Calm (Normal): the look and the volley move on, the rhythm and the guard do not.
+    const rhythm = calm ? KING_PHASES[0] : phase;
     view = {
       ...def,
       sprite: phase.sprite,
       glow: phase.glow,
-      windup: phase.windup,
-      recovery: phase.recovery,
-      shield: phase.shield,
+      windup: rhythm.windup,
+      recovery: rhythm.recovery,
+      shield: calm ? undefined : phase.shield,
       volley: phase.shots,
     };
     VIEW_CACHE.set(key, view);

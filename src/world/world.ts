@@ -2055,7 +2055,7 @@ export class World {
    * reading the fields they always read.
    */
   private view(e: EnemyState): EnemyDef {
-    return enemyView(enemyDef(e.def), e.hp, e.maxHp, { elite: e.elite, carrying: !!e.stolen?.length, marked: e.marked, shadeType: e.shadeType });
+    return enemyView(enemyDef(e.def), e.hp, e.maxHp, { elite: e.elite, carrying: !!e.stolen?.length, marked: e.marked, shadeType: e.shadeType, calm: e.calm });
   }
 
   private guardReaction(e: EnemyState, def: EnemyDef): 'bash' | 'chip' | null {

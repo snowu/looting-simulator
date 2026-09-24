@@ -6,7 +6,7 @@ import { newGame, GameState } from '../state/game-state';
 import { startRun, endRun } from '../systems/run';
 import { World } from '../world/world';
 import { EnemyState, FLOOR, createEnemy, generateFloor } from '../systems/dungeon';
-import { enemyDef } from '../data/enemies';
+import { BOSS_ID, KING_PHASES, enemyDef, enemyView } from '../data/enemies';
 import { derivePlayer, emptyEquipment } from '../systems/player';
 import { durability, makeMaterial, rollEquipment } from '../systems/items';
 import { todaysOaths } from '../systems/oaths';
@@ -328,5 +328,27 @@ describe('the throne on normal', () => {
       const gate = w.floor.doors.find((d) => d.boss)!;
       expect(gate.locked, id).toBe(locks);
     }
+  });
+});
+
+describe('the Ashen King on normal', () => {
+  const king = (id: DifficultyId) => createEnemy(enemyDef(BOSS_ID), 0, 0, 0, 'k', 6, id);
+
+  it('keeps his first rhythm and never shields in his last stand', () => {
+    const calm = king('normal');
+    const hard = king('hard');
+    expect(calm.calm).toBe(true);
+    expect(hard.calm).toBeUndefined();
+    for (const frac of [0.5, 0.2]) {
+      const c = enemyView(enemyDef(BOSS_ID), calm.maxHp * frac, calm.maxHp, { calm: calm.calm });
+      const h = enemyView(enemyDef(BOSS_ID), hard.maxHp * frac, hard.maxHp, { calm: hard.calm });
+      expect(c.windup).toBe(KING_PHASES[0].windup);
+      expect(c.recovery).toBe(KING_PHASES[0].recovery);
+      expect(c.shield).toBeUndefined();
+      // The look still moves on with the fight.
+      expect(c.sprite).toBe(h.sprite);
+      expect(h.windup).toBeLessThan(KING_PHASES[0].windup);
+    }
+    expect(enemyView(enemyDef(BOSS_ID), hard.maxHp * 0.2, hard.maxHp, {}).shield).toBeDefined();
   });
 });
