@@ -15,10 +15,10 @@ Last updated 2026-09-25, after three rounds.
 | 2 | #52 | merged | Traps, ghoul/slagborn/wretch heads, bats, throne floor, robe and hide icons, bones, gold pile, Burrows and Sporegrove wall variants (plus review fixes) |
 | 3 | #59 | **open** | Giant rat and Hoarder, iron door (and the locked and fog doors built on it), Big Toe icon and viewmodel, broken urn, Sporegrove floor variants. Takes **Patch 82**. |
 
-If #59 is still open, merge it first, or branch round 4 off it. Its
-`docs/art-review.md` edits would conflict with a branch off master that
-touches the same file. Check the patch number too: other agents may have
-claimed 82 in the meantime.
+This file arrived with #59. If you are reading it on master, round 3 is
+merged. If #59 is still open, branch round 4 off `art/rework-round3`, not
+master. Check the patch number too: other agents may have claimed 82 in the
+meantime.
 
 ## How sprites are scored
 
