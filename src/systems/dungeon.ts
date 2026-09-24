@@ -1229,7 +1229,7 @@ function tryGenerate(
   // The throne's King and his guards are spawned before the loop and are never
   // promoted: that fight is authored.
   for (const e of enemies.slice(authored)) {
-    const trait = eliteFor(seed, e.id, depth, enemyDef(e.def), mods?.eliteBonus ?? 0);
+    const trait = eliteFor(seed, e.id, depth, enemyDef(e.def), mods?.eliteBonus ?? 0, diff.eliteChance);
     if (trait) promoteElite(e, trait);
   }
   // Ambushers, on their own stream for the same reason: ceiling droppers over

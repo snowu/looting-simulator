@@ -23,11 +23,20 @@ import { Dir, turnAround } from '../core/dir';
  * match the pre-difficulty arithmetic exactly.
  */
 describe('hard is the game as it was', () => {
-  it('has identity tuning: every multiplier 1, every bonus 0', () => {
+  it('has identity tuning: every multiplier 1, every bonus 0, no cap, no mercy', () => {
     const h = DIFFICULTIES.hard;
+    // Knobs whose "does nothing" value is not 1. Anything else numeric must be 1.
+    const identity: Record<string, unknown> = {
+      findBonus: 0, blockBonus: 0, flaskBonus: 0, restHeal: 0, maxAttackers: Infinity,
+      gentleMoves: false, softDeath: null, oneLife: false,
+    };
     for (const [k, v] of Object.entries(h)) {
-      if (typeof v !== 'number') continue;
-      expect(v, k).toBe(k === 'findBonus' ? 0 : 1);
+      if (k in identity) expect(v, k).toBe(identity[k]);
+      else if (typeof v === 'number') expect(v, k).toBe(1);
+    }
+    // A new knob that is neither a number nor listed above must say what Hard's value is.
+    for (const [k, v] of Object.entries(h)) {
+      if (typeof v !== 'number' && typeof v !== 'string') expect(identity, k).toHaveProperty(k);
     }
   });
 
@@ -130,7 +139,7 @@ describe('normal tones it down and pays slightly better', () => {
     const hard = createEnemy(def, 0, 0, Dir.N, 'h', 4, 'hard');
     const normal = createEnemy(def, 0, 0, Dir.N, 'n', 4, 'normal');
     expect(normal.hp).toBeLessThan(hard.hp);
-    expect(normal.hp).toBe(Math.round(hard.hp * DIFFICULTIES.normal.enemyHp));
+    expect(normal.hp).toBe(Math.round(def.hp * depthPower(def, 4) * DIFFICULTIES.normal.enemyHp));
     expect(normal.power).toBe(hard.power);
   });
 

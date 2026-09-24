@@ -307,7 +307,7 @@ export class DungeonOverlays {
           h('div', { class: 'row' }, h('h3', { text: `Backpack ${pack.items.length}/${pack.capacity}` }), h('span', { class: 'gold-t right', text: `${gold(w.run.gold)} carried` })),
           h('div', { class: 'row', style: 'margin:2px 0 6px' }, btn('Sort pack', () => this.sortPack(w), 'small', pack.items.length < 2)),
           this.packGrid(w),
-          h('p', { class: 'dim small', style: 'margin-top:8px', text: 'Everything in the pack is lost if you die. Get it home.' }),
+          h('p', { class: 'dim small', style: 'margin-top:8px', text: w.diff.softDeath ? 'On Normal the pack comes home even if you die. A tenth of the carried coin does not.' : 'Everything in the pack is lost if you die. Get it home.' }),
         ),
       ),
     );

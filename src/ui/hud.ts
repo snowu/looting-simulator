@@ -1,3 +1,4 @@
+import { flaskMax } from '../systems/healing';
 import { DIR_NAMES, DX, DY, turnLeft, turnRight } from '../core/dir';
 import { OATHS, findOath } from '../data/oaths';
 import { oathProgress, runOaths } from '../systems/oaths';
@@ -334,7 +335,7 @@ export class Hud {
       this.quickKey = qk;
       this.quickDrag = null;
       this.quick.classList.remove('dragging');
-      const max = 3 + Math.min(3, world.state.flask?.shards ?? 0);
+      const max = flaskMax(world.state.flask?.shards ?? 0, world.diff.flaskBonus);
       const dregs = Math.min(100, flask.dregs / Math.max(1, world.derived.maxHp * 0.5) * 100);
       // Charges left as one number, like every other stack on the bar: "3/3"
       // in the pixel font ran into the bottle and the dregs bar and read as

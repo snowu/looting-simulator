@@ -127,6 +127,8 @@ export interface RunSummary {
   oath?: { id: OathId; kept: boolean; renown: number };
   /** On a death: the depth where your Shade now holds what you lost. */
   graveDepth?: number;
+  /** A Normal death: the pack came home, and only a tithe of the coin was lost. */
+  keptPack?: boolean;
   /** The Ashen Seals the delve was under, and whether it set a new record. */
   seals?: { count: number; record: boolean };
 }

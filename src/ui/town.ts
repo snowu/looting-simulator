@@ -892,8 +892,8 @@ export class Town {
     const s = this.s;
     const wornCount = EQUIP_SLOTS.filter((slot) => {
       const it = s.equipment[slot];
-      return it && repairCost(it) > 0;
-    }).length + s.stash.items.filter((it) => it.kind === 'equipment' && repairCost(it) > 0).length;
+      return it && repairCost(it, this.s.difficulty) > 0;
+    }).length + s.stash.items.filter((it) => it.kind === 'equipment' && repairCost(it, this.s.difficulty) > 0).length;
     const stones = s.stash.items.filter((it) => it.kind === 'sigil' && findSigil(it.ref) && !(s.spells ?? []).includes(it.ref)).length;
     const blueprints = new Map<string, number>();
     for (const item of s.stash.items) {
@@ -992,15 +992,15 @@ export class Town {
     const worn: { item: Item; where: string }[] = [];
     for (const slot of EQUIP_SLOTS) {
       const it = s.equipment[slot];
-      if (it && repairCost(it) > 0) worn.push({ item: it, where: 'worn' });
+      if (it && repairCost(it, this.s.difficulty) > 0) worn.push({ item: it, where: 'worn' });
     }
-    for (const it of s.stash.items) if (it.kind === 'equipment' && repairCost(it) > 0) worn.push({ item: it, where: 'stash' });
-    worn.sort((a, b) => Number(durability(b.item).broken) - Number(durability(a.item).broken) || repairCost(b.item) - repairCost(a.item));
+    for (const it of s.stash.items) if (it.kind === 'equipment' && repairCost(it, this.s.difficulty) > 0) worn.push({ item: it, where: 'stash' });
+    worn.sort((a, b) => Number(durability(b.item).broken) - Number(durability(a.item).broken) || repairCost(b.item, this.s.difficulty) - repairCost(a.item, this.s.difficulty));
 
-    const total = worn.reduce((sum, w) => sum + repairCost(w.item), 0);
+    const total = worn.reduce((sum, w) => sum + repairCost(w.item, this.s.difficulty), 0);
     const rows = worn.map(({ item, where }) => {
       const d = durability(item);
-      const cost = repairCost(item);
+      const cost = repairCost(item, this.s.difficulty);
       return h(
         'div',
         { class: 'row repair-row' },

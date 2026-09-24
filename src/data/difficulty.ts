@@ -57,6 +57,50 @@ export interface DifficultyDef {
   /** Multiplier on gear drop chances (kill `itemChance`, chest gear odds). */
   dropChance: number;
   /**
+   * Multiplier on how long monsters take over everything they do: wind-up,
+   * recovery, the gap before the next swing, a combo's beat and a step. Above
+   * 1 is slower. Scales the clock the monster reads, not its numbers, so every
+   * tell stays the same shape and simply lasts longer.
+   */
+  enemyTempo: number;
+  /** Multiplier on the parry window (`PARRY_WINDOW`), the reaction-time half of a parry. */
+  parryWindow: number;
+  /** No feints, and a combo stops after its first follow-up. The moves keep their tells. */
+  gentleMoves: boolean;
+  /**
+   * How many monsters may be winding up at you at once. Anyone else in reach
+   * waits its turn. `Infinity` is no cap.
+   */
+  maxAttackers: number;
+  /** Added to the share of a blow a raised guard absorbs, before the shield cap. */
+  blockBonus: number;
+  /** Multiplier on the stamina a block costs. */
+  blockStamina: number;
+  /** Multiplier on durability lost per wear event (swings, blocks, hits taken). */
+  gearWear: number;
+  /** Multiplier on the smith's repair price. */
+  repairCost: number;
+  /** Multiplier on the chance an ordinary spawn is promoted to an elite (Seals add on top). */
+  eliteChance: number;
+  /** Multiplier on the chance a floor gets a lieutenant. */
+  lieutenantChance: number;
+  /** Extra flask charges every delve. */
+  flaskBonus: number;
+  /** Multiplier on a mimic's held bite, the one blow no guard refuses. */
+  mimicBite: number;
+  /**
+   * Health you slowly mend back to, as a share of the maximum, while nothing
+   * is hunting you. 0 is no regeneration at all, which is Hard.
+   */
+  restHeal: number;
+  /**
+   * What a death costs when it does not cost the pack. `null` is the full
+   * price: the pack and the coin go to your Shade. Otherwise you keep the
+   * pack and lose only `goldLost` of the coin you carried, and that is what
+   * the Shade holds.
+   */
+  softDeath: { goldLost: number } | null;
+  /**
    * One life: a death ends the playthrough, not just the delve. The save is
    * marked fallen and can never be played again. Picked only when the save
    * is made, and never switched on or off afterwards.
@@ -82,29 +126,61 @@ const HARD: DifficultyDef = {
   gold: 1,
   findBonus: 0,
   dropChance: 1,
+  enemyTempo: 1,
+  parryWindow: 1,
+  gentleMoves: false,
+  maxAttackers: Infinity,
+  blockBonus: 0,
+  blockStamina: 1,
+  gearWear: 1,
+  repairCost: 1,
+  eliteChance: 1,
+  lieutenantChance: 1,
+  flaskBonus: 0,
+  mimicBite: 1,
+  restHeal: 0,
+  softDeath: null,
   oneLife: false,
 };
 
 export const DIFFICULTIES: Record<DifficultyId, DifficultyDef> = {
   hard: HARD,
+  // Normal is for someone who wants the dungeon, the loot and the town, not
+  // the reflex test. It softens numbers *and* time: slower tells, a wider
+  // parry, one attacker at a time or two, a guard that holds, and a death that
+  // costs a little coin instead of the pack.
   normal: {
     id: 'normal',
     name: 'Normal',
     tagline: 'A gentler delve.',
-    description: 'Monsters hit softer (−20%) and fall faster (−20% health, thinner armour), traps sting less, parry grace lasts longer, you mend faster (+25% healing, +20% health), and drops are slightly kinder (+25 find, +25% gear odds, +20% gold).',
-    enemyHp: 0.8,
-    enemyDamage: 0.8,
-    enemyDefense: 0.85,
-    trapDamage: 0.7,
-    trapCount: 0.7,
-    enemyCount: 0.85,
-    playerHp: 1.2,
-    playerHealing: 1.25,
-    staminaRegen: 1.15,
+    description: 'Monsters are slower, softer and fewer: they hit a third less, fall faster, wind up longer, never feint, and no more than two swing at you at once. Your guard holds better, the parry is wider, you have more health, an extra flask charge, and you slowly mend while nothing hunts you. Gear wears half as fast and repairs cost less. Dying keeps your pack and costs a tenth of the gold you carried, which your Shade holds for you.',
+    enemyHp: 0.75,
+    enemyDamage: 0.65,
+    enemyDefense: 0.8,
+    trapDamage: 0.5,
+    trapCount: 0.6,
+    enemyCount: 0.8,
+    playerHp: 1.3,
+    playerHealing: 1.35,
+    staminaRegen: 1.25,
     parryGrace: 5 / 3,
     gold: 1.2,
     findBonus: 25,
     dropChance: 1.25,
+    enemyTempo: 1.3,
+    parryWindow: 1.6,
+    gentleMoves: true,
+    maxAttackers: 2,
+    blockBonus: 0.15,
+    blockStamina: 0.7,
+    gearWear: 0.5,
+    repairCost: 0.6,
+    eliteChance: 0.5,
+    lieutenantChance: 0.6,
+    flaskBonus: 1,
+    mimicBite: 0.5,
+    restHeal: 0.5,
+    softDeath: { goldLost: 0.1 },
     oneLife: false,
   },
   // Hardcore is Hard, knob for knob — spread from it so the two can never

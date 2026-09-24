@@ -13,6 +13,7 @@
 import { createRng, Rng } from '../src/core/rng';
 import { DIRS, DX, DY, Dir } from '../src/core/dir';
 import { newGame } from '../src/state/game-state';
+import { DifficultyId } from '../src/data/difficulty';
 import { GameState } from '../src/state/game-state';
 import { startRun, endRun, syncLoadout } from '../src/systems/run';
 import { addItem, removeItem } from '../src/state/inventory';
@@ -668,6 +669,8 @@ export interface PlaytestOpts {
   seed?: number;
   /** Called with the fresh GameState before the run starts. */
   prepare?: (s: GameState, run: number) => void;
+  /** The save's difficulty. Hard when absent, like every save before difficulty levels. */
+  difficulty?: DifficultyId;
 }
 
 /**
@@ -686,8 +689,9 @@ export function geared(equipment: () => Equipment, meta: MetaLevels = {}): (s: G
 export const MID_META: MetaLevels = { toughness: 3, endurance: 2, pack_mule: 1, lantern: 1 };
 export const DEEP_META: MetaLevels = { toughness: 5, endurance: 3, pack_mule: 3, lantern: 3, treasure_sense: 2 };
 
-export function playOneRun(seed: number, policy: Policy, prepare?: (s: GameState) => void): RunReport {
+export function playOneRun(seed: number, policy: Policy, prepare?: (s: GameState) => void, difficulty: DifficultyId = 'hard'): RunReport {
   const state = newGame(createRng(seed));
+  state.difficulty = difficulty;
   // newGame draws a random save id, and the day's roads at the fork are seeded
   // from it. Fix it, or two runs of the harness take different roads and stop
   // being comparable.
@@ -730,7 +734,7 @@ export function playtest(opts: PlaytestOpts): RunReport[] {
   const out: RunReport[] = [];
   for (let i = 0; i < opts.runs; i++) {
     const seed = (opts.seed ?? 1000) + i * 7919;
-    out.push(playOneRun(seed, policy, opts.prepare ? (s) => opts.prepare!(s, i) : undefined));
+    out.push(playOneRun(seed, policy, opts.prepare ? (s) => opts.prepare!(s, i) : undefined, opts.difficulty));
   }
   return out;
 }

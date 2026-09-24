@@ -59,7 +59,7 @@ Raising the guard opens a **0.22s window**. A hit that lands inside it is not ab
 
 | | |
 |---|---|
-| Window | 0.22s from the moment the guard starts to rise |
+| Window | 0.22s from the moment the guard starts to rise (0.35s on Normal) |
 | Cooldown | 0.75s, measured from when the window opened |
 | Cost | Nothing. The cost is the risk of mistiming it |
 | Requires | Facing the attack. No shield needed — a weapon or bare hands parry the same |
@@ -1347,7 +1347,7 @@ Five upgrades were **not** repriced, because the harness cannot see them and a n
 - Anything packed that no longer fits when you descend goes back to the stash rather than vanishing.
 - **Stash:** unlimited, in town, and materials merge into single stacks.
 - **Extracting** banks the whole backpack and the gold you carried.
-- **Dying** loses the backpack and your carried gold. Soul Pouch saves the first `3 × level` slots and `20% × level` of the gold. **Equipped gear is always kept.**
+- **Dying** loses the backpack and your carried gold. Soul Pouch saves the first `3 × level` slots and `20% × level` of the gold. **Equipped gear is always kept.** On **Normal** a death keeps the whole backpack and costs only **10%** of the carried gold, and that tenth is what the Shade holds (see [Difficulty](#14a-difficulty)).
 - Coins and keys are picked up automatically; everything else goes through the loot window and needs space.
 
 ---
@@ -1357,6 +1357,37 @@ Five upgrades were **not** repriced, because the harness cannot see them and a n
 *Files: `src/systems/grave.ts`, `endRun` in `src/systems/run.ts`, the Shade hooks in `src/world/world.ts`*
 
 When you die, what you lost (the backpack beyond any Soul Pouch slots, and the carried coin beyond its share) goes into a **grave** on the depth where you fell (`state.grave`). The next delve that reaches that depth finds **Your Shade** there, at least **10** steps from the arrival stair and never in the throne room. Its stats: 60 health, 12 attack, 6 defense, holy ×1.5, shadow ×0.5, scaled by depth like any monster. It strikes with the **damage type of the weapon you fell holding**, is drawn as a pale, cold version of the knight's frame, and glows blue. **Kill it and the whole pack drops where it stood**, coin included. Only one grave exists at a time: **die again before reclaiming it and it is replaced**, and the old pack is gone for good. Coming home without reclaiming it leaves it where it is. The Shade is placed once per delve (`run.shadePlaced`), and never on **Hardcore**, where a death ends the save. The town news and the results screen say where it waits.
+
+## 14a. Difficulty
+
+*File: `src/data/difficulty.ts`, the only place these numbers live*
+
+A save picks **Normal**, **Hard** or **Hardcore** when it starts. Normal and Hard can be switched between delves; Hardcore is fixed for good. The delve reads the difficulty it started with (`run.difficulty`), so switching can never soften a fight in progress. **Hard is the game as designed, and every knob on it does nothing.** Hardcore is Hard, knob for knob, with one life.
+
+Normal is for someone who wants the dungeon, the loot and the town without the reflex test, so it softens time and punishment as well as numbers:
+
+| Knob | Normal | What it touches |
+|---|---|---|
+| Monster health / damage / armour | ×0.75 / ×0.65 / ×0.8 | `createEnemy`, every monster blow, `defensePower` |
+| Monster count / traps / trap damage | ×0.8 / ×0.6 / ×0.5 | floor generation, sprung traps |
+| **Monster tempo** | ×1.3 slower | wind-up, recovery, the gap before the next swing, combo beat, steps, a Gravecaller's chant. The monsters' clock runs slower, so every tell keeps its shape and just lasts longer |
+| **Parry window** | ×1.6 (0.22s → 0.35s) | `parries()` |
+| **Gentle moves** | on | no feints; a combo stops after its first follow-up |
+| **Attackers at once** | 2 | a third monster in reach holds off for a beat instead of winding up. The King never waits |
+| **Block** | +15 points, stamina ×0.7 | added before the 90% shield cap |
+| Your health / healing / stamina regen | ×1.3 / ×1.35 / ×1.25 | |
+| **Resting** | mends to 50% | after 5s unhurt with nothing hunting you, 2% of max health a second, never above half |
+| Flask | +1 charge | every delve |
+| Parry grace | ×5/3 (0.75s → 1.25s) | |
+| Mimic bite | ×0.5 | on top of the damage multiplier |
+| Elites / lieutenants | ×0.5 / ×0.6 chance | Seals still add on top |
+| Gear wear / repair price | ×0.5 / ×0.6 | |
+| Gold / find / gear odds | ×1.2 / +25 / ×1.25 | |
+| **Death** | keep the pack, lose 10% of carried gold | the Shade holds the tenth |
+
+`npm run playtest:normal` plays the same seeds on both difficulties with a bot that barely parries, for the before-and-after on any change here.
+
+---
 
 ## 15. Saving
 
