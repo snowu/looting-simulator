@@ -8,7 +8,8 @@ import { World } from '../world/world';
 import { EnemyState, FLOOR, createEnemy, generateFloor } from '../systems/dungeon';
 import { enemyDef } from '../data/enemies';
 import { derivePlayer, emptyEquipment } from '../systems/player';
-import { durability, makeMaterial, repairCost, rollEquipment } from '../systems/items';
+import { durability, makeMaterial, rollEquipment } from '../systems/items';
+import { todaysOaths } from '../systems/oaths';
 import { addItem } from '../state/inventory';
 import { flaskMax } from '../systems/healing';
 import { parseSave, serializeSave } from '../state/save-format';
@@ -171,14 +172,7 @@ describe('normal is kinder to the player', () => {
     expect(w.player.hp).toBe(10);
   });
 
-  it('repairs cost less', () => {
-    const item = rollEquipment(createRng(4), 4, 0, { baseId: 'kite_shield' });
-    item.dur = 1;
-    expect(repairCost(item, 'normal')).toBeLessThan(repairCost(item, 'hard'));
-    expect(repairCost(item)).toBe(repairCost(item, 'hard'));
-  });
-
-  it('wears gear half as fast', () => {
+  it('never wears gear', () => {
     const used = (id: DifficultyId) => {
       const w = arena(id);
       const shield = rollEquipment(createRng(2), 1, 0, { baseId: 'kite_shield' });
@@ -189,7 +183,41 @@ describe('normal is kinder to the player', () => {
       return before - durability(shield).cur;
     };
     expect(used('hard')).toBe(20);
-    expect(used('normal')).toBe(10);
+    expect(used('normal')).toBe(0);
+  });
+
+  it('mends everything the player owns as a delve starts', () => {
+    const worn = () => {
+      const it = rollEquipment(createRng(4), 4, 0, { baseId: 'kite_shield' });
+      it.dur = 0;
+      return it;
+    };
+    for (const [id, whole] of [['normal', true], ['hard', false]] as const) {
+      const s = newGame(createRng(5));
+      s.difficulty = id;
+      s.equipment.offhand = worn();
+      const stashed = worn();
+      addItem(s.stash, stashed);
+      startRun(s, 5);
+      expect(durability(s.equipment.offhand!).broken, id).toBe(!whole);
+      expect(durability(s.stash.items.find((it) => it.uid === stashed.uid)!).broken, id).toBe(!whole);
+    }
+  });
+
+  it('does not offer the Unbroken oath', () => {
+    for (let day = 1; day <= 30; day++) {
+      const s = newGame(createRng(6));
+      s.market.day = day;
+      s.difficulty = 'normal';
+      expect(todaysOaths(s)).not.toContain('unbroken');
+    }
+    // Hard still does, some days.
+    const hard = Array.from({ length: 30 }, (_, d) => {
+      const s = newGame(createRng(6));
+      s.market.day = d + 1;
+      return todaysOaths(s);
+    });
+    expect(hard.some((o) => o.includes('unbroken'))).toBe(true);
   });
 });
 

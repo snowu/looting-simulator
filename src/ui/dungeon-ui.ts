@@ -9,7 +9,7 @@ import { sortContainer } from '../state/inventory';
 import { World } from '../world/world';
 import { drawMap } from './automap';
 import { touchPrefs } from './touch-prefs';
-import { btn, gold, h, hideTooltip, isTouchMode, itemSlot, itemTooltip, rarityColor } from './dom';
+import { btn, gold, h, hideTooltip, showCondition, isTouchMode, itemSlot, itemTooltip, rarityColor } from './dom';
 import { audio } from '../audio/sfx';
 import { GAMEPAD_HELP_ROWS } from './gamepad';
 import { clamp } from '../core/math';
@@ -161,6 +161,7 @@ export class DungeonOverlays {
     const w = this.world;
     if (!w || !this.mode) return;
     hideTooltip();
+    showCondition(w.diff.gearWears);
     let body: HTMLElement;
     switch (this.mode) {
       case 'inventory':

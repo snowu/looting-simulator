@@ -673,18 +673,12 @@ export class World {
    * finding a font urgent rather than theoretical.
    */
   private wear(slot: EquipSlot, amount = 1): void {
+    // Normal: gear does not wear at all.
+    if (!this.diff.gearWears) return;
     const it = this.state.equipment[slot];
     if (this.run.curse === 'brittle') amount += 1;
     const oath = runOath(this.run, 'unbroken');
     if (oath) amount *= UNBROKEN_WEAR;
-    // Normal wears gear slower. Durability is whole points, so the fraction
-    // is carried per slot until it adds up to one.
-    if (this.diff.gearWear !== 1) {
-      const owed = (this.wearOwed[slot] ?? 0) + amount * this.diff.gearWear;
-      amount = Math.floor(owed);
-      this.wearOwed[slot] = owed - amount;
-      if (amount <= 0) return;
-    }
     const crossed = wearItem(it, amount);
     if (crossed === 'none' || !it) return;
     const name = itemName(it);
@@ -720,9 +714,6 @@ export class World {
   }
   private restWait = 0;
   private restLastHp = Infinity;
-
-  /** Normal's fractional wear not yet taken off each slot. Not saved: a reload forgives it. */
-  private wearOwed: Partial<Record<EquipSlot, number>> = {};
 
   /** Armour wears where you were actually hit: one worn piece takes the scuff. */
   private wearArmour(): void {
@@ -2661,7 +2652,8 @@ export class World {
       ...this.run.backpack.items,
       ...this.run.floors.flatMap((f) => f?.pickups.flatMap((p) => p.items) ?? []),
     ].filter((i) => i.kind === 'sigil').map((i) => i.ref);
-    const unknown = unknownSigils(this.state.spells ?? [], carried);
+    // Temper mends worn gear, and on Normal nothing wears: it never drops there.
+    const unknown = unknownSigils(this.state.spells ?? [], carried).filter((id) => this.diff.gearWears || id !== 'temper');
     if (!unknown.length) return null;
     const rng = createRng(hashString(`sigil:${this.run.seed}:${this.run.depth}:${stream}`));
     return rng.chance(chance) ? makeSigil(rng.pick(unknown)) : null;
@@ -2726,7 +2718,8 @@ export class World {
       if (fragile.length) { takeOne(pick.pick(fragile)); continue; }
       const mats = loot.items.filter((it) => it.kind === 'material');
       if (mats.length) { takeOne(pick.pick(mats)); continue; }
-      const gear = loot.items.filter((it) => it.kind === 'equipment' && durability(it).wears && durability(it).cur > 0);
+      // Where nothing wears, a blow dents nothing either: it spills coin instead.
+      const gear = this.diff.gearWears ? loot.items.filter((it) => it.kind === 'equipment' && durability(it).wears && durability(it).cur > 0) : [];
       if (gear.length) {
         const it = pick.pick(gear);
         const d = durability(it);
@@ -4570,7 +4563,7 @@ export class World {
       return;
     }
     const item = this.run.backpack.items.find((it) => it.uid === uid);
-    if (item) wearItem(item);
+    if (item && this.diff.gearWears) wearItem(item);
   }
 
   private collectThrownHere(): number {

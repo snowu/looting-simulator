@@ -39,7 +39,7 @@ import { findSigil, sigil } from '../data/spells';
 import { derivePlayer } from '../systems/player';
 import { defaultSlot, equipFrom, unequipTo, wornFor } from '../systems/equip';
 import { createRng, hashString, randomSeed } from '../core/rng';
-import { artImg, bothRegisters, btn, gold, h, helpBlock, helpButton, hideTooltip, isTouchMode, itemSlot, itemTooltip, rarityColor, sparkline, statLines, toggleDetailed } from './dom';
+import { artImg, bothRegisters, btn, gold, h, helpBlock, helpButton, hideTooltip, showCondition, isTouchMode, itemSlot, itemTooltip, rarityColor, sparkline, statLines, toggleDetailed } from './dom';
 import { esc } from '../core/escape';
 import { artUrl } from '../render/art-cache';
 import { paperDoll, statSheet } from './dungeon-ui';
@@ -182,6 +182,7 @@ export class Town {
 
   render(): void {
     hideTooltip();
+    showCondition(difficultyOf(this.difficultyId).gearWears);
     if (this.beastTimer !== null) {
       clearInterval(this.beastTimer);
       this.beastTimer = null;
@@ -892,8 +893,8 @@ export class Town {
     const s = this.s;
     const wornCount = EQUIP_SLOTS.filter((slot) => {
       const it = s.equipment[slot];
-      return it && repairCost(it, this.s.difficulty) > 0;
-    }).length + s.stash.items.filter((it) => it.kind === 'equipment' && repairCost(it, this.s.difficulty) > 0).length;
+      return it && repairCost(it) > 0;
+    }).length + s.stash.items.filter((it) => it.kind === 'equipment' && repairCost(it) > 0).length;
     const stones = s.stash.items.filter((it) => it.kind === 'sigil' && findSigil(it.ref) && !(s.spells ?? []).includes(it.ref)).length;
     const blueprints = new Map<string, number>();
     for (const item of s.stash.items) {
@@ -904,9 +905,12 @@ export class Town {
       return rank < MAX_RECIPE_RANK && owned >= blueprintCostForNextRank(rank);
     }).length;
 
+    // No repair bench where nothing wears.
+    const wears = difficultyOf(this.difficultyId).gearWears;
+    if (!wears && this.forgeSide === 'repairs') this.forgeSide = 'recipes';
     const benches: [typeof this.forgeSide, string, number][] = [
       ['recipes', 'Recipes', readyBlueprints],
-      ['repairs', 'Repairs', wornCount],
+      ...(wears ? [['repairs', 'Repairs', wornCount] as [typeof this.forgeSide, string, number]] : []),
       ['sigils', 'Sigils', stones],
       ['inscribe', 'Inscribe', 0],
       ['infusions', 'Flask', 0],
@@ -992,15 +996,15 @@ export class Town {
     const worn: { item: Item; where: string }[] = [];
     for (const slot of EQUIP_SLOTS) {
       const it = s.equipment[slot];
-      if (it && repairCost(it, this.s.difficulty) > 0) worn.push({ item: it, where: 'worn' });
+      if (it && repairCost(it) > 0) worn.push({ item: it, where: 'worn' });
     }
-    for (const it of s.stash.items) if (it.kind === 'equipment' && repairCost(it, this.s.difficulty) > 0) worn.push({ item: it, where: 'stash' });
-    worn.sort((a, b) => Number(durability(b.item).broken) - Number(durability(a.item).broken) || repairCost(b.item, this.s.difficulty) - repairCost(a.item, this.s.difficulty));
+    for (const it of s.stash.items) if (it.kind === 'equipment' && repairCost(it) > 0) worn.push({ item: it, where: 'stash' });
+    worn.sort((a, b) => Number(durability(b.item).broken) - Number(durability(a.item).broken) || repairCost(b.item) - repairCost(a.item));
 
-    const total = worn.reduce((sum, w) => sum + repairCost(w.item, this.s.difficulty), 0);
+    const total = worn.reduce((sum, w) => sum + repairCost(w.item), 0);
     const rows = worn.map(({ item, where }) => {
       const d = durability(item);
-      const cost = repairCost(item, this.s.difficulty);
+      const cost = repairCost(item);
       return h(
         'div',
         { class: 'row repair-row' },
@@ -1086,7 +1090,7 @@ export class Town {
         artImg(def.icon, undefined, 34),
         h('div', { class: 'grow' },
           h('div', { style: `color:${on ? '#e0c060' : '#b89ad8'}`, text: def.name }),
-          h('div', { class: 'dim small', text: `${def.description} · ${def.cast.toFixed(2)}s cast · ${def.stamina} stamina · ${def.cooldown}s` }),
+          h('div', { class: 'dim small', text: `${def.description}${id === 'temper' && !difficultyOf(this.difficultyId).gearWears ? ' Nothing wears on Normal, so it has nothing to do.' : ''} · ${def.cast.toFixed(2)}s cast · ${def.stamina} stamina · ${def.cooldown}s` }),
         ),
         btn(on ? 'Attuned' : 'Attune', () => {
           if (!attuneSigil(s, id)) return this.ctx.toast('Not while you are down there. Step back through a portal first.', '#9ab0d8');

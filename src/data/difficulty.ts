@@ -76,10 +76,13 @@ export interface DifficultyDef {
   blockBonus: number;
   /** Multiplier on the stamina a block costs. */
   blockStamina: number;
-  /** Multiplier on durability lost per wear event (swings, blocks, hits taken). */
-  gearWear: number;
-  /** Multiplier on the smith's repair price. */
-  repairCost: number;
+  /**
+   * Whether gear wears and breaks at all. Off, nothing loses durability,
+   * every piece is mended whole as a delve starts, the forge has no repair
+   * bench, and tooltips stop showing condition. The Sigil of Temper stops
+   * dropping and the Unbroken oath is not offered, since both are about wear.
+   */
+  gearWears: boolean;
   /** Multiplier on the chance an ordinary spawn is promoted to an elite (Seals add on top). */
   eliteChance: number;
   /** Multiplier on the chance a floor gets a lieutenant. */
@@ -146,8 +149,7 @@ const HARD: DifficultyDef = {
   maxAttackers: Infinity,
   blockBonus: 0,
   blockStamina: 1,
-  gearWear: 1,
-  repairCost: 1,
+  gearWears: true,
   eliteChance: 1,
   lieutenantChance: 1,
   flaskBonus: 0,
@@ -170,7 +172,7 @@ export const DIFFICULTIES: Record<DifficultyId, DifficultyDef> = {
     id: 'normal',
     name: 'Normal',
     tagline: 'A gentler delve.',
-    description: 'Monsters are slower, softer and fewer: they hit a third less, fall faster, wind up longer, never feint, and no more than two swing at you at once. Your guard holds better, the parry is wider, you have more health, an extra flask charge, and you slowly mend while nothing hunts you. A mimic can bite but never kill, and the Ashen King faces you alone and lets you step back out of his fog. Gear wears half as fast and repairs cost less. Dying keeps your pack and costs a tenth of the gold you carried, which your Shade holds for you.',
+    description: 'Monsters are slower, softer and fewer: they hit a third less, fall faster, wind up longer, never feint, and no more than two swing at you at once. Your guard holds better, the parry is wider, you have more health, an extra flask charge, and you slowly mend while nothing hunts you. A mimic can bite but never kill, and the Ashen King faces you alone and lets you step back out of his fog. Gear never wears or breaks, so there is nothing to repair. Dying keeps your pack and costs a tenth of the gold you carried, which your Shade holds for you.',
     enemyHp: 0.75,
     enemyDamage: 0.65,
     enemyDefense: 0.8,
@@ -190,8 +192,7 @@ export const DIFFICULTIES: Record<DifficultyId, DifficultyDef> = {
     maxAttackers: 2,
     blockBonus: 0.15,
     blockStamina: 0.7,
-    gearWear: 0.5,
-    repairCost: 0.6,
+    gearWears: false,
     eliteChance: 0.5,
     lieutenantChance: 0.6,
     flaskBonus: 1,

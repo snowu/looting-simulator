@@ -1382,7 +1382,7 @@ Normal is for someone who wants the dungeon, the loot and the town without the r
 | Throne | the King alone, no Hollow Knight guards; the fog lets you back out | you still cannot strike or be struck across the threshold |
 | Mimic bite | ×0.5, and never kills | on top of the damage multiplier; at worst it leaves you on 1 health |
 | Elites / lieutenants | ×0.5 / ×0.6 chance | Seals still add on top |
-| Gear wear / repair price | ×0.5 / ×0.6 | |
+| **Gear wear** | none | nothing loses durability; every piece is mended whole as a delve starts and when you switch to Normal; the forge has no Repairs bench; tooltips hide condition; a blow on a chest spills coin instead of denting gear; the Sigil of Temper stops dropping and the Unbroken oath is not offered |
 | Gold / find / gear odds | ×1.2 / +25 / ×1.25 | |
 | **Death** | keep the pack, lose 10% of carried gold | the Shade holds the tenth |
 

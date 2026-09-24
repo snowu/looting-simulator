@@ -6,7 +6,8 @@ import { itemBase } from '../data/items';
 import { roadsForDay } from '../data/routes';
 import { beginOaths, settleOaths } from './oaths';
 import { createRng, randomSeed } from '../core/rng';
-import { Item } from '../types';
+import { EQUIP_SLOTS, Item } from '../types';
+import { repairItem } from './items';
 import { GameState, RunState, RunSummary } from '../state/game-state';
 import { Container, addItem, createContainer } from '../state/inventory';
 import { generateFloor, stairsFront } from './dungeon';
@@ -41,12 +42,28 @@ export function bankCarriedGold(state: GameState): number {
   return banked;
 }
 
+/**
+ * Mend every piece of gear the player owns: worn, stashed and packed. For a
+ * difficulty where nothing wears, so gear brought over from Hard, or anything
+ * dented some other way, is whole again and stays whole.
+ */
+export function mendAllGear(state: GameState): void {
+  for (const slot of EQUIP_SLOTS) {
+    const it = state.equipment[slot];
+    if (it) repairItem(it);
+  }
+  for (const it of [...state.stash.items, ...state.loadout.items]) {
+    if (it.kind === 'equipment') repairItem(it);
+  }
+}
+
 export function startRun(state: GameState, seed = randomSeed()): RunState {
   if (state.fallen) throw new Error('A fallen Hardcore hero cannot delve again.');
   // The delve plays at the town difficulty, snapshotted here: whatever the
   // town selector says afterwards does not touch this run.
   const difficulty = difficultyOf(state.difficulty).id;
   state.difficulty = difficulty;
+  if (!difficultyOf(difficulty).gearWears) mendAllGear(state);
   // Ashen Seals, once the King has fallen: snapshotted for the whole delve.
   const seals = sealsUnlocked(state) ? validSeals(state.pendingSeals) : [];
   const floor = generateFloor(seed, 1, difficulty, false, undefined, sealFloorMods(seals));

@@ -353,14 +353,12 @@ export function wearItem(item: Item | null, amount = 1): 'none' | 'warn' | 'brok
  */
 const REPAIR_TIER_FLOOR = [0, 4, 9, 18, 32, 50];
 
-export function repairCost(item: Item, difficulty?: DifficultyId): number {
+export function repairCost(item: Item): number {
   const d = durability(item);
   if (!d.wears || d.frac >= 1) return 0;
   const tier = item.kind === 'equipment' && item.materialId ? (findMaterial(item.materialId)?.tier ?? 1) : 1;
   const floor = REPAIR_TIER_FLOOR[clamp(tier, 0, 5)] ?? 0;
-  const cost = Math.max(1, Math.ceil(itemValue(item) * 0.5 * (1 - d.frac)) + Math.ceil(floor * (1 - d.frac)));
-  const mult = difficultyOf(difficulty).repairCost;
-  return mult === 1 ? cost : Math.max(1, Math.round(cost * mult));
+  return Math.max(1, Math.ceil(itemValue(item) * 0.5 * (1 - d.frac)) + Math.ceil(floor * (1 - d.frac)));
 }
 
 export function repairItem(item: Item): void {

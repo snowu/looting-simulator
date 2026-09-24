@@ -1,4 +1,5 @@
 import { GameState } from '../state/game-state';
+import { mendAllGear } from '../systems/run';
 import { DIFFICULTIES, DIFFICULTY_IDS, difficultyOf } from '../data/difficulty';
 import { audio } from '../audio/sfx';
 import { BRIGHTNESS_MAX, BRIGHTNESS_MIN, applyBrightnessGain, brightness, brightnessToPercent, percentToBrightness } from '../render/brightness';
@@ -96,6 +97,8 @@ export function openSettings(ctx: SettingsCtx): void {
           () => {
             if (ctx.state().run?.outcome === 'active') return;
             ctx.state().difficulty = id;
+            // Nothing wears on Normal: whatever Hard left worn is mended now.
+            if (!def.gearWears) mendAllGear(ctx.state());
             ctx.save();
             ctx.toast(`Difficulty: ${def.name}. ${def.tagline}`, '#9ab0d8');
             paintSelection();
