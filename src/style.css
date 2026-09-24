@@ -498,15 +498,17 @@ table.market .market-owned { color: var(--gold); font-weight: 700; }
 }
 .corner-btn svg { width: var(--icon, 18px); height: var(--icon, 18px); display: block; }
 .corner-btn:hover, .corner-btn:active, .corner-btn:focus-visible { color: var(--gold); border-color: var(--gold); }
-/* Gear pinned top-right: in the corner itself in an installed app, which has
-   no fullscreen button, or one button and a 6px gap to its left otherwise.
-   Fixed on the title screen, in the HUD layer in the dungeon; same spot in
-   both, so the muscle memory carries over. */
-:root { --fs-slot: 0px; }
+/* The gear owns the top-right corner: it is the one a phone needs. The
+   fullscreen button, which matters mostly on a PC, sits one button and a
+   6px gap to its left, and takes the corner itself on screens with no gear
+   (the run summary, say). Pinned on the title screen and in town, in the HUD
+   layer in the dungeon; same spot on all three, so muscle memory carries. */
+:root { --fs-slot: 0px; --gear-slot: 0px; }
 body.has-fs { --fs-slot: 40px; }
+body:has(.corner-gear, #hud:not([hidden]) .hud-gear) { --gear-slot: 40px; }
 .corner-gear, .hud-gear {
   top: max(8px, env(safe-area-inset-top));
-  right: calc(max(8px, env(safe-area-inset-right)) + var(--fs-slot));
+  right: max(8px, env(safe-area-inset-right));
 }
 .corner-gear { position: fixed; z-index: 50; }
 .hud-gear { position: absolute; z-index: 3; }
@@ -529,7 +531,7 @@ body.has-fs { --fs-slot: 40px; }
 #fs-btn {
   position: fixed;
   top: max(8px, env(safe-area-inset-top));
-  right: max(8px, env(safe-area-inset-right));
+  right: calc(max(8px, env(safe-area-inset-right)) + var(--gear-slot));
   z-index: 50;
 }
 /* The header row runs under the pinned corner buttons: leave room for the
@@ -721,6 +723,7 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
   .corner-btn { --size: 30px; }
   .corner-btn svg { width: 16px; height: 16px; }
   body.has-fs { --fs-slot: 36px; }
+  body:has(.corner-gear, #hud:not([hidden]) .hud-gear) { --gear-slot: 36px; }
   .town-head { padding-right: calc(36px + var(--fs-slot)); }
   body.touch #hud .compass { font-size: 18px; gap: 8px; }
   body.touch #hud .compass .side { font-size: 13px; }
