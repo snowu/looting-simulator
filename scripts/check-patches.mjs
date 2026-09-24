@@ -17,6 +17,8 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 
 // Commits that must never become patch notes. Short hash -> reason.
 const SKIP = {
+  'b1eee2b': 'round-2 art review notes, PR before/after sheets and patch_notes.md text; the art is Patch 77',
+  '79bbc2b': 'Patch 76 citation only',
   '5395848': 'art review doc, PR before/after sheets and patch_notes.md text; the art is Patch 76',
   '437f69b': 'refactor: shared tile hash, texture pickers, overlays and gear lookup; no player-facing change',
   '6616b25': 'refactor: loot context, quirk looks and spawn rules moved into data; no player-facing change',

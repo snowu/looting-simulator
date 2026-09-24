@@ -451,17 +451,17 @@ const BAT_HALF = rows(`
   ............kck.
   ............kcck
   ..kk........kcck
-  .kaakk......kcck
-  kaaaaakkk....kcc
-  kaaaaaaaakkk.krc
-  kaaaaaaaaaaakkcc
-  kaaaaaaaaaaaaacw
-  .kaaaaaaaaabbbbb
-  .kaaaabbbbbbbabb
-  ..kbkbaaabbababb
-  ...kkaabbaaaaabb
-  .....kbkaaabaabb
-  ......k.kaaaaaka
+  .kddkk......kcck
+  kccddckkk....kcc
+  kaacccccckkk.krc
+  kaaaaaaccccckkcc
+  kaaaaaaaaacccacw
+  .kaaacccccccbbbb
+  .kcccabbccbcbabb
+  ..kbkbccabcababb
+  ...kkcabbacaaabb
+  .....kbkacabaabb
+  ......k.kcaaaaka
   .........kbkaaka
   ..........k.kk.k
   ................
