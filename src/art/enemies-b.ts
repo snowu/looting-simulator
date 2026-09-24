@@ -121,19 +121,21 @@ const WISP_PAL = { a: '#1a3a8afa', b: '#3a70d0fa', c: '#80c0fffa', d: '#e0f4fffa
 const EMBER_PAL = { a: '#6a1606fa', b: '#c8490cfa', c: '#ff9a28fa', d: '#ffe6a8fa', e: '#fffff0fa', k: '#2a0a02' };
 
 // --- Hollow knight -------------------------------------------------------------------
+// A great helm: domed crown, one visor slit the eyes burn through, a raised
+// ridge down the middle and breath holes punched under it.
 const KNIGHT_HALF = rows(`
   ................
-  ................
-  ..........kkkkkk
-  .........kdddccc
-  .........kdccbbb
-  .........kcbbbbb
-  .........kcbbbbb
-  .........kckkkkk
-  .........kckkrkk
-  .........kckkkkk
-  .........kcbbkkb
-  .........kcbbbbb
+  ...........kkkkk
+  ..........kdddds
+  .........kddcccd
+  .........kdcccbd
+  .........kccbbbd
+  .........kcbbbbd
+  .........kckkkkj
+  .........kckkrkj
+  .........kcbbbbd
+  .........kcbkbkd
+  .........kcbbbbd
   ....kkkkkkkkkkkk
   ...kdddddddcckbb
   ..kddccccbkttttt
