@@ -2,7 +2,9 @@ import { GameState } from '../state/game-state';
 import { DIFFICULTIES, DIFFICULTY_IDS, difficultyOf } from '../data/difficulty';
 import { audio } from '../audio/sfx';
 import { BRIGHTNESS_MAX, BRIGHTNESS_MIN, applyBrightnessGain, brightness, brightnessToPercent, percentToBrightness } from '../render/brightness';
-import { artImg, btn, closeOverlays, h, mountOverlay } from './dom';
+import { artImg, btn, closeOverlays, h, isTouchMode, mountOverlay } from './dom';
+import { TouchPrefs, touchPrefs } from './touch-prefs';
+import { requestTilt } from './tilt';
 import { BugReportCtx, bugReportPanel } from './bug-report';
 
 /**
@@ -241,6 +243,63 @@ export function openSettings(ctx: SettingsCtx): void {
     );
   }
 
+  /**
+   * Touch controls, on touch screens only: what a sideways swipe does, and the
+   * two extra ways to do the other thing (edge buttons, tilt). Stored on the
+   * device like brightness — how you hold a phone is not part of a save.
+   */
+  function controlsBox(): HTMLElement {
+    const row = h('div', {});
+    function choice(label: string, on: boolean, pick: () => void): HTMLButtonElement {
+      return btn(label, () => {
+        audio.play('ui');
+        pick();
+      }, on ? 'small primary' : 'small');
+    }
+    function paint(): void {
+      const p = touchPrefs.get();
+      const other = p.padSwipe === 'turn' ? 'strafe' : 'turn';
+      const set = (patch: Partial<TouchPrefs>) => {
+        touchPrefs.set(patch);
+        paint();
+      };
+      row.replaceChildren(
+        h('div', { class: 'diff-row' },
+          h('span', { class: 'small', text: 'Swipe ← →' }),
+          choice('Turn', p.padSwipe === 'turn', () => set({ padSwipe: 'turn' })),
+          choice('Strafe', p.padSwipe === 'strafe', () => set({ padSwipe: 'strafe' })),
+        ),
+        h('div', { class: 'diff-row' },
+          h('span', { class: 'small', text: `Edge buttons (${other})` }),
+          choice('On', p.strafeButtons, () => set({ strafeButtons: true })),
+          choice('Off', !p.strafeButtons, () => set({ strafeButtons: false })),
+        ),
+        h('div', { class: 'diff-row' },
+          h('span', { class: 'small', text: `Tilt phone (${other})` }),
+          choice('On', p.tilt, () => {
+            // Ask inside this tap: iOS shows its prompt only from a user gesture.
+            void requestTilt().then((ok) => {
+              if (ok) set({ tilt: true });
+              else ctx.toast('No motion sensor, or permission was refused.', '#ff9070');
+            });
+          }),
+          choice('Off', !p.tilt, () => set({ tilt: false })),
+        ),
+      );
+    }
+    paint();
+    return h(
+      'div',
+      { class: 'touch-prefs' },
+      h('h3', { style: 'margin-top:10px', text: 'Touch controls' }),
+      row,
+      h('p', {
+        class: 'dim small',
+        text: 'Tap the left half of the view to block, the right half to swing. Whatever a sideways swipe does, the edge buttons and tilt do the other. Stored on this device.',
+      }),
+    );
+  }
+
   const modal = h(
     'div',
     { class: 'modal frame gold settings-modal' },
@@ -253,6 +312,7 @@ export function openSettings(ctx: SettingsCtx): void {
     ...(showDifficulty ? [difficultyBox] : []),
     audioBox(),
     displayBox(),
+    ...(isTouchMode() ? [controlsBox()] : []),
     h('h3', { style: 'margin-top:10px', text: 'Cloud saves' }),
     h('p', { class: 'dim small', text: 'Optional. Signed out, the game plays exactly as it always has.' }),
     accountBox,

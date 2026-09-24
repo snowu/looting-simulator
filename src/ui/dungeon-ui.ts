@@ -8,6 +8,7 @@ import { equipFrom, unequipTo, wornFor } from '../systems/equip';
 import { sortContainer } from '../state/inventory';
 import { World } from '../world/world';
 import { drawMap } from './automap';
+import { touchPrefs } from './touch-prefs';
 import { btn, gold, h, hideTooltip, isTouchMode, itemSlot, itemTooltip, rarityColor } from './dom';
 import { audio } from '../audio/sfx';
 import { GAMEPAD_HELP_ROWS } from './gamepad';
@@ -467,12 +468,15 @@ export class DungeonOverlays {
   }
 
   private help(): HTMLElement {
+    const strafe = touchPrefs.get().padSwipe === 'strafe';
     const touchRows: [string, string][] = [
       ['Drag ↑ ↓', 'Walk forward / back — hold to keep walking'],
-      ['Drag ← →', 'Turn — hold to keep turning'],
-      ['Tap view', 'Swing — or Loot / Open / Pray / Descend when facing something'],
-      ['Main button', 'Same as a tap; hold to keep swinging'],
+      ['Drag ← →', strafe ? 'Strafe — hold to keep sidestepping' : 'Turn — hold to keep turning'],
+      ['Tap right side', 'Swing — or Loot / Open / Pray / Descend when facing something'],
+      ['Left side', 'Tap or hold to block — tap as they strike to parry. Dragging from here walks instead'],
+      ['Main button', 'Same as a right-side tap; hold to keep swinging'],
       ['Shield', 'Hold to block — raise it as they strike to parry'],
+      ['◀ ▶ edges', strafe ? 'Hold to turn (or tilt the phone, if on in Settings)' : 'Hold to strafe (or tilt the phone, if on in Settings)'],
       ['Throw button', 'Hurl one shaft from your belt'],
       ['R button', 'Call shafts back — hold to call, release to stop, they fly to your raised hand'],
       ['Sigil button', 'Cast your attuned sigil when ready'],
