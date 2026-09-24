@@ -64,14 +64,14 @@ function themed(source: ArtDef, variant: typeof ELEMENTAL_VARIANTS[number], pose
   if (variant.base === 'ghoul') Object.assign(palette, hot
     ? { k: '#170e0d', g: '#644238', h: '#95654a', f: '#392926', y: '#ffb13bfa' }
     : { k: '#142939', g: '#7495aa', h: '#c0dae6', f: '#405f79', y: '#a7e6fffa' });
-  if (variant.base === 'spider') Object.assign(palette, { a: '#291817', b: '#52332a', c: '#85513a', r: '#ff8c20fa', y: '#ffe9a9fa' });
+  if (variant.base === 'spider') Object.assign(palette, { a: '#291817', b: '#52332a', c: '#85513a', d: '#b07448', r: '#ff8c20fa', y: '#ffe9a9fa' });
   if (variant.base === 'bat') Object.assign(palette, { a: '#45627c', b: '#80a9c3', c: '#aecfdf', d: '#e0f1f9', r: '#8ddbfffa', m: '#28465b' });
   if (variant.base === 'goblin_shield') Object.assign(palette, { g: '#739ba3', h: '#abcbd2', f: '#416977', t: '#b0cddc', u: '#51738f', r: '#9ee5fffa', y: '#d3f4fffa' });
   Object.assign(palette, hot ? { X: '#ff7624fa', H: '#ffe5a0fa' } : { X: '#638eac', H: '#f0fbff', C: '#b2d9e9', B: '#537c9b' });
   let pixels = source.rows;
   if (variant.base.includes('shield')) pixels = stamp(pixels, hot ? boss : iceShoulder,
     pose === 'block' ? 10 : 1, pose === 'block' ? 18 : pose === 'atk' ? 17 : 19);
-  else if (variant.base === 'spider') pixels = stamp(pixels, hotShell, 10, 12);
+  else if (variant.base === 'spider') pixels = stamp(pixels, hotShell, 10, 6);
   else if (variant.base === 'ghoul') pixels = stamp(pixels, hot ? moltenChest : frozenChest, 11, 17);
   else if (variant.base === 'bat') pixels = stamp(stamp(pixels, batRime, 5, 10), mirror(batRime), 22, 10);
   else pixels = stamp(pixels, hot ? ribHeat : iceShoulder, hot ? 12 : 9, 16);
