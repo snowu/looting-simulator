@@ -900,60 +900,68 @@ const MOUND = rows(`
   ................
 `);
 
+// Traps are laid flat on the floor tile, seen from above, and are only drawn
+// once spotted. Each is something set into the stone rather than a marker on
+// top of it: a flagstone sitting a pixel proud, an iron board of spike holes,
+// a rune scored into the floor.
+
+// A pressure plate: lit edge top-left, an inset groove, a rivet at each corner.
 const TRAP_PLATE = rows(`
   ................
-  ...pppppppppp...
-  ..pqqqqqqqqqqp..
-  ..pqrrrrrrrrqp..
-  ..pqrssssssrqp..
-  ..pqrsqqqqsrqp..
-  ..pqrsq..qsrqp..
-  ..pqrsq..qsrqp..
-  ..pqrsq..qsrqp..
-  ..pqrsq..qsrqp..
-  ..pqrsqqqqsrqp..
-  ..pqrssssssrqp..
-  ..pqrrrrrrrrqp..
-  ..pqqqqqqqqqqp..
-  ...pppppppppp...
+  ................
+  ...ppppppppppp..
+  ..pssssssssssrp.
+  ..psurrrrrrruqp.
+  ..psrqqqqqqqrqp.
+  ..psrqrrrrrsrqp.
+  ..psrqrrrrrsrqp.
+  ..psrqrrrrrsrqp.
+  ..psrqrrrrrsrqp.
+  ..psrqssssssrqp.
+  ..psurrrrrrruqp.
+  ..pqqqqqqqqqqqp.
+  ...ppppppppppp..
+  ................
   ................
 `);
 
+// An iron board with staggered holes; each hole shows a lit spike tip.
 const TRAP_SPIKES = rows(`
   ................
-  ...pppppppppp...
-  ..pkkkkkkkkkkp..
-  ..pkwkkwkkwkkp..
-  ..pkWkkWkkWkkp..
-  ..pkkkkkkkkkkp..
-  ..pkwkkwkkwkkp..
-  ..pkWkkWkkWkkp..
-  ..pkkkkkkkkkkp..
-  ..pkwkkwkkwkkp..
-  ..pkWkkWkkWkkp..
-  ..pkkkkkkkkkkp..
-  ..pkwkkwkkwkkp..
-  ..pkkkkkkkkkkp..
-  ...pppppppppp...
+  ................
+  ...ppppppppppp..
+  ..pqqqqqqqqqqqp.
+  ..pqkWkqqkWkqqp.
+  ..pqkkkqqkkkqqp.
+  ..pqqqqkWkqqqqp.
+  ..pqqqqkkkqqkWp.
+  ..pqkWkqqqqqkkp.
+  ..pqkkkqqkWkqqp.
+  ..pqqqqqqkkkqqp.
+  ..pqqkWkqqqqqqp.
+  ..pqqkkkqqqqqqp.
+  ...ppppppppppp..
+  ................
   ................
 `);
 
+// A broken ring with a crossed rune inside, faintly lit.
 const TRAP_WARD = rows(`
   ................
-  .....cccccc.....
-  ...cc......cc...
-  ..c...dddd...c..
-  .c...d....d...c.
-  .c..d..dd..d..c.
-  .c..d.d..d.d..c.
-  .c..d.d..d.d..c.
-  .c..d..dd..d..c.
-  .c...d....d...c.
-  ..c...dddd...c..
-  ...cc......cc...
-  .....cccccc.....
-  ................
-  ................
+  ......c..c......
+  ....cc.cc.cc....
+  ...c........c...
+  ..c....d.....c..
+  ..c...ddd....c..
+  .c...d.d.d....c.
+  .......d........
+  ....ddddddd.....
+  .c.....d......c.
+  ..c...d.d....c..
+  ..c..d...d...c..
+  ...c........c...
+  ....cc.cc.cc....
+  ......c..c......
   ................
 `);
 
@@ -976,63 +984,69 @@ const WARD_THRESHOLD = rows(`
   ................
 `);
 
-const TRAP_SPENT = rows(`
+// Sprung mechanisms stay readable as wreckage.
+// The plate has sunk, so the light falls on the other edge, and a snapped
+// dart lies across it.
+const TRAP_DART_SPENT = rows(`
   ................
-  ...pppppppppp...
-  ..pqqqqqqqqqqp..
-  ..pq........qp..
-  ..pq........qp..
-  ..pq........qp..
-  ..pq........qp..
-  ..pq........qp..
-  ..pq........qp..
-  ..pq........qp..
-  ..pq........qp..
-  ..pq........qp..
-  ..pq........qp..
-  ..pqqqqqqqqqqp..
-  ...pppppppppp...
+  ................
+  ...ppppppppppp..
+  ..pqqqqqqqqqqqp.
+  ..pqrrrrrrrrrsp.
+  ..pqrrrrrrrrrsp.
+  ..pqrrrrrrrtrsp.
+  ..pqrrrrrrtrrsp.
+  ..pqrrrrrtrrrsp.
+  ..pqrrrrtrrrrsp.
+  ..pqrrrtrrrrrsp.
+  ..pqrrvrrrrrrsp.
+  ..pqssssssssssp.
+  ...ppppppppppp..
+  ................
   ................
 `);
 
-// Sprung mechanisms stay readable as wreckage. Each keeps the same cold-iron
-// frame but leaves a different failure pattern in its centre.
-const TRAP_DART_SPENT = stamp(TRAP_SPENT, rows(`
-  s......s
-  .s....s.
-  ..s..s..
-  ...ss...
-  ...rr...
-  ..r..r..
-  .r....r.
-  r......r
-`), 4, 4);
+// The spikes are broken off and lie flat by their holes.
+const TRAP_SPIKES_SPENT = rows(`
+  ................
+  ................
+  ...ppppppppppp..
+  ..pqqqqqqqqqqqp.
+  ..pqWwqqqWwqqqp.
+  ..pqkkkqqkkkqqp.
+  ..pqqqqqWwqqqqp.
+  ..pqqqqkkkqqWwp.
+  ..pqWwqqqqqqkkp.
+  ..pqkkkqqWwqqqp.
+  ..pqqqqqqkkkqqp.
+  ..pqqWwqqqqqqqp.
+  ..pqqkkkqqqqqqp.
+  ...ppppppppppp..
+  ................
+  ................
+`);
 
-const TRAP_SPIKES_SPENT = stamp(TRAP_SPENT, rows(`
-  k..k..k.
-  w..w..w.
-  k..k..k.
-  ........
-  .k..k...
-  .w..w...
-  .k..k...
-`), 4, 4);
+// The rune is scored through and has gone dark.
+const TRAP_ALARM_SPENT = rows(`
+  ................
+  ......q..q......
+  ....qq.qq.qq....
+  ...q........s...
+  ..q....r....sq..
+  ..q...rrr..s.q..
+  .q...r.r.rs...q.
+  .......r.s......
+  ....rrrrsrr.....
+  .q.....s......q.
+  ..q...s.r....q..
+  ..q..s...r...q..
+  ...qs.......q...
+  ....qq.qq.qq....
+  ......q..q......
+  ................
+`);
 
-const TRAP_ALARM_SPENT = stamp(TRAP_SPENT, rows(`
-  ..r..r..
-  .r....r.
-  r..rr..r
-  ...rr...
-  ...rr...
-  r......r
-  .r....r.
-  ..r..r..
-`), 4, 4);
-
-// Cold iron against warm stone: the plates read by hue and value rather than by
-// glowing, so spotting one is a matter of looking at the floor, not of the game
-// pointing at it.
-const TRAP_PAL = { p: '#08080a', q: '#44444e', r: '#6a6a76', s: '#9694a2' };
+const TRAP_PAL = { p: '#08080a', q: '#44444e', r: '#6a6a76', s: '#9694a2', u: '#2a2a30', t: '#7a5230', v: '#b8b0a0' };
 
 
 // An upright oval rift — the town portal a Scroll of Recall leaves behind.
@@ -1087,12 +1101,12 @@ export const PROPS: ArtDef[] = [
   { id: 'shrine_combat_used', palette: { ...SHRINE_COMBAT_PAL, ...SHRINE_PROPS, ...SPENT }, rows: snuffed(SHRINE_COMBAT) },
   { id: 'fungus', palette: { k: '#0a1614', s: '#b8c8c0', c: '#28b0a0fa', d: '#90fff0fa', e: '#1a5a54', m: '#1e3a2a' }, rows: FUNGUS },
   { id: 'trap_dart', palette: TRAP_PAL, rows: TRAP_PLATE },
-  { id: 'trap_spikes', palette: { p: '#08070a', k: '#14121a', w: '#8e8878', W: '#dcd4be' }, rows: TRAP_SPIKES },
+  { id: 'trap_spikes', palette: { p: '#08070a', q: '#44444e', k: '#14121a', w: '#8e8878', W: '#dcd4be' }, rows: TRAP_SPIKES },
   { id: 'trap_alarm', palette: { c: '#6a4a8afa', d: '#c890fffa' }, rows: TRAP_WARD },
   { id: 'ward_threshold', palette: { g: '#8a6a20fa', b: '#ffe8a0fa' }, rows: WARD_THRESHOLD },
   { id: 'ward_threshold_dim', palette: { g: '#453510fa', b: '#807450fa' }, rows: WARD_THRESHOLD },
   { id: 'trap_dart_spent', palette: TRAP_PAL, rows: TRAP_DART_SPENT },
-  { id: 'trap_spikes_spent', palette: { ...TRAP_PAL, k: '#101014', w: '#aaa4b0' }, rows: TRAP_SPIKES_SPENT },
+  { id: 'trap_spikes_spent', palette: { ...TRAP_PAL, k: '#101014', w: '#aaa4b0', W: '#c8c2b0' }, rows: TRAP_SPIKES_SPENT },
   { id: 'mound', palette: { a: '#2a1d12e0', b: '#5a4128', c: '#8a6842', d: '#d2bc94', e: '#120c06' }, rows: MOUND },
   { id: 'trap_alarm_spent', palette: TRAP_PAL, rows: TRAP_ALARM_SPENT },
   { id: 'town_portal', palette: { c: '#102848fa', b: '#2060b0fa', a: '#60b0fffa', w: '#d8f0fffa' }, rows: TOWN_PORTAL },
