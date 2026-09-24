@@ -473,7 +473,7 @@ export class DungeonOverlays {
       ['Drag ↑ ↓', 'Walk forward / back — hold to keep walking'],
       ['Drag ← →', strafe ? 'Strafe — hold to keep sidestepping' : 'Turn — hold to keep turning'],
       ['Tap right side', 'Swing — or Loot / Open / Pray / Descend when facing something'],
-      ['Left side', 'Tap or hold to block — tap as they strike to parry. Dragging from here walks instead'],
+      ['Left side', 'Tap as they strike to parry · hold still to block · drag to walk (no parry spent)'],
       ['Main button', 'Same as a right-side tap; hold to keep swinging'],
       ['Shield', 'Hold to block — raise it as they strike to parry'],
       ['◀ ▶ edges', strafe ? 'Hold to turn (or tilt the phone, if on in Settings)' : 'Hold to strafe (or tilt the phone, if on in Settings)'],

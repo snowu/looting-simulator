@@ -303,7 +303,7 @@ export function openSettings(ctx: SettingsCtx): void {
       row,
       h('p', {
         class: 'dim small',
-        text: 'Tap the left half of the view to block, the right half to swing. Whatever a sideways swipe does, the edge buttons and tilt do the other. Stored on this device.',
+        text: 'Left half of the view: tap to parry, hold to block, drag to walk. Right half: tap to swing. Whatever a sideways swipe does, the edge buttons and tilt do the other. Stored on this device.',
       }),
     );
   }
