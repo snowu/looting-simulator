@@ -129,7 +129,7 @@ supabase/          SQL schema and email template for cloud saves
 
 **Patch notes are curated.** Player-facing changes get an entry at the top of `src/data/patches.ts`, which is what the title-screen scroll shows. Commits that shouldn't become notes (docs, tooling, merges) get a skip reason in `scripts/check-patches.mjs`. `npm run patches` fails on a broken sequence or a bad hash and warns about commits that aren't covered.
 
-**Play on a phone too.** Mobile is a first-class target. Check narrow and landscape layouts, not just desktop.
+**Play on a phone too.** Mobile is a first-class target, in landscape: a phone held upright gets the "turn your phone sideways" screen (`src/ui/orientation-gate.ts`), so check short landscape phones (around 740×360) as well as desktop.
 
 ## UI conventions
 

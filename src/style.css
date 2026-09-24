@@ -630,15 +630,16 @@ body.touch #hud .quick, body.touch #hud .prompt { z-index: 3; }
   gap: 6px;
 }
 
-/* Edge buttons: hold to strafe (or turn, when the swipe strafes). Halfway up
-   each side, where the thumbs sit when you grip the phone in landscape. */
+/* Edge buttons: hold to strafe (or turn, when the swipe strafes). On each
+   side a little above the middle, where the thumbs sit when you grip the
+   phone in landscape, and clear of the minimap above. */
 .tbtn.edge {
   position: absolute;
-  top: 50%;
+  top: 41%;
   transform: translateY(-50%);
-  width: 52px;
-  height: 76px;
-  font-size: 24px;
+  width: 40px;
+  height: 46px;
+  font-size: 18px;
   color: #d8ccb0;
   background: #16121b99;
   border-color: #4a425099;
@@ -727,7 +728,8 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
   body.touch #hud .bar-label { font-size: 11px; }
   body.touch #hud .quick { gap: 5px; right: max(8px, env(safe-area-inset-right)); bottom: calc(max(8px, env(safe-area-inset-bottom)) + 76px); }
   body.touch #hud .quick .slot { --sz: 42px !important; }
-  body.touch .tbtn.edge { width: 42px; height: 62px; font-size: 18px; }
+  /* Never above the minimap (it ends at 124px) on short landscape phones. */
+  body.touch .tbtn.edge { width: 32px; height: 38px; font-size: 14px; top: max(41%, 158px); }
   body.touch #hud .prompt { font-size: 15px; padding: 1px 8px; border-width: 1px; bottom: calc(max(6px, env(safe-area-inset-bottom)) + 48px); }
   body.touch #hud .log div { font-size: 13px; }
   body.touch #hud .target { width: min(38vw, 240px); font-size: 14px; }
@@ -917,3 +919,41 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
 .slot-diff { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
 /* One fixed width, so "Hardcore" does not shove its row out of line with the others. */
 .slot-diff .btn { flex: none; width: 86px; min-width: 0; padding-left: 4px; padding-right: 4px; }
+
+/* Landscape only: in portrait on a phone this covers everything (see
+   orientation-gate.ts). Above every modal and the fullscreen button. */
+.rotate-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px;
+  text-align: center;
+  background: #0b0a0d;
+  color: var(--ink);
+  touch-action: none;
+}
+.rotate-gate[hidden] { display: none; }
+.rotate-title { font-family: var(--font-title); font-size: 34px; color: var(--gold); letter-spacing: 1px; }
+.rotate-sub { font-size: 18px; color: var(--dim); }
+/* A phone outline that tips onto its side and back. */
+.rotate-phone {
+  width: 46px;
+  height: 78px;
+  border: 3px solid var(--gold);
+  border-radius: 8px;
+  margin-bottom: 18px;
+  position: relative;
+  animation: rotate-phone 2.4s ease-in-out infinite;
+}
+.rotate-phone::after { content: ''; position: absolute; left: 50%; bottom: 5px; width: 10px; height: 3px; margin-left: -5px; background: var(--gold); border-radius: 2px; }
+@keyframes rotate-phone {
+  0%, 20% { transform: rotate(0deg); }
+  50%, 80% { transform: rotate(-90deg); }
+  100% { transform: rotate(0deg); }
+}
+@media (prefers-reduced-motion: reduce) { .rotate-phone { animation: none; transform: rotate(-90deg); } }
