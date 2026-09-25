@@ -14,7 +14,7 @@ Last updated 2026-09-25, after four rounds.
 | 1 | #51 | merged | Pasture herd, spider family, ceilings and crypt floor, catacombs water, the five shrines, barrel, fungus, sconce, loot bag, knight helm, club icon |
 | 2 | #52 | merged | Traps, ghoul/slagborn/wretch heads, bats, throne floor, robe and hide icons, bones, gold pile, Burrows and Sporegrove wall variants (plus review fixes) |
 | 3 | #59 | **open** | Giant rat and Hoarder, iron door (and the locked and fog doors built on it), Big Toe icon and viewmodel, broken urn, Sporegrove floor variants. Takes **Patch 85**. |
-| 4 | #63 | **open** | Bog Seraph, Delver mole and Spore hunter tells, Mines and Ossuary floor variants, material and consumable icons. Your Shade, the strapped chest and the breathing mimic. A proposal for the mine ceiling. Takes **Patch 86**. Built on round 3. |
+| 4 | #63 | **open** | Bog Seraph, Delver mole and Spore hunter tells, Mines and Ossuary floor variants, material and consumable icons. Your Shade, the strapped chest, the breathing mimic and the awake mimic redrawn. A proposal for the mine ceiling. Takes **Patch 86**. Built on round 3. |
 
 This file arrived with #59. If you are reading it on master, round 3 is
 merged. Round 4 (#63) is stacked on round 3 and carries its commits: merge #59 first, or merge #63 and close #59. Check the patch
@@ -47,7 +47,7 @@ Everything not listed here scored 7 or better after a rework.
 | 6 | Mines ceiling | Plain rubble **on purpose** (see "Deliberate choices"). A timber-set proposal is open (below). |
 | 6 | Secret-wall marks, town portal, projectiles | Subtle by design. |
 | 6 | Big Toe (round 3) | Much better, but still a joke weapon drawn straight. A second pass could add a hair or two and a better stump. |
-| 7 | Skeleton family, goblins, archers, flame wraith, mimic, chests, most walls, wood and iron doors, viewmodels, gear, material and consumable icons | Good. Leave them unless something new sets a higher bar. |
+| 7 | Skeleton family, goblins, archers, flame wraith, chests, most walls, wood and iron doors, viewmodels, gear, material and consumable icons | Good. Leave them unless something new sets a higher bar. |
 | 7 | Round-1/2 redraws: herd, spiders, shrines, traps, ghouls, bats, props | Good. The owner liked the ghouls and the moss most. |
 | 7 | Round-4 redraws: Bog Seraph, Delver mole, Spore hunter, your Shade, Ossuary floor variants, material icons (ore, nugget, ingot, plank, cloth, bone, scale), consumable icons (one per potion and scroll) | Checked in the 3D lab from three tiles away (`docs/previews/art-rework-4/5-creatures-3d.png`, `6-floors-3d.png`). The mole was only seen in its block pose there. |
 | 8 | Emberworks surfaces, wisps, the Ashen King | The reference set. |
@@ -172,6 +172,8 @@ From reviews of rounds 1–2:
 - **Rejected or fixed on review:**
   - traps drawn off-centre and looking "scuffed", fixed by drawing symmetric
     decals from mirrored halves
+  - the old mimic's stick legs ("giga scuffed"), fixed with one hand-drawn
+    leg pair, mirrored. Hand-draw limbs; generated diagonals look scuffed
   - a flat pelt icon that read as a "silver turtle", now a rolled hide
   - a bone pile drawn bigger than the old one
   - bracket fungus on the walls coming up so often it stacked
@@ -203,7 +205,9 @@ From reviews of rounds 1–2:
   `chest_mimic_in` lifts the lid one pixel for 1.1 s every 6.5 s
   (`BREATH_PERIOD`/`BREATH_HOLD` in the renderer), each chest on its own
   phase. The owner wants it noticed only by someone watching. Don't make it
-  louder or faster. The chest and the mimic share rows.
+  louder or faster. The sleeping mimic shares the chest's rows. The awake
+  mimic (`mimic_0`/`mimic_atk`) is drawn whole at 32×36 and doesn't. It has
+  no eyes on purpose, and its legs are one hand-drawn pair, mirrored.
 - **Shrines share one plinth and a per-god colour.** The colour is the tell
   from across a room, and the object on top is the tell up close.
 - **Your Shade is dressed at draw time.** `shade_0`/`shade_atk` are a bare

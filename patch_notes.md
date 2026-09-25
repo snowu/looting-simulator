@@ -6,7 +6,7 @@
 
 **Your Shade looks like you, gone dark.** It used to borrow the Hollow Knight, washed pale blue, so it read as one more knight. Now it's a figure of its own: a faceless shape with two cold eyes, smoke coming off its edges, and its legs fading to nothing below the knee. It holds the weapon and shield you have equipped, in their materials. They are the only clear things about it, and no torch lights up the rest.
 
-**Watch the chests.** Chests have two dark iron straps down the lid. A mimic still shows its two pale nails in the lid seam, and now the very tip of a tongue beside the lock. And it breathes: every few seconds its lid lifts a hair and the seam goes dark, then it settles. You'll only see it if you stop and look.
+**Watch the chests.** Chests have two dark iron straps down the lid. A mimic still shows its two pale nails in the lid seam, and now the very tip of a tongue beside the lock. And it breathes: every few seconds its lid lifts a hair and the seam goes dark, then it settles. You'll only see it if you stop and look. Once one wakes, it's all mouth: the lid and the rim are jaws lined with uneven fangs (one of them gold), round a throat that glows dull red, and a fat tongue lolls over the front. It stands on four jointed legs. When it lunges, its jaws gape wider and its tongue lashes down to the floor.
 
 **Delver moles and Spore hunters warn you.** A mole has a proper pink snout with buck teeth and three big claws on each hand, and its mouth opens under the snout when it lunges. A Spore hunter keeps its tongue tucked in until it strikes. Then its gills flare and glowing spores puff out on either side.
 
