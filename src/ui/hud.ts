@@ -94,10 +94,20 @@ export class Hud {
   /** Set when a drag just ended so the trailing click doesn't drink anything. */
   private suppressQuickClick = false;
 
-  constructor(parent: HTMLElement, private actions: { interact: () => void; flask: () => void; quick: (i: number) => void; reorderQuick: (from: number, to: number) => void; settings: () => void }) {
+  constructor(parent: HTMLElement, private actions: { interact: () => void; flask: () => void; quick: (i: number) => void; reorderQuick: (from: number, to: number) => void; settings: () => void; map: () => void }) {
     this.recallWrap.append(this.recallBar);
     // Tappable on touch screens.
     this.prompt.addEventListener('click', () => this.actions.interact());
+    // The minimap opens the full map, like M. Acting on release, with the
+    // press's default suppressed, keeps the tap's follow-up mouse events
+    // from landing on the map it just opened (the same trick as the touch
+    // menu buttons).
+    this.minimap.title = 'Map [M]';
+    this.minimap.addEventListener('pointerdown', (e) => e.preventDefault());
+    this.minimap.addEventListener('pointerup', (e) => {
+      e.preventDefault();
+      this.actions.map();
+    });
     const gear = settingsGearButton(() => this.actions.settings(), 'Settings — sound, cloud saves');
     gear.classList.add('hud-gear');
     const bars = h(

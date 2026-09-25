@@ -250,7 +250,8 @@ body.detail-mode .detail-hide { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .ward-glow { animation: none; } }
 
-.minimap { position: absolute; right: 16px; top: 14px; border: 2px solid #000; box-shadow: 0 0 0 2px #3a3040, 0 4px 12px #000a; border-radius: 50%; pointer-events: none; }
+.minimap { position: absolute; right: 16px; top: 14px; border: 2px solid #000; box-shadow: 0 0 0 2px #3a3040, 0 4px 12px #000a; border-radius: 50%; cursor: pointer; touch-action: none; }
+.minimap:hover { box-shadow: 0 0 0 2px var(--gold), 0 4px 12px #000a; }
 
 .quick { position: absolute; right: 16px; bottom: 16px; display: flex; gap: 6px; }
 
@@ -573,7 +574,7 @@ body:has(.corner-gear, #hud:not([hidden]) .hud-gear) { --gear-slot: 40px; }
 /* Floating stick: the zone catches the thumb, the base recentres under it. */
 .stick-zone { position: absolute; inset: 0; touch-action: none; }
 /* HUD bits that stay tappable above the drag zone. */
-body.touch #hud .quick, body.touch #hud .prompt { z-index: 3; }
+body.touch #hud .quick, body.touch #hud .prompt, body.touch #hud .minimap { z-index: 3; }
 .stick-base {
   position: absolute;
   width: 104px;
