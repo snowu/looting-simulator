@@ -129,6 +129,8 @@ function clearTouchHolds(): void {
 const tilt = new TiltStrafe();
 /** The move tilt is holding right now, so it can be let go when the roll or the pause changes. */
 let tiltHeld: TouchMove | null = null;
+/** True until play (re)starts: the first live frame after takes the phone's grip as level. */
+let tiltIdle = true;
 const touch = new TouchControls(app, {
   move: (d) => {
     if (stickDir) touchHold(stickDir, false);
@@ -416,6 +418,7 @@ const town = new Town(screen, {
   state: () => state,
   save: () => commit(),
   descend: () => enterDungeon(),
+  mainMenu: () => leaveToTitle(),
   // Deferred: the panel is created below, after the town it renders into.
   account: () => account.el,
   accountSummary: () => account.summary,
@@ -487,7 +490,26 @@ function openDungeonSettings(): void {
     onClose: () => undefined,
     showDifficulty: false,
     report: bugReport,
+    mainMenu: {
+      go: () => leaveToTitle(),
+      note: 'Your delve is saved as it stands. Resume delve on this slot picks it up where you left it.',
+    },
   });
+}
+
+/**
+ * Settings → Back to main menu, from town or mid-delve. Saves first; a delve
+ * in progress stays open in the save, the same as closing the app, and the
+ * slot's Resume delve drops you back on the tile you left.
+ */
+function leaveToTitle(): void {
+  commit();
+  flushSync();
+  world = null;
+  ending = null;
+  audio.stopAmbient();
+  audio.stopRag();
+  enterTitle();
 }
 
 /** Same restriction on the title screen: sound and saves, no difficulty. */
@@ -511,6 +533,7 @@ function show(m: Mode): void {
   touchAttack = false;
   chestPress = null;
   clearTouchHolds();
+  tiltIdle = true;
   pad.reset();
   canvas.style.visibility = m === 'dungeon' ? 'visible' : 'hidden';
   town.visible = m === 'town';
@@ -1057,7 +1080,10 @@ function frame(now: number): void {
     }
     // Tilt is polled rather than pushed: a roll held through a pause must not
     // walk you off the moment the menu closes, so it only counts while live.
-    const tiltWant = touchMode && !paused && !ending && tilt.dir ? sideMove(tilt.dir, 'extra', touchPrefs.get().padSwipe) : null;
+    const tiltLive = touchMode && !paused && !ending;
+    if (tiltIdle && tiltLive) tilt.recenter();
+    tiltIdle = !tiltLive;
+    const tiltWant = tiltLive && tilt.dir ? sideMove(tilt.dir, 'extra', touchPrefs.get().padSwipe) : null;
     if (tiltWant !== tiltHeld) {
       if (tiltHeld) touchHold(tiltHeld, false);
       tiltHeld = tiltWant;

@@ -57,6 +57,8 @@ export interface TownCtx {
   state: () => GameState;
   save: () => void;
   descend: () => void;
+  /** Settings → Back to main menu. */
+  mainMenu: () => void;
   newGame: () => void;
   toast: (text: string, color?: string, href?: string) => void;
   /**
@@ -316,6 +318,7 @@ export class Town {
       onClose: () => this.render(),
       showDifficulty: true,
       report: this.ctx.report,
+      mainMenu: { go: () => this.ctx.mainMenu(), note: 'Saved first. Pick any slot from there.' },
     });
   }
 
