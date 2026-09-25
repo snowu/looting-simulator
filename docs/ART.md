@@ -183,6 +183,10 @@ From reviews of rounds 1–2:
     If materials of different kinds share an icon, split it: ore and nuggets
     got their own after being drawn as smelted bars; each potion and scroll
     has its own icon rather than a shared one told apart by colour.
+  - No two materials that share an icon may share a ramp, and near twins
+    (two greens, two pale blues) count as sharing. The crafting rework left a
+    placeholder lavender on nine materials; if you add a material, give it
+    its own ramp. The ramp also colours gear crafted from it.
   - A mark on parchment needs a dark or saturated ramp. The Flash Scroll's
     all-white ramp vanished and was changed to sun gold.
   - `ic_potion` is also the HUD's refillable flask (`hud.ts`, `town.ts`), so
