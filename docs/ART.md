@@ -142,6 +142,9 @@ lines, ellipses with a shading callback, an auto-outline pass, tileable
 - PR: commit before/after PNGs under `docs/previews/art-rework-N/` and embed
   them with raw URLs pinned to the pushed commit
   (`https://raw.githubusercontent.com/snowu/looting-simulator/<sha>/docs/...`).
+  Use the **7-character short sha**: image URLs longer than about 148
+  characters get wrapped in backticks when the PR body is saved, and then
+  don't render. Re-read the body after saving to check.
   Never show ASCII grids in the PR.
 
 **Seeing it in 3D.** Run `npx vite`, open `?autostart=lab`, then drive the lab
