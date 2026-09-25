@@ -51,6 +51,8 @@ export const BIOMES: BiomeDef[] = [
   {
     id: 'crypt', name: 'The Ossuary', depths: [1, 2],
     wall: 'wall_crypt', wallAlt: 'wall_crypt_b', wallSecret: 'wall_crypt_s',
+    // A grave lid or a drain now and then, about one tile in eight.
+    floorVariants: [...Array(14).fill('floor_crypt'), 'floor_crypt_grave', 'floor_crypt_drain'],
     floor: 'floor_crypt', ceiling: 'ceil_crypt', door: 'door_wood',
     fog: '#040308', ambient: '#24212e', torch: '#ffc488', torchDensity: 0.07,
     graves: true, law: 'restless',
@@ -58,6 +60,8 @@ export const BIOMES: BiomeDef[] = [
   {
     id: 'mines', name: 'The Deep Mines', depths: [3, 4],
     wall: 'wall_mine', wallAlt: 'wall_mine_b', wallSecret: 'wall_mine_s',
+    // Spoil with copper in it about one tile in eight, a dropped pick rarer.
+    floorVariants: [...Array(13).fill('floor_mine'), 'floor_mine_ore', 'floor_mine_ore', 'floor_mine_pick'],
     floor: 'floor_mine', ceiling: 'ceil_mine', door: 'door_wood',
     fog: '#080503', ambient: '#2a2016', torch: '#ffb870', torchDensity: 0.06,
     earth: true, vessel: 'barrel', law: 'collapse',
