@@ -14,7 +14,7 @@ Last updated 2026-09-25, after four rounds.
 | 1 | #51 | merged | Pasture herd, spider family, ceilings and crypt floor, catacombs water, the five shrines, barrel, fungus, sconce, loot bag, knight helm, club icon |
 | 2 | #52 | merged | Traps, ghoul/slagborn/wretch heads, bats, throne floor, robe and hide icons, bones, gold pile, Burrows and Sporegrove wall variants (plus review fixes) |
 | 3 | #59 | **open** | Giant rat and Hoarder, iron door (and the locked and fog doors built on it), Big Toe icon and viewmodel, broken urn, Sporegrove floor variants. Takes **Patch 85**. |
-| 4 | #63 | **open** | Bog Seraph, Delver mole and Spore hunter tells, Mines and Ossuary floor variants, material icons. Proposals for the chest, the mimic tell and the mine ceiling. Takes **Patch 86**. Built on round 3. |
+| 4 | #63 | **open** | Bog Seraph, Delver mole and Spore hunter tells, Mines and Ossuary floor variants, material and consumable icons. Proposals for the chest, the mimic tell and the mine ceiling. Takes **Patch 86**. Built on round 3. |
 
 This file arrived with #59. If you are reading it on master, round 3 is
 merged. Round 4 (#63) is stacked on round 3 and carries its commits: merge #59 first, or merge #63 and close #59. Check the patch
@@ -49,7 +49,7 @@ Everything not listed here scored 7 or better after a rework.
 | 6 | Big Toe (round 3) | Much better, but still a joke weapon drawn straight. A second pass could add a hair or two and a better stump. |
 | 7 | Skeleton family, goblins, archers, flame wraith, mimic, chests, most walls, wood and iron doors, viewmodels, gear, material and consumable icons | Good. Leave them unless something new sets a higher bar. |
 | 7 | Round-1/2 redraws: herd, spiders, shrines, traps, ghouls, bats, props | Good. The owner liked the ghouls and the moss most. |
-| 7 | Round-4 redraws: Bog Seraph, Delver mole, Spore hunter, Ossuary floor variants, material icons (ore, nugget, ingot, plank, cloth, bone, scale) | Checked in the 3D lab from three tiles away (`docs/previews/art-rework-4/5-creatures-3d.png`, `6-floors-3d.png`). The mole was only seen in its block pose there. |
+| 7 | Round-4 redraws: Bog Seraph, Delver mole, Spore hunter, Ossuary floor variants, material icons (ore, nugget, ingot, plank, cloth, bone, scale), consumable icons (one per potion and scroll) | Checked in the 3D lab from three tiles away (`docs/previews/art-rework-4/5-creatures-3d.png`, `6-floors-3d.png`). The mole was only seen in its block pose there. |
 | 8 | Emberworks surfaces, wisps, the Ashen King | The reference set. |
 
 ## Open proposals
@@ -181,7 +181,12 @@ From reviews of rounds 1–2:
   - Check icons and viewmodels in their real material colours, not just iron.
   - An icon is one object that fills the cell (the rolled hide set the pattern).
     If materials of different kinds share an icon, split it: ore and nuggets
-    got their own after being drawn as smelted bars.
+    got their own after being drawn as smelted bars; each potion and scroll
+    has its own icon rather than a shared one told apart by colour.
+  - A mark on parchment needs a dark or saturated ramp. The Flash Scroll's
+    all-white ramp vanished and was changed to sun gold.
+  - `ic_potion` is also the HUD's refillable flask (`hud.ts`, `town.ts`), so
+    keep it a plain flask that any draught colour suits.
 
 ## Deliberate choices, don't undo
 
