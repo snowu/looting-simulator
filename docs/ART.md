@@ -173,6 +173,10 @@ From reviews of rounds 1–2:
 - **Round 4 direction:** the Bog Seraph as a frog seen from below,
   spread-eagled, with the "biblically accurate angel" around it (halo,
   feathers full of eyes). A literal frog face in a halo was too on the nose.
+  A Spore hunter redraw after the 2003 Ragnarok Online Spore (big spotted
+  cap, cute face on the stalk) was rejected as far too cute, and reverted:
+  the game is not kawaii. Take a reference's shapes, never its cuteness;
+  keep faces menacing and the palette as dark as King's Field.
   Chest tells should stay subtle; the keyhole eye and the row of teeth were
   too clear. Icon shapes must be clean and symmetric where the object is
   (the first bone looked scuffed).
