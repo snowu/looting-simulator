@@ -20,22 +20,27 @@ const CHEST_LOWER = [
   '................',
 ];
 
+// Two short dark iron straps run down the lid, stopping at the seam.
+const CHEST_LID = [
+  '....kkkkkkkkkkkk',
+  '...kxxxxxiixxxxx',
+  '..kxwwwwwiiwwwww',
+  '..kwwwwywiiwwwww',
+  '..kiiniiiiiiiiii',
+  '..kwwwwwwiiwwwyw',
+  '..kyyyyyyyyyyyyy',
+];
 const CHEST = sym([
   ...Array.from({ length: 11 }, () => '................'),
-  '....kkkkkkkkkkkk',
-  '...kxxxxxxxxxxxx',
-  '..kxwwwwwwwwwwww',
-  '..kwwwwywwwwwwww',
-  '..kiiniiiiiiiiii',
-  '..kwwwwwwwwwwwyw',
-  '..kyyyyyyyyyyyyy',
+  ...CHEST_LID,
   ...CHEST_LOWER,
 ]);
 
 const CHEST_OPEN = sym([
   ...Array.from({ length: 6 }, () => '................'),
   '....kkkkkkkkkkkk',
-  '...kyyyyyyyyyyyy',
+  // The lid thrown back shows its inside; the straps' ends catch its rim.
+  '...kyyyyyiiyyyyy',
   '..kyqqqqqqqqqqqq',
   '..kyqqqqqqqqqqqq',
   '..kyqqqqqqqqqqqq',
@@ -75,11 +80,24 @@ const CHEST_PAL = {
   t: '#d8c89a', r: '#9c3028', m: '#8c2840',
 };
 
-// Two pale points in the lid seam are the whole tell. They read as worn nails
-// until you have learned what they really are.
-const CHEST_MIMIC = stamp(CHEST, rows(`
+// The tell, for anyone who looks: two pale points in the lid seam that read
+// as worn nails, and the very tip of a tongue caught in the seam beside the
+// lock. And it breathes. Every few seconds the lid lifts a single pixel off
+// the box, the seam goes dark and the tongue draws in (`chest_mimic_in`, timed
+// in the renderer). Glance at it and it is a chest; watch it and it is not.
+const MIMIC_SEAM = rows(`
+  t....t...
+  .......m.
+`);
+const CHEST_MIMIC = stamp(CHEST, MIMIC_SEAM, 13, 17);
+const CHEST_MIMIC_IN = stamp(sym([
+  ...Array.from({ length: 10 }, () => '................'),
+  ...CHEST_LID,
+  '..kqqqqqqqqqqqqq',
+  ...CHEST_LOWER,
+  ].slice(0, 32)), rows(`
   t....t
-`), 13, 17);
+`), 13, 16);
 
 const MIMIC_FACE = rows(`
   ....r......r....
@@ -1083,6 +1101,7 @@ const TOWN_PORTAL = sym(rows(`
 export const PROPS: ArtDef[] = [
   { id: 'chest', palette: CHEST_PAL, rows: CHEST },
   { id: 'chest_mimic', palette: CHEST_PAL, rows: CHEST_MIMIC },
+  { id: 'chest_mimic_in', palette: CHEST_PAL, rows: CHEST_MIMIC_IN },
   { id: 'chest_open', palette: CHEST_PAL, rows: CHEST_OPEN },
   { id: 'chest_broken', palette: CHEST_PAL, rows: CHEST_BROKEN },
   { id: 'mimic_0', palette: CHEST_PAL, rows: MIMIC_IDLE },

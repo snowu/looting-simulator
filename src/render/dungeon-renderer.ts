@@ -54,6 +54,13 @@ const HAT_SINK = 0.42;
 const MONOCLE_SCALE = 0.17;
 const MONOCLE_DROP = 0.2;
 const MONOCLE_SIDE = 0.1;
+/**
+ * A mimic breathes: once every BREATH_PERIOD seconds its lid lifts a pixel
+ * for BREATH_HOLD seconds (`chest_mimic_in`). Slow and brief on purpose, so
+ * only someone watching the chest sees it. Each mimic keeps its own phase.
+ */
+const BREATH_PERIOD = 6.5;
+const BREATH_HOLD = 1.1;
 
 /**
  * Where a sprite's drawn content actually starts, as a fraction of its canvas
@@ -288,6 +295,12 @@ export class DungeonRenderer {
     s.mesh.position.set(x, y + height / 2, z);
     s.mesh.rotation.set(0, this.camera.rotation.y, 0);
     s.mat.uniforms.uTint.value.set(0, 0, 0, 0);
+  }
+
+  /** A sleeping mimic's frame: mostly still, now and then drawing one slow breath. */
+  private mimicChest(x: number, y: number): string {
+    const phase = ((x * 7919 + y * 104729) % 97) / 97 * BREATH_PERIOD;
+    return (this.time + phase) % BREATH_PERIOD < BREATH_HOLD ? 'chest_mimic_in' : 'chest_mimic';
   }
 
   /** Swap a placed Shade's texture for its body holding your equipped weapon and shield. */
@@ -692,7 +705,7 @@ export class DungeonRenderer {
       const wx = tileX(pr.x), wz = tileZ(pr.y);
       switch (pr.kind) {
         case 'chest':
-          this.place(s, pr.smashed ? 'chest_broken' : pr.used ? 'chest_open' : pr.mimic ? 'chest_mimic' : 'chest', wx, 0, wz, 1.5);
+          this.place(s, pr.smashed ? 'chest_broken' : pr.used ? 'chest_open' : pr.mimic ? this.mimicChest(pr.x, pr.y) : 'chest', wx, 0, wz, 1.5);
           break;
         case 'icicle': {
           const c = pr.ceiling;
