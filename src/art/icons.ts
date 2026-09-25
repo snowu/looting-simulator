@@ -188,24 +188,25 @@ export const ICONS: ArtDef[] = [
     ...........k32k.
     ............kk..
   `)),
-  // A thick femur with a double knob at each end, lying on the diagonal.
+  // A femur on the diagonal with a double knob at each end. The outline is
+  // exactly symmetric about the bone's own axis; only the light (top left) differs.
   icon('ic_bone', rows(`
-    ..........kkk...
-    .........k443k..
-    .........k433kk.
-    .........k34433k
-    .........k44332k
-    ........k433322k
-    .......k433323k.
-    ......k433323k..
-    .....k433323k...
-    .kkkk433323k....
-    k443433323k.....
-    k43443323k......
-    k3343323k.......
-    .kk3323k........
-    ..k322k.........
-    ...kkk..........
+    ................
+    .........kkk....
+    ........k444k...
+    ........k443kk..
+    ........k44322k.
+    ........k43221k.
+    .......k432211k.
+    ......k432kkkk..
+    ..kkkk432k......
+    .k444432k.......
+    .k44432k........
+    .k43322k........
+    ..kk221k........
+    ...k211k........
+    ....kkk.........
+    ................
   `)),
   icon('ic_gem', rows(`
     ................
@@ -1089,39 +1090,39 @@ export const ICONS: ArtDef[] = [
     kjqqqqqqqqqqqtjk
     .kkkkkkkkkkkkkk.
   `)),
-  // Flash: a sunburst.
+  // Flash: a sunburst, centred on the sheet.
   icon('ic_scroll_flash', rows(`
     ................
     .kkkkkkkkkkkkkk.
     kjpppppppppppqjk
     kjqqqqqqqqqqqtjk
     .kkttttttttttkk.
-    ..kpppp2pppppk..
-    ..kpp2p3p2pppk..
-    ..kppp343ppppk..
-    ..kp2344432ppk..
-    ..kppp343ppppk..
-    ..kpp2p3p2pppk..
-    ..kpppp2pppppk..
+    ..kpppp22ppppk..
+    ..kpp2p33p2ppk..
+    ..kppp3443pppk..
+    ..kp22344322pk..
+    ..kppp3443pppk..
+    ..kpp2p33p2ppk..
+    ..kpppp22ppppk..
     .kkqqqqqqqqqqkk.
     kjpppppppppppqjk
     kjqqqqqqqqqqqtjk
     .kkkkkkkkkkkkkk.
   `)),
-  // Backstep: an arrow turning back on itself.
+  // Backstep: a thick U-turn arrow heading back the way you came.
   icon('ic_scroll_backstep', rows(`
     ................
     .kkkkkkkkkkkkkk.
     kjpppppppppppqjk
     kjqqqqqqqqqqqtjk
     .kkttttttttttkk.
-    ..kpp1pppppppk..
-    ..kp112222pppk..
-    ..kp1222222ppk..
-    ..kpp1pppp22pk..
-    ..kppppppp22pk..
-    ..kppp22222ppk..
-    ..kppp2222pppk..
+    ..kppp1ppppppk..
+    ..kpp111111ppk..
+    ..kp11111111pk..
+    ..kpp11ppp11pk..
+    ..kppp1ppp11pk..
+    ..kpppp11111pk..
+    ..kpppp1111ppk..
     .kkqqqqqqqqqqkk.
     kjpppppppppppqjk
     kjqqqqqqqqqqqtjk
