@@ -102,13 +102,16 @@ const CHEST_MIMIC_IN = stamp(sym([
 // Awake, the chest is all mouth. The lid is the upper jaw and the box's rim
 // the lower, both lined with uneven fangs (one of them gold), round a throat
 // that glows a dull red. A fat tongue lolls over the rim beside the lock. It
-// crouches on four short jointed legs, knees out like a crab's. On the attack the lid gapes higher, the fangs lengthen and the
+// runs on a centipede's legs, seven small jointed ones a side along the bottom
+// of the box, fanned out at the ends; on the attack every other one is lifted
+// mid-step, so it scuttles. On the attack the lid gapes higher, the fangs lengthen and the
 // tongue lashes down to the floor. No eyes: nothing to it is a face.
 const MIMIC_PAL = {
   ...CHEST_PAL,
-  u: '#8a7c5a', p: '#c05868', o: '#5e1628', M: '#3a0a10', L: '#3a2622', l: '#6a4a40',
+  u: '#8a7c5a', p: '#c05868', o: '#5e1628', M: '#3a0a10', L: '#3a2622', l: '#7a5a48',
 };
 const MIMIC_IDLE = rows(`
+  ................................
   ................................
   ................................
   ................................
@@ -118,13 +121,13 @@ const MIMIC_IDLE = rows(`
   ..kyqqqqqqqqqqqqqqqqqqqqqqqqyk..
   ..kiiniiiiiiiiiiiiiiiiiiiiniik..
   ..kutuutuutuutuhgutuutuutuutuk..
-  ..kktkktkktMkMkhMMkMktkktkktkk..
-  ..kkkkktMkMMMMMMMMMMMkMktkkkkk..
-  ..kkkkkMkMMMMMMMMMMMMMkMkkkkkk..
+  ..kktkktkktkMkMhMkMkMtkktkktkk..
+  ..kkkkktkMkMMMMMMMMMMMkMtkkkkk..
   ..kkkkkkMkMMMMMMMMMMMMMkMkkkkk..
-  ..kkktkkkMkMMMMMMMMMMMktkkkkkk..
-  ..kkktkktkpmmmmkMkMktkktkktkkk..
-  ..kkutuutkpmmmmkkMkutuutuutukk..
+  ..kkkkkMkMMMMMMMMMMMMMkMkkkkkk..
+  ..kkktkkMkMMMMMMMMMMMkMtkkkkkk..
+  ..kkktkktkpmmmmkMMkMtMktkktkkk..
+  ..kkutuutkpmmmmkMkMutuutuutukk..
   ..kkkkkkkkpmmomkgkkkkkkkkkkkkk..
   ..kwwwwwwkpmomkhhgkwwwwwwwwwwk..
   ..kwwwywwkpmomkhhgkwwwwwwywwwk..
@@ -135,29 +138,29 @@ const MIMIC_IDLE = rows(`
   ..kiiniiiiikpkiiiiiiiiiiiiniik..
   ..kyyyyyyyykkkyyyyyyyyyyyyyyyk..
   ..kkkkkkkkkkkkkkkkkkkkkkkkkkkk..
-  ..klLk...klLk......kLlk...kLlk..
-  .klLk....klLk......kLlk....kLlk.
-  klLk....klLk........kLlk....kLlk
-  klLk....klLk........kLlk....kLlk
-  ktutk..ktutk........ktutk..ktutk
-  .kkk....kkk..........kkk....kkk.
+  ..LkLkLkLkLkLkLkkLkLkLkLkLkLkL..
+  .ukukukukukukuk..kukukukukukuku.
+  lklk.lklklklklk..klklklklkl.klkl
+  klk.lklklk.lklk..klkl.klklkl.klk
+  kuk.ukukuk.ukuk..kuku.kukuku.kuk
 `);
 const MIMIC_ATK = rows(`
+  ................................
   ....kkkkkkkkkkkkkkkkkkkkkkkk....
   ...kxxxxxiixxxxxxxxxxiixxxxxk...
   ..kyqqqqqiiqqqqqqqqqqiiqqqqqyk..
   ..kyqqqqqqqqqqqqqqqqqqqqqqqqyk..
   ..kiiniiiiiiiiiiiiiiiiiiiiniik..
   ..kutuutuutuutuhgutuutuutuutuk..
-  ..kktkktkktkMkMhMkMkMtkktkktkk..
-  ..kktkktkMtMkMMMMMMMktkktkktkk..
-  ..kkkkktMkMMMMMMMMMMMkMktkkkkk..
-  ..kkkkkMkMMMMMMMMMMMMMkMkkkkkk..
+  ..kktkktkktMkMkhkMkMktkktkktkk..
+  ..kktkktkktkMMMMMMMkMtMktkktkk..
+  ..kkkkktkMkMMMMMMMMMMMkMtkkkkk..
   ..kkkkkkMkMMMMMMMMMMMMMkMkkkkk..
   ..kkkkkMkMMMMMMMMMMMMMkMkkkkkk..
-  ..kkktkkMkMMMkpmmkMMMkMtkkkkkk..
-  ..kkktkktMkMkkpmmkMMtMktkktkkk..
-  ..kkktkktkkkMkpmomkktkktkktkkk..
+  ..kkkkkkMkMMMMMMMMMMMMMkMkkkkk..
+  ..kkktkkkMkMMkpmmkMMMMktkkkkkk..
+  ..kkktkktkMkMkpmmkMktkMtkktkkk..
+  ..kkktkktkkMkkpmomkMtkktkktkkk..
   ..kkutuutukkkkpmomkutuutuutukk..
   ..kkkkkkkkkkkkpmomkkkkkkkkkkkk..
   ..kwwwwwwwwwwkpmmomkwwwwwwwwwk..
@@ -169,12 +172,11 @@ const MIMIC_ATK = rows(`
   ..kiiniiiiikpmmomkiiiiiiiiniik..
   ..kyyyyyyyykpmomkyyyyyyyyyyyyk..
   ..kkkkkkkkkkkpmomkkkkkkkkkkkkk..
-  ..klLk...klLkpmomk.kLlk...kLlk..
-  .klLk....klLkkpmomkkLlk....kLlk.
-  klLk....klLk.kpmok..kLlk....kLlk
-  klLk....klLk..kpmok.kLlk....kLlk
-  ktutk..ktutk..kpmok.ktutk..ktutk
-  .kkk....kkk...kpmmk..kkk....kkk.
+  ..LkLkLkLkLkkpmomkkLkLkLkLkLkL..
+  .ukukukukukukkpmomkkukukukukuku.
+  lklk.llk.llk.kpmokl.kll.kll.klkl
+  k.uklkuklkuk.lkpmok.kuklkuklku.k
+  k...uk..uk...ukpmok...ku..ku...k
 `);
 
 const URN = sym(rows(`

@@ -207,8 +207,8 @@ From reviews of rounds 1–2:
   phase. The owner wants it noticed only by someone watching. Don't make it
   louder or faster. The sleeping mimic shares the chest's rows. The awake
   mimic (`mimic_0`/`mimic_atk`) is drawn whole and doesn't. It has no eyes
-  on purpose, and its legs are one short hand-drawn pair, mirrored: the
-  owner found ten-row legs too tall, so keep them crouched.
+  on purpose. Its legs are a centipede's: seven small ones a side, mirrored,
+  five rows at most. The owner wants many little legs, not a few tall ones.
 - **Shrines share one plinth and a per-god colour.** The colour is the tell
   from across a room, and the object on top is the tell up close.
 - **Your Shade is dressed at draw time.** `shade_0`/`shade_atk` are a bare
