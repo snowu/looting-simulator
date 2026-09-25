@@ -249,44 +249,44 @@ export const CONSUMABLES: ConsumableDef[] = [
     rarity: Rarity.Common, value: 24, stack: 5,
   },
   {
-    id: 'greater_healing', name: 'Greater Healing', icon: 'ic_potion', ramp: ['#3a0428', '#7a0c5a', '#d0209a', '#ffa0e0'],
+    id: 'greater_healing', name: 'Greater Healing', icon: 'ic_potion_greater', ramp: ['#3a0428', '#7a0c5a', '#d0209a', '#ffa0e0'],
     description: 'Restores 55% of your health.', effect: { type: 'heal', fraction: 0.55 },
     rarity: Rarity.Rare, value: 70, stack: 5,
   },
   {
-    id: 'stamina_tonic', name: 'Stamina Tonic', icon: 'ic_potion', ramp: ['#0c3a10', '#1a7020', '#40b030', '#b0ff80'],
+    id: 'stamina_tonic', name: 'Stamina Tonic', icon: 'ic_tonic', ramp: ['#0c3a10', '#1a7020', '#40b030', '#b0ff80'],
     description: 'Refills your stamina at once.', effect: { type: 'stamina', fraction: 1 },
     rarity: Rarity.Common, value: 16, stack: 5,
   },
   {
-    id: 'scroll_identify', name: 'Scroll of Identify', icon: 'ic_scroll', ramp: ['#4a3a20', '#8a7040', '#c8a868', '#f4e4b0'],
+    id: 'scroll_identify', name: 'Scroll of Identify', icon: 'ic_scroll_identify', ramp: ['#4a3a20', '#8a7040', '#c8a868', '#f4e4b0'],
     description: 'Reveals the true nature of one item.', effect: { type: 'identify' },
     rarity: Rarity.Uncommon, value: 30, stack: 10,
   },
   {
     // Blinding true light in a tube: expensive, because answering every
     // wind-up for the price of an Identify would make telegraphs decorative.
-    id: 'scroll_flash', name: 'Flash Scroll', icon: 'ic_scroll', ramp: ['#f4ecd8', '#e8d8a0', '#fff8e0', '#ffffff'],
+    id: 'scroll_flash', name: 'Flash Scroll', icon: 'ic_scroll_flash', ramp: ['#5a2a04', '#b05a08', '#f0a020', '#fff080'],
     description: 'A blinding flash at whatever faces you. Blind 2s, 3s with the swing cancelled mid-wind-up. It burns whether it lands or not.',
     effect: { type: 'flash' }, rarity: Rarity.Rare, value: 210, stack: 5,
   },
   {
     // A short step back along your own path: the escape half of torn Recall,
     // priced so it is a decision rather than a habit.
-    id: 'scroll_backstep', name: 'Backstep Scroll', icon: 'ic_scroll', ramp: ['#2a3a5a', '#5a7ab0', '#9ac0ff', '#e0f0ff'],
+    id: 'scroll_backstep', name: 'Backstep Scroll', icon: 'ic_scroll_backstep', ramp: ['#2a3a5a', '#5a7ab0', '#9ac0ff', '#e0f0ff'],
     description: 'Snaps you back to where you stood 2 seconds ago. Torn while standing still, it burns and comes to nothing.',
     effect: { type: 'backstep' }, rarity: Rarity.Rare, value: 160, stack: 5,
   },
   {
     // A legendary flask infusion, found only in the dark: never stocked by any
     // merchant and not craftable. Installed at the forge, never drunk.
-    id: 'fight_milk', name: 'Fight Milk', icon: 'ic_potion', ramp: ['#2a2410', '#6a6030', '#c8c088', '#f8f4d8'],
+    id: 'fight_milk', name: 'Fight Milk', icon: 'ic_milk', ramp: ['#2a2410', '#6a6030', '#c8c088', '#f8f4d8'],
     description: "Infused at the forge, it lasts the delve. You come back quicker and you have less to come back with.",
     effect: { type: 'tonic', tonicId: 'fight_milk' },
     rarity: Rarity.Legendary, value: 420, stack: 2,
   },
   {
-    id: 'scroll_recall', name: 'Scroll of Recall', icon: 'ic_scroll', ramp: ['#1a2a4a', '#34508a', '#6a90d0', '#d0e4ff'],
+    id: 'scroll_recall', name: 'Scroll of Recall', icon: 'ic_scroll_recall', ramp: ['#1a2a4a', '#34508a', '#6a90d0', '#d0e4ff'],
     description: 'After 5 seconds of stillness, carries you and your pack back to town.',
     effect: { type: 'recall', seconds: 5 }, rarity: Rarity.Rare, value: 95, stack: 5,
   },

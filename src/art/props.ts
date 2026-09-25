@@ -20,22 +20,27 @@ const CHEST_LOWER = [
   '................',
 ];
 
+// Two short dark iron straps run down the lid, stopping at the seam.
+const CHEST_LID = [
+  '....kkkkkkkkkkkk',
+  '...kxxxxxiixxxxx',
+  '..kxwwwwwiiwwwww',
+  '..kwwwwywiiwwwww',
+  '..kiiniiiiiiiiii',
+  '..kwwwwwwiiwwwyw',
+  '..kyyyyyyyyyyyyy',
+];
 const CHEST = sym([
   ...Array.from({ length: 11 }, () => '................'),
-  '....kkkkkkkkkkkk',
-  '...kxxxxxxxxxxxx',
-  '..kxwwwwwwwwwwww',
-  '..kwwwwywwwwwwww',
-  '..kiiniiiiiiiiii',
-  '..kwwwwwwwwwwwyw',
-  '..kyyyyyyyyyyyyy',
+  ...CHEST_LID,
   ...CHEST_LOWER,
 ]);
 
 const CHEST_OPEN = sym([
   ...Array.from({ length: 6 }, () => '................'),
   '....kkkkkkkkkkkk',
-  '...kyyyyyyyyyyyy',
+  // The lid thrown back shows its inside; the straps' ends catch its rim.
+  '...kyyyyyiiyyyyy',
   '..kyqqqqqqqqqqqq',
   '..kyqqqqqqqqqqqq',
   '..kyqqqqqqqqqqqq',
@@ -75,49 +80,104 @@ const CHEST_PAL = {
   t: '#d8c89a', r: '#9c3028', m: '#8c2840',
 };
 
-// Two pale points in the lid seam are the whole tell. They read as worn nails
-// until you have learned what they really are.
-const CHEST_MIMIC = stamp(CHEST, rows(`
+// The tell, for anyone who looks: two pale points in the lid seam that read
+// as worn nails, and the very tip of a tongue caught in the seam beside the
+// lock. And it breathes. Every few seconds the lid lifts a single pixel off
+// the box, the seam goes dark and the tongue draws in (`chest_mimic_in`, timed
+// in the renderer). Glance at it and it is a chest; watch it and it is not.
+const MIMIC_SEAM = rows(`
+  t....t...
+  .......m.
+`);
+const CHEST_MIMIC = stamp(CHEST, MIMIC_SEAM, 13, 17);
+const CHEST_MIMIC_IN = stamp(sym([
+  ...Array.from({ length: 10 }, () => '................'),
+  ...CHEST_LID,
+  '..kqqqqqqqqqqqqq',
+  ...CHEST_LOWER,
+  ].slice(0, 32)), rows(`
   t....t
-`), 13, 17);
+`), 13, 16);
 
-const MIMIC_FACE = rows(`
-  ....r......r....
-  ................
-  ..tttttttttttt..
-  ...ktktktktkt...
-  ......mmmm......
-  .......mm.......
+// Awake, the chest is all mouth. The lid is the upper jaw and the box's rim
+// the lower, both lined with uneven fangs (one of them gold), round a throat
+// that glows a dull red. A fat tongue lolls over the rim beside the lock. It
+// runs on a centipede's legs, seven small jointed ones a side along the bottom
+// of the box, fanned out at the ends; on the attack every other one is lifted
+// mid-step, so it scuttles. On the attack the lid gapes higher, the fangs lengthen and the
+// tongue lashes down to the floor. No eyes: nothing to it is a face.
+const MIMIC_PAL = {
+  ...CHEST_PAL,
+  u: '#8a7c5a', p: '#c05868', o: '#5e1628', M: '#3a0a10', L: '#3a2622', l: '#7a5a48',
+};
+const MIMIC_IDLE = rows(`
+  ................................
+  ................................
+  ................................
+  ................................
+  ....kkkkkkkkkkkkkkkkkkkkkkkk....
+  ...kxxxxxiixxxxxxxxxxiixxxxxk...
+  ..kyqqqqqiiqqqqqqqqqqiiqqqqqyk..
+  ..kyqqqqqqqqqqqqqqqqqqqqqqqqyk..
+  ..kiiniiiiiiiiiiiiiiiiiiiiniik..
+  ..kutuutuutuutuhgutuutuutuutuk..
+  ..kktkktkktkMkMhMkMkMtkktkktkk..
+  ..kkkkktkMkMMMMMMMMMMMkMtkkkkk..
+  ..kkkkkkMkMMMMMMMMMMMMMkMkkkkk..
+  ..kkkkkMkMMMMMMMMMMMMMkMkkkkkk..
+  ..kkktkkMkMMMMMMMMMMMkMtkkkkkk..
+  ..kkktkktkpmmmmkMMkMtMktkktkkk..
+  ..kkutuutkpmmmmkMkMutuutuutukk..
+  ..kkkkkkkkpmmomkgkkkkkkkkkkkkk..
+  ..kwwwwwwkpmomkhhgkwwwwwwwwwwk..
+  ..kwwwywwkpmomkhhgkwwwwwwywwwk..
+  ..kiiniiikpmomkgggkiiiiiiiniik..
+  ..kwwwwwwkpmomkkkkwwwwwwwwwwwk..
+  ..kwwwwwwkpmomkwwwwwywwwwwwwwk..
+  ..kwwwwwwwkpmmkwwwwwwwwwwwwwwk..
+  ..kiiniiiiikpkiiiiiiiiiiiiniik..
+  ..kyyyyyyyykkkyyyyyyyyyyyyyyyk..
+  ..kkkkkkkkkkkkkkkkkkkkkkkkkkkk..
+  ..LkLkLkLkLkLkLkkLkLkLkLkLkLkL..
+  .ukukukukukukuk..kukukukukukuku.
+  lklk.lklklklklk..klklklklkl.klkl
+  klk.lklklk.lklk..klkl.klklkl.klk
+  kuk.ukukuk.ukuk..kuku.kukuku.kuk
 `);
-// Lid thrown back and the whole box turned into a mouth. The old attack frame
-// widened the tongue and nothing else, which on a creature the player is
-// already standing next to is no warning at all.
-const MIMIC_FACE_ATK = rows(`
-  ...rr........rr...
-  ..................
-  .tttttttttttttttt.
-  ..tktktktktktktk..
-  ..mmmmmmmmmmmmmm..
-  ..mmmmmmmmmmmmmm..
-  ...mmtmmmmmmtmm...
-  ....mmmmmmmmmm....
-  .....mmmmmmmm.....
+const MIMIC_ATK = rows(`
+  ................................
+  ....kkkkkkkkkkkkkkkkkkkkkkkk....
+  ...kxxxxxiixxxxxxxxxxiixxxxxk...
+  ..kyqqqqqiiqqqqqqqqqqiiqqqqqyk..
+  ..kyqqqqqqqqqqqqqqqqqqqqqqqqyk..
+  ..kiiniiiiiiiiiiiiiiiiiiiiniik..
+  ..kutuutuutuutuhgutuutuutuutuk..
+  ..kktkktkktMkMkhkMkMktkktkktkk..
+  ..kktkktkktkMMMMMMMkMtMktkktkk..
+  ..kkkkktkMkMMMMMMMMMMMkMtkkkkk..
+  ..kkkkkkMkMMMMMMMMMMMMMkMkkkkk..
+  ..kkkkkMkMMMMMMMMMMMMMkMkkkkkk..
+  ..kkkkkkMkMMMMMMMMMMMMMkMkkkkk..
+  ..kkktkkkMkMMkpmmkMMMMktkkkkkk..
+  ..kkktkktkMkMkpmmkMktkMtkktkkk..
+  ..kkktkktkkMkkpmomkMtkktkktkkk..
+  ..kkutuutukkkkpmomkutuutuutukk..
+  ..kkkkkkkkkkkkpmomkkkkkkkkkkkk..
+  ..kwwwwwwwwwwkpmmomkwwwwwwwwwk..
+  ..kwwwywwwwwkpmmomkwwwwwwywwwk..
+  ..kiiniiiiiikpmmomkiiiiiiiniik..
+  ..kwwwwwwwwwkpmmomkwwwwwwwwwwk..
+  ..kwwwwwwwwykpmmomkwywwwwwwwwk..
+  ..kwwwwwwwwkpmmomkwwwwwwwwwwwk..
+  ..kiiniiiiikpmmomkiiiiiiiiniik..
+  ..kyyyyyyyykpmomkyyyyyyyyyyyyk..
+  ..kkkkkkkkkkkpmomkkkkkkkkkkkkk..
+  ..LkLkLkLkLkkpmomkkLkLkLkLkLkL..
+  .ukukukukukukkpmomkkukukukukuku.
+  lklk.llk.llk.kpmokl.kll.kll.klkl
+  k.uklkuklkuk.lkpmok.kuklkuklku.k
+  k...uk..uk...ukpmok...ku..ku...k
 `);
-// Four jointed legs unfold from each side of the box. The last three rows sit
-// below the old chest silhouette, so the transformation changes its outline.
-const MIMIC_LEGS = sym(rows(`
-  ..k......k......
-  .kxk....kxk.....
-  kx.xk..kx.xk....
-  x...k..x...k....
-  ....k......k....
-  ...kk.....kk....
-  ...x.......x....
-  ..kx.......xk...
-  ..kk.......kk...
-`));
-const MIMIC_IDLE = stamp(stamp(CHEST_OPEN, MIMIC_FACE, 8, 8), MIMIC_LEGS, 0, 23);
-const MIMIC_ATK = stamp(stamp(CHEST_OPEN, MIMIC_FACE_ATK, 7, 7), MIMIC_LEGS, 0, 23);
 
 const URN = sym(rows(`
   ................
@@ -154,40 +214,42 @@ const URN = sym(rows(`
   ................
 `));
 
-const URN_BROKEN = sym(rows(`
-  ................
-  ................
-  ................
-  ................
-  ................
-  ................
-  ................
-  ................
-  ................
-  ................
-  ................
-  ................
-  ................
-  ................
-  ................
-  ................
-  ................
-  ................
-  ................
-  ................
-  ................
-  ................
-  ........kk....kk
-  .......kdk...kbb
-  ....kkkabkkkbbcc
-  ...kaabbbbbbcccd
-  ...kaaabbbbbbbcc
-  ....kaaabbbbbbbb
-  .....kkaaaaaaaaa
-  .......kkkkkkkkk
-  ..k.kd.......kdk
-  ...kk........kk.
-`));
+// The urn's lower half still standing: a jagged break with the lit edge
+// catching the light, the dark hollow showing through, shards on the floor.
+const URN_BROKEN = rows(`
+  ................................
+  ................................
+  ................................
+  ................................
+  ................................
+  ................................
+  ................................
+  ................................
+  ................................
+  ................................
+  ................................
+  ................................
+  ................................
+  ................................
+  ................................
+  ................................
+  ................................
+  ................................
+  ................................
+  .....kk.........kk..............
+  ....kaek.......keek.....kk......
+  ....kabk......kddddk...kddk.....
+  ...kaabdk...kkdedcedk.kdebdk....
+  ...kaabek..kddeecceekkdeebadk...
+  ...kaabedkkdeeecccceddeebbaak...
+  ...kaaabeddeeebccbbbeeebbaaak...
+  ....kaaaeeeebbbbbbbbeebbaaak....
+  .kk.kaaaaeebbbbbbbbbbbbaaaak.kk.
+  kdbk.kkaaaaaaaaaaaaaaaaaakk.kdbk
+  baak.kkkkkkkkkkkkkkkkkkkk..kbaab
+  akk.kdbk...................kakka
+  k..kbaak....................k..k
+`);
 
 const URN_PAL = { k: '#140a06', a: '#4a2616', b: '#7a4428', c: '#9a5c34', d: '#c07a48', e: '#2e160c' };
 
@@ -1081,10 +1143,11 @@ const TOWN_PORTAL = sym(rows(`
 export const PROPS: ArtDef[] = [
   { id: 'chest', palette: CHEST_PAL, rows: CHEST },
   { id: 'chest_mimic', palette: CHEST_PAL, rows: CHEST_MIMIC },
+  { id: 'chest_mimic_in', palette: CHEST_PAL, rows: CHEST_MIMIC_IN },
   { id: 'chest_open', palette: CHEST_PAL, rows: CHEST_OPEN },
   { id: 'chest_broken', palette: CHEST_PAL, rows: CHEST_BROKEN },
-  { id: 'mimic_0', palette: CHEST_PAL, rows: MIMIC_IDLE },
-  { id: 'mimic_atk', palette: CHEST_PAL, rows: MIMIC_ATK },
+  { id: 'mimic_0', palette: MIMIC_PAL, rows: MIMIC_IDLE },
+  { id: 'mimic_atk', palette: MIMIC_PAL, rows: MIMIC_ATK },
   { id: 'urn', palette: URN_PAL, rows: URN },
   { id: 'urn_broken', palette: URN_PAL, rows: URN_BROKEN },
   { id: 'barrel', palette: BARREL_PAL, rows: BARREL },

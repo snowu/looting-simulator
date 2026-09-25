@@ -109,16 +109,13 @@ const SPORE_HALF = rows(`
 `);
 const SPORE_PAL = {
   k: '#221710', r: '#bf563e', w: '#efd49b', t: '#fff0cf', m: '#3d1d17',
-  c: '#e6d1a3', o: '#30231d', p: '#e57a83', q: '#ae455f',
+  c: '#e6d1a3', o: '#30231d', p: '#e57a83', q: '#ae455f', y: '#e4f08cfa', Y: '#9cc454fa',
 };
+// At rest only the tip of the tongue shows under the gills; the whole length
+// is saved for the lunge.
 const TONGUE_IDLE = rows(`
   .pp.
   pqqp
-  pqqp
-  pqqp
-  pqqp
-  pqqp
-  .pp.
   .pp.
 `);
 const TONGUE_ATTACK = rows(`
@@ -158,6 +155,23 @@ const SPORE_MOUTH_OPEN = [
 ];
 const SPORE_SHUT = stamp(SPORE_BASE, SPORE_MOUTH_SHUT, 3, 16);
 const SPORE_OPEN = stamp(SPORE_BASE, SPORE_MOUTH_OPEN, 3, 16);
+// The gills flare and blow glowing spores out under the rim: from across a
+// dark room, the puff is what says it is about to strike.
+const SPORE_PUFF_HALF = rows(`
+  .Y..............
+  YyY.............
+  .Y..Y...........
+  ...YyY..........
+  .Y..Y...........
+  YyY.............
+  .Y..............
+  ...Y............
+  ..YyY...........
+  ...Y............
+`);
+// Only on empty pixels: the spores hang in the air beside the body, not on it.
+const SPORE_PUFF = sym(SPORE_PUFF_HALF).map((row, y) =>
+  [...row].map((ch, x) => (SPORE_OPEN[y + 17]?.[x] === '.' ? ch : '.')).join(''));
 
 export const ENEMY_ART_ELEMENTAL: ArtDef[] = [
   ...ELEMENTS.flatMap(({ sprite, tip, core, hood, robe, cloth }): ArtDef[] => {
@@ -168,5 +182,5 @@ export const ENEMY_ART_ELEMENTAL: ArtDef[] = [
     ];
   }),
   { id: 'spore_0', palette: SPORE_PAL, rows: stamp(SPORE_SHUT, TONGUE_IDLE, 8, 19) },
-  { id: 'spore_atk', palette: SPORE_PAL, rows: stamp(SPORE_OPEN, TONGUE_ATTACK, 7, 17) },
+  { id: 'spore_atk', palette: SPORE_PAL, rows: stamp(stamp(SPORE_OPEN, TONGUE_ATTACK, 7, 17), SPORE_PUFF, 0, 17) },
 ];

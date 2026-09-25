@@ -19,9 +19,10 @@ import type { EnemyDef } from '../types';
 import { itemIcon } from '../systems/items';
 import { lightIntensity } from '../systems/meta';
 import { World } from '../world/world';
-import { artSize, artTexture } from './art-cache';
+import { artSize, artTexture, rasterTexture } from './art-cache';
+import { HeldIcon, composeShade, shadeFrame, shadeKey } from './shade';
 import { getArt } from '../art/registry';
-import { enemyPose } from './enemy-pose';
+import { EnemyFrame, enemyPose } from './enemy-pose';
 import { moveById } from '../data/attacks';
 import { quirkDef } from '../data/quirks';
 import { LevelView, TILE, WALL_H, buildLevel, tileX, tileZ } from './level-mesh';
@@ -53,6 +54,13 @@ const HAT_SINK = 0.42;
 const MONOCLE_SCALE = 0.17;
 const MONOCLE_DROP = 0.2;
 const MONOCLE_SIDE = 0.1;
+/**
+ * A mimic breathes: once every BREATH_PERIOD seconds its lid lifts a pixel
+ * for BREATH_HOLD seconds (`chest_mimic_in`). Slow and brief on purpose, so
+ * only someone watching the chest sees it. Each mimic keeps its own phase.
+ */
+const BREATH_PERIOD = 6.5;
+const BREATH_HOLD = 1.1;
 
 /**
  * Where a sprite's drawn content actually starts, as a fraction of its canvas
@@ -287,6 +295,22 @@ export class DungeonRenderer {
     s.mesh.position.set(x, y + height / 2, z);
     s.mesh.rotation.set(0, this.camera.rotation.y, 0);
     s.mat.uniforms.uTint.value.set(0, 0, 0, 0);
+  }
+
+  /** A sleeping mimic's frame: mostly still, now and then drawing one slow breath. */
+  private mimicChest(x: number, y: number): string {
+    const phase = ((x * 7919 + y * 104729) % 97) / 97 * BREATH_PERIOD;
+    return (this.time + phase) % BREATH_PERIOD < BREATH_HOLD ? 'chest_mimic_in' : 'chest_mimic';
+  }
+
+  /** Swap a placed Shade's texture for its body holding your equipped weapon and shield. */
+  private dressShade(s: SpriteObj, world: World, frame: EnemyFrame): void {
+    const eq = world.state.equipment;
+    const held = (it: typeof eq.weapon): HeldIcon | undefined => (it ? itemIcon(it) : undefined);
+    const f = shadeFrame(frame);
+    const weapon = held(eq.weapon), shield = held(eq.offhand);
+    const tex = rasterTexture(shadeKey(f, weapon, shield), () => composeShade(f, weapon, shield));
+    if (s.mat.uniforms.map.value !== tex) s.mat.uniforms.map.value = tex;
   }
 
   /** Lay a sprite flat on the floor as a decal, one tile wide. */
@@ -610,9 +634,11 @@ export class DungeonRenderer {
       // A called corpse lies at the floor and is drawn up as the chant runs.
       if (en.ai === 'dead') y -= call !== undefined ? (1 - call) * 1.2 : (fused ? Math.min(en.deadT, 0.3) : en.deadT) * 1.4;
       this.place(s, `${def.sprite}_${pose.frame}`, wx, y, wz, height);
+      // Your Shade holds what you hold: your weapon and shield, in their materials.
+      // No wash over it any more: the body is its own tell, and a tint would
+      // only lift the dark and muddy the kit.
+      if (en.def === SHADE_ID) this.dressShade(s, world, pose.frame);
       if (en.hurtT > 0) s.mat.uniforms.uTint.value.set(1, 0.95, 0.9, Math.min(0.8, en.hurtT * 3));
-      // Your Shade: a pale, cold wash so it never reads as an ordinary knight.
-      else if (en.def === SHADE_ID && en.ai !== 'dead' && en.ai !== 'windup') s.mat.uniforms.uTint.value.set(0.6, 0.72, 1, 0.45 + 0.08 * Math.sin(this.time * 2));
       else if (en.ai === 'windup' || (en.grabT ?? 0) > 0) {
         // The wind-up glows in the colour of the move being thrown, and the
         // glow deepens as it gathers: which attack is coming, and how soon,
@@ -679,7 +705,7 @@ export class DungeonRenderer {
       const wx = tileX(pr.x), wz = tileZ(pr.y);
       switch (pr.kind) {
         case 'chest':
-          this.place(s, pr.smashed ? 'chest_broken' : pr.used ? 'chest_open' : pr.mimic ? 'chest_mimic' : 'chest', wx, 0, wz, 1.5);
+          this.place(s, pr.smashed ? 'chest_broken' : pr.used ? 'chest_open' : pr.mimic ? this.mimicChest(pr.x, pr.y) : 'chest', wx, 0, wz, 1.5);
           break;
         case 'icicle': {
           const c = pr.ceiling;
