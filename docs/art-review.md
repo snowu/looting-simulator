@@ -46,17 +46,33 @@ is the same judgement applied to the new art.
 | 5 | 7 | Bones, dropped gold | Sticks and a yellow triangle. → Remains lying on the floor; a coin stack beside a heap. |
 | 6 | 7 | Burrows and Sporegrove walls | One texture stamped down every corridor. → Five-way variant mixes like the Frost Vault's: new stones and claw-gouge faces for the Burrows, moss and bracket-fungus faces for the Sporegrove (fungus kept rare, about 1 face in 8). |
 
+## Reworked, round 3
+
+Re-scored against the bar the round-1 creatures set; a few sprites dropped a
+point on a second look.
+
+| Before | After | Sprite | What was wrong → what changed |
+|---|---|---|---|
+| 5 | 7 | Giant rat, Hoarder (`rat_*`, `hoarder_*`) | A wide face with no body: no tail, and ears lost in the outline. → Crouched, with the back humped behind a low head, round pink-lined ears, big eyes, whiskers, clawed paws and a bare tail curling out to one side. The bite opens across the whole snout. The Hoarder's sack rides on the hump. |
+| 5 | 7 | Broken urn | A brown smear. → The lower half still standing, with big jagged shards for a rim, the dark hollow showing, and shards on the floor. |
+| 5 | 7 | Iron door (and the locked and fog doors built on it) | Six grey panels that read as a wall plate. → A frame, plates, straps that run into hinges, a spy-grille, a pull ring and rust. The centre stays plain for the lock. |
+| 4 | 6 | Big Toe icon and viewmodel | A lilac teardrop that floated above the hand. → Squat and bulbous, with the nail set below a cap of skin and knuckle creases. The stump is bound in cloth down into the fist. It still takes its material's colour (lilac in troll hide). |
+| 5 | 6 | Sporegrove floor | The same puddled tile everywhere. → Five-way mix: mostly puddles, some bare earth, now and then a mossy tile with glowing sprouts. |
+
+**Tried and dropped:** a timbered mine ceiling. The beams were removed on
+purpose on 2026-09-13 (a beam over the player at every tile boundary), and a
+test keeps them out. A rebuilt `DIRT_ROWS` was also dropped: it was busier
+than the original but blotchier, not better.
+
 ## Not reworked yet, lowest first
 
 | Score | Sprite | Note |
 |---|---|---|
-| 5 | Big toe icon | Reads as a lilac blob. |
-| 5 | Urn (broken) | Fine intact; the broken one is a brown smear. |
-| 5 | Floor: sunken/sporegrove (`floor_cave`) | Puddles are good; the dirt under them is flat. |
-| 6 | Iron door | Fine, but plain next to the wood door. |
+| 5 | Mine and cave dirt (`DIRT_ROWS`) | Plain, but clean; a rebuild was busier, not better. |
 | 6 | Bare fist viewmodel (`vm_fist`) | Up close it holds up better than the sheet suggests. |
 | 6 | Bog Seraph | Striking, but too busy to read at range. |
-| 6 | Delver mole, Hoarder, Spore hunter, Giant rat, Gravecaller | Solid; small readability wins possible. |
+| 6 | Delver mole, Spore hunter, Gravecaller, root cache, broken chest, mound | Solid; small readability wins possible. |
+| 6 | Mines ceiling | Plain rubble; beams were rejected (see round 3). |
 | 6 | Secret wall marks, town portal, projectiles | Subtle by design; fine. |
 | 7 | Skeleton family (skeleton, archer, shieldguard, drowned, scorched, rimebound, cinder guard, ice guard, barrow champion) | Consistent and readable; the elemental skins are good. |
 | 7 | Goblins (cutpurse, archer, shieldbearer, glacier, quartermaster) | Good faces, good silhouettes. |
@@ -79,4 +95,4 @@ sprites stamp onto a redrawn base (the stalker crest, the emberback shell, the
 knight's shield and sword) were checked and moved where they needed to.
 
 Before/after sheets are in `docs/previews/art-rework/` (round 1) and
-`docs/previews/art-rework-2/` (round 2).
+`docs/previews/art-rework-2/` (round 2), and `docs/previews/art-rework-3/` (round 3).

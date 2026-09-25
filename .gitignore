@@ -14,3 +14,6 @@ scripts/inject-forge-test-save.js
 playtest-report.txt
 balance-tables.txt
 trace.txt
+
+# Python bytecode from scripts/pixel_painter.py
+__pycache__/

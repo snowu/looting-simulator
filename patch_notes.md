@@ -1,3 +1,19 @@
+# Art round three: rats, doors, the Big Toe
+
+*Save revision 29, unchanged: nothing about a save moves.*
+
+**Giant rats look like rats.** They used to be a wide face with nothing behind it. A rat now crouches with its back humped up behind a low head. It has round pink ears, big red eyes, whiskers, clawed paws and a bare tail curling out to one side. When it bites, its jaws open across the whole snout. The Hoarder carries its sack on that humped back.
+
+**Iron doors look like doors.** They were six grey panels you could mistake for a wall. An iron door now has a frame, riveted straps that end in hinges, a barred spy-hole, a pull ring and some rust. This changes every iron door, including the locked ones and the Ashen Throne's fog gate.
+
+**The Big Toe has a nail and a handle.** The toe was a lilac blob that floated above your fist. Now it is a squat, fat toe with a nail and knuckle creases, and its stump is wrapped in cloth that runs down into your hand. It still takes on the colour of what it's made from.
+
+**Smaller things.** A smashed urn leaves its bottom half standing, with a jagged rim and shards on the floor. In the Sporegrove, the puddled floor is now broken up by patches of bare earth and, here and there, moss with small glowing sprouts.
+
+Validation: all tests pass, and the shipped PNGs are regenerated from the art code (`npm run art:check` is clean). The Big Toe was checked in its troll-hide colouring, and the rat against the old sprite side by side. Not checked in the 3D view this round.
+
+---
+
 # More new art: traps, ghouls, bats, the throne floor, and busier walls
 
 *Save revision 29, unchanged: nothing about a save moves.*
