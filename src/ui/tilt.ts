@@ -54,13 +54,33 @@ export function tiltDir(roll: number, current: TiltDir | null, sensitivity: Tilt
   return mag >= on ? side : null;
 }
 
+/**
+ * Which way the screen is turned, trusting nothing that disagrees with the
+ * window's own shape. If a browser reports 0° while the page is plainly
+ * landscape, the axis this reads as "roll" is really the phone's lean towards
+ * your face, and a normal grip turns into a strafe that never stops. So: the
+ * standard angle if it matches the shape, else the older iOS value if that
+ * does, else a guess of 90° for landscape and 0° for portrait. Pure, tested.
+ */
+export function resolveScreenAngle(reported: number | undefined, legacy: number | undefined, landscape: boolean): number {
+  const fits = (a: number) => (a % 180 === 90) === landscape;
+  const norm = (a: number) => ((Math.round(a / 90) * 90) % 360 + 360) % 360;
+  if (typeof reported === 'number' && fits(norm(reported))) return norm(reported);
+  if (typeof legacy === 'number' && fits(norm(legacy))) return norm(legacy);
+  return landscape ? 90 : 0;
+}
+
 function screenAngle(): number {
-  const a = screen.orientation?.angle;
-  if (typeof a === 'number') return a;
   // Older iOS: window.orientation is 0, 90, -90 or 180.
   const legacy = (window as { orientation?: number }).orientation;
-  return typeof legacy === 'number' ? (legacy + 360) % 360 : 0;
+  return resolveScreenAngle(screen.orientation?.angle, legacy, innerWidth > innerHeight);
 }
+
+/** How far a recentre may move "level": past this, the grip is not a grip. */
+const RECENTER_MAX_DEG = 30;
+
+/** What the sensor says right now, for the live readout in Settings. */
+export const tiltReading = { roll: 0, angle: 0, neutral: 0, seen: false };
 
 type PermissionedOrientation = typeof DeviceOrientationEvent & { requestPermission?: () => Promise<'granted' | 'denied'> };
 
@@ -90,10 +110,36 @@ export class TiltStrafe {
   dir: TiltDir | null = null;
   sensitivity: TiltSensitivity = 'medium';
   private on = false;
+  /** The roll that counts as level: the phone as you hold it, not as the sensor thinks flat is. */
+  private neutral = 0;
+  private raw: number | null = null;
+  private recenterNext = false;
   private readonly listener = (e: DeviceOrientationEvent) => {
     if (e.beta === null || e.gamma === null) return;
-    this.dir = tiltDir(tiltRoll(e.beta, e.gamma, screenAngle()), this.dir, this.sensitivity);
+    const angle = screenAngle();
+    this.raw = tiltRoll(e.beta, e.gamma, angle);
+    if (this.recenterNext) {
+      this.recenterNext = false;
+      this.neutral = Math.max(-RECENTER_MAX_DEG, Math.min(RECENTER_MAX_DEG, this.raw));
+    }
+    const roll = this.raw - this.neutral;
+    Object.assign(tiltReading, { roll, angle, neutral: this.neutral, seen: true });
+    this.dir = tiltDir(roll, this.dir, this.sensitivity);
   };
+
+  /**
+   * Take the phone's current roll as level. Called as a delve starts and
+   * whenever play resumes from a pause, so however you settle the phone in
+   * your hands is where it rests. With no reading yet, the next one is used.
+   */
+  recenter(): void {
+    this.dir = null;
+    if (this.raw === null) {
+      this.recenterNext = true;
+      return;
+    }
+    this.neutral = Math.max(-RECENTER_MAX_DEG, Math.min(RECENTER_MAX_DEG, this.raw));
+  }
 
   get enabled(): boolean {
     return this.on;
@@ -103,6 +149,9 @@ export class TiltStrafe {
     if (v === this.on) return;
     this.on = v;
     this.dir = null;
+    this.raw = null;
+    this.recenterNext = true;
+    tiltReading.seen = false;
     if (v) window.addEventListener('deviceorientation', this.listener);
     else window.removeEventListener('deviceorientation', this.listener);
   }

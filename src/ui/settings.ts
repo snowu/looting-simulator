@@ -4,7 +4,7 @@ import { audio } from '../audio/sfx';
 import { BRIGHTNESS_MAX, BRIGHTNESS_MIN, applyBrightnessGain, brightness, brightnessToPercent, percentToBrightness } from '../render/brightness';
 import { artImg, btn, closeOverlays, h, isTouchMode, mountOverlay } from './dom';
 import { TouchPrefs, touchPrefs } from './touch-prefs';
-import { TILT_THRESHOLDS, requestTilt } from './tilt';
+import { TILT_THRESHOLDS, requestTilt, tiltReading } from './tilt';
 import { BugReportCtx, bugReportPanel } from './bug-report';
 
 /**
@@ -34,6 +34,8 @@ export interface SettingsCtx {
   showDifficulty?: boolean;
   /** Where "Report a bug" gets its facts and screenshot. Absent hides the button. */
   report?: Pick<BugReportCtx, 'source' | 'screenshot' | 'direct'>;
+  /** Back to the title screen and its save slots. Absent (on the title itself) hides the button. */
+  mainMenu?: { go: () => void; note: string };
 }
 
 /** What a save can be switched between in town. Hardcore is chosen at creation only. */
@@ -301,8 +303,36 @@ export function openSettings(ctx: SettingsCtx): void {
             b.title = { low: 'A big lean', medium: 'A moderate lean', high: 'A slight lean' }[k];
             return b;
           }),
-        )] : []),
+        ), tiltLive()] : []),
       );
+    }
+    /**
+     * What the sensor reads right now, relative to level (your grip when
+     * play last resumed). If tilt ever moves you on its own, this says
+     * whether the phone thinks it is rolled, and which way the screen is.
+     */
+    function tiltLive(): HTMLElement {
+      const el = h('div', { class: 'dim small tilt-live' });
+      let shown = false;
+      const tick = () => {
+        // Stop once the panel has been shown and then closed or redrawn.
+        if (!el.isConnected) {
+          if (shown) clearInterval(timer);
+          return;
+        }
+        shown = true;
+        const r = tiltReading;
+        if (!r.seen) {
+          el.textContent = 'Tilt: no reading yet. Move the phone a little.';
+          return;
+        }
+        const need = TILT_THRESHOLDS[touchPrefs.get().tiltSensitivity].on;
+        const deg = Math.round(Math.abs(r.roll));
+        const side = deg === 0 ? 'level' : `${deg}° ${r.roll > 0 ? 'right' : 'left'}`;
+        el.textContent = `Tilt now: ${side} (moves you at ${need}°) · screen ${r.angle}° · level set at ${Math.round(r.neutral)}°`;
+      };
+      const timer = window.setInterval(tick, 200);
+      return el;
     }
     paint();
     return h(
@@ -324,6 +354,8 @@ export function openSettings(ctx: SettingsCtx): void {
       'div',
       { class: 'row' },
       h('h2', { class: 'grow', text: 'Settings' }),
+      // In the header, not at the foot of a panel that scrolls on a phone.
+      ...(ctx.mainMenu ? [mainMenuButton(ctx.mainMenu)] : []),
       btn('Close', () => closeSettings(), 'small'),
     ),
     ...(showDifficulty ? [difficultyBox] : []),
@@ -353,6 +385,15 @@ export function openSettings(ctx: SettingsCtx): void {
   wrap.append(modal);
   mountOverlay(wrap, closeSettings, ctx.onClose);
   if (showDifficulty) renderDifficulty();
+}
+
+function mainMenuButton(m: NonNullable<SettingsCtx['mainMenu']>): HTMLButtonElement {
+  const b = btn('Main menu', () => {
+    closeSettings();
+    m.go();
+  }, 'small');
+  b.title = m.note;
+  return b;
 }
 
 export function closeSettings(): void {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TILT_THRESHOLDS, tiltDir, tiltRoll } from '../ui/tilt';
+import { TILT_THRESHOLDS, resolveScreenAngle, tiltDir, tiltRoll } from '../ui/tilt';
 import { sideMove } from '../ui/touch-prefs';
 
 const { on: TILT_ON_DEG, off: TILT_OFF_DEG } = TILT_THRESHOLDS.medium;
@@ -60,5 +60,28 @@ describe('side moves', () => {
   it('swapped, the pad strafes and the extras turn', () => {
     expect(sideMove('left', 'pad', 'strafe')).toBe('left');
     expect(sideMove('right', 'extra', 'strafe')).toBe('turnRight');
+  });
+});
+
+describe('which way the screen is turned', () => {
+  it('trusts the reported angle when it matches the window', () => {
+    expect(resolveScreenAngle(90, undefined, true)).toBe(90);
+    expect(resolveScreenAngle(270, undefined, true)).toBe(270);
+    expect(resolveScreenAngle(0, undefined, false)).toBe(0);
+  });
+
+  it('refuses a portrait angle on a landscape page, and falls back to the older iOS value', () => {
+    expect(resolveScreenAngle(0, -90, true)).toBe(270);
+    expect(resolveScreenAngle(0, 90, true)).toBe(90);
+    expect(resolveScreenAngle(0, undefined, true)).toBe(90);
+    expect(resolveScreenAngle(undefined, undefined, false)).toBe(0);
+  });
+
+  it('that misread is what made a normal grip strafe forever', () => {
+    // Landscape, leaned back 60° towards your face, not rolled at all.
+    const misread = tiltRoll(0, -60, 0);
+    const fixed = tiltRoll(0, -60, resolveScreenAngle(0, undefined, true));
+    expect(Math.abs(misread)).toBeGreaterThan(TILT_THRESHOLDS.low.on);
+    expect(fixed).toBeCloseTo(0, 6);
   });
 });
