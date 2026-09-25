@@ -115,6 +115,8 @@ export const BIOMES: BiomeDef[] = [
     // Plain rock most of the time; moss is common, crystal and fungus shelves
     // rare enough that two shelf faces seldom sit side by side.
     wallVariants: ['wall_cave', 'wall_cave', 'wall_cave', 'wall_cave', 'wall_cave_b', 'wall_cave_moss', 'wall_cave_moss', 'wall_cave_shelf'],
+    // Mostly the puddled floor; bare earth and a mossy patch break it up.
+    floorVariants: ['floor_cave', 'floor_cave', 'floor_cave', 'floor_cave_dirt', 'floor_cave_moss'],
     floor: 'floor_cave', ceiling: 'ceil_cave', door: 'door_wood',
     fog: '#071007', ambient: '#293c22', torch: '#b8dc78', torchDensity: 0.025,
     glow: { color: '#9acf65', density: 0.085, sprite: 'fungus' },

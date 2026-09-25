@@ -19,6 +19,9 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 const SKIP = {
   'cd4a45c': 'PR screenshots only',
   '1c5613a': 'PR screenshots only',
+  'aa2418f': 'art handoff doc and pixel painter script; no player-facing change',
+  '334f72d': 'handoff doc wording and a .gitignore line; no player-facing change',
+  '1c3c74c': 'round-3 art review notes, PR before/after sheets and patch_notes.md text; the art is Patch 85',
   '3b18234': 'PR preview image only',
   '0160bb4': 'PR preview image only',
   '1a09092': 'README screenshots and a Patch 81 citation only',
