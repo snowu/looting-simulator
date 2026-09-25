@@ -102,11 +102,8 @@ const CHEST_MIMIC_IN = stamp(sym([
 // Awake, the chest is all mouth. The lid is the upper jaw and the box's rim
 // the lower, both lined with uneven fangs (one of them gold), round a throat
 // that glows a dull red. A fat tongue lolls over the rim beside the lock. It
-// stands on four jointed legs, the outer pair kinked out past the box like a
-// spider's. On the attack the lid gapes higher, the fangs lengthen and the
+// crouches on four short jointed legs, knees out like a crab's. On the attack the lid gapes higher, the fangs lengthen and the
 // tongue lashes down to the floor. No eyes: nothing to it is a face.
-// Four rows taller than the chest, to stand on its legs; the enemy's scale
-// makes up for it, so the box is still a chest's size.
 const MIMIC_PAL = {
   ...CHEST_PAL,
   u: '#8a7c5a', p: '#c05868', o: '#5e1628', M: '#3a0a10', L: '#3a2622', l: '#6a4a40',
@@ -138,16 +135,12 @@ const MIMIC_IDLE = rows(`
   ..kiiniiiiikpkiiiiiiiiiiiiniik..
   ..kyyyyyyyykkkyyyyyyyyyyyyyyyk..
   ..kkkkkkkkkkkkkkkkkkkkkkkkkkkk..
-  ...klLk..klLk......kLlk..kLlk...
   ..klLk...klLk......kLlk...kLlk..
   .klLk....klLk......kLlk....kLlk.
-  .kllk...kllLk......kLllk...kllk.
-  .klLk...klLk........kLlk...kLlk.
-  .klLk...klLk........kLlk...kLlk.
-  .klLk...klLk........kLlk...kLlk.
-  .klLk...klLk........kLlk...kLlk.
-  ktuttk.ktuttk......kttutk.kttutk
-  .kkkk...kkkk........kkkk...kkkk.
+  klLk....klLk........kLlk....kLlk
+  klLk....klLk........kLlk....kLlk
+  ktutk..ktutk........ktutk..ktutk
+  .kkk....kkk..........kkk....kkk.
 `);
 const MIMIC_ATK = rows(`
   ....kkkkkkkkkkkkkkkkkkkkkkkk....
@@ -176,16 +169,12 @@ const MIMIC_ATK = rows(`
   ..kiiniiiiikpmmomkiiiiiiiiniik..
   ..kyyyyyyyykpmomkyyyyyyyyyyyyk..
   ..kkkkkkkkkkkpmomkkkkkkkkkkkkk..
-  ...klLk..klLkpmomk.kLlk..kLlk...
-  ..klLk...klLkkpmomkkLlk...kLlk..
-  .klLk....klLkkpmok.kLlk....kLlk.
-  .kllk...kllLk.kpmokkLllk...kllk.
-  .klLk...klLk..kpmok.kLlk...kLlk.
-  .klLk...klLk..kpmmk.kLlk...kLlk.
-  .klLk...klLk....kk..kLlk...kLlk.
-  .klLk...klLk....kk..kLlk...kLlk.
-  ktuttk.ktuttk......kttutk.kttutk
-  .kkkk...kkkk........kkkk...kkkk.
+  ..klLk...klLkpmomk.kLlk...kLlk..
+  .klLk....klLkkpmomkkLlk....kLlk.
+  klLk....klLk.kpmok..kLlk....kLlk
+  klLk....klLk..kpmok.kLlk....kLlk
+  ktutk..ktutk..kpmok.ktutk..ktutk
+  .kkk....kkk...kpmmk..kkk....kkk.
 `);
 
 const URN = sym(rows(`

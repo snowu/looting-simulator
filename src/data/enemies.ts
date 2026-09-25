@@ -388,7 +388,7 @@ export const ENEMIES: EnemyDef[] = [
     description: 'Someone burned down here once. They never stopped.',
   },
   {
-    id: 'mimic', name: 'Mimic', sprite: 'mimic', scale: 0.9,
+    id: 'mimic', name: 'Mimic', sprite: 'mimic', scale: 0.85,
     hp: 58, attack: 17, defense: 8, damageType: 'pierce', resist: { blunt: 1.25, pierce: 1.1, fire: 1.35 },
     behavior: 'melee', moves: MOVE_SETS.frenzied, step: 0.32, windup: 0.52, recovery: 0.8, sight: 8,
     minDepth: 1, maxDepth: 6, weight: 0,
