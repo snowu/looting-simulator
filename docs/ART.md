@@ -14,10 +14,10 @@ Last updated 2026-09-25, after four rounds.
 | 1 | #51 | merged | Pasture herd, spider family, ceilings and crypt floor, catacombs water, the five shrines, barrel, fungus, sconce, loot bag, knight helm, club icon |
 | 2 | #52 | merged | Traps, ghoul/slagborn/wretch heads, bats, throne floor, robe and hide icons, bones, gold pile, Burrows and Sporegrove wall variants (plus review fixes) |
 | 3 | #59 | **open** | Giant rat and Hoarder, iron door (and the locked and fog doors built on it), Big Toe icon and viewmodel, broken urn, Sporegrove floor variants. Takes **Patch 85**. |
-| 4 | branch `claude/open-pr-art-changes-c52ft2` | **open** | Bog Seraph, Delver mole and Spore hunter tells, Mines and Ossuary floor variants. Proposals for the chest, the mimic tell and the mine ceiling. Takes **Patch 86**. Built on round 3. |
+| 4 | #63 | **open** | Bog Seraph, Delver mole and Spore hunter tells, Mines and Ossuary floor variants. Proposals for the chest, the mimic tell and the mine ceiling. Takes **Patch 86**. Built on round 3. |
 
 This file arrived with #59. If you are reading it on master, round 3 is
-merged. Round 4 is stacked on round 3, so merge #59 first. Check the patch
+merged. Round 4 (#63) is stacked on round 3 and carries its commits: merge #59 first, or merge #63 and close #59. Check the patch
 numbers too: other agents may have claimed 85 or 86 in the meantime.
 
 ## How sprites are scored
