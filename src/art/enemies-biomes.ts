@@ -94,11 +94,11 @@ const moleHalf = rows(`
   ...kbbbccckkbbpp
   ...kbbbcckwwkppp
   ..kbbbbccckkpppp
-  ..kbbbbccccbpppp
-  .kbbbbbbccccbppp
-  .kbbbbbbcccccbkk
-  .kbbbbbcccccccbb
-  kbbbbcccccccccbb
+  ..kbbbbcccckpppp
+  .kbbbbbbccckppap
+  .kbbbbbbccckpppp
+  .kbbbbbccccckkkk
+  kbbbbccccccccckw
   kbbbccccccccbbbb
   kbbbcccccccbbbbb
   kbbbccccccbbbbbb
@@ -111,18 +111,28 @@ const moleHalf = rows(`
   ....kwwkwwkkkwww
   ....kkkkkkkkkkkk
 `);
+// Big digging hands: five long pale talons, the tell for the swipe.
 const claw = rows(`
-  ..kkbbkk..
-  .kbbbbbbk.
-  kbbccccbbk
-  kcccccccck
-  .kcccccck.
-  kwkwkwkwk.
-  kwkwkwkwk.
-  .w.w.w.w..
-  .w.w.w.w..
+  ..kkbbbbkk..
+  .kbbbbbbbbk.
+  kbbccccccbbk
+  kcccccccccck
+  .kcccccccck.
+  kwkwkwkwkwk.
+  kwkwkwkwkwk.
+  kwkwkwkwkwk.
+  .w.w.w.w.w..
+  .w.w.w.w.w..
+  ..w.w.w.w.w.
 `);
-const molePal = { k: '#201712', a: '#423024', b: '#66503b', c: '#937455', p: '#c58b80', w: '#ede0bd' };
+// The bite under the snout when it lunges.
+const moleMouth = rows(`
+  kkkkkk
+  kwmmwk
+  kmmmmk
+  .kmmk.
+`);
+const molePal = { k: '#201712', a: '#423024', b: '#66503b', c: '#937455', p: '#c58b80', w: '#ede0bd', m: '#4a1410' };
 const body = sym(moleHalf);
 const raisedArms = Array.from({ length: 32 }, (_, y) => {
   const row = Array.from('.'.repeat(32));
@@ -137,7 +147,7 @@ export const ENEMY_ART_BIOMES: ArtDef[] = [
     const source = originals.find((a) => a.id === `${prefixes[variant.base]}_${pose}`)!;
     return themed(source, variant, pose);
   })),
-  { id: 'mole_0', palette: molePal, rows: stamp(stamp(body, claw, 1, 22), claw, 21, 22) },
-  { id: 'mole_block', palette: molePal, rows: stamp(stamp(body, claw, 6, 12), claw, 16, 12) },
-  { id: 'mole_atk', palette: molePal, rows: stamp(stamp(stamp(body, raisedArms), claw, 0, 3), claw, 22, 3) },
+  { id: 'mole_0', palette: molePal, rows: stamp(stamp(body, claw, 0, 21), claw, 20, 21) },
+  { id: 'mole_block', palette: molePal, rows: stamp(stamp(body, claw, 5, 12), claw, 15, 12) },
+  { id: 'mole_atk', palette: molePal, rows: stamp(stamp(stamp(stamp(body, raisedArms), moleMouth, 13, 19), claw, 0, 2), claw, 20, 2) },
 ];
