@@ -4,6 +4,8 @@
 
 **The Bog Seraph looks like what it is.** It used to be a frog lost in a spatter of red dots. Now it's a frog seen from below, spread-eagled like an icon: a pale belly, arms thrown up and out, long legs bent out to webbed feet. It hangs inside a bone-gold halo, and feathers fan out through the ring, each with an eye near its tip. When it attacks, the halo flares white, every eye opens red and its throat swells.
 
+**Your Shade looks like you, gone dark.** It used to borrow the Hollow Knight, washed pale blue, so it read as one more knight. Now it's a figure of its own: a faceless shape with two cold eyes, smoke coming off its edges, and its legs fading to nothing below the knee. It holds the weapon and shield you have equipped, in their materials. They are the only clear things about it, and no torch lights up the rest.
+
 **Delver moles and Spore hunters warn you.** A mole has a proper pink snout with buck teeth and three big claws on each hand, and its mouth opens under the snout when it lunges. A Spore hunter keeps its tongue tucked in until it strikes. Then its gills flare and glowing spores puff out on either side.
 
 **Materials look like what they are.** In your pack, copper and iron ore are now chunks of rock with the metal showing through, and a gold nugget is a lump of raw gold. They used to look like smelted bars. Ingots are heavy bars with a maker's stamp. Planks come bundled and tied with cord, and cloth is a folded length with its loose end hanging down. Bones are knobbed at both ends, and a dragon scale is one big pointed scale.
@@ -14,7 +16,7 @@
 
 **Floors with something on them.** In the Ossuary, about one tile in eight is now a grave lid with a cross cut into it, or an iron drain grate. In the Deep Mines, you'll see spoil with copper in it about as often, and now and then a pick somebody dropped.
 
-Validation: all tests pass, and the shipped PNGs are regenerated from the art code (`npm run art:check` is clean). The Seraph, the Spore hunter and the rat were checked in the 3D lab from three tiles away, and so were the new floors. The floors' first draft vanished into the dark there, so their contrast was raised.
+Validation: all tests pass, and the shipped PNGs are regenerated from the art code (`npm run art:check` is clean). The Seraph, the Spore hunter, the rat and your Shade were checked in the 3D lab from three tiles away, and so were the new floors. The floors' first draft vanished into the dark there, so their contrast was raised.
 
 ---
 

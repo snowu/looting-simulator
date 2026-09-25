@@ -49,7 +49,7 @@ Everything not listed here scored 7 or better after a rework.
 | 6 | Big Toe (round 3) | Much better, but still a joke weapon drawn straight. A second pass could add a hair or two and a better stump. |
 | 7 | Skeleton family, goblins, archers, flame wraith, mimic, chests, most walls, wood and iron doors, viewmodels, gear, material and consumable icons | Good. Leave them unless something new sets a higher bar. |
 | 7 | Round-1/2 redraws: herd, spiders, shrines, traps, ghouls, bats, props | Good. The owner liked the ghouls and the moss most. |
-| 7 | Round-4 redraws: Bog Seraph, Delver mole, Spore hunter, Ossuary floor variants, material icons (ore, nugget, ingot, plank, cloth, bone, scale), consumable icons (one per potion and scroll) | Checked in the 3D lab from three tiles away (`docs/previews/art-rework-4/5-creatures-3d.png`, `6-floors-3d.png`). The mole was only seen in its block pose there. |
+| 7 | Round-4 redraws: Bog Seraph, Delver mole, Spore hunter, your Shade, Ossuary floor variants, material icons (ore, nugget, ingot, plank, cloth, bone, scale), consumable icons (one per potion and scroll) | Checked in the 3D lab from three tiles away (`docs/previews/art-rework-4/5-creatures-3d.png`, `6-floors-3d.png`). The mole was only seen in its block pose there. |
 | 8 | Emberworks surfaces, wisps, the Ashen King | The reference set. |
 
 ## Open proposals
@@ -215,6 +215,11 @@ From reviews of rounds 1–2:
   and the mimic share rows.
 - **Shrines share one plinth and a per-god colour.** The colour is the tell
   from across a room, and the object on top is the tell up close.
+- **Your Shade is dressed at draw time.** `shade_0`/`shade_atk` are a bare
+  dark body; `src/render/shade.ts` composites the equipped weapon and shield
+  icons into its hands (`SHADE_HANDS`, grip found from the icon). If a body
+  frame is redrawn, move the hand anchors with it. The body is emissive on
+  purpose, so torches and its own glow never lift it; don't put a tint back.
 - **Overlays stamp onto base sprites** at fixed coordinates: the stalker
   crest and the emberback shell on the spider, the Hoarder's sack on the rat,
   the knight's shield and sword, the ghoul's elemental chest plates, the lock
