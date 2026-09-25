@@ -4,7 +4,7 @@
 
 **The Bog Seraph looks like what it is.** It used to be a frog lost in a spatter of red dots. Now it's a frog seen from below, spread-eagled like an icon: a pale belly, arms thrown up and out, long legs bent out to webbed feet. It hangs inside a bone-gold halo, and feathers fan out through the ring, each with an eye near its tip. When it attacks, the halo flares white, every eye opens red and its throat swells.
 
-**Delver moles and Spore hunters warn you.** A mole has a proper pink snout with buck teeth and three big claws on each hand, and its mouth opens under the snout when it lunges. A Spore hunter keeps its tongue tucked in until it strikes. Then its gills flare and glowing spores puff out on either side.
+**Delver moles warn you, and Spore hunters look the part.** A mole has a proper pink snout with buck teeth and three big claws on each hand, and its mouth opens under the snout when it lunges. A Spore hunter is now a little mushroom with a big red spotted cap and a face on its stalk: round eyes, rosy cheeks, a small smile. It's cute until it hops at you. Then the brows come down, its mouth gapes with the tongue out, and glowing spores puff from under its cap.
 
 **Materials look like what they are.** In your pack, copper and iron ore are now chunks of rock with the metal showing through, and a gold nugget is a lump of raw gold. They used to look like smelted bars. Ingots are heavy bars with a maker's stamp. Planks come bundled and tied with cord, and cloth is a folded length with its loose end hanging down. Bones are knobbed at both ends, and a dragon scale is one big pointed scale.
 
