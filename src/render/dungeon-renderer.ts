@@ -19,9 +19,10 @@ import type { EnemyDef } from '../types';
 import { itemIcon } from '../systems/items';
 import { lightIntensity } from '../systems/meta';
 import { World } from '../world/world';
-import { artSize, artTexture } from './art-cache';
+import { artSize, artTexture, rasterTexture } from './art-cache';
+import { HeldIcon, composeShade, shadeFrame, shadeKey } from './shade';
 import { getArt } from '../art/registry';
-import { enemyPose } from './enemy-pose';
+import { EnemyFrame, enemyPose } from './enemy-pose';
 import { moveById } from '../data/attacks';
 import { quirkDef } from '../data/quirks';
 import { LevelView, TILE, WALL_H, buildLevel, tileX, tileZ } from './level-mesh';
@@ -287,6 +288,16 @@ export class DungeonRenderer {
     s.mesh.position.set(x, y + height / 2, z);
     s.mesh.rotation.set(0, this.camera.rotation.y, 0);
     s.mat.uniforms.uTint.value.set(0, 0, 0, 0);
+  }
+
+  /** Swap a placed Shade's texture for its body holding your equipped weapon and shield. */
+  private dressShade(s: SpriteObj, world: World, frame: EnemyFrame): void {
+    const eq = world.state.equipment;
+    const held = (it: typeof eq.weapon): HeldIcon | undefined => (it ? itemIcon(it) : undefined);
+    const f = shadeFrame(frame);
+    const weapon = held(eq.weapon), shield = held(eq.offhand);
+    const tex = rasterTexture(shadeKey(f, weapon, shield), () => composeShade(f, weapon, shield));
+    if (s.mat.uniforms.map.value !== tex) s.mat.uniforms.map.value = tex;
   }
 
   /** Lay a sprite flat on the floor as a decal, one tile wide. */
@@ -610,9 +621,11 @@ export class DungeonRenderer {
       // A called corpse lies at the floor and is drawn up as the chant runs.
       if (en.ai === 'dead') y -= call !== undefined ? (1 - call) * 1.2 : (fused ? Math.min(en.deadT, 0.3) : en.deadT) * 1.4;
       this.place(s, `${def.sprite}_${pose.frame}`, wx, y, wz, height);
+      // Your Shade holds what you hold: your weapon and shield, in their materials.
+      // No wash over it any more: the body is its own tell, and a tint would
+      // only lift the dark and muddy the kit.
+      if (en.def === SHADE_ID) this.dressShade(s, world, pose.frame);
       if (en.hurtT > 0) s.mat.uniforms.uTint.value.set(1, 0.95, 0.9, Math.min(0.8, en.hurtT * 3));
-      // Your Shade: a pale, cold wash so it never reads as an ordinary knight.
-      else if (en.def === SHADE_ID && en.ai !== 'dead' && en.ai !== 'windup') s.mat.uniforms.uTint.value.set(0.6, 0.72, 1, 0.45 + 0.08 * Math.sin(this.time * 2));
       else if (en.ai === 'windup' || (en.grabT ?? 0) > 0) {
         // The wind-up glows in the colour of the move being thrown, and the
         // glow deepens as it gathers: which attack is coming, and how soon,

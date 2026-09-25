@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { ALL_ART, getArt } from '../art/registry';
-import { Ramp, rasterize } from '../art/raster';
+import { Ramp, Raster, rasterize } from '../art/raster';
 import { recolorIcon } from './recolor-icon';
 import { BUILD_ID, versionedAssetUrl } from '../ui/update';
 import { decodeArtPack, isArtPack } from './art-pack';
@@ -149,6 +149,28 @@ export function artTexture(id: string, ramp?: Ramp): THREE.Texture {
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.RepeatWrapping;
   // Lighting is done in gamma space, PS1-style: keep texels raw.
+  tex.colorSpace = THREE.NoColorSpace;
+  tex.premultiplyAlpha = false;
+  textures.set(key, tex);
+  return tex;
+}
+
+/**
+ * A texture for pixels built at runtime rather than drawn as an art id, such
+ * as your Shade holding your kit (`shade.ts`). Built once per key.
+ */
+export function rasterTexture(key: string, build: () => Raster): THREE.Texture {
+  const hit = textures.get(key);
+  if (hit) return hit;
+  const r = build();
+  const canvas = document.createElement('canvas');
+  canvas.width = r.w;
+  canvas.height = r.h;
+  canvas.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(r.data), r.w, r.h), 0, 0);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.magFilter = THREE.NearestFilter;
+  tex.minFilter = THREE.NearestFilter;
+  tex.generateMipmaps = false;
   tex.colorSpace = THREE.NoColorSpace;
   tex.premultiplyAlpha = false;
   textures.set(key, tex);
