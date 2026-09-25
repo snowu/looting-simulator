@@ -17,6 +17,7 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 
 // Commits that must never become patch notes. Short hash -> reason.
 const SKIP = {
+  '06d1fe7': 'handoff doc PR number only',
   'f3b03b5': 'Patch 86 citation of the floor contrast fix only',
   'da516da': 'round-4 3D lab screenshots, handoff doc and patch_notes.md wording; the art is Patch 86',
   'd87e2c8': 'round-4 art review notes, handoff doc, PR before/after sheets and proposal sheets, patch_notes.md text; the art is Patch 86',
