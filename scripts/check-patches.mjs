@@ -17,6 +17,7 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 
 // Commits that must never become patch notes. Short hash -> reason.
 const SKIP = {
+  'cd4a45c': 'PR screenshots only',
   '1c5613a': 'PR screenshots only',
   '3b18234': 'PR preview image only',
   '0160bb4': 'PR preview image only',
