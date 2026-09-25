@@ -27,7 +27,7 @@ import { TiltStrafe, requestTilt, tiltNeedsPermission } from './ui/tilt';
 import { OrientationGate, landscapeNow } from './ui/orientation-gate';
 import { GamepadController, type PadContext } from './ui/gamepad';
 import { FULLSCREEN_HELP, fullscreenSupported, isFullscreen, isStandalone, lockLandscape, mountFullscreenButton, wasButtonExit } from './ui/fullscreen';
-import { APP_VERSION, BUILD_ID, newerBuild, reloadToLatest, shouldAttemptReload } from './ui/update';
+import { APP_VERSION, BUILD_ID, markResumeAfterUpdate, newerBuild, reloadToLatest, shouldAttemptReload, takeResumeAfterUpdate } from './ui/update';
 import { btn } from './ui/dom';
 import { audio } from './audio/sfx';
 import { closeSettings, isSettingsOpen, openSettings } from './ui/settings';
@@ -320,8 +320,10 @@ document.body.classList.toggle('has-fs', !!fsButton);
 // --- Updates (installed apps have no reload button) ----------------------------
 // A new build re-downloads everything: hashed JS/CSS change filenames, the
 // reload below busts the cached page URL, and unhashed art carries ?v=BUILD_ID.
-// Never interrupt a run to do it — the banner waits (and auto-reloads) once
-// the player is back in town, on the title, or past the run summary.
+// Out of a delve (town, title, run summary) the banner counts down and
+// reloads by itself. In a delve it never does: it shrinks to a pill under the
+// depth readout, and only a tap on it saves the delve, reloads, and opens the
+// same slot straight back into the dungeon.
 const AUTO_RELOAD_MS = 8000;
 let pendingUpdate: string | null = null;
 let autoUpdateTimer: number | null = null;
@@ -340,6 +342,8 @@ function cancelAutoUpdate(): void {
 function applyUpdate(id: string): void {
   if (!shouldAttemptReload(id)) return;
   commit();
+  // A scratch game (dev lab) is never saved, so there is nothing to resume.
+  if (mode === 'dungeon' && state.run?.outcome === 'active' && !isScratchMode()) markResumeAfterUpdate(slot);
   cancelAutoUpdate();
   void reloadToLatest(id);
 }
@@ -352,10 +356,18 @@ function scheduleAutoUpdate(): void {
 }
 
 function renderUpdateBanner(): void {
-  // Never interrupt a run; the banner waits for town or the title screen.
-  updateBanner.hidden = !pendingUpdate || mode === 'dungeon';
+  const inDelve = mode === 'dungeon';
+  updateBanner.hidden = !pendingUpdate;
+  updateBanner.classList.toggle('in-delve', inDelve);
   if (!pendingUpdate) return;
   const id = pendingUpdate;
+  if (inDelve) {
+    // Never reloads by itself mid-fight: the player picks the moment.
+    const b = btn('Update', () => applyUpdate(id), 'small primary');
+    b.title = 'Saves your delve, loads the new version and puts you straight back where you stood';
+    updateBanner.replaceChildren(h('span', { text: 'New version' }), b);
+    return;
+  }
   const secs = Math.ceil(AUTO_RELOAD_MS / 1000);
   updateBanner.replaceChildren(
     h('span', { text: `A new version is out — updating in ~${secs}s so you never play stale.` }),
@@ -1379,7 +1391,10 @@ if (import.meta.env.DEV && params.has('repro')) {
     if (where === 'dungeon') enterDungeon();
   }
 } else {
-  enterTitle();
+  // Updated mid-delve: straight back into the same slot, and so the dungeon.
+  const resume = takeResumeAfterUpdate();
+  if (resume === 1 || resume === 2 || resume === 3) enterSlot(resume);
+  else enterTitle();
 }
 requestAnimationFrame(frame);
 

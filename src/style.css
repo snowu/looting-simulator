@@ -548,8 +548,21 @@ body:has(.corner-gear, #hud:not([hidden]) .hud-gear) { --gear-slot: 40px; }
   gap: 10px;
   align-items: center;
   padding: 2px 8px;
-  white-space: nowrap;
+  /* Wraps rather than running off a phone's edges. */
+  width: max-content;
+  max-width: calc(100vw - 24px);
   box-shadow: 0 4px 18px #000c;
+}
+.update-banner .btn { flex: none; }
+/* Mid-delve: a small pill under the depth readout, clear of the fight. */
+.update-banner.in-delve {
+  left: max(14px, env(safe-area-inset-left));
+  top: calc(max(10px, env(safe-area-inset-top)) + 84px);
+  bottom: auto;
+  transform: none;
+  gap: 8px;
+  padding: 1px 4px 1px 8px;
+  font-size: 17px;
 }
 .minimap { top: 54px; }
 .touch-ui { z-index: 2; }
@@ -718,6 +731,8 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
   body.touch .tbtn.blk img { width: 28px; height: 28px; }
 
   body.touch #hud .status { font-size: 13px; line-height: 1.1; }
+  .update-banner { font-size: 14px; padding: 1px 6px; gap: 6px; }
+  .update-banner.in-delve { top: calc(max(8px, env(safe-area-inset-top)) + 54px); font-size: 13px; }
   body.touch #hud .status .depth { font-size: 18px; }
   body.touch #hud .status .coin { margin-top: 1px; }
   body.touch #hud .minimap { width: 76px; height: 76px; top: calc(max(8px, env(safe-area-inset-top)) + 40px); }

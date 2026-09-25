@@ -16,6 +16,7 @@ export interface BuildInfo {
 }
 
 const RELOAD_GUARD_KEY = 'looting-simulator-reloaded-for';
+const RESUME_KEY = 'looting-simulator-resume-after-update';
 
 /** True when the deployed build differs from the one running. Pure, tested. */
 export function isNewerBuild(runningId: string, latestId: string | null | undefined): boolean {
@@ -69,9 +70,37 @@ export function markReloadAttempt(latestId: string): void {
   }
 }
 
+/**
+ * Updating mid-delve: remember which save slot to open again once the new
+ * build has loaded, so the reload lands back in the delve instead of on the
+ * title screen. Session storage, so it survives the reload and nothing else.
+ */
+export function markResumeAfterUpdate(slot: number): void {
+  try {
+    sessionStorage.setItem(RESUME_KEY, String(slot));
+  } catch {
+    // Storage blocked: the update still lands, on the title screen.
+  }
+}
+
+/** The slot to reopen after an update, read once: the next boot starts normally. */
+export function takeResumeAfterUpdate(): number | null {
+  try {
+    const raw = sessionStorage.getItem(RESUME_KEY);
+    sessionStorage.removeItem(RESUME_KEY);
+    const n = Number(raw);
+    return raw !== null && Number.isInteger(n) ? n : null;
+  } catch {
+    return null;
+  }
+}
+
 /** The newest deployed build, if it differs from the one running. */
 export async function newerBuild(): Promise<string | null> {
-  if (import.meta.env.DEV) return null;
+  // Dev has no deploys to find. `?fakeupdate=<id>` pretends one landed, to
+  // try the banner and the mid-delve update by hand; the reload drops the
+  // query, so it fires once.
+  if (import.meta.env.DEV) return new URLSearchParams(location.search).get('fakeupdate');
   try {
     const res = await fetch(`${BASE}version.json?t=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) return null;
