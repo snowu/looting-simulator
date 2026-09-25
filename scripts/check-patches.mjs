@@ -17,6 +17,8 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 
 // Commits that must never become patch notes. Short hash -> reason.
 const SKIP = {
+  'd8e3aa7': 'Spore hunter PR sheets, docs and patch_notes.md wording; the art is Patch 86',
+  '5e9b602': 'Patch 86 citation of the Spore hunter only',
   '9a8f4a8': 'round-4 PR sheets, chest proposals round 2, docs and patch_notes.md wording; the art is Patch 86',
   'ddcd7e2': 'Patch 86 citation of the Seraph, bone and scroll fixes only',
   '1793a24': 'material colour PR sheet, docs and patch_notes.md wording; the art is Patch 86',
