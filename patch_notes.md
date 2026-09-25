@@ -8,7 +8,7 @@
 
 **Floors with something on them.** In the Ossuary, about one tile in eight is now a grave lid with a cross cut into it, or an iron drain grate. In the Deep Mines, you'll see spoil with copper in it about as often, and now and then a pick somebody dropped.
 
-Validation: all tests pass, and the shipped PNGs are regenerated from the art code (`npm run art:check` is clean). The Seraph, the mole and the Spore hunter were checked in the 3D lab, and so were the new floors.
+Validation: all tests pass, and the shipped PNGs are regenerated from the art code (`npm run art:check` is clean). The Seraph, the Spore hunter and the rat were checked in the 3D lab from three tiles away, and so were the new floors. The floors' first draft vanished into the dark there, so their contrast was raised.
 
 ---
 

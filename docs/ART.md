@@ -49,7 +49,7 @@ Everything not listed here scored 7 or better after a rework.
 | 6 | Big Toe (round 3) | Much better, but still a joke weapon drawn straight. A second pass could add a hair or two and a better stump. |
 | 7 | Skeleton family, goblins, archers, flame wraith, mimic, chests, most walls, wood and iron doors, viewmodels, gear, material and consumable icons | Good. Leave them unless something new sets a higher bar. |
 | 7 | Round-1/2 redraws: herd, spiders, shrines, traps, ghouls, bats, props | Good. The owner liked the ghouls and the moss most. |
-| 7 | Round-4 redraws: Bog Seraph, Delver mole, Spore hunter, Ossuary floor variants | Checked in the 3D lab up close. |
+| 7 | Round-4 redraws: Bog Seraph, Delver mole, Spore hunter, Ossuary floor variants | Checked in the 3D lab from three tiles away (`docs/previews/art-rework-4/5-creatures-3d.png`, `6-floors-3d.png`). The mole was only seen in its block pose there. |
 | 8 | Emberworks surfaces, wisps, the Ashen King | The reference set. |
 
 ## Open proposals
@@ -205,8 +205,16 @@ From reviews of rounds 1–2:
 - **Check references before cutting a detail.** The Spore hunter's tongue
   looked odd, but it came from the owner's own reference, so round 4 moved the
   tell to the gills and kept the tongue.
+- **Floor decals need more contrast than the sheet suggests.** The first
+  ore and grave tiles looked fine on the sheet and vanished in the lab. Give
+  a floor decal a lighter stone or an emissive glint, and check it in 3D.
 - **Ceilings are seen edge-on.** Only things with depth (posts, beams) read
   up there; flat ceiling decals barely register in the lab.
+- **Lab screenshots of a given tile:** `loadLabLevel`, then find a tile whose
+  variant is the one you want (`tileHash(x, y, 4) % 100 % floorVariants.length`)
+  with two open tiles behind it, `placePlayer` there facing it, and hide the
+  HUD with CSS before the screenshot. Pin a spawned enemy to a tile by
+  resetting its `x`/`y` in the same interval that keeps it idle.
 - **Previewing unshipped art in 3D:** register draft ids temporarily
   (`art:sync -- --ids` them so the manifest check passes), then revert both
   `public/art` and the registry before committing.

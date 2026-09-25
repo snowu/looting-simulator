@@ -74,6 +74,10 @@ than the original but blotchier, not better.
 | 5 | 6 | Mines floor | One dirt tile everywhere. → About one tile in eight is spoil with copper chips (one glinting), rarer still a dropped pick. The shared `DIRT_ROWS` is untouched. |
 | 7 | 7 | Ossuary floor | Long flagstone corridors. → About one tile in eight is a grave lid with a cross cut in it, or an iron drain grate. |
 
+The first draft of the floor tiles disappeared in the 3D view, so the ore got
+copper on every chip and three glints, and the grave lid a lighter stone. 3D
+shots: `docs/previews/art-rework-4/5-creatures-3d.png` and `6-floors-3d.png`.
+
 **Not done, waiting on the owner:** the chest and the mine ceiling. Both have
 proposal sheets in `docs/previews/art-rework-4/proposal-*.png` and are
 described in [`ART.md`](ART.md#open-proposals). The catacombs floor was left
