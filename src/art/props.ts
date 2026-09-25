@@ -99,43 +99,94 @@ const CHEST_MIMIC_IN = stamp(sym([
   t....t
 `), 13, 16);
 
-const MIMIC_FACE = rows(`
-  ....r......r....
-  ................
-  ..tttttttttttt..
-  ...ktktktktkt...
-  ......mmmm......
-  .......mm.......
+// Awake, the chest is all mouth. The lid is the upper jaw and the box's rim
+// the lower, both lined with uneven fangs (one of them gold), round a throat
+// that glows a dull red. A fat tongue lolls over the rim beside the lock. It
+// stands on four jointed legs, the outer pair kinked out past the box like a
+// spider's. On the attack the lid gapes higher, the fangs lengthen and the
+// tongue lashes down to the floor. No eyes: nothing to it is a face.
+// Four rows taller than the chest, to stand on its legs; the enemy's scale
+// makes up for it, so the box is still a chest's size.
+const MIMIC_PAL = {
+  ...CHEST_PAL,
+  u: '#8a7c5a', p: '#c05868', o: '#5e1628', M: '#3a0a10', L: '#3a2622', l: '#6a4a40',
+};
+const MIMIC_IDLE = rows(`
+  ................................
+  ................................
+  ................................
+  ....kkkkkkkkkkkkkkkkkkkkkkkk....
+  ...kxxxxxiixxxxxxxxxxiixxxxxk...
+  ..kyqqqqqiiqqqqqqqqqqiiqqqqqyk..
+  ..kyqqqqqqqqqqqqqqqqqqqqqqqqyk..
+  ..kiiniiiiiiiiiiiiiiiiiiiiniik..
+  ..kutuutuutuutuhgutuutuutuutuk..
+  ..kktkktkktMkMkhMMkMktkktkktkk..
+  ..kkkkktMkMMMMMMMMMMMkMktkkkkk..
+  ..kkkkkMkMMMMMMMMMMMMMkMkkkkkk..
+  ..kkkkkkMkMMMMMMMMMMMMMkMkkkkk..
+  ..kkktkkkMkMMMMMMMMMMMktkkkkkk..
+  ..kkktkktkpmmmmkMkMktkktkktkkk..
+  ..kkutuutkpmmmmkkMkutuutuutukk..
+  ..kkkkkkkkpmmomkgkkkkkkkkkkkkk..
+  ..kwwwwwwkpmomkhhgkwwwwwwwwwwk..
+  ..kwwwywwkpmomkhhgkwwwwwwywwwk..
+  ..kiiniiikpmomkgggkiiiiiiiniik..
+  ..kwwwwwwkpmomkkkkwwwwwwwwwwwk..
+  ..kwwwwwwkpmomkwwwwwywwwwwwwwk..
+  ..kwwwwwwwkpmmkwwwwwwwwwwwwwwk..
+  ..kiiniiiiikpkiiiiiiiiiiiiniik..
+  ..kyyyyyyyykkkyyyyyyyyyyyyyyyk..
+  ..kkkkkkkkkkkkkkkkkkkkkkkkkkkk..
+  ...klLk..klLk......kLlk..kLlk...
+  ..klLk...klLk......kLlk...kLlk..
+  .klLk....klLk......kLlk....kLlk.
+  .kllk...kllLk......kLllk...kllk.
+  .klLk...klLk........kLlk...kLlk.
+  .klLk...klLk........kLlk...kLlk.
+  .klLk...klLk........kLlk...kLlk.
+  .klLk...klLk........kLlk...kLlk.
+  ktuttk.ktuttk......kttutk.kttutk
+  .kkkk...kkkk........kkkk...kkkk.
 `);
-// Lid thrown back and the whole box turned into a mouth. The old attack frame
-// widened the tongue and nothing else, which on a creature the player is
-// already standing next to is no warning at all.
-const MIMIC_FACE_ATK = rows(`
-  ...rr........rr...
-  ..................
-  .tttttttttttttttt.
-  ..tktktktktktktk..
-  ..mmmmmmmmmmmmmm..
-  ..mmmmmmmmmmmmmm..
-  ...mmtmmmmmmtmm...
-  ....mmmmmmmmmm....
-  .....mmmmmmmm.....
+const MIMIC_ATK = rows(`
+  ....kkkkkkkkkkkkkkkkkkkkkkkk....
+  ...kxxxxxiixxxxxxxxxxiixxxxxk...
+  ..kyqqqqqiiqqqqqqqqqqiiqqqqqyk..
+  ..kyqqqqqqqqqqqqqqqqqqqqqqqqyk..
+  ..kiiniiiiiiiiiiiiiiiiiiiiniik..
+  ..kutuutuutuutuhgutuutuutuutuk..
+  ..kktkktkktkMkMhMkMkMtkktkktkk..
+  ..kktkktkMtMkMMMMMMMktkktkktkk..
+  ..kkkkktMkMMMMMMMMMMMkMktkkkkk..
+  ..kkkkkMkMMMMMMMMMMMMMkMkkkkkk..
+  ..kkkkkkMkMMMMMMMMMMMMMkMkkkkk..
+  ..kkkkkMkMMMMMMMMMMMMMkMkkkkkk..
+  ..kkktkkMkMMMkpmmkMMMkMtkkkkkk..
+  ..kkktkktMkMkkpmmkMMtMktkktkkk..
+  ..kkktkktkkkMkpmomkktkktkktkkk..
+  ..kkutuutukkkkpmomkutuutuutukk..
+  ..kkkkkkkkkkkkpmomkkkkkkkkkkkk..
+  ..kwwwwwwwwwwkpmmomkwwwwwwwwwk..
+  ..kwwwywwwwwkpmmomkwwwwwwywwwk..
+  ..kiiniiiiiikpmmomkiiiiiiiniik..
+  ..kwwwwwwwwwkpmmomkwwwwwwwwwwk..
+  ..kwwwwwwwwykpmmomkwywwwwwwwwk..
+  ..kwwwwwwwwkpmmomkwwwwwwwwwwwk..
+  ..kiiniiiiikpmmomkiiiiiiiiniik..
+  ..kyyyyyyyykpmomkyyyyyyyyyyyyk..
+  ..kkkkkkkkkkkpmomkkkkkkkkkkkkk..
+  ...klLk..klLkpmomk.kLlk..kLlk...
+  ..klLk...klLkkpmomkkLlk...kLlk..
+  .klLk....klLkkpmok.kLlk....kLlk.
+  .kllk...kllLk.kpmokkLllk...kllk.
+  .klLk...klLk..kpmok.kLlk...kLlk.
+  .klLk...klLk..kpmmk.kLlk...kLlk.
+  .klLk...klLk....kk..kLlk...kLlk.
+  .klLk...klLk....kk..kLlk...kLlk.
+  ktuttk.ktuttk......kttutk.kttutk
+  .kkkk...kkkk........kkkk...kkkk.
 `);
-// Four jointed legs unfold from each side of the box. The last three rows sit
-// below the old chest silhouette, so the transformation changes its outline.
-const MIMIC_LEGS = sym(rows(`
-  ..k......k......
-  .kxk....kxk.....
-  kx.xk..kx.xk....
-  x...k..x...k....
-  ....k......k....
-  ...kk.....kk....
-  ...x.......x....
-  ..kx.......xk...
-  ..kk.......kk...
-`));
-const MIMIC_IDLE = stamp(stamp(CHEST_OPEN, MIMIC_FACE, 8, 8), MIMIC_LEGS, 0, 23);
-const MIMIC_ATK = stamp(stamp(CHEST_OPEN, MIMIC_FACE_ATK, 7, 7), MIMIC_LEGS, 0, 23);
 
 const URN = sym(rows(`
   ................
@@ -1104,8 +1155,8 @@ export const PROPS: ArtDef[] = [
   { id: 'chest_mimic_in', palette: CHEST_PAL, rows: CHEST_MIMIC_IN },
   { id: 'chest_open', palette: CHEST_PAL, rows: CHEST_OPEN },
   { id: 'chest_broken', palette: CHEST_PAL, rows: CHEST_BROKEN },
-  { id: 'mimic_0', palette: CHEST_PAL, rows: MIMIC_IDLE },
-  { id: 'mimic_atk', palette: CHEST_PAL, rows: MIMIC_ATK },
+  { id: 'mimic_0', palette: MIMIC_PAL, rows: MIMIC_IDLE },
+  { id: 'mimic_atk', palette: MIMIC_PAL, rows: MIMIC_ATK },
   { id: 'urn', palette: URN_PAL, rows: URN },
   { id: 'urn_broken', palette: URN_PAL, rows: URN_BROKEN },
   { id: 'barrel', palette: BARREL_PAL, rows: BARREL },
