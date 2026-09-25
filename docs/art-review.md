@@ -72,6 +72,7 @@ than the original but blotchier, not better.
 | 6 | 7 | Delver mole | The tell was small. → A pink snout with nostrils and buck teeth, three bold talons on each hand (five thin ones read as stripes), and a mouth that opens under the snout on the lunge. |
 | 6 | 7 | Spore hunter | The tongue hung down all the time, so the attack only lengthened it. → At rest only the tongue's tip shows. On the lunge the gills flare and glowing spores puff out beside the body. The tongue stays: it came from the owner's reference. |
 | 5 | 6 | Mines floor | One dirt tile everywhere. → About one tile in eight is spoil with copper chips (one glinting), rarer still a dropped pick. The shared `DIRT_ROWS` is untouched. |
+| 5 | 7 | Material icons (`ic_ingot`, `ic_plank`, `ic_cloth`, `ic_bone`, `ic_scale`, new `ic_ore` and `ic_nugget`) | Flat bars, stripes and sticks, and ore drawn as a smelted bar. → Each one is a single object that fills the cell, like the rolled hide: a heavy 3/4-view ingot with a stamp, three boards bundled with cord, a folded length of cloth with the loose end hanging, a knobbed femur, one big keeled scale. Copper and iron ore are rock with metal veins, and the gold nugget is a raw lump. Gem, shard and essence were already fine. |
 | 7 | 7 | Ossuary floor | Long flagstone corridors. → About one tile in eight is a grave lid with a cross cut in it, or an iron drain grate. |
 
 The first draft of the floor tiles disappeared in the 3D view, so the ore got
