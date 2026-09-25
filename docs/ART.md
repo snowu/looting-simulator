@@ -49,7 +49,7 @@ Everything not listed here scored 7 or better after a rework.
 | 6 | Big Toe (round 3) | Much better, but still a joke weapon drawn straight. A second pass could add a hair or two and a better stump. |
 | 7 | Skeleton family, goblins, archers, flame wraith, mimic, chests, most walls, wood and iron doors, viewmodels, gear, material and consumable icons | Good. Leave them unless something new sets a higher bar. |
 | 7 | Round-1/2 redraws: herd, spiders, shrines, traps, ghouls, bats, props | Good. The owner liked the ghouls and the moss most. |
-| 7 | Round-4 redraws: Bog Seraph (owner: "much better"), Delver mole, Spore hunter (RO-style redraw), Ossuary floor variants, material icons (ore, nugget, ingot, plank, cloth, bone, scale), consumable icons (one per potion and scroll) | Checked in the 3D lab from three tiles away (`docs/previews/art-rework-4/5-creatures-3d.png`, `6-floors-3d.png`). The mole was only seen in its block pose there. |
+| 7 | Round-4 redraws: Bog Seraph, Delver mole, Spore hunter, Ossuary floor variants, material icons (ore, nugget, ingot, plank, cloth, bone, scale), consumable icons (one per potion and scroll) | Checked in the 3D lab from three tiles away (`docs/previews/art-rework-4/5-creatures-3d.png`, `6-floors-3d.png`). The mole was only seen in its block pose there. |
 | 8 | Emberworks surfaces, wisps, the Ashen King | The reference set. |
 
 ## Open proposals
@@ -173,9 +173,6 @@ From reviews of rounds 1–2:
 - **Round 4 direction:** the Bog Seraph as a frog seen from below,
   spread-eagled, with the "biblically accurate angel" around it (halo,
   feathers full of eyes). A literal frog face in a halo was too on the nose.
-  The Spore hunter's reference is the 2003 Ragnarok Online Spore: cute
-  first, a spotted cap and a face on the stalk (the owner loved the Seraph
-  redo and asked for the same care here).
   Chest tells should stay subtle; the keyhole eye and the row of teeth were
   too clear. Icon shapes must be clean and symmetric where the object is
   (the first bone looked scuffed).

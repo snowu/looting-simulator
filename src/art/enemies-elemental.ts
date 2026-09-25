@@ -70,85 +70,108 @@ const ELEMENTS = [
   { sprite: 'dawn', tip: '#ffd85afa', core: '#fff9c8fa', hood: '#d0b25c', robe: '#3a3526', cloth: '#a2946a' },
 ] as const;
 
-// The Spore Hunter, after the little spores of the old MMOs: a big domed red
-// cap with fat cream spots over a band of gills, a pear-shaped cream stalk
-// with a face on it (round black eyes, a glint, rosy cheeks, a small smile),
-// stubby arms and two little feet. Cute until it isn't: on the lunge it
-// hops, the brows come down, the mouth gapes with the tongue out, the arms
-// go up and glowing spores puff from under the rim.
-const SPORE = rows(`
-  ................................
-  ................................
-  ..........kkkkkkkkkkkk..........
-  ........kkstttwwwwtttskk........
-  ......kksssttwwwwwwttssskk......
-  .....kssssssswwwwwwsssssssk.....
-  ....kssssssssswwwwsssssssssk....
-  ...kssswwwsssssssssssswwwsssk...
-  ..kssswwwwwsssssssssswwwwwsssk..
-  ..krrrwwwvssssssssssssvwwwrrrk..
-  .krrrrrwwvssssssssssssvwwrrrrrk.
-  .krrwwrrssswwsssssswwsssrrwwrrk.
-  .krwwvrrrrrwwvrrrrvwwrrrrrvwwrk.
-  .krrrrrrrrrrrrrrrrrrrrrrrrrrrrk.
-  .kRRRrrrrrrrrrrrrrrrrrrrrrrRRRk.
-  ..kkkmnmnmnmnmnmmnmnmnmnmnmkkk..
-  .....kkkkkmmmmmmmmmmmmkkkkk.....
-  ..........kcccccccccck..........
-  .........kcccccccccccck.........
-  ........kcccccccccccccck........
-  .......kkccekccccccekcckk.......
-  .....kkckcckkcccccckkcckckk.....
-  ....kcccccckkcccccckkcccccck....
-  ....kCCCCppccccccccccppCCCCk....
-  .....kkCkcccccmccmccccckCkk.....
-  .......kkccccccmmcccccckk.......
-  .........kCCCCCCCCCCCCk.........
-  ..........kCCCCCCCCCCk..........
-  ..........kccCCCCCCcck..........
-  .........kDDDDDkkDDDDDk.........
-  ..........kkDkk..kkDkk..........
-  ............k......k............
-`);
-const SPORE_ATK = rows(`
-  ................................
-  ................................
-  ..........kkkkkkkkkkkk..........
-  ........kkstttwwwwtttskk........
-  ......kksssttwwwwwwttssskk......
-  .....kssssssswwwwwwsssssssk.....
-  ....kssssssssswwwwsssssssssk....
-  ...kssswwwsssssssssssswwwsssk...
-  ..kssswwwwwsssssssssswwwwwsssk..
-  ..krrrwwwvssssssssssssvwwwrrrk..
-  .krrrrrwwvssssssssssssvwwrrrrrk.
-  ykrrwwrrssswwsssssswwsssrrwwrrky
-  .krwwvrrrrrwwvrrrrvwwrrrrrvwwrk.
-  .krrrrrrrrrrrrrrrrrrrrrrrrrrrrk.
-  .kRRRrrrrrrrrrrrrrrrrrrrrrrRRRk.
-  YykkkmnmnmnmnmnmmnmnmnmnmnmkkkyY
-  .Y...kkkkkmmmmmmmmmmmmkkkkk...Y.
-  ......kkkkkcccccccccckkkkk......
-  .....kccccckkcccccckkccccck.....
-  ..y.kccccccekccccccekcccccck.y..
-  .....kCCCcckkcccccckkccCCCk.....
-  ....Y.kkccckkcccccckkccckk.Y....
-  ...YyY..kppccmmmmmcccppk..YyY...
-  ....Y...kccccemmmmecccck...Y....
-  ........kccccmqqqqccccck........
-  .........kCCCmqQQqCCCCk.........
-  ..........kCCCqQQqCCCk..........
-  ..........kccCqQQqCcck..........
-  .........kDDDDDqqDDDDDk.........
-  ..........kkDkkkkkkDkk..........
-  ............k......k............
-  ................................
+// The Spore Hunter is a mushroom, not a person in a hat: a huge spotted cap,
+// jagged underside and cream stalk-body. The hanging tongue gives the attack
+// frame a clear lunge, based on the user's mushroom-monster reference.
+const SPORE_HALF = rows(`
+  ................
+  .............kkk
+  ..........kkrrrr
+  ........kkrrrrrr
+  ......kkrrrrrrrr
+  .....krrrrwwrrrr
+  ....krrrrwwrrrrr
+  ...krrrrrrrkkrrr
+  ..krrrrrrrkkkkrr
+  .krrrrrrrrrkkkrr
+  krrrrrwwrrrrrrrr
+  krrrrwwrrrrrrrrr
+  krrrrrrrrrrrrrrr
+  .krrrrrrrrrrrrrr
+  ..krrrrrrrrrrrrr
+  ...kkrrrrrrrrrrr
+  ....kkkkkkkkkkkk
+  .....ktktktktktk
+  ......kmmmmmmmmk
+  .......kccccccck
+  .......kcccoccck
+  .......kccccccck
+  ......kcccccccck
+  .....kccccccccck
+  ....kcccccccccck
+  ....kcccccccccck
+  .....kccccccccck
+  ......kcccccccck
+  .......kccccccck
+  ......kkccckkcck
+  .....kcccck..kcc
+  .....kkkkkk..kkk
 `);
 const SPORE_PAL = {
-  k: '#221710', R: '#7a1c14', r: '#bf3a28', s: '#e2603a', t: '#ff9a6a', w: '#f6ecd0', v: '#d0bc94',
-  m: '#3d1d17', n: '#5a2c22', c: '#f0dcb0', C: '#d0b484', D: '#a8845a', e: '#ffffff', p: '#ec8a88',
-  q: '#e57a83', Q: '#ae455f', y: '#e4f08cfa', Y: '#9cc454fa',
+  k: '#221710', r: '#bf563e', w: '#efd49b', t: '#fff0cf', m: '#3d1d17',
+  c: '#e6d1a3', o: '#30231d', p: '#e57a83', q: '#ae455f', y: '#e4f08cfa', Y: '#9cc454fa',
 };
+// At rest only the tip of the tongue shows under the gills; the whole length
+// is saved for the lunge.
+const TONGUE_IDLE = rows(`
+  .pp.
+  pqqp
+  .pp.
+`);
+const TONGUE_ATTACK = rows(`
+  ..pp..
+  .pqqp.
+  pqqqqp
+  pqqqqp
+  pqqqqp
+  .pqqp.
+  .pqqp.
+  .pqqp.
+  .pqqp.
+  .pqqp.
+  .pqqp.
+  .pqqp.
+  pqqp..
+  .pp...
+  ..pp..
+`);
+const SPORE_BASE = sym(SPORE_HALF);
+// Shut, the gills under the cap are a dark seam with the teeth just showing.
+// Open, they are a maw the width of the whole cap. The old pair of frames both
+// used the open mouth and differed only in how far the tongue hung down, which
+// is not something you can see from the other side of a room.
+const SPORE_MOUTH_SHUT = [
+  `k${'m'.repeat(24)}k`,
+  `k${'tm'.repeat(12)}k`,
+  `k${'m'.repeat(24)}k`,
+];
+const SPORE_MOUTH_OPEN = [
+  `k${'m'.repeat(24)}k`,
+  `k${'tmmt'.repeat(6)}k`,
+  `k${'m'.repeat(24)}k`,
+  `k${'m'.repeat(24)}k`,
+  `k${'mmtt'.repeat(6)}k`,
+  `k${'m'.repeat(24)}k`,
+];
+const SPORE_SHUT = stamp(SPORE_BASE, SPORE_MOUTH_SHUT, 3, 16);
+const SPORE_OPEN = stamp(SPORE_BASE, SPORE_MOUTH_OPEN, 3, 16);
+// The gills flare and blow glowing spores out under the rim: from across a
+// dark room, the puff is what says it is about to strike.
+const SPORE_PUFF_HALF = rows(`
+  .Y..............
+  YyY.............
+  .Y..Y...........
+  ...YyY..........
+  .Y..Y...........
+  YyY.............
+  .Y..............
+  ...Y............
+  ..YyY...........
+  ...Y............
+`);
+// Only on empty pixels: the spores hang in the air beside the body, not on it.
+const SPORE_PUFF = sym(SPORE_PUFF_HALF).map((row, y) =>
+  [...row].map((ch, x) => (SPORE_OPEN[y + 17]?.[x] === '.' ? ch : '.')).join(''));
 
 export const ENEMY_ART_ELEMENTAL: ArtDef[] = [
   ...ELEMENTS.flatMap(({ sprite, tip, core, hood, robe, cloth }): ArtDef[] => {
@@ -158,6 +181,6 @@ export const ENEMY_ART_ELEMENTAL: ArtDef[] = [
       { id: `${sprite}_atk`, palette, rows: drawnArcher },
     ];
   }),
-  { id: 'spore_0', palette: SPORE_PAL, rows: SPORE },
-  { id: 'spore_atk', palette: SPORE_PAL, rows: SPORE_ATK },
+  { id: 'spore_0', palette: SPORE_PAL, rows: stamp(SPORE_SHUT, TONGUE_IDLE, 8, 19) },
+  { id: 'spore_atk', palette: SPORE_PAL, rows: stamp(stamp(SPORE_OPEN, TONGUE_ATTACK, 7, 17), SPORE_PUFF, 0, 17) },
 ];
