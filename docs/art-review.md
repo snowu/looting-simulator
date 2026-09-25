@@ -64,14 +64,28 @@ purpose on 2026-09-13 (a beam over the player at every tile boundary), and a
 test keeps them out. A rebuilt `DIRT_ROWS` was also dropped: it was busier
 than the original but blotchier, not better.
 
+## Reworked, round 4
+
+| Before | After | Sprite | What was wrong → what changed |
+|---|---|---|---|
+| 6 | 7 | Bog Seraph | Striking up close, a spatter of red dots at range. → One bone halo ring, six fur wings radiating through it with gaps between (so the outline stays spiky), a bigger frog face, and two wing-eyes instead of ten. The halo ignites white on the attack. |
+| 6 | 7 | Delver mole | The tell was small. → A pink snout with nostrils and buck teeth, five long talons on each hand, and a mouth that opens under the snout on the lunge. |
+| 6 | 7 | Spore hunter | The tongue hung down all the time, so the attack only lengthened it. → At rest only the tongue's tip shows. On the lunge the gills flare and glowing spores puff out beside the body. The tongue stays: it came from the owner's reference. |
+| 5 | 6 | Mines floor | One dirt tile everywhere. → About one tile in eight is spoil with copper chips (one glinting), rarer still a dropped pick. The shared `DIRT_ROWS` is untouched. |
+| 7 | 7 | Ossuary floor | Long flagstone corridors. → About one tile in eight is a grave lid with a cross cut in it, or an iron drain grate. |
+
+**Not done, waiting on the owner:** the chest and the mine ceiling. Both have
+proposal sheets in `docs/previews/art-rework-4/proposal-*.png` and are
+described in [`ART.md`](ART.md#open-proposals). The catacombs floor was left
+alone: it is under water, so a floor decal would barely show.
+
 ## Not reworked yet, lowest first
 
 | Score | Sprite | Note |
 |---|---|---|
-| 5 | Mine and cave dirt (`DIRT_ROWS`) | Plain, but clean; a rebuild was busier, not better. |
+| 5 | Cave and Burrows dirt (`DIRT_ROWS`) | Plain, but clean; a rebuild was busier, not better. The Mines and Sporegrove now break it up with variants. |
 | 6 | Bare fist viewmodel (`vm_fist`) | Up close it holds up better than the sheet suggests. |
-| 6 | Bog Seraph | Striking, but too busy to read at range. |
-| 6 | Delver mole, Spore hunter, Gravecaller, root cache, broken chest, mound | Solid; small readability wins possible. |
+| 6 | Gravecaller, root cache, broken chest, mound | Solid; small readability wins possible. |
 | 6 | Mines ceiling | Plain rubble; beams were rejected (see round 3). |
 | 6 | Secret wall marks, town portal, projectiles | Subtle by design; fine. |
 | 7 | Skeleton family (skeleton, archer, shieldguard, drowned, scorched, rimebound, cinder guard, ice guard, barrow champion) | Consistent and readable; the elemental skins are good. |
@@ -95,4 +109,5 @@ sprites stamp onto a redrawn base (the stalker crest, the emberback shell, the
 knight's shield and sword) were checked and moved where they needed to.
 
 Before/after sheets are in `docs/previews/art-rework/` (round 1) and
-`docs/previews/art-rework-2/` (round 2), and `docs/previews/art-rework-3/` (round 3).
+`docs/previews/art-rework-2/` (round 2), `docs/previews/art-rework-3/` (round 3) and
+`docs/previews/art-rework-4/` (round 4, with the open proposals).

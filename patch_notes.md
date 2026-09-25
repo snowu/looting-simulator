@@ -1,3 +1,17 @@
+# Art round four: a clearer Seraph, sharper tells, busier floors
+
+*Save revision 29, unchanged: nothing about a save moves.*
+
+**The Bog Seraph reads from across the room.** It used to be a frog lost in a spatter of red dots. Now a bone halo rings it, six fur wings fan out through the ring, and the frog's face is big: white bulging eyes, red pupils and a toothy grin. Only the top two wings still have eyes. When it attacks, the halo flares white and the grin opens into a maw.
+
+**Delver moles and Spore hunters warn you.** A mole has a proper pink snout with buck teeth and five long talons on each hand, and its mouth opens under the snout when it lunges. A Spore hunter keeps its tongue tucked in until it strikes. Then its gills flare and glowing spores puff out on either side.
+
+**Floors with something on them.** In the Ossuary, about one tile in eight is now a grave lid with a cross cut into it, or an iron drain grate. In the Deep Mines, you'll see spoil with copper in it about as often, and now and then a pick somebody dropped.
+
+Validation: all tests pass, and the shipped PNGs are regenerated from the art code (`npm run art:check` is clean). The Seraph, the mole and the Spore hunter were checked in the 3D lab, and so were the new floors.
+
+---
+
 # Art round three: rats, doors, the Big Toe
 
 *Save revision 29, unchanged: nothing about a save moves.*

@@ -5,7 +5,7 @@ covers where every sprite stands, why, what to do next, how the work is done,
 and what the owner likes and rejects. The detailed per-round tables live in
 [`art-review.md`](art-review.md). This file is the one to read first.
 
-Last updated 2026-09-25, after three rounds.
+Last updated 2026-09-25, after four rounds.
 
 ## Where things stand
 
@@ -14,11 +14,11 @@ Last updated 2026-09-25, after three rounds.
 | 1 | #51 | merged | Pasture herd, spider family, ceilings and crypt floor, catacombs water, the five shrines, barrel, fungus, sconce, loot bag, knight helm, club icon |
 | 2 | #52 | merged | Traps, ghoul/slagborn/wretch heads, bats, throne floor, robe and hide icons, bones, gold pile, Burrows and Sporegrove wall variants (plus review fixes) |
 | 3 | #59 | **open** | Giant rat and Hoarder, iron door (and the locked and fog doors built on it), Big Toe icon and viewmodel, broken urn, Sporegrove floor variants. Takes **Patch 85**. |
+| 4 | branch `claude/open-pr-art-changes-c52ft2` | **open** | Bog Seraph, Delver mole and Spore hunter tells, Mines and Ossuary floor variants. Proposals for the chest, the mimic tell and the mine ceiling. Takes **Patch 86**. Built on round 3. |
 
 This file arrived with #59. If you are reading it on master, round 3 is
-merged. If #59 is still open, branch round 4 off `art/rework-round3`, not
-master. Check the patch number too: other agents may have claimed 85 in the
-meantime.
+merged. Round 4 is stacked on round 3, so merge #59 first. Check the patch
+numbers too: other agents may have claimed 85 or 86 in the meantime.
 
 ## How sprites are scored
 
@@ -39,36 +39,64 @@ Everything not listed here scored 7 or better after a rework.
 
 | Score | Sprite | Thoughts |
 |---|---|---|
-| 5 | Mine and cave dirt (`DIRT_ROWS`: mine floor, cave floors, Burrows floor and walls) | Plain but clean. A rebuild with patches and cracks came out blotchy, so it was dropped. Improve it with variants (as the Sporegrove floor did), not by redrawing the shared grid. |
-| 6 | Bog Seraph | Striking up close, but too busy to read at range. Worth a pass: fewer red eye dots, a clearer halo ring, and a face that holds at 1.0 scale. |
-| 6 | Delver mole | Solid. The claws and the snout could be bigger for the tell. |
-| 6 | Spore hunter | Reads as a mushroom creature. The pink tongue-worm is odd; the gills could carry the attack tell instead. |
+| 5 | Cave and Burrows dirt (`DIRT_ROWS`: cave floors, Burrows floor and walls) | Plain but clean. A rebuild with patches and cracks came out blotchy, so it was dropped. Improve it with variants (as the Sporegrove and Mines floors did), not by redrawing the shared grid. |
+| 6 | Mines floor (round 4) | Variants help, but most tiles are still the plain dirt. |
 | 6 | Gravecaller | Fine silhouette; the green eyes are small. |
 | 6 | Root cache, broken chest, mound | Acceptable. The broken chest reads as a broken crate. |
 | 6 | Bare fist viewmodel | Holds up full-screen better than the sheet suggests. |
-| 6 | Mines ceiling | Plain rubble **on purpose** (see "Deliberate choices"). |
+| 6 | Mines ceiling | Plain rubble **on purpose** (see "Deliberate choices"). A timber-set proposal is open (below). |
 | 6 | Secret-wall marks, town portal, projectiles | Subtle by design. |
 | 6 | Big Toe (round 3) | Much better, but still a joke weapon drawn straight. A second pass could add a hair or two and a better stump. |
 | 7 | Skeleton family, goblins, archers, flame wraith, mimic, chests, most walls, wood and iron doors, viewmodels, gear, material and consumable icons | Good. Leave them unless something new sets a higher bar. |
 | 7 | Round-1/2 redraws: herd, spiders, shrines, traps, ghouls, bats, props | Good. The owner liked the ghouls and the moss most. |
+| 7 | Round-4 redraws: Bog Seraph, Delver mole, Spore hunter, Ossuary floor variants | Checked in the 3D lab up close. |
 | 8 | Emberworks surfaces, wisps, the Ashen King | The reference set. |
+
+## Open proposals
+
+These wait on the owner's pick. Don't ship either until one is chosen.
+
+**Chest and mimic tell** (`docs/previews/art-rework-4/proposal-chest-bodies.png`,
+`proposal-mimic-tells.png`). Every body keeps the lid seam on row 17, so any
+tell works on any body.
+
+- Bodies: **A strapped** (two riveted iron straps over lid and body, same
+  outline), **B domed** (a barrel-top lid two rows taller, straps over it),
+  **C gilt corners** (today's chest with gold corner fittings).
+- Tells, subtle to loud: **T0 nails** (today: two pale pixels beside the lock),
+  **T3 gap** (the lid sits proud: a black line along the seam), **T1 teeth**
+  (a row of pale teeth either side of the lock; matches the mimic's face),
+  **T2 tongue** (a tongue tip hanging out of the seam), **T4 keyhole eye** (a
+  red emissive keyhole; loud in the dark, could be a Normal-only tell).
+- Whichever body is picked, `CHEST_OPEN`, `CHEST_BROKEN` and the mimic frames
+  (built on `CHEST_OPEN`) need the same restyle.
+
+**Mine ceiling** (`proposal-mine-ceiling-3d.png` in the lab, and
+`proposal-mine-ceiling-tiles.png`). The old lintel put a frame over every tile
+boundary; that stays rejected.
+
+- **M1 timber sets (recommended).** In straight corridors, every fourth tile
+  gets a set: a post up the middle of both side walls (`wall_mine_set`) and a
+  cap beam across the middle of the ceiling tile, oriented across the
+  corridor. It reads as a mine and comes round rarely. Needs a small rule in
+  `src/render/level-mesh.ts` (corridor detection plus two cap textures, one
+  per orientation). The existing test keeps passing because `ceil_mine`
+  itself stays plain rock. The prototype diff and draft art were kept out of
+  the repo.
+- **M2 lagging** (short bolted boards) and **M3 ore seam** are plain ceiling
+  variants with no renderer change, but the lab showed the ceiling is seen at
+  such a glancing angle that flat detail up there barely registers.
 
 ## Suggested next targets
 
 In rough order of payoff:
 
-1. **Bog Seraph readability.** A depth 3–5 elite-feeling enemy that muddies at
-   range.
-2. **Floor variety elsewhere.** The Sporegrove floor mix worked. The Mines
-   floor (`floor_mine`) could get the same: a rare tile with ore chips or a
-   dropped pick. Keep decorations rare, about 1 in 5 to 1 in 8.
-3. **Delver mole and Spore hunter tells.** Bigger claws; gills that open on
-   the attack.
-4. **Crypt and catacomb floor variants.** A rare tile with a grave slab or a
-   drain grate, to break up long Ossuary corridors.
-5. **A second look at the chest**, but only the top of the lid (rows 11–14).
-   The lid seam (row 17) carries the mimic tell: the two pale "nail" pixels
-   players learn to spot. Do not move it.
+1. **The chest and the mine ceiling,** once the proposals above are picked.
+2. **Gravecaller eyes.** Fine silhouette; the green eyes are small.
+3. **Broken chest.** It reads as a broken crate; redraw it with whichever
+   chest body wins.
+4. **Big Toe, second pass.** A hair or two and a better stump.
+5. **Root cache and mound.** Acceptable, but plain next to the round-1 props.
 
 Don't start on the UI frames (`src/art/ui.ts`). Other agents own the UI.
 
@@ -164,7 +192,7 @@ From reviews of rounds 1–2:
   and fog on the iron door. When a base is redrawn, re-check every overlay
   on it (`grep -n "frame('\|base: '" src/art/*.ts`).
 
-## Lessons from three rounds
+## Lessons from four rounds
 
 - **Check history before redrawing something plain.** Run `git log -S<id>` on
   the art id and grep the tests. Some plainness is a decision.
@@ -174,3 +202,11 @@ From reviews of rounds 1–2:
 - **Dark palettes hide detail.** Preview textures brightened to judge the
   structure, then at true colour to confirm they stay as dark as the biome.
 - **Chained shell steps should use `&&`,** so a failing test stops the commit.
+- **Check references before cutting a detail.** The Spore hunter's tongue
+  looked odd, but it came from the owner's own reference, so round 4 moved the
+  tell to the gills and kept the tongue.
+- **Ceilings are seen edge-on.** Only things with depth (posts, beams) read
+  up there; flat ceiling decals barely register in the lab.
+- **Previewing unshipped art in 3D:** register draft ids temporarily
+  (`art:sync -- --ids` them so the manifest check passes), then revert both
+  `public/art` and the registry before committing.
