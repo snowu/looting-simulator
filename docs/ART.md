@@ -211,6 +211,8 @@ From reviews of rounds 1–2:
 - **Floor decals need more contrast than the sheet suggests.** The first
   ore and grave tiles looked fine on the sheet and vanished in the lab. Give
   a floor decal a lighter stone or an emissive glint, and check it in 3D.
+- **Fewer, bolder details beat many thin ones.** The mole's five one-pixel
+  talons read as stripes; three two-pixel talons with gaps read as claws.
 - **Ceilings are seen edge-on.** Only things with depth (posts, beams) read
   up there; flat ceiling decals barely register in the lab.
 - **Lab screenshots of a given tile:** `loadLabLevel`, then find a tile whose
