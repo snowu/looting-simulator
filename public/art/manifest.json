@@ -153,6 +153,8 @@
   "root_cache",
   "root_cache_broken",
   "ic_ingot",
+  "ic_ore",
+  "ic_nugget",
   "ic_plank",
   "ic_hide",
   "ic_scale",

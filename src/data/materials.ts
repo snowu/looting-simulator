@@ -4,12 +4,12 @@ export const MATERIALS: MaterialDef[] = [
   // --- Metals -------------------------------------------------------------
   {
     id: 'copper', name: 'Copper Ore', category: 'metal', tier: 1, rarity: Rarity.Common, value: 8,
-    icon: 'ic_ingot', ramp: ['#4a2414', '#8a4a24', '#c47a3c', '#f0b070'], mods: { defense: 1 },
+    icon: 'ic_ore', ramp: ['#4a2414', '#8a4a24', '#c47a3c', '#f0b070'], mods: { defense: 1 },
     description: 'Soft reddish ore. Takes an edge, loses it fast.',
   },
   {
     id: 'iron', name: 'Iron Ore', category: 'metal', tier: 2, rarity: Rarity.Uncommon, value: 15,
-    icon: 'ic_ingot', ramp: ['#23242a', '#4c4f58', '#80848e', '#c4c8d0'], mods: { defense: 2 },
+    icon: 'ic_ore', ramp: ['#23242a', '#4c4f58', '#80848e', '#c4c8d0'], mods: { defense: 2 },
     description: 'The honest metal. Every smith wants more of it.',
   },
   {
@@ -19,7 +19,7 @@ export const MATERIALS: MaterialDef[] = [
   },
   {
     id: 'gold', name: 'Gold Nugget', category: 'metal', tier: 3, rarity: Rarity.Rare, value: 75,
-    icon: 'ic_ingot', ramp: ['#5a3a08', '#a0700c', '#e0b020', '#fff08a'], mods: { defense: 4 },
+    icon: 'ic_nugget', ramp: ['#5a3a08', '#a0700c', '#e0b020', '#fff08a'], mods: { defense: 4 },
     description: 'A costly alternative to silver: the same tier of reinforcement, worth more in trade.',
   },
   {
