@@ -14,7 +14,7 @@ Last updated 2026-09-25, after four rounds.
 | 1 | #51 | merged | Pasture herd, spider family, ceilings and crypt floor, catacombs water, the five shrines, barrel, fungus, sconce, loot bag, knight helm, club icon |
 | 2 | #52 | merged | Traps, ghoul/slagborn/wretch heads, bats, throne floor, robe and hide icons, bones, gold pile, Burrows and Sporegrove wall variants (plus review fixes) |
 | 3 | #59 | **open** | Giant rat and Hoarder, iron door (and the locked and fog doors built on it), Big Toe icon and viewmodel, broken urn, Sporegrove floor variants. Takes **Patch 85**. |
-| 4 | #63 | **open** | Bog Seraph, Delver mole and Spore hunter tells, Mines and Ossuary floor variants, material and consumable icons. Proposals for the chest, the mimic tell and the mine ceiling. Takes **Patch 86**. Built on round 3. |
+| 4 | #63 | **open** | Bog Seraph, Delver mole and Spore hunter tells, Mines and Ossuary floor variants, material and consumable icons. Your Shade, the strapped chest and the breathing mimic. A proposal for the mine ceiling. Takes **Patch 86**. Built on round 3. |
 
 This file arrived with #59. If you are reading it on master, round 3 is
 merged. Round 4 (#63) is stacked on round 3 and carries its commits: merge #59 first, or merge #63 and close #59. Check the patch
@@ -54,26 +54,13 @@ Everything not listed here scored 7 or better after a rework.
 
 ## Open proposals
 
-These wait on the owner's pick. Don't ship either until one is chosen.
+The mine ceiling waits on the owner's pick. Don't ship it until one is chosen.
 
-**Chest and mimic tell.** Round 1 (`docs/previews/art-rework-4/proposal-chest-bodies.png`,
-`proposal-mimic-tells.png`) was too busy and some tells too clear. Round 2
-(`proposal-chest-bodies-2.png`, `proposal-mimic-tells-2.png`) has calmer
-bodies (D plank seam, A2 dark lid straps, B2 plain dome, C2 iron corners)
-and subtle tells only (T0 nails, T5 one nail, T3 seam gap, T7 short gap, T6
-crooked hasp, T2 one red pixel). Every body keeps the lid seam on row 17, so any
-tell works on any body.
-
-- Bodies: **A strapped** (two riveted iron straps over lid and body, same
-  outline), **B domed** (a barrel-top lid two rows taller, straps over it),
-  **C gilt corners** (today's chest with gold corner fittings).
-- Tells, subtle to loud: **T0 nails** (today: two pale pixels beside the lock),
-  **T3 gap** (the lid sits proud: a black line along the seam), **T1 teeth**
-  (a row of pale teeth either side of the lock; matches the mimic's face),
-  **T2 tongue** (a tongue tip hanging out of the seam), **T4 keyhole eye** (a
-  red emissive keyhole; loud in the dark, could be a Normal-only tell).
-- Whichever body is picked, `CHEST_OPEN`, `CHEST_BROKEN` and the mimic frames
-  (built on `CHEST_OPEN`) need the same restyle.
+**Chest and mimic tell: decided and shipped.** The owner picked A2 lid
+straps, and for the tell: keep the nails, add a very small tongue, and let
+the mimic breathe slowly enough that only someone watching notices. See
+"Deliberate choices". The proposal sheets stay in `docs/previews/art-rework-4/`
+for reference.
 
 **Mine ceiling** (`proposal-mine-ceiling-3d.png` in the lab, and
 `proposal-mine-ceiling-tiles.png`). The old lintel put a frame over every tile
@@ -95,10 +82,10 @@ boundary; that stays rejected.
 
 In rough order of payoff:
 
-1. **The chest and the mine ceiling,** once the proposals above are picked.
+1. **The mine ceiling,** once the proposal above is picked.
 2. **Gravecaller eyes.** Fine silhouette; the green eyes are small.
-3. **Broken chest.** It reads as a broken crate; redraw it with whichever
-   chest body wins.
+3. **Broken chest.** It reads as a broken crate. The strapped lid (A2) is
+   gone once it is smashed, so the lower box is what needs the work.
 4. **Big Toe, second pass.** A hair or two and a better stump.
 5. **Root cache and mound.** Acceptable, but plain next to the round-1 props.
 
@@ -211,8 +198,12 @@ From reviews of rounds 1–2:
 - **No timber beams on the mine ceiling.** Removed in ddbdca5 (2026-09-13),
   because they put a beam over the player at every tile boundary. A test
   guards it. Round 3 re-added them by mistake and backed out.
-- **The mimic tell** is two pale pixels in the chest's lid seam. The chest
-  and the mimic share rows.
+- **The mimic tell** is two pale nails in the lid seam and one pixel of
+  tongue beside the lock (a test pins it at three pixels), and the breath:
+  `chest_mimic_in` lifts the lid one pixel for 1.1 s every 6.5 s
+  (`BREATH_PERIOD`/`BREATH_HOLD` in the renderer), each chest on its own
+  phase. The owner wants it noticed only by someone watching. Don't make it
+  louder or faster. The chest and the mimic share rows.
 - **Shrines share one plinth and a per-god colour.** The colour is the tell
   from across a room, and the object on top is the tell up close.
 - **Your Shade is dressed at draw time.** `shade_0`/`shade_atk` are a bare

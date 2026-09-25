@@ -6,6 +6,8 @@
 
 **Your Shade looks like you, gone dark.** It used to borrow the Hollow Knight, washed pale blue, so it read as one more knight. Now it's a figure of its own: a faceless shape with two cold eyes, smoke coming off its edges, and its legs fading to nothing below the knee. It holds the weapon and shield you have equipped, in their materials. They are the only clear things about it, and no torch lights up the rest.
 
+**Watch the chests.** Chests have two dark iron straps down the lid. A mimic still shows its two pale nails in the lid seam, and now the very tip of a tongue beside the lock. And it breathes: every few seconds its lid lifts a hair and the seam goes dark, then it settles. You'll only see it if you stop and look.
+
 **Delver moles and Spore hunters warn you.** A mole has a proper pink snout with buck teeth and three big claws on each hand, and its mouth opens under the snout when it lunges. A Spore hunter keeps its tongue tucked in until it strikes. Then its gills flare and glowing spores puff out on either side.
 
 **Materials look like what they are.** In your pack, copper and iron ore are now chunks of rock with the metal showing through, and a gold nugget is a lump of raw gold. They used to look like smelted bars. Ingots are heavy bars with a maker's stamp. Planks come bundled and tied with cord, and cloth is a folded length with its loose end hanging down. Bones are knobbed at both ends, and a dragon scale is one big pointed scale.
