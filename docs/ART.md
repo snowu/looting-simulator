@@ -56,8 +56,12 @@ Everything not listed here scored 7 or better after a rework.
 
 These wait on the owner's pick. Don't ship either until one is chosen.
 
-**Chest and mimic tell** (`docs/previews/art-rework-4/proposal-chest-bodies.png`,
-`proposal-mimic-tells.png`). Every body keeps the lid seam on row 17, so any
+**Chest and mimic tell.** Round 1 (`docs/previews/art-rework-4/proposal-chest-bodies.png`,
+`proposal-mimic-tells.png`) was too busy and some tells too clear. Round 2
+(`proposal-chest-bodies-2.png`, `proposal-mimic-tells-2.png`) has calmer
+bodies (D plank seam, A2 dark lid straps, B2 plain dome, C2 iron corners)
+and subtle tells only (T0 nails, T5 one nail, T3 seam gap, T7 short gap, T6
+crooked hasp, T2 one red pixel). Every body keeps the lid seam on row 17, so any
 tell works on any body.
 
 - Bodies: **A strapped** (two riveted iron straps over lid and body, same
@@ -166,6 +170,12 @@ rendering. F3 hides the lab panel.
 
 From reviews of rounds 1–2:
 
+- **Round 4 direction:** the Bog Seraph as a frog seen from below,
+  spread-eagled, with the "biblically accurate angel" around it (halo,
+  feathers full of eyes). A literal frog face in a halo was too on the nose.
+  Chest tells should stay subtle; the keyhole eye and the row of teeth were
+  too clear. Icon shapes must be clean and symmetric where the object is
+  (the first bone looked scuffed).
 - **Liked:** the ghoul heads ("banging"), the Sporegrove moss wall, the coin
   pile, and the round-1 creatures overall.
 - **Rejected or fixed on review:**

@@ -68,7 +68,7 @@ than the original but blotchier, not better.
 
 | Before | After | Sprite | What was wrong → what changed |
 |---|---|---|---|
-| 6 | 7 | Bog Seraph | Striking up close, a spatter of red dots at range. → One bone halo ring, six fur wings radiating through it with gaps between (so the outline stays spiky), a bigger frog face, and two wing-eyes instead of ten. The halo ignites white on the attack. |
+| 6 | 7 | Bog Seraph | Striking up close, a spatter of red dots at range. → First pass (a big grinning frog in a halo) was too on the nose. Now a frog seen from below, spread-eagled like an icon, inside a bone-gold halo, with feathers radiating through the ring, each with an eye near its tip. Attack: the halo ignites white, the eyes open red, the throat sac swells. |
 | 6 | 7 | Delver mole | The tell was small. → A pink snout with nostrils and buck teeth, three bold talons on each hand (five thin ones read as stripes), and a mouth that opens under the snout on the lunge. |
 | 6 | 7 | Spore hunter | The tongue hung down all the time, so the attack only lengthened it. → At rest only the tongue's tip shows. On the lunge the gills flare and glowing spores puff out beside the body. The tongue stays: it came from the owner's reference. |
 | 5 | 6 | Mines floor | One dirt tile everywhere. → About one tile in eight is spoil with copper chips (one glinting), rarer still a dropped pick. The shared `DIRT_ROWS` is untouched. |
