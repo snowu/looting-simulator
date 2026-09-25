@@ -17,6 +17,7 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 
 // Commits that must never become patch notes. Short hash -> reason.
 const SKIP = {
+  'd87e2c8': 'round-4 art review notes, handoff doc, PR before/after sheets and proposal sheets, patch_notes.md text; the art is Patch 86',
   '76726ac': 'merge of #59 onto master; renumbers the art round to Patch 85',
   'cd4a45c': 'PR screenshots only',
   '1c5613a': 'PR screenshots only',
