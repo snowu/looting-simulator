@@ -11,6 +11,8 @@
 - Punishing is fine; unfair is not. The player must see what got them.
 - MECHANICS.md is the single reference for every number.
 
+
+
 ## D0. Method: measure first, tune second
 docs/NEXT.md already specified a headless harness at scripts/playtest.ts as the
 first task of the balance pass, and it was never built. Building it first rather
