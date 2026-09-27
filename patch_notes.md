@@ -16,6 +16,8 @@
 
 **You can tell your potions and scrolls apart.** Every potion shared one flask and every scroll shared one scroll, so only the colour told them apart. Now each has its own. The Healing Draught is a round flask, Greater Healing a bigger flask with a gold band, the Stamina Tonic a tall slim vial, and Fight Milk a milk bottle. Each scroll carries a mark for what it does: an eye for Identify, a sun for Flash, a turning-back arrow for Backstep, a house for Recall. The Flash Scroll is sun-gold now instead of white.
 
+**The mines are shored up.** Every few tiles along a straight tunnel in the Deep Mines, a timber set now stands: a post up each wall and a beam across the roof. It's only in tunnels and only every fourth tile, never a beam at every step.
+
 **Floors with something on them.** In the Ossuary, about one tile in eight is now a grave lid with a cross cut into it, or an iron drain grate. In the Deep Mines, you'll see spoil with copper in it about as often, and now and then a pick somebody dropped.
 
 Validation: all tests pass, and the shipped PNGs are regenerated from the art code (`npm run art:check` is clean). The Seraph, the Spore hunter, the rat and your Shade were checked in the 3D lab from three tiles away, and so were the new floors. The floors' first draft vanished into the dark there, so their contrast was raised.

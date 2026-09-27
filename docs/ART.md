@@ -14,7 +14,7 @@ Last updated 2026-09-25, after four rounds.
 | 1 | #51 | merged | Pasture herd, spider family, ceilings and crypt floor, catacombs water, the five shrines, barrel, fungus, sconce, loot bag, knight helm, club icon |
 | 2 | #52 | merged | Traps, ghoul/slagborn/wretch heads, bats, throne floor, robe and hide icons, bones, gold pile, Burrows and Sporegrove wall variants (plus review fixes) |
 | 3 | #59 | **open** | Giant rat and Hoarder, iron door (and the locked and fog doors built on it), Big Toe icon and viewmodel, broken urn, Sporegrove floor variants. Takes **Patch 85**. |
-| 4 | #63 | **open** | Bog Seraph, Delver mole and Spore hunter tells, Mines and Ossuary floor variants, material and consumable icons. Your Shade, the strapped chest, the breathing mimic and the awake mimic redrawn. A proposal for the mine ceiling. Takes **Patch 86**. Built on round 3. |
+| 4 | #63 | **open** | Bog Seraph, Delver mole and Spore hunter tells, Mines and Ossuary floor variants, material and consumable icons. Your Shade, the strapped chest, the breathing mimic, the awake mimic redrawn, and timber sets in the mines. Takes **Patch 86**. Built on round 3. |
 
 This file arrived with #59. If you are reading it on master, round 3 is
 merged. Round 4 (#63) is stacked on round 3 and carries its commits: merge #59 first, or merge #63 and close #59. Check the patch
@@ -44,7 +44,6 @@ Everything not listed here scored 7 or better after a rework.
 | 6 | Gravecaller | Fine silhouette; the green eyes are small. |
 | 6 | Root cache, broken chest, mound | Acceptable. The broken chest reads as a broken crate. |
 | 6 | Bare fist viewmodel | Holds up full-screen better than the sheet suggests. |
-| 6 | Mines ceiling | Plain rubble **on purpose** (see "Deliberate choices"). A timber-set proposal is open (below). |
 | 6 | Secret-wall marks, town portal, projectiles | Subtle by design. |
 | 6 | Big Toe (round 3) | Much better, but still a joke weapon drawn straight. A second pass could add a hair or two and a better stump. |
 | 7 | Skeleton family, goblins, archers, flame wraith, chests, most walls, wood and iron doors, viewmodels, gear, material and consumable icons | Good. Leave them unless something new sets a higher bar. |
@@ -54,40 +53,26 @@ Everything not listed here scored 7 or better after a rework.
 
 ## Open proposals
 
-The mine ceiling waits on the owner's pick. Don't ship it until one is chosen.
+None. Round 4's two proposals were decided and shipped:
 
-**Chest and mimic tell: decided and shipped.** The owner picked A2 lid
-straps, and for the tell: keep the nails, add a very small tongue, and let
-the mimic breathe slowly enough that only someone watching notices. See
-"Deliberate choices". The proposal sheets stay in `docs/previews/art-rework-4/`
-for reference.
+- **Chest and mimic tell.** The owner picked A2 lid straps, and for the
+  tell: keep the nails, add a very small tongue, and let the mimic breathe
+  slowly enough that only someone watching notices. See "Deliberate choices".
+- **Mine ceiling: M1 timber sets.** See "Deliberate choices". M2 lagging and
+  M3 ore seam were dropped: the ceiling is seen at such a glancing angle
+  that flat detail up there barely registers.
 
-**Mine ceiling** (`proposal-mine-ceiling-3d.png` in the lab, and
-`proposal-mine-ceiling-tiles.png`). The old lintel put a frame over every tile
-boundary; that stays rejected.
-
-- **M1 timber sets (recommended).** In straight corridors, every fourth tile
-  gets a set: a post up the middle of both side walls (`wall_mine_set`) and a
-  cap beam across the middle of the ceiling tile, oriented across the
-  corridor. It reads as a mine and comes round rarely. Needs a small rule in
-  `src/render/level-mesh.ts` (corridor detection plus two cap textures, one
-  per orientation). The existing test keeps passing because `ceil_mine`
-  itself stays plain rock. The prototype diff and draft art were kept out of
-  the repo.
-- **M2 lagging** (short bolted boards) and **M3 ore seam** are plain ceiling
-  variants with no renderer change, but the lab showed the ceiling is seen at
-  such a glancing angle that flat detail up there barely registers.
+The proposal sheets stay in `docs/previews/art-rework-4/` for reference.
 
 ## Suggested next targets
 
 In rough order of payoff:
 
-1. **The mine ceiling,** once the proposal above is picked.
-2. **Gravecaller eyes.** Fine silhouette; the green eyes are small.
-3. **Broken chest.** It reads as a broken crate. The strapped lid (A2) is
+1. **Gravecaller eyes.** Fine silhouette; the green eyes are small.
+2. **Broken chest.** It reads as a broken crate. The strapped lid (A2) is
    gone once it is smashed, so the lower box is what needs the work.
-4. **Big Toe, second pass.** A hair or two and a better stump.
-5. **Root cache and mound.** Acceptable, but plain next to the round-1 props.
+3. **Big Toe, second pass.** A hair or two and a better stump.
+4. **Root cache and mound.** Acceptable, but plain next to the round-1 props.
 
 Don't start on the UI frames (`src/art/ui.ts`). Other agents own the UI.
 
@@ -197,9 +182,16 @@ From reviews of rounds 1–2:
 
 ## Deliberate choices, don't undo
 
-- **No timber beams on the mine ceiling.** Removed in ddbdca5 (2026-09-13),
-  because they put a beam over the player at every tile boundary. A test
-  guards it. Round 3 re-added them by mistake and backed out.
+- **No timber lintel on every mine ceiling tile.** Removed in ddbdca5
+  (2026-09-13), because it put a beam over the player at every tile
+  boundary. A test keeps `ceil_mine` plain rock. Round 3 re-added it by
+  mistake and backed out.
+- **Timber sets instead** (round 4, the owner's pick). Only in a one-wide
+  straight tunnel, every fourth tile along it: a cap beam across that one
+  ceiling tile (`ceil_mine_cap_x`/`_z`, by the tunnel's direction) and a
+  post up the middle of the wall at each end (`wall_mine_set`). The rule is
+  `src/render/timber.ts`, set per biome by `timberSets` in `biomes.ts`, and a
+  test pins where sets stand. Don't lay caps anywhere else.
 - **The mimic tell** is two pale nails in the lid seam and one pixel of
   tongue beside the lock (a test pins it at three pixels), and the breath:
   `chest_mimic_in` lifts the lid one pixel for 1.1 s every 6.5 s
