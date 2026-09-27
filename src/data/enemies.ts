@@ -46,10 +46,11 @@ export const ENEMIES: EnemyDef[] = [
   },
   {
     // Never in the ordinary pool (weight 0): placed only by the corpse run, on
-    // the depth you last fell, guarding what you lost. A hollowed you: it
-    // borrows the knight's frame without the shield, and strikes with the
-    // damage type of the weapon you died holding (`EnemyState.shadeType`).
-    id: 'shade', name: 'Your Shade', sprite: 'knight', scale: 0.95,
+    // the depth you last fell, guarding what you lost. A hollowed you: a dark
+    // figure of its own holding the weapon and shield you have equipped
+    // (`src/render/shade.ts`), striking with the damage type of the weapon
+    // you died holding (`EnemyState.shadeType`).
+    id: 'shade', name: 'Your Shade', sprite: 'shade', scale: 1.1,
     hp: 60, attack: 12, defense: 6, damageType: 'shadow', resist: { holy: 1.5, shadow: 0.5 },
     behavior: 'melee', moves: MOVE_SETS.drilled, step: 0.5, windup: 0.6, recovery: 0.9, sight: 7,
     minDepth: 1, maxDepth: 6, weight: 0,

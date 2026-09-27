@@ -15,6 +15,14 @@ export interface BiomeDef {
   floorVariants?: string[];
   ceiling: string;
   ceilingVariants?: string[];
+  /**
+   * Timber sets along straight tunnels: every `every`th tile of a one-wide
+   * corridor gets a cap beam across its ceiling (`capX` for a tunnel running
+   * north-south, so the beam spans west-east; `capZ` the other way) and a
+   * post on the wall at each end of it. Rare by construction, so there is
+   * never a beam over every tile boundary.
+   */
+  timberSets?: { capX: string; capZ: string; post: string; every: number };
   door: string;
   fog: string;
   ambient: string;
@@ -51,6 +59,8 @@ export const BIOMES: BiomeDef[] = [
   {
     id: 'crypt', name: 'The Ossuary', depths: [1, 2],
     wall: 'wall_crypt', wallAlt: 'wall_crypt_b', wallSecret: 'wall_crypt_s',
+    // A grave lid or a drain now and then, about one tile in eight.
+    floorVariants: [...Array(14).fill('floor_crypt'), 'floor_crypt_grave', 'floor_crypt_drain'],
     floor: 'floor_crypt', ceiling: 'ceil_crypt', door: 'door_wood',
     fog: '#040308', ambient: '#24212e', torch: '#ffc488', torchDensity: 0.07,
     graves: true, law: 'restless',
@@ -58,7 +68,10 @@ export const BIOMES: BiomeDef[] = [
   {
     id: 'mines', name: 'The Deep Mines', depths: [3, 4],
     wall: 'wall_mine', wallAlt: 'wall_mine_b', wallSecret: 'wall_mine_s',
+    // Spoil with copper in it about one tile in eight, a dropped pick rarer.
+    floorVariants: [...Array(13).fill('floor_mine'), 'floor_mine_ore', 'floor_mine_ore', 'floor_mine_pick'],
     floor: 'floor_mine', ceiling: 'ceil_mine', door: 'door_wood',
+    timberSets: { capX: 'ceil_mine_cap_x', capZ: 'ceil_mine_cap_z', post: 'wall_mine_set', every: 4 },
     fog: '#080503', ambient: '#2a2016', torch: '#ffb870', torchDensity: 0.06,
     earth: true, vessel: 'barrel', law: 'collapse',
   },
@@ -115,6 +128,8 @@ export const BIOMES: BiomeDef[] = [
     // Plain rock most of the time; moss is common, crystal and fungus shelves
     // rare enough that two shelf faces seldom sit side by side.
     wallVariants: ['wall_cave', 'wall_cave', 'wall_cave', 'wall_cave', 'wall_cave_b', 'wall_cave_moss', 'wall_cave_moss', 'wall_cave_shelf'],
+    // Mostly the puddled floor; bare earth and a mossy patch break it up.
+    floorVariants: ['floor_cave', 'floor_cave', 'floor_cave', 'floor_cave_dirt', 'floor_cave_moss'],
     floor: 'floor_cave', ceiling: 'ceil_cave', door: 'door_wood',
     fog: '#071007', ambient: '#293c22', torch: '#b8dc78', torchDensity: 0.025,
     glow: { color: '#9acf65', density: 0.085, sprite: 'fungus' },
