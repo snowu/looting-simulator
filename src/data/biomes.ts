@@ -15,6 +15,14 @@ export interface BiomeDef {
   floorVariants?: string[];
   ceiling: string;
   ceilingVariants?: string[];
+  /**
+   * Timber sets along straight tunnels: every `every`th tile of a one-wide
+   * corridor gets a cap beam across its ceiling (`capX` for a tunnel running
+   * north-south, so the beam spans west-east; `capZ` the other way) and a
+   * post on the wall at each end of it. Rare by construction, so there is
+   * never a beam over every tile boundary.
+   */
+  timberSets?: { capX: string; capZ: string; post: string; every: number };
   door: string;
   fog: string;
   ambient: string;
@@ -63,6 +71,7 @@ export const BIOMES: BiomeDef[] = [
     // Spoil with copper in it about one tile in eight, a dropped pick rarer.
     floorVariants: [...Array(13).fill('floor_mine'), 'floor_mine_ore', 'floor_mine_ore', 'floor_mine_pick'],
     floor: 'floor_mine', ceiling: 'ceil_mine', door: 'door_wood',
+    timberSets: { capX: 'ceil_mine_cap_x', capZ: 'ceil_mine_cap_z', post: 'wall_mine_set', every: 4 },
     fog: '#080503', ambient: '#2a2016', torch: '#ffb870', torchDensity: 0.06,
     earth: true, vessel: 'barrel', law: 'collapse',
   },

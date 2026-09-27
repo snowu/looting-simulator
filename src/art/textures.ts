@@ -1024,6 +1024,30 @@ const MINE_FLOOR = { e: '#1c140b', a: '#281d12', b: '#33261a', c: '#403022', d: 
 const MINE_CEIL = { m: '#08060400', e: '#120c07', a: '#1a120c', b: '#22180f', c: '#2c2014', d: '#36281a' };
 const TIMBER = { x: '#7a5230', w: '#5e3e22', y: '#3c2614', z: '#1e1209', n: '#9a9aa2' };
 
+// A timber set: the cap beam laid across the middle of one ceiling tile, and
+// the post up the middle of the wall under each end. Only laid every few
+// tiles along a straight tunnel (`timberSets` on the biome), never on every
+// tile boundary. See the lintel note by `ceil_mine`.
+const SET_CAP = [
+  'k'.repeat(32),
+  'z'.repeat(32),
+  'x'.repeat(32),
+  'wwwwwwxwwwwwwwwwwwwwwwwwxwwwwwww',
+  'wwnwwwwwwwyywwwwwwwwwwwwwwwwwnww',
+  'wwwwwwwyyywwwwwwwwwwwwyywwwwwwww',
+  'wwwwwwwwwwwwwwwwwwyywwwwwwwwwwww',
+  'y'.repeat(32),
+  'z'.repeat(32),
+  'k'.repeat(32),
+];
+const SET_CAP_X_ROWS = [...Array(11).fill('.'.repeat(32)), ...SET_CAP, ...Array(11).fill('.'.repeat(32))];
+/** The same cap turned a quarter, for a tunnel running the other way. */
+const SET_CAP_Z_ROWS = Array.from({ length: 32 }, (_, y) => SET_CAP_X_ROWS.map((r) => r[y]).join(''));
+const SET_POST = ['kzxwwwwyzk', 'kzxwwywyzk', 'kzxwwwwyzk', 'kzxywwwyzk', 'kzxwwwwyzk', 'kzxwwwnyzk'];
+const SET_POST_ROWS = Array.from({ length: 32 }, (_, y) =>
+  '.'.repeat(11) + SET_POST[y % 6 === 0 && y > 2 ? 3 : y === 5 || y === 26 ? 5 : y % 7 === 3 ? 1 : 0] + '.'.repeat(11));
+const SET_TIMBER = { ...TIMBER, k: '#0c0805aa' };
+
 const CAVE = { m: '#050a09', e: '#0c1614', a: '#152420', b: '#1e302b', c: '#294038', d: '#365248' };
 const CAVE_FLOOR = { e: '#0a1210', a: '#101c18', b: '#16241f', c: '#1e2e28', d: '#2a3c34', p: '#44605a' };
 const CAVE_CEIL = { m: '#030605', e: '#070d0b', a: '#0b1411', b: '#101a17', c: '#15221e', d: '#1b2a25' };
@@ -1068,6 +1092,9 @@ export const TEXTURES: ArtDef[] = [
   // tile puts a beam directly over the player at every texture boundary.
   { id: 'ceil_mine', palette: MINE_CEIL, rows: RUBBLE_ROWS },
   { id: 'ceil_mine_rock', palette: MINE_CEIL, rows: RUBBLE_ROWS },
+  { id: 'ceil_mine_cap_x', base: 'ceil_mine_rock', palette: SET_TIMBER, rows: SET_CAP_X_ROWS },
+  { id: 'ceil_mine_cap_z', base: 'ceil_mine_rock', palette: SET_TIMBER, rows: SET_CAP_Z_ROWS },
+  { id: 'wall_mine_set', base: 'wall_mine', palette: SET_TIMBER, rows: SET_POST_ROWS },
 
   // Caverns
   { id: 'wall_cave', palette: CAVE, rows: RUBBLE_ROWS },
