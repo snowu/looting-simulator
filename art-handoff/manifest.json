@@ -32,6 +32,22 @@
     "recolorable": false
   },
   {
+    "id": "floor_crypt_grave",
+    "file": "textures/floor_crypt_grave.png",
+    "width": 32,
+    "height": 32,
+    "base": "floor_crypt",
+    "recolorable": false
+  },
+  {
+    "id": "floor_crypt_drain",
+    "file": "textures/floor_crypt_drain.png",
+    "width": 32,
+    "height": 32,
+    "base": "floor_crypt",
+    "recolorable": false
+  },
+  {
     "id": "ceil_crypt",
     "file": "textures/ceil_crypt.png",
     "width": 32,
@@ -72,6 +88,22 @@
     "recolorable": false
   },
   {
+    "id": "floor_mine_ore",
+    "file": "textures/floor_mine_ore.png",
+    "width": 32,
+    "height": 32,
+    "base": "floor_mine",
+    "recolorable": false
+  },
+  {
+    "id": "floor_mine_pick",
+    "file": "textures/floor_mine_pick.png",
+    "width": 32,
+    "height": 32,
+    "base": "floor_mine",
+    "recolorable": false
+  },
+  {
     "id": "ceil_mine",
     "file": "textures/ceil_mine.png",
     "width": 32,
@@ -88,11 +120,51 @@
     "recolorable": false
   },
   {
+    "id": "ceil_mine_cap_x",
+    "file": "textures/ceil_mine_cap_x.png",
+    "width": 32,
+    "height": 32,
+    "base": "ceil_mine_rock",
+    "recolorable": false
+  },
+  {
+    "id": "ceil_mine_cap_z",
+    "file": "textures/ceil_mine_cap_z.png",
+    "width": 32,
+    "height": 32,
+    "base": "ceil_mine_rock",
+    "recolorable": false
+  },
+  {
+    "id": "wall_mine_set",
+    "file": "textures/wall_mine_set.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_mine",
+    "recolorable": false
+  },
+  {
     "id": "wall_cave",
     "file": "textures/wall_cave.png",
     "width": 32,
     "height": 32,
     "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "wall_cave_moss",
+    "file": "textures/wall_cave_moss.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_cave",
+    "recolorable": false
+  },
+  {
+    "id": "wall_cave_shelf",
+    "file": "textures/wall_cave_shelf.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_cave",
     "recolorable": false
   },
   {
@@ -117,6 +189,14 @@
     "width": 32,
     "height": 32,
     "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "floor_cave_moss",
+    "file": "textures/floor_cave_moss.png",
+    "width": 32,
+    "height": 32,
+    "base": "floor_cave_dirt",
     "recolorable": false
   },
   {
@@ -168,11 +248,19 @@
     "recolorable": false
   },
   {
+    "id": "wall_frostvault_brick",
+    "file": "textures/wall_frostvault_brick.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
     "id": "wall_frostvault",
     "file": "textures/wall_frostvault.png",
     "width": 32,
     "height": 32,
-    "base": "wall_crypt",
+    "base": "wall_frostvault_brick",
     "recolorable": false
   },
   {
@@ -180,7 +268,7 @@
     "file": "textures/wall_frostvault_b.png",
     "width": 32,
     "height": 32,
-    "base": "wall_crypt_b",
+    "base": "wall_frostvault_glaze",
     "recolorable": false
   },
   {
@@ -232,16 +320,32 @@
     "recolorable": false
   },
   {
-    "id": "floor_frostvault",
-    "file": "textures/floor_frostvault.png",
+    "id": "floor_emberworks",
+    "file": "textures/floor_emberworks.png",
     "width": 32,
     "height": 32,
     "base": null,
     "recolorable": false
   },
   {
-    "id": "floor_emberworks",
-    "file": "textures/floor_emberworks.png",
+    "id": "floor_emberworks_shelf",
+    "file": "textures/floor_emberworks_shelf.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "floor_emberworks_shards",
+    "file": "textures/floor_emberworks_shards.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "floor_emberworks_vent",
+    "file": "textures/floor_emberworks_vent.png",
     "width": 32,
     "height": 32,
     "base": null,
@@ -252,7 +356,31 @@
     "file": "textures/ceil_emberworks.png",
     "width": 32,
     "height": 32,
-    "base": "ceil_mine",
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "ceil_emberworks_shelf",
+    "file": "textures/ceil_emberworks_shelf.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "ceil_emberworks_blister",
+    "file": "textures/ceil_emberworks_blister.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "ceil_emberworks_split",
+    "file": "textures/ceil_emberworks_split.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
     "recolorable": false
   },
   {
@@ -266,6 +394,22 @@
   {
     "id": "wall_burrows_b",
     "file": "textures/wall_burrows_b.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "wall_burrows_stones",
+    "file": "textures/wall_burrows_stones.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "wall_burrows_claws",
+    "file": "textures/wall_burrows_claws.png",
     "width": 32,
     "height": 32,
     "base": null,
@@ -304,11 +448,35 @@
     "recolorable": false
   },
   {
+    "id": "wall_emberworks_seam",
+    "file": "textures/wall_emberworks_seam.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_emberworks",
+    "recolorable": false
+  },
+  {
+    "id": "wall_emberworks_pool",
+    "file": "textures/wall_emberworks_pool.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_emberworks",
+    "recolorable": false
+  },
+  {
+    "id": "wall_emberworks_grate",
+    "file": "textures/wall_emberworks_grate.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_emberworks",
+    "recolorable": false
+  },
+  {
     "id": "wall_emberworks_b",
     "file": "textures/wall_emberworks_b.png",
     "width": 32,
     "height": 32,
-    "base": null,
+    "base": "wall_emberworks_grate",
     "recolorable": false
   },
   {
@@ -328,6 +496,22 @@
     "recolorable": false
   },
   {
+    "id": "door_emberworks",
+    "file": "textures/door_emberworks.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "door_emberworks_locked",
+    "file": "textures/door_emberworks_locked.png",
+    "width": 32,
+    "height": 32,
+    "base": "door_emberworks",
+    "recolorable": false
+  },
+  {
     "id": "door_iron",
     "file": "textures/door_iron.png",
     "width": 32,
@@ -341,6 +525,182 @@
     "width": 32,
     "height": 32,
     "base": "door_iron",
+    "recolorable": false
+  },
+  {
+    "id": "door_boss",
+    "file": "textures/door_boss.png",
+    "width": 32,
+    "height": 32,
+    "base": "door_iron",
+    "recolorable": false
+  },
+  {
+    "id": "wall_crypt_cracked",
+    "file": "textures/wall_crypt_cracked.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_crypt",
+    "recolorable": false
+  },
+  {
+    "id": "wall_crypt_ore",
+    "file": "textures/wall_crypt_ore.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_crypt",
+    "recolorable": false
+  },
+  {
+    "id": "wall_crypt_sealed",
+    "file": "textures/wall_crypt_sealed.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_crypt",
+    "recolorable": false
+  },
+  {
+    "id": "wall_mine_cracked",
+    "file": "textures/wall_mine_cracked.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_mine",
+    "recolorable": false
+  },
+  {
+    "id": "wall_mine_ore",
+    "file": "textures/wall_mine_ore.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_mine",
+    "recolorable": false
+  },
+  {
+    "id": "wall_mine_sealed",
+    "file": "textures/wall_mine_sealed.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_mine",
+    "recolorable": false
+  },
+  {
+    "id": "wall_cave_cracked",
+    "file": "textures/wall_cave_cracked.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_cave",
+    "recolorable": false
+  },
+  {
+    "id": "wall_cave_ore",
+    "file": "textures/wall_cave_ore.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_cave",
+    "recolorable": false
+  },
+  {
+    "id": "wall_cave_sealed",
+    "file": "textures/wall_cave_sealed.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_cave",
+    "recolorable": false
+  },
+  {
+    "id": "wall_catacombs_cracked",
+    "file": "textures/wall_catacombs_cracked.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_catacombs",
+    "recolorable": false
+  },
+  {
+    "id": "wall_catacombs_ore",
+    "file": "textures/wall_catacombs_ore.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_catacombs",
+    "recolorable": false
+  },
+  {
+    "id": "wall_catacombs_sealed",
+    "file": "textures/wall_catacombs_sealed.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_catacombs",
+    "recolorable": false
+  },
+  {
+    "id": "wall_burrows_cracked",
+    "file": "textures/wall_burrows_cracked.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_burrows",
+    "recolorable": false
+  },
+  {
+    "id": "wall_burrows_ore",
+    "file": "textures/wall_burrows_ore.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_burrows",
+    "recolorable": false
+  },
+  {
+    "id": "wall_burrows_sealed",
+    "file": "textures/wall_burrows_sealed.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_burrows",
+    "recolorable": false
+  },
+  {
+    "id": "wall_frostvault_cracked",
+    "file": "textures/wall_frostvault_cracked.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_frostvault",
+    "recolorable": false
+  },
+  {
+    "id": "wall_frostvault_ore",
+    "file": "textures/wall_frostvault_ore.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_frostvault",
+    "recolorable": false
+  },
+  {
+    "id": "wall_frostvault_sealed",
+    "file": "textures/wall_frostvault_sealed.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_frostvault",
+    "recolorable": false
+  },
+  {
+    "id": "wall_emberworks_cracked",
+    "file": "textures/wall_emberworks_cracked.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_emberworks",
+    "recolorable": false
+  },
+  {
+    "id": "wall_emberworks_ore",
+    "file": "textures/wall_emberworks_ore.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_emberworks",
+    "recolorable": false
+  },
+  {
+    "id": "wall_emberworks_sealed",
+    "file": "textures/wall_emberworks_sealed.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_emberworks",
     "recolorable": false
   },
   {
@@ -360,8 +720,24 @@
     "recolorable": false
   },
   {
+    "id": "chest_mimic_in",
+    "file": "props/chest_mimic_in.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
     "id": "chest_open",
     "file": "props/chest_open.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "chest_broken",
+    "file": "props/chest_broken.png",
     "width": 32,
     "height": 32,
     "base": null,
@@ -584,6 +960,14 @@
     "recolorable": false
   },
   {
+    "id": "mound",
+    "file": "props/mound.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": false
+  },
+  {
     "id": "trap_alarm_spent",
     "file": "props/trap_alarm_spent.png",
     "width": 16,
@@ -768,6 +1152,22 @@
     "recolorable": true
   },
   {
+    "id": "ic_ore",
+    "file": "icons/ic_ore.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_nugget",
+    "file": "icons/ic_nugget.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
     "id": "ic_plank",
     "file": "icons/ic_plank.png",
     "width": 16,
@@ -810,6 +1210,22 @@
   {
     "id": "ic_gem",
     "file": "icons/ic_gem.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_gem_cabochon",
+    "file": "icons/ic_gem_cabochon.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_gem_emerald",
+    "file": "icons/ic_gem_emerald.png",
     "width": 16,
     "height": 16,
     "base": null,
@@ -1096,6 +1512,30 @@
     "recolorable": true
   },
   {
+    "id": "ic_gyoza",
+    "file": "icons/ic_gyoza.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "ic_pizza",
+    "file": "icons/ic_pizza.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "ic_drumstick",
+    "file": "icons/ic_drumstick.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": false
+  },
+  {
     "id": "ic_potion",
     "file": "icons/ic_potion.png",
     "width": 16,
@@ -1104,8 +1544,56 @@
     "recolorable": true
   },
   {
-    "id": "ic_scroll",
-    "file": "icons/ic_scroll.png",
+    "id": "ic_potion_greater",
+    "file": "icons/ic_potion_greater.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_tonic",
+    "file": "icons/ic_tonic.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_milk",
+    "file": "icons/ic_milk.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_scroll_identify",
+    "file": "icons/ic_scroll_identify.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_scroll_flash",
+    "file": "icons/ic_scroll_flash.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_scroll_backstep",
+    "file": "icons/ic_scroll_backstep.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_scroll_recall",
+    "file": "icons/ic_scroll_recall.png",
     "width": 16,
     "height": 16,
     "base": null,
@@ -1192,6 +1680,30 @@
     "recolorable": true
   },
   {
+    "id": "ic_big_toe",
+    "file": "icons/ic_big_toe.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_prize_horn",
+    "file": "icons/ic_prize_horn.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_cane",
+    "file": "icons/ic_cane.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
     "id": "ui_frame",
     "file": "ui/ui_frame.png",
     "width": 12,
@@ -1218,6 +1730,22 @@
   {
     "id": "rat_atk",
     "file": "enemies/rat_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "bogseraph_0",
+    "file": "enemies/bogseraph_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "bogseraph_atk",
+    "file": "enemies/bogseraph_atk.png",
     "width": 32,
     "height": 32,
     "base": null,
@@ -1456,6 +1984,22 @@
     "recolorable": false
   },
   {
+    "id": "shade_0",
+    "file": "enemies/shade_0.png",
+    "width": 40,
+    "height": 40,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "shade_atk",
+    "file": "enemies/shade_atk.png",
+    "width": 40,
+    "height": 40,
+    "base": null,
+    "recolorable": false
+  },
+  {
     "id": "wraith_0",
     "file": "enemies/wraith_0.png",
     "width": 32,
@@ -1524,6 +2068,54 @@
     "file": "enemies/king_last_block.png",
     "width": 48,
     "height": 48,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "quartermaster_0",
+    "file": "enemies/quartermaster_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "quartermaster_atk",
+    "file": "enemies/quartermaster_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "hoarder_0",
+    "file": "enemies/hoarder_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "hoarder_atk",
+    "file": "enemies/hoarder_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "gravecaller_0",
+    "file": "enemies/gravecaller_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "gravecaller_atk",
+    "file": "enemies/gravecaller_atk.png",
+    "width": 32,
+    "height": 32,
     "base": null,
     "recolorable": false
   },
@@ -1706,6 +2298,30 @@
   {
     "id": "vm_blunt",
     "file": "viewmodels/vm_blunt.png",
+    "width": 48,
+    "height": 80,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "vm_big_toe",
+    "file": "viewmodels/vm_big_toe.png",
+    "width": 48,
+    "height": 80,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "vm_prize_horn",
+    "file": "viewmodels/vm_prize_horn.png",
+    "width": 48,
+    "height": 80,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "vm_cane",
+    "file": "viewmodels/vm_cane.png",
     "width": 48,
     "height": 80,
     "base": null,
