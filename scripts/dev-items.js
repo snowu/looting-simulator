@@ -11,6 +11,7 @@
  * are playing is copied there first. Slot 1, the real save, is never written.
  * It edits the save in localStorage directly, so it needs no dev hooks.
  *
+
  * Reuse: __giveItems(25)   // quantity per consumable
  * Signed in with cloud saves on? The next sync may replace slot 3 with the
  * cloud copy, so play it straight after the reload.
@@ -56,9 +57,20 @@ window.__giveItems = (quantity = 10) => {
 
   localStorage.setItem(keyFor(3), JSON.stringify(state));
   localStorage.setItem('looting-simulator-slot', '3');
-  // The running game would write its own copy back on the way out, so stop it.
-  window.addEventListener('beforeunload', (e) => e.stopImmediatePropagation(), true);
-  window.addEventListener('pagehide', (e) => e.stopImmediatePropagation(), true);
+  // The running game writes its own, older copy of the character back on the
+  // way out (unload, pagehide and visibilitychange all save), which would
+  // erase this. Freeze the save keys for the rest of this page's life, and
+  // keep the game's exit handlers from running at all.
+  const realSet = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (k, v) {
+    if (String(k).startsWith('looting-simulator-save-v2')) return;
+    return realSet.call(this, k, v);
+  };
+  for (const ev of ['beforeunload', 'pagehide', 'visibilitychange', 'blur']) {
+    window.addEventListener(ev, (e) => e.stopImmediatePropagation(), true);
+  }
+  const written = JSON.parse(localStorage.getItem(keyFor(3)) ?? '{}');
+  if ((written.stash?.items?.length ?? 0) < CATALOG.gear.length) throw new Error('Write to slot 3 did not stick.');
   console.log(`Slot 3 stash: ${relics} relics, ${CATALOG.gear.length} gear pieces, ${quantity} each of ${CATALOG.consumables.length} consumables. Reloading...`);
   setTimeout(() => location.reload(), 300);
 };
