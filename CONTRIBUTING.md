@@ -64,7 +64,7 @@ All of these exist only under `npm run dev`. They sit behind `import.meta.env.DE
 
 The title screen also shows a *Dev build only* row with buttons for the same destinations.
 
-Lab, boss and staged rooms run on a **scratch game** that is never saved, and reloading gives you your slot back. Console scripts that hand out gear should call `__game.useSlot(2)` or `useSlot(3)` first. Slot 1 refuses on purpose, because that's where a real playthrough lives. `scripts/dev-materials.js` is a paste-into-console helper that gives the current character materials, and `scripts/dev-items.js` does the same for every relic, gear base and consumable (it always switches to slot 3 first).
+Lab, boss and staged rooms run on a **scratch game** that is never saved, and reloading gives you your slot back. Console scripts that hand out gear should call `__game.useSlot(2)` or `useSlot(3)` first. Slot 1 refuses on purpose, because that's where a real playthrough lives. `scripts/dev-materials.js` is a paste-into-console helper that gives the current character materials, and `scripts/dev-items.js` fills **slot 3** with every relic, gear base and consumable. It edits the save in localStorage, so it also works pasted into the deployed game, and it never touches slot 1. It is generated: run `npm run dev:items` after changing item data.
 
 ## Checks
 

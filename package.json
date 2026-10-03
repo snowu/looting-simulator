@@ -20,7 +20,8 @@
     "art:export": "node scripts/export-art.mjs",
     "art:sheet": "node scripts/art-sheet.mjs",
     "art:sync": "node scripts/sync-public-art.mjs",
-    "art:check": "node scripts/sync-public-art.mjs --check"
+    "art:check": "node scripts/sync-public-art.mjs --check",
+    "dev:items": "node scripts/gen-dev-items.mjs"
   },
   "keywords": [],
   "author": "",
