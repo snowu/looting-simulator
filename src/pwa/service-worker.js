@@ -17,18 +17,34 @@ const SCOPE = new URL(self.registration.scope);
 const INDEX = new URL('./', SCOPE).href;
 // Past this, a navigation stops waiting on a bad connection and boots the cached game.
 const NAV_TIMEOUT_MS = 4000;
+const FONT_TIMEOUT_MS = 8000;
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     (async () => {
       const cache = await caches.open(BUILD_CACHE);
-      // `reload` skips the HTTP cache, so a stale copy of an unhashed file
-      // (art PNGs, the art pack) cannot end up in this build's set.
-      await cache.addAll(PRECACHE.map((path) => new Request(new URL(path, SCOPE), { cache: 'reload' })));
-      await cacheFonts().catch(() => {});
+      // The core (page, code, styles, art pack) must all land or the install
+      // fails and the browser tries again on the next visit. The loose art
+      // PNGs only back up the pack, so they are fetched best-effort: one
+      // failed request out of hundreds on a phone must not cost the whole
+      // offline copy.
+      const loose = PRECACHE.filter((path) => /^art\/[^/]+\.png$/.test(path));
+      const core = PRECACHE.filter((path) => !loose.includes(path));
+      await cache.addAll(core.map(request));
+      await Promise.all(loose.map((path) => cache.add(request(path)).catch(() => {})));
+      // Fonts are a nicety: bounded, so a slow font host cannot hold the install open.
+      await Promise.race([cacheFonts().catch(() => {}), new Promise((r) => setTimeout(r, FONT_TIMEOUT_MS))]);
+      // Take over now rather than when every tab closes: the page is fetched
+      // network-first, so an open tab never gets an old build from this.
+      await self.skipWaiting();
     })(),
   );
 });
+
+/** `reload` skips the HTTP cache, so a stale copy of an unhashed file cannot end up in this build's set. */
+function request(path) {
+  return new Request(new URL(path, SCOPE), { cache: 'reload' });
+}
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(

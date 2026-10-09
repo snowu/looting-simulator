@@ -36,7 +36,7 @@ export function titleScreen(slots: HTMLElement, build = '', account?: HTMLElemen
       h('p', { class: 'dim small', style: 'margin-top:14px', text: 'Sound on. Best with headphones and the lights off.' }),
       account ?? null,
       dev ?? null,
-      build ? h('p', { class: 'faint small', text: `build ${build}` }) : null,
+      build ? h('p', { class: 'faint small build-line', text: `build ${build}` }) : null,
     ),
     // Same corner as the in-game gear: pinned top-right beside the fullscreen
     // button, not down by the patch notes.

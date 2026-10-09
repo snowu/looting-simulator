@@ -10,7 +10,7 @@ import { quirkDef } from './data/quirks';
 import { World, WorldEvent } from './world/world';
 import { DungeonRenderer } from './render/dungeon-renderer';
 import { artUrl, loadArtOverrides } from './render/art-cache';
-import { registerOfflineCache } from './pwa/register';
+import { registerOfflineCache, whenOfflineReady } from './pwa/register';
 import { Hud } from './ui/hud';
 import { DungeonOverlays } from './ui/dungeon-ui';
 import { Town } from './ui/town';
@@ -64,6 +64,13 @@ let ending: { outcome: 'dead' | 'extracted'; t: number } | null = null;
 
 // --- DOM -----------------------------------------------------------------------
 registerOfflineCache();
+// Shown on the title's build line, so a player knows it is safe to go offline.
+let offlineReady = false;
+void whenOfflineReady().then((ready) => {
+  offlineReady = ready;
+  if (ready) for (const el of document.querySelectorAll('.build-line')) el.textContent = `build ${buildLabel()}`;
+});
+const buildLabel = () => `v${APP_VERSION} (${BUILD_ID})${offlineReady ? ' · offline ready' : ''}`;
 const overrideCount = await loadArtOverrides();
 if (overrideCount) console.info(`Loaded ${overrideCount} hand-drawn art override(s).`);
 
@@ -751,7 +758,7 @@ function enterTitle(): void {
   screen.replaceChildren(titleScreen(slotPicker(slotViews(), enterSlot, {
     onRename: (n, name) => void renameSlot(n, name),
     onDelete: (n) => void deleteSlot(n),
-  }), `v${APP_VERSION} (${BUILD_ID})`, account.el, devTitleTools(), () => openTitleSettings()));
+  }), buildLabel(), account.el, devTitleTools(), () => openTitleSettings()));
   askAboutSaves();
 }
 

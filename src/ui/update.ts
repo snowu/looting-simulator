@@ -1,3 +1,5 @@
+import { installLatestBuild } from '../pwa/register';
+
 // Replaced at build time by Vite's `define` (see vite.config.ts).
 declare const __BUILD_ID__: string;
 declare const __APP_VERSION__: string;
@@ -111,30 +113,11 @@ export async function newerBuild(): Promise<string | null> {
   }
 }
 
-/** Drop caches an installed copy or browser could use to resurrect the old build. */
-async function clearUpdateCaches(): Promise<void> {
-  try {
-    if ('serviceWorker' in navigator) {
-      const regs = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(regs.map((r) => r.unregister()));
-    }
-  } catch {
-    // ignore: navigation below still busts the page URL
-  }
-  try {
-    if ('caches' in window) {
-      const keys = await caches.keys();
-      await Promise.all(keys.map((k) => caches.delete(k)));
-    }
-  } catch {
-    // ignore
-  }
-}
-
 /**
  * Load the new build: force the cached page + version file through the
- * network first, drop service-worker/Cache Storage copies, then navigate to
- * a fresh URL so neither the browser cache nor an installed app serves the
+ * network first, let the offline worker download the new build (it replaces
+ * the old copy itself, so offline play never goes without one), then navigate
+ * to a fresh URL so neither the browser cache nor an installed app serves the
  * old one. Marks the session guard first so a half-propagated deploy cannot
  * spin the tab.
  */
@@ -150,6 +133,6 @@ export async function reloadToLatest(id: string): Promise<void> {
   } catch {
     // offline: the navigation below will tell
   }
-  await clearUpdateCaches();
+  await installLatestBuild();
   location.replace(buildUpdateUrl(location.href, BASE, id));
 }
