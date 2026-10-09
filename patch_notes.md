@@ -1,3 +1,15 @@
+# Offline play, fixed
+
+*Save revision 29, unchanged: nothing about a save moves.*
+
+**No more "You're offline".** Playing with no connection could still land on a "You're offline" page, most of all on a phone. The game keeps a copy of itself for offline play, and one failed download out of hundreds, or an update, threw that copy away. Now the download shrugs off the odd failure, starts the moment the game opens, and an update replaces the stored copy instead of deleting it.
+
+**Know when it's safe.** The build line at the bottom of the title screen now ends in *offline ready* once the game is stored. Open it once online (from your home screen, if you installed it there), wait for that, and it plays anywhere.
+
+Validation: all tests pass. In a browser, the game was opened with a fifth of its art downloads made to fail and still came up offline. A new version was then put out with the page open: it updated, said offline ready again, and came up offline as the new version.
+
+---
+
 # Play with no connection
 
 *Save revision 29, unchanged: nothing about a save moves.*
