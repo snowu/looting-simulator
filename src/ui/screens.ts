@@ -80,8 +80,11 @@ export function summaryScreen(sum: RunSummary, onContinue: () => void): HTMLElem
       fallen ? h('p', { class: 'red-t', text: 'Hardcore: there was only one life. This hero is dead for good, and the save stays as their headstone.' }) : null,
       sum.oaths ? oathsLine(sum.oaths) : sum.oath ? oathLine(sum.oath) : null,
       sum.seals ? h('p', { style: 'color:#c080ff', text: `Under ${sum.seals.count} Ashen Seal${sum.seals.count === 1 ? '' : 's'}.${sum.seals.record ? ' A new record: the King slain under more Seals than ever before.' : ''}` }) : null,
-      sum.graveDepth ? h('p', { style: 'color:#9ab8ff', text: `What you lost waits at depth ${sum.graveDepth}, held by your Shade. Go back for it before you fall again.` }) : null,
-      sum.items.length && !fallen ? h('h3', { text: home ? 'Brought home' : 'Saved by the Soul Pouch' }) : null,
+      sum.keptPack ? h('p', { style: 'color:#9ab8ff', text: 'Normal: your pack came home with you. Only a tenth of the coin you carried was lost.' }) : null,
+      sum.graveDepth ? h('p', { style: 'color:#9ab8ff', text: sum.keptPack
+        ? `The coin you dropped waits at depth ${sum.graveDepth}, held by your Shade.`
+        : `What you lost waits at depth ${sum.graveDepth}, held by your Shade. Go back for it before you fall again.` }) : null,
+      sum.items.length && !fallen ? h('h3', { text: home ? 'Brought home' : sum.keptPack ? 'Carried home' : 'Saved by the Soul Pouch' }) : null,
       sum.items.length && !fallen ? h('div', { class: 'items' }, ...sum.items.map((it) => itemSlot(it, { size: 44 }))) : null,
       sum.lost.length ? h('h3', { class: 'red-t', text: 'Lost in the dark' }) : null,
       sum.lost.length ? h('div', { class: 'items', style: 'opacity:0.6' }, ...sum.lost.map((it) => itemSlot(it, { size: 44 }))) : null,

@@ -118,10 +118,10 @@ export function eligibleTraits(def: EnemyDef): EliteTrait[] {
  * and to what. Deterministic, and on its own stream: the same floor always has
  * the same elites, and asking never draws from the generator.
  */
-export function eliteFor(floorSeed: number, enemyId: string, depth: number, def: EnemyDef, bonus = 0): EliteTrait | null {
+export function eliteFor(floorSeed: number, enemyId: string, depth: number, def: EnemyDef, bonus = 0, scale = 1): EliteTrait | null {
   const traits = eligibleTraits(def);
   if (!traits.length) return null;
-  const chance = Math.min(1, eliteChance(depth) + bonus);
+  const chance = Math.min(1, eliteChance(depth) * scale + bonus);
   // No draw at all when there is no chance: keeps unsealed floors' streams as they were.
   if (chance <= 0) return null;
   const rng = createRng(hashString(`elite:${floorSeed}:${enemyId}`));

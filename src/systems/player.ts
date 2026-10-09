@@ -249,7 +249,8 @@ export function derivePlayer(eq: Equipment, meta: MetaLevels, difficulty?: Diffi
   const hasShield = !twoHanded && !!eq.offhand;
   // Difficulty pads the health bar on Normal; Hard multiplies by exactly 1, so
   // the old number survives the round trip unchanged.
-  const maxHp = Math.max(10, Math.round((BASE_HP + stats.health + 12 * metaLevel(meta, 'toughness')) * difficultyOf(difficulty).playerHp));
+  const diff = difficultyOf(difficulty);
+  const maxHp = Math.max(10, Math.round((BASE_HP + stats.health + 12 * metaLevel(meta, 'toughness')) * diff.playerHp));
   return {
     stats,
     maxHp,
@@ -270,7 +271,8 @@ export function derivePlayer(eq: Equipment, meta: MetaLevels, difficulty?: Diffi
     // Parrying with a weapon still takes the edge off; shields do the real work.
     // Clamped at zero: a relic that spends Block can drive the stat negative,
     // and a negative absorption would turn raising your guard into taking more.
-    block: hasShield ? clamp(stats.block / 100, 0, 0.9) : twoHanded ? 0.2 : weapon ? 0.3 : 0.12,
+    // Normal adds its bonus before the shield cap, so it can never lift a guard past 90%.
+    block: clamp((hasShield ? stats.block / 100 : twoHanded ? 0.2 : weapon ? 0.3 : 0.12) + diff.blockBonus, 0, 0.9),
     hasShield,
     twoHanded,
     thrown: thrownProfile(eq.thrown),

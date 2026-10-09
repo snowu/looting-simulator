@@ -39,7 +39,7 @@ import { findSigil, sigil } from '../data/spells';
 import { derivePlayer } from '../systems/player';
 import { defaultSlot, equipFrom, unequipTo, wornFor } from '../systems/equip';
 import { createRng, hashString, randomSeed } from '../core/rng';
-import { artImg, bothRegisters, btn, gold, h, helpBlock, helpButton, hideTooltip, isTouchMode, itemSlot, itemTooltip, rarityColor, sparkline, statLines, toggleDetailed } from './dom';
+import { artImg, bothRegisters, btn, gold, h, helpBlock, helpButton, hideTooltip, showCondition, isTouchMode, itemSlot, itemTooltip, rarityColor, sparkline, statLines, toggleDetailed } from './dom';
 import { esc } from '../core/escape';
 import { artUrl } from '../render/art-cache';
 import { paperDoll, statSheet } from './dungeon-ui';
@@ -184,6 +184,7 @@ export class Town {
 
   render(): void {
     hideTooltip();
+    showCondition(difficultyOf(this.difficultyId).gearWears);
     if (this.beastTimer !== null) {
       clearInterval(this.beastTimer);
       this.beastTimer = null;
@@ -907,9 +908,12 @@ export class Town {
       return rank < MAX_RECIPE_RANK && owned >= blueprintCostForNextRank(rank);
     }).length;
 
+    // No repair bench where nothing wears.
+    const wears = difficultyOf(this.difficultyId).gearWears;
+    if (!wears && this.forgeSide === 'repairs') this.forgeSide = 'recipes';
     const benches: [typeof this.forgeSide, string, number][] = [
       ['recipes', 'Recipes', readyBlueprints],
-      ['repairs', 'Repairs', wornCount],
+      ...(wears ? [['repairs', 'Repairs', wornCount] as [typeof this.forgeSide, string, number]] : []),
       ['sigils', 'Sigils', stones],
       ['inscribe', 'Inscribe', 0],
       ['infusions', 'Flask', 0],
@@ -1089,7 +1093,7 @@ export class Town {
         artImg(def.icon, undefined, 34),
         h('div', { class: 'grow' },
           h('div', { style: `color:${on ? '#e0c060' : '#b89ad8'}`, text: def.name }),
-          h('div', { class: 'dim small', text: `${def.description} · ${def.cast.toFixed(2)}s cast · ${def.stamina} stamina · ${def.cooldown}s` }),
+          h('div', { class: 'dim small', text: `${def.description}${id === 'temper' && !difficultyOf(this.difficultyId).gearWears ? ' Nothing wears on Normal, so it has nothing to do.' : ''} · ${def.cast.toFixed(2)}s cast · ${def.stamina} stamina · ${def.cooldown}s` }),
         ),
         btn(on ? 'Attuned' : 'Attune', () => {
           if (!attuneSigil(s, id)) return this.ctx.toast('Not while you are down there. Step back through a portal first.', '#9ab0d8');

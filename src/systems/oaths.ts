@@ -5,10 +5,12 @@ import {
   PILGRIM_PRAYERS, SILENCE_DEPTH, STACK_BONUS, STACK_BONUS_AT, UNBROKEN_DEPTH, findOath, oathsForDay,
 } from '../data/oaths';
 import { learnProperty, unlearnedProperties } from './properties';
+import { difficultyOf } from '../data/difficulty';
 
 /** Today's oaths on the stone, for this playthrough. */
 export function todaysOaths(state: GameState): OathId[] {
-  return oathsForDay(state.saveId ?? '', state.market.day);
+  // Unbroken asks you not to break your gear, which cannot happen where nothing wears.
+  return oathsForDay(state.saveId ?? '', state.market.day, difficultyOf(state.difficulty).gearWears ? [] : ['unbroken']);
 }
 
 /** The oaths sworn for the next delve, from the current field or the single one before oaths stacked. */
@@ -48,7 +50,9 @@ export function toggleOath(state: GameState, id: OathId): boolean {
 
 /** Called as a delve starts: the sworn oaths move onto the run and take hold. */
 export function beginOaths(state: GameState, run: RunState): void {
-  const ids = pendingOaths(state);
+  // Unbroken sworn on Hard before a switch to Normal has nothing to ask of the delve: dropped.
+  const wears = difficultyOf(state.difficulty).gearWears;
+  const ids = pendingOaths(state).filter((id) => wears || id !== 'unbroken');
   state.pendingOaths = [];
   state.pendingOath = null;
   if (!ids.length) return;

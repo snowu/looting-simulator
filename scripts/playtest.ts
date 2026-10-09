@@ -13,6 +13,7 @@
 import { createRng, Rng } from '../src/core/rng';
 import { DIRS, DX, DY, Dir } from '../src/core/dir';
 import { newGame } from '../src/state/game-state';
+import { DifficultyId } from '../src/data/difficulty';
 import { GameState } from '../src/state/game-state';
 import { startRun, endRun, syncLoadout } from '../src/systems/run';
 import { addItem, removeItem } from '../src/state/inventory';
@@ -85,6 +86,8 @@ export interface RunReport {
   capacity: number;
   brokenAtEnd: number;
   perFloor: FloorReport[];
+  /** On a death in the throne room: the King's health left, and whether the bot was already trying to leave. */
+  throneDeath?: { kingHp: number; leaving: boolean };
 }
 
 export interface FloorReport {
@@ -332,7 +335,11 @@ class Bot {
           if (this.blockedUntil === -1) w.setBlock(false);
           else w.setBlock(true);
         }
-        if (this.blockedUntil === -1 && e.timer <= 0.10) w.setBlock(true);
+        // Held intent is cleared every decision, so the guard has to be
+        // restated every tick too: a plain block held for one frame was never
+        // up long enough to absorb anything, and every report read "blocked 0".
+        if (this.blockedUntil === -1) { if (e.timer <= 0.10) w.setBlock(true); }
+        else w.setBlock(true);
         return true;
       }
       this.parryFor = null;
@@ -646,6 +653,12 @@ class Bot {
     r.kills = w.run.stats.kills;
     r.time = w.run.stats.time;
     r.killedBy = w.run.killedBy;
+    const throne = w.floor.rooms.find((room) => room.role === 'throne');
+    const p = w.player;
+    if (w.run.outcome === 'dead' && throne && p.x >= throne.x && p.x < throne.x + throne.w && p.y >= throne.y && p.y < throne.y + throne.h) {
+      const king = w.floor.enemies.find((e) => e.def === BOSS_ID);
+      r.throneDeath = { kingHp: king ? Math.max(0, king.hp) / king.maxHp : 0, leaving: this.leaving };
+    }
     const died = w.run.outcome === 'dead';
     r.outcome = died ? 'dead' : 'extracted';
     for (const slot of ['weapon', 'offhand', 'body', 'head', 'hands'] as const) {
@@ -668,6 +681,8 @@ export interface PlaytestOpts {
   seed?: number;
   /** Called with the fresh GameState before the run starts. */
   prepare?: (s: GameState, run: number) => void;
+  /** The save's difficulty. Hard when absent, like every save before difficulty levels. */
+  difficulty?: DifficultyId;
 }
 
 /**
@@ -686,8 +701,9 @@ export function geared(equipment: () => Equipment, meta: MetaLevels = {}): (s: G
 export const MID_META: MetaLevels = { toughness: 3, endurance: 2, pack_mule: 1, lantern: 1 };
 export const DEEP_META: MetaLevels = { toughness: 5, endurance: 3, pack_mule: 3, lantern: 3, treasure_sense: 2 };
 
-export function playOneRun(seed: number, policy: Policy, prepare?: (s: GameState) => void): RunReport {
+export function playOneRun(seed: number, policy: Policy, prepare?: (s: GameState) => void, difficulty: DifficultyId = 'hard'): RunReport {
   const state = newGame(createRng(seed));
+  state.difficulty = difficulty;
   // newGame draws a random save id, and the day's roads at the fork are seeded
   // from it. Fix it, or two runs of the harness take different roads and stop
   // being comparable.
@@ -730,7 +746,7 @@ export function playtest(opts: PlaytestOpts): RunReport[] {
   const out: RunReport[] = [];
   for (let i = 0; i < opts.runs; i++) {
     const seed = (opts.seed ?? 1000) + i * 7919;
-    out.push(playOneRun(seed, policy, opts.prepare ? (s) => opts.prepare!(s, i) : undefined));
+    out.push(playOneRun(seed, policy, opts.prepare ? (s) => opts.prepare!(s, i) : undefined, opts.difficulty));
   }
   return out;
 }
@@ -758,7 +774,10 @@ export function summarise(reports: RunReport[], label: string): string {
     [1, 2, 3, 4, 5, 6].map((d) => `D${d}:${pct(reports.filter((r) => r.deepest >= d).length, n)}`).join(' '));
   const deathDepth = [1, 2, 3, 4, 5, 6].map((d) => `D${d}:${deaths.filter((r) => r.deepest === d).length}`).join(' ');
   L.push(`deaths by depth: ${deathDepth}`);
-  L.push(`Ashen King slain: ${reports.filter((r) => r.bossKilled).length}/${n}`);
+  const throneDeaths = reports.filter((r) => r.throneDeath);
+  L.push(`Ashen King slain: ${reports.filter((r) => r.bossKilled).length}/${n}` + (throneDeaths.length
+    ? `   died in the throne room: ${throneDeaths.length} (King left at avg ${(avg(throneDeaths.map((r) => r.throneDeath!.kingHp)) * 100).toFixed(0)}%, ${throneDeaths.filter((r) => r.throneDeath!.leaving).length} while trying to leave; ${throneDeaths.map((r) => r.killedBy).join(', ')})`
+    : ''));
   const killers = new Map<string, number>();
   for (const r of deaths) killers.set(r.killedBy ?? '?', (killers.get(r.killedBy ?? '?') ?? 0) + 1);
   L.push(`killed by: ${[...killers].sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} x${v}`).join(', ') || '—'}`);

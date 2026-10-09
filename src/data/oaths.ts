@@ -111,11 +111,11 @@ export const STACK_BONUS = 1;
  * by the playthrough and the day, so the offer turns with the days and the
  * town and the delve always agree on it.
  */
-export function oathsForDay(saveId: string, day: number): OathId[] {
+export function oathsForDay(saveId: string, day: number, exclude: readonly OathId[] = []): OathId[] {
   const rng = createRng(hashString(`oaths:${saveId}:${day}`));
   const out: OathId[] = [];
   for (const tier of ['hard', 'medium'] as OathTier[]) {
-    out.push(...rng.shuffle(OATH_IDS.filter((id) => OATHS[id].tier === tier)).slice(0, OFFER[tier]));
+    out.push(...rng.shuffle(OATH_IDS.filter((id) => OATHS[id].tier === tier && !exclude.includes(id))).slice(0, OFFER[tier]));
   }
   return out;
 }

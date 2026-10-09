@@ -17,6 +17,12 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 
 // Commits that must never become patch notes. Short hash -> reason.
 const SKIP = {
+  '44e7329': 'Patch 80 citation only',
+  '3ae69b4': 'Patch 80 citation only',
+  '7002394': 'Patch 80 citations and a skip reason only',
+  '1bd6ae7': 'playtest report diagnostics only; no player-facing change',
+  '1edbb8a': 'playtest harness fix only; no player-facing change',
+  'b072943': 'Patch 80 citation only',
   '4481560': 'Patch 87 text for offline play (beefb60)',
   'e6157f0': 'Patch 86 text and art docs for the mine timber sets (d8a54b8)',
   '2768ec5': 'Patch 86 citation of the centipede legs (ae2c678) only',

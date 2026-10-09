@@ -1,3 +1,4 @@
+import { flaskMax } from './healing';
 import { DRY_WELL_CHARGES, SEAL_RENOWN, sealFloorMods, validSeals } from '../data/seals';
 import { sealsUnlocked } from './seals';
 import { digGrave, placeShade } from './grave';
@@ -5,7 +6,8 @@ import { itemBase } from '../data/items';
 import { roadsForDay } from '../data/routes';
 import { beginOaths, settleOaths } from './oaths';
 import { createRng, randomSeed } from '../core/rng';
-import { Item } from '../types';
+import { EQUIP_SLOTS, Item } from '../types';
+import { repairItem } from './items';
 import { GameState, RunState, RunSummary } from '../state/game-state';
 import { Container, addItem, createContainer } from '../state/inventory';
 import { generateFloor, stairsFront } from './dungeon';
@@ -40,12 +42,28 @@ export function bankCarriedGold(state: GameState): number {
   return banked;
 }
 
+/**
+ * Mend every piece of gear the player owns: worn, stashed and packed. For a
+ * difficulty where nothing wears, so gear brought over from Hard, or anything
+ * dented some other way, is whole again and stays whole.
+ */
+export function mendAllGear(state: GameState): void {
+  for (const slot of EQUIP_SLOTS) {
+    const it = state.equipment[slot];
+    if (it) repairItem(it);
+  }
+  for (const it of [...state.stash.items, ...state.loadout.items]) {
+    if (it.kind === 'equipment') repairItem(it);
+  }
+}
+
 export function startRun(state: GameState, seed = randomSeed()): RunState {
   if (state.fallen) throw new Error('A fallen Hardcore hero cannot delve again.');
   // The delve plays at the town difficulty, snapshotted here: whatever the
   // town selector says afterwards does not touch this run.
   const difficulty = difficultyOf(state.difficulty).id;
   state.difficulty = difficulty;
+  if (!difficultyOf(difficulty).gearWears) mendAllGear(state);
   // Ashen Seals, once the King has fallen: snapshotted for the whole delve.
   const seals = sealsUnlocked(state) ? validSeals(state.pendingSeals) : [];
   const floor = generateFloor(seed, 1, difficulty, false, undefined, sealFloorMods(seals));
@@ -76,7 +94,7 @@ export function startRun(state: GameState, seed = randomSeed()): RunState {
     portal: null,
     thrown: { held: {}, retrieveCd: 0 },
     sigil: state.attuned ? { id: state.attuned, cd: 0 } : null,
-    flask: { charges: Math.max(1, 3 + Math.min(3, state.flask?.shards ?? 0) - (seals.includes('dry_well') ? DRY_WELL_CHARGES : 0)), dregs: 0 },
+    flask: { charges: Math.max(1, flaskMax(state.flask?.shards ?? 0, difficultyOf(difficulty).flaskBonus) - (seals.includes('dry_well') ? DRY_WELL_CHARGES : 0)), dregs: 0 },
     stats: { kills: 0, goldFound: 0, itemsFound: 0, deepest: 1, time: 0, bossKilled: false },
     outcome: 'active',
   };
@@ -99,9 +117,16 @@ export function endRun(state: GameState, outcome: 'dead' | 'extracted'): RunSumm
   const kept: Item[] = [];
   const lost: Item[] = [];
   let gold = run.gold;
+  const softDeath = difficultyOf(run.difficulty ?? state.difficulty).softDeath;
   if (outcome === 'extracted') {
     kept.push(...run.backpack.items);
     state.lifetime.extractions += 1;
+  } else if (softDeath) {
+    // Normal: the pack comes home with you, and only a tithe of the coin is
+    // lost — to your Shade, who holds it for the next delve down there.
+    kept.push(...run.backpack.items);
+    gold = run.gold - Math.ceil(run.gold * softDeath.goldLost);
+    state.lifetime.deaths += 1;
   } else {
     // Soul Pouch: the first few slots and some coin survive.
     const pouch = metaLevel(state.meta, 'soul_pouch');
@@ -147,6 +172,7 @@ export function endRun(state: GameState, outcome: 'dead' | 'extracted'): RunSumm
     dayTurned,
     ...(oaths ? { oaths } : {}),
     ...(graveDepth ? { graveDepth } : {}),
+    ...(outcome === 'dead' && softDeath ? { keptPack: true } : {}),
     ...(sealCount ? { seals: { count: sealCount, record: sealRecord } } : {}),
   };
   // One life: the grave is dug before anything else is saved, so there is no

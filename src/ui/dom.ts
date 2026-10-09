@@ -351,10 +351,19 @@ export function statLines(s: Stats, compare?: Stats): string[] {
   return out;
 }
 
+/**
+ * Whether tooltips show gear condition. Off on a difficulty where nothing
+ * wears; the town and the dungeon screens set it from the save as they draw.
+ */
+let conditionShown = true;
+export function showCondition(on: boolean): void {
+  conditionShown = on;
+}
+
 /** Whether this item has anything extra to say when the reader asks for numbers. */
 function hasDetail(item: Item): boolean {
   if (uniqueOf(item) && isIdentified(item)) return true;
-  return item.kind === 'equipment' && durability(item).wears;
+  return conditionShown && item.kind === 'equipment' && durability(item).wears;
 }
 
 export interface TipOpts {
@@ -404,7 +413,7 @@ export function itemTooltip(item: Item, opts: TipOpts = {}): string {
         lines.push(`<div class="tt-unique" style="color:${property.color}">${esc(property.name)}: ${esc(detailed ? property.detail : property.rule)}</div>`);
       }
       const d = durability(item);
-      if (d.wears) {
+      if (d.wears && conditionShown) {
         const pct = Math.round(d.frac * 100);
         const tone = d.broken ? '#ff7070' : d.frac <= 0.25 ? '#e8c060' : '#8a8f9a';
         const label = d.broken ? 'Broken' : detailed ? `Condition ${d.cur} / ${d.max}` : `Condition ${pct}%`;
@@ -415,7 +424,7 @@ export function itemTooltip(item: Item, opts: TipOpts = {}): string {
       }
       lines.push(...statLines(itemStats(item), opts.compare ? itemStats(opts.compare) : undefined));
       if (d.broken) lines.push(`<div class="tt-warn">Worn out — 15% of its stats until the smith sees it.</div>`);
-      if (unique && !d.wears) lines.push(`<div class="tt-dim">Never needs mending.</div>`);
+      if (unique && !d.wears && conditionShown) lines.push(`<div class="tt-dim">Never needs mending.</div>`);
       if (!isIdentified(item)) {
         lines.push(`<div class="tt-warn">Unidentified — ${item.affixes?.length ?? 0} hidden propert${item.affixes?.length === 1 ? 'y' : 'ies'}. Its powers are unknown and it cannot be worn.</div>`);
       } else for (const a of item.affixes ?? []) {

@@ -276,6 +276,14 @@ const CHEST_SPILL = 0.25;
 const CHEST_CLANG_RADIUS = 7;
 /** Base grace after a parry; Normal extends it through difficulty tuning. */
 const PARRY_GRACE = 0.75;
+/**
+ * How long a monster held back by Normal's attacker cap waits before it asks
+ * again. On the monsters' clock, so Normal's slower tempo stretches it too.
+ */
+const CROWD_WAIT = 0.35;
+/** Normal's mending: seconds unhurt before it starts, and share of max health per second. */
+const REST_DELAY = 5;
+const REST_RATE = 0.02;
 /** Crowd control after turning aside a melee blow. */
 const MELEE_PARRY_SPLASH_STUN = 0.25;
 /** How long a parried melee attacker is left open, and how much harder it takes hits. */
@@ -647,8 +655,8 @@ export class World {
     this.player.hp += healed;
     const overflow = Math.max(0, scaled - healed);
     if (overflow > 0) {
-      const flask = (this.run.flask ??= { charges: flaskMax(this.state.flask?.shards ?? 0), dregs: 0 });
-      const max = flaskMax(this.state.flask?.shards ?? 0);
+      const flask = (this.run.flask ??= { charges: flaskMax(this.state.flask?.shards ?? 0, this.diff.flaskBonus), dregs: 0 });
+      const max = flaskMax(this.state.flask?.shards ?? 0, this.diff.flaskBonus);
       const threshold = Math.max(1, this.derived.maxHp * DREGS_FRACTION);
       flask.dregs = Math.min(threshold, flask.dregs + overflow);
       if (flask.dregs >= threshold && flask.charges < max) {
@@ -676,6 +684,8 @@ export class World {
    * finding a font urgent rather than theoretical.
    */
   private wear(slot: EquipSlot, amount = 1): void {
+    // Normal: gear does not wear at all.
+    if (!this.diff.gearWears) return;
     const it = this.state.equipment[slot];
     if (this.run.curse === 'brittle') amount += 1;
     const oath = runOath(this.run, 'unbroken');
@@ -695,6 +705,26 @@ export class World {
     }
     this.refreshDerived();
   }
+
+  /**
+   * Normal's slow mending. After REST_DELAY seconds without losing health,
+   * with nothing on the floor hunting you, health creeps back up to
+   * `restHeal` of the maximum. Any lost health, from any source, restarts
+   * the wait. It never tops you up past the line, and never fights for you.
+   */
+  private restHeal(dt: number): void {
+    const p = this.player;
+    if (p.hp < this.restLastHp) this.restWait = 0;
+    else this.restWait += dt;
+    const cap = Math.round(this.derived.maxHp * this.diff.restHeal);
+    const hunted = this.floor.enemies.some((e) => e.ai !== 'dead' && !e.lurk && e.alert > 0);
+    if (!hunted && this.restWait >= REST_DELAY && p.hp > 0 && p.hp < cap) {
+      p.hp = Math.min(cap, p.hp + this.derived.maxHp * REST_RATE * dt);
+    }
+    this.restLastHp = p.hp;
+  }
+  private restWait = 0;
+  private restLastHp = Infinity;
 
   /** Armour wears where you were actually hit: one worn piece takes the scuff. */
   private wearArmour(): void {
@@ -860,7 +890,7 @@ export class World {
 
   /** Begin the flask commitment. The charge is spent only when the sip lands. */
   sipFlask(): boolean {
-    const flask = (this.run.flask ??= { charges: flaskMax(this.state.flask?.shards ?? 0), dregs: 0 });
+    const flask = (this.run.flask ??= { charges: flaskMax(this.state.flask?.shards ?? 0, this.diff.flaskBonus), dregs: 0 });
     if (this.player.hp >= this.derived.maxHp) {
       this.sipBuffered = 0;
       this.msg('You are already at full health.', '#888');
@@ -1074,7 +1104,9 @@ export class World {
       }
     }
 
-    // Stamina recovers; health never does on its own (flask, food, shrines and leech only).
+    // Stamina recovers; health never does on its own (flask, food, shrines and
+    // leech only) — except on Normal, which mends you slowly while nothing hunts you.
+    if (this.diff.restHeal > 0) this.restHeal(dt);
     a.windedCd = Math.max(0, a.windedCd - dt);
     a.sinceStamina += dt;
     if (a.sinceStamina > STAMINA_DELAY && a.attack === 'idle') {
@@ -1448,7 +1480,8 @@ export class World {
     // landed: a tap timed to the wind-up parries like a key press would.
     this.confirmGuard();
     const a = this.anim;
-    const window = a.ward ? PARRY_WINDOW * 2 : PARRY_WINDOW;
+    const base = PARRY_WINDOW * this.diff.parryWindow;
+    const window = a.ward ? base * 2 : base;
     if (!a.parryArmed || a.blockT > window) return false;
     return this.facingSource(fromX, fromY);
   }
@@ -2087,7 +2120,7 @@ export class World {
    * reading the fields they always read.
    */
   private view(e: EnemyState): EnemyDef {
-    return enemyView(enemyDef(e.def), e.hp, e.maxHp, { elite: e.elite, carrying: !!e.stolen?.length, marked: e.marked, shadeType: e.shadeType });
+    return enemyView(enemyDef(e.def), e.hp, e.maxHp, { elite: e.elite, carrying: !!e.stolen?.length, marked: e.marked, shadeType: e.shadeType, calm: e.calm });
   }
 
   private guardReaction(e: EnemyState, def: EnemyDef): 'bash' | 'chip' | null {
@@ -2301,7 +2334,7 @@ export class World {
   private placeLieutenant(f: Floor): void {
     if (f.rooms.some((r) => r.role === 'throne')) return;
     const rng = createRng(hashString(`lt:${this.run.seed}:${f.depth}`));
-    if (!rng.chance(lieutenantChance(f.depth))) return;
+    if (!rng.chance(lieutenantChance(f.depth) * this.diff.lieutenantChance)) return;
     const goblins = f.enemies.filter((e) => e.ai !== 'dead' && isGoblin(e.def));
     const options: LieutenantId[] = goblins.length >= QUARTERMASTER_MIN_GOBLINS ? ['quartermaster', 'hoarder'] : ['hoarder'];
     const id = rng.pick(options);
@@ -2684,7 +2717,8 @@ export class World {
       ...this.run.backpack.items,
       ...this.run.floors.flatMap((f) => f?.pickups.flatMap((p) => p.items) ?? []),
     ].filter((i) => i.kind === 'sigil').map((i) => i.ref);
-    const unknown = unknownSigils(this.state.spells ?? [], carried);
+    // Temper mends worn gear, and on Normal nothing wears: it never drops there.
+    const unknown = unknownSigils(this.state.spells ?? [], carried).filter((id) => this.diff.gearWears || id !== 'temper');
     if (!unknown.length) return null;
     const rng = createRng(hashString(`sigil:${this.run.seed}:${this.run.depth}:${stream}`));
     return rng.chance(chance) ? makeSigil(rng.pick(unknown)) : null;
@@ -2749,7 +2783,8 @@ export class World {
       if (fragile.length) { takeOne(pick.pick(fragile)); continue; }
       const mats = loot.items.filter((it) => it.kind === 'material');
       if (mats.length) { takeOne(pick.pick(mats)); continue; }
-      const gear = loot.items.filter((it) => it.kind === 'equipment' && durability(it).wears && durability(it).cur > 0);
+      // Where nothing wears, a blow dents nothing either: it spills coin instead.
+      const gear = this.diff.gearWears ? loot.items.filter((it) => it.kind === 'equipment' && durability(it).wears && durability(it).cur > 0) : [];
       if (gear.length) {
         const it = pick.pick(gear);
         const d = durability(it);
@@ -2809,8 +2844,8 @@ export class World {
     this.sfx('swing', e.x, e.y);
     e.strikeT = 0;
     this.damagePlayer(
-      Math.max(1, Math.round(def.attack * MIMIC_BITE * attackPower(e.power) * this.diff.enemyDamage)),
-      def.damageType, e.x, e.y, def.name, def.id, e, true,
+      Math.max(1, Math.round(def.attack * MIMIC_BITE * attackPower(e.power) * this.diff.enemyDamage * this.diff.mimicBite)),
+      def.damageType, e.x, e.y, def.name, def.id, e, true, this.diff.mimicMercy,
     );
     if (this.run.outcome === 'active') this.msg('It chews, then spits you out. Get up!', '#ff9070');
   }
@@ -3193,7 +3228,7 @@ export class World {
     this.player.stamina = this.derived.maxStamina;
     if (refillFlask) {
       const flask = this.run.flask;
-      flask.charges = Math.min(flaskMax(this.state.flask?.shards ?? 0), flask.charges + 1);
+      flask.charges = Math.min(flaskMax(this.state.flask?.shards ?? 0, this.diff.flaskBonus), flask.charges + 1);
     }
   }
 
@@ -3389,7 +3424,7 @@ export class World {
     let moved = 0;
     if (pk.flaskShard && (this.state.flask?.shards ?? 0) < 3) {
       this.state.flask.shards++;
-      this.run.flask.charges = Math.min(flaskMax(this.state.flask.shards), this.run.flask.charges + 1);
+      this.run.flask.charges = Math.min(flaskMax(this.state.flask.shards, this.diff.flaskBonus), this.run.flask.charges + 1);
       pk.flaskShard = false;
       if (this.state.flask.shards >= 3) {
         for (const fl of this.run.floors ?? []) for (const other of fl?.pickups ?? []) other.flaskShard = false;
@@ -3805,6 +3840,14 @@ export class World {
    */
   private checkBossSeal(): void {
     if (!this.bossAlive() || !this.playerInThrone()) return;
+    if (this.diff.throneRetreat) {
+      // Normal: the fog gathers but does not close. Said once per delve.
+      if (!this.fogWarned) {
+        this.fogWarned = true;
+        this.msg('The fog gathers at your back, but lets you pass. Step out to catch your breath.', '#c0a0ff');
+      }
+      return;
+    }
     const open = this.bossDoors().filter((d) => !d.locked);
     if (!open.length) return;
     for (const g of open) {
@@ -3815,6 +3858,8 @@ export class World {
     this.sfx('door');
     this.emit({ type: 'shake', amount: 0.4 });
   }
+
+  private fogWarned = false;
 
   /** His death thins the fog: the way out stands open. */
   private unsealBossDoors(): void {
@@ -3910,6 +3955,12 @@ export class World {
     const f = this.floor;
     const p = this.player;
     const restless = biomeForFloor(f).law === 'restless';
+    // The monsters' own clock. Normal runs it slower, so every tell lasts
+    // longer without changing shape; on Hard it is exactly `dt`.
+    const tempo = this.diff.enemyTempo;
+    const edt = dt / tempo;
+    // Who is already swinging at you, for the cap on how many may at once.
+    this.committed = this.diff.maxAttackers === Infinity ? 0 : f.enemies.filter((e) => e.ai === 'windup' || (e.comboLeft ?? 0) > 0).length;
     for (const e of f.enemies) {
       if (e.ai === 'dead') {
         const before = e.deadT;
@@ -3944,7 +3995,7 @@ export class World {
           continue;
         }
       }
-      e.attackCd -= dt;
+      e.attackCd -= edt;
       if (e.strikeT !== undefined) e.strikeT += dt;
       if (e.vuln) e.vuln = Math.max(0, e.vuln - dt);
       if ((e.grabT ?? 0) > 0) {
@@ -3960,7 +4011,7 @@ export class World {
         if (e.blockT === 0) e.blocks = 0;
       }
       if (e.moveT < 1) {
-        e.moveT = Math.min(1, e.moveT + dt / def.step);
+        e.moveT = Math.min(1, e.moveT + dt / (def.step * tempo));
         if (e.moveT < 1) continue;
       }
       const dist = manhattan(e.x, e.y, p.x, p.y);
@@ -4002,7 +4053,7 @@ export class World {
       this.updateGuard(e, def, dt, e.alert > 0 && dist <= GUARD_RANGE);
 
       // A Gravecaller chanting over a corpse stands still until it finishes or is broken.
-      if (def.raises && this.updateRaiser(e, def, dt)) continue;
+      if (def.raises && this.updateRaiser(e, def, edt)) continue;
 
       // A thief with your things in its hands does nothing but run.
       if (e.stolen?.length && e.ai !== 'windup' && e.ai !== 'recover') {
@@ -4010,16 +4061,16 @@ export class World {
       }
 
       // The rest of a flurry lands while the creature is already recovering.
-      this.updateCombo(e, def, dt);
+      this.updateCombo(e, def, edt);
 
       switch (e.ai) {
         case 'windup':
           // A feint holds the lean once, then runs the rest of the wind-up.
-          if (!this.updateFeint(e, def, dt)) e.timer -= dt;
+          if (!this.updateFeint(e, def, edt)) e.timer -= edt;
           if (e.timer <= 0) this.enemyStrike(e, def);
           continue;
         case 'recover':
-          e.timer -= dt;
+          e.timer -= edt;
           if (e.timer <= 0) e.ai = e.alert > 0 ? 'chase' : 'idle';
           continue;
         case 'flee': {
@@ -4050,6 +4101,12 @@ export class World {
         e.ai = 'chase';
         const aligned = (e.x === p.x || e.y === p.y) && sees;
         const ranged = !!def.projectile && (def.behavior === 'ranged' || def.behavior === 'boss');
+        // Normal's crowd rule: past the cap, a monster that could swing holds
+        // its place and waits a beat instead. The King never waits.
+        if (e.attackCd <= 0 && this.committed >= this.diff.maxAttackers && def.behavior !== 'boss' && dist <= (def.range ?? 4) + 2) {
+          e.attackCd = CROWD_WAIT;
+          if (dist <= 2) continue;
+        }
         if (dist === 1 && e.attackCd <= 0 && (def.behavior !== 'ranged')) {
           this.beginWindup(e, def, p.x, p.y);
           continue;
@@ -4106,7 +4163,11 @@ export class World {
     }
   }
 
+  /** Monsters winding up or mid-flurry this frame, for `DifficultyDef.maxAttackers`. */
+  private committed = 0;
+
   private beginWindup(e: EnemyState, def: EnemyDef, tx: number, ty: number, minReach = 1): void {
+    this.committed++;
     const d = dirOf(Math.sign(tx - e.x), Math.sign(ty - e.y));
     if (d !== null) e.facing = d;
     // Swinging means the shield is elsewhere: the guard drops tired.
@@ -4117,7 +4178,9 @@ export class World {
     }
     // What it commits to is rolled here, not at spawn: a creature knocked out
     // of a slam and coming back may well answer with something quicker.
-    const pool = minReach > 1 ? def.moves?.filter((m) => moveById(m.id).reach >= minReach) : def.moves;
+    let pool = minReach > 1 ? def.moves?.filter((m) => moveById(m.id).reach >= minReach) : def.moves;
+    // Normal: no feints. A set that was nothing but feints falls back to the basic blow.
+    if (this.diff.gentleMoves && pool) pool = pool.filter((m) => !moveById(m.id).feint);
     const move = chooseMove(pool, (total) => this.rng.float(0, total));
     e.move = move.id === 'basic' ? undefined : move.id;
     delete e.feintT;
@@ -4194,7 +4257,7 @@ export class World {
     e.timer = def.recovery * move.recovery;
     e.attackCd = def.recovery * move.recovery + 0.2;
     if (move.combo) {
-      e.comboLeft = move.combo;
+      e.comboLeft = this.diff.gentleMoves ? Math.min(1, move.combo) : move.combo;
       e.comboT = COMBO_BEAT;
     }
     // Stamped by the blow itself, so the follow-through is drawn only when
@@ -4279,6 +4342,8 @@ export class World {
     sourceId?: string,
     attacker?: EnemyState,
     unavoidable = false,
+    /** Leave the player on at least 1 health, however hard this lands. */
+    spare = false,
   ): void {
     const p = this.player;
     // A parry denies the hit outright and leaves the attacker open.
@@ -4326,7 +4391,7 @@ export class World {
     // Duelist: the guard is sworn away. A parry (above) still works.
     if (!unavoidable && this.anim.sip === null && this.anim.blockRaise > 0.6 && facingSource && !runOath(this.run, 'duelist')) {
       const absorbed = dmg * this.derived.block;
-      const cost = absorbed * 1.3;
+      const cost = absorbed * 1.3 * this.diff.blockStamina;
       if (p.stamina >= cost) {
         p.stamina -= cost;
         dmg = Math.round(dmg - absorbed);
@@ -4392,6 +4457,7 @@ export class World {
         this.msg(dmg > 0 ? 'The iron takes the worst of it.' : 'The iron takes the blow.', '#a8c0e0');
       }
     }
+    if (spare) dmg = Math.max(0, Math.min(dmg, Math.ceil(p.hp) - 1));
     p.hp -= dmg;
     // A thief's blow that gets through takes something with it.
     if (attacker && dmg > 0 && !blocked && p.hp > 0 && !attacker.stolen?.length && this.view(attacker).thief) {
@@ -4562,7 +4628,7 @@ export class World {
       return;
     }
     const item = this.run.backpack.items.find((it) => it.uid === uid);
-    if (item) wearItem(item);
+    if (item && this.diff.gearWears) wearItem(item);
   }
 
   private collectThrownHere(): number {
@@ -5019,7 +5085,7 @@ export class World {
 
   /** True while a raised guard can still turn a blow aside — the renderer's tell. */
   get parryWindow(): boolean {
-    return (this.anim.parryArmed && this.anim.blockT <= PARRY_WINDOW) || this.anim.rangedParryT > 0;
+    return (this.anim.parryArmed && this.anim.blockT <= PARRY_WINDOW * this.diff.parryWindow) || this.anim.rangedParryT > 0;
   }
 
   facingName(): string {

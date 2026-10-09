@@ -1,3 +1,4 @@
+import { flaskMax } from '../systems/healing';
 import { DIR_NAMES, DX, DY, turnLeft, turnRight } from '../core/dir';
 import { OATHS, findOath } from '../data/oaths';
 import { oathProgress, runOaths } from '../systems/oaths';
@@ -344,7 +345,7 @@ export class Hud {
       this.quickKey = qk;
       this.quickDrag = null;
       this.quick.classList.remove('dragging');
-      const max = 3 + Math.min(3, world.state.flask?.shards ?? 0);
+      const max = flaskMax(world.state.flask?.shards ?? 0, world.diff.flaskBonus);
       const dregs = Math.min(100, flask.dregs / Math.max(1, world.derived.maxHp * 0.5) * 100);
       // Charges left as one number, like every other stack on the bar: "3/3"
       // in the pixel font ran into the bottle and the dregs bar and read as
@@ -402,7 +403,7 @@ export class Hud {
     }
     this.target.hidden = !tgt;
     if (tgt) {
-      const def = enemyView(enemyDef(tgt.def), tgt.hp, tgt.maxHp, { elite: tgt.elite, marked: tgt.marked });
+      const def = enemyView(enemyDef(tgt.def), tgt.hp, tgt.maxHp, { elite: tgt.elite, marked: tgt.marked, calm: tgt.calm });
       const weak = Object.entries(def.resist).filter(([, v]) => (v ?? 1) >= 1.4).map(([k]) => k);
       const res = Object.entries(def.resist).filter(([, v]) => (v ?? 1) <= 0.6).map(([k]) => k);
       // An elite's name carries its trait in the trait's colour, and hovering

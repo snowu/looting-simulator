@@ -315,6 +315,8 @@ export interface EnemyState {
   stirT?: number;
   /** Your Shade: the damage type of the weapon you fell with. */
   shadeType?: DamageType;
+  /** A King who keeps his first rhythm and never shields (`DifficultyDef.kingEscalates` off). Set at spawn. */
+  calm?: boolean;
   /** A floor lieutenant (`src/data/lieutenants.ts`). Absent for everything else. */
   lieutenant?: 'quartermaster' | 'hoarder';
   /** The Hoarder's sack: loot it has carried off, and coin. */
@@ -510,11 +512,14 @@ export function createEnemy(def: EnemyDef, x: number, y: number, facing: Dir, id
   // read `power` back through attackPower/defensePower, and those stay on the
   // old curve so Hard is untouched and Normal's softening is explicit per
   // system (damage in the world, armour via enemyDefense, drops in items.ts).
-  const hp = Math.round(def.hp * power * difficultyOf(difficulty).enemyHp);
-  return {
+  const diff = difficultyOf(difficulty);
+  const hp = Math.round(def.hp * power * diff.enemyHp);
+  const e: EnemyState = {
     id, def: def.id, x, y, fromX: x, fromY: y, moveT: 1, facing, hp, maxHp: hp, ai: 'idle', timer: 0, alert: 0,
     lastSeenX: -1, lastSeenY: -1, homeX: x, homeY: y, hurtT: 0, deadT: 0, attackCd: 0, power,
   };
+  if (def.behavior === 'boss' && !diff.kingEscalates) e.calm = true;
+  return e;
 }
 
 /**
@@ -1191,8 +1196,10 @@ function tryGenerate(
     const bx = cx(throne), by = throne.y + 2;
     spawnEnemy(enemyDef(BOSS_ID), bx, by);
     const guard = enemyDef('hollow_knight');
-    if (free(bx - 2, by + 3)) spawnEnemy(guard, bx - 2, by + 3);
-    if (free(bx + 2, by + 3)) spawnEnemy(guard, bx + 2, by + 3);
+    if (diff.throneGuards >= 1 && free(bx - 2, by + 3)) spawnEnemy(guard, bx - 2, by + 3);
+    // Normal has no guards: the King alone. The slots they would have filled
+    // go to the floor count below, so the rest of the floor is no emptier.
+    if (diff.throneGuards >= 2 && free(bx + 2, by + 3)) spawnEnemy(guard, bx + 2, by + 3);
   }
   // Fights last three to seven swings now instead of one, so the same count
   // would turn a floor into a queue. Fewer and deadlier is the trade.
@@ -1203,7 +1210,7 @@ function tryGenerate(
   const authored = enemies.length;
   const wanted = Math.max(1, Math.round((3 + Math.round(depth * 1.6) + Math.floor(rooms.length / 3)) * diff.enemyCount * (mods?.enemyCount ?? 1)));
   const hostRooms = rooms.filter((r) => r.role !== 'start' && r.role !== 'secret' && r.role !== 'throne');
-  for (let guard = 0; enemies.length < wanted + (throne ? 3 : 0) && guard < 200; guard++) {
+  for (let guard = 0; enemies.length < wanted + (throne ? 1 + diff.throneGuards : 0) && guard < 200; guard++) {
     const def = rng.weighted(pool.map((e) => [e,
       e.weight
       * (biome.favoredEnemies?.includes(e.id) ? FAVORED_ENEMY_WEIGHT : 1)
@@ -1229,7 +1236,7 @@ function tryGenerate(
   // The throne's King and his guards are spawned before the loop and are never
   // promoted: that fight is authored.
   for (const e of enemies.slice(authored)) {
-    const trait = eliteFor(seed, e.id, depth, enemyDef(e.def), mods?.eliteBonus ?? 0);
+    const trait = eliteFor(seed, e.id, depth, enemyDef(e.def), mods?.eliteBonus ?? 0, diff.eliteChance);
     if (trait) promoteElite(e, trait);
   }
   // Ambushers, on their own stream for the same reason: ceiling droppers over
