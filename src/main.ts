@@ -10,6 +10,7 @@ import { quirkDef } from './data/quirks';
 import { World, WorldEvent } from './world/world';
 import { DungeonRenderer } from './render/dungeon-renderer';
 import { artUrl, loadArtOverrides } from './render/art-cache';
+import { registerOfflineCache } from './pwa/register';
 import { Hud } from './ui/hud';
 import { DungeonOverlays } from './ui/dungeon-ui';
 import { Town } from './ui/town';
@@ -62,6 +63,7 @@ let dripTimer = 3;
 let ending: { outcome: 'dead' | 'extracted'; t: number } | null = null;
 
 // --- DOM -----------------------------------------------------------------------
+registerOfflineCache();
 const overrideCount = await loadArtOverrides();
 if (overrideCount) console.info(`Loaded ${overrideCount} hand-drawn art override(s).`);
 

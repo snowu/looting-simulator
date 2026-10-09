@@ -1,3 +1,17 @@
+# Play with no connection
+
+*Save revision 29, unchanged: nothing about a save moves.*
+
+**The game downloads itself.** The first time you open it online, the game quietly fetches all of itself in the background: the code, every piece of art and the fonts. From then on it starts and plays with no connection, in the browser or installed to your home screen.
+
+**No more blank page on a bad connection.** If the network is slow or gone, the game stops waiting after a few seconds and opens from what it already has.
+
+**Updates work as before.** Online, the game still notices a new version and moves you onto it, and the new version downloads itself the same way. Cloud saves still need a connection; offline, your save stays on the device and syncs when you're back.
+
+Validation: all tests pass. In a browser, the game was opened once, the connection cut, and the page reloaded: the title screen came up with its art and fonts, and a save could be continued.
+
+---
+
 # Art round four: a clearer Seraph, sharper tells, busier floors
 
 *Save revision 29, unchanged: nothing about a save moves.*
