@@ -19,7 +19,7 @@ import type { EnemyDef } from '../types';
 import { itemIcon } from '../systems/items';
 import { lightIntensity } from '../systems/meta';
 import { World } from '../world/world';
-import { artSize, artTexture, rasterTexture } from './art-cache';
+import { artRaster, artSize, artTexture, rasterTexture } from './art-cache';
 import { HeldIcon, composeShade, shadeFrame, shadeKey } from './shade';
 import { getArt } from '../art/registry';
 import { EnemyFrame, enemyPose } from './enemy-pose';
@@ -309,7 +309,7 @@ export class DungeonRenderer {
     const held = (it: typeof eq.weapon): HeldIcon | undefined => (it ? itemIcon(it) : undefined);
     const f = shadeFrame(frame);
     const weapon = held(eq.weapon), shield = held(eq.offhand);
-    const tex = rasterTexture(shadeKey(f, weapon, shield), () => composeShade(f, weapon, shield));
+    const tex = rasterTexture(shadeKey(f, weapon, shield), () => composeShade(f, weapon, shield, undefined, artRaster));
     if (s.mat.uniforms.map.value !== tex) s.mat.uniforms.map.value = tex;
   }
 

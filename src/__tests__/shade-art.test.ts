@@ -37,6 +37,17 @@ describe('your Shade', () => {
     expect(kitted.data[(hy * kitted.w + hx) * 4]).toBe(0x0c);
   });
 
+  it('holds the icon it is given, so the shipped PNG shows rather than the code art', () => {
+    const painted = { w: 16, h: 16, data: new Uint8ClampedArray(16 * 16 * 4) };
+    for (let y = 2; y < 14; y++) { const i = (y * 16 + 8) * 4; painted.data.set([0xab, 0xcd, 0xef, 255], i); }
+    const asked: string[] = [];
+    const kitted = composeShade('0', { icon: 'ic_long_sword' }, undefined, undefined, (id) => (asked.push(id), painted));
+    expect(asked).toEqual(['ic_long_sword']);
+    let found = false;
+    for (let i = 0; i < kitted.data.length; i += 4) if (kitted.data[i] === 0xab && kitted.data[i + 1] === 0xcd) found = true;
+    expect(found).toBe(true);
+  });
+
   it('keys its textures by frame and by kit', () => {
     const a = shadeKey('0', { icon: 'ic_mace', ramp: findMaterial('iron')!.ramp });
     const b = shadeKey('0', { icon: 'ic_mace', ramp: findMaterial('gold')!.ramp });

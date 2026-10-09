@@ -186,6 +186,14 @@ export function artUrl(id: string, ramp?: Ramp): string {
   return url;
 }
 
+/** An art's final pixels, shipped PNG and material included, for compositing on the CPU. */
+export function artRaster(id: string, ramp?: Ramp): Raster | undefined {
+  if (!overrides.has(id) && !getArt(id)) return undefined;
+  const c = artCanvas(id, ramp);
+  const { data } = c.getContext('2d')!.getImageData(0, 0, c.width, c.height);
+  return { w: c.width, h: c.height, data };
+}
+
 const SIZES = new WeakMap<HTMLCanvasElement, { readonly w: number; readonly h: number }>();
 
 /** An art's pixel size. Read for every sprite placed, every frame, so it is kept rather than rebuilt. */

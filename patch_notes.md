@@ -1,3 +1,17 @@
+# Every icon, painted by hand
+
+*Save revision 29, unchanged: nothing about a save moves.*
+
+**New icons, drawn by an artist.** Every item icon in the game has been repainted by hand: weapons, shields, armour, rings and amulets, materials, potions, scrolls, food, sigils, keys and gold. They're the same size and shape as before, so nothing moves around in your pack, just sharper and with more detail.
+
+**Gear still wears its material.** A silver sword is still silver and a gold one gold; the new icons take on the colour of what they're made from, as before.
+
+**Your Shade holds what you hold.** The Shade waiting by your grave now carries the same new icon of your weapon and shield that your pack shows, not the old drawing.
+
+Validation: all tests pass. In the dev art sheet every icon shows the new painting, recoloured for each material.
+
+---
+
 # Play with no connection
 
 *Save revision 29, unchanged: nothing about a save moves.*
