@@ -474,7 +474,7 @@ export class DungeonOverlays {
       ['Drag ↑ ↓', 'Walk forward / back — hold to keep walking'],
       ['Drag ← →', strafe ? 'Strafe — hold to keep sidestepping' : 'Turn — hold to keep turning'],
       ['Tap right side', 'Swing — or Loot / Open / Pray / Descend when facing something'],
-      ['Left side', 'Tap or hold to block — tap as they strike to parry. Dragging from here walks instead'],
+      ['Left side', 'Tap as they strike to parry · hold still to block · drag to walk (no parry spent)'],
       ['Main button', 'Same as a right-side tap; hold to keep swinging'],
       ['Shield', 'Hold to block — raise it as they strike to parry'],
       ['◀ ▶ edges', strafe ? 'Hold to turn (or tilt the phone, if on in Settings)' : 'Hold to strafe (or tilt the phone, if on in Settings)'],
@@ -482,7 +482,7 @@ export class DungeonOverlays {
       ['R button', 'Call shafts back — hold to call, release to stop, they fly to your raised hand'],
       ['Sigil button', 'Cast your attuned sigil when ready'],
       ['Quick slots', 'Tap to drink / read · drag to reorder'],
-      ['Pack · Map', 'Gear, backpack and the automap'],
+      ['Pack · Map', 'Gear, backpack and the automap · tap the minimap for the map too'],
     ];
     const rows: [string, string][] = isTouchMode() ? touchRows : [
       ['W / S', 'Step forward / back'],
@@ -496,7 +496,7 @@ export class DungeonOverlays {
       ['G / C', 'Cast your attuned sigil'],
       ['1 – 4', 'Drink / read your first four consumables · drag the bar to reorder'],
       ['I / Tab', 'Pack & gear'],
-      ['M', 'Map'],
+      ['M', 'Map · or click the minimap'],
       ['Esc', 'Close / pause'],
     ];
     return h(

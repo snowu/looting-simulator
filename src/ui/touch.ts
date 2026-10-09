@@ -17,6 +17,8 @@ export interface TouchHandlers {
   /** Main button pressed / released: swing or interact depending on what's ahead. */
   action(on: boolean): void;
   block(on: boolean): void;
+  /** A left-half touch that may yet be a walk: the world holds it without raising anything. */
+  guardPending(on: boolean): void;
   /** An edge button held or released: a strafe or a turn, depending on what the pad's swipe does. */
   side(move: TouchMove, on: boolean): void;
   /** Hurl one shaft from the belt. */
@@ -58,9 +60,10 @@ interface Finger {
   y: number;
   downAt: number;
   travelled: number;
-  /** Still counts towards the guard: a left-side finger that hasn't turned into a drag. */
-  guarding: boolean;
 }
+
+/** What the finger on the left half is doing to the guard. */
+export type GuardTouch = 'down' | 'drag' | 'up';
 
 /**
  * Drag anywhere on the view, like holding WASD: up/down walk, left/right
@@ -68,11 +71,11 @@ interface Finger {
  * stick appears under the thumb.
  *
  * The two halves of the view also act on their own: a finger on the left half
- * raises the guard the moment it lands (a tap is a parry attempt, a hold is a
- * block), and a quick tap on the right half swings. A left-side finger that
- * starts dragging lowers the guard and becomes the stick. Every finger is
- * tracked, so one thumb can walk while the other blocks or swings; only the
- * first finger down drives the stick.
+ * guards (a tap is a parry attempt, a hold is a block, and a drag walks
+ * instead; TouchControls sorts out which), and a quick tap on the right half
+ * swings. Every finger is tracked, so one thumb can walk while the other
+ * blocks or swings; only the first finger down drives the stick, and only the
+ * first finger on the left half drives the guard.
  */
 class DragPad {
   readonly zone = h('div', { class: 'stick-zone' });
@@ -85,11 +88,13 @@ class DragPad {
   private cy = 0;
   private dir: TouchMove | null = null;
   private everMoved = false;
+  /** The left-half finger the guard is listening to, if any. */
+  private guardId: number | null = null;
 
   constructor(
     private onDir: (d: TouchMove | null) => void,
     private onTap: () => void,
-    private onGuard: (on: boolean) => void,
+    private onGuard: (t: GuardTouch, downAt: number) => void,
   ) {
     this.base.append(this.knob);
     this.zone.append(this.base);
@@ -105,16 +110,12 @@ class DragPad {
     return this.base.offsetWidth || 96;
   }
 
-  private get guarding(): boolean {
-    for (const f of this.fingers.values()) if (f.guarding) return true;
-    return false;
-  }
-
-  /** Report the guard only when it actually changes, however many fingers hold it. */
-  private setGuard(f: Finger, on: boolean): void {
-    const was = this.guarding;
-    f.guarding = on;
-    if (this.guarding !== was) this.onGuard(!was);
+  /** The guarding finger stops guarding: it dragged, lifted, or was cancelled. */
+  private endGuard(id: number, how: GuardTouch): void {
+    if (id !== this.guardId) return;
+    const f = this.fingers.get(id);
+    this.guardId = null;
+    this.onGuard(how, f?.downAt ?? performance.now());
   }
 
   private down(e: PointerEvent): void {
@@ -124,9 +125,12 @@ class DragPad {
     const r = this.zone.getBoundingClientRect();
     const x = e.clientX - r.left;
     const y = e.clientY - r.top;
-    const f: Finger = { side: x < r.width / 2 ? 'left' : 'right', x, y, downAt: performance.now(), travelled: 0, guarding: false };
+    const f: Finger = { side: x < r.width / 2 ? 'left' : 'right', x, y, downAt: performance.now(), travelled: 0 };
     this.fingers.set(e.pointerId, f);
-    if (f.side === 'left') this.setGuard(f, true);
+    if (f.side === 'left' && this.guardId === null) {
+      this.guardId = e.pointerId;
+      this.onGuard('down', f.downAt);
+    }
     if (this.id !== null) return;
     this.id = e.pointerId;
     this.everMoved = false;
@@ -145,6 +149,9 @@ class DragPad {
     const r = this.zone.getBoundingClientRect();
     const fx = e.clientX - r.left, fy = e.clientY - r.top;
     f.travelled = Math.max(f.travelled, Math.hypot(fx - f.x, fy - f.y));
+    // Past tap distance a left-side finger is walking, not guarding, even
+    // when it isn't the stick.
+    if (f.travelled >= TAP_TRAVEL) this.endGuard(e.pointerId, 'drag');
     if (e.pointerId !== this.id) return;
     let dx = fx - this.cx;
     let dy = fy - this.cy;
@@ -162,8 +169,6 @@ class DragPad {
       if (d) this.everMoved = true;
       this.onDir(d);
     }
-    // A left-side thumb that sets off walking wanted the stick, not the shield.
-    if (this.everMoved && f.guarding) this.setGuard(f, false);
   }
 
   private up(e: PointerEvent): void {
@@ -171,7 +176,8 @@ class DragPad {
     if (!f) return;
     const stick = e.pointerId === this.id;
     const tapped = !(stick && this.everMoved) && f.travelled < TAP_TRAVEL && performance.now() - f.downAt < TAP_MS;
-    if (f.guarding) this.setGuard(f, false);
+    // A cancelled touch (the OS took it) never confirms a guard.
+    this.endGuard(e.pointerId, e.type === 'pointerup' ? 'up' : 'drag');
     this.fingers.delete(e.pointerId);
     if (stick) this.releaseStick();
     if (tapped && e.type === 'pointerup' && f.side === 'right') this.onTap();
@@ -188,9 +194,8 @@ class DragPad {
   }
 
   reset(): void {
-    const guarded = this.guarding;
+    if (this.guardId !== null) this.endGuard(this.guardId, 'drag');
     this.fingers.clear();
-    if (guarded) this.onGuard(false);
     this.releaseStick();
   }
 }
@@ -198,9 +203,17 @@ class DragPad {
 /**
  * A tap on the left half has to hold the guard long enough to matter: the
  * world reads the block once a frame, and the parry window only runs while
- * the shield stays up. This covers PARRY_WINDOW (0.22s) with a frame to spare.
+ * the shield stays up. This covers PARRY_WINDOW (0.22s) with a frame to spare,
+ * counted from when the finger landed.
  */
 const GUARD_MIN_MS = 250;
+/**
+ * A left-half finger that stays put this long is a block, not the start of a
+ * walk. Until then the guard is only pending in the world (see
+ * World.guardPending): no shield, no parry cooldown, but a blow that lands
+ * meanwhile is still judged as if the shield went up at the touch.
+ */
+const GUARD_HOLD_MS = 200;
 
 /** On-screen controls for phones and tablets: drag the view, buttons on the right. */
 export class TouchControls {
@@ -224,6 +237,10 @@ export class TouchControls {
   private guards = new Set<'button' | 'view'>();
   private guardAt = 0;
   private guardDrop: number | null = null;
+  /** The left-half finger: undecided, or confirmed as a guard. */
+  private view: 'idle' | 'pending' | 'up' = 'idle';
+  private viewAt = 0;
+  private viewHold: number | null = null;
 
   constructor(parent: HTMLElement, private hd: TouchHandlers) {
     // A button that stays "held" for as long as the finger is down.
@@ -250,7 +267,7 @@ export class TouchControls {
     this.pad = new DragPad(
       (d) => hd.move(d === 'turnLeft' || d === 'turnRight' ? sideMove(d === 'turnLeft' ? 'left' : 'right', 'pad', this.swipe) : d),
       () => hd.tap(),
-      (on) => this.guard('view', on),
+      (t, downAt) => this.viewGuard(t, downAt),
     );
 
     this.mainImg = artImg('ic_long_sword', undefined, 56);
@@ -312,11 +329,39 @@ export class TouchControls {
   }
 
   /**
+   * The left half of the view: pending on touch, a guard once it taps or
+   * holds still, nothing at all if it drags. Only a confirmed guard shows the
+   * shield or spends the parry cooldown; the world backdates it to `downAt`.
+   */
+  private viewGuard(t: GuardTouch, downAt: number): void {
+    if (this.viewHold !== null) {
+      clearTimeout(this.viewHold);
+      this.viewHold = null;
+    }
+    const confirm = () => {
+      if (this.view !== 'pending') return;
+      this.view = 'up';
+      this.guard('view', true, this.viewAt);
+    };
+    if (t === 'down') {
+      this.view = 'pending';
+      this.viewAt = downAt;
+      this.hd.guardPending(true);
+      this.viewHold = window.setTimeout(confirm, GUARD_HOLD_MS);
+      return;
+    }
+    if (t === 'up') confirm();
+    if (this.view === 'pending') this.hd.guardPending(false);
+    else if (this.view === 'up') this.guard('view', false);
+    this.view = 'idle';
+  }
+
+  /**
    * Raise or lower the guard for one source. It stays up while any source
    * holds it, and a lowered guard waits out GUARD_MIN_MS from the raise so a
    * quick tap is still a parry attempt.
    */
-  private guard(src: 'button' | 'view', on: boolean): void {
+  private guard(src: 'button' | 'view', on: boolean, at = performance.now()): void {
     const was = this.guards.size > 0;
     if (on) this.guards.add(src);
     else this.guards.delete(src);
@@ -328,7 +373,7 @@ export class TouchControls {
         this.guardDrop = null;
         return; // Still up from the last tap: this is the same raise, not a new parry.
       }
-      this.guardAt = performance.now();
+      this.guardAt = at;
       this.hd.block(true);
       return;
     }

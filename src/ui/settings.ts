@@ -5,7 +5,7 @@ import { audio } from '../audio/sfx';
 import { BRIGHTNESS_MAX, BRIGHTNESS_MIN, applyBrightnessGain, brightness, brightnessToPercent, percentToBrightness } from '../render/brightness';
 import { artImg, btn, closeOverlays, h, isTouchMode, mountOverlay } from './dom';
 import { TouchPrefs, touchPrefs } from './touch-prefs';
-import { requestTilt } from './tilt';
+import { TILT_THRESHOLDS, requestTilt, tiltReading } from './tilt';
 import { BugReportCtx, bugReportPanel } from './bug-report';
 
 /**
@@ -35,6 +35,8 @@ export interface SettingsCtx {
   showDifficulty?: boolean;
   /** Where "Report a bug" gets its facts and screenshot. Absent hides the button. */
   report?: Pick<BugReportCtx, 'source' | 'screenshot' | 'direct'>;
+  /** Back to the title screen and its save slots. Absent (on the title itself) hides the button. */
+  mainMenu?: { go: () => void; note: string };
 }
 
 /** What a save can be switched between in town. Hardcore is chosen at creation only. */
@@ -46,15 +48,24 @@ export function isSettingsOpen(): boolean {
 }
 
 /**
- * The gear button, shared by town, title and dungeon so all three open the
- * same modal. The icon comes from the sprite sheet, not an emoji, so it reads
- * at 28px without blurring.
+ * Eight square teeth, a solid rim and a hub you can see through, on the same
+ * 16px grid and in the same flat ink as the fullscreen icon beside it, so the
+ * two corner buttons read as one set. Symmetric on every axis.
  */
-export function settingsGearButton(onOpen: () => void, title: string, size = 28): HTMLButtonElement {
-  const el = btn('', onOpen, 'small icon-btn');
+const GEAR_ICON =
+  '<svg viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M6 0h4v3H6zM2 2h2v1H2zM12 2h2v1H12zM2 3h12v1H2zM3 4h10v2H3zM0 6h6v4H0zM10 6h6v4H10zM3 10h10v2H3zM2 12h12v1H2zM2 13h2v1H2zM6 13h4v3H6zM12 13h2v1H12z"/></svg>';
+
+/**
+ * The gear button, shared by town, title and dungeon so all three open the
+ * same modal. It wears the fullscreen button's box (`.corner-btn`): same
+ * size, frame and gold hover, wherever it sits.
+ */
+export function settingsGearButton(onOpen: () => void, title: string, size = 18): HTMLButtonElement {
+  const el = h('button', { class: 'corner-btn gear-btn', onclick: () => onOpen() });
   el.title = title;
   el.setAttribute('aria-label', title);
-  el.append(artImg('ic_gear', undefined, size));
+  el.innerHTML = GEAR_ICON;
+  el.style.setProperty('--icon', `${size}px`);
   return el;
 }
 
@@ -288,7 +299,43 @@ export function openSettings(ctx: SettingsCtx): void {
           }),
           choice('Off', !p.tilt, () => set({ tilt: false })),
         ),
+        ...(p.tilt ? [h('div', { class: 'diff-row' },
+          h('span', { class: 'small', text: 'Tilt needed' }),
+          ...(['low', 'medium', 'high'] as const).map((k) => {
+            const b = choice(`${TILT_THRESHOLDS[k].on}°`, p.tiltSensitivity === k, () => set({ tiltSensitivity: k }));
+            b.title = { low: 'A big lean', medium: 'A moderate lean', high: 'A slight lean' }[k];
+            return b;
+          }),
+        ), tiltLive()] : []),
       );
+    }
+    /**
+     * What the sensor reads right now, relative to level (your grip when
+     * play last resumed). If tilt ever moves you on its own, this says
+     * whether the phone thinks it is rolled, and which way the screen is.
+     */
+    function tiltLive(): HTMLElement {
+      const el = h('div', { class: 'dim small tilt-live' });
+      let shown = false;
+      const tick = () => {
+        // Stop once the panel has been shown and then closed or redrawn.
+        if (!el.isConnected) {
+          if (shown) clearInterval(timer);
+          return;
+        }
+        shown = true;
+        const r = tiltReading;
+        if (!r.seen) {
+          el.textContent = 'Tilt: no reading yet. Move the phone a little.';
+          return;
+        }
+        const need = TILT_THRESHOLDS[touchPrefs.get().tiltSensitivity].on;
+        const deg = Math.round(Math.abs(r.roll));
+        const side = deg === 0 ? 'level' : `${deg}° ${r.roll > 0 ? 'right' : 'left'}`;
+        el.textContent = `Tilt now: ${side} (moves you at ${need}°) · screen ${r.angle}° · level set at ${Math.round(r.neutral)}°`;
+      };
+      const timer = window.setInterval(tick, 200);
+      return el;
     }
     paint();
     return h(
@@ -298,7 +345,7 @@ export function openSettings(ctx: SettingsCtx): void {
       row,
       h('p', {
         class: 'dim small',
-        text: 'Tap the left half of the view to block, the right half to swing. Whatever a sideways swipe does, the edge buttons and tilt do the other. Stored on this device.',
+        text: 'Left half of the view: tap to parry, hold to block, drag to walk. Right half: tap to swing. Whatever a sideways swipe does, the edge buttons and tilt do the other. Stored on this device.',
       }),
     );
   }
@@ -310,6 +357,8 @@ export function openSettings(ctx: SettingsCtx): void {
       'div',
       { class: 'row' },
       h('h2', { class: 'grow', text: 'Settings' }),
+      // In the header, not at the foot of a panel that scrolls on a phone.
+      ...(ctx.mainMenu ? [mainMenuButton(ctx.mainMenu)] : []),
       btn('Close', () => closeSettings(), 'small'),
     ),
     ...(showDifficulty ? [difficultyBox] : []),
@@ -339,6 +388,15 @@ export function openSettings(ctx: SettingsCtx): void {
   wrap.append(modal);
   mountOverlay(wrap, closeSettings, ctx.onClose);
   if (showDifficulty) renderDifficulty();
+}
+
+function mainMenuButton(m: NonNullable<SettingsCtx['mainMenu']>): HTMLButtonElement {
+  const b = btn('Main menu', () => {
+    closeSettings();
+    m.go();
+  }, 'small');
+  b.title = m.note;
+  return b;
 }
 
 export function closeSettings(): void {

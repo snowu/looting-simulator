@@ -1,3 +1,5 @@
+import { TILT_THRESHOLDS, TiltSensitivity } from './tilt';
+
 /**
  * Touch control preferences: which strafe controls a phone shows, and whether
  * a sideways swipe turns or strafes.
@@ -17,9 +19,11 @@ export interface TouchPrefs {
    * Whichever it is, the edge buttons and tilt do the other.
    */
   padSwipe: 'turn' | 'strafe';
+  /** How far the phone has to roll before tilt moves you. */
+  tiltSensitivity: TiltSensitivity;
 }
 
-export const TOUCH_PREFS_DEFAULT: TouchPrefs = { strafeButtons: true, tilt: false, padSwipe: 'turn' };
+export const TOUCH_PREFS_DEFAULT: TouchPrefs = { strafeButtons: true, tilt: false, padSwipe: 'turn', tiltSensitivity: 'medium' };
 
 const KEY = 'looting-simulator-touch-prefs';
 
@@ -32,6 +36,7 @@ function load(): TouchPrefs {
       strafeButtons: typeof v.strafeButtons === 'boolean' ? v.strafeButtons : TOUCH_PREFS_DEFAULT.strafeButtons,
       tilt: typeof v.tilt === 'boolean' ? v.tilt : TOUCH_PREFS_DEFAULT.tilt,
       padSwipe: v.padSwipe === 'strafe' || v.padSwipe === 'turn' ? v.padSwipe : TOUCH_PREFS_DEFAULT.padSwipe,
+      tiltSensitivity: v.tiltSensitivity && v.tiltSensitivity in TILT_THRESHOLDS ? v.tiltSensitivity : TOUCH_PREFS_DEFAULT.tiltSensitivity,
     };
   } catch {
     return { ...TOUCH_PREFS_DEFAULT };

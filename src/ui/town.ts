@@ -57,6 +57,8 @@ export interface TownCtx {
   state: () => GameState;
   save: () => void;
   descend: () => void;
+  /** Settings → Back to main menu. */
+  mainMenu: () => void;
   newGame: () => void;
   toast: (text: string, color?: string, href?: string) => void;
   /**
@@ -228,7 +230,7 @@ export class Town {
         'primary big',
       ),
       this.syncCompact(),
-      settingsGearButton(() => this.openSettings(), 'Settings — difficulty, sound, cloud saves', 28),
+      h('div', { class: 'corner-gear' }, settingsGearButton(() => this.openSettings(), 'Settings — difficulty, sound, cloud saves')),
     );
     const tabBar = h(
       'div',
@@ -317,6 +319,7 @@ export class Town {
       onClose: () => this.render(),
       showDifficulty: true,
       report: this.ctx.report,
+      mainMenu: { go: () => this.ctx.mainMenu(), note: 'Saved first. Pick any slot from there.' },
     });
   }
 

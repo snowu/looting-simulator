@@ -10,6 +10,7 @@ import { quirkDef } from './data/quirks';
 import { World, WorldEvent } from './world/world';
 import { DungeonRenderer } from './render/dungeon-renderer';
 import { artUrl, loadArtOverrides } from './render/art-cache';
+import { registerOfflineCache } from './pwa/register';
 import { Hud } from './ui/hud';
 import { DungeonOverlays } from './ui/dungeon-ui';
 import { Town } from './ui/town';
@@ -27,7 +28,7 @@ import { TiltStrafe, requestTilt, tiltNeedsPermission } from './ui/tilt';
 import { OrientationGate, landscapeNow } from './ui/orientation-gate';
 import { GamepadController, type PadContext } from './ui/gamepad';
 import { FULLSCREEN_HELP, fullscreenSupported, isFullscreen, isStandalone, lockLandscape, mountFullscreenButton, wasButtonExit } from './ui/fullscreen';
-import { APP_VERSION, BUILD_ID, newerBuild, reloadToLatest, shouldAttemptReload } from './ui/update';
+import { APP_VERSION, BUILD_ID, markResumeAfterUpdate, newerBuild, reloadToLatest, shouldAttemptReload, takeResumeAfterUpdate } from './ui/update';
 import { btn } from './ui/dom';
 import { audio } from './audio/sfx';
 import { closeSettings, isSettingsOpen, openSettings } from './ui/settings';
@@ -62,6 +63,7 @@ let dripTimer = 3;
 let ending: { outcome: 'dead' | 'extracted'; t: number } | null = null;
 
 // --- DOM -----------------------------------------------------------------------
+registerOfflineCache();
 const overrideCount = await loadArtOverrides();
 if (overrideCount) console.info(`Loaded ${overrideCount} hand-drawn art override(s).`);
 
@@ -92,7 +94,7 @@ renderer.onLavaSound = ({ name, x, z }) => {
   const pan = (dx * Math.cos(world.anim.yaw) + dz * Math.sin(world.anim.yaw)) / Math.max(1, distance);
   audio.play(name, { volume: 0.75 / (1 + distance * 0.16), pan: pan * 0.8 });
 };
-const hud = new Hud(app, { interact: () => world?.interact(), flask: () => world?.sipFlask(), quick: (i) => world?.quickUse(i), reorderQuick: (from, to) => world?.moveQuick(from, to), settings: () => openDungeonSettings() });
+const hud = new Hud(app, { interact: () => world?.interact(), flask: () => world?.sipFlask(), quick: (i) => world?.quickUse(i), reorderQuick: (from, to) => world?.moveQuick(from, to), settings: () => openDungeonSettings(), map: () => world && overlays.toggle('map', world) });
 
 let touchMode = isTouchDevice();
 let touchAttack = false;
@@ -129,6 +131,8 @@ function clearTouchHolds(): void {
 const tilt = new TiltStrafe();
 /** The move tilt is holding right now, so it can be let go when the roll or the pause changes. */
 let tiltHeld: TouchMove | null = null;
+/** True until play (re)starts: the first live frame after takes the phone's grip as level. */
+let tiltIdle = true;
 const touch = new TouchControls(app, {
   move: (d) => {
     if (stickDir) touchHold(stickDir, false);
@@ -162,13 +166,18 @@ const touch = new TouchControls(app, {
     }
   },
   block: (on) => world?.setBlock(on),
+  guardPending: (on) => world?.guardPending(on),
   open: (m) => world && overlays.toggle(m, world),
 });
 // Tilt follows its setting. iOS only lets a page read the sensor after asking
 // from inside a tap, and forgets the answer on reload, so with tilt on the
 // first touch of each visit asks again (no prompt once it has been granted).
 tilt.enabled = touchPrefs.get().tilt;
-touchPrefs.onChange((p) => { tilt.enabled = p.tilt; });
+tilt.sensitivity = touchPrefs.get().tiltSensitivity;
+touchPrefs.onChange((p) => {
+  tilt.enabled = p.tilt;
+  tilt.sensitivity = p.tiltSensitivity;
+});
 if (tiltNeedsPermission()) {
   const ask = () => {
     window.removeEventListener('touchend', ask);
@@ -304,17 +313,21 @@ window.addEventListener('gamepaddisconnected', () => {
 });
 app.append(toastLayer);
 // Always-available fullscreen toggle, pinned above every screen and panel.
-mountFullscreenButton(
+// An installed app has none, and the gear takes the corner instead (has-fs).
+const fsButton = mountFullscreenButton(
   app,
   () => toast(FULLSCREEN_HELP),
   () => toast('That is browser (F11) fullscreen — the button cannot leave it. Press F11.'),
 );
+document.body.classList.toggle('has-fs', !!fsButton);
 
 // --- Updates (installed apps have no reload button) ----------------------------
 // A new build re-downloads everything: hashed JS/CSS change filenames, the
 // reload below busts the cached page URL, and unhashed art carries ?v=BUILD_ID.
-// Never interrupt a run to do it — the banner waits (and auto-reloads) once
-// the player is back in town, on the title, or past the run summary.
+// Out of a delve (town, title, run summary) the banner counts down and
+// reloads by itself. In a delve it never does: it shrinks to a pill under the
+// depth readout, and only a tap on it saves the delve, reloads, and opens the
+// same slot straight back into the dungeon.
 const AUTO_RELOAD_MS = 8000;
 let pendingUpdate: string | null = null;
 let autoUpdateTimer: number | null = null;
@@ -333,6 +346,8 @@ function cancelAutoUpdate(): void {
 function applyUpdate(id: string): void {
   if (!shouldAttemptReload(id)) return;
   commit();
+  // A scratch game (dev lab) is never saved, so there is nothing to resume.
+  if (mode === 'dungeon' && state.run?.outcome === 'active' && !isScratchMode()) markResumeAfterUpdate(slot);
   cancelAutoUpdate();
   void reloadToLatest(id);
 }
@@ -345,10 +360,18 @@ function scheduleAutoUpdate(): void {
 }
 
 function renderUpdateBanner(): void {
-  // Never interrupt a run; the banner waits for town or the title screen.
-  updateBanner.hidden = !pendingUpdate || mode === 'dungeon';
+  const inDelve = mode === 'dungeon';
+  updateBanner.hidden = !pendingUpdate;
+  updateBanner.classList.toggle('in-delve', inDelve);
   if (!pendingUpdate) return;
   const id = pendingUpdate;
+  if (inDelve) {
+    // Never reloads by itself mid-fight: the player picks the moment.
+    const b = btn('Update', () => applyUpdate(id), 'small primary');
+    b.title = 'Saves your delve, loads the new version and puts you straight back where you stood';
+    updateBanner.replaceChildren(h('span', { text: 'New version' }), b);
+    return;
+  }
   const secs = Math.ceil(AUTO_RELOAD_MS / 1000);
   updateBanner.replaceChildren(
     h('span', { text: `A new version is out — updating in ~${secs}s so you never play stale.` }),
@@ -397,6 +420,7 @@ const town = new Town(screen, {
   state: () => state,
   save: () => commit(),
   descend: () => enterDungeon(),
+  mainMenu: () => leaveToTitle(),
   // Deferred: the panel is created below, after the town it renders into.
   account: () => account.el,
   accountSummary: () => account.summary,
@@ -468,7 +492,26 @@ function openDungeonSettings(): void {
     onClose: () => undefined,
     showDifficulty: false,
     report: bugReport,
+    mainMenu: {
+      go: () => leaveToTitle(),
+      note: 'Your delve is saved as it stands. Resume delve on this slot picks it up where you left it.',
+    },
   });
+}
+
+/**
+ * Settings → Back to main menu, from town or mid-delve. Saves first; a delve
+ * in progress stays open in the save, the same as closing the app, and the
+ * slot's Resume delve drops you back on the tile you left.
+ */
+function leaveToTitle(): void {
+  commit();
+  flushSync();
+  world = null;
+  ending = null;
+  audio.stopAmbient();
+  audio.stopRag();
+  enterTitle();
 }
 
 /** Same restriction on the title screen: sound and saves, no difficulty. */
@@ -492,6 +535,7 @@ function show(m: Mode): void {
   touchAttack = false;
   chestPress = null;
   clearTouchHolds();
+  tiltIdle = true;
   pad.reset();
   canvas.style.visibility = m === 'dungeon' ? 'visible' : 'hidden';
   town.visible = m === 'town';
@@ -1038,7 +1082,10 @@ function frame(now: number): void {
     }
     // Tilt is polled rather than pushed: a roll held through a pause must not
     // walk you off the moment the menu closes, so it only counts while live.
-    const tiltWant = touchMode && !paused && !ending && tilt.dir ? sideMove(tilt.dir, 'extra', touchPrefs.get().padSwipe) : null;
+    const tiltLive = touchMode && !paused && !ending;
+    if (tiltIdle && tiltLive) tilt.recenter();
+    tiltIdle = !tiltLive;
+    const tiltWant = tiltLive && tilt.dir ? sideMove(tilt.dir, 'extra', touchPrefs.get().padSwipe) : null;
     if (tiltWant !== tiltHeld) {
       if (tiltHeld) touchHold(tiltHeld, false);
       tiltHeld = tiltWant;
@@ -1372,7 +1419,10 @@ if (import.meta.env.DEV && params.has('repro')) {
     if (where === 'dungeon') enterDungeon();
   }
 } else {
-  enterTitle();
+  // Updated mid-delve: straight back into the same slot, and so the dungeon.
+  const resume = takeResumeAfterUpdate();
+  if (resume === 1 || resume === 2 || resume === 3) enterSlot(resume);
+  else enterTitle();
 }
 requestAnimationFrame(frame);
 

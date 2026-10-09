@@ -154,6 +154,7 @@ export function mountFullscreenButton(parent: HTMLElement, onUnsupported: () => 
   if (isStandalone()) return null;
   const b = document.createElement('button');
   b.id = 'fs-btn';
+  b.className = 'corner-btn';
   const update = () => {
     const on = isFullscreen() || isDisplayFullscreen();
     b.innerHTML = on ? ICON_EXIT : ICON_ENTER;

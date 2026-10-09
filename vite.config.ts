@@ -1,6 +1,7 @@
 import { defineConfig, Plugin } from 'vite';
 import { execSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join, relative, resolve, sep } from 'node:path';
 import { encodeArtPack } from './src/render/art-pack';
 
 function buildId(): string {
@@ -53,8 +54,41 @@ const artPack = (): Plugin => ({
   },
 });
 
+/**
+ * Emits sw.js, the offline service worker (src/pwa/service-worker.js), with
+ * every file the build wrote listed for it to download on install. Runs after
+ * the bundle and public files are on disk, so the list is the real output.
+ */
+const offlineServiceWorker = (): Plugin => {
+  let outDir = 'dist';
+  return {
+    name: 'offline-service-worker',
+    apply: 'build',
+    configResolved(config) {
+      outDir = resolve(config.root, config.build.outDir);
+    },
+    closeBundle() {
+      const skip = new Set(['sw.js', 'version.json']);
+      const walk = (dir: string): string[] =>
+        readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+          e.isDirectory() ? walk(join(dir, e.name)) : [relative(outDir, join(dir, e.name)).split(sep).join('/')],
+        );
+      const files = walk(outDir).filter((f) => !skip.has(f) && !f.endsWith('.map')).sort();
+      // The page itself under its directory URL, which is what a launch navigates to.
+      const precache = ['./', ...files.filter((f) => f !== 'index.html')];
+      const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
+      const fontCss = html.match(/href="(https:\/\/fonts\.googleapis\.com\/css2[^"]+)"/)?.[1] ?? '';
+      const source = readFileSync(new URL('./src/pwa/service-worker.js', import.meta.url), 'utf8')
+        .replace('__SW_BUILD_ID__', JSON.stringify(BUILD_ID))
+        .replace('__SW_PRECACHE__', JSON.stringify(precache))
+        .replace('__SW_FONT_CSS__', JSON.stringify(fontCss.replace(/&amp;/g, '&')));
+      writeFileSync(join(outDir, 'sw.js'), source);
+    },
+  };
+};
+
 export default defineConfig({
   base: '/looting-simulator/',
   define: { __BUILD_ID__: JSON.stringify(BUILD_ID), __APP_VERSION__: JSON.stringify(APP_VERSION) },
-  plugins: [versionFile(), artPack()],
+  plugins: [versionFile(), artPack(), offlineServiceWorker()],
 });

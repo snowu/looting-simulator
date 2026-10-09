@@ -57,6 +57,7 @@ All of these exist only under `npm run dev`. They sit behind `import.meta.env.DE
 | `?autostart=boss` | Depth-6 kit, standing in the throne room facing the Ashen King |
 | `?autostart=archers` / `?autostart=melee` | Staged rooms for ranged and melee encounter tuning |
 | `?repro=<code>` | Stand where an in-game bug report was filed: same seed, road, seals and floor, on the reported tile and facing. The code is in the issue's *Game details*. Rebuilds the layout, not the reporter's monsters or loot, and says so if the floor came from an older build |
+| `?fakeupdate=<id>` | Pretend build `<id>` was just deployed: the update banner appears (a pill mid-delve), and updating reloads for real. Add `&autostart=dungeon` to try updating mid-delve, which should land you back in the same delve |
 | `?art` or **F2** | In-game art sheet: every sprite, with enemy attack cadences animated |
 | **F3** | Toggle the lab spawn console |
 | `window.__game` | Live `state`, `world`, `mode`, plus `enterDungeon()`, `enterTown()`, `useSlot(n)` |
@@ -137,4 +138,4 @@ supabase/          SQL schema and email template for cloud saves
 
 ## Shipping
 
-Every push to `master` builds and deploys to GitHub Pages (`.github/workflows/deploy.yml`). Open copies, installed ones included, check `version.json` and reload into the new build. Open a pull request against `master`. The PR description should include what you changed, how you verified it (tests, build, a real play of the feature), and screenshots or a GIF for anything visual.
+Every push to `master` builds and deploys to GitHub Pages (`.github/workflows/deploy.yml`). Open copies, installed ones included, check `version.json` (on load, on returning to the app, and every two minutes). Out of a delve they reload into the new build by themselves after a short countdown; mid-delve they show a small Update pill instead, which saves, reloads and reopens the same slot straight back into the delve. Open a pull request against `master`. The PR description should include what you changed, how you verified it (tests, build, a real play of the feature), and screenshots or a GIF for anything visual.
