@@ -103,6 +103,11 @@ lines, ellipses with a shading callback, an auto-outline pass, tileable
 
 **Ship**
 
+- The item icons (`ic_*`) are hand-painted by a human artist now (#67, #68).
+  Their PNGs in `public/art/` come from `art-handoff/icons/`, not from
+  `src/art/`, whose icon grids are only the fallback and the material ramp
+  that recolouring matches. Don't redraw them in code, and never pass an
+  `ic_` id to `art:sync --ids`.
 - `npm run art:sync -- --ids a,b,c` rewrites only those PNGs in `public/art/`.
   Never combine `--force` with `--ids`: `--force` rewrites all 300+ PNGs.
   New ids are added to the manifest automatically.
