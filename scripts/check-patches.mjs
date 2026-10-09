@@ -17,6 +17,7 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 
 // Commits that must never become patch notes. Short hash -> reason.
 const SKIP = {
+  'b9e5f8f': 'Patch 88 text for the offline fix (6e7f44a)',
   '4481560': 'Patch 87 text for offline play (beefb60)',
   'e6157f0': 'Patch 86 text and art docs for the mine timber sets (d8a54b8)',
   '2768ec5': 'Patch 86 citation of the centipede legs (ae2c678) only',
