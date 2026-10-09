@@ -17,6 +17,8 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 
 // Commits that must never become patch notes. Short hash -> reason.
 const SKIP = {
+  '951d408': 'Patch 89 docs, preview sheets and patch_notes.md text; the icons are cited by Patch 89',
+  '7615fda': 'merge of master (#67) into the Patch 89 branch only',
   '44e7329': 'Patch 80 citation only',
   '3ae69b4': 'Patch 80 citation only',
   '7002394': 'Patch 80 citations and a skip reason only',
