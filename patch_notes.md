@@ -1,3 +1,15 @@
+# Hand-painted icons take their whole material
+
+*Save revision 29, unchanged: nothing about a save moves.*
+
+**No more half-grey hides.** Some of the new hand-painted icons only took part of their material's colour: a Dragon Scale was red in the middle and grey round the edge, and Leather, Wyrm Leather and Troll Hide were mostly grey. The icons use more shades than the old ones did, and the game only coloured the old shades. Now every shade of the material takes its colour, so a dragon scale is red all over and leather is brown.
+
+**Gear too.** The same goes for the hauberk, the cane and any other icon painted with extra shades, in your pack, at the forge and in your Shade's hands.
+
+Validation: all tests pass. In the dev art sheet, every material icon was compared before and after: scales and hides now take their colour all over, while outlines and glints stay as painted.
+
+---
+
 # Every icon, painted by hand
 
 *Save revision 29, unchanged: nothing about a save moves.*
