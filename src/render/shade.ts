@@ -16,6 +16,13 @@ export interface HeldIcon {
   ramp?: Ramp;
 }
 
+/**
+ * An icon's pixels in a material. The renderer passes the shipped PNGs (see
+ * `artRaster` in art-cache.ts), so the Shade holds the same icon the inventory
+ * shows; without one, the code-drawn icon is used.
+ */
+export type IconSource = (id: string, ramp?: Ramp) => Raster | undefined;
+
 /** Where the hands are on each body frame, in body pixels. */
 export const SHADE_HANDS: Record<'0' | 'atk', { weapon: [number, number]; shield: [number, number] }> = {
   // Held upright at its right side, the fist at the hip.
@@ -87,14 +94,22 @@ function paint(dst: Raster, x: number, y: number, hex: string): void {
 }
 
 /** One frame of your Shade, holding what you hold. */
-export function composeShade(frame: '0' | 'atk', weapon?: HeldIcon, shield?: HeldIcon, resolve: ArtResolver = getArt): Raster {
+export function composeShade(
+  frame: '0' | 'atk',
+  weapon?: HeldIcon,
+  shield?: HeldIcon,
+  resolve: ArtResolver = getArt,
+  iconOf: IconSource = (id, ramp) => {
+    const def = resolve(id);
+    return def && rasterize(def, ramp, resolve);
+  },
+): Raster {
   const body = rasterize(resolve(`shade_${frame}`)!, undefined, resolve);
   const out: Raster = { w: body.w, h: body.h, data: body.data.slice() };
   const hands = SHADE_HANDS[frame];
   if (weapon) {
-    const def = resolve(weapon.icon);
-    if (def) {
-      const icon = rasterize(def, weapon.ramp, resolve);
+    const icon = iconOf(weapon.icon, weapon.ramp);
+    if (icon) {
       const [gx, gy] = gripOf(icon);
       const [hx, hy] = hands.weapon;
       blit(out, icon, hx - gx, hy - gy);
@@ -102,9 +117,8 @@ export function composeShade(frame: '0' | 'atk', weapon?: HeldIcon, shield?: Hel
     }
   }
   if (shield) {
-    const def = resolve(shield.icon);
-    if (def) {
-      const icon = rasterize(def, shield.ramp, resolve);
+    const icon = iconOf(shield.icon, shield.ramp);
+    if (icon) {
       const b = bounds(icon);
       const [sx, sy] = hands.shield;
       blit(out, icon, sx - ((b.x0 + b.x1 + 1) >> 1), sy - ((b.y0 + b.y1 + 1) >> 1));
