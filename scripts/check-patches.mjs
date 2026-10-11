@@ -17,6 +17,7 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 
 // Commits that must never become patch notes. Short hash -> reason.
 const SKIP = {
+  '386a4dc': 'battlemage design doc only (docs/NEXT.md)',
   e4b42cc: 'battlemage design doc only (docs/NEXT.md)',
   'edbf1d6': 'Patch 90 preview sheet, handoff note and patch_notes.md text; the fix is cited by Patch 90',
   'd0444f8': 'Patch 89 citation and skip reasons only',
