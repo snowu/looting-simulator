@@ -17,6 +17,7 @@
  *   town-side, and recall scrolls are in the pack for going back to craft
  */
 import { PROPERTY_IDS } from '../data/properties';
+import { CONDUIT_SPELLS } from '../data/conduit-spells';
 import { GameState } from '../state/game-state';
 import { emptyEquipment } from '../systems/player';
 import { makeConsumable, makeEquipment, makeMaterial, repairItem, thrownCapacity } from '../systems/items';
@@ -66,6 +67,9 @@ export function prepare(state: GameState): void {
   // Every build property learned, so the Inscribe bench can be tried without keeping an oath.
   state.properties = [...PROPERTY_IDS];
   state.attuned = 'wardcry';
+  // Every battle spell known and loaded, so a conduit off the rack casts all of them.
+  state.spellbook = CONDUIT_SPELLS.map((sp) => sp.id);
+  state.loadedSpells = [...state.spellbook];
 
   // 999 of everything in the stash (unlimited, so it fits). The forge is
   // town-side, so this is where crafting draws from — go back through a
@@ -92,7 +96,7 @@ export function prepare(state: GameState): void {
   // this is the weapon-feel rack. Swap with I (inventory) at any time.
   const pack = syncLoadout(state);
   for (const base of ITEM_BASES) {
-    if (base.slot !== 'weapon' && base.slot !== 'thrown') continue;
+    if (base.slot !== 'weapon' && base.slot !== 'thrown' && !base.conduit) continue;
     addItem(pack, makeEquipment({
       baseId: base.id, materialId: bestMaterialFor(base.id),
       rarity: Rarity.Epic, ilvl: LAB_ILVL, quality: 1, identified: true,
@@ -264,6 +268,8 @@ export function refurbish(world: World): void {
     const probe = makeEquipment({ baseId: base.id, materialId: bestMaterialFor(base.id), rarity: Rarity.Epic, ilvl: LAB_ILVL });
     world.run.thrown.held[base.id] = thrownCapacity(probe);
   }
+  // And a full conduit.
+  if (world.derived.conduit) world.run.conduit = { charges: world.derived.conduit.charges, regrow: 0, sel: world.run.conduit?.sel ?? 0 };
 }
 
 /** Pick a seed that naturally generates the requested biome, including its residents. */

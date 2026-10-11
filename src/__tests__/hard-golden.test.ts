@@ -90,7 +90,9 @@ describe('Hard generation, loot and stats have explicit balance baselines', () =
     // off scrollLootHash — which stays frozen in the fixture as the pre-Toe
     // record — onto oddityLootHash. Monster health is untouched: a change in
     // `enemyHp` would be a bug, not a rebaseline.
-    expect(hash(out)).toBe(golden.oddityLootHash);
+    // Re-pinned again when the Wand and the Rod joined the offhand drop pool
+    // (2026-10-11), for the same reason; oddityLootHash stays as the pre-conduit record.
+    expect(hash(out)).toBe(golden.conduitLootHash);
   }, 60_000);
 
   it('spawns every monster with the same health at every depth', () => {
@@ -116,7 +118,9 @@ describe('Hard generation, loot and stats have explicit balance baselines', () =
     // Same cause as the loot hash above: these kits are rolled out of the
     // weapon pool the Big Toe now sits in. materialPowerPlayerHp stays in the
     // fixture as the pre-Toe record.
-    const expected = golden.oddityPlayerHp;
+    // And again for the conduits in the offhand pool; oddityPlayerHp stays as
+    // the pre-conduit record.
+    const expected = golden.conduitPlayerHp;
     expect(out).toEqual(expected);
   });
 });

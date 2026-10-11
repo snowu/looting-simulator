@@ -189,6 +189,25 @@ export const ITEM_BASES: ItemBaseDef[] = [
     value: 60, minDepth: 3, weight: 0.85,
   },
 
+  // --- Conduits -----------------------------------------------------------
+  // Offhands that cast instead of guard: the battlemage's half of the trade.
+  // `attack` is the conduit's Power, the number a spell is scored on, and
+  // never reaches your melee Attack (see `derivePlayer`). `block` is what the
+  // hand still turns aside — well under any shield, which is the cost.
+  // The Rod is the Wand's step up its line and better on every axis.
+  {
+    id: 'wand', name: 'Wand', slot: 'offhand', icon: 'ic_wand', viewmodel: 'vm_wand',
+    base: { attack: 10, block: 30 }, perTier: { attack: 3 }, primary: ['wood'],
+    conduit: { slots: 2, charges: 3, regrow: 9, castViewmodel: 'vm_wand_lit' },
+    value: 30, minDepth: 1, weight: 1.2,
+  },
+  {
+    id: 'rod', name: 'Rod', slot: 'offhand', icon: 'ic_rod', viewmodel: 'vm_rod',
+    base: { attack: 16, block: 40, defense: 2 }, perTier: { attack: 3.5, defense: 1 }, primary: ['metal'],
+    conduit: { slots: 3, charges: 4, regrow: 7, castViewmodel: 'vm_rod_lit' },
+    value: 70, minDepth: 3, weight: 0.6,
+  },
+
   // --- Head ---------------------------------------------------------------
   {
     id: 'cap', name: 'Cap', slot: 'head', icon: 'ic_cap',
@@ -313,6 +332,7 @@ export const GEAR_LINES: readonly (readonly string[])[] = [
   ['great_maul'],
   ['greatsword'],
   ['buckler', 'kite_shield', 'tower_shield'],
+  ['wand', 'rod'],
   ['cap', 'helm', 'great_helm'],
   ['robe'],
   ['jerkin', 'hauberk', 'plate'],

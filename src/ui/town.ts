@@ -35,6 +35,8 @@ import { durability, identify, identifyCost, itemIcon, itemName, itemStats, item
 import { Container, addItem, canFit, countOf, findItem, freeSlots, removeItem, removeOf, roomFor, sortContainer, takeQty } from '../state/inventory';
 import { syncLoadout } from '../systems/run';
 import { attuneSigil, inscribeSigil } from '../systems/spells';
+import { learnTome, loadoutLocked, toggleLoaded } from '../systems/conduits';
+import { conduitSpell, findConduitSpell } from '../data/conduit-spells';
 import { findSigil, sigil } from '../data/spells';
 import { derivePlayer } from '../systems/player';
 import { defaultSlot, equipFrom, unequipTo, wornFor } from '../systems/equip';
@@ -142,7 +144,7 @@ export class Town {
    * that something is broken or that a stone is waiting, without the pane
    * itself taking the room.
    */
-  private forgeSide: 'recipes' | 'repairs' | 'sigils' | 'inscribe' | 'infusions' = 'recipes';
+  private forgeSide: 'recipes' | 'repairs' | 'sigils' | 'spells' | 'inscribe' | 'infusions' = 'recipes';
   /** Whether the Descend panel (oath and Seals) is open. */
   private descendOpen = false;
   /** Inscriptions picked in the oath reward pane, learned together on confirm. */
@@ -899,6 +901,7 @@ export class Town {
       return it && repairCost(it) > 0;
     }).length + s.stash.items.filter((it) => it.kind === 'equipment' && repairCost(it) > 0).length;
     const stones = s.stash.items.filter((it) => it.kind === 'sigil' && findSigil(it.ref) && !(s.spells ?? []).includes(it.ref)).length;
+    const tomes = s.stash.items.filter((it) => it.kind === 'tome' && findConduitSpell(it.ref) && !(s.spellbook ?? []).includes(it.ref)).length;
     const blueprints = new Map<string, number>();
     for (const item of s.stash.items) {
       if (item.kind === 'blueprint') blueprints.set(item.ref, (blueprints.get(item.ref) ?? 0) + item.qty);
@@ -915,6 +918,7 @@ export class Town {
       ['recipes', 'Recipes', readyBlueprints],
       ...(wears ? [['repairs', 'Repairs', wornCount] as [typeof this.forgeSide, string, number]] : []),
       ['sigils', 'Sigils', stones],
+      ['spells', 'Spells', tomes],
       ['inscribe', 'Inscribe', 0],
       ['infusions', 'Flask', 0],
     ];
@@ -932,6 +936,8 @@ export class Town {
       ? this.repairs()
       : this.forgeSide === 'sigils'
         ? this.sigils()
+        : this.forgeSide === 'spells'
+        ? this.spellBench()
         : this.forgeSide === 'inscribe'
         ? this.inscribeBench()
         : this.forgeSide === 'infusions'
@@ -1046,6 +1052,72 @@ export class Town {
     );
   }
 
+
+  /**
+   * The spell bench: reading a tome into the spellbook, which is permanent,
+   * and loading spells into the conduit, which is the decision. Load order is
+   * cast order — the cast input cycles through them as listed — and a conduit
+   * reads as many from the top as it has slots, so a Rod's third spell simply
+   * waits while a Wand is worn.
+   */
+  private spellBench(): HTMLElement {
+    const s = this.s;
+    const known = s.spellbook ?? [];
+    const loaded = (s.loadedSpells ?? []).filter((id) => known.includes(id) && findConduitSpell(id));
+    const tomes = s.stash.items.filter((it) => it.kind === 'tome' && findConduitSpell(it.ref));
+    const locked = loadoutLocked(s);
+    const worn = s.equipment.offhand ? itemBase(s.equipment.offhand.ref).conduit : undefined;
+    const slots = worn?.slots ?? 0;
+
+    const tomeRows = tomes.map((it) => {
+      const def = conduitSpell(it.ref);
+      const already = known.includes(it.ref);
+      return h(
+        'div',
+        { class: 'row repair-row' },
+        itemSlot(it, { size: 34, tip: () => itemTooltip(it) }),
+        h('div', { class: 'grow' },
+          h('div', { style: `color:${def.color}`, text: `Tome of ${def.name}` }),
+          h('div', { class: 'dim small', text: already ? 'already learned — worth selling' : def.description }),
+        ),
+        btn('Read', () => {
+          if (!learnTome(s, s.stash, it.uid)) return;
+          this.ctx.toast(`${def.name} learned. It is yours for good.`, def.color);
+          this.commit('study');
+        }, 'small', already),
+      );
+    });
+
+    const rows = known.filter((id) => findConduitSpell(id)).map((id) => {
+      const def = conduitSpell(id);
+      const at = loaded.indexOf(id);
+      const live = at >= 0 && at < slots;
+      return h(
+        'div',
+        { class: `row repair-row${live ? ' gold' : ''}` },
+        artImg(def.icon, undefined, 34),
+        h('div', { class: 'grow' },
+          h('div', { style: `color:${def.color}`, text: `${at >= 0 ? `${at + 1}. ` : ''}${def.name}${at >= slots && at >= 0 ? ' (no slot)' : ''}` }),
+          h('div', { class: 'dim small', text: `${def.description} · ${def.stamina} stamina · ${def.charges} charge · range ${def.range}` }),
+        ),
+        btn(at >= 0 ? 'Unload' : 'Load', () => {
+          if (!toggleLoaded(s, id)) return this.ctx.toast('Not while you are down there. Step back through a portal first.', '#9ab0d8');
+          this.commit('study');
+        }, `small${at >= 0 ? ' primary' : ''}`, locked),
+      );
+    });
+
+    return h(
+      'div',
+      { class: 'pane frame' },
+      h('h3', { text: 'Spells' }),
+      tomeRows.length ? h('div', { class: 'col' }, ...tomeRows) : null,
+      h('div', { class: 'col' }, ...rows),
+      h('p', { class: 'dim small', text: worn
+        ? `Your ${itemBase(s.equipment.offhand!.ref).name.toLowerCase()} holds ${slots} spell${slots === 1 ? '' : 's'} and ${worn.charges} charges, one back every ${worn.regrow}s. Load order is the order B cycles through. ${locked ? 'The loadout is fixed until you are back in town or a portal is open.' : ''}`
+        : 'Wear a conduit — a Wand or a Rod — in your offhand to cast these, with V. The Wand is on the Recipes bench. Tomes turn up in chests, more often in vaults and secret rooms.' }),
+    );
+  }
 
   /**
    * The sigil bench. Two separate things that both belong here: cutting a

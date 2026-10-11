@@ -81,7 +81,7 @@ A volley can lose up to two closely stacked bolts to one timed parry; the follow
 
 ## 3. Controls
 
-See the README table. In short: W/S step, A/D turn, Q/E strafe, Space attack, Shift block, F interact/eat, T throw, R call your shafts back, G or C cast your sigil, 1 flask, 2–4 scrolls (identify, recall, flash, backstep), I pack, M map, Esc pause. On touch: drag anywhere to walk and turn, tap or press the big button for the context action, hold the shield to block.
+See the README table. In short: W/S step, A/D turn, Q/E strafe, Space attack, Shift block, F interact/eat, T throw, R call your shafts back, G or C cast your sigil, V cast your selected spell and B select the next, 1 flask, 2–4 scrolls (identify, recall, flash, backstep), I pack, M map, Esc pause. On touch: drag anywhere to walk and turn, tap or press the big button for the context action, hold the shield to block.
 
 **The one-button action** (tap the view, or the big button) swings at anything in reach and otherwise does whatever **[F]** would. One exception: a loot pile **underfoot never steals the swing while something is alive within 2 tiles**, or within 4 and hunting you. Killing the first of two monsters drops loot on your tile, and without that rule every tap became the loot window instead of a hit on the second one. Doors, stairs and portals still win over the swing, because running is a legitimate answer to a fight. **[F]** is unaffected — looting on the keyboard is always deliberate.
 
@@ -1137,6 +1137,41 @@ A property is an effect that changes how a combat verb plays. Properties are **l
 
 Riposte, Bulwark, the parry vulnerability and Marrow all multiply together. The tooltip shows the property in plain words, and its numbers on Shift or a tap.
 
+## 9b. Conduits and battle spells
+
+Added in save revision 30, additively: older saves learn Ember Bolt, load it, and learn the Wand recipe.
+
+*Files: `src/data/conduit-spells.ts`, `src/systems/conduits.ts`, `src/world/world.ts` — `castSpell`, `spellView`, `spellHit`, `updateAfflictions`, `updateConduit`, `refundConduit`*
+
+A **conduit** is an offhand that casts instead of guarding: the battlemage's trade. It is not a sigil — sigils stay one utility stone on a long cooldown — and it is not a weapon.
+
+| Base | Material | Power (tier 1 / per tier) | Block | Charges | One back every | Spells loaded | From depth |
+|---|---|---|---|---|---|---|---|
+| Wand | wood | 10 / +3 | 30% | 3 | 9s | 2 | 1 (starter recipe) |
+| Rod | metal | 16 / +3.5, +2 Defense (+1/tier) | 40% | 4 | 7s | 3 | 3 (blueprint, 160g) |
+
+The Rod is the Wand's step up its gear line (`['wand', 'rod']`) and is better on every axis. **Power** is the conduit's Attack, read off it alone the way a belt's is: it never reaches your melee Attack, and your sword never reaches a spell. A conduit is not a shield — it does not wear on a block, does not flare for the parry, and guards only as well as its own Block. **Parrying is unchanged.**
+
+**The spellbook.** Spells are learned for good into `state.spellbook`. Ember Bolt is known from the start; the rest come from **spell tomes**, rolled where sigil stones roll — every chest and mimic — on their own `tome:<seed>:<depth>:<stream>` stream, so adding them moved no chest's contents. A vault or secret chest rolls 18%; an ordinary one 0% on depth 1 rising to 5% at depth 5. Never a spell you know or are already carrying anywhere. A tome is read at the forge's **Spells** bench, which also **loads** spells (`state.loadedSpells`): load order is cast order, and a conduit reads as many from the top as it has slots. The loadout only changes in town or with a portal open, like sigil attunement.
+
+**Casting.** V (touch: Cast; gamepad: tap D-pad Down) casts the **selected** spell; B (touch: ↻; gamepad: hold D-pad Down 0.4s) selects the next. A cast runs through the same wind-up and recovery as a throw, costs stamina from the bar you swing with and charges from the conduit's **shared pool**, and refuses with a reason when either is short. The pool lives on the run, not the item: it fills the first time a conduit is worn on a delve, and taking it off and on refills nothing.
+
+| Spell | Element | Power × | Charges | Stamina | Wind-up / recovery | Speed / range | Rider |
+|---|---|---|---|---|---|---|---|
+| Ember Bolt | fire | 1.0 | 1 | 14 | 0.22 / 0.30 | 9 / 5 | **Burn**: 45% of the hit again, spread over 3s (stacks onto a burn already running) |
+| Rime Lance | frost | 0.6 | 1 | 12 | 0.20 / 0.30 | 11 / 5 | **Chill** 4s: every wind-up runs ×1.5. A wind-up begun chilled finishes chilled. The Ashen King does not slow |
+
+**How a spell is scored** (`spellView`): no physical Attack; the conduit's Power × the spell's multiplier is added to your matching elemental stat, and every other elemental stat is zeroed. So the whole hit is elemental, mitigated at half armour like any elemental damage, × the target's resistance to that element — fire gear makes an Ember Bolt hit harder and a Rime Lance not at all. Crits use the plain ×1.6 whatever is in your other hand; life leech applies; a parry opening doubles it. A raised monster shield takes a spell on the guard like a shaft.
+
+**Regrow.** One charge grows back every *n* seconds while the conduit is worn. A kill adds `(1 + 4 × min(1, hp/140)) × (1 + 0.25 × Warden's Vigil + Focus%/100)` seconds of regrow, capped at a fifth of one charge's time — the sigil's rule.
+
+**Weave**, the battlemage rule:
+
+- A spell that lands **charges your weapon** with its element for **3s**: the next melee blow that lands carries +50% of the conduit's Power as that element, and spends it. A cleave's spill does not get a second helping.
+- A melee blow that lands adds **2s** of regrow to the conduit.
+
+So the loop is cast, close, strike, cast: standing back and casting runs the pool dry, and swinging without casting wastes the weave.
+
 ## The bestiary codex
 
 *Files: `src/systems/bestiary.ts`, the Bestiary tab in `src/ui/town.ts`*
@@ -1437,6 +1472,7 @@ A save written by a *newer* build than the one loading it is left as it is rathe
 | Parry window, stun and reflect | `src/world/world.ts` (`PARRY_*`) |
 | Sigil effects, cast times and cooldowns | `src/data/spells.ts`, `src/world/world.ts` (`resolveSigil`) |
 | Cooldown-on-kill refund and its cap | `src/world/world.ts` (`refundSigil`) |
+| Conduits, battle spells, burn, chill and weave | `src/data/conduit-spells.ts`, `src/data/items.ts` (`conduit`), `src/world/world.ts` (`castSpell`, `spellHit`, `refundConduit`) |
 | Two-handed rule, cleave and stagger | `src/systems/equip.ts`, `src/systems/player.ts`, `src/data/items.ts` (`CLEAVE`), `src/world/world.ts` (`cleave`) |
 | Thrown stock, flight and retrieval | `src/data/items.ts` (`thrown`), `src/world/world.ts` (`hurl`, `RETRIEVE_*`) |
 | How a throw is scored | `src/systems/player.ts` (`thrownView`) |

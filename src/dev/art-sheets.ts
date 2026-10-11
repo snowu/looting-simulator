@@ -15,6 +15,7 @@ import { ICONS } from '../art/icons';
 import { MORSEL_ART, MORSEL_HEAL } from '../systems/healing';
 import { MATERIALS } from '../data/materials';
 import { CONSUMABLES, ITEM_BASES, viewmodelFor } from '../data/items';
+import { CONDUIT_SPELLS } from '../data/conduit-spells';
 import { MaterialDef } from '../types';
 import { Ramp } from '../art/raster';
 import { PROPS } from '../art/props';
@@ -59,6 +60,19 @@ export interface SheetCell {
   creature?: Creature;
   /** The material ramp the game would draw this cell through, if any. */
   ramp?: Ramp;
+  /** Set when the cell can be played through a conduit's cast: rest, rise, flare, release. */
+  cast?: SpellCast;
+}
+
+/** A conduit casting one spell, as the dungeon times it. */
+export interface SpellCast {
+  /** The conduit at rest, and its lit model for the back half of the cast. */
+  idle: string;
+  lit: string;
+  /** The bolt that leaves it. */
+  bolt: string;
+  windup: number;
+  recovery: number;
 }
 
 /**
@@ -281,6 +295,7 @@ function viewmodelCells(tier: number, materialId?: string): SheetCell[] {
       const labels: Record<string, string> = {
         vm_fist: 'Bare fist', vm_hand: 'Retrieval hand',
         vm_sigil: 'Sigil stone', vm_sigil_lit: 'Sigil stone · casting',
+        vm_wand_lit: 'Wand · casting', vm_rod_lit: 'Rod · casting',
       };
       return { id: vm.id, label: labels[vm.id] ?? vm.id };
     }
@@ -352,6 +367,13 @@ function propGroups(): SheetGroup[] {
 export function sheets(tier: number = DEFAULT_TIER, materialId?: string): ArtSheet[] {
   return [
   {
+    id: 'spells',
+    title: 'Spells',
+    note: 'Each conduit casting each spell at its own wind-up and recovery: the hand rises, the stone flares for the back half, the bolt leaves. Hold still to compare the frames.',
+    cols: 4,
+    groups: spellGroups(tier, materialId),
+  },
+  {
     id: 'melee',
     title: 'Melee',
     note: 'Idle and the raised-weapon tell. The tell has to change the silhouette, not just move a few pixels.',
@@ -384,6 +406,29 @@ export function sheets(tier: number = DEFAULT_TIER, materialId?: string): ArtShe
   { id: 'props', title: 'Props', note: 'Everything the dungeon stands on the floor, food included. Thrown weapons have no viewmodel — the shaft in flight and the shaft on the ground is their art.', cols: 6, groups: propGroups() },
   { id: 'icons', title: 'Icons', note: 'Every icon as something that exists: each piece of gear in a material its base actually allows, each material and potion in its own colours.', cols: 6, groups: iconGroups(tier, materialId) },
   { id: 'viewmodels', title: 'Viewmodels', note: 'The weapon in your own hands, in the material of a weapon that uses it. An empty hand has no material.', cols: 4, groups: [{ title: heldTitle(tier, materialId), cells: viewmodelCells(tier, materialId) }] },
+  ];
+}
+
+/** Every conduit with every battle spell, playable as the cast the dungeon draws. */
+function spellGroups(tier: number, materialId?: string): SheetGroup[] {
+  const conduits = ITEM_BASES.filter((b) => b.conduit);
+  const casts: SheetCell[] = conduits.flatMap((b) => {
+    const m = materialFor(b.primary, tier, materialId);
+    return CONDUIT_SPELLS.map((sp) => ({
+      id: viewmodelFor(b),
+      label: `${b.name} · ${sp.name}`,
+      ramp: m?.ramp,
+      cast: { idle: viewmodelFor(b), lit: b.conduit!.castViewmodel, bolt: sp.sprite, windup: sp.windup, recovery: sp.recovery },
+    }));
+  });
+  return [
+    { title: heldTitle(tier, materialId), cells: casts },
+    // Two frames each: the renderer alternates them while the bolt flies.
+    { title: 'Bolts in flight', cells: CONDUIT_SPELLS.flatMap((sp) => [
+      { id: sp.sprite, label: `${sp.name} · ${sp.element}` },
+      { id: `${sp.sprite}_b`, label: `${sp.name} · second frame` },
+    ]) },
+    { title: 'Spell icons', cells: CONDUIT_SPELLS.map((sp) => ({ id: sp.icon, label: sp.name })) },
   ];
 }
 

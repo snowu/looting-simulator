@@ -45,7 +45,7 @@ export function paperDoll(eq: Record<EquipSlot, Item | null>, onClick: (slot: Eq
   return doll;
 }
 
-export function statSheet(world: { derived: World['derived'] } & Partial<Pick<World, 'thrownCounts'>>): HTMLElement {
+export function statSheet(world: { derived: World['derived'] } & Partial<Pick<World, 'thrownCounts' | 'run'>>): HTMLElement {
   const d = world.derived;
   const s = d.stats;
   const rows: [string, string][] = [
@@ -60,6 +60,10 @@ export function statSheet(world: { derived: World['derived'] } & Partial<Pick<Wo
   ];
   if (d.twoHanded) rows.push(['Guard', '2H block; parry unchanged']);
   if (d.swing.cleave) rows.push(['Cleave', `${Math.round(d.swing.cleave * 100)}% around the target`]);
+  if (d.conduit) {
+    const pool = world.run?.conduit;
+    rows.push(['Spells', `power ${d.conduitPower} · ${pool ? `${pool.charges}/${d.conduit.charges} charges` : `${d.conduit.charges} charges`} · ${d.conduit.slots} slots`]);
+  }
   if (d.thrown) {
     // In a run the belt is three numbers — in hand, on the floor, flying home —
     // and the stock alone would repeat the old lie of promising what never
@@ -481,6 +485,7 @@ export class DungeonOverlays {
       ['Throw button', 'Hurl one shaft from your belt'],
       ['R button', 'Call shafts back — hold to call, release to stop, they fly to your raised hand'],
       ['Sigil button', 'Cast your attuned sigil when ready'],
+      ['Cast · ↻', 'Cast your selected spell from a worn conduit · ↻ selects the next'],
       ['Quick slots', 'Tap to drink / read · drag to reorder'],
       ['Pack · Map', 'Gear, backpack and the automap · tap the minimap for the map too'],
     ];
@@ -494,6 +499,7 @@ export class DungeonOverlays {
       ['T', 'Throw one shaft from your belt'],
       ['R', 'Call shafts back — hold to call, release to stop, they fly to your raised hand'],
       ['G / C', 'Cast your attuned sigil'],
+      ['V · B', 'Cast your selected spell from a worn conduit · B selects the next'],
       ['1 – 4', 'Drink / read your first four consumables · drag the bar to reorder'],
       ['I / Tab', 'Pack & gear'],
       ['M', 'Map · or click the minimap'],
@@ -518,6 +524,7 @@ export class DungeonOverlays {
           'Your shield flashes while the window is open. Holding the guard up does not parry — you have to meet the swing. ' +
           'Two-handed weapons leave the offhand disabled and block only 20%, but parry exactly like any other weapon. Their blow cleaves for a quarter into every tile touching the thing they hit, including the one behind it. Thrown shafts ride on their own belt slot, so you carry them alongside a weapon and a shield, and you hurl one with T rather than with the attack button. They land where they stop: walk over one to collect it, or hold R to call them back — one leaves the floor every three quarters of a second and flies to your raised left hand, which is the animation for it. Distant shafts and shafts on other floors return from nearby instead of flying across the dungeon. The call costs no stamina and stopping it never loses a shaft already in the air; it still lands. Swinging, casting, a blow, or releasing R stops the call. Each shaft that lands back in your hand wears the belt by one. ' +
           'Sigils are inscribed and attuned at the Sigils bench in the forge, and cast with G or C. Casting spends stamina and a hit interrupts it without starting the cooldown. ' +
+          'A conduit — a Wand or a Rod — in your offhand casts battle spells instead of guarding: it blocks far less than a shield, but parries the same. Spells are learned from tomes and loaded at the Spells bench in the forge; V casts the selected one and B moves to the next. Each cast spends stamina and a charge, and charges grow back on their own. A spell that lands charges your next blow with its element, and a blow that lands hurries the next charge along. ' +
           'Chalk X marks on a wall mean something is hidden behind it, and loose flagstones mean a trap — watch the floor ahead of you. ' +
           'The way out is the stairs you came down. A Scroll of Recall instead opens a portal you can step back through, so you can sell and restock mid-delve.',
       ),
