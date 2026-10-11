@@ -988,3 +988,75 @@ To design once section 4 exists:
 - The test for each one, from the run-identity plan: it must be something you
   can *use* (lure a Slagborn onto oil, then light it), not just a tax on
   walking.
+
+---
+
+# 6. Rites: sigils you draw — **IDEA 2026-10-11**
+
+The user's idea, from their claudemancy tool (draw a sigil to cast a skill):
+cast by **drawing** instead of a button, with time slowed while you draw.
+Their worry: as an everyday input it would get old fast. So it is kept for a
+small set of **rites**, rare and fight-changing. Ordinary spells stay on the
+button (§4).
+
+## What a rite is
+
+- **Very powerful, and rare to cast.** Once per floor, and it burns every
+  charge in your conduit. You save it for the moment that matters.
+- **Drawn, in slow motion.** Hold the cast input; the world slows (to about
+  15%, tuned so it is a dramatic beat, not a free pause); trace the sigil on
+  the view; release to cast. Only possible this rarely, which is what keeps it
+  from undoing Hard's real-time reading of wind-ups. Touch and mouse draw;
+  gamepad would need the right stick or a fallback.
+- **Drawing quality decides the outcome.** The recogniser's match score: a
+  clean trace lands the full rite, a sloppy one a weaker one, a botch
+  **backfires** (a curse, a hit to yourself, or a burst on your own tile).
+  The risk is what keeps it exciting the tenth time.
+- **Recognition:** port claudemancy's $P point-cloud recogniser (~150 lines)
+  and its plain-text `.sigil` format, one stroke per sigil.
+
+Example rites, one per element:
+
+| Rite | Element | Effect |
+|---|---|---|
+| Meteor | fire | Fire falls on every monster in the room |
+| Glacial Tomb | frost | Everything in sight frozen solid for several seconds |
+| Judgement | holy | A pillar of light; every undead in the room dies and stays dead |
+| The Great Penguining | shadow | Every monster in the room is a penguin for 15s |
+
+## How they are found
+
+**Carvings** on walls. Studying one unlocks the rite for good. The game must
+have recorded it as seen: drawing a rite you never found does nothing, so a
+guide online cannot skip the hunt. Open: whether the sigil is shown again
+after (a list of names at the forge, drawings only in memory), or kept in a
+book you can reread.
+
+Pacing, the user's main concern: never too soon, never too late, never a
+flood. It copies the flask shards' milestone pattern, plus a small random
+chance (user, 2026-10-11):
+
+| Source | When |
+|---|---|
+| Guaranteed | First time you **reach depth 3** |
+| Guaranteed | First time you **reach depth 5** |
+| Guaranteed | Your **first King kill** |
+| Random | Every floor from depth 3, rising with depth: **2% / 3% / 4% / 5%** on depths 3–6 |
+
+- Nothing before depth 3, so the opening floors keep their tuning.
+- A full delve to the King finds a bonus carving about 13% of the time
+  (1 − 0.98·0.97·0.96·0.95), roughly one every 7–8 full delves.
+- At most **one new rite per delve**; never one you know or carry. Rolled on
+  its own hashed stream (`rite:`), so no existing floor moves.
+- Placed in that floor's vault or secret room, else a dead end, so it is
+  still *found*.
+- Which rite: random among those the depth allows, or tied to the road taken
+  (the Frozen Road teaches Glacial Tomb). Open.
+- Check with the balance harness: report on which delve each rite arrives,
+  per bot profile. Caveat: the bot finds secret rooms poorly, so placed
+  carvings will read late in its numbers.
+
+## Order
+
+After battlemage step 2: the rites reuse its machinery (burn, chill, penguin,
+sanctified remains), and with more spells the button path is settled first.
