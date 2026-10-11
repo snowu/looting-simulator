@@ -12,37 +12,38 @@ const titleTaglines = [
 const titleTagline = titleTaglines[Math.floor(Math.random() * titleTaglines.length)];
 
 export function titleScreen(slots: HTMLElement, build = '', account?: HTMLElement, dev?: HTMLElement | null, onSettings?: () => void): HTMLElement {
-  return h(
-    'div',
-    { class: 'title-screen' },
-    h(
-      'div',
-      { class: 'frame title-panel' },
-      h('h1', { text: 'Looting Simulator' }),
-      h('div', { class: 'prepare', text: 'Prepare To Die' }),
-      h('div', { class: 'tag', text: titleTagline }),
-      slots,
-      h(
-        'div',
-        { class: 'help', style: 'margin-top:22px' },
-        h('div', {}, h('kbd', { text: 'W / S' }), 'step'),
-        h('div', {}, h('kbd', { text: 'A / D' }), 'turn'),
-        h('div', {}, h('kbd', { text: 'Q / E' }), 'strafe'),
-        h('div', {}, h('kbd', { text: 'Space · LMB' }), 'attack'),
-        h('div', {}, h('kbd', { text: 'Shift · RMB' }), 'block · time it to parry'),
-        h('div', {}, h('kbd', { text: 'F' }), 'interact'),
-        h('div', {}, h('kbd', { text: 'I · M' }), 'pack · map'),
-      ),
-      h('p', { class: 'dim small', style: 'margin-top:14px', text: 'Sound on. Best with headphones and the lights off.' }),
-      account ?? null,
-      dev ?? null,
-      build ? h('p', { class: 'faint small', text: `build ${build}` }) : null,
+  const controls = h('details', { class: 'title-controls' },
+    h('summary', { text: 'How to survive' }),
+    h('div', { class: 'help' },
+      ...[['W / S', 'step'], ['A / D', 'turn'], ['Q / E', 'strafe'], ['Space · LMB', 'attack'], ['Shift · RMB', 'block / parry'], ['F', 'interact'], ['I · M', 'pack / map']].map(([key, label]) =>
+        h('div', {}, h('kbd', { text: key }), label)),
     ),
-    // Same corner as the in-game gear: pinned top-right beside the fullscreen
-    // button, not down by the patch notes.
-    onSettings
-      ? h('div', { class: 'corner-gear' }, settingsGearButton(onSettings, 'Settings — sound, cloud saves'))
-      : null,
+    h('p', { text: 'Touch controls on mobile. Controllers welcome.' }),
+  );
+  return h('div', { class: 'title-screen' },
+    h('div', { class: 'title-layout' },
+      h('header', { class: 'title-hero' },
+        h('div', { class: 'title-eyebrow', text: 'A dungeon crawler of risk & riches' }),
+        h('h1', {}, h('span', { text: 'Looting' }), h('span', { text: 'Simulator' })),
+        h('div', { class: 'prepare', text: 'Prepare to die' }),
+        h('p', { class: 'tag', text: titleTagline }),
+        h('div', { class: 'title-rule' }),
+        h('p', { class: 'title-intro', text: 'The dark is full of fortune. Take what you can. Make it home.' }),
+      ),
+      h('section', { class: 'title-panel', attrs: { 'aria-label': 'Choose your save' } },
+        h('div', { class: 'title-section-head' }, h('h2', { text: 'Choose your story' }), h('span', { text: '03 SAVE SLOTS' })),
+        slots,
+        account ?? null,
+        controls,
+        dev ?? null,
+      ),
+      h('footer', { class: 'title-footer' },
+        h('span', { class: 'title-scene-label', text: '◆  Somewhere beneath Bleakmere' }),
+        h('span', { text: 'Sound on. Lights off.' }),
+        build ? h('span', { class: 'title-build', text: `v${build.replace(/^v/, '')}` }) : null,
+      ),
+    ),
+    onSettings ? h('div', { class: 'corner-gear' }, settingsGearButton(onSettings, 'Settings — sound, cloud saves')) : null,
     h('div', { class: 'patch-corner' }, patchNotesButton()),
   );
 }

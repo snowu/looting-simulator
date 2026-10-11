@@ -9,6 +9,7 @@ import { biomeForFloor } from './data/biomes';
 import { quirkDef } from './data/quirks';
 import { World, WorldEvent } from './world/world';
 import { DungeonRenderer } from './render/dungeon-renderer';
+import { createTitleDungeon } from './render/title-dungeon';
 import { artUrl, loadArtOverrides } from './render/art-cache';
 import { registerOfflineCache } from './pwa/register';
 import { Hud } from './ui/hud';
@@ -56,6 +57,13 @@ let signedIn = false;
 let cloudSlots = new Map<Slot, CloudFetch>();
 let world: World | null = null;
 let mode: Mode = 'title';
+let titleDungeon: World | null = null;
+let titleDrawAt = -Infinity;
+let titleTime = 0;
+let titleDirty = true;
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+window.addEventListener('resize', () => { titleDirty = true; });
+reducedMotion.addEventListener('change', () => { titleDirty = true; });
 let saveTimer = 0;
 // Next cave drip in the Sunken Catacombs. Reckoned in real seconds so the
 // roof keeps dripping while a panel is open — ambience does not pause.
@@ -537,7 +545,12 @@ function show(m: Mode): void {
   clearTouchHolds();
   tiltIdle = true;
   pad.reset();
-  canvas.style.visibility = m === 'dungeon' ? 'visible' : 'hidden';
+  canvas.style.visibility = m === 'dungeon' || m === 'title' ? 'visible' : 'hidden';
+  canvas.classList.toggle('title-view', m === 'title');
+  if (m === 'title') {
+    titleDirty = true;
+    renderer.deathFade = 0;
+  }
   town.visible = m === 'town';
   if (m !== 'dungeon') overlays.close();
   renderUpdateBanner();
@@ -1059,6 +1072,19 @@ function frame(now: number): void {
   padCtx.paused = mode !== 'dungeon' || overlays.isOpen || isSettingsOpen() || !!ending;
   padCtx.overlayOpen = overlays.isOpen;
   pad.update(dt);
+  if (mode === 'title' && !document.hidden && !gate.blocked) {
+    // Reuse the game's low-resolution renderer, capped at 30fps. No AI, input,
+    // audio or persistence belongs to this separate, unsimulated world.
+    if (titleDirty || (!reducedMotion.matches && now - titleDrawAt >= 1000 / 30)) {
+      titleDungeon ??= createTitleDungeon();
+      const elapsed = titleDirty ? 0 : Math.min(0.1, (now - titleDrawAt) / 1000);
+      titleTime += elapsed;
+      titleDungeon.anim.yaw = Math.PI / 5 + (reducedMotion.matches ? 0 : Math.sin(titleTime * 0.09) * 0.16);
+      renderer.render(titleDungeon, reducedMotion.matches ? 0 : elapsed, false);
+      titleDrawAt = now;
+      titleDirty = false;
+    }
+  }
   if (mode === 'dungeon' && world) {
     // Settings pauses like any other overlay: the dungeon keeps rendering
     // behind it, but nothing moves and nothing can hurt you while it is open.
