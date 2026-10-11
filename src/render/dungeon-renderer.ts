@@ -814,7 +814,10 @@ export class DungeonRenderer {
 
     for (const pr of world.projectiles) {
       const s = this.sprite(`j:${pr.id}`);
-      this.place(s, pr.sprite, pr.x * TILE, 0.95, pr.y * TILE, 0.7);
+      // A spell bolt alternates two frames (flame, glint) so it never hangs
+      // in the air like a pasted sticker; each bolt starts on its own beat.
+      const art = pr.spell && Math.floor(this.time * 10 + pr.id) % 2 ? `${pr.sprite}_b` : pr.sprite;
+      this.place(s, art, pr.x * TILE, 0.95, pr.y * TILE, 0.7);
       if (pr.sprite.startsWith('proj_arrow')) {
         s.mesh.rotation.set(0, this.camera.rotation.y, Math.atan2(-pr.dy, pr.dx));
       } else if (pr.spell) {
@@ -964,8 +967,12 @@ export class DungeonRenderer {
       // denser sprite (the bare hand is drawn at 2×) rides the same pose at
       // the same on-screen size with finer pixels.
       const box = artSize(texId);
-      const ss = (H * 0.42) / box.h;
-      const raise = Math.max(a.blockRaise, retrieving ? 1 : 0, spellLift);
+      // A conduit is drawn larger than a shield (its canvas is a weapon's
+      // height) and never sinks fully out of view: the stone peeks in at rest,
+      // so you can see what is in your hand before you cast it.
+      const held = !!conduit && !retrieving;
+      const ss = (H * (held ? 0.62 : 0.42)) / box.h;
+      const raise = Math.max(a.blockRaise, retrieving ? 1 : 0, spellLift, held ? 0.62 : 0);
       sh.mesh.scale.set(box.w * ss, box.h * ss, 1);
       // Mostly out of frame until raised.
       sh.mesh.position.set(W * 0.16 + raise * W * 0.16 - bobX * 0.5, -H * 0.12 + raise * H * 0.4 - bobY - this.deathFade * 120, 0);
