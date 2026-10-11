@@ -1,6 +1,13 @@
 import { test, expect } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { PNG } from 'pngjs';
+
+function samePixels(a: Buffer, b: Buffer): boolean {
+  const left = PNG.sync.read(a);
+  const right = PNG.sync.read(b);
+  return left.width === right.width && left.height === right.height && left.data.equals(right.data);
+}
 
 for (const scene of ['title', 'dark', 'bright'] as const) {
   test(`${scene}: grain before and after`, async ({ browser }, testInfo) => {
@@ -30,9 +37,16 @@ for (const scene of ['title', 'dark', 'bright'] as const) {
         await expect(page.locator('#view')).toBeVisible();
         // Screenshot after the fonts have loaded, with the world and torches
         // frozen by the dev harness rather than CSS animation suppression.
-        const png = await page.screenshot({ animations: 'disabled' });
-        const repeat = await page.screenshot({ animations: 'disabled' });
-        expect(png.equals(repeat), 'Frozen scene must produce stable screenshots').toBe(true);
+        // Fonts, compositing and shader compilation can settle after the
+        // first screenshot. Wait for two consecutive identical pixel frames;
+        // PNG metadata or compression differences are not visual changes.
+        let png = await page.screenshot({ animations: 'disabled' });
+        await expect.poll(async () => {
+          const repeat = await page.screenshot({ animations: 'disabled' });
+          const stable = samePixels(png, repeat);
+          png = repeat;
+          return stable;
+        }, { message: 'Frozen scene must produce stable screenshots', timeout: 10_000 }).toBe(true);
         images.push(png);
         const file = path.join(dir, `${scene}-${variant}.png`);
         await writeFile(file, png);
@@ -48,6 +62,6 @@ for (const scene of ['title', 'dark', 'bright'] as const) {
     expect(errors, 'No browser runtime errors').toEqual([]);
     expect(fixtures[0]).toEqual(fixtures[1]);
     expect(fixtures[1].biome).toBe(scene === 'bright' ? 'frostvault' : 'crypt');
-    expect(images[0].equals(images[1]), 'The grain treatments must produce different images').toBe(false);
+    expect(samePixels(images[0], images[1]), 'The grain treatments must produce different images').toBe(false);
   });
 }
