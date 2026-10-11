@@ -12,6 +12,9 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:visual": "playwright test && node scripts/visual-review.mjs",
+    "test:visual:check": "VISUAL_ASSERT=1 playwright test",
+    "test:visual:update": "VISUAL_ASSERT=1 playwright test --update-snapshots",
     "playtest": "vitest run --config vitest.playtest.config.ts scripts/balance.bench.ts",
     "playtest:normal": "vitest run --config vitest.playtest.config.ts scripts/normal.bench.ts",
     "tables": "vitest run --config vitest.playtest.config.ts scripts/tables.bench.ts",
@@ -32,7 +35,9 @@
     "three": "^0.185.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.0",
     "@types/three": "^0.185.0",
+    "pngjs": "^7.0.0",
     "typescript": "^6.0.3",
     "vite": "^8.1.0",
     "vitest": "^4.1.9"

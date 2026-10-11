@@ -61,6 +61,7 @@ let titleDungeon: World | null = null;
 let titleDrawAt = -Infinity;
 let titleTime = 0;
 let titleDirty = true;
+let visualCapture = false;
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 window.addEventListener('resize', () => { titleDirty = true; });
 reducedMotion.addEventListener('change', () => { titleDirty = true; });
@@ -1070,6 +1071,12 @@ function handle(ev: WorldEvent): void {
 // --- Loop ------------------------------------------------------------------------
 let last = performance.now();
 function frame(now: number): void {
+  if (import.meta.env.DEV && visualCapture) {
+    const captureWorld = mode === 'title' ? titleDungeon : world;
+    if (captureWorld) renderer.render(captureWorld, 0, mode !== 'title');
+    requestAnimationFrame(frame);
+    return;
+  }
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
   // Gamepad polls every frame, in every mode: dungeon holds live, while town,
@@ -1469,6 +1476,30 @@ requestAnimationFrame(frame);
 // Handy for debugging and headless playtests.
 if (import.meta.env.DEV) {
   (window as unknown as Record<string, unknown>).__game = {
+    /** Static scratch scenes for screenshots; never update or save this world. */
+    async captureVisual(scene: 'title' | 'dark' | 'bright', legacy = false) {
+      visualCapture = true;
+      setScratchMode(true);
+      closeSettings();
+      const { visualWorld } = await import('./dev/visual-scene');
+      const captureWorld = visualWorld(scene);
+      brightness.set(1);
+      renderer.prepareVisualCapture(legacy);
+      if (scene === 'title') {
+        titleDungeon = captureWorld;
+        enterTitle();
+      } else {
+        world = captureWorld;
+        state = captureWorld.state;
+        show('dungeon');
+        screen.replaceChildren();
+        hud.clearLog();
+        hud.update(captureWorld, renderer, 0);
+      }
+      renderer.render(captureWorld, 0, scene !== 'title');
+      if (scene !== 'title') hud.update(captureWorld, renderer, 0);
+      return { biome: biomeForFloor(captureWorld.floor).id, seed: captureWorld.run.seed };
+    },
     get state() { return state; },
     get world() { return world; },
     get mode() { return mode; },
