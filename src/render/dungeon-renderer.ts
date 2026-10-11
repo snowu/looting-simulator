@@ -813,11 +813,19 @@ export class DungeonRenderer {
     }
 
     for (const pr of world.projectiles) {
+      // A cast bolt and a parried one both start on your tile, which is where
+      // the camera is, and a sprite at zero distance blew up to fill the whole
+      // screen. So nothing is drawn inside your own head, and from there it
+      // grows out of the cast: a third of its size just in front of you, full
+      // size a tile and a half out. Its centre stays at the same height.
+      const near = Math.hypot(pr.x * TILE - this.camera.position.x, pr.y * TILE - this.camera.position.z) / TILE;
+      if (near < 0.45) continue;
+      const size = 0.7 * clamp((near - 0.45) / 1.05, 0.3, 1);
       const s = this.sprite(`j:${pr.id}`);
       // A spell bolt alternates two frames (flame, glint) so it never hangs
       // in the air like a pasted sticker; each bolt starts on its own beat.
       const art = pr.spell && Math.floor(this.time * 10 + pr.id) % 2 ? `${pr.sprite}_b` : pr.sprite;
-      this.place(s, art, pr.x * TILE, 0.95, pr.y * TILE, 0.7);
+      this.place(s, art, pr.x * TILE, 1.3 - size / 2, pr.y * TILE, size);
       if (pr.sprite.startsWith('proj_arrow')) {
         s.mesh.rotation.set(0, this.camera.rotation.y, Math.atan2(-pr.dy, pr.dx));
       } else if (pr.spell) {
