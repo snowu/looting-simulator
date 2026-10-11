@@ -15,6 +15,9 @@ playtest-report.txt
 playtest-normal.txt
 balance-tables.txt
 trace.txt
+test-results/
+playwright-report/
+visual-review/
 
 # Python bytecode from scripts/pixel_painter.py
 __pycache__/

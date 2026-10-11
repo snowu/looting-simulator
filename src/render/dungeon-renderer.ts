@@ -178,6 +178,21 @@ export class DungeonRenderer {
   private shake = 0;
   private flash = new THREE.Vector4();
   private time = 0;
+  /** Dev screenshot harness: hold torch animation at a repeatable frame. */
+  prepareVisualCapture(legacy: boolean): void {
+    if (!import.meta.env.DEV) return;
+    this.time = 0;
+    this.deathFade = 0;
+    this.flash.set(0, 0, 0, 0);
+    const uniforms = this.post.material.uniforms;
+    // Reproduce the original shader as well as its uniform values.
+    if (legacy) {
+      uniforms.uDither.value = 0.9;
+      uniforms.uVignette.value = 1.1;
+      this.post.material.fragmentShader = this.post.material.fragmentShader.replace('bayer4(px) - 0.46875', 'bayer4(px) - 0.5');
+      this.post.material.needsUpdate = true;
+    }
+  }
   /** Corpses being chanted over this frame, with how far along the chant is (0..1). */
   private called = new Map<string, number>();
   private trapTriggeredAt = new Map<string, number>();

@@ -201,7 +201,9 @@ const POST_FRAG = /* glsl */ `
     c = mix(c, uFlash.rgb, uFlash.a);
     vec2 q = vUv - 0.5;
     c *= 1.0 - dot(q, q) * uVignette;
-    float b = bayer4(px) - 0.5;
+    // The 16 Bayer thresholds average 7.5 / 16. Center on that mean
+    // so the grain adds texture without biasing the scene darker.
+    float b = bayer4(px) - 0.46875;
     c = floor(c * 31.0 + 0.5 + b * uDither) / 31.0;
     c *= 1.0 - uFade;
     gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
@@ -218,10 +220,10 @@ export class PostPass {
       uniforms: {
         tDiffuse: { value: null },
         uRes: { value: new THREE.Vector2(320, 240) },
-        uDither: { value: 0.9 },
+        uDither: { value: 0.65 },
         uFlash: { value: new THREE.Vector4(0, 0, 0, 0) },
         uFade: { value: 0 },
-        uVignette: { value: 1.1 },
+        uVignette: { value: 0.65 },
         uLowHp: { value: 0 },
         uBrightness: { value: 1 },
         uMono: { value: 0 },
