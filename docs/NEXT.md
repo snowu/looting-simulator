@@ -800,3 +800,165 @@ apply. The signals that do:
   shattering), not only for their damage type.
 - A per-save record of Oaths taken, completed and failed, plus the harness for
   the numbers (does Unbroken's double wear actually threaten depth 4?).
+
+---
+
+# 4. The battlemage — **DESIGNED 2026-10-11**
+
+The user's direction: magic should make a **battlemage** possible, sword in one
+hand and spell in the other, rather than a ranged caster or a bigger sigil
+list. Sigils stay exactly as they are (one attuned, utility, long cooldown);
+this is a second, separate thing.
+
+## The problem
+
+Every elemental stat in the game (Fire, Frost, Shadow, Holy) is a rider on a
+melee swing. There is no way to *fight* with an element: no build where
+picking Flame Shards over Frost Shards changes how a fight plays rather than
+how big the numbers are. Ranged play exists only as a belt of shafts. And the
+offhand slot has one honest answer, a shield, plus the two-handers that empty it.
+
+## North star
+
+> Give up the shield for a spell, and weave the two: a spell that lands sets
+> up the blade, and a blade that lands feeds the spell.
+
+A battlemage should play differently from a sword-and-board, not just hit from
+further away. If the best way to use a conduit is to stand back and cast, the
+design has failed.
+
+## Decisions
+
+- **Conduits are a new offhand class**, not a weapon and not a sigil. Named
+  *conduits* because "Spell Focus %" and gem "catalysts" are already taken.
+  A conduit blocks far worse than a shield (Wand 30%, the bare-weapon rate;
+  Rod more, see Bases). **Parry is unchanged.** Weak guarding is the main cost
+  of the trade, and it makes the parry matter more for a battlemage, not less.
+  A conduit and a **thrown belt can both be worn**: the belt has its own slot
+  and stays exactly as it is.
+- **No mana bar** (the rule from §9a holds). A conduit holds a few **charges**
+  that **regrow on a timer during the delve** (settled: not a per-delve stock). Each cast also costs **stamina** from the bar you
+  swing with. Kills shave the regrow time through the same `refundSigil`
+  machinery and its 20% cap.
+- **A spellbook, and several spells loaded at once** (user, 2026-10-11:
+  "unlock and have multiple spells loaded"). Spells are learned permanently
+  into `state.spellbook`. Ember Bolt is known from the start; the rest come
+  from **spell tomes**, which drop where sigil stones do, on their own hashed
+  stream, and never as one you already know. A tome is read at the forge's
+  *Spells* bench, which also **loads** spells into the worn conduit's slots:
+  **Wand 2, Rod 3, Stave 4**. All loaded spells draw on the conduit's one
+  shared charge pool. You change the loadout only in town, or while a town
+  portal is open (the sigil rule). One spell is *selected* at a time, and the
+  cast input casts it.
+- **A cast is scored like a throw.** The conduit's own power, plus the
+  player's matching elemental stat, goes through `mitigate` at half armour
+  (the existing elemental rule) and then × the monster's resistance. Fire gear
+  makes a fire conduit stronger, so elemental stats finally have a build that
+  wants them.
+- **Weave, the battlemage rule.** It is on every conduit and is the point of
+  the class:
+  - A spell that lands **charges your weapon** with its element for the next
+    blow within 3s (a bonus about the size of a tier-matched Kindled draught).
+  - A melee blow that lands **takes 2s off** the conduit's regrow.
+  - So the loop is cast, close, strike, cast. Standing back and casting runs
+    dry; swinging without casting wastes the charge.
+
+## The four spells
+
+One per element. Each works on a mechanic that already exists, so none needs
+a new combat subsystem.
+
+| Element | Spell | Shape | What it is for |
+|---|---|---|---|
+| Fire | **Ember Bolt** | Projectile, range 5 | Damage, plus a short **burn** (damage over 3s). Feeds the Kindling property |
+| Frost | **Rime Lance** | Projectile, range 5 | Light damage; the target's next wind-up is **×1.5 longer** for 4s. Makes parries easier to land: the defensive spell |
+| Holy | **Smite** | Burst on the faced tile, reach 2 | ×2 on undead, and a kill **sanctifies the remains** (the Ossuary law and the Gravecaller already read this) |
+| Shadow | **Hex** | Projectile, range 5 | Marks the target for 5s; your melee hits on it **leech** 15%. The sustain spell, since there is no health regeneration |
+
+Enemy resistances already make the choice matter: a fire conduit into the
+Frost Vault meets ×1.6 Rimebound, and into the Emberworks meets ×0.45 Slagborn.
+That gives the road fork and the day's rumour a new reason to change your kit.
+
+## Bases
+
+| Base | Slot | Material | Notes |
+|---|---|---|---|
+| Wand | offhand | wood | Entry conduit: 3 charges, 30% block. Recipe bought at the forge |
+| Rod | offhand | metal | The Wand's step up its gear line, **stronger on every axis**: harder casts, 4 charges, faster regrow, more block (~40%), some Defense. Blueprint, depth 3+ |
+| Stave | weapon **2H** | wood | A blunt melee weapon that is also a conduit: 5 charges, strongest casts, no offhand at all. Line of one, like the halberd. Blueprint, depth 4+ |
+
+All numbers are placeholders until `npm run tables` has a conduit row to place
+them against: a wand cast should land near a thrown knife at the same tier,
+and a full charge bar should be worth about one belt of javelins per fight.
+
+## Controls
+
+**Casting gets its own input** (settled; thrown belts keep theirs). With
+several spells loaded, the input also needs a way to pick the next one:
+
+| Device | Cast the selected spell | Select the next loaded spell |
+|---|---|---|
+| Keyboard | **V** (beside the sigil's C; ignores key repeat like T, R, G, C) | **B** |
+| Touch | Tap the **Cast** button (tools row, beside Throw, Call and Sigil; shown only while a conduit is worn) | Tap the small spell chip on the button's corner |
+| Gamepad | Tap **D-pad Down** | Hold **D-pad Down** for 0.4s |
+
+D-pad Down was picked because every face button and bumper is taken, and it
+only duplicated the left stick's step back; D-pad Up still steps forward. The
+HUD shows the loaded spells as a short row with the selected one lit, plus
+the shared charge pips.
+
+## Build order
+
+1. **Wand and Rod, Ember Bolt and Rime Lance.** Conduit offhand, the
+   spellbook and loadout, a Rime Lance tome, charges, the cast and next-spell
+   inputs, Weave, the forge's Spells bench, the HUD spell row and pips,
+   viewmodel and cast pose, projectile art (reuse the Flame Wraith and Frost
+   Wisp bolts), patch note.
+2. **Smite and Hex (their tomes), and the Stave.**
+3. **Battlemage payoffs.** Two or three build properties (for example a
+   parry that refunds a charge), a relic, and the conduits joining Oath rewards.
+4. **Harness.** The bot casts, so `npm run playtest` and `tables` can price it.
+
+Standing constraints apply: new item bases and `state.spellbook` /
+`state.spellLoadout` only, additive migration, `SAVE_REVISION` bump, no `SAVE_VERSION` change;
+any generation roll for conduit or blueprint drops on its own hashed stream;
+every new sprite id in `ALL_ART` needs its PNG in `public/art` or boot throws.
+
+## Settled 2026-10-11
+
+- **Input:** casting has its own key and button; thrown belts are untouched
+  and can be worn alongside a conduit.
+- **Charges:** regrow on a timer within the delve.
+- **Wand → Rod:** the Rod is stronger than the Wand overall, not a sidegrade.
+- **Spells are unlocked and several are loaded at once.** This replaced the
+  earlier draft, where one gem attuned into the conduit set its element.
+  Elemental *gear* stats still power the matching spells.
+
+---
+
+# 5. Elemental hazards — **IDEA 2026-10-11**
+
+The user's follow-up, to come after section 4: biome hazards and elemental
+interactions, so that **fire burns oil, water puts out fire**, and so on.
+
+The ground is already laid. The Emberworks lava, Catacombs water and Frost
+Vault ice are currently **decoration only**: no damage, collision, interaction
+or persisted state (MECHANICS.md, Elemental surfaces). The four biomes with no
+law yet (Catacombs, Frost Vault, Emberworks, Sporegrove) are the elemental
+ones. So this is most naturally **the missing four biome laws, built as one
+system of surfaces that the battlemage's spells act on**, rather than four
+unrelated rules.
+
+To design once section 4 exists:
+
+- A per-tile **surface** layer on `Floor` (oil, water, ice, burning, spores),
+  persisted with the floor, generated on its own hashed stream.
+- A small interaction table, applied equally to the player, monsters, spells,
+  elemental bolts and the elemental residents. Fire ignites oil and spores
+  and melts ice into water; water douses burning; frost freezes water to ice;
+  holy or fire burns spores away.
+- Each surface stays **readable** (punishing, not unfair): it is drawn on the
+  tile, and anything that will change it gives a tell first.
+- The test for each one, from the run-identity plan: it must be something you
+  can *use* (lure a Slagborn onto oil, then light it), not just a tax on
+  walking.
