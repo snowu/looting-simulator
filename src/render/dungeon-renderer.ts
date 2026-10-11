@@ -434,7 +434,7 @@ export class DungeonRenderer {
     return { canvas: this.canvas, frame };
   }
 
-  render(world: World, dt: number): void {
+  render(world: World, dt: number, viewmodel = true): void {
     this.time += dt;
     this.shared.uTime.value = this.time;
     const floor = world.floor;
@@ -466,6 +466,7 @@ export class DungeonRenderer {
     if (biome.molten && !floorQuirk) {
       this.shared.uAmbient.value.multiplyScalar(1 + 0.08 * Math.sin(this.time * Math.PI * 0.8 + 1.7));
     }
+    if (!viewmodel) this.shared.uAmbient.value.multiplyScalar(1.6);
     this.level!.update(dt);
 
     // --- Camera ---------------------------------------------------------------
@@ -526,9 +527,9 @@ export class DungeonRenderer {
     lights.push({
       x: this.camera.position.x, y: EYE + 0.2, z: this.camera.position.z,
       // A lamp you are carrying counts on top of the one the Warden sold you.
-      r: world.playerLightRadius,
+      r: viewmodel ? world.playerLightRadius : 12,
       color: handLight,
-      intensity: lightIntensity(meta) * flick(0),
+      intensity: lightIntensity(meta) * flick(0) * (viewmodel ? 1 : 1.25),
     });
     lights.push(...this.lava.lights());
     for (const t of floor.torches) {
@@ -851,12 +852,13 @@ export class DungeonRenderer {
 
     // --- Viewmodel ---------------------------------------------------------------
     this.updateDrips(dt);
-    this.updateViewmodel(world, dt, flick(0));
+    if (viewmodel) this.updateViewmodel(world, dt, flick(0));
 
     // --- Draw ---------------------------------------------------------------------
     const pu = this.post.material.uniforms;
     this.flash.w = Math.max(0, this.flash.w - dt * 1.6);
-    pu.uFlash.value.copy(this.flash);
+    if (viewmodel) pu.uFlash.value.copy(this.flash);
+    else pu.uFlash.value.set(0, 0, 0, 0);
     // Polled per frame, not pushed: the settings slider stays live with no
     // wiring, and dev arenas using this renderer get it for free.
     pu.uBrightness.value = brightness.get();
@@ -871,8 +873,10 @@ export class DungeonRenderer {
     this.renderer.setClearColor(this.shared.uFogColor.value, 1);
     this.renderer.clear();
     this.renderer.render(this.scene, this.camera);
-    this.renderer.clearDepth();
-    this.renderer.render(this.vmScene, this.vmCamera);
+    if (viewmodel) {
+      this.renderer.clearDepth();
+      this.renderer.render(this.vmScene, this.vmCamera);
+    }
     this.post.render(this.renderer, this.target);
   }
 

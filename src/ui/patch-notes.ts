@@ -1,18 +1,18 @@
 import { PATCHES } from '../data/patches';
 import { btn, closeOverlays, h, mountOverlay } from './dom';
 
-/** Scroll icon button for the home (title) page. Opens the patch-notes overlay. */
+/** Pixel scroll, matching the 16px gear/fullscreen icons without an emoji-font dependency. */
+const SCROLL_ICON = '<svg viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M4 1h9v1h1v1h1v3h-3v7h-1v1H9v1H2v-1H1v-4h3V1zm2 2v7h3v3h1V3H6zm6 0v1h1V3h-1zM3 12v1h4v-1H3z"/><path fill="currentColor" d="M7 5h2v1H7zM7 7h2v1H7z"/></svg>';
+
+/** Scroll icon button for the title's corner toolbar. */
 export function patchNotesButton(): HTMLElement {
-  return h(
-    'button',
-    {
-      class: 'btn patch-open',
-      title: 'Patch notes — every change, newest first',
-      onclick: () => openPatchNotes(),
-    },
-    h('span', { class: 'patch-scroll', text: '📜' }),
-    ' Patch notes',
-  );
+  return h('button', {
+    class: 'corner-btn patch-open',
+    title: 'Patch notes — every change, newest first',
+    attrs: { 'aria-label': 'Patch notes' },
+    html: SCROLL_ICON,
+    onclick: () => openPatchNotes(),
+  });
 }
 
 /**

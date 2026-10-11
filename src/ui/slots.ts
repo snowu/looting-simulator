@@ -44,6 +44,7 @@ function card(v: SlotView, onPlay: OnPlay, actions: SlotActions): HTMLElement {
   const el = h('div', { class: 'slot-card frame' });
   let mode: CardMode = 'view';
   const render = (): void => {
+    el.classList.toggle('compact-empty', mode === 'view' && !v.local && !v.cloud && !v.cloudUnreadable);
     el.replaceChildren();
     if (mode === 'rename') for (const k of renameEls()) el.append(k);
     else if (mode === 'difficulty') for (const k of difficultyEls()) el.append(k);
