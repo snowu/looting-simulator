@@ -24,6 +24,14 @@ brass and cool faceted metal. Author the motifs in `src/art/viewmodels.ts`.
 - The claymore has a long blade and downward-sloping quillons with decorative
   terminals. Shields use separate per-base viewmodels: round buckler, pointed
   kite and broad rectangular tower. The viewer and renderer use the same mapping.
+- Conduits (`vm_wand`, `vm_rod`) are held in the left hand with the sword
+  grip mirrored (`LEFT_HAND`), the shaft running through the fist with
+  leather wrap above it. 48×80 like a one-handed weapon. The shaft takes the
+  ramp; the stone, brass and leather do not. The wand is short: a faceted
+  crystal in brass prongs. The rod is long and banded: an orb in forged
+  flanges. `_lit` adds a translucent halo, a white core and sparks at alpha
+  250. In game the conduit is drawn larger than a shield and rests partly
+  raised, so the stone is always in view.
 - Reserve palette indices 1–4 for recolorable metal. Skin, wood and brass stay
   fixed, except the club body, whose ramp follows its wood or bone material. Alpha 250 is reserved for the lit sigil carving and sparks.
 

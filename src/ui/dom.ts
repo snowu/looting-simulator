@@ -6,6 +6,7 @@ import { material } from '../data/materials';
 import { affix } from '../data/affixes';
 import { masteryBonus, recipe } from '../data/recipes';
 import { findSigil } from '../data/spells';
+import { findConduitSpell } from '../data/conduit-spells';
 import { HELP, HelpId } from '../data/help';
 import { durability, isIdentified, itemCraftRank, itemIcon, itemName, itemRarity, itemStats, itemValue, thrownCapacity, uniqueOf } from '../systems/items';
 import { artUrl } from '../render/art-cache';
@@ -381,10 +382,15 @@ export function itemTooltip(item: Item, opts: TipOpts = {}): string {
       const base = itemBase(item.ref);
       const mat = item.materialId ? material(item.materialId) : null;
       const rank = itemCraftRank(item);
-      lines.push(`<div class="tt-sub">${itemRarity(item)} ${SLOT_LABEL[base.slot]}${base.damageType ? ` · ${base.damageType}` : ''}${item.crafted ? ` · crafted Rank ${rank}` : ''}</div>`);
+      lines.push(`<div class="tt-sub">${itemRarity(item)} ${base.conduit ? 'Conduit' : SLOT_LABEL[base.slot]}${base.damageType ? ` · ${base.damageType}` : ''}${item.crafted ? ` · crafted Rank ${rank}` : ''}</div>`);
       if (base.twoHanded) {
         lines.push('<div class="tt-warn">Two-handed — your off hand must be empty.</div>');
         lines.push('<div class="tt-dim detail-only">Block 20% (a shield gives 35–90%). Parry timing and effect are unchanged.</div>');
+      }
+      if (base.conduit) {
+        const c = base.conduit;
+        lines.push(`<div class="tt-dim">Holds ${c.slots} spells · ${c.charges} charges, one back every ${c.regrow}s</div>`);
+        lines.push('<div class="tt-dim detail-only">Its Attack is spell Power: what your spells hit for, never your melee Attack. Cast with V, B for the next spell.</div>');
       }
       if (base.thrown) {
         const t = base.thrown;
@@ -470,6 +476,16 @@ export function itemTooltip(item: Item, opts: TipOpts = {}): string {
       const r = recipe(item.ref);
       lines.push(`<div class="tt-sub">Blueprint</div><div class="tt-desc">Unlocks or advances ${itemBase(r.baseId).name} mastery up to Rank 5.</div>`);
       lines.push(`<div class="tt-dim">${r.slots.map((s) => `${s.qty}× ${s.label}${s.optional ? ' (optional)' : ''}`).join(' · ')}</div>`);
+      break;
+    }
+    case 'tome': {
+      const t = findConduitSpell(item.ref);
+      if (t) {
+        lines.push('<div class="tt-sub">Spell tome</div>');
+        lines.push(`<div class="tt-desc">${esc(t.description)}</div>`);
+        lines.push(`<div class="tt-dim">${t.element} · ${t.charges} charge · ${t.stamina} stamina · range ${t.range}</div>`);
+        lines.push('<div class="tt-hint">Read it at the forge\'s Spells bench to learn the spell for good.</div>');
+      }
       break;
     }
     case 'sigil': {

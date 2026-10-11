@@ -560,7 +560,7 @@ export class DungeonRenderer {
     this.called = called;
     for (const en of floor.enemies) {
       const def = enemyDef(en.def);
-      const view = enemyView(def, en.hp, en.maxHp, { elite: en.elite, carrying: !!en.stolen?.length, calm: en.calm });
+      const view = enemyView(def, en.hp, en.maxHp, { elite: en.elite, carrying: !!en.stolen?.length, calm: en.calm, chilled: (en.chillT ?? 0) > 0 });
       const call = called.get(en.id);
       if (call !== undefined) lights.push({ x: tileX(en.x), y: 0.5, z: tileZ(en.y), r: 3 + 2 * call, color: cachedColor(RAISE_GLOW), intensity: 0.6 + 0.8 * call });
       // A lurker throws no light: an elite glowing on the ceiling would be no ambush.
@@ -590,7 +590,7 @@ export class DungeonRenderer {
       if (!near(en.x, en.y)) continue;
       // The phase view, so the King's sprite family, glow and guard all follow
       // the fight. Everything else gets its own stat block back unchanged.
-      const def = enemyView(enemyDef(en.def), en.hp, en.maxHp, { elite: en.elite, carrying: !!en.stolen?.length, calm: en.calm });
+      const def = enemyView(enemyDef(en.def), en.hp, en.maxHp, { elite: en.elite, carrying: !!en.stolen?.length, calm: en.calm, chilled: (en.chillT ?? 0) > 0 });
       if (en.lurk && en.ai !== 'dead') {
         this.drawLurker(en, def);
         continue;
@@ -814,10 +814,31 @@ export class DungeonRenderer {
     }
 
     for (const pr of world.projectiles) {
+      // A cast bolt and a parried one both start on your tile, which is where
+      // the camera is, and a sprite at zero distance blew up to fill the whole
+      // screen. So nothing is drawn inside your own head, and from there it
+      // grows out of the cast: a third of its size just in front of you, full
+      // size a tile and a half out. Its centre stays at the same height.
+      const near = Math.hypot(pr.x * TILE - this.camera.position.x, pr.y * TILE - this.camera.position.z) / TILE;
+      if (near < 0.45) continue;
+      const size = 0.7 * clamp((near - 0.45) / 1.05, 0.3, 1);
       const s = this.sprite(`j:${pr.id}`);
-      this.place(s, pr.sprite, pr.x * TILE, 0.95, pr.y * TILE, 0.7);
+      // A spell bolt alternates two frames (flame, glint) so it never hangs
+      // in the air like a pasted sticker; each bolt starts on its own beat.
+      const art = pr.spell && Math.floor(this.time * 10 + pr.id) % 2 ? `${pr.sprite}_b` : pr.sprite;
+      this.place(s, art, pr.x * TILE, 1.3 - size / 2, pr.y * TILE, size);
       if (pr.sprite.startsWith('proj_arrow')) {
         s.mesh.rotation.set(0, this.camera.rotation.y, Math.atan2(-pr.dy, pr.dx));
+      } else if (pr.spell) {
+        // A spell bolt is drawn head-up. Turn it by
+        // its flight *as you see it*: away from you is up the screen (towards
+        // the horizon, its trail coming back at you), across your view is
+        // sideways. By compass heading instead, a bolt cast straight ahead
+        // would lean a different way on every corridor.
+        const fwd = p.facing, right = turnRight(p.facing);
+        const away = pr.dx * DX[fwd] + pr.dy * DY[fwd];
+        const across = pr.dx * DX[right] + pr.dy * DY[right];
+        s.mesh.rotation.set(0, this.camera.rotation.y, Math.atan2(away, across) - Math.PI / 2);
       }
     }
 
@@ -909,8 +930,9 @@ export class DungeonRenderer {
       const k = 1 - clamp(casting.t / total, 0, 1);
       y += 26 * k;
       rot = Math.sin(this.time * 22) * 0.05 * k;
-    } else if (a.attackThrow) {
-      // Deliberately nothing.
+    } else if (a.attackThrow || a.attackSpell) {
+      // Deliberately nothing: a throw leaves the body and a spell leaves the
+      // conduit in the other hand, so the weapon hand holds still.
     } else if (a.attack === 'windup') {
       const k = a.attackT / Math.max(0.01, a.attackDur);
       x += (twoHanded ? 40 : 22) * k;
@@ -939,19 +961,30 @@ export class DungeonRenderer {
     // body rather than only in the log. Shafts are collected the moment they
     // reach the player tile, which is where the raised hand is.
     const retrieving = !!a.retrieving;
-    const offhand = !retrieving && world.derived.hasShield ? world.state.equipment.offhand : null;
+    const conduit = world.derived.conduit;
+    const offhand = !retrieving && (world.derived.hasShield || conduit) ? world.state.equipment.offhand : null;
+    // A spell comes up out of the conduit: the hand rises through the wind-up
+    // and the stone flares for the back half of it and the release.
+    const spellLift = conduit && a.attackSpell && a.attack !== 'idle'
+      ? (a.attack === 'windup' ? clamp(a.attackT / Math.max(0.01, a.attackDur), 0, 1) : 1 - clamp(a.attackT / Math.max(0.01, a.attackDur), 0, 1))
+      : 0;
+    const lit = !!conduit && !!a.attackSpell && (a.attack === 'recover' || spellLift > 0.5);
     sh.mesh.visible = !!offhand || retrieving;
     if (sh.mesh.visible) {
       const sramp = offhand?.materialId ? findMaterial(offhand.materialId)?.ramp : undefined;
-      const texId = offhand ? viewmodelFor(itemBase(offhand.ref)) : 'vm_hand';
+      const texId = offhand ? (lit && conduit ? conduit.castViewmodel : viewmodelFor(itemBase(offhand.ref))) : 'vm_hand';
       const tex = artTexture(texId, sramp);
       if (sh.mat.uniforms.map.value !== tex) sh.mat.uniforms.map.value = tex;
       // Sized off the art, not a constant: the box is 24 rows tall but a
       // denser sprite (the bare hand is drawn at 2×) rides the same pose at
       // the same on-screen size with finer pixels.
       const box = artSize(texId);
-      const ss = (H * 0.42) / box.h;
-      const raise = Math.max(a.blockRaise, retrieving ? 1 : 0);
+      // A conduit is drawn larger than a shield (its canvas is a weapon's
+      // height) and never sinks fully out of view: the stone peeks in at rest,
+      // so you can see what is in your hand before you cast it.
+      const held = !!conduit && !retrieving;
+      const ss = (H * (held ? 0.62 : 0.42)) / box.h;
+      const raise = Math.max(a.blockRaise, retrieving ? 1 : 0, spellLift, held ? 0.62 : 0);
       sh.mesh.scale.set(box.w * ss, box.h * ss, 1);
       // Mostly out of frame until raised.
       sh.mesh.position.set(W * 0.16 + raise * W * 0.16 - bobX * 0.5, -H * 0.12 + raise * H * 0.4 - bobY - this.deathFade * 120, 0);
@@ -961,7 +994,7 @@ export class DungeonRenderer {
       sh.mesh.rotation.set(0, 0, 0.2 - raise * 0.2 - beckon * 0.035);
       // The shield flares white while a parry would land, so the window is
       // something you learn to see rather than something you read about.
-      const flare = world.parryWindow ? 0.38 : 0;
+      const flare = world.parryWindow && !conduit ? 0.38 : lit ? 0.22 : 0;
       sh.mat.uniforms.uTint.value.set(1, 0.95, 0.75, flare);
     }
   }

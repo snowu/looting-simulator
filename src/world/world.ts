@@ -1,7 +1,7 @@
 import { Rng, createRng, hashString } from '../core/rng';
 import { gold } from '../core/format';
 import { Dir, DIR_NAMES, DIRS, DX, DY, dirOf, turnAround, turnLeft, turnRight } from '../core/dir';
-import { DamageType, EnemyDef, EquipSlot, EQUIP_SLOTS, Item, SwingProfile } from '../types';
+import { DamageType, ELEMENTS, Element, EnemyDef, EquipSlot, EQUIP_SLOTS, Item, SwingProfile } from '../types';
 import { GameState, RunState } from '../state/game-state';
 import { addItem, canFit, findItem, freeSlots, removeItem, roomFor, takeQty } from '../state/inventory';
 import {
@@ -94,6 +94,8 @@ import { Rarity } from '../types';
 import type { SfxName } from '../audio/sfx';
 import { SigilId, findSigil, sigil } from '../data/spells';
 import { makeSigil, unknownSigils } from '../systems/spells';
+import { BURN_SECONDS, BURN_SHARE, CHILL_SECONDS, ConduitSpellDef, WEAVE_REGROW, WEAVE_SECONDS, WEAVE_SHARE, conduitSpell, findConduitSpell } from '../data/conduit-spells';
+import { loadedSpells, makeTome, unknownConduitSpells } from '../systems/conduits';
 import { CHEW_SECONDS, DREGS_FRACTION, FLASK_POTENCY, MORSEL_HEAL, MORSEL_ROT_SECONDS, SIP_BUFFER_SECONDS, SIP_SECONDS, flaskMax, morselChance } from '../systems/healing';
 import { findMaterial } from '../data/materials';
 import { Draught, KINDLE_SECONDS, MARROW_SECONDS, WARD_SECONDS, draught } from '../systems/infusion';
@@ -151,6 +153,8 @@ export interface Projectile {
   traveled?: number;
   player?: PlayerDerived;
   weaponUid?: string;
+  /** A battle spell from your conduit: it flies like a throw and lands nowhere. */
+  spell?: string;
 }
 
 type Move = 'forward' | 'back' | 'left' | 'right';
@@ -182,6 +186,10 @@ export interface PlayerAnim {
   retrieving: { base: string; left: number; t: number } | null;
   attackRecovery: number;
   attackBase: string | null;
+  /** The battle spell this wind-up releases, if it is a cast rather than a swing or throw. */
+  attackSpell: string | null;
+  /** Weave: a landed spell's element riding on your next blow, and for how long. */
+  weave: { t: number; element: Element; amount: number } | null;
   attackWeaponUid: string | null;
   attackSnapshot: PlayerDerived | null;
   blockRaise: number;
@@ -518,6 +526,14 @@ export const SHRINE_PROMPT: Record<ShrineKind, (cost: number) => string> = {
   combat: () => 'Challenge the ember shrine',
 };
 
+/**
+ * A spell tome's chance in a chest: a vault or secret room's is a real
+ * prospect, an ordinary chest's grows from nothing on depth 1 to 5% at depth 5.
+ */
+export function tomeChance(tier: string, depth: number): number {
+  return tier === 'vault' || tier === 'secret' ? 0.18 : 0.05 * clamp((depth - 1) / 4, 0, 1);
+}
+
 export class World {
   readonly state: GameState;
   readonly run: RunState;
@@ -557,7 +573,7 @@ export class World {
       fromX: this.run.player.x, fromY: this.run.player.y, moveT: 1, moveDur: STEP_TIME,
       yaw, yawFrom: yaw, yawTo: yaw, turnT: 1,
       attack: 'idle', attackT: 0, attackDur: 0, attackPower: 1, attackThrow: false, retrieving: null, attackRecovery: 0,
-      attackBase: null, attackWeaponUid: null, attackSnapshot: null,
+      attackBase: null, attackSpell: null, weave: null, attackWeaponUid: null, attackSnapshot: null,
       blockRaise: 0, blockT: Infinity, parryArmed: false, parryCd: 0,
       rangedParryT: 0, parryInvulnT: 0, stunT: 0, steps: 0, parryStacks: 0, chargeStacks: 0,
       sinceStamina: 10, windedCd: 0, recall: null, cast: null, snuffT: 0, unseenT: 0, riposteT: 0, riposteSwing: false, bulwarkT: 0, ward: null, transition: null,
@@ -632,6 +648,51 @@ export class World {
     this.player.hp = Math.min(this.player.hp, this.derived.maxHp);
     this.player.stamina = Math.min(this.player.stamina, this.derived.maxStamina);
     this.ensureThrownStock();
+    this.ensureConduit();
+  }
+
+  /**
+   * The charge pool lives on the run, not the item: it is filled the first
+   * time a conduit is worn on a delve and never again, so taking a wand off
+   * and putting it back on refills nothing. A smaller conduit just caps it.
+   */
+  private ensureConduit(): void {
+    const c = this.derived.conduit;
+    if (!c) return;
+    this.run.conduit ??= { charges: c.charges, regrow: 0, sel: 0 };
+    this.run.conduit.charges = Math.min(this.run.conduit.charges, c.charges);
+  }
+
+  /** The spells your conduit can cast right now, in cycling order. */
+  conduitSpells(): ConduitSpellDef[] {
+    const c = this.derived.conduit;
+    return c ? loadedSpells(this.state, c.slots).map(conduitSpell) : [];
+  }
+
+  /** The selected spell, kept in range of whatever is loaded. */
+  selectedSpell(): ConduitSpellDef | null {
+    const spells = this.conduitSpells();
+    if (!spells.length || !this.run.conduit) return null;
+    const sel = ((this.run.conduit.sel % spells.length) + spells.length) % spells.length;
+    return spells[sel];
+  }
+
+  /** Cycle to the next loaded spell. Free, and allowed mid-anything but death. */
+  nextSpell(): boolean {
+    const spells = this.conduitSpells();
+    if (!spells.length || !this.run.conduit) {
+      this.msg(this.derived.conduit ? 'No spells loaded. Load them at the forge\'s Spells bench.' : 'No conduit in your offhand.', '#888');
+      return false;
+    }
+    if (spells.length === 1) {
+      this.msg(`${spells[0].name} is the only spell loaded.`, '#888');
+      return false;
+    }
+    this.run.conduit.sel = (this.run.conduit.sel + 1) % spells.length;
+    const next = spells[this.run.conduit.sel];
+    this.msg(`${next.name} readied.`, next.color);
+    this.sfx('ui');
+    return true;
   }
 
   private ensureThrownStock(): void {
@@ -1050,6 +1111,7 @@ export class World {
         // set, one javelin put shafts in your hands for the rest of the delve
         // and your sword was never seen again.
         a.attackThrow = false;
+        a.attackSpell = null;
       }
     }
 
@@ -1125,6 +1187,8 @@ export class World {
     }
 
     this.checkBossSeal();
+    this.updateConduit(dt);
+    this.updateAfflictions(dt);
     this.updateRetrieve(dt);
     this.updateEnemies(dt);
     this.updateProjectiles(dt);
@@ -1641,6 +1705,198 @@ export class World {
     return true;
   }
 
+  /**
+   * Cast the selected battle spell from the conduit in your offhand.
+   *
+   * It runs through the same wind-up and recovery a throw does, so it cannot
+   * be stacked on a swing, and it costs stamina from the bar you fight with
+   * as well as charges from the conduit's pool. Every refusal says why.
+   */
+  castSpell(): boolean {
+    const a = this.anim;
+    if (this.busy || a.attack !== 'idle' || a.stunT > 0 || a.cast) return false;
+    const conduit = this.derived.conduit;
+    if (!conduit) {
+      this.msg('No conduit in your offhand to cast with.', '#888');
+      return false;
+    }
+    const spell = this.selectedSpell();
+    const pool = this.run.conduit;
+    if (!spell || !pool) {
+      this.msg('No spells loaded. Load them at the forge\'s Spells bench.', '#888');
+      return false;
+    }
+    if (pool.charges < spell.charges) {
+      const left = Math.ceil(conduit.regrow - pool.regrow);
+      this.msg(`Your conduit is spent — a charge returns in ${left}s.`, '#9a8fd8');
+      return false;
+    }
+    if (this.player.stamina < spell.stamina) {
+      if (a.windedCd <= 0) {
+        a.windedCd = 1.6;
+        this.sfx('winded');
+      }
+      return false;
+    }
+    a.attackPower = staminaPower(this.player.stamina, this.derived.maxStamina);
+    this.player.stamina = Math.max(0, this.player.stamina - spell.stamina);
+    pool.charges -= spell.charges;
+    a.sinceStamina = 0;
+    a.attack = 'windup';
+    a.attackT = 0;
+    a.attackThrow = false;
+    a.attackSpell = spell.id;
+    a.attackBase = null;
+    a.attackWeaponUid = this.state.equipment.offhand?.uid ?? null;
+    a.attackSnapshot = this.spellView(spell);
+    a.attackRecovery = spell.recovery;
+    a.attackDur = spell.windup;
+    a.blockRaise = 0;
+    this.sfx('magic');
+    this.breakChannels();
+    return true;
+  }
+
+  /**
+   * You, as a spell scores you. The conduit's Power goes in as the spell's
+   * own element, and only your matching elemental stat rides along: fire gear
+   * makes an Ember Bolt hit harder and a Rime Lance not at all. With no
+   * physical Attack the whole hit is elemental, which `playerHitsEnemy`
+   * already mitigates at half armour. Crits use the plain multiplier — a
+   * dagger in the other hand does not make the spell a dagger.
+   */
+  private spellView(spell: ConduitSpellDef): PlayerDerived {
+    const d = this.derived;
+    const stats = { ...d.stats };
+    for (const el of ELEMENTS) if (el !== spell.element) stats[el] = 0;
+    stats[spell.element] = (stats[spell.element] ?? 0) + d.conduitPower * spell.power;
+    return {
+      ...d, stats, attack: 0, damageType: spell.element,
+      traits: { ...d.traits },
+      swing: { ...d.swing, critMult: undefined },
+    };
+  }
+
+  private launchSpell(id: string): void {
+    const spell = findConduitSpell(id);
+    const snapshot = this.anim.attackSnapshot;
+    if (!spell || !snapshot) return;
+    this.projectiles.push({
+      id: this.projN++, x: this.player.x + 0.5, y: this.player.y + 0.5,
+      dx: DX[this.player.facing], dy: DY[this.player.facing], speed: spell.speed,
+      damage: this.anim.attackPower, type: spell.element, sprite: spell.sprite, light: spell.light,
+      tileX: this.player.x, tileY: this.player.y, source: 'your spell',
+      thrownRange: spell.range, traveled: 0, player: snapshot, weaponUid: this.anim.attackWeaponUid ?? undefined,
+      spell: spell.id,
+    });
+    this.sfx('shoot');
+  }
+
+  /** A battle spell landing: the hit, its rider, and the weave it leaves on your blade. */
+  private spellHit(pr: Projectile, e: EnemyState): void {
+    if (this.protectedByFog(e)) return;
+    const spell = findConduitSpell(pr.spell);
+    const player = pr.player ?? this.derived;
+    if (!spell) return;
+    const def = this.view(e);
+    if ((e.eating ?? 0) > 0) e.eating = undefined;
+    // A raised shield takes a spell the way it takes a shaft: on the guard.
+    const reaction = this.guardReaction(e, def);
+    if (reaction) {
+      this.shieldChip(e, def, 1, pr.damage, player);
+      return;
+    }
+    const hit = playerHitsEnemy(this.rng, player, pr.damage, def, defensePower(e.power) * this.diff.enemyDefense);
+    const exposed = !!e.vuln && e.vuln > 0;
+    if (exposed) hit.damage = Math.round(hit.damage * PARRY_VULN_MULT);
+    this.hurt(e, hit.damage, hit.crit || exposed ? `${hit.damage}!` : `${hit.damage}`, hit.crit ? '#ffe040' : hit.effective === 'resist' ? '#9a9aa8' : spell.color);
+    e.alert = 8;
+    e.lastSeenX = this.player.x;
+    e.lastSeenY = this.player.y;
+    recordDamageDealt(this.state.bestiary, def.id, hit.damage);
+    this.sfx(hit.crit ? 'crit' : 'hit', e.x, e.y);
+    if (player.stats.leech > 0) this.heal(Math.max(1, Math.round(hit.damage * player.stats.leech / 100)), 'leech');
+    if (spell.id === 'ember_bolt' && hit.damage > 0) {
+      const total = Math.max(1, Math.round(hit.damage * BURN_SHARE));
+      e.burn = { t: BURN_SECONDS, left: (e.burn?.left ?? 0) + total, acc: e.burn?.acc ?? 0 };
+    }
+    if (spell.id === 'rime_lance' && def.behavior !== 'boss') e.chillT = CHILL_SECONDS;
+    // Weave: the element now rides on your next blow.
+    this.anim.weave = { t: WEAVE_SECONDS, element: spell.element, amount: Math.round(this.derived.conduitPower * WEAVE_SHARE) };
+    if (e.hp <= 0) this.killEnemy(e);
+  }
+
+  /** Burns tick down and chills wear off. Run every frame over the floor. */
+  private updateAfflictions(dt: number): void {
+    for (const e of this.floor.enemies) {
+      if (e.ai === 'dead') {
+        if (e.burn) delete e.burn;
+        if (e.chillT !== undefined) delete e.chillT;
+        continue;
+      }
+      if (e.chillT !== undefined) {
+        e.chillT -= dt;
+        // A wind-up begun chilled runs to its end chilled, or its tell would
+        // jump forward the instant the frost wore off.
+        if (e.chillT <= 0) {
+          if (e.ai === 'windup') e.chillT = 0.01;
+          else delete e.chillT;
+        }
+      }
+      const burn = e.burn;
+      if (!burn) continue;
+      const step = Math.min(burn.left, (burn.left / Math.max(dt, burn.t)) * dt);
+      burn.t -= dt;
+      burn.left -= step;
+      burn.acc += step;
+      const whole = Math.floor(burn.acc);
+      if (whole >= 1 && !this.protectedByFog(e)) {
+        burn.acc -= whole;
+        this.hurt(e, whole, `${whole}`, '#ff9a50');
+        recordDamageDealt(this.state.bestiary, enemyDef(e.def).id, whole);
+      }
+      if (burn.t <= 0 || burn.left <= 0) delete e.burn;
+      if (e.hp <= 0) this.killEnemy(e);
+    }
+  }
+
+  /** A charge grows back while the conduit is worn, and kills hurry it along. */
+  private updateConduit(dt: number): void {
+    const a = this.anim;
+    if (a.weave) {
+      a.weave.t -= dt;
+      if (a.weave.t <= 0) a.weave = null;
+    }
+    const c = this.derived.conduit;
+    const pool = this.run.conduit;
+    if (!c || !pool) return;
+    this.growConduit(c.charges, c.regrow, dt);
+  }
+
+  private growConduit(max: number, per: number, seconds: number): void {
+    const pool = this.run.conduit;
+    if (!pool) return;
+    if (pool.charges >= max) {
+      pool.regrow = 0;
+      return;
+    }
+    pool.regrow += seconds;
+    while (pool.regrow >= per && pool.charges < max) {
+      pool.regrow -= per;
+      pool.charges++;
+    }
+    if (pool.charges >= max) pool.regrow = 0;
+  }
+
+  /** Kills shave the regrow, under the same fifth-of-a-cycle cap as a sigil. */
+  private refundConduit(def: EnemyDef): void {
+    const c = this.derived.conduit;
+    if (!c) return;
+    const base = 1 + 4 * Math.min(1, def.hp / 140);
+    const multiplier = 1 + 0.25 * metaLevel(this.state.meta, 'attunement') + this.derived.stats.focus / 100;
+    this.growConduit(c.charges, c.regrow, Math.min(base * multiplier, c.regrow * 0.2));
+  }
+
   /** Everything that a deliberate action of your own cancels. */
   private breakChannels(): void {
     const a = this.anim;
@@ -2002,6 +2258,10 @@ export class World {
 
   private resolvePlayerAttack(): void {
     const f = this.floor;
+    if (this.anim.attackSpell) {
+      this.launchSpell(this.anim.attackSpell);
+      return;
+    }
     if (this.anim.attackThrow) {
       this.throwWeapon();
       return;
@@ -2120,7 +2380,7 @@ export class World {
    * reading the fields they always read.
    */
   private view(e: EnemyState): EnemyDef {
-    return enemyView(enemyDef(e.def), e.hp, e.maxHp, { elite: e.elite, carrying: !!e.stolen?.length, marked: e.marked, shadeType: e.shadeType, calm: e.calm });
+    return enemyView(enemyDef(e.def), e.hp, e.maxHp, { elite: e.elite, carrying: !!e.stolen?.length, marked: e.marked, shadeType: e.shadeType, calm: e.calm, chilled: (e.chillT ?? 0) > 0 });
   }
 
   private guardReaction(e: EnemyState, def: EnemyDef): 'bash' | 'chip' | null {
@@ -2264,7 +2524,20 @@ export class World {
     const chargeMax = this.derived.traits.chargeMax;
     this.anim.chargeStacks = Math.min(this.anim.chargeStacks, chargeMax);
     const charged = this.anim.chargeStacks * this.derived.traits.charge;
-    const hit = playerHitsEnemy(this.rng, this.derived, this.anim.attackPower * powerMult, def, defensePower(e.power) * this.diff.enemyDefense, charged);
+    // Weave: a spell that landed in the last few seconds rides on this blow as
+    // its element, and is spent by it. Only the blow itself — a cleave's spill
+    // is the same swing and does not get a second helping.
+    const weave = powerMult === 1 ? this.anim.weave : null;
+    const striker = weave
+      ? { ...this.derived, stats: { ...this.derived.stats, [weave.element]: (this.derived.stats[weave.element] ?? 0) + weave.amount } }
+      : this.derived;
+    const hit = playerHitsEnemy(this.rng, striker, this.anim.attackPower * powerMult, def, defensePower(e.power) * this.diff.enemyDefense, charged);
+    if (weave) {
+      this.anim.weave = null;
+      this.emit({ type: 'float', x: e.x, y: e.y - 0.3, text: 'woven', color: '#c8b8ff' });
+    }
+    // And the other half: a blow that lands feeds the conduit.
+    if (powerMult === 1 && this.derived.conduit) this.growConduit(this.derived.conduit.charges, this.derived.conduit.regrow, WEAVE_REGROW);
     // Everything you land while the parry opening lasts hits twice as hard.
     const exposed = !!e.vuln && e.vuln > 0;
     if (exposed) hit.damage = Math.round(hit.damage * PARRY_VULN_MULT);
@@ -2604,6 +2877,7 @@ export class World {
         : `Marked quarry slain: ${oath.marks} of ${HUNTER_MARKS}.`, OATHS.hunter.color);
     }
     this.refundSigil(def, this.derived.traits.execution && (e.vuln ?? 0) > 0 ? EXECUTION_REFUND_MULT : 1);
+    this.refundConduit(def);
     this.run.stats.kills++;
     recordKill(this.state.contracts, def.id);
     recordBestiaryKill(this.state.bestiary, def.id);
@@ -2616,6 +2890,8 @@ export class World {
         ? this.rollSigil(`chest:${e.mimicPropId}`, e.mimicTier === 'vault' || e.mimicTier === 'secret' ? 0.22 : 0.03 * clamp((this.run.depth - 1) / 4, 0, 1))
         : null;
     if (sigilDrop) loot.items.push(sigilDrop);
+    const tomeDrop = e.mimicTier && e.mimicPropId ? this.rollTome(`chest:${e.mimicPropId}`, tomeChance(e.mimicTier, this.run.depth)) : null;
+    if (tomeDrop) loot.items.push(tomeDrop);
     if (def.behavior === 'boss') {
       // The portal opens where the king fell, so his hoard goes beside it —
       // dropped on the same tile it would be unreachable behind the portal.
@@ -2708,6 +2984,24 @@ export class World {
     const base = (2 + 8 * Math.min(1, def.hp / 140)) * mult;
     const multiplier = 1 + 0.25 * metaLevel(this.state.meta, 'attunement') + this.derived.stats.focus / 100;
     active.cd = Math.max(0, active.cd - Math.min(base * multiplier, spell.cooldown * 0.2));
+  }
+
+  /**
+   * A spell tome, rolled where sigil stones roll but on its own `tome:` stream,
+   * so adding tomes moved no chest's existing contents. Never one you know or
+   * are already carrying anywhere, the same rule as a stone.
+   */
+  private rollTome(stream: string, chance: number): Item | null {
+    const carried = [
+      ...this.state.stash.items,
+      ...this.state.loadout.items,
+      ...this.run.backpack.items,
+      ...this.run.floors.flatMap((f) => f?.pickups.flatMap((p) => p.items) ?? []),
+    ].filter((i) => i.kind === 'tome').map((i) => i.ref);
+    const unknown = unknownConduitSpells(this.state.spellbook ?? [], carried);
+    if (!unknown.length) return null;
+    const rng = createRng(hashString(`tome:${this.run.seed}:${this.run.depth}:${stream}`));
+    return rng.chance(chance) ? makeTome(rng.pick(unknown)) : null;
   }
 
   private rollSigil(stream: string, chance: number): Item | null {
@@ -3106,6 +3400,8 @@ export class World {
           tier === 'vault' || tier === 'secret' ? 0.22 : 0.03 * clamp((this.run.depth - 1) / 4, 0, 1),
         );
         if (sigilDrop) loot.items.push(sigilDrop);
+        const tomeDrop = this.rollTome(`chest:${p.id}`, tomeChance(tier, this.run.depth));
+        if (tomeDrop) loot.items.push(tomeDrop);
         let pk = this.dropLoot(p.x, p.y, loot.items, 0);
         if ((tier === 'vault' || tier === 'secret') && (this.state.flask?.shards ?? 0) < 3 && createRng(hashString(`flask-shard:${f.seed}:${p.id}`)).chance(0.04)) {
           pk ??= { id: `shard_${p.id}`, x: p.x, y: p.y, items: [], gold: 0 };
@@ -4521,11 +4817,24 @@ export class World {
       const previous = { x: pr.tileX, y: pr.tileY };
       pr.tileX = tx;
       pr.tileY = ty;
-      if (pr.thrownBase) pr.traveled = (pr.traveled ?? 0) + 1;
+      if (pr.thrownBase || pr.spell) pr.traveled = (pr.traveled ?? 0) + 1;
       if (blocksSight(f, tx, ty) || this.crossesBossBoundary(previous.x, previous.y, tx, ty)) {
         pr.speed = 0;
         if (pr.thrownBase) this.landThrown(pr.thrownBase, previous.x, previous.y);
         else this.sfx('break', tx, ty);
+        continue;
+      }
+      // A spell is spent where it strikes, and gutters out at the end of its
+      // range: nothing lands, so there is nothing to go and fetch.
+      if (pr.spell) {
+        const enemy = enemyAt(f, tx, ty);
+        if (enemy) {
+          pr.speed = 0;
+          this.spellHit(pr, enemy);
+        } else if ((pr.traveled ?? 0) >= (pr.thrownRange ?? 0)) {
+          pr.speed = 0;
+          this.sfx('break', tx, ty);
+        }
         continue;
       }
       if (pr.thrownBase) {

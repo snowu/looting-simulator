@@ -222,6 +222,10 @@ export interface EnemyState {
   power: number;
   /** Seconds left of the opening a parry tore in its guard. */
   vuln?: number;
+  /** Rime Lance: seconds of chill left. Held while a chilled wind-up runs. Absent means none. */
+  chillT?: number;
+  /** Ember Bolt: burn seconds left, damage still to deal, and the fraction banked. Absent means not burning. */
+  burn?: { t: number; left: number; acc: number };
   /** Consecutive blows turned on a carried shield. Resets when one gets through or the guard drops. */
   blocks?: number;
   /** Seconds until the block count goes stale. */

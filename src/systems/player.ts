@@ -1,4 +1,4 @@
-import { DamageType, DEFAULT_CRIT_MULT, EquipSlot, EQUIP_SLOTS, Item, Stats, SwingProfile, ThrownProfile, WeaponClass, addStats, emptyStats, slotOf } from '../types';
+import { ConduitProfile, DamageType, DEFAULT_CRIT_MULT, EquipSlot, EQUIP_SLOTS, Item, Stats, SwingProfile, ThrownProfile, WeaponClass, addStats, emptyStats, slotOf } from '../types';
 import { findProperty } from '../data/properties';
 import { FIST_ATTACK, FIST_SWING, itemBase } from '../data/items';
 import { DifficultyId, difficultyOf } from '../data/difficulty';
@@ -191,6 +191,13 @@ export interface PlayerDerived {
   thrownAttack: number;
   /** The shafts' own damage type, which need not match the weapon's. */
   thrownDamageType: DamageType;
+  /** The conduit in your offhand, if that is what you hold there. */
+  conduit: ConduitProfile | null;
+  /**
+   * What a spell is scored on before its own multiplier: the conduit's Attack,
+   * read off it alone like a belt's. It never reaches your melee Attack.
+   */
+  conduitPower: number;
   find: number;
   traits: UniqueTraits;
 }
@@ -237,7 +244,12 @@ export function derivePlayer(eq: Equipment, meta: MetaLevels, difficulty?: Diffi
     // three knives it never has to throw.
     if (slot === 'thrown') continue;
     const it = eq[slot];
-    if (it) addStats(stats, itemStats(it));
+    if (!it) continue;
+    const s = itemStats(it);
+    // A conduit's Attack is its spell Power, scored separately below, for the
+    // same reason a belt's is: in `stats` it would make every wand a sword.
+    if (slot === 'offhand' && itemBase(it.ref).conduit) addStats(stats, { ...s, attack: 0 });
+    else addStats(stats, s);
   }
   const weapon = eq.weapon ? itemBase(eq.weapon.ref) : null;
   const traits = traitsOf(eq, twoHanded);
@@ -246,7 +258,12 @@ export function derivePlayer(eq: Equipment, meta: MetaLevels, difficulty?: Diffi
   // everything that reads it — the sim, the harness, the tooltip — agrees.
   const speedFactor = Math.max(0.5, (1 + stats.speed / 100) / traits.haste);
   const baseSwing = weapon?.swing ?? FIST_SWING;
-  const hasShield = !twoHanded && !!eq.offhand;
+  const conduitItem = !twoHanded && eq.offhand && itemBase(eq.offhand.ref).conduit ? eq.offhand : null;
+  const conduit = conduitItem ? itemBase(conduitItem.ref).conduit ?? null : null;
+  // A conduit fills the offhand but is not a shield: it does not wear on a
+  // block, does not flare for the parry, and guards only as well as its own
+  // Block says — the cost of carrying a spell instead.
+  const hasShield = !twoHanded && !!eq.offhand && !conduit;
   // Difficulty pads the health bar on Normal; Hard multiplies by exactly 1, so
   // the old number survives the round trip unchanged.
   const diff = difficultyOf(difficulty);
@@ -272,13 +289,15 @@ export function derivePlayer(eq: Equipment, meta: MetaLevels, difficulty?: Diffi
     // Clamped at zero: a relic that spends Block can drive the stat negative,
     // and a negative absorption would turn raising your guard into taking more.
     // Normal adds its bonus before the shield cap, so it can never lift a guard past 90%.
-    block: clamp((hasShield ? stats.block / 100 : twoHanded ? 0.2 : weapon ? 0.3 : 0.12) + diff.blockBonus, 0, 0.9),
+    block: clamp((hasShield || conduit ? stats.block / 100 : twoHanded ? 0.2 : weapon ? 0.3 : 0.12) + diff.blockBonus, 0, 0.9),
     hasShield,
     twoHanded,
     thrown: thrownProfile(eq.thrown),
     thrownCapacity: thrownCapacity(eq.thrown),
     thrownAttack: eq.thrown ? Math.max(1, itemStats(eq.thrown).attack) : 0,
     thrownDamageType: (eq.thrown ? itemBase(eq.thrown.ref).damageType : undefined) ?? 'pierce',
+    conduit,
+    conduitPower: conduitItem ? Math.max(1, itemStats(conduitItem).attack) : 0,
     find: stats.find + FIND_PER_TREASURE_SENSE * metaLevel(meta, 'treasure_sense'),
     traits,
   };

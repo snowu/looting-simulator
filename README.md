@@ -34,7 +34,7 @@ The Sunken Catacombs (1–3) run with shallow water. The Ashen Throne (6) waits 
 ## What makes a delve interesting
 
 - **Readable real-time fights.** Enemies lean in and flash red before they strike at your tile. Step away, block, or raise your guard at the last moment to parry. A parry leaves melee attackers reeling and taking double damage, and it sends arrows and bolts back the way they came. Stamina decides how hard you hit, and each enemy is weak or resistant to blunt, slash, pierce and elemental damage.
-- **A real arsenal.** Daggers, swords, axes, maces, spears and a mining pick. Two-handers (Halberd, Great Maul, Greatsword) give up the shield to cleave the rank behind your target. Thrown belts of knives, axes or javelins sit beside your weapon: you pick up landed shafts or hold R to call them back. Five sigils, inscribed at the forge, add a spell to the mix.
+- **A real arsenal.** Daggers, swords, axes, maces, spears and a mining pick. Two-handers (Halberd, Great Maul, Greatsword) give up the shield to cleave the rank behind your target. Thrown belts of knives, axes or javelins sit beside your weapon: you pick up landed shafts or hold R to call them back. Five sigils, inscribed at the forge, add a spell to the mix. Or trade the shield for a **conduit**, a Wand or a Rod, and fight as a battlemage: spells learned from tomes, several loaded at once, and each one that lands charges your next blow with its element.
 - **Healing is a risk.** Your flask refills every delve, but each sip holds your guard down for half a second. Monsters drop food you eat where it falls, and rats will get to it first if you leave it. Flash and Backstep scrolls get you out of a bad wind-up or a bad position.
 - **Loot with decisions attached.** Gear has a base, materials, a rarity and affixes, and better drops may need identifying first. Nine named relics carry effects with real tradeoffs, and the Ashen King always drops one you have not held yet. Some chests are mimics, and there is a tell if you look closely.
 - **A dungeon worth searching.** Floors stay in place for the whole run, so you can backtrack. Vault keys lie on reachable ground, marked masonry hides secret rooms, and five kinds of shrine and altar trade blessings, curses, health, gold or a fight.
@@ -61,6 +61,7 @@ Pick **Normal** or **Hard** in Bleakmere. Progress saves locally in three named 
 | T | Throw one shaft from your belt |
 | R (hold) | Call thrown shafts back; release to stop |
 | G / C | Cast your attuned sigil |
+| V / B | Cast your selected spell from a worn conduit / select the next |
 | 1–4 | Use the quick bar: flask, scrolls and other consumables (drag to reorder) |
 | I / Tab | Pack and gear |
 | M | Map (or click the minimap) |
@@ -68,9 +69,9 @@ Pick **Normal** or **Hard** in Bleakmere. Progress saves locally in three named 
 
 ![Playing on a phone](docs/screenshots/mobile.png)
 
-**Touch:** drag on the view to walk and turn. Tap the right half of the view or the main button to swing, loot or interact; tap or hold the left half (or the shield button) to block. Hold the ◀ ▶ buttons on the screen edges to strafe, or turn on tilt-to-strafe in Settings, where you can also swap what a sideways swipe does. The quick bar sits above attack and block. Throw, Call, Sigil, Pack and Map have their own buttons, and tapping the minimap opens the map too. Phones play in landscape only: where the browser allows it the screen locks sideways (an installed app on Android, or fullscreen, which the first tap turns on), and elsewhere, iPhone Safari included, turning the phone upright covers the game and pauses a delve. The corner button toggles fullscreen.
+**Touch:** drag on the view to walk and turn. Tap the right half of the view or the main button to swing, loot or interact; tap or hold the left half (or the shield button) to block. Hold the ◀ ▶ buttons on the screen edges to strafe, or turn on tilt-to-strafe in Settings, where you can also swap what a sideways swipe does. The quick bar sits above attack and block. Throw, Call, Sigil, Cast, Pack and Map have their own buttons, and tapping the minimap opens the map too. Phones play in landscape only: where the browser allows it the screen locks sideways (an installed app on Android, or fullscreen, which the first tap turns on), and elsewhere, iPhone Safari included, turning the phone upright covers the game and pauses a delve. The corner button toggles fullscreen.
 
-**Gamepad** (PC and mobile, Bluetooth or USB): the left stick steps and strafes, and the right stick or D-pad turns. A / RT swings or loots, X interacts, LT blocks and parries, LB throws, RB (hold) calls shafts back, Y casts the sigil, and B sips the flask. Select opens the pack, L3 the map, R3 uses the next quick-slot item, and Start pauses. In menus, A confirms and B goes back. Hits rumble where the browser supports it.
+**Gamepad** (PC and mobile, Bluetooth or USB): the left stick steps and strafes, and the right stick or D-pad turns. A / RT swings or loots, X interacts, LT blocks and parries, LB throws, RB (hold) calls shafts back, Y casts the sigil, D-pad Down casts a spell (hold it to pick the next), and B sips the flask. Select opens the pack, L3 the map, R3 uses the next quick-slot item, and Start pauses. In menus, A confirms and B goes back. Hits rumble where the browser supports it.
 
 For exact rules and numbers, see the [mechanics reference](docs/MECHANICS.md).
 

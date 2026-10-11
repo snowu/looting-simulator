@@ -487,6 +487,123 @@ ink(SIGIL_LIT, ['xx'], 17, 29);
 ink(SIGIL_LIT, ['xx'], 34, 31);
 ink(SIGIL_LIT, ['x', 'x'], 39, 44);
 
+// Conduits, held in the left hand: the sword's side grip mirrored, fingers
+// curled across a real shaft that runs on through the fist to a butt below
+// it. The shaft takes the material ramp (1-4); the stone, the brass and the
+// leather wrap do not, so a conduit reads as a conduit whatever it is cut
+// from. `_lit` is the cast pose's back half: a halo, a white-hot core and
+// sparks, at alpha 250 like the lit sigil.
+const STONE = {
+  o: '#3a1a6e', p: '#7a44d8', q: '#b98cff', r: '#efe2ff',
+  x: '#fff4fffa', z: '#c8a4ffa0', y: '#dcc4ff60',
+};
+
+/** The left hand's grip: the sword hand, mirrored, so the forearm exits lower left. */
+const LEFT_HAND = mirror(HAND);
+/** Shaft column for LEFT_HAND at x=4: the mirror of the sword's haft at x=22. */
+const LEFT_SHAFT = 21;
+
+// Wand head: a long faceted crystal, lit from the upper left, seated in three
+// brass prongs that bite into its base.
+const WAND_HEAD = rows(`
+  .......k.......
+  ......krk......
+  ......krrk.....
+  .....krrqk.....
+  .....krqqpk....
+  ....krrqqpk....
+  ....krqqppok...
+  ...krrqqppok...
+  ...krqqpppok...
+  ...krqqpppok...
+  ...kqqqpppok...
+  ..hkqqppppokh..
+  ..hikqqpppokgh.
+  .khikqqppookghk
+  .khiikqpppokghk
+  ..khikkqpookgk.
+  ...khhikkkkghk.
+  ....khhiihhgk..
+  ....kghhhhggk..
+  .....kgggggk...
+  ......kkkkk....
+`);
+
+// Rod head: four forged flanges caging a round stone, a collar under it, and
+// a finial on top. The flanges take the metal ramp like the shaft.
+const ROD_HEAD = rows(`
+  ........kk........
+  .......k43k.......
+  .......k32k.......
+  ......kk43kk......
+  ....kkk4kk2kkk....
+  ...k44kk..kk21k...
+  ..k43k.rrqq.k21k..
+  ..k4k.rrqqqp.k1k..
+  .k43krrqqqppok11k.
+  .k4krrqqqpppok1k..
+  .k4krqqqppppok1k..
+  .k3kqqqpppppok1k..
+  .k3kqqppppppok1k..
+  .k3kkqppppoook1k..
+  ..k3kkpppoookk1k..
+  ..k33kkooookk11k..
+  ...k3kkkkkkkk1k...
+  ...kkhhhhhhhhgkk..
+  ...khiiiiiiihhgk..
+  ....kgggggggggk...
+  .....k4433221k....
+  ......kkkkkkk.....
+`);
+
+function conduitArt(heavy: boolean, lit: boolean): string[] {
+  const art = canvas(80);
+  const head = heavy ? ROD_HEAD : WAND_HEAD;
+  const headX = LEFT_SHAFT + 2 - Math.floor(head[0].length / 2);
+  const headY = heavy ? 4 : 14;
+  const shaftTop = headY + head.length - 1;
+  // The shaft, light on the left. A wand tapers and carries two growth knots;
+  // a rod is straight and banded with brass every so often.
+  for (let y = shaftTop; y <= 78; y++) {
+    let row = heavy ? 'k4321k' : (y < shaftTop + 14 ? '.k43k' : 'k4321k'.slice(0, 5));
+    if (!heavy && (y === shaftTop + 9 || y === shaftTop + 22)) row = 'kk42kk'.slice(0, 5);
+    if (heavy && (y - shaftTop) % 11 === 5) row = 'khiihk';
+    ink(art, [heavy ? row : row.padEnd(5, '.')], LEFT_SHAFT - (heavy ? 0 : 0), y);
+  }
+  // Leather wrap above the fist.
+  for (let y = 46; y < 53; y++) ink(art, [y % 2 ? 'kwvvjk' : 'kwccjk'], LEFT_SHAFT, y);
+  ink(art, head, headX, headY);
+  if (lit) {
+    // Halo first so the stone and the sparks sit over it.
+    const cx = LEFT_SHAFT + 2, cy = headY + (heavy ? 10 : 8), r = heavy ? 12 : 11;
+    for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) {
+      const d = Math.hypot(x, y * 1.15);
+      if (d > r) continue;
+      const line = [...art[cy + y]];
+      if (line[cx + x] !== '.') continue;
+      line[cx + x] = d > r - 2.5 ? 'y' : 'z';
+      art[cy + y] = line.join('');
+    }
+    // A white-hot core.
+    const core = heavy ? [[0, 0], [-1, 0], [0, -1], [-1, -1], [0, 1]] : [[0, -1], [0, 0], [-1, 0], [0, 1], [0, 2]];
+    for (const [dx, dy] of core) {
+      const line = [...art[cy + dy]];
+      line[cx + dx] = 'x';
+      art[cy + dy] = line.join('');
+    }
+    // Sparks thrown off at the rim.
+    for (const [dx, dy] of [[-r - 2, -3], [r + 1, -5], [-4, -r - 2], [5, -r - 1], [-r - 1, 4], [r + 2, 2], [1, -r - 4]]) {
+      const yy = cy + dy, xx = cx + dx;
+      if (yy < 0 || xx < 0 || xx >= 48) continue;
+      const line = [...art[yy]];
+      line[xx] = 'x';
+      art[yy] = line.join('');
+    }
+  }
+  ink(art, LEFT_HAND, 4, 52);
+  return art;
+}
+
 // Round buckler with a faceted steel boss and four small brass rivets.
 const SHIELD = canvas(48);
 const SHIELD_HALF = rows(`
@@ -770,4 +887,8 @@ export const VIEWMODELS: ArtDef[] = [
   { id: 'vm_kite_shield', palette: PAL, rows: KITE_SHIELD },
   { id: 'vm_tower_shield', palette: PAL, rows: TOWER_SHIELD },
   { id: 'vm_hand', palette: PAL, rows: OPEN_HAND },
+  { id: 'vm_wand', palette: { ...PAL, ...STONE }, rows: conduitArt(false, false) },
+  { id: 'vm_wand_lit', palette: { ...PAL, ...STONE }, rows: conduitArt(false, true) },
+  { id: 'vm_rod', palette: { ...PAL, ...STONE }, rows: conduitArt(true, false) },
+  { id: 'vm_rod_lit', palette: { ...PAL, ...STONE }, rows: conduitArt(true, true) },
 ];

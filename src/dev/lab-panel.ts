@@ -37,7 +37,7 @@ let el: HTMLElement | null = null;
 let godTimer = 0;
 
 function weaponBases(): typeof ITEM_BASES {
-  return ITEM_BASES.filter((b) => b.slot === 'weapon' || b.slot === 'thrown');
+  return ITEM_BASES.filter((b) => b.slot === 'weapon' || b.slot === 'thrown' || !!b.conduit);
 }
 
 function materialsFor(baseId: string): typeof MATERIALS {
@@ -600,7 +600,7 @@ function buildWeaponSection(
   for (const b of weaponBases()) {
     const o = document.createElement('option');
     o.value = b.id;
-    o.textContent = `${b.name}${b.twoHanded ? ' (2H)' : ''}`;
+    o.textContent = `${b.name}${b.twoHanded ? ' (2H)' : b.conduit ? ' (conduit)' : ''}`;
     if (b.id === 'long_sword') o.selected = true;
     baseSel.append(o);
   }

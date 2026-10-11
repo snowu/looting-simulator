@@ -6,7 +6,8 @@
  * covers both. Touch controls stay as-is; this is additive.
  *
  * Standard mapping (Xbox-style labels, PlayStation in brackets):
- * - Left stick Y / D-pad Up-Down: step forward / back
+ * - Left stick Y: step forward / back; D-pad Up: step forward
+ * - D-pad Down: tap to cast the selected battle spell, hold to select the next
  * - Left stick X: strafe left / right
  * - Right stick X / D-pad Left-Right: turn
  * - A (Cross) / RT: context action — interact when facing something useful,
@@ -25,6 +26,8 @@ export type PadMove = 'forward' | 'back' | 'left' | 'right' | 'turnLeft' | 'turn
 export const PAD_DEADZONE = 0.28;
 export const PAD_TURN_DEADZONE = 0.35;
 export const PAD_TRIGGER_HELD = 0.35;
+/** Holding D-pad Down this long selects the next spell instead of casting. */
+export const SPELL_HOLD = 0.4;
 
 export const PAD_BUTTONS = {
   a: 0,
@@ -111,7 +114,8 @@ export function snapshotPad(pad: RawPad | null, prevButtons: Set<number>): PadSn
   const turn = stickXToTurn(ax(2));
   if (turn) moves.add(turn);
   if (btn(pad, PAD_BUTTONS.dUp)) moves.add('forward');
-  if (btn(pad, PAD_BUTTONS.dDown)) moves.add('back');
+  // D-pad Down is the cast button in the dungeon (see SPELL_HOLD), so it no
+  // longer steps back; the left stick does that, as it always did.
   if (btn(pad, PAD_BUTTONS.dLeft)) moves.add('turnLeft');
   if (btn(pad, PAD_BUTTONS.dRight)) moves.add('turnRight');
   // Bumpers stay combat-bound (LB throw, RB retrieve) so they never turn.
@@ -147,6 +151,9 @@ export interface PadContext {
   setRetrieve: (held: boolean) => void;
   setBlock: (on: boolean) => void;
   castSigil: () => void;
+  /** Cast the selected battle spell, and select the next loaded one. */
+  castSpell: () => void;
+  nextSpell: () => void;
   sipFlask: () => void;
   press: (m: PadMove) => void;
   release: (m: PadMove) => void;
@@ -174,6 +181,9 @@ export class GamepadController {
   private navRepeat = 0;
   private navDir: 'next' | 'prev' | null = null;
   private quickIdx = 0;
+  /** Seconds D-pad Down has been held, or null when it is up; and whether the hold already cycled. */
+  private spellHeld: number | null = null;
+  private spellCycled = false;
   private seenPad = false;
   lastUsedAt = 0;
   getPoll: () => (RawPad | null) | null = () => {
@@ -200,6 +210,7 @@ export class GamepadController {
     this.prevRetrieve = false;
     this.prevButtons.clear();
     this.navDir = null;
+    this.spellHeld = null;
   }
 
   constructor(private ctx: PadContext | null = null) {}
@@ -264,6 +275,8 @@ export class GamepadController {
         ctx.setRetrieve(false);
         this.prevRetrieve = false;
       }
+      // A cast held into a menu is dropped, not fired when the menu closes.
+      this.spellHeld = null;
       this.menuRepeat(dt, snap, raw);
       if (edge(P.b)) ctx.closeOverlay();
       if (edge(P.a) || edge(P.x)) {
@@ -306,12 +319,37 @@ export class GamepadController {
     if (snap.attackHeld && ctx.contextKind() === 'attack') ctx.attack();
     if (edge(P.lb)) ctx.hurl();
     if (edge(P.y)) ctx.castSigil();
+    this.spellButton(dt, raw, ctx);
     // B is Close inside overlays (handled above); in the dungeon it sips.
     if (edge(P.b)) ctx.sipFlask();
     if (edge(P.select)) ctx.toggleInventory();
     if (edge(P.start)) ctx.toggleHelp();
     if (edge(P.l3)) ctx.toggleMap();
     if (edge(P.r3)) ctx.quickUseNext();
+  }
+
+  /**
+   * D-pad Down: a tap casts on release, and a hold past SPELL_HOLD cycles to
+   * the next spell instead. Cast on release rather than press, because until
+   * the button comes up there is no telling which of the two was meant.
+   */
+  private spellButton(dt: number, raw: RawPad, ctx: PadContext): void {
+    const down = btn(raw, PAD_BUTTONS.dDown);
+    if (down) {
+      if (this.spellHeld === null) {
+        this.spellHeld = 0;
+        this.spellCycled = false;
+      } else {
+        this.spellHeld += dt;
+      }
+      if (!this.spellCycled && this.spellHeld >= SPELL_HOLD) {
+        this.spellCycled = true;
+        ctx.nextSpell();
+      }
+    } else if (this.spellHeld !== null) {
+      if (!this.spellCycled) ctx.castSpell();
+      this.spellHeld = null;
+    }
   }
 
   /** D-pad / stick navigation with initial + repeat, for menus and overlays. */
@@ -353,7 +391,7 @@ export class GamepadController {
 }
 
 export const GAMEPAD_HELP_ROWS: [string, string][] = [
-  ['Left stick / D-pad ↑ ↓', 'Step forward / back'],
+  ['Left stick ↑ ↓ / D-pad ↑', 'Step forward / back'],
   ['Left stick ← →', 'Strafe'],
   ['Right stick ← → / D-pad ← →', 'Turn'],
   ['A / RT', 'Swing — or Loot / Open when facing something'],
@@ -362,6 +400,7 @@ export const GAMEPAD_HELP_ROWS: [string, string][] = [
   ['LB', 'Throw one shaft from your belt'],
   ['RB (hold)', 'Call shafts back — release to stop'],
   ['Y', 'Cast your attuned sigil'],
+  ['D-pad ↓', 'Cast your selected spell — hold to select the next'],
   ['Select', 'Pack & gear'],
   ['L3', 'Map'],
   ['Start', 'Pause / help'],

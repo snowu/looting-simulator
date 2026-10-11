@@ -16,6 +16,7 @@ import { starterRecipeRanks } from '../data/recipes';
 import { SAVE_REVISION } from './migrations';
 import { newId } from '../core/id';
 import { BASE_BACKPACK } from '../systems/meta';
+import { STARTER_CONDUIT_SPELLS } from '../data/conduit-spells';
 
 export const SAVE_VERSION = 2;
 
@@ -95,6 +96,12 @@ export interface RunState {
   thrown: { held: Record<string, number>; retrieveCd: number };
   /** Attuned sigil and remaining cooldown, snapshotted for this delve. */
   sigil: { id: string; cd: number } | null;
+  /**
+   * The conduit's shared charge pool, seconds into regrowing the next charge,
+   * and which loaded spell is selected. Kept on the run, not the item, so
+   * swapping conduits never refills it. Absent until a conduit is first worn.
+   */
+  conduit?: { charges: number; regrow: number; sel: number };
   /**
    * Player-chosen order of the delve quick bar (consumable refs, first = slot 1).
    * New consumable types append at the end; missing ones are ignored on read.
@@ -213,6 +220,10 @@ export interface GameState {
   /** Permanently inscribed sigils and the one selected for the next delve. */
   spells: string[];
   attuned: string | null;
+  /** Battle spells learned for good. See `src/data/conduit-spells.ts`. */
+  spellbook: string[];
+  /** Spells loaded into whatever conduit you wear, in order; it reads as many as it has slots. */
+  loadedSpells: string[];
   /** Build properties learned, ready to inscribe at the forge. See `src/data/properties.ts`. */
   properties: string[];
   /** The oaths sworn for the next delve. See `src/data/oaths.ts`. */
@@ -264,6 +275,8 @@ export function newGame(rng: Rng): GameState {
     flask: { shards: 0, potency: 0, infusion: null },
     spells: [],
     attuned: null,
+    spellbook: [...STARTER_CONDUIT_SPELLS],
+    loadedSpells: [...STARTER_CONDUIT_SPELLS],
     properties: [],
     loadout: createContainer(BASE_BACKPACK),
     run: null,

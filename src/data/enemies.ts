@@ -1,6 +1,7 @@
 import { MOVE_SETS } from './attacks';
 import { ELEMENTAL_VARIANTS, elementalVariant } from './elemental-variants';
 import { DamageType, EnemyDef } from '../types';
+import { CHILL_WINDUP } from './conduit-spells';
 import {
   ELITES, EliteTrait, FRENZIED_RECOVERY_MULT, FRENZIED_STEP_MULT, FRENZIED_WINDUP_MULT, FRENZY_AT,
   HASTED_RECOVERY_MULT, HASTED_STEP_MULT, HASTED_WINDUP_MULT, IRONHIDE_DEFENSE_MULT, IRONHIDE_STEP_MULT, THIEF_LADEN,
@@ -619,16 +620,21 @@ export interface ViewMods {
   shadeType?: DamageType;
   /** A calm King: later phases keep the first one's rhythm and carry no shield. */
   calm?: boolean;
+  /** Struck by a Rime Lance: every wind-up runs long while it lasts. */
+  chilled?: boolean;
 }
+
+/** A chilled creature's glow, so the slow wind-up has a visible cause. */
+const CHILL_GLOW = '#8ac8ff';
 
 /** The glow of a thief carrying your things: a lamp to chase by. */
 export const THIEF_GLOW = '#e8c060';
 
 export function enemyView(def: EnemyDef, hp: number, maxHp: number, mods?: ViewMods): EnemyDef {
   const base = phaseView(def, hp, maxHp, !!mods?.calm);
-  if (!mods || (!mods.elite && !mods.carrying && !mods.marked && !mods.shadeType)) return base;
+  if (!mods || (!mods.elite && !mods.carrying && !mods.marked && !mods.shadeType && !mods.chilled)) return base;
   const frenzy = mods.elite === 'frenzied' && maxHp > 0 && hp < maxHp * FRENZY_AT;
-  const key = `${base.id}:${base.sprite}${mods.calm ? ':calm' : ''}:${mods.elite ?? ''}:${frenzy ? 1 : 0}:${mods.carrying ? 1 : 0}:${mods.marked ? 1 : 0}:${mods.shadeType ?? ''}`;
+  const key = `${base.id}:${base.sprite}${mods.calm ? ':calm' : ''}:${mods.elite ?? ''}:${frenzy ? 1 : 0}:${mods.carrying ? 1 : 0}:${mods.marked ? 1 : 0}:${mods.shadeType ?? ''}:${mods.chilled ? 1 : 0}`;
   let view = VIEW_CACHE.get(key);
   if (view) return view;
   view = { ...base };
@@ -659,6 +665,12 @@ export function enemyView(def: EnemyDef, hp: number, maxHp: number, mods?: ViewM
     view.glow = THIEF_GLOW;
     // Laden: running with your things slows it down. See `runWithLoot`.
     view.step = view.step * THIEF_LADEN;
+  }
+  // The King does not slow, as he does not blink at a Flash scroll: his
+  // fight is the parry, and a spell that widened every window would end it.
+  if (mods.chilled && base.behavior !== 'boss') {
+    view.windup = view.windup * CHILL_WINDUP;
+    view.glow = CHILL_GLOW;
   }
   VIEW_CACHE.set(key, view);
   return view;
