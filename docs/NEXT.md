@@ -872,8 +872,8 @@ a new combat subsystem.
 |---|---|---|---|
 | Fire | **Ember Bolt** | Projectile, range 5 | Damage, plus a short **burn** (damage over 3s). Feeds the Kindling property |
 | Frost | **Rime Lance** | Projectile, range 5 | Light damage; the target's next wind-up is **×1.5 longer** for 4s. Makes parries easier to land: the defensive spell |
-| Holy | **Smite** | Burst on the faced tile, reach 2 | ×2 on undead, and a kill **sanctifies the remains** (the Ossuary law and the Gravecaller already read this) |
-| Shadow | **Hex** | Projectile, range 5 | Marks the target for 5s; your melee hits on it **leech** 15%. The sustain spell, since there is no health regeneration |
+| Holy | **Smite** | **Hitscan**: lands at once on the first monster in your line, range 5, no bolt | A golden-white **streak** strikes down over the target. ×2 on undead, and a kill **sanctifies the remains** (the Ossuary law and the Gravecaller already read this) |
+| Shadow | **Hex** | **Hitscan**, range 5 | Turns the monster into a **penguin for 15s** (user, 2026-10-11): it cannot attack, waddles, and keeps its health. Damage does not break it. The control spell, priced in charges accordingly. Bosses and lieutenants refuse it |
 
 Enemy resistances already make the choice matter: a fire conduit into the
 Frost Vault meets ×1.6 Rimebound, and into the Emberworks meets ×0.45 Slagborn.
@@ -914,7 +914,10 @@ the shared charge pips.
    inputs, Weave, the forge's Spells bench, the HUD spell row and pips,
    viewmodel and cast pose, projectile art (reuse the Flame Wraith and Frost
    Wisp bolts), patch note.
-2. **Smite and Hex (their tomes), and the Stave.**
+2. **Smite and Hex (their tomes), and the Stave.** Both are hitscan
+   (settled 2026-10-11), so neither has a bolt: Smite draws a golden-white
+   streak down over its target, Hex needs penguin art (idle, waddle) and a
+   poof. Open: Hex's charge cost (2?) and whether elites resist it.
 3. **Battlemage payoffs.** Two or three build properties (for example a
    parry that refunds a charge), a relic, and the conduits joining Oath rewards.
 4. **Harness.** The bot casts, so `npm run playtest` and `tables` can price it.
@@ -944,6 +947,11 @@ every new sprite id in `ALL_ART` needs its PNG in `public/art` or boot throws.
   and can be worn alongside a conduit.
 - **Charges:** regrow on a timer within the delve.
 - **Wand → Rod:** the Rod is stronger than the Wand overall, not a sidegrade.
+- **Bolts look like what they are** (user: the orbs "look so bad"): Ember
+  Bolt is a fireball and Rime Lance an icicle, drawn head-up and turned by
+  quarter turns relative to the view, with their own HUD icons.
+- **Smite and Hex are hitscan** (user, 2026-10-11): Smite a golden-white
+  streak over the target, Hex a 15s penguin.
 - **Spells are unlocked and several are loaded at once.** This replaced the
   earlier draft, where one gem attuned into the conduit set its element.
   Elemental *gear* stats still power the matching spells.

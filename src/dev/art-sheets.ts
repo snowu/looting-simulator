@@ -424,6 +424,7 @@ function spellGroups(tier: number, materialId?: string): SheetGroup[] {
   return [
     { title: heldTitle(tier, materialId), cells: casts },
     { title: 'Bolts in flight', cells: CONDUIT_SPELLS.map((sp) => ({ id: sp.sprite, label: `${sp.name} · ${sp.element}` })) },
+    { title: 'Spell icons', cells: CONDUIT_SPELLS.map((sp) => ({ id: sp.icon, label: sp.name })) },
   ];
 }
 

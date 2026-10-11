@@ -1095,7 +1095,7 @@ export class Town {
       return h(
         'div',
         { class: `row repair-row${live ? ' gold' : ''}` },
-        artImg(def.sprite, undefined, 34),
+        artImg(def.icon, undefined, 34),
         h('div', { class: 'grow' },
           h('div', { style: `color:${def.color}`, text: `${at >= 0 ? `${at + 1}. ` : ''}${def.name}${at >= slots && at >= 0 ? ' (no slot)' : ''}` }),
           h('div', { class: 'dim small', text: `${def.description} · ${def.stamina} stamina · ${def.charges} charge · range ${def.range}` }),

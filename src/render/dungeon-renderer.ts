@@ -817,6 +817,16 @@ export class DungeonRenderer {
       this.place(s, pr.sprite, pr.x * TILE, 0.95, pr.y * TILE, 0.7);
       if (pr.sprite.startsWith('proj_arrow')) {
         s.mesh.rotation.set(0, this.camera.rotation.y, Math.atan2(-pr.dy, pr.dx));
+      } else if (pr.spell) {
+        // A spell bolt is drawn head-up. Turn it by
+        // its flight *as you see it*: away from you is up the screen (towards
+        // the horizon, its trail coming back at you), across your view is
+        // sideways. By compass heading instead, a bolt cast straight ahead
+        // would lean a different way on every corridor.
+        const fwd = p.facing, right = turnRight(p.facing);
+        const away = pr.dx * DX[fwd] + pr.dy * DY[fwd];
+        const across = pr.dx * DX[right] + pr.dy * DY[right];
+        s.mesh.rotation.set(0, this.camera.rotation.y, Math.atan2(away, across) - Math.PI / 2);
       }
     }
 

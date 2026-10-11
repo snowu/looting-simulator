@@ -1082,7 +1082,7 @@ function frame(now: number): void {
           || (world.anim.attackThrow && world.anim.attack === 'windup')),
         calling: !!world.anim.retrieving,
         sigil: !!world.run.sigil && world.run.sigil.cd <= 0,
-        spell: world.selectedSpell()?.sprite ?? null,
+        spell: world.selectedSpell()?.icon ?? null,
         spellReady: (world.run.conduit?.charges ?? 0) >= (world.selectedSpell()?.charges ?? 1),
         spells: world.conduitSpells().length,
       });

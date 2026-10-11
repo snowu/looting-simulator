@@ -16,8 +16,10 @@ export interface ConduitSpellDef {
   id: ConduitSpellId;
   name: string;
   element: Element;
-  /** Art id: the HUD icon and the bolt in flight are the same orb. */
+  /** Art id of the bolt in flight, drawn head-first along its path. */
   sprite: string;
+  /** Art id of the spell in the HUD, the forge and the touch Cast button. */
+  icon: string;
   /** Glow the bolt casts as it flies. */
   light: string;
   /** Multiplier on the conduit's Power for the hit itself. */
@@ -47,13 +49,13 @@ export const CHILL_WINDUP = 1.5;
 
 export const CONDUIT_SPELLS: readonly ConduitSpellDef[] = [
   {
-    id: 'ember_bolt', name: 'Ember Bolt', element: 'fire', sprite: 'proj_fire', light: '#ff8a30',
+    id: 'ember_bolt', name: 'Ember Bolt', element: 'fire', sprite: 'proj_fireball', icon: 'ic_spell_ember', light: '#ff8a30',
     power: 1, charges: 1, stamina: 14, windup: 0.22, recovery: 0.3, speed: 9, range: 5,
     color: '#ff9a50', starter: true,
     description: 'A bolt of fire. What it hits keeps burning for a few seconds.',
   },
   {
-    id: 'rime_lance', name: 'Rime Lance', element: 'frost', sprite: 'proj_frost', light: '#7ab8ff',
+    id: 'rime_lance', name: 'Rime Lance', element: 'frost', sprite: 'proj_icicle', icon: 'ic_spell_rime', light: '#7ab8ff',
     power: 0.6, charges: 1, stamina: 12, windup: 0.2, recovery: 0.3, speed: 11, range: 5,
     color: '#9ad0ff',
     description: 'A shard of frost. What it hits is chilled: its next wind-up is half as long again, which makes the parry easier to land.',

@@ -275,7 +275,7 @@ body.detail-mode .detail-hide { display: none; }
 @media (prefers-reduced-motion: reduce) { .sigil.ready .sigil-icon { animation: none; } }
 /* Conduit: loaded spells (selected one lit and larger) over the charge pips. */
 .spells { position: absolute; right: 78px; bottom: 102px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.spell-row { display: flex; align-items: flex-end; gap: 0; margin-bottom: -10px; }
+.spell-row { display: flex; align-items: flex-end; gap: 4px; }
 .spell-icon { display: grid; place-items: center; filter: grayscale(0.6) brightness(0.7); }
 .spell-icon.on { filter: none; }
 .spell-icon img { image-rendering: pixelated; }
