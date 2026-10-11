@@ -27,6 +27,7 @@ import { ROLLABLE_UNIQUES, UniqueDef, UniqueEffectId, findUnique, tonicUnique } 
 import { MAX_RECIPE_RANK, RECIPES, blueprintDropWeight, masteryBonus, recipe, recipeRank } from '../data/recipes';
 import { BestiaryState, isKnown, loreName } from './bestiary';
 import { sigil } from '../data/spells';
+import { conduitSpell } from '../data/conduit-spells';
 import { clamp } from '../core/math';
 
 // ---------------------------------------------------------------------------
@@ -204,6 +205,8 @@ export function itemRarity(item: Item): Rarity {
       return Rarity.Rare;
     case 'sigil':
       return Rarity.Epic;
+    case 'tome':
+      return Rarity.Rare;
   }
 }
 
@@ -223,6 +226,8 @@ export function itemName(item: Item): string {
       return loreName(item.ref);
     case 'sigil':
       return sigil(item.ref).name;
+    case 'tome':
+      return `Tome of ${conduitSpell(item.ref).name}`;
     case 'equipment': {
       const base = itemBase(item.ref);
       const adj = item.materialId ? MATERIAL_ADJ[item.materialId] ?? findMaterial(item.materialId)?.name ?? '' : '';
@@ -255,6 +260,8 @@ export function itemIcon(item: Item): { icon: string; ramp?: [string, string, st
       return { icon: 'ic_lore' };
     case 'sigil':
       return { icon: sigil(item.ref).icon };
+    case 'tome':
+      return { icon: 'ic_spell_tome' };
     case 'equipment': {
       const m = item.materialId ? findMaterial(item.materialId) : undefined;
       return { icon: itemBase(item.ref).icon, ramp: m?.ramp };
@@ -473,6 +480,8 @@ export function itemValue(item: Item): number {
       return 40;
     case 'sigil':
       return 180;
+    case 'tome':
+      return 150;
     case 'equipment': {
       const base = itemBase(item.ref);
       const mat = item.materialId ? findMaterial(item.materialId) : undefined;

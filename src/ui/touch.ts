@@ -27,6 +27,9 @@ export interface TouchHandlers {
   retrieve(held: boolean): void;
   /** Cast the attuned sigil. */
   sigil(): void;
+  /** Cast the selected battle spell, and select the next loaded one. */
+  spell(): void;
+  nextSpell(): void;
   open(mode: 'inventory' | 'map' | 'help'): void;
 }
 
@@ -40,6 +43,12 @@ export interface TouchTools {
   calling: boolean;
   /** A sigil is attuned and off cooldown. */
   sigil: boolean;
+  /** The selected spell's orb, or null when no conduit with a loaded spell is worn. */
+  spell: string | null;
+  /** The conduit has the charges for it. A spent conduit's button stays, dimmed. */
+  spellReady: boolean;
+  /** How many spells are loaded; the swap chip only shows for two or more. */
+  spells: number;
 }
 
 export function isTouchDevice(): boolean {
@@ -229,6 +238,10 @@ export class TouchControls {
   private throwBtn: HTMLButtonElement;
   private callBtn: HTMLButtonElement;
   private sigilBtn: HTMLButtonElement;
+  private spellBtn: HTMLButtonElement;
+  private spellIcon = h('span', { class: 'tspell-icon' });
+  private swapBtn: HTMLButtonElement;
+  private spellArt = '';
   private toolsKey = '';
   private edgeL: HTMLButtonElement;
   private edgeR: HTMLButtonElement;
@@ -293,8 +306,13 @@ export class TouchControls {
     this.callBtn = hold('small', () => hd.retrieve(true), () => hd.retrieve(false));
     this.callBtn.textContent = 'Hold Call';
     this.sigilBtn = tap('Sigil', () => hd.sigil());
-    const tools = h('div', { class: 'ttools' }, this.throwBtn, this.callBtn, this.sigilBtn);
-    for (const b of [this.throwBtn, this.callBtn, this.sigilBtn]) b.hidden = true;
+    this.spellBtn = tap('Cast', () => hd.spell());
+    this.spellBtn.prepend(this.spellIcon);
+    this.swapBtn = tap('↻', () => hd.nextSpell());
+    this.swapBtn.classList.add('tswap');
+    this.swapBtn.title = 'Next spell';
+    const tools = h('div', { class: 'ttools' }, this.throwBtn, this.callBtn, this.sigilBtn, this.swapBtn, this.spellBtn);
+    for (const b of [this.throwBtn, this.callBtn, this.sigilBtn, this.spellBtn, this.swapBtn]) b.hidden = true;
 
     // Shoulder buttons on the screen edges, where the thumbs rest when gripping
     // the phone. Hold to sidestep (or turn, when the pad strafes) until released.
@@ -387,7 +405,7 @@ export class TouchControls {
 
   /** Show only the situational buttons that would do something. */
   setTools(t: TouchTools): void {
-    const key = `${t.thrown}${t.landed}${t.calling}${t.sigil}`;
+    const key = `${t.thrown}${t.landed}${t.calling}${t.sigil}${t.spell}${t.spellReady}${t.spells}`;
     if (key === this.toolsKey) return;
     this.toolsKey = key;
     this.throwBtn.hidden = !t.thrown;
@@ -395,6 +413,13 @@ export class TouchControls {
     this.callBtn.hidden = !t.thrown || (!t.landed && !t.calling);
 
     this.sigilBtn.hidden = !t.sigil;
+    this.spellBtn.hidden = !t.spell;
+    this.spellBtn.classList.toggle('spent', !t.spellReady);
+    this.swapBtn.hidden = !t.spell || t.spells < 2;
+    if (t.spell && t.spell !== this.spellArt) {
+      this.spellArt = t.spell;
+      this.spellIcon.replaceChildren(artImg(t.spell, undefined, 18));
+    }
   }
 
   /** Show a sword when the main button will swing, or a word when it will interact. */

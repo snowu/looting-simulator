@@ -213,6 +213,9 @@
   "ic_scroll_flash",
   "ic_scroll_backstep",
   "ic_scroll_recall",
+  "ic_wand",
+  "ic_rod",
+  "ic_spell_tome",
   "ic_lore",
   "ic_blueprint",
   "ic_key",
@@ -344,5 +347,9 @@
   "vm_shield",
   "vm_kite_shield",
   "vm_tower_shield",
-  "vm_hand"
+  "vm_hand",
+  "vm_wand",
+  "vm_wand_lit",
+  "vm_rod",
+  "vm_rod_lit"
 ]

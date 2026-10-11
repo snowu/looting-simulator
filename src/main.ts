@@ -143,6 +143,8 @@ const touch = new TouchControls(app, {
   hurl: () => world?.hurl(),
   retrieve: (held) => world?.retrieve(held),
   sigil: () => world?.castSigil(),
+  spell: () => world?.castSpell(),
+  nextSpell: () => world?.nextSpell(),
   tap: () => {
     if (!world) return;
     if (world.contextAction().kind === 'interact') world.interact();
@@ -261,6 +263,8 @@ const padCtx: PadContext = {
   setRetrieve: (held) => world?.retrieve(held),
   setBlock: (on) => world?.setBlock(on),
   castSigil: () => world?.castSigil(),
+  castSpell: () => world?.castSpell(),
+  nextSpell: () => world?.nextSpell(),
   sipFlask: () => world?.sipFlask(),
   press: (m) => world?.press(m),
   release: (m) => world?.release(m),
@@ -1078,6 +1082,9 @@ function frame(now: number): void {
           || (world.anim.attackThrow && world.anim.attack === 'windup')),
         calling: !!world.anim.retrieving,
         sigil: !!world.run.sigil && world.run.sigil.cd <= 0,
+        spell: world.selectedSpell()?.sprite ?? null,
+        spellReady: (world.run.conduit?.charges ?? 0) >= (world.selectedSpell()?.charges ?? 1),
+        spells: world.conduitSpells().length,
       });
     }
     // Tilt is polled rather than pushed: a roll held through a pause must not
@@ -1208,6 +1215,12 @@ window.addEventListener('keydown', (e) => {
     case 'g':
     case 'c':
       if (!e.repeat) world.castSigil();
+      break;
+    case 'v':
+      if (!e.repeat) world.castSpell();
+      break;
+    case 'b':
+      if (!e.repeat) world.nextSpell();
       break;
     case 'escape':
     case 'h':

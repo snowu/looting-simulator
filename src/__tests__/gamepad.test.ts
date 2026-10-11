@@ -86,6 +86,8 @@ describe('gamepad mapping', () => {
       setRetrieve: noop,
       setBlock: noop,
       castSigil: noop,
+      castSpell: () => calls.push('cast'),
+      nextSpell: () => calls.push('next'),
       sipFlask: () => calls.push('sip'),
       press: noop,
       release: noop,
@@ -109,5 +111,25 @@ describe('gamepad mapping', () => {
     c2.getPoll = () => press(pad(), PAD_BUTTONS.b);
     c2.update(1 / 60);
     expect(calls).toEqual(['close']);
+
+    // D-pad Down: a tap casts when it comes up, a hold selects the next spell
+    // and casts nothing, and it no longer steps back.
+    calls.length = 0;
+    ctx.overlayOpen = false;
+    expect(snapshotPad(press(pad(), PAD_BUTTONS.dDown), new Set()).moves.has('back')).toBe(false);
+    const c3 = new GamepadController(ctx);
+    c3.getPoll = () => press(pad(), PAD_BUTTONS.dDown);
+    c3.update(1 / 60);
+    expect(calls).toEqual([]);
+    c3.getPoll = () => pad();
+    c3.update(1 / 60);
+    expect(calls).toEqual(['cast']);
+    calls.length = 0;
+    c3.getPoll = () => press(pad(), PAD_BUTTONS.dDown);
+    for (let i = 0; i < 30; i++) c3.update(1 / 60);
+    expect(calls).toEqual(['next']);
+    c3.getPoll = () => pad();
+    c3.update(1 / 60);
+    expect(calls).toEqual(['next']);
   });
 });

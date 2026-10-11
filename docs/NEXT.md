@@ -899,7 +899,7 @@ several spells loaded, the input also needs a way to pick the next one:
 | Device | Cast the selected spell | Select the next loaded spell |
 |---|---|---|
 | Keyboard | **V** (beside the sigil's C; ignores key repeat like T, R, G, C) | **B** |
-| Touch | Tap the **Cast** button (tools row, beside Throw, Call and Sigil; shown only while a conduit is worn) | Tap the small spell chip on the button's corner |
+| Touch | Tap the **Cast** button (tools row, beside Throw, Call and Sigil; shown only while a conduit is worn, dimmed while spent) | Tap the **↻** button beside it (shown with two or more loaded) |
 | Gamepad | Tap **D-pad Down** | Hold **D-pad Down** for 0.4s |
 
 D-pad Down was picked because every face button and bumper is taken, and it
@@ -923,6 +923,20 @@ Standing constraints apply: new item bases and `state.spellbook` /
 `state.spellLoadout` only, additive migration, `SAVE_REVISION` bump, no `SAVE_VERSION` change;
 any generation roll for conduit or blueprint drops on its own hashed stream;
 every new sprite id in `ALL_ART` needs its PNG in `public/art` or boot throws.
+
+## Progress
+
+- 2026-10-11 — **Step 1 built** (branch `feat/battlemage-1`). Wand and Rod,
+  Ember Bolt and Rime Lance, the spellbook and loadout, Rime Lance tomes in
+  chests (own `tome:` stream), charges and regrow, Weave, the forge's Spells
+  bench, V/B, touch Cast/↻, gamepad D-pad Down tap/hold, HUD spell row and
+  pips, conduit viewmodels and cast pose, art sheet *Spells* page (plays each
+  cast), lab racks both conduits and knows every spell. Save revision 30.
+  Played in a headless browser on a normal delve: casts land, burn ticks,
+  chill applies, no console errors. Numbers are first-pass: the balance
+  harness's bot does not cast yet (step 4). Not done: a phone-width check,
+  Smite/Hex/Stave (step 2), and the lab room itself crashes the headless
+  software renderer (on master too), so it was checked through `?autostart=dungeon`.
 
 ## Settled 2026-10-11
 

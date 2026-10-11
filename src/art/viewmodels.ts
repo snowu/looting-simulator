@@ -487,6 +487,58 @@ ink(SIGIL_LIT, ['xx'], 17, 29);
 ink(SIGIL_LIT, ['xx'], 34, 31);
 ink(SIGIL_LIT, ['x', 'x'], 39, 44);
 
+// Conduits, held low in the left hand like a shield. The stave leans in
+// towards the centre of the view and ends in a violet stone; it takes the
+// material ramp (1-4) and the stone does not. The `_lit` variant is the cast
+// pose's back half: the stone flares and throws sparks.
+const STONE = { o: '#4a2480', p: '#9a60f0', q: '#e8d8ff', x: '#fff0ffe0' };
+
+function conduitArt(heavy: boolean, lit: boolean): string[] {
+  const art = canvas(64);
+  const put = (x: number, y: number, ch: string) => {
+    if (y < 0 || y >= art.length || x < 0 || x >= 48) return;
+    const line = [...art[y]];
+    line[x] = ch;
+    art[y] = line.join('');
+  };
+  // The stave: from the grip at the bottom up to the stone, leaning right.
+  const width = heavy ? 4 : 3;
+  const top = heavy ? 12 : 10;
+  for (let y = top; y < 62; y++) {
+    const cx = Math.round(22 + (62 - y) * 0.16);
+    put(cx - 1, y, 'k');
+    for (let i = 0; i < width; i++) put(cx + i, y, i === 0 ? '4' : i === width - 1 ? '1' : i === 1 ? '3' : '2');
+    put(cx + width, y, 'k');
+  }
+  // A rod carries a flanged collar under the stone.
+  if (heavy) {
+    const cx = Math.round(22 + (62 - top) * 0.16);
+    ink(art, rows(`
+      kkkkkkkkkk
+      k44333221k
+      .k433221k.
+      ..kkkkkk..
+    `), cx - 3, top - 1);
+  }
+  // The stone.
+  const sx = Math.round(22 + (62 - top) * 0.16) + Math.floor(width / 2);
+  const r = heavy ? 5 : 4;
+  for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) {
+    const d = Math.hypot(x, y);
+    if (d > r + 0.4) continue;
+    const ch = d > r - 0.6 ? 'k' : x + y < -r * 0.5 ? 'q' : x + y < r * 0.3 ? 'p' : 'o';
+    put(sx + x, top - r - 1 + y, ch);
+  }
+  if (lit) {
+    for (const [dx, dy] of [[-r - 3, -2], [r + 3, -3], [-2, -r - 4], [3, -r - 3], [-r - 2, 3], [r + 2, 2], [0, -r - 6]]) {
+      put(sx + dx, top - r - 1 + dy, 'x');
+    }
+  }
+  // The left hand closes round the stave above the grip.
+  ink(art, mirror(CUP_HAND.map(row => row.padEnd(25, '.'))), 9, 36);
+  return art;
+}
+
 // Round buckler with a faceted steel boss and four small brass rivets.
 const SHIELD = canvas(48);
 const SHIELD_HALF = rows(`
@@ -770,4 +822,8 @@ export const VIEWMODELS: ArtDef[] = [
   { id: 'vm_kite_shield', palette: PAL, rows: KITE_SHIELD },
   { id: 'vm_tower_shield', palette: PAL, rows: TOWER_SHIELD },
   { id: 'vm_hand', palette: PAL, rows: OPEN_HAND },
+  { id: 'vm_wand', palette: { ...PAL, ...STONE }, rows: conduitArt(false, false) },
+  { id: 'vm_wand_lit', palette: { ...PAL, ...STONE }, rows: conduitArt(false, true) },
+  { id: 'vm_rod', palette: { ...PAL, ...STONE }, rows: conduitArt(true, false) },
+  { id: 'vm_rod_lit', palette: { ...PAL, ...STONE }, rows: conduitArt(true, true) },
 ];

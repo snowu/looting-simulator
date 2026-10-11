@@ -89,6 +89,15 @@ export class Hud {
    * only place a tile under your feet can be shown from.
    */
   private wardGlow = h('div', { class: 'ward-glow' });
+  /**
+   * The conduit: the loaded spells in cycling order with the selected one lit,
+   * and the shared charge pool as pips under them — the next one filling as
+   * it regrows, so "when can I cast again" is a glance, like the sigil dial.
+   */
+  private spellWrap = h('div', { class: 'spells' });
+  private spellRow = h('div', { class: 'spell-row' });
+  private spellPips = h('div', { class: 'spell-pips' });
+  private spellKey = '';
   private time = 0;
   /** Active pointer-drag reorder of the quick bar, if a slot is being dragged. */
   private quickDrag: { from: number; el: HTMLElement; over: number | null; pointerId: number; startX: number; startY: number; active: boolean } | null = null;
@@ -123,11 +132,14 @@ export class Hud {
     this.sigilCastWrap.append(this.sigilCastBar);
     this.sigilWrap.append(this.sigilIcon, this.sigilDial, this.sigilText, this.sigilCastWrap);
     this.sigilWrap.hidden = true;
+    this.spellWrap.append(this.spellRow, this.spellPips);
+    this.spellWrap.hidden = true;
     this.wardGlow.hidden = true;
     this.root.append(
       this.wardGlow,
       this.floatsEl,
       this.sigilWrap,
+      this.spellWrap,
       this.status,
       this.compass,
       this.minimap,
@@ -260,6 +272,33 @@ export class Hud {
     if (casting) this.sigilCastBar.style.width = `${(1 - casting.t / Math.max(0.01, def.cast)) * 100}%`;
   }
 
+  /** Loaded spells, the selected one lit, and the conduit's charges. */
+  private updateSpells(world: World): void {
+    const conduit = world.derived.conduit;
+    const pool = world.run.conduit;
+    const spells = world.conduitSpells();
+    const selected = world.selectedSpell();
+    this.spellWrap.hidden = !conduit || !pool;
+    if (!conduit || !pool) return;
+    const key = `${spells.map((s) => s.id).join(',')}|${selected?.id}|${conduit.charges}`;
+    if (key !== this.spellKey) {
+      this.spellKey = key;
+      this.spellRow.replaceChildren(...(spells.length
+        ? spells.map((s) => h('div', { class: `spell-icon${s === selected ? ' on' : ''}`, title: `${s.name} — ${s.description}` }, artImg(s.sprite, undefined, s === selected ? 56 : 34)))
+        : [h('span', { class: 'spell-none', text: 'No spells loaded' })]));
+      this.spellPips.replaceChildren(...Array.from({ length: conduit.charges }, () => h('i', {}, h('b'))));
+      this.spellWrap.title = `${spells.length > 1 ? 'V casts · B selects the next spell' : 'V casts'} · ${conduit.charges} charges, one back every ${conduit.regrow}s`;
+    }
+    const pips = [...this.spellPips.children] as HTMLElement[];
+    pips.forEach((pip, i) => {
+      const fill = i < pool.charges ? 1 : i === pool.charges ? clamp(pool.regrow / conduit.regrow, 0, 1) : 0;
+      (pip.firstChild as HTMLElement).style.width = `${fill * 100}%`;
+      pip.classList.toggle('full', fill >= 1);
+    });
+    this.spellWrap.classList.toggle('woven', !!world.anim.weave);
+    this.spellWrap.classList.toggle('casting', !!world.anim.attackSpell);
+  }
+
   update(world: World, renderer: DungeonRenderer, dt: number): void {
     this.time += dt;
     const p = world.player;
@@ -328,6 +367,7 @@ export class Hud {
     }
 
     this.updateSigil(world);
+    this.updateSpells(world);
 
     drawMap(this.minimap, world.floor, p.x, p.y, p.facing, { cell: 6, cx: p.x, cy: p.y, radius: 12, visibleEnemies: world.visibleEnemies() }, this.time);
 
@@ -403,7 +443,7 @@ export class Hud {
     }
     this.target.hidden = !tgt;
     if (tgt) {
-      const def = enemyView(enemyDef(tgt.def), tgt.hp, tgt.maxHp, { elite: tgt.elite, marked: tgt.marked, calm: tgt.calm });
+      const def = enemyView(enemyDef(tgt.def), tgt.hp, tgt.maxHp, { elite: tgt.elite, marked: tgt.marked, calm: tgt.calm, chilled: (tgt.chillT ?? 0) > 0 });
       const weak = Object.entries(def.resist).filter(([, v]) => (v ?? 1) >= 1.4).map(([k]) => k);
       const res = Object.entries(def.resist).filter(([, v]) => (v ?? 1) <= 0.6).map(([k]) => k);
       // An elite's name carries its trait in the trait's colour, and hovering
