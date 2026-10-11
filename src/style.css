@@ -474,11 +474,12 @@ table.market .market-owned { color: var(--gold); font-weight: 700; }
   text-shadow: 0 2px 0 #000, 0 0 18px #d0443a66;
   margin-top: 2px;
 }
-/* Patch notes live in the corner of the title screen, out of the way. */
+/* Title toolbar: patch notes sits left of fullscreen and the gear. */
 .patch-corner {
-  position: absolute;
-  right: max(14px, env(safe-area-inset-right));
-  bottom: max(14px, env(safe-area-inset-bottom));
+  position: fixed;
+  top: max(8px, env(safe-area-inset-top));
+  right: calc(max(8px, env(safe-area-inset-right)) + var(--gear-slot) + var(--fs-slot));
+  z-index: 50;
 }
 /* The corner buttons: fullscreen and the settings gear. One box for both,
    so they line up edge to edge and read as a pair. */
@@ -870,7 +871,6 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
 }
 
 /* --- Patch notes --------------------------------------------------------- */
-.patch-open .patch-scroll { margin-right: 6px; }
 .patch-wrap { z-index: 80; }
 .patch-modal { min-width: min(94vw, 640px); display: flex; flex-direction: column; gap: 8px; }
 .patch-top { position: sticky; top: 0; }
@@ -1057,4 +1057,23 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
   .title-screen .slot-card { flex: none; }
   .title-footer { gap: 10px; }
   .title-build { margin-left: 0; }
+}
+/* A short landscape phone can show all three empty saves in one viewport.
+   Editors and existing saves still grow normally and remain scrollable. */
+@media (max-height: 480px) and (min-width: 561px) {
+  .title-screen { padding-top: 44px; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+  .title-layout { gap: 4px 24px; }
+  .title-screen .title-panel { padding: 4px 8px; border-width: 8px; border-image-width: 8px; }
+  .title-section-head { margin-bottom: 6px; }
+  .title-section-head h2 { font-size: 26px; }
+  .title-screen .slots { gap: 4px; }
+  .title-screen .slot-card.compact-empty { border-width: 4px; border-image-width: 4px; display: grid; grid-template-columns: minmax(0, 1fr) auto; min-height: 54px; padding: 2px 8px 2px 30px; gap: 0 10px; }
+  .title-screen .compact-empty .slot-name { grid-column: 1; font-size: 24px; }
+  .title-screen .compact-empty > .dim { grid-column: 1; font-size: 18px; }
+  .title-screen .compact-empty > .grow { display: none; }
+  .title-screen .compact-empty > .btn { grid-column: 2; grid-row: 1 / span 2; align-self: center; width: auto; min-width: 76px; min-height: 32px; font-size: 20px; padding: 4px 10px; }
+  .title-screen .compact-empty::before { top: 8px; font-size: 18px; }
+  .title-controls { margin-top: 6px; padding-top: 6px; font-size: 18px; }
+  .title-footer { font-size: 14px; gap: 10px; }
+  .title-build { font-size: 14px; }
 }

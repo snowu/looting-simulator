@@ -11,7 +11,7 @@ const titleTaglines = [
 ];
 const titleTagline = titleTaglines[Math.floor(Math.random() * titleTaglines.length)];
 
-export function titleScreen(slots: HTMLElement, build = '', account?: HTMLElement, dev?: HTMLElement | null, onSettings?: () => void): HTMLElement {
+export function titleScreen(slots: HTMLElement, build = '', account?: HTMLElement, dev?: HTMLElement | null, onSettings?: () => void, scene = 'Somewhere beneath Bleakmere'): HTMLElement {
   const controls = h('details', { class: 'title-controls' },
     h('summary', { text: 'How to survive' }),
     h('div', { class: 'help' },
@@ -36,7 +36,7 @@ export function titleScreen(slots: HTMLElement, build = '', account?: HTMLElemen
         dev ?? null,
       ),
       h('footer', { class: 'title-footer' },
-        h('span', { class: 'title-scene-label', text: '◆  Somewhere beneath Bleakmere' }),
+        h('span', { class: 'title-scene-label', text: `◆  ${scene}` }),
         h('span', { text: 'Sound on. Lights off.' }),
         build ? h('span', { class: 'title-build', text: `v${build.replace(/^v/, '')}` }) : null,
       ),

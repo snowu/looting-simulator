@@ -761,10 +761,11 @@ async function openArtSheet(): Promise<void> {
 function enterTitle(): void {
   closeSettings();
   show('title');
+  titleDungeon ??= createTitleDungeon();
   screen.replaceChildren(titleScreen(slotPicker(slotViews(), enterSlot, {
     onRename: (n, name) => void renameSlot(n, name),
     onDelete: (n) => void deleteSlot(n),
-  }), `v${APP_VERSION} (${BUILD_ID})`, account.el, devTitleTools(), () => openTitleSettings()));
+  }), `v${APP_VERSION} (${BUILD_ID})`, account.el, devTitleTools(), () => openTitleSettings(), biomeForFloor(titleDungeon.floor).name));
   askAboutSaves();
 }
 

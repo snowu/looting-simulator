@@ -3,13 +3,21 @@ import { Dir, DIRS, DX, DY } from '../core/dir';
 import { newGame } from '../state/game-state';
 import { startRun } from '../systems/run';
 import { World } from '../world/world';
-import { blocksMove, blocksSight, enemyAt, inBounds, WALL } from '../systems/dungeon';
+import { BIOMES, FINAL_DEPTH } from '../data/biomes';
+import { blocksMove, blocksSight, enemyAt, inBounds, generateFloor, WALL } from '../systems/dungeon';
 
 /** A private diorama. Never tick this World: creatures remain unaware of the viewer. */
 export function createTitleDungeon(seed = randomSeed()): World {
   const state = newGame(createRng(seed));
   const run = startRun(state, seed);
-  const floor = run.floors[0]!;
+  // Sample regular environments uniformly, independently of a live run's
+  // depth or roads. Secret quirks are never applied to this generated floor.
+  const biome = createRng(seed).fork('title-biome').pick(BIOMES.filter(b => b.depths.some(d => d < FINAL_DEPTH)));
+  const depth = biome.depths.find(d => d < FINAL_DEPTH)!;
+  const floor = generateFloor(seed, depth, 'hard', false, biome.id);
+  run.depth = depth;
+  run.floors = Array.from({ length: depth }, () => null);
+  run.floors[depth - 1] = floor;
   // A roomy chamber, viewed diagonally from its corner, gives the backdrop
   // depth and a visible wall of torchlight rather than a close-up of stairs.
   const rooms = floor.rooms.filter(r => r.role !== 'secret' && r.role !== 'vault');
