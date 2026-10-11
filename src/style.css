@@ -1006,70 +1006,70 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
 .title-screen {
   --font-title: 'Title Jacquard', 'Jacquard 24', 'Pirata One', serif;
   --font-body: 'Title VT323', 'VT323', monospace;
-  display: block; padding: max(40px, env(safe-area-inset-top)) clamp(20px, 5vw, 72px) 64px;
+  display: block; overflow: hidden; padding: max(40px, env(safe-area-inset-top)) clamp(20px, 5vw, 72px) max(12px, env(safe-area-inset-bottom));
   text-align: left; font-family: var(--font-body); line-height: 1.15;
   background: linear-gradient(90deg, #0b0a0dbb, #0b0a0d18 75%), linear-gradient(0deg, #0b0a0dd9, transparent 65%);
 }
-.title-layout { width: 100%; max-width: 1200px; min-height: 100%; margin: auto; display: grid; grid-template-rows: minmax(260px, 1fr) auto auto; gap: 24px; }
+.title-layout { width: 100%; max-width: 1080px; height: 100%; min-height: 0; margin: auto; display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, auto) auto; gap: clamp(8px, 2vh, 24px); }
 .title-hero { align-self: start; width: fit-content; padding: 8px 0; }
-.title-eyebrow { font-size: 20px; text-transform: uppercase; color: #b4a58c; letter-spacing: 2px; margin-bottom: 16px; text-shadow: 2px 2px #07060a; }
-.title-hero h1 { font-family: var(--font-title); font-size: 112px; line-height: .8; letter-spacing: 0; color: #f4d88c; text-shadow: 4px 4px #07060a, 8px 8px #251b0e; }
+.title-eyebrow { font-size: 18px; text-transform: uppercase; color: #b4a58c; letter-spacing: 2px; margin-bottom: 16px; text-shadow: 2px 2px #07060a; }
+.title-hero h1 { font-family: var(--font-title); font-size: clamp(48px, 10vh, 88px); line-height: .8; letter-spacing: 0; color: #f4d88c; text-shadow: 4px 4px #07060a, 8px 8px #251b0e; }
 .title-hero h1 span { display: block; }
 .title-hero h1 span:last-child { color: var(--gold); }
-.title-screen .prepare { font-family: var(--font-title); font-size: 36px; letter-spacing: 4px; margin: 16px 0 8px; color: #d65545; text-shadow: 2px 2px #07060a; }
-.title-screen .tag { margin: 0; font-size: 24px; color: #d5c6ac; text-shadow: 2px 2px #07060a; }
-.title-screen .title-panel { width: 100%; margin: 0; padding: 10px 14px 14px; background: #121015ed; border-radius: 0; }
+.title-screen .prepare { font-family: var(--font-title); font-size: 30px; letter-spacing: 4px; margin: 16px 0 8px; color: #d65545; text-shadow: 2px 2px #07060a; }
+.title-screen .tag { margin: 0; font-size: 18px; color: #d5c6ac; text-shadow: 2px 2px #07060a; }
+.title-screen .title-panel { width: 100%; min-height: 0; overflow: auto; margin: 0; padding: 10px 14px 14px; background: #121015ed; border-radius: 0; }
 .title-section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
-.title-section-head h2 { font-family: var(--font-title); font-size: 36px; line-height: 1; color: #e8dcc4; letter-spacing: 1px; }
+.title-section-head h2 { font-family: var(--font-title); font-size: 30px; line-height: 1; color: #e8dcc4; letter-spacing: 1px; }
 .title-section-head > span { font-size: 18px; color: #a79b87; }
-.title-screen .slots { display: flex; flex-direction: row; align-items: stretch; gap: 12px; margin: 0; counter-reset: saves; }
-.title-screen .slot-card { position: relative; counter-increment: saves; flex: 1 1 0; min-width: 0; min-height: 144px; padding: 12px 12px 12px 38px; gap: 4px; border-width: 8px; border-image: var(--frame) 4 / 8px repeat; background: #1c1822; background-clip: padding-box; font-family: var(--font-body); font-size: 22px; line-height: 1.1; border-radius: 0; }
-.title-screen .slot-card::before { content: '0' counter(saves); position: absolute; left: 9px; top: 14px; font-size: 20px; color: #9a8660; }
+.title-screen .slots { display: flex; flex-direction: row; align-items: stretch; gap: 8px; margin: 0; counter-reset: saves; }
+.title-screen .slot-card { position: relative; counter-increment: saves; flex: 1 1 0; min-width: 0; min-height: 120px; padding: 8px 8px 8px 32px; gap: 4px; border-width: 8px; border-image: var(--frame) 4 / 8px repeat; background: #1c1822; background-clip: padding-box; font-family: var(--font-body); font-size: 18px; line-height: 1.1; border-radius: 0; }
+.title-screen .slot-card::before { content: '0' counter(saves); position: absolute; left: 9px; top: 14px; font-size: 18px; color: #9a8660; }
 .title-screen .slot-card:hover, .title-screen .slot-card:focus-within { border-image-source: var(--frame-gold); background-color: #241e2a; }
-.title-screen .slot-card .slot-name { font-family: var(--font-title); font-size: 32px; line-height: 1; color: var(--gold); overflow-wrap: anywhere; }
+.title-screen .slot-card .slot-name { font-family: var(--font-title); font-size: 28px; line-height: 1; color: var(--gold); overflow-wrap: anywhere; }
 .title-screen .slot-card .dim { color: #b7aa96; }
-.title-screen .slot-card .small { font-size: 20px; }
+.title-screen .slot-card .small { font-size: 18px; }
 .title-screen .slot-card .grow { min-height: 6px; }
-.title-screen .btn { font-family: var(--font-body); font-size: 22px; padding: 6px 12px; border-radius: 0; }
-.title-screen .slot-card > .btn { width: 100%; min-height: 38px; background: #493314; box-shadow: inset 0 2px #9a763a, inset 0 -3px #251808; color: #ffe4a0; }
+.title-screen .btn { font-family: var(--font-body); font-size: 18px; padding: 4px 10px; border-radius: 0; }
+.title-screen .slot-card > .btn { width: 100%; min-height: 32px; background: #493314; box-shadow: inset 0 2px #9a763a, inset 0 -3px #251808; color: #ffe4a0; }
 .title-screen .slot-card > .btn:hover { background: #66491c; color: #fff4d0; }
 .title-screen .btn:focus-visible, .title-controls summary:focus-visible { outline: 2px solid #ffe08a; outline-offset: 3px; }
 .title-screen input { width: 100%; min-width: 0; font: 22px var(--font-body); border-radius: 0; }
 .title-screen .slot-diff .row { flex-wrap: wrap; }
-.title-controls { margin-top: 14px; padding-top: 10px; border-top: 2px solid #34313a; font: 20px/1.2 var(--font-body); color: #b7aa96; }
+.title-controls { margin-top: 8px; padding-top: 6px; border-top: 2px solid #34313a; font: 20px/1.2 var(--font-body); color: #b7aa96; }
 .title-controls summary { cursor: pointer; color: #d5c6ac; }
-.title-screen .title-controls .help { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 10px 20px; margin: 12px 0; font-size: 20px; }
-.title-controls kbd { font-size: 20px; }
+.title-screen .title-controls .help { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 10px 20px; margin: 12px 0; font-size: 18px; }
+.title-controls kbd { font-size: 18px; }
 .title-footer { display: flex; flex-wrap: wrap; gap: 20px; align-items: center; color: #b7aa96; font: 18px/1.2 var(--font-body); text-shadow: 2px 2px #07060a; }
 .title-scene-label { color: #d0b879; }
 .title-build { margin-left: auto; font-size: 16px; color: #a79b87; }
-.title-screen .account { font-family: var(--font-body); font-size: 22px; }
+.title-screen .account { font-family: var(--font-body); font-size: 18px; }
 @media (max-width: 1000px) and (min-height: 601px) {
-  .title-hero h1 { font-size: 96px; }
+  .title-hero h1 { font-size: 80px; }
   .title-screen .slot-card { padding-left: 30px; padding-right: 8px; }
   .title-screen .slot-card .small { font-size: 18px; }
 }
-@media (max-height: 600px) and (min-width: 561px) {
-  .title-screen { padding: 48px 20px 64px; }
-  .title-layout { grid-template-columns: minmax(220px, .85fr) minmax(340px, 1fr); grid-template-rows: auto auto; gap: 18px 24px; align-content: start; }
+@media (max-height: 600px) and (min-width: 561px) and (max-width: 999px) {
+  .title-screen { padding: 44px 20px max(8px, env(safe-area-inset-bottom)); }
+  .title-layout { grid-template-columns: minmax(220px, .85fr) minmax(340px, 1fr); grid-template-rows: minmax(0, 1fr) auto; gap: 8px 24px; }
   .title-hero { position: sticky; top: 0; }
   .title-eyebrow { font-size: 16px; margin-bottom: 12px; letter-spacing: 1px; }
-  .title-hero h1 { font-size: 72px; }
+  .title-hero h1 { font-size: 60px; }
   .title-screen .prepare { font-size: 28px; margin: 12px 0 6px; letter-spacing: 2px; }
-  .title-screen .tag { font-size: 20px; }
+  .title-screen .tag { font-size: 18px; }
   .title-screen .title-panel { padding: 8px; }
   .title-section-head h2 { font-size: 28px; }
   .title-section-head > span { font-size: 16px; }
   .title-screen .slots { flex-direction: column; gap: 8px; }
-  .title-screen .slot-card { flex: none; min-height: 124px; padding: 8px 10px 8px 34px; }
+  .title-screen .slot-card { flex: none; min-height: 108px; padding: 8px 10px 8px 34px; }
   .title-screen .slot-card .slot-name { font-size: 28px; }
   .title-footer { grid-column: 1 / -1; }
 }
 @media (max-width: 560px) {
-  .title-screen { padding: 52px 14px 70px; }
-  .title-layout { grid-template-rows: auto auto auto; gap: 24px; }
+  .title-screen { padding: 44px 14px max(8px, env(safe-area-inset-bottom)); }
+  .title-layout { grid-template-rows: auto minmax(0, 1fr) auto; gap: 12px; }
   .title-eyebrow { font-size: 18px; margin-bottom: 12px; }
-  .title-hero h1 { font-size: 80px; }
+  .title-hero h1 { font-size: clamp(48px, 10vh, 80px); }
   .title-screen .title-panel { width: 100%; padding: 8px; }
   .title-section-head h2 { font-size: 28px; }
   .title-section-head > span { font-size: 16px; }
@@ -1088,12 +1088,48 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
   .title-section-head h2 { font-size: 26px; }
   .title-screen .slots { gap: 4px; }
   .title-screen .slot-card.compact-empty { border-width: 4px; border-image-width: 4px; display: grid; grid-template-columns: minmax(0, 1fr) auto; min-height: 54px; padding: 2px 8px 2px 30px; gap: 0 10px; }
-  .title-screen .compact-empty .slot-name { grid-column: 1; font-size: 24px; }
+  .title-screen .compact-empty .slot-name { grid-column: 1; font-size: 18px; }
   .title-screen .compact-empty > .dim { grid-column: 1; font-size: 18px; }
   .title-screen .compact-empty > .grow { display: none; }
-  .title-screen .compact-empty > .btn { grid-column: 2; grid-row: 1 / span 2; align-self: center; width: auto; min-width: 76px; min-height: 32px; font-size: 20px; padding: 4px 10px; }
+  .title-screen .compact-empty > .btn { grid-column: 2; grid-row: 1 / span 2; align-self: center; width: auto; min-width: 76px; min-height: 32px; font-size: 18px; padding: 4px 10px; }
   .title-screen .compact-empty::before { top: 8px; font-size: 18px; }
   .title-controls { margin-top: 6px; padding-top: 6px; font-size: 18px; }
   .title-footer { font-size: 14px; gap: 10px; }
   .title-build { font-size: 14px; }
+}
+
+/* Browser chrome reduces usable height even on a large monitor. Keep the
+   desktop cards side by side and shrink the hero before anything can overflow.
+   Expanded controls and save editors scroll inside their panel only. */
+@media (max-height: 760px) and (min-width: 1000px) {
+  .title-screen .prepare { font-size: 28px; margin: 8px 0 4px; }
+  .title-eyebrow { font-size: 16px; margin-bottom: 8px; }
+  .title-screen .tag { font-size: 18px; }
+  .title-screen .slot-card { padding-top: 6px; padding-bottom: 6px; min-height: 120px; }
+  .title-screen .slot-card .slot-name { font-size: 28px; }
+  .title-screen .slot-card .small { font-size: 18px; }
+  .title-controls { margin-top: 6px; padding-top: 6px; }
+}
+@media (max-height: 660px) and (min-width: 1000px) {
+  .title-hero { padding: 0; }
+  .title-hero h1 { font-size: 48px; }
+  .title-eyebrow { font-size: 14px; margin-bottom: 4px; }
+  .title-screen .prepare { font-size: 22px; margin: 4px 0; }
+  .title-screen .tag { font-size: 16px; }
+  .title-screen .title-panel { padding: 6px 10px; }
+  .title-section-head { margin-bottom: 6px; }
+}
+
+@media (max-height: 560px) and (min-width: 1000px) {
+  .title-hero h1 { font-size: 32px; }
+  .title-eyebrow { font-size: 12px; }
+  .title-screen .prepare { font-size: 18px; margin: 2px 0; }
+  .title-screen .tag { font-size: 14px; }
+}
+@media (max-height: 560px) and (min-width: 1000px) {
+  .title-screen .slot-card { gap: 2px; padding-top: 4px; padding-bottom: 4px; }
+  .title-screen .slot-card .grow { min-height: 0; }
+  .title-screen .slot-card .slot-name { font-size: 24px; }
+  .title-screen .btn { font-size: 18px; padding: 3px 8px; }
+  .title-screen .slot-card > .btn { min-height: 28px; }
 }
