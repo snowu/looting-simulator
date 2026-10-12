@@ -103,8 +103,8 @@ export interface RunState {
    */
   conduit?: { charges: number; regrow: number; sel: number };
   /**
-   * Legacy record of the last cast depth, retained for save compatibility.
-   * It no longer limits how often a rite can be cast.
+   * Legacy: the last cast depth, from when a rite answered once per floor.
+   * Nothing writes or reads it now; it stays optional so older saves load.
    */
   riteCastDepth?: number | null;
   /**

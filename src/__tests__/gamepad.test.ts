@@ -190,5 +190,28 @@ describe('gamepad mapping', () => {
     c.getPoll = () => pad();
     c.update(1 / 60);
     expect(calls[calls.length - 1]).toBe('end');
+
+    // With no rite ready (no rite known yet, conduit spent...), X interacts
+    // on the press, as before rites, and a long hold never swallows it.
+    let ready = false;
+    const idle = new GamepadController({ ...ctx, riteAvailable: () => ready });
+    calls.length = 0;
+    idle.getPoll = () => press(pad(), PAD_BUTTONS.x);
+    idle.update(1 / 60);
+    expect(calls).toEqual(['interact']);
+    for (let i = 0; i < 40; i++) idle.update(1 / 60);
+    idle.getPoll = () => pad();
+    idle.update(1 / 60);
+    expect(calls).toEqual(['interact']);
+    // A rite that stops being castable mid-hold leaves a tap: it interacts on release.
+    ready = true;
+    calls.length = 0;
+    idle.getPoll = () => press(pad(), PAD_BUTTONS.x);
+    idle.update(1 / 60);
+    ready = false;
+    for (let i = 0; i < 40; i++) idle.update(1 / 60);
+    idle.getPoll = () => pad();
+    idle.update(1 / 60);
+    expect(calls).toEqual(['interact']);
   });
 });

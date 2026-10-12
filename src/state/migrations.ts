@@ -270,11 +270,9 @@ const MIGRATIONS: ((s: AnyState) => void)[] = [
     s.loadedSpells ??= [...STARTER_CONDUIT_SPELLS];
     if (s.recipeRanks) s.recipeRanks.r_wand ??= 1;
   },
-  // 30 → 31: rites. Nobody knows one yet — they are learned at carvings —
-  // and no floor has heard one cast.
+  // 30 → 31: rites. Nobody knows one yet — they are learned at carvings.
   (s) => {
     s.ritesKnown ??= [];
-    if (s.run) s.run.riteCastDepth ??= null;
   },
 ];
 

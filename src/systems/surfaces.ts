@@ -106,7 +106,7 @@ export function placeSurfaces(f: Floor, runSeed: number): void {
 }
 
 /** Walkable tiles reachable from the stair up: the check that a barrel cut nothing off. */
-function reachable(f: Floor): number {
+export function reachable(f: Floor): number {
   const up = f.stairs.find((s) => !s.down) ?? f.stairs[0];
   if (!up) return 0;
   const start = stairsFront(up);
@@ -294,3 +294,28 @@ export function tickSurfaces(f: Floor, dt: number): SurfaceTick {
   if (gone) f.surfaces = list.filter((s) => !((s.kind === 'fire' || (s.kind === 'ice' && s.flood)) && (s.t ?? 0) <= 0));
   return result;
 }
+
+/**
+ * Whether making (x, y) solid leaves the open tiles around it connected to
+ * each other through that 3×3 patch: a blocking prop there splits nothing,
+ * even in a room the stair flood fill cannot see (a vault, a secret room).
+ */
+export function splitsNothing(f: Floor, x: number, y: number): boolean {
+  const open = (tx: number, ty: number) => !(tx === x && ty === y) && (!blocksMove(f, tx, ty) || !!doorAt(f, tx, ty));
+  const cells: [number, number][] = [];
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if ((dx || dy) && open(x + dx, y + dy)) cells.push([x + dx, y + dy]);
+  if (cells.length <= 1) return true;
+  const key = (c: [number, number]) => `${c[0]},${c[1]}`;
+  const inRing = new Set(cells.map(key));
+  const seen = new Set([key(cells[0])]);
+  const q = [cells[0]];
+  for (let h = 0; h < q.length; h++) {
+    const [cx, cy] = q[h];
+    for (const d of DIRS) {
+      const n: [number, number] = [cx + DX[d], cy + DY[d]];
+      if (inRing.has(key(n)) && !seen.has(key(n))) { seen.add(key(n)); q.push(n); }
+    }
+  }
+  return seen.size === cells.length;
+}
+

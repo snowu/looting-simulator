@@ -10,7 +10,8 @@ import { SAVE_REVISION } from '../state/migrations';
 import { makeEquipment } from '../systems/items';
 import { derivePlayer } from '../systems/player';
 import { startRun } from '../systems/run';
-import { createEnemy, FLOOR, inRoom } from '../systems/dungeon';
+import { createEnemy, doorAt, FLOOR, inRoom, stairsFront } from '../systems/dungeon';
+import { reachable, splitsNothing } from '../systems/surfaces';
 import { enemyDef } from '../data/enemies';
 import { RITE_CHARGE_COST, World } from '../world/world';
 import { beginLabRite, spawnLabCarving } from '../dev/lab-room';
@@ -50,7 +51,8 @@ describe('the rite registry', () => {
   });
 });
 
-describe('the recogniser', () => {  it('grades a clean trace full, wherever and however large it is drawn', () => {
+describe('the recogniser', () => {
+  it('grades a clean trace full, wherever and however large it is drawn', () => {
     expect(gradeRite(alongTemplate(), TEMPLATE)).toBe('full');
     const moved = alongTemplate().map((p) => ({ x: p.x * 0.3 + 0.6, y: p.y * 0.3 + 0.1 }));
     expect(gradeRite(moved, TEMPLATE)).toBe('full');
@@ -84,6 +86,19 @@ describe('the recogniser', () => {  it('grades a clean trace full, wherever and 
     expect(gradeRite(tilted, TEMPLATE)).toBe('full');
     const swipe = Array.from({length:40},(_,i)=>({x:i/39,y:i/39}));
     expect(gradeRite(swipe, TEMPLATE)).toBe('botch');
+  });
+
+  it('botches other marks: upside down, sideways, a line, a circle', () => {
+    const along = (pts: [number, number][]) => {
+      const out: TracePoint[] = [];
+      for (let i = 0; i < pts.length - 1; i++) for (let k = 0; k < 30; k++) out.push({ x: pts[i][0] + (pts[i + 1][0] - pts[i][0]) * k / 30, y: pts[i][1] + (pts[i + 1][1] - pts[i][1]) * k / 30 });
+      out.push({ x: pts[pts.length - 1][0], y: pts[pts.length - 1][1] });
+      return out;
+    };
+    const ring = Array.from({ length: 40 }, (_, i) => [0.5 + 0.35 * Math.cos(i / 39 * 2 * Math.PI), 0.5 + 0.35 * Math.sin(i / 39 * 2 * Math.PI)] as [number, number]);
+    for (const wrong of [TEMPLATE.map(([x, y]) => [x, 1 - y] as [number, number]), TEMPLATE.map(([x, y]) => [y, x] as [number, number]), [[0.1, 0.1], [0.9, 0.9]] as [number, number][], ring]) {
+      expect(gradeRite(along(wrong), TEMPLATE)).toBe('botch');
+    }
   });
 
   it('a tap is never a trace', () => {
@@ -140,7 +155,7 @@ function trace(w: World, points: TracePoint[]): boolean {
 }
 
 describe('rites in an old save', () => {
-  it('migrates forward: nothing known, no floor has heard one', () => {
+  it('migrates forward: nothing known yet', () => {
     const state = newGame(createRng(94)) as any;
     startRun(state, 94);
     state.revision = 30;
@@ -150,7 +165,6 @@ describe('rites in an old save', () => {
     expect(loaded.version).toBe(SAVE_VERSION);
     expect(loaded.revision).toBe(SAVE_REVISION);
     expect(loaded.ritesKnown).toEqual([]);
-    expect(loaded.run!.riteCastDepth).toBeNull();
   });
 });
 
@@ -174,6 +188,28 @@ describe("Meteor's carving", () => {
     w.interact();
     expect(w.state.ritesKnown).toContain('meteor');
     expect(carving!.used).toBe(true);
+  });
+
+  it('never blocks a doorway or a stair landing, and cuts nothing off', () => {
+    let placed = 0;
+    for (let seed = 1; seed <= 30; seed++) {
+      const state = newGame(createRng(seed));
+      startRun(state, seed);
+      const w = new World(state);
+      w.changeFloorForTest('down');
+      w.changeFloorForTest('down');
+      const f = w.floor, c = f.props.find((p) => p.kind === 'carving');
+      if (!c) continue;
+      expect(doorAt(f, c.x, c.y)).toBeFalsy();
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) expect(doorAt(f, c.x + dx, c.y + dy)).toBeFalsy();
+      for (const s of f.stairs) expect(stairsFront(s)).not.toEqual({ x: c.x, y: c.y });
+      expect(splitsNothing(f, c.x, c.y)).toBe(true);
+      const withSlab = reachable(f);
+      f.props = f.props.filter((p) => p !== c);
+      expect(withSlab).toBeGreaterThanOrEqual(reachable(f) - 1);
+      placed++;
+    }
+    expect(placed).toBeGreaterThanOrEqual(25); // the rules leave room for it on (nearly) every floor
   });
 
   it('is not placed twice, nor for a rite already learned', () => {
@@ -204,6 +240,27 @@ describe('casting Meteor', () => {
     expect(w.endRiteDraw()).toBe(false);
   });
 
+  it('opens mid-stride: the step finishes in the slowed world', () => {
+    const w = ritualist();
+    w.anim.moveT = 0.3;
+    expect(w.moving).toBe(true);
+    expect(w.riteAvailable('meteor')).toBe(true);
+    expect(trace(w, alongTemplate())).toBe(true);
+  });
+
+  it('casts nothing once the run has ended mid-trace, and never lifts the dead', () => {
+    const w = ritualist();
+    const charges = w.run.conduit!.charges;
+    expect(w.beginRiteDraw('meteor')).toBe(true);
+    for (const p of [{ x: 0.5, y: 0.5 }, { x: 0.52, y: 0.5 }, { x: 0.9, y: 0.9 }]) w.addRitePoint(p.x, p.y); // a botch
+    w.player.hp = 0;
+    w.run.outcome = 'dead';
+    expect(w.endRiteDraw()).toBe(false);
+    expect(w.player.hp).toBe(0);
+    expect(w.run.conduit!.charges).toBe(charges);
+    expect(w.drainEvents().some((e) => e.type === 'rite')).toBe(false);
+  });
+
   it('a clean trace spends two charges and brings the sky down on the room', () => {
     const w = ritualist();
     const room = playerRoom(w);
@@ -220,7 +277,6 @@ describe('casting Meteor', () => {
     expect(e2.hp).toBeLessThan(400);
     expect(e1.burn).toBeDefined();
     expect(w.run.conduit!.charges).toBe(charges - RITE_CHARGE_COST);
-    expect(w.run.riteCastDepth).toBe(w.run.depth);
     expect(w.anim.weave?.element).toBe('fire');
     expect(w.drainEvents().find(e => e.type === 'rite')).toMatchObject({ grade: 'full' });
   });
@@ -238,6 +294,17 @@ describe('casting Meteor', () => {
     expect(w.player.stamina).toBe(stamina);
     expect(w.run.riteCastDepth ?? null).toBeNull();
     expect(w.drainEvents().some(e => e.type === 'rite')).toBe(false);
+  });
+
+  it('thins a very long stroke in place, so the same stroke stays the same array', () => {
+    const w = ritualist();
+    expect(w.beginRiteDraw('meteor')).toBe(true);
+    const stroke = w.riteDraw!.points;
+    for (let i = 0; i < 1500; i++) w.addRitePoint((i % 100) / 100, Math.floor(i / 100) / 15);
+    expect(w.riteDraw!.points).toBe(stroke);
+    expect(stroke.length).toBeLessThan(1024);
+    expect(stroke[stroke.length - 1]).toEqual({ x: 0.99, y: 14 / 15 });
+    w.cancelRiteDraw();
   });
 
   it('keeps the end of a slowly drawn, densely sampled mark', () => {
@@ -331,7 +398,6 @@ describe('rite testing in the scratch lab', () => {
     expect(beginLabRite(w)).toBe(true);
     expect(w.state.equipment.offhand).toBe(wand);
     expect(w.run.conduit!.charges).toBeGreaterThan(0);
-    expect(w.run.riteCastDepth).toBe(w.run.depth);
     for (const p of alongTemplate()) w.addRitePoint(p.x, p.y);
     expect(w.endRiteDraw()).toBe(true);
   });

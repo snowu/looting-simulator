@@ -255,7 +255,8 @@ riteFireLayer.append(riteFireCanvas);
 riteFireLayer.hidden = true;
 app.append(riteFireLayer);
 function renderRiteFire(dt: number): void {
-  riteFire.update(dt, ritePointer !== null);
+  // Real time, clamped: a stalled or backgrounded tab must not fast-forward the fire.
+  riteFire.update(Math.min(dt, 0.1), ritePointer !== null);
   riteFireLayer.hidden = !riteFire.visible;
   if (!riteFire.visible) return;
   riteFireImage.data.set(riteFire.pixels);
@@ -293,24 +294,44 @@ riteSurface.addEventListener('pointercancel', () => {
   ritePointer = null;
   retryRite();
 });
+/** Let go of the tablet pointer, if it holds one. */
+function releaseRitePointer(): void {
+  if (ritePointer !== null && riteSurface.hasPointerCapture(ritePointer)) riteSurface.releasePointerCapture(ritePointer);
+  ritePointer = null;
+}
+/** Drop an open trace unpaid and put the tablet and its fire away: menus, pauses, lost focus. */
+function closeRiteSurface(): void {
+  world?.cancelRiteDraw();
+  riteSvg.hidden = true;
+  riteFire.reset();
+  riteFireLayer.hidden = true;
+  releaseRitePointer();
+  riteFirePlaced = false;
+}
+/** Whether the fire canvas sits on the open tablet: measured once per opening, not every frame. */
+let riteFirePlaced = false;
+window.addEventListener('resize', () => { riteFirePlaced = false; });
 function drawRiteTrace(w: World): void {
   const draw = w.riteDraw;
   riteSvg.hidden = !draw;
   if (!draw) {
     if (!riteFire.finishing) riteFire.reset();
-    if (ritePointer !== null && riteSurface.hasPointerCapture(ritePointer)) riteSurface.releasePointerCapture(ritePointer);
-    ritePointer = null;
+    releaseRitePointer();
+    riteFirePlaced = false;
     return;
   }
   const def = findRite(draw.rite);
   if (!def) return;
   riteTitle.textContent = def.name;
-  riteHint.textContent = 'Draw the bolt in one stroke. Release X or choose Cast.';
+  riteHint.textContent = 'Draw the mark in one stroke. Release X or choose Cast.';
   riteGuide.setAttribute('points', def.template.map(([x, y]) => `${x * 100},${y * 100}`).join(' '));
   riteFire.trace(draw.points);
-  const r = riteSurface.getBoundingClientRect(), parent = app.getBoundingClientRect();
-  // Place the transparent canvas on the same square; it stays here when the panel closes.
-  Object.assign(riteFireCanvas.style, { left: `${r.left - parent.left + 1}px`, top: `${r.top - parent.top + 1}px`, width: `${r.width - 2}px`, height: `${r.height - 2}px` });
+  if (!riteFirePlaced) {
+    const r = riteSurface.getBoundingClientRect(), parent = app.getBoundingClientRect();
+    // Place the transparent canvas on the same square; it stays here when the panel closes.
+    Object.assign(riteFireCanvas.style, { left: `${r.left - parent.left + 1}px`, top: `${r.top - parent.top + 1}px`, width: `${r.width - 2}px`, height: `${r.height - 2}px` });
+    riteFirePlaced = r.width > 0;
+  }
   const tail = draw.points.at(-1);
   if (draw.points !== riteGradedPoints || tail !== riteGradedTail) {
     riteGrade = gradeRite(draw.points, def.template);
@@ -318,7 +339,7 @@ function drawRiteTrace(w: World): void {
     riteGradedTail = tail;
   }
   const grade = riteGrade;
-  riteStatus.textContent = draw.points.length < 2 ? 'Start at either tip of the bolt · Cancel costs nothing' :
+  riteStatus.textContent = draw.points.length < 2 ? 'Start at either tip of the mark · Cancel costs nothing' :
     grade === 'full' ? 'The mark holds · Full power' : grade === 'weak' ? 'The mark flickers · Half power' : 'The mark is broken · Retry or risk the backlash';
   riteStatus.dataset.grade = draw.points.length < 2 ? '' : grade;
 }
@@ -677,12 +698,7 @@ function show(m: Mode): void {
   // Menus need the cursor back and cannot carry a ritual surface with them.
   if (m !== 'dungeon') {
     pointerLock.release();
-    world?.cancelRiteDraw();
-    riteSvg.hidden = true;
-    riteFire.reset();
-    riteFireLayer.hidden = true;
-    if (ritePointer !== null && riteSurface.hasPointerCapture(ritePointer)) riteSurface.releasePointerCapture(ritePointer);
-    ritePointer = null;
+    closeRiteSurface();
   }
   if (m === 'title') {
     titleDirty = true;
@@ -1241,10 +1257,7 @@ function frame(now: number): void {
     // An open overlay needs the cursor back; a touch device never took it.
     if (paused || touchMode || world.riteDraw) pointerLock.release();
     // A trace open into a menu is dropped unpaid, never cast.
-    if (paused) {
-      world.cancelRiteDraw();
-      riteFire.reset();
-    }
+    if (paused) closeRiteSurface();
     drawRiteTrace(world);
     touch.visible = touchMode && !paused && !ending;
     if (touchMode) {
@@ -1450,9 +1463,7 @@ window.addEventListener('mouseup', (e) => {
 });
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 window.addEventListener('blur', () => {
-  world?.cancelRiteDraw();
-  riteFire.reset();
-  riteFireLayer.hidden = true;
+  closeRiteSurface();
   clearTouchHolds();
   pointerLock.release();
   world?.held.clear();

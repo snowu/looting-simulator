@@ -16,7 +16,7 @@ import {
 import { AttackMove, COMBO_BEAT, FEINT_AT, FEINT_HOLD, chooseMove, meleeReach, moveById } from '../data/attacks';
 import { quirkDef, quirkTimeScale } from '../data/quirks';
 import { applyQuirk } from '../systems/quirks';
-import { burningAt, chill, freezeFlood, ignite, oilBarrelAt, placeSurfaces, spillOil, surfaceAt, surfaceKindAt, tickSurfaces } from '../systems/surfaces';
+import { burningAt, chill, freezeFlood, ignite, oilBarrelAt, placeSurfaces, reachable, spillOil, splitsNothing, surfaceAt, surfaceKindAt, tickSurfaces } from '../systems/surfaces';
 import {
   BURST_TICKS, FIRE_MONSTER_BASE, FIRE_MONSTER_PER_DEPTH, FIRE_PLAYER_BASE, FIRE_PLAYER_PER_DEPTH, FIRE_TICK, FLOOD_REACH,
   FREEZE_SECONDS, PLAYER_FREEZE_SECONDS, PLAYER_SLIP_SECONDS, SLIP_SECONDS, SPORE_BLIND, SPORE_BURST_TICKS, Surface,
@@ -1512,6 +1512,7 @@ export class World {
 
   private finish(outcome: 'dead' | 'extracted'): void {
     if (this.run.outcome !== 'active') return;
+    this.riteDraw = null; // an open trace ends with the run, unpaid
     this.run.outcome = outcome;
     this.emit({ type: 'end', outcome });
   }
@@ -1890,6 +1891,8 @@ export class World {
         this.msg(`Meteor needs ${RITE_CHARGE_COST} conduit charges. They recover between casts.`, '#9a8fd8');
       } else if (this.player.stamina < RITE_STAMINA) {
         this.msg(`Not enough breath for a rite — ${RITE_STAMINA} needed.`, '#ff9070');
+      } else if (!this.riteDraw) {
+        this.msg('Your hands are busy — the rite waits for them.', '#888');
       }
       return false;
     }
@@ -1900,7 +1903,9 @@ export class World {
   riteAvailable(id: string): boolean {
     if (!findRite(id)) return false;
     if (!(this.state.ritesKnown ?? []).includes(id)) return false;
-    if (this.riteDraw || this.busy || this.moving || this.anim.attack !== 'idle' || this.anim.cast || this.anim.stunT > 0) return false;
+    // Mid-stride is fine: the step finishes in the slowed world, and no new
+    // one starts until the release (see beginRiteDraw).
+    if (this.riteDraw || this.busy || this.anim.attack !== 'idle' || this.anim.cast || this.anim.stunT > 0) return false;
     const pool = this.run.conduit;
     if (!this.derived.conduit || !pool || pool.charges < RITE_CHARGE_COST) return false;
     if (this.player.stamina < RITE_STAMINA) return false;
@@ -1926,9 +1931,14 @@ export class World {
   addRitePoint(x: number, y: number): void {
     const draw = this.riteDraw;
     if (!draw || !Number.isFinite(x) || !Number.isFinite(y)) return;
-    // Thin long strokes instead of silently cutting off their final legs.
-    if (draw.points.length >= 1024) {
-      draw.points = draw.points.filter((_, i) => i % 2 === 0 || i === draw.points.length - 1);
+    // Thin long strokes instead of silently cutting off their final legs. In
+    // place: the trace's fire knows a stroke by its array, and a new array
+    // would read as a new stroke and wipe it mid-draw.
+    const pts = draw.points;
+    if (pts.length >= 1024) {
+      let keep = 0;
+      for (let i = 0; i < pts.length; i++) if (i % 2 === 0 || i === pts.length - 1) pts[keep++] = pts[i];
+      pts.length = keep;
     }
     const last = draw.points[draw.points.length - 1];
     if (last && Math.hypot(x - last.x, y - last.y) < 0.004) return;
@@ -1948,6 +1958,9 @@ export class World {
     const draw = this.riteDraw;
     this.riteDraw = null;
     if (!draw || draw.points.length === 0) return false;
+    // A run that ended mid-trace (killed while the world was slowed) casts
+    // nothing: the trace is dropped unpaid, and a botch cannot lift the dead.
+    if (this.run.outcome !== 'active' || this.player.hp <= 0) return false;
     const def = findRite(draw.rite);
     if (!def) return false;
     const pool = this.run.conduit;
@@ -1957,7 +1970,6 @@ export class World {
     const charges = RITE_CHARGE_COST;
     pool.charges -= charges;
     pool.regrow = 0;
-    this.run.riteCastDepth = this.run.depth;
     const grade: RiteGrade = gradeRite(draw.points, def.template);
     this.events.push({ type: 'rite', grade, points: draw.points.map(p => ({ ...p })) });
     if (grade === 'botch') {
@@ -2004,11 +2016,13 @@ export class World {
 
   private landMeteor(fx: SpellFx): void {
     const pending = fx.meteor;
-    if (pending && this.protectedByFog(pending.target)) { delete fx.meteor; return; }
+    delete fx.meteor;
+    // Nothing lands across the living throne boundary, not even the fire on
+    // the tile: the one guard for target and tile alike.
+    if (pending && this.protectedByFog(pending.target)) return;
     // Impacts use the same elemental reaction path as bolts and burning feet.
     this.elementReaches(fx.x, fx.y, 'fire');
-    delete fx.meteor;
-    if (!pending || pending.target.ai === 'dead' || this.protectedByFog(pending.target)) return;
+    if (!pending || pending.target.ai === 'dead') return;
     const { target: e, damage, crit } = pending;
     this.hurt(e, damage, crit ? `${damage}!` : `${damage}`, crit ? '#ffe040' : '#ff9a50');
     e.alert = 8;
@@ -3371,12 +3385,6 @@ export class World {
   }
 
   /**
-   * Hunter: a freshly generated floor on one of the hunt's depths gets its
-   * mark. One of the three toughest monsters far from the stairs is chosen on
-   * the run's own stream, promoted to an elite if it is not one, and marked. Placed when the
-   * floor is first generated, so a floor is only ever marked once.
-   */
-  /**
    * A rite carving, laid after generation like surfaces and quirks, so the
    * generated floor underneath never moves: no golden hash changes. The
    * slice holds one rite, and its carving waits on depth 3 — in the vault,
@@ -3391,21 +3399,30 @@ export class World {
     const vault = f.rooms.find((r) => r.role === 'vault');
     const secret = f.rooms.find((r) => r.role === 'secret');
     const normals = f.rooms.filter((r) => r.role === 'normal');
+    // The slab blocks its tile, so it follows the barrel rules: never in or
+    // beside a doorway, on a stair's landing, a trap or a pool, and never
+    // where it would cut anything off.
+    const landings = new Set(f.stairs.map((s) => { const p = stairsFront(s); return p.y * f.width + p.x; }));
+    const before = reachable(f);
     for (const room of [...(vault ? [vault] : []), ...(secret ? [secret] : []), ...normals]) {
       const free: { x: number; y: number }[] = [];
       for (let y = room.y; y < room.y + room.h; y++) {
         for (let x = room.x; x < room.x + room.w; x++) {
           if (tileAt(f, x, y) !== FLOOR || propAt(f, x, y) || stairsAt(f, x, y) || enemyAt(f, x, y)) continue;
+          if (doorAt(f, x, y) || DIRS.some((d) => doorAt(f, x + DX[d], y + DY[d])) || landings.has(y * f.width + x)) continue;
+          if (trapAt(f, x, y) || surfaceAt(f, x, y) || !splitsNothing(f, x, y)) continue;
           free.push({ x, y });
         }
       }
-      if (!free.length) continue;
-      const t = rng.pick(free);
-      f.props.push({
-        id: `carving_${f.depth}`, kind: 'carving', x: t.x, y: t.y,
-        used: false, tier: 'none', blocking: true, mimic: false, rite: 'meteor',
-      });
-      return;
+      for (const t of rng.shuffle(free)) {
+        const slab: Prop = {
+          id: `carving_${f.depth}`, kind: 'carving', x: t.x, y: t.y,
+          used: false, tier: 'none', blocking: true, mimic: false, rite: 'meteor',
+        };
+        f.props.push(slab);
+        if (reachable(f) >= before - 1) return;
+        f.props.pop();
+      }
     }
   }
 
@@ -3425,6 +3442,12 @@ export class World {
     this.msg(`You study the carving: ${def.name}. Hold X and trace its mark to cast it — two charges each time, with no floor limit.`, '#c8a0ff');
   }
 
+  /**
+   * Hunter: a freshly generated floor on one of the hunt's depths gets its
+   * mark. One of the three toughest monsters far from the stairs is chosen on
+   * the run's own stream, promoted to an elite if it is not one, and marked. Placed when the
+   * floor is first generated, so a floor is only ever marked once.
+   */
   private placeHunterMark(f: Floor): void {
     const oath = runOath(this.run, 'hunter');
     if (!oath || !HUNTER_DEPTHS.includes(f.depth) || (oath.placed ?? []).includes(f.depth)) return;
@@ -3446,7 +3469,8 @@ export class World {
     (oath.placed ??= []).push(f.depth);
   }
 
-  /** Burrows: how far a noise of radius `r` actually carries on this floor. */  private noise(r: number): number {
+  /** Burrows: how far a noise of radius `r` actually carries on this floor. */
+  private noise(r: number): number {
     const burrows = biomeForFloor(this.floor).law === 'noise' ? BURROWS_NOISE_MULT : 1;
     const silence = runOath(this.run, 'silence') ? SILENCE_NOISE : 1;
     return Math.round(r * burrows * silence);
@@ -4142,7 +4166,8 @@ export class World {
       }
       if (p.kind === 'shrine') {
         p.used = true;
-        this.pray(p);        // A refused prayer (too poor, too hurt) puts the shrine back unused.
+        this.pray(p);
+        // A refused prayer (too poor, too hurt) puts the shrine back unused.
         const pilgrim = runOath(this.run, 'pilgrim');
         if (p.used && pilgrim) {
           pilgrim.prayers = (pilgrim.prayers ?? 0) + 1;

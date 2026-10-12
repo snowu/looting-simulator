@@ -1297,7 +1297,8 @@ const CARVING = stamp(rows(`
   ................................
 `), traceRows(RITES[0].template, 8, 10, 'y'), 11, 8);
 
-export const PROPS: ArtDef[] = [  { id: 'chest', palette: CHEST_PAL, rows: CHEST },
+export const PROPS: ArtDef[] = [
+  { id: 'chest', palette: CHEST_PAL, rows: CHEST },
   { id: 'chest_mimic', palette: CHEST_PAL, rows: CHEST_MIMIC },
   { id: 'chest_mimic_in', palette: CHEST_PAL, rows: CHEST_MIMIC_IN },
   { id: 'chest_open', palette: CHEST_PAL, rows: CHEST_OPEN },

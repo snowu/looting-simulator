@@ -356,29 +356,31 @@ export class GamepadController {
   }
 
   /**
-   * X: a tap interacts on release, and a hold past RITE_HOLD opens a rite
-   * trace instead, drawn with the right stick until the button comes up.
-   * While tracing the stick draws rather than turns.
+   * X: with no rite to cast it interacts at once, on the press, as it always
+   * has. With one ready, a tap interacts on release and a hold past RITE_HOLD
+   * opens a rite trace instead, drawn with the right stick until the button
+   * comes up; a hold that cannot become a trace still interacts on release.
+   * While tracing the stick draws rather than turns. (riteHeld -1: this
+   * press already interacted, wait for the release.)
    */
   private riteButton(dt: number, raw: RawPad, ctx: PadContext): void {
     const down = btn(raw, PAD_BUTTONS.x);
     if (down) {
       if (this.riteHeld === null) {
-        this.riteHeld = 0;
         this.riteTracing = false;
-      } else {
-        this.riteHeld += dt;
-      }
-      if (!this.riteTracing && this.riteHeld >= RITE_HOLD) {
-        if (ctx.riteAvailable()) {
-          this.riteTracing = true;
-          const [x, y] = RITES[0].template[0];
-          this.riteCursor = { x, y };
-          ctx.beginRite();
-        } else {
-          // Nothing to trace: this hold stays an (unfired) tap, not a retry loop.
+        if (ctx.riteAvailable()) this.riteHeld = 0;
+        else {
+          ctx.interact();
           this.riteHeld = -1;
         }
+      } else if (this.riteHeld >= 0) {
+        this.riteHeld += dt;
+      }
+      if (!this.riteTracing && this.riteHeld >= RITE_HOLD && ctx.riteAvailable()) {
+        this.riteTracing = true;
+        const [x, y] = RITES[0].template[0];
+        this.riteCursor = { x, y };
+        ctx.beginRite();
       }
       if (this.riteTracing) {
         const ax = (i: number) => raw.axes[i] ?? 0;
