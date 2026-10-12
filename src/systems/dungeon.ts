@@ -88,7 +88,7 @@ export interface Torch {
   side: Dir;
 }
 
-export type PropKind = 'icicle' | 'root_cache' | 'chest' | 'urn' | 'barrel' | 'bones' | 'shrine' | 'fungus' | 'portal' | 'town_portal';
+export type PropKind = 'icicle' | 'root_cache' | 'chest' | 'urn' | 'barrel' | 'bones' | 'shrine' | 'fungus' | 'portal' | 'town_portal' | 'carving';
 
 export interface Prop {
   id: string;
@@ -121,6 +121,8 @@ export interface Prop {
   smashed?: boolean;
   /** A barrel of lamp oil (`src/data/surfaces.ts`): spills when broken, bursts in fire. Absent means an ordinary vessel. */
   oil?: boolean;
+  /** Which rite a carving teaches (`src/data/rites.ts`). Only meaningful on `kind: 'carving'`. */
+  rite?: string;
 }
 
 /**

@@ -18,7 +18,7 @@ import { SHADE_ID } from '../systems/grave';
 import type { EnemyDef } from '../types';
 import { itemIcon } from '../systems/items';
 import { lightIntensity } from '../systems/meta';
-import { SPELL_FX_SECONDS, World } from '../world/world';
+import { METEOR_FALL_SECONDS, SPELL_FX_SECONDS, World } from '../world/world';
 import { artRaster, artSize, artTexture, rasterTexture } from './art-cache';
 import { HeldIcon, composeShade, shadeFrame, shadeKey } from './shade';
 import { EnemyFrame, enemyPose } from './enemy-pose';
@@ -585,8 +585,8 @@ export class DungeonRenderer {
     this.called = called;
     for (const fx of world.spellFx) {
       const k = 1 - clamp(fx.t / SPELL_FX_SECONDS[fx.kind], 0, 1);
-      const glow = fx.kind === 'smite' ? '#fff0b0' : fx.kind === 'blast' ? '#ff8030' : fx.kind === 'spores' ? '#a8d878' : '#b080ff';
-      if (!fx.miss) lights.push({ x: tileX(fx.x), y: 1.2, z: tileZ(fx.y), r: 4.5, color: cachedColor(glow), intensity: (fx.kind === 'spores' ? 0.6 : 1.6) * k });
+      const glow = fx.kind === 'smite' ? '#fff0b0' : (fx.kind === 'blast' || fx.kind === 'meteor') ? '#ff8030' : fx.kind === 'spores' ? '#a8d878' : '#b080ff';
+      if (!fx.miss) lights.push({ x: tileX(fx.x), y: fx.kind === 'meteor' ? 0.5 + WALL_H * (1 - clamp(fx.t / METEOR_FALL_SECONDS, 0, 1)) : 1.2, z: tileZ(fx.y), r: fx.kind === 'meteor' ? 6 : 4.5, color: cachedColor(glow), intensity: (fx.kind === 'meteor' ? 3.2 : fx.kind === 'spores' ? 0.6 : 1.6) * k });
     }
     for (const en of floor.enemies) {
       const def = enemyDef(en.def);
@@ -789,6 +789,9 @@ export class DungeonRenderer {
           this.place(s, `shrine_${kind}${pr.used ? '_used' : ''}`, wx, 0, wz, 1.9);
           break;
         }
+        case 'carving':
+          this.place(s, pr.used ? 'carving_used' : 'carving', wx, 0, wz, 1.9);
+          break;
         case 'fungus':
           this.place(s, 'fungus', wx + ((pr.x * 7) % 5) * 0.12 - 0.25, 0, wz + ((pr.y * 3) % 5) * 0.12 - 0.25, 0.7);
           break;
@@ -918,6 +921,24 @@ export class DungeonRenderer {
       if (len > 0.01) {
         wx += (tx / len) * TILE * 0.35;
         wz += (tz / len) * TILE * 0.35;
+      }
+      if (fx.kind === 'meteor') {
+        const force = fx.weak ? 0.75 : 1;
+        if (fx.t < METEOR_FALL_SECONDS) {
+          const fall = clamp(fx.t / METEOR_FALL_SECONDS, 0, 1);
+          // Flip the bolt so its white-hot head leads down and its tail trails up.
+          this.place(s, Math.floor(fx.t * 24) % 2 ? 'proj_fireball_b' : 'proj_fireball', wx, WALL_H * (1 - fall * fall), wz, 1.8 * force);
+          s.mesh.rotation.z = Math.PI;
+          s.mesh.scale.x *= 0.65;
+        } else {
+          const impact = clamp((fx.t - METEOR_FALL_SECONDS) / (SPELL_FX_SECONDS.meteor - METEOR_FALL_SECONDS), 0, 1);
+          const bloom = (0.9 + 1.8 * Math.sin(Math.PI * impact)) * force;
+          this.place(s, impact < 0.5 ? 'fx_blast' : 'fx_blast_b', wx, 0.05, wz, bloom);
+          const scorch = this.sprite(`meteor:ground:${fx.id}`);
+          this.placeFlat(scorch, 'fx_blast_b', tileX(fx.x), tileZ(fx.y), (0.8 + impact * 2.8) * force);
+          scorch.mat.uniforms.uTint.value.set(0.7, 0.12, 0, impact * 0.7);
+        }
+        continue;
       }
       // Sprites are alpha-tested, not blended, so a mark cannot fade: the
       // streak narrows to a thread instead, and the smoke swells then shrinks.

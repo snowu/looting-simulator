@@ -1,5 +1,6 @@
 import { ArtDef } from './raster';
-import { rows, stamp, sym } from './helpers';
+import { RITES } from '../data/rites';
+import { rows, stamp, sym, traceRows } from './helpers';
 
 // 16×16 item icons. Ramp chars 1-4 are re-coloured per material at draw time;
 // the defaults below are plain iron.
@@ -1305,6 +1306,8 @@ export const ICONS: ArtDef[] = [
     ................
     ................
   `), { m: '#24123a', n: '#4a2a70', u: '#c8a8ff', v: '#f0e0ff', g: '#d0a040', p: '#e8dcc0', q: '#b8a078' }),
+  // The same falling bolt as the drawing guide, burning on dark stone.
+  sigilIcon('ic_rite_meteor', traceRows(RITES[0].template, 8, 8), '#ff8a30', '#3a1c12', '#6e3a24'),
   // A bound field journal: the codex page a kill can leave behind.
   icon('ic_lore', rows(`
     ................

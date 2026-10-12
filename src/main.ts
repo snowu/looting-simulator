@@ -8,8 +8,11 @@ import { startRun, endRun, bankCarriedGold } from './systems/run';
 import { biomeForFloor } from './data/biomes';
 import { itemBase } from './data/items';
 import { quirkDef } from './data/quirks';
+import { findRite } from './data/rites';
+import { gradeRite, type RiteGrade, type TracePoint } from './systems/rite-draw';
 import { World, WorldEvent } from './world/world';
 import { DungeonRenderer } from './render/dungeon-renderer';
+import { RiteFire } from './render/rite-fire';
 import { createTitleDungeon } from './render/title-dungeon';
 import { artUrl, loadArtOverrides } from './render/art-cache';
 import { registerOfflineCache } from './pwa/register';
@@ -157,6 +160,11 @@ const touch = new TouchControls(app, {
   sigil: () => world?.castSigil(),
   spell: () => world?.castSpell(),
   nextSpell: () => world?.nextSpell(),
+  rite: () => {
+    if (!world) return;
+    if (world.riteDraw) world.endRiteDraw();
+    else world.beginRiteDraw('meteor');
+  },
   tap: () => {
     if (!world) return;
     if (world.contextAction().kind === 'interact') world.interact();
@@ -207,6 +215,134 @@ window.addEventListener('touchstart', () => {
   touch.visible = mode === 'dungeon';
 }, { passive: true });
 const toastLayer = h('div', { class: 'layer', style: 'pointer-events:none' });
+// The drawing surface stays square on every screen; its coordinates also serve the stick.
+const riteSvg = h('div', { class: 'layer rite-layer' });
+const ritePanel = h('div', { class: 'rite-panel' });
+const riteTitle = h('strong', { class: 'rite-title' });
+const riteHint = h('div', { class: 'rite-hint' });
+const riteStatus = h('div', { class: 'rite-status' });
+riteStatus.setAttribute('role', 'status');
+const riteSurface = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+riteSurface.setAttribute('viewBox', '0 0 100 100');
+riteSurface.setAttribute('class', 'rite-svg');
+riteSurface.setAttribute('aria-label', 'Draw the rite mark');
+const riteGuide = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+riteGuide.setAttribute('class', 'rite-guide');
+riteSurface.append(riteGuide);
+let ritePointer: number | null = null;
+let riteGradedPoints: readonly TracePoint[] | null = null;
+let riteGradedTail: TracePoint | undefined;
+let riteGrade: RiteGrade = 'botch';
+const retryRite = () => {
+  if (world?.riteDraw) world.riteDraw.points = [];
+};
+ritePanel.append(riteTitle, riteHint, riteSurface, riteStatus,
+  h('div', { class: 'rite-actions' },
+    btn('Retry', retryRite),
+    btn('Cast', () => world?.endRiteDraw()),
+    btn('Cancel', () => world?.cancelRiteDraw())));
+riteSvg.append(ritePanel);
+riteSvg.hidden = true;
+app.append(riteSvg);
+// Fire survives the tablet closing for the cast ring or ash fizzle, without taking input.
+const riteFire = new RiteFire();
+const riteFireLayer = h('div', { class: 'layer rite-fire-layer' });
+const riteFireCanvas = h('canvas', { class: 'rite-fire-canvas', attrs: { 'aria-hidden': 'true' } });
+riteFireCanvas.width = riteFireCanvas.height = riteFire.size;
+const riteFireContext = riteFireCanvas.getContext('2d')!;
+const riteFireImage = riteFireContext.createImageData(riteFire.size, riteFire.size);
+riteFireLayer.append(riteFireCanvas);
+riteFireLayer.hidden = true;
+app.append(riteFireLayer);
+function renderRiteFire(dt: number): void {
+  // Real time, clamped: a stalled or backgrounded tab must not fast-forward the fire.
+  riteFire.update(Math.min(dt, 0.1), ritePointer !== null);
+  riteFireLayer.hidden = !riteFire.visible;
+  if (!riteFire.visible) return;
+  riteFireImage.data.set(riteFire.pixels);
+  riteFireContext.putImageData(riteFireImage, 0, 0);
+}
+// Keep all ritual gestures away from the dungeon's touch and combat controls.
+riteSvg.addEventListener('pointerdown', (e) => e.stopPropagation());
+function sampleRitePointer(e: PointerEvent): void {
+  const r = riteSurface.getBoundingClientRect();
+  if (!r.width || !r.height) return;
+  world?.addRitePoint(
+    Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)),
+    Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)));
+}
+riteSurface.addEventListener('pointerdown', (e) => {
+  if (!world?.riteDraw || ritePointer !== null || e.button !== 0) return;
+  e.preventDefault();
+  retryRite();
+  ritePointer = e.pointerId;
+  riteSurface.setPointerCapture(e.pointerId);
+  sampleRitePointer(e);
+});
+riteSurface.addEventListener('pointermove', (e) => {
+  if (e.pointerId !== ritePointer) return;
+  for (const point of e.getCoalescedEvents?.() ?? [e]) sampleRitePointer(point);
+  sampleRitePointer(e);
+});
+riteSurface.addEventListener('pointerup', (e) => {
+  if (e.pointerId !== ritePointer) return;
+  sampleRitePointer(e);
+  ritePointer = null;
+});
+riteSurface.addEventListener('lostpointercapture', () => { ritePointer = null; });
+riteSurface.addEventListener('pointercancel', () => {
+  ritePointer = null;
+  retryRite();
+});
+/** Let go of the tablet pointer, if it holds one. */
+function releaseRitePointer(): void {
+  if (ritePointer !== null && riteSurface.hasPointerCapture(ritePointer)) riteSurface.releasePointerCapture(ritePointer);
+  ritePointer = null;
+}
+/** Drop an open trace unpaid and put the tablet and its fire away: menus, pauses, lost focus. */
+function closeRiteSurface(): void {
+  world?.cancelRiteDraw();
+  riteSvg.hidden = true;
+  riteFire.reset();
+  riteFireLayer.hidden = true;
+  releaseRitePointer();
+  riteFirePlaced = false;
+}
+/** Whether the fire canvas sits on the open tablet: measured once per opening, not every frame. */
+let riteFirePlaced = false;
+window.addEventListener('resize', () => { riteFirePlaced = false; });
+function drawRiteTrace(w: World): void {
+  const draw = w.riteDraw;
+  riteSvg.hidden = !draw;
+  if (!draw) {
+    if (!riteFire.finishing) riteFire.reset();
+    releaseRitePointer();
+    riteFirePlaced = false;
+    return;
+  }
+  const def = findRite(draw.rite);
+  if (!def) return;
+  riteTitle.textContent = def.name;
+  riteHint.textContent = 'Draw the mark in one stroke. Release X or choose Cast.';
+  riteGuide.setAttribute('points', def.template.map(([x, y]) => `${x * 100},${y * 100}`).join(' '));
+  riteFire.trace(draw.points);
+  if (!riteFirePlaced) {
+    const r = riteSurface.getBoundingClientRect(), parent = app.getBoundingClientRect();
+    // Place the transparent canvas on the same square; it stays here when the panel closes.
+    Object.assign(riteFireCanvas.style, { left: `${r.left - parent.left + 1}px`, top: `${r.top - parent.top + 1}px`, width: `${r.width - 2}px`, height: `${r.height - 2}px` });
+    riteFirePlaced = r.width > 0;
+  }
+  const tail = draw.points.at(-1);
+  if (draw.points !== riteGradedPoints || tail !== riteGradedTail) {
+    riteGrade = gradeRite(draw.points, def.template);
+    riteGradedPoints = draw.points;
+    riteGradedTail = tail;
+  }
+  const grade = riteGrade;
+  riteStatus.textContent = draw.points.length < 2 ? 'Start at either tip of the mark · Cancel costs nothing' :
+    grade === 'full' ? 'The mark holds · Full power' : grade === 'weak' ? 'The mark flickers · Half power' : 'The mark is broken · Retry or risk the backlash';
+  riteStatus.dataset.grade = draw.points.length < 2 ? '' : grade;
+}
 const screen = h('div', { class: 'layer' });
 app.append(screen);
 const overlays = new DungeonOverlays(app, (t, c) => hud.message(t, c), { settings: () => openDungeonSettings() });
@@ -277,6 +413,10 @@ const padCtx: PadContext = {
   castSigil: () => world?.castSigil(),
   castSpell: () => world?.castSpell(),
   nextSpell: () => world?.nextSpell(),
+  riteAvailable: () => !!world?.riteAvailable('meteor'),
+  beginRite: () => !!world?.beginRiteDraw('meteor'),
+  traceRite: (x, y) => world?.addRitePoint(x, y),
+  endRite: () => world?.endRiteDraw(),
   sipFlask: () => world?.sipFlask(),
   press: (m) => world?.press(m),
   release: (m) => world?.release(m),
@@ -555,8 +695,11 @@ function show(m: Mode): void {
   pad.reset();
   canvas.style.visibility = m === 'dungeon' || m === 'title' ? 'visible' : 'hidden';
   canvas.classList.toggle('title-view', m === 'title');
-  // Menus need the cursor back.
-  if (m !== 'dungeon') pointerLock.release();
+  // Menus need the cursor back and cannot carry a ritual surface with them.
+  if (m !== 'dungeon') {
+    pointerLock.release();
+    closeRiteSurface();
+  }
   if (m === 'title') {
     titleDirty = true;
     renderer.deathFade = 0;
@@ -1044,6 +1187,9 @@ function handle(ev: WorldEvent): void {
     case 'shake':
       renderer.onShake(ev.amount);
       break;
+    case 'rite':
+      if (mode === 'dungeon' && !overlays.isOpen && !isSettingsOpen() && !gate.blocked) riteFire.finish(ev.points, ev.grade);
+      break;
     case 'sigil':
       renderer.onSigil(ev.r, ev.g, ev.b, ev.strength);
       break;
@@ -1082,7 +1228,8 @@ function frame(now: number): void {
     requestAnimationFrame(frame);
     return;
   }
-  const dt = Math.min(0.1, (now - last) / 1000);
+  const elapsed = Math.max(0, (now - last) / 1000);
+  const dt = Math.min(0.1, elapsed);
   last = now;
   // Gamepad polls every frame, in every mode: dungeon holds live, while town,
   // title, summary and open overlays navigate focus instead.
@@ -1108,7 +1255,10 @@ function frame(now: number): void {
     const paused = overlays.isOpen || isSettingsOpen() || gate.blocked;
     if (paused) world.retrieve(false);
     // An open overlay needs the cursor back; a touch device never took it.
-    if (paused || touchMode) pointerLock.release();
+    if (paused || touchMode || world.riteDraw) pointerLock.release();
+    // A trace open into a menu is dropped unpaid, never cast.
+    if (paused) closeRiteSurface();
+    drawRiteTrace(world);
     touch.visible = touchMode && !paused && !ending;
     if (touchMode) {
       touch.setAction(world.contextAction());
@@ -1130,6 +1280,7 @@ function frame(now: number): void {
         guardIcon: world.derived.conduitHand === 'offhand' && world.state.equipment.offhand
           ? itemBase(world.state.equipment.offhand.ref).icon
           : null,
+        rite: !!world.riteDraw || world.riteAvailable('meteor'),
       });
     }
     // Tilt is polled rather than pushed: a roll held through a pause must not
@@ -1152,6 +1303,7 @@ function frame(now: number): void {
     if (touchAttack && !paused) world.attack();
     if (!paused) world.update(dt);
     for (const ev of world.drainEvents()) handle(ev);
+    renderRiteFire(elapsed);
     if (ending) {
       ending.t += dt;
       if (ending.outcome === 'dead') renderer.deathFade = Math.min(1, ending.t / 1.8);
@@ -1264,10 +1416,15 @@ window.addEventListener('keydown', (e) => {
     case 'v':
       if (!e.repeat) world.castSpell();
       break;
+    case 'x':
+      // Hold to trace a rite: the world slows and the pointer draws.
+      if (!e.repeat && !overlays.isOpen && world.beginRiteDraw('meteor')) pointerLock.release();
+      break;
     case 'b':
       if (!e.repeat) world.nextSpell();
       break;
     case 'escape':
+      if (world.riteDraw) { world.cancelRiteDraw(); break; }
     case 'h':
       overlays.toggle('help', world);
       break;
@@ -1286,6 +1443,7 @@ window.addEventListener('keyup', (e) => {
   if (!world) return;
   const k = e.key.toLowerCase();
   if (MOVES[k]) world.release(MOVES[k]);
+  if (k === 'x') world.endRiteDraw();
   if (k === 'shift') world.setBlock(false);
   if (k === 'r') world.retrieve(false);
 });
@@ -1294,7 +1452,7 @@ window.addEventListener('keyup', (e) => {
 // The same click pins the cursor to the view while the delve is live.
 canvas.addEventListener('pointerdown', (e) => {
   audio.unlock();
-  if (!world || overlays.isOpen || isSettingsOpen() || e.pointerType !== 'mouse') return;
+  if (!world || world.riteDraw || overlays.isOpen || isSettingsOpen() || e.pointerType !== 'mouse') return;
   if (mode === 'dungeon' && !touchMode) pointerLock.request();
   if (e.button === 0) world.attack();
   if (e.button === 2) world.setBlock(true);
@@ -1305,6 +1463,7 @@ window.addEventListener('mouseup', (e) => {
 });
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 window.addEventListener('blur', () => {
+  closeRiteSurface();
   clearTouchHolds();
   pointerLock.release();
   world?.held.clear();
@@ -1438,6 +1597,7 @@ async function enterLabArena(): Promise<void> {
 async function toggleLabConsole(): Promise<void> {
   if (!import.meta.env.DEV) return;
   const { toggleLabPanel } = await import('./dev/lab-panel');
+  pointerLock.release();
   toggleLabPanel(app, () => world, (t, c) => hud.message(t, c));
 }
 
