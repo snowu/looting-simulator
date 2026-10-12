@@ -1213,7 +1213,7 @@ The Rod is the Wand's step up its gear line (`['wand', 'rod']`) and is better on
 - A spell that lands **charges your weapon** with its element for **3s**: the next melee blow that lands carries +50% of the conduit's Power as that element, and spends it. A cleave's spill does not get a second helping.
 - A melee blow that lands adds **1.5s** of regrow to the conduit.
 
-So the loop is cast, close, strike, cast: standing back and casting runs the pool dry, and swinging without casting wastes the weave.
+So the loop is cast, close, strike, cast: standing back and casting runs the pool dry, and swinging without casting wastes the weave. After the Patch 101 cost pass the same harness has casting kits dying 21–38% against the shield's 25%, taking the same ~160–200 monster damage; casting now trades about 6 parries a delve for 15 casts.
 
 **Payoffs.** Two build properties put charges back for doing something well (§9a, Build properties): **Countercharm** (weapon or offhand) returns a charge on every parry, and **Requiem** (hands) returns a spell's charges when its hit kills. **Dr. Mantis Toboggan's Rod** (relic, depth 4+) casts on credit, taking what the pool lacks in health (§7, relics). Kept Delve Oaths can teach the spells you don't know (§9a, Delve Oaths).
 
