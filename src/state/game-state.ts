@@ -103,6 +103,12 @@ export interface RunState {
    */
   conduit?: { charges: number; regrow: number; sel: number };
   /**
+   * The depth a rite was last cast on. A rite answers once per floor, so a
+   * cast is refused while this names the floor you stand on. Absent means
+   * no rite has ever been cast.
+   */
+  riteCastDepth?: number | null;
+  /**
    * Player-chosen order of the delve quick bar (consumable refs, first = slot 1).
    * New consumable types append at the end; missing ones are ignored on read.
    * Absent on older saves, which used backpack order.
@@ -224,6 +230,8 @@ export interface GameState {
   spellbook: string[];
   /** Spells loaded into whatever conduit you wear, in order; it reads as many as it has slots. */
   loadedSpells: string[];
+  /** Rites learned for good by studying their carvings. See `src/data/rites.ts`. */
+  ritesKnown: string[];
   /** Build properties learned, ready to inscribe at the forge. See `src/data/properties.ts`. */
   properties: string[];
   /** The oaths sworn for the next delve. See `src/data/oaths.ts`. */
@@ -277,6 +285,7 @@ export function newGame(rng: Rng): GameState {
     attuned: null,
     spellbook: [...STARTER_CONDUIT_SPELLS],
     loadedSpells: [...STARTER_CONDUIT_SPELLS],
+    ritesKnown: [],
     properties: [],
     loadout: createContainer(BASE_BACKPACK),
     run: null,

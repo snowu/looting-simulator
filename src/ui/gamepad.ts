@@ -12,7 +12,7 @@
  * - Right stick X / D-pad Left-Right: turn
  * - A (Cross) / RT: context action — interact when facing something useful,
  *   otherwise attack. Holding keeps swinging.
- * - X (Square): interact explicitly
+ * - X (Square): tap to interact explicitly, hold to trace a rite (right stick draws)
  * - Y (Triangle): cast attuned sigil
  * - LB (L1): throw one shaft
  * - RB (R1, hold): call shafts back, release to stop
@@ -28,6 +28,8 @@ export const PAD_TURN_DEADZONE = 0.35;
 export const PAD_TRIGGER_HELD = 0.35;
 /** Holding D-pad Down this long selects the next spell instead of casting. */
 export const SPELL_HOLD = 0.4;
+/** Holding X this long opens a rite trace instead of interacting. */
+export const RITE_HOLD = 0.4;
 
 export const PAD_BUTTONS = {
   a: 0,
@@ -154,6 +156,12 @@ export interface PadContext {
   /** Cast the selected battle spell, and select the next loaded one. */
   castSpell: () => void;
   nextSpell: () => void;
+  /** Whether a rite trace may open (for holds deciding what they mean). */
+  riteAvailable: () => boolean;
+  /** Open a rite trace, trace one stick step, close and cast it. */
+  beginRite: () => boolean;
+  traceRite: (x: number, y: number) => void;
+  endRite: () => void;
   sipFlask: () => void;
   press: (m: PadMove) => void;
   release: (m: PadMove) => void;
@@ -184,6 +192,11 @@ export class GamepadController {
   /** Seconds D-pad Down has been held, or null when it is up; and whether the hold already cycled. */
   private spellHeld: number | null = null;
   private spellCycled = false;
+  /** Seconds X has been held, or null when it is up; and whether the hold opened a trace. */
+  private riteHeld: number | null = null;
+  private riteTracing = false;
+  /** The stick-drawn cursor, in 0..1 across the view; reset on every trace. */
+  private riteCursor = { x: 0.5, y: 0.5 };
   private seenPad = false;
   lastUsedAt = 0;
   getPoll: () => (RawPad | null) | null = () => {
@@ -261,6 +274,14 @@ export class GamepadController {
     const P = PAD_BUTTONS;
     const edge = (i: number) => snap.pressed.has(i);
 
+    // A trace owns the right stick: it draws, it never turns. X owns it for
+    // the whole hold, not just past the threshold, so a trace never starts
+    // with a turning step already underway.
+    if (this.riteTracing || btn(raw, P.x)) {
+      snap.moves.delete('turnLeft');
+      snap.moves.delete('turnRight');
+    }
+
     // --- Overlays / paused: release dungeon holds, navigate focus instead.
     if (ctx.paused || ctx.overlayOpen) {
       if (this.prevMoves.size) {
@@ -276,7 +297,10 @@ export class GamepadController {
         this.prevRetrieve = false;
       }
       // A cast held into a menu is dropped, not fired when the menu closes.
+      // A trace held into one is dropped unpaid the same way.
       this.spellHeld = null;
+      this.riteHeld = null;
+      this.riteTracing = false;
       this.menuRepeat(dt, snap, raw);
       if (edge(P.b)) ctx.closeOverlay();
       if (edge(P.a) || edge(P.x)) {
@@ -313,7 +337,9 @@ export class GamepadController {
     }
 
     // --- Live dungeon input.
-    if (edge(P.x)) ctx.interact();
+    // X is tap-to-interact, hold-to-trace: until the button comes up there
+    // is no telling which was meant (the D-pad spell button's rule).
+    this.riteButton(dt, raw, ctx);
     if (edge(P.a) && ctx.contextKind() === 'interact') ctx.interact();
     // Holding A or RT keeps swinging (world.attack no-ops mid-swing).
     if (snap.attackHeld && ctx.contextKind() === 'attack') ctx.attack();
@@ -326,6 +352,48 @@ export class GamepadController {
     if (edge(P.start)) ctx.toggleHelp();
     if (edge(P.l3)) ctx.toggleMap();
     if (edge(P.r3)) ctx.quickUseNext();
+  }
+
+  /**
+   * X: a tap interacts on release, and a hold past RITE_HOLD opens a rite
+   * trace instead, drawn with the right stick until the button comes up.
+   * While tracing the stick draws rather than turns.
+   */
+  private riteButton(dt: number, raw: RawPad, ctx: PadContext): void {
+    const down = btn(raw, PAD_BUTTONS.x);
+    if (down) {
+      if (this.riteHeld === null) {
+        this.riteHeld = 0;
+        this.riteTracing = false;
+      } else {
+        this.riteHeld += dt;
+      }
+      if (!this.riteTracing && this.riteHeld >= RITE_HOLD) {
+        if (ctx.riteAvailable()) {
+          this.riteTracing = true;
+          this.riteCursor = { x: 0.5, y: 0.5 };
+          ctx.beginRite();
+        } else {
+          // Nothing to trace: this hold stays an (unfired) tap, not a retry loop.
+          this.riteHeld = -1;
+        }
+      }
+      if (this.riteTracing) {
+        const ax = (i: number) => raw.axes[i] ?? 0;
+        const mx = Math.abs(ax(2)) > PAD_TURN_DEADZONE ? ax(2) : 0;
+        const my = Math.abs(ax(3)) > PAD_TURN_DEADZONE ? ax(3) : 0;
+        if (mx || my) {
+          this.riteCursor.x = Math.min(1, Math.max(0, this.riteCursor.x + mx * dt * 1.2));
+          this.riteCursor.y = Math.min(1, Math.max(0, this.riteCursor.y + my * dt * 1.2));
+          ctx.traceRite(this.riteCursor.x, this.riteCursor.y);
+        }
+      }
+    } else if (this.riteHeld !== null) {
+      if (this.riteTracing) ctx.endRite();
+      else if (this.riteHeld >= 0) ctx.interact();
+      this.riteHeld = null;
+      this.riteTracing = false;
+    }
   }
 
   /**
@@ -395,7 +463,7 @@ export const GAMEPAD_HELP_ROWS: [string, string][] = [
   ['Left stick ← →', 'Strafe'],
   ['Right stick ← → / D-pad ← →', 'Turn'],
   ['A / RT', 'Swing — or Loot / Open when facing something'],
-  ['X', 'Interact'],
+  ['X', 'Interact — hold to trace a rite, drawn with the right stick'],
   ['LT (hold)', 'Block — raise it as they strike to parry'],
   ['LB', 'Throw one shaft from your belt'],
   ['RB (hold)', 'Call shafts back — release to stop'],

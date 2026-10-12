@@ -88,6 +88,10 @@ describe('gamepad mapping', () => {
       castSigil: noop,
       castSpell: () => calls.push('cast'),
       nextSpell: () => calls.push('next'),
+      riteAvailable: () => false,
+      beginRite: () => false,
+      traceRite: noop,
+      endRite: noop,
       sipFlask: () => calls.push('sip'),
       press: noop,
       release: noop,
@@ -131,5 +135,59 @@ describe('gamepad mapping', () => {
     c3.getPoll = () => pad();
     c3.update(1 / 60);
     expect(calls).toEqual(['next']);
+  });
+
+  it('taps X to interact, holds it to trace a rite the right stick draws', () => {
+    const calls: string[] = [];
+    const traces: [number, number][] = [];
+    const noop = (): void => undefined;
+    const ctx: PadContext = {
+      paused: false,
+      overlayOpen: false,
+      contextKind: () => 'attack',
+      attack: noop,
+      interact: () => calls.push('interact'),
+      hurl: noop,
+      setRetrieve: noop,
+      setBlock: noop,
+      castSigil: noop,
+      castSpell: noop,
+      nextSpell: noop,
+      riteAvailable: () => true,
+      beginRite: () => { calls.push('begin'); return true; },
+      traceRite: (x, y) => traces.push([x, y]),
+      endRite: () => calls.push('end'),
+      sipFlask: noop,
+      press: (m) => calls.push(`press:${m}`),
+      release: (m) => calls.push(`release:${m}`),
+      toggleInventory: noop,
+      toggleMap: noop,
+      toggleHelp: noop,
+      takeAll: noop,
+      closeOverlay: noop,
+      quickUseNext: noop,
+      menuNav: () => false,
+      menuActivate: () => false,
+    };
+    // A tap interacts when it comes up, and traces nothing.
+    const c = new GamepadController(ctx);
+    c.getPoll = () => press(pad(), PAD_BUTTONS.x);
+    c.update(1 / 60);
+    expect(calls).toEqual([]);
+    c.getPoll = () => pad();
+    c.update(1 / 60);
+    expect(calls).toEqual(['interact']);
+    // A hold opens the trace instead, the stick draws, the release casts.
+    calls.length = 0;
+    const held = press({ ...pad(), axes: [0, 0, 0.9, 0.4] }, PAD_BUTTONS.x);
+    c.getPoll = () => held;
+    for (let i = 0; i < 30; i++) c.update(1 / 60);
+    expect(calls).toContain('begin');
+    expect(calls).not.toContain('interact');
+    expect(traces.length).toBeGreaterThan(0);
+    expect(calls.filter((k) => k.startsWith('press:turn') || k.startsWith('release:turn'))).toEqual([]);
+    c.getPoll = () => pad();
+    c.update(1 / 60);
+    expect(calls[calls.length - 1]).toBe('end');
   });
 });

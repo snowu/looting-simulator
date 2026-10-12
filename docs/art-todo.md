@@ -4,6 +4,12 @@ New sprites drawn in code, newest first. Each PNG in `public/art/` is a placehol
 
 ## 2026-10-12
 
+- [ ] `props/carving.png` (32×32)
+- [ ] `props/carving_used.png` (32×32)
+- [ ] `icons/ic_rite_meteor.png` (16×16)
+
+## 2026-10-12
+
 - [ ] `props/barrel_oil.png` (32×32)
 - [ ] `props/surf_vent.png` (32×32)
 - [ ] `props/surf_spores.png` (32×32)

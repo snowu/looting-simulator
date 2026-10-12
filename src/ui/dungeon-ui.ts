@@ -486,6 +486,7 @@ export class DungeonOverlays {
       ['R button', 'Call shafts back — hold to call, release to stop, they fly to your raised hand'],
       ['Sigil button', 'Cast your attuned sigil when ready'],
       ['Cast · ↻', 'Cast your selected spell from a worn conduit · ↻ selects the next'],
+      ['Rite', 'Tap to open a learned rite, trace its mark, tap again to cast'],
       ['Quick slots', 'Tap to drink / read · drag to reorder'],
       ['Pack · Map', 'Gear, backpack and the automap · tap the minimap for the map too'],
     ];
@@ -501,6 +502,7 @@ export class DungeonOverlays {
       ['R', 'Call shafts back — hold to call, release to stop, they fly to your raised hand'],
       ['G / C', 'Cast your attuned sigil'],
       ['V · B', 'Cast your selected spell from a worn conduit · B selects the next'],
+      ['X', 'Hold to trace a learned rite: the world slows while you draw its mark'],
       ['1 – 4', 'Drink / read your first four consumables · drag the bar to reorder'],
       ['I / Tab', 'Pack & gear'],
       ['M', 'Map · or click the minimap'],
@@ -525,7 +527,7 @@ export class DungeonOverlays {
           'Your shield flashes while the window is open. Holding the guard up does not parry — you have to meet the swing. ' +
           'Two-handed weapons leave the offhand disabled and block only 20%, but parry exactly like any other weapon. Their blow cleaves for a quarter into every tile touching the thing they hit, including the one behind it. Thrown shafts ride on their own belt slot, so you carry them alongside a weapon and a shield, and you hurl one with T rather than with the attack button. They land where they stop: walk over one to collect it, or hold R to call them back — one leaves the floor every three quarters of a second and flies to your raised left hand, which is the animation for it. Distant shafts and shafts on other floors return from nearby instead of flying across the dungeon. The call costs no stamina and stopping it never loses a shaft already in the air; it still lands. Swinging, casting, a blow, or releasing R stops the call. Each shaft that lands back in your hand wears the belt by one. ' +
           'Sigils are inscribed and attuned at the Sigils bench in the forge, and cast with G or C. Casting spends stamina and a hit interrupts it without starting the cooldown. ' +
-          'A conduit — a Wand or a Rod — in your offhand casts battle spells instead of guarding: it does not block at all, and parries on a tighter window (about 0.13s instead of 0.22s), so a mistimed guard meets the blow whole. Holding the guard with one only flicks it up for the parry — tap to meet the swing and parry. A Stave is a two-handed weapon that is a conduit too, and still blocks 20% like any two-hander. Spells are learned from tomes and loaded at the Spells bench in the forge; V casts the selected one and B moves to the next. Each cast spends stamina and charges, and charges grow back on their own. Ember Bolt and Rime Lance fly; Smite and Hex land at once on the first thing in your line. A spell that lands charges your next blow with its element, and a blow that lands hurries the next charge along. ' +
+          'A conduit — a Wand or a Rod — in your offhand casts battle spells instead of guarding: it does not block at all, and parries on a tighter window (about 0.13s instead of 0.22s), so a mistimed guard meets the blow whole. Holding the guard with one only flicks it up for the parry — tap to meet the swing and parry. A Stave is a two-handed weapon that is a conduit too, and still blocks 20% like any two-hander. Spells are learned from tomes and loaded at the Spells bench in the forge; V casts the selected one and B moves to the next. Each cast spends stamina and charges, and charges grow back on their own. Ember Bolt and Rime Lance fly; Smite and Hex land at once on the first thing in your line. A spell that lands charges your next blow with its element, and a blow that lands hurries the next charge along. Rites are the exception to the button: a carving on depth 3 teaches the Rite of Meteor, and casting it means drawing. Hold X (tap Rite, or hold X on the controller and draw with the right stick): the world slows while you trace its mark. A clean trace brings meteor down on the whole room for every charge in your conduit — once per floor — a sloppy one brings less, and a botched one brings it down on you. ' +
           'Chalk X marks on a wall mean something is hidden behind it, and loose flagstones mean a trap — watch the floor ahead of you. ' +
           'The way out is the stairs you came down. A Scroll of Recall instead opens a portal you can step back through, so you can sell and restock mid-delve.',
       ),

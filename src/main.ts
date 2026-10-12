@@ -157,6 +157,11 @@ const touch = new TouchControls(app, {
   sigil: () => world?.castSigil(),
   spell: () => world?.castSpell(),
   nextSpell: () => world?.nextSpell(),
+  rite: () => {
+    if (!world) return;
+    if (world.riteDraw) world.endRiteDraw();
+    else world.beginRiteDraw('meteor');
+  },
   tap: () => {
     if (!world) return;
     if (world.contextAction().kind === 'interact') world.interact();
@@ -207,6 +212,27 @@ window.addEventListener('touchstart', () => {
   touch.visible = mode === 'dungeon';
 }, { passive: true });
 const toastLayer = h('div', { class: 'layer', style: 'pointer-events:none' });
+// A rite trace draws over the view while one is open: an SVG polyline in
+// view-normalised coordinates, violet like the Cast button's spent state.
+const riteSvg = h('div', { class: 'layer rite-layer', style: 'pointer-events:none' });
+const riteLine = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+{
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 100 100');
+  svg.setAttribute('preserveAspectRatio', 'none');
+  svg.setAttribute('class', 'rite-svg');
+  riteLine.setAttribute('class', 'rite-trace');
+  svg.append(riteLine);
+  riteSvg.append(svg);
+  riteSvg.hidden = true;
+}
+app.append(riteSvg);
+function drawRiteTrace(w: World): void {
+  const draw = w.riteDraw;
+  riteSvg.hidden = !draw;
+  if (!draw) return;
+  riteLine.setAttribute('points', draw.points.map((p) => `${(p.x * 100).toFixed(2)},${(p.y * 100).toFixed(2)}`).join(' '));
+}
 const screen = h('div', { class: 'layer' });
 app.append(screen);
 const overlays = new DungeonOverlays(app, (t, c) => hud.message(t, c), { settings: () => openDungeonSettings() });
@@ -277,6 +303,10 @@ const padCtx: PadContext = {
   castSigil: () => world?.castSigil(),
   castSpell: () => world?.castSpell(),
   nextSpell: () => world?.nextSpell(),
+  riteAvailable: () => !!world?.riteAvailable('meteor'),
+  beginRite: () => !!world?.beginRiteDraw('meteor'),
+  traceRite: (x, y) => world?.addRitePoint(x, y),
+  endRite: () => world?.endRiteDraw(),
   sipFlask: () => world?.sipFlask(),
   press: (m) => world?.press(m),
   release: (m) => world?.release(m),
@@ -1109,6 +1139,9 @@ function frame(now: number): void {
     if (paused) world.retrieve(false);
     // An open overlay needs the cursor back; a touch device never took it.
     if (paused || touchMode) pointerLock.release();
+    // A trace open into a menu is dropped unpaid, never cast.
+    if (paused && world.riteDraw) world.cancelRiteDraw();
+    drawRiteTrace(world);
     touch.visible = touchMode && !paused && !ending;
     if (touchMode) {
       touch.setAction(world.contextAction());
@@ -1130,6 +1163,7 @@ function frame(now: number): void {
         guardIcon: world.derived.conduitHand === 'offhand' && world.state.equipment.offhand
           ? itemBase(world.state.equipment.offhand.ref).icon
           : null,
+        rite: !!world.riteDraw || world.riteAvailable('meteor'),
       });
     }
     // Tilt is polled rather than pushed: a roll held through a pause must not
@@ -1264,6 +1298,10 @@ window.addEventListener('keydown', (e) => {
     case 'v':
       if (!e.repeat) world.castSpell();
       break;
+    case 'x':
+      // Hold to trace a rite: the world slows and the pointer draws.
+      if (!e.repeat && !overlays.isOpen && world.beginRiteDraw('meteor')) pointerLock.release();
+      break;
     case 'b':
       if (!e.repeat) world.nextSpell();
       break;
@@ -1286,6 +1324,7 @@ window.addEventListener('keyup', (e) => {
   if (!world) return;
   const k = e.key.toLowerCase();
   if (MOVES[k]) world.release(MOVES[k]);
+  if (k === 'x') world.endRiteDraw();
   if (k === 'shift') world.setBlock(false);
   if (k === 'r') world.retrieve(false);
 });
@@ -1304,6 +1343,18 @@ window.addEventListener('mouseup', (e) => {
   if (world && e.button === 2) world.setBlock(false);
 });
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+// While a rite trace is open the pointer draws it: mouse and touch alike,
+// sampled against the view. The lock is already released by the press that
+// opened the trace, so the cursor is there to draw with.
+window.addEventListener('pointermove', (e) => {
+  const draw = world?.riteDraw;
+  if (!draw || mode !== 'dungeon' || overlays.isOpen || isSettingsOpen()) return;
+  const r = canvas.getBoundingClientRect();
+  if (!r.width || !r.height) return;
+  const x = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+  const y = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
+  world?.addRitePoint(x, y);
+});
 window.addEventListener('blur', () => {
   clearTouchHolds();
   pointerLock.release();

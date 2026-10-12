@@ -1305,6 +1305,14 @@ export const ICONS: ArtDef[] = [
     ................
     ................
   `), { m: '#24123a', n: '#4a2a70', u: '#c8a8ff', v: '#f0e0ff', g: '#d0a040', p: '#e8dcc0', q: '#b8a078' }),
+  // A rite's mark: a burning M on dark stone, for the sky it calls down.
+  sigilIcon('ic_rite_meteor', rows(`
+    s......s
+    ss....ss
+    s.s..s.s
+    s..ss..s
+    s......s
+  `), '#ff8a30', '#3a1c12', '#6e3a24'),
   // A bound field journal: the codex page a kill can leave behind.
   icon('ic_lore', rows(`
     ................

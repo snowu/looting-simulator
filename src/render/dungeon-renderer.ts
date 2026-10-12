@@ -792,6 +792,9 @@ export class DungeonRenderer {
           this.place(s, `shrine_${kind}${pr.used ? '_used' : ''}`, wx, 0, wz, 1.9);
           break;
         }
+        case 'carving':
+          this.place(s, pr.used ? 'carving_used' : 'carving', wx, 0, wz, 1.9);
+          break;
         case 'fungus':
           this.place(s, 'fungus', wx + ((pr.x * 7) % 5) * 0.12 - 0.25, 0, wz + ((pr.y * 3) % 5) * 0.12 - 0.25, 0.7);
           break;

@@ -1219,6 +1219,20 @@ So the loop is cast, close, strike, cast: standing back and casting runs the poo
 
 **Measured.** `npm run tables` prints every conduit casting every spell against the bestiary, beside the swing it shares a kit with (scored through the same `spellView`). At tier 3: a Wand's Ember Bolt (burn included) is 0.68× a Long Sword swing and its full pool 71 damage, under a belt of javelins (91); a Rod's is 0.98× and 136, about a belt of throwing axes (118); a Stave's 1.32× and 223. Smite is 0.57× a swing on the living and about 1× on the undead; Rime Lance is 0.38×, there for the chill. `npm run playtest:battlemage` plays the careful bot, which casts (`Policy.cast`), on the same 24 seeds in the depth-4 kit with the shield, a Rod never cast, a Rod cast, a Rod with both properties, a Wand and a Stave. On 2026-10-12 every one died 46–54% of the time against the shield's 50% (the idle Rod's 33% is within the ±10% this sample can resolve), taking the same ~200 monster damage; casting trades about 3 parries a delve for 20 casts. The bot casts at range only, Hexes elites and anything when two close in, and Smites the undead, so these are a floor on what a player gets from spells, not a ceiling.
 
+## 9c. Rites
+
+Added in save revision 31, additively: older saves know no rites, and no floor has heard one cast.
+
+*Files: `src/data/rites.ts`, `src/systems/rite-draw.ts`, `World.beginRiteDraw/addRitePoint/endRiteDraw/castMeteor`, `placeRiteCarving/studyCarving` in `src/world/world.ts`*
+
+A **rite** is a sigil you draw: very powerful, rare to cast, and never on a button. The slice holds one, the **Rite of Meteor** (fire): fire falls on every monster in the room, scored like an Ember Bolt at half again the conduit's Power, with the burn and the weave riding along.
+
+**Found, not given.** A **carving** (a standing slab, its mark glowing) waits on depth 3 — in the vault, else the secret room, else any normal room — placed after generation on its own `rite:` stream, so no floor moves underneath it. Study it where it stands (F, or the touch action button): the rite is learned for good and the mark goes dark. Nothing before depth 3, so the opening floors keep their tuning.
+
+**Drawn, in slow motion.** Hold X (touch: tap Rite, trace, tap again; gamepad: hold X and draw with the right stick): the world runs at 15% while the trace is open, and everything else waits for the release. The trace is scored against the mark in both stroke directions — an M drawn right-to-left is still an M. A clean trace (≥0.8) lands the full rite, a shaky one (≥0.6) half of it, and a botch brings the fire down on your own tile (20 + 2 per depth, leaving you on 1 health at worst — it humbles, never kills).
+
+**Priced like the moment matters.** Finishing a trace costs 25 stamina and **every charge** in the worn conduit, win or lose — and a rite answers **once per floor**. A rite with no conduit, a spent conduit, or a floor that already heard one refuses with its reason. A trace opened into a menu is dropped unpaid.
+
 ## The bestiary codex
 
 *Files: `src/systems/bestiary.ts`, the Bestiary tab in `src/ui/town.ts`*

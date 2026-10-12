@@ -1119,7 +1119,9 @@ the four biome laws, which come after.
 
 ---
 
-# 6. Rites: sigils you draw — **IDEA 2026-10-11**
+# 6. Rites: sigils you draw — **IDEA 2026-10-11, SLICED 2026-10-12**
+
+**Sliced:** Meteor end-to-end — depth-3 carving, study-to-learn, trace-to-cast on mouse, touch and gamepad with the world at 15%, full/weak/botch grading, once-per-floor plus burn-every-charge cost. Still open: Glacial Tomb, Judgement and the Great Penguining; milestone pacing (depth 5, first King kill, rising random chance); whether the marks live in a rereadable book or in memory.
 
 The user's idea, from their claudemancy tool (draw a sigil to cast a skill):
 cast by **drawing** instead of a button, with time slowed while you draw.

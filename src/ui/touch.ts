@@ -30,6 +30,8 @@ export interface TouchHandlers {
   /** Cast the selected battle spell, and select the next loaded one. */
   spell(): void;
   nextSpell(): void;
+  /** Open or close a rite trace: tap to begin, tap again to cast. */
+  rite(): void;
   open(mode: 'inventory' | 'map' | 'help'): void;
 }
 
@@ -49,6 +51,8 @@ export interface TouchTools {
   spellReady: boolean;
   /** How many spells are loaded; the swap chip only shows for two or more. */
   spells: number;
+  /** A rite trace may open now (or one is open): the Rite button shows. */
+  rite: boolean;
   /** A Wand or Rod is worn: the guard never stays up, a tap only parries. */
   parryOnly: boolean;
   /** Item icon to show on the guard button while parry-only, if any. */
@@ -245,6 +249,7 @@ export class TouchControls {
   private spellBtn: HTMLButtonElement;
   private spellIcon = h('span', { class: 'tspell-icon' });
   private swapBtn: HTMLButtonElement;
+  private riteBtn: HTMLButtonElement;
   private spellArt = '';
   private blockBtn: HTMLButtonElement;
   private blockIcon = h('span', { class: 'tblock-icon' });
@@ -321,8 +326,10 @@ export class TouchControls {
     this.swapBtn = tap('↻', () => hd.nextSpell());
     this.swapBtn.classList.add('tswap');
     this.swapBtn.title = 'Next spell';
-    const tools = h('div', { class: 'ttools' }, this.throwBtn, this.callBtn, this.sigilBtn, this.swapBtn, this.spellBtn);
-    for (const b of [this.throwBtn, this.callBtn, this.sigilBtn, this.spellBtn, this.swapBtn]) b.hidden = true;
+    this.riteBtn = tap('Rite', () => hd.rite());
+    this.riteBtn.title = 'Trace a rite';
+    const tools = h('div', { class: 'ttools' }, this.throwBtn, this.callBtn, this.sigilBtn, this.swapBtn, this.spellBtn, this.riteBtn);
+    for (const b of [this.throwBtn, this.callBtn, this.sigilBtn, this.spellBtn, this.swapBtn, this.riteBtn]) b.hidden = true;
 
     // Shoulder buttons on the screen edges, where the thumbs rest when gripping
     // the phone. Hold to sidestep (or turn, when the pad strafes) until released.
@@ -415,7 +422,7 @@ export class TouchControls {
 
   /** Show only the situational buttons that would do something. */
   setTools(t: TouchTools): void {
-    const key = `${t.thrown}${t.landed}${t.calling}${t.sigil}${t.spell}${t.spellReady}${t.spells}${t.parryOnly}${t.guardIcon}`;
+    const key = `${t.thrown}${t.landed}${t.calling}${t.sigil}${t.spell}${t.spellReady}${t.spells}${t.parryOnly}${t.guardIcon}${t.rite}`;
     if (key === this.toolsKey) return;
     this.toolsKey = key;
     this.throwBtn.hidden = !t.thrown;
@@ -439,6 +446,7 @@ export class TouchControls {
     }
     this.blockBtn.classList.toggle('parry', t.parryOnly);
     this.blockBtn.title = t.parryOnly ? 'Parry (tap)' : 'Block';
+    this.riteBtn.hidden = !t.rite;
   }
 
   /** Show a sword when the main button will swing, or a word when it will interact. */
