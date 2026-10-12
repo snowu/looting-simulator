@@ -495,6 +495,7 @@ export class DungeonOverlays {
       ['Q / E', 'Strafe left / right'],
       ['Space / LMB', 'Swing — hits harder with stamina above half'],
       ['Shift / RMB', 'Hold to block — raise it as they strike to parry'],
+      ['Mouse', 'Click the view to pin the cursor to it · Esc lets go again'],
       ['F', 'Open, search, loot, pray, push marked walls'],
       ['T', 'Throw one shaft from your belt'],
       ['R', 'Call shafts back — hold to call, release to stop, they fly to your raised hand'],
