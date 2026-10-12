@@ -9,7 +9,7 @@ import { parseSave } from '../state/save-format';
 import { SAVE_REVISION } from '../state/migrations';
 import { addItem } from '../state/inventory';
 import { learnTome, loadedSpells, makeTome, toggleLoaded, unknownConduitSpells } from '../systems/conduits';
-import { makeEquipment, makeUnique } from '../systems/items';
+import { itemStats, makeEquipment, makeUnique } from '../systems/items';
 import { findUnique } from '../data/uniques';
 import { COUNTERCHARM_CHARGES } from '../data/properties';
 import { derivePlayer } from '../systems/player';
@@ -65,6 +65,8 @@ describe('conduits', () => {
     expect(wand.conduitPower).toBeGreaterThan(0);
     expect(wand.hasShield).toBe(false);
     expect(wand.block).toBe(0);
+    // and they do not promise one either: the tooltip's stats show no Block to compare against a shield
+    for (const ref of ['wand', 'rod'] as const) expect(itemStats(conduit(ref)).block ?? 0).toBe(0);
     expect(wand.conduit?.slots).toBe(2);
   });
 
