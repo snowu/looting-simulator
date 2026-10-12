@@ -295,17 +295,17 @@ the same commit as the work it describes**, so any session can resume from it.
 
 | # | Branch | Scope | Status |
 |---|---|---|---|
-| 1 | `feat/ri-1-elites` | Step 1: elite traits, thieving Cutpurse | [#18](https://github.com/snowu/looting-simulator/pull/18) open — needs a real delve on desktop and phone |
-| 2 | `feat/ri-2-ambushers` | Step 2: ceiling droppers, burrowing Mole and Stalker | [#19](https://github.com/snowu/looting-simulator/pull/19) open — needs a real delve on desktop and phone |
-| 3 | `feat/ri-3-walls` | Step 2: cracked walls, ore seams, sealed niches | [#20](https://github.com/snowu/looting-simulator/pull/20) open — needs a real delve on desktop and phone |
-| 4 | `feat/ri-4-gravecaller` | Step 2: the Gravecaller, shattered and sanctified remains | built, PR open — needs a real delve on desktop and phone |
-| 5 | `feat/ri-5-properties` | Step 6 pulled forward: six build properties and the forge's Inscribe bench | [#22](https://github.com/snowu/looting-simulator/pull/22) open |
-| 6 | `feat/ri-6-oaths` | Step 3: Delve Oaths, paying out properties | [#23](https://github.com/snowu/looting-simulator/pull/23) open |
-| 7 | `feat/ri-7-routes` | Step 4, part 1: the route fork below depth 2 | [#24](https://github.com/snowu/looting-simulator/pull/24) open |
-| 8 | `feat/ri-8-laws` | Step 4, part 2: biome laws for Ossuary, Deep Mines, Vermin Burrows | [#25](https://github.com/snowu/looting-simulator/pull/25) open |
-| 9 | `feat/ri-9-grave` | Step 5, part 1: the corpse run | [#26](https://github.com/snowu/looting-simulator/pull/26) open |
-| 10 | `feat/ri-10-lieutenants` | Step 5, part 2: floor lieutenants | [#27](https://github.com/snowu/looting-simulator/pull/27) open |
-| 11 | `feat/ri-11-seals` | Step 7: Ashen Seals, and the Descend panel | built, PR open |
+| 1 | `feat/ri-1-elites` | Step 1: elite traits, thieving Cutpurse | [#18](https://github.com/snowu/looting-simulator/pull/18) merged |
+| 2 | `feat/ri-2-ambushers` | Step 2: ceiling droppers, burrowing Mole and Stalker | [#19](https://github.com/snowu/looting-simulator/pull/19) merged |
+| 3 | `feat/ri-3-walls` | Step 2: cracked walls, ore seams, sealed niches | [#20](https://github.com/snowu/looting-simulator/pull/20) merged |
+| 4 | `feat/ri-4-gravecaller` | Step 2: the Gravecaller, shattered and sanctified remains | [#21](https://github.com/snowu/looting-simulator/pull/21) merged |
+| 5 | `feat/ri-5-properties` | Step 6 pulled forward: six build properties and the forge's Inscribe bench | [#22](https://github.com/snowu/looting-simulator/pull/22) merged |
+| 6 | `feat/ri-6-oaths` | Step 3: Delve Oaths, paying out properties | [#23](https://github.com/snowu/looting-simulator/pull/23) merged |
+| 7 | `feat/ri-7-routes` | Step 4, part 1: the route fork below depth 2 | [#24](https://github.com/snowu/looting-simulator/pull/24) merged |
+| 8 | `feat/ri-8-laws` | Step 4, part 2: biome laws for Ossuary, Deep Mines, Vermin Burrows | [#25](https://github.com/snowu/looting-simulator/pull/25) merged |
+| 9 | `feat/ri-9-grave` | Step 5, part 1: the corpse run | [#26](https://github.com/snowu/looting-simulator/pull/26) merged |
+| 10 | `feat/ri-10-lieutenants` | Step 5, part 2: floor lieutenants | [#27](https://github.com/snowu/looting-simulator/pull/27) merged |
+| 11 | `feat/ri-11-seals` | Step 7: Ashen Seals, and the Descend panel | [#28](https://github.com/snowu/looting-simulator/pull/28) merged |
 
 Log (newest last), one line per landed piece with what is and is not done:
 
@@ -803,7 +803,7 @@ apply. The signals that do:
 
 ---
 
-# 4. The battlemage — **STEPS 1–2 BUILT 2026-10-12**
+# 4. The battlemage — **BUILT 2026-10-12**
 
 The user's direction: magic should make a **battlemage** possible, sword in one
 hand and spell in the other, rather than a ranged caster or a bigger sigil
@@ -959,6 +959,32 @@ every new sprite id in `ALL_ART` needs its PNG in `public/art` or boot throws.
   drop pool). No save revision bump: nothing new on `GameState`, and
   `EnemyState.hexT` is optional like `chillT`. Next: step 3 (payoffs), step 4
   (the harness bot casts), then rites (§6).
+- 2026-10-12 — **Steps 3 and 4 built** (branch `feat/battlemage-3`), step 4
+  first so the payoffs were priced against a bot that casts.
+  **Harness:** `Policy.cast` (off by default, so older profiles measure what
+  they did): the bot looks down its four lines for the first monster in each,
+  Hexes an elite or anything while two close in, Smites the undead, otherwise
+  Ember Bolt, else Rime Lance; only at range, never into a wind-up at arm's
+  length, never below a swing's stamina. Reports casts per spell, misses and
+  hexes. `npm run playtest:battlemage` (the careful bot, depth-4 kit, same 24
+  seeds: shield / Rod idle / Rod / Rod with both properties / Wand / Stave)
+  and a `spells` block in `npm run tables` (every conduit × spell through the
+  game's own `spellView`, now exported from `player.ts`). Result: every
+  casting kit within noise of the shield (46–54% deaths vs 50%), same damage
+  taken; per-cast and per-pool numbers sit where the Bases section asked
+  (Wand pool under a javelin belt, Rod about a belt of axes, Stave about two).
+  **No spell numbers changed.**
+  **Payoffs:** Countercharm (weapon/offhand: a parry returns a charge) and
+  Requiem (hands: a spell's killing hit returns its charges); Dr. Mantis
+  Toboggan's Rod (relic, moonsilver Rod, depth 4: a cast the pool cannot
+  cover is paid at 10% max health per charge short, never the last point);
+  and kept Oaths now teach **lessons**, inscriptions or unknown battle spells
+  (`spell:<id>` in `oathReward.choices`). "Conduits joining Oath rewards" was
+  read as the spells, which are knowledge like inscriptions; conduit
+  blueprints stay drops. Loot hash re-pinned as `relicRodLootHash` (one more
+  rollable relic). No save change: the reward choice is still a string.
+  Not done: the bot never wears the relic, and a phone-width check of the
+  reward pane with spell rows.
 
 ## Settled 2026-10-11
 

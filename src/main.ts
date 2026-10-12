@@ -1117,7 +1117,7 @@ function frame(now: number): void {
         calling: !!world.anim.retrieving,
         sigil: !!world.run.sigil && world.run.sigil.cd <= 0,
         spell: world.selectedSpell()?.icon ?? null,
-        spellReady: (world.run.conduit?.charges ?? 0) >= (world.selectedSpell()?.charges ?? 1),
+        spellReady: world.spellReady(),
         spells: world.conduitSpells().length,
       });
     }

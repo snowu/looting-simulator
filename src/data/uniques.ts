@@ -35,7 +35,9 @@ export type UniqueEffectId =
   /** Attack builds with every consecutive blow landed, and is lost when one lands on you. */
   | 'charge'
   /** Everything you do is faster: swing, recovery, step and flask. */
-  | 'haste';
+  | 'haste'
+  /** A conduit that casts on credit: charges it lacks are taken in health. */
+  | 'blood_cast';
 
 export interface UniqueDef {
   id: string;
@@ -253,6 +255,20 @@ export const UNIQUES: UniqueDef[] = [
     flavour: 'Shadow silk, stitched for a burglar\'s soft tread. The maker swore blind they were for muffling cats.',
     stats: { defense: 3, shadow: 4 },
     minDepth: 3,
+  },
+  {
+    id: 'mantis_toboggan',
+    name: 'Dr. Mantis Toboggan\'s Rod',
+    kind: 'gear',
+    baseId: 'rod',
+    materialId: 'moonsilver',
+    effect: 'blood_cast',
+    power: 0.1,
+    rule: 'When the conduit runs dry, it takes what it needs from you instead.',
+    detail: 'A cast the pool cannot cover is paid in health: 10% of your max health for each charge short. It never takes your last point; a cast that would is refused. +4 Attack (its spell Power) over its base.',
+    flavour: 'Licensed, says the handle, to practise. Nobody in Bleakmere has asked what, and the man who carried it was never seen to wash his hands.',
+    stats: { attack: 4 },
+    minDepth: 4,
   },
 ];
 

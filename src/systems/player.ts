@@ -1,5 +1,6 @@
-import { ConduitProfile, DamageType, DEFAULT_CRIT_MULT, EquipSlot, EQUIP_SLOTS, Item, Stats, SwingProfile, ThrownProfile, WeaponClass, addStats, emptyStats, slotOf } from '../types';
+import { ConduitProfile, DamageType, DEFAULT_CRIT_MULT, ELEMENTS, EquipSlot, EQUIP_SLOTS, Item, Stats, SwingProfile, ThrownProfile, WeaponClass, addStats, emptyStats, slotOf } from '../types';
 import { findProperty } from '../data/properties';
+import type { ConduitSpellDef } from '../data/conduit-spells';
 import { FIST_ATTACK, FIST_SWING, itemBase } from '../data/items';
 import { DifficultyId, difficultyOf } from '../data/difficulty';
 import { isTwoHanded, itemStats, thrownCapacity, thrownProfile, uniqueOf } from './items';
@@ -63,6 +64,13 @@ export interface UniqueTraits {
   bulwark: boolean;
   retrieval: boolean;
   lastFlask: boolean;
+  countercharm: boolean;
+  requiem: boolean;
+  /**
+   * Dr. Mantis Toboggan's Rod: the share of max health a missing charge
+   * costs instead, when a cast finds the conduit short. 0 means no relic.
+   */
+  bloodCast: number;
 }
 
 export function emptyTraits(): UniqueTraits {
@@ -86,6 +94,9 @@ export function emptyTraits(): UniqueTraits {
     bulwark: false,
     retrieval: false,
     lastFlask: false,
+    countercharm: false,
+    requiem: false,
+    bloodCast: 0,
   };
 }
 
@@ -104,6 +115,8 @@ function applyProperty(t: UniqueTraits, item: Item | null | undefined, slot: Equ
     case 'bulwark': t.bulwark = true; break;
     case 'retrieval': t.retrieval = true; break;
     case 'last_flask': t.lastFlask = true; break;
+    case 'countercharm': t.countercharm = true; break;
+    case 'requiem': t.requiem = true; break;
   }
 }
 
@@ -157,6 +170,9 @@ function traitsOf(eq: Equipment, twoHanded = false): UniqueTraits {
         break;
       case 'haste':
         t.haste *= u.power;
+        break;
+      case 'blood_cast':
+        t.bloodCast = Math.max(t.bloodCast, u.power);
         break;
       // never_dulls is a property of the item, handled in maxDurability.
       case 'never_dulls':
@@ -227,6 +243,26 @@ const FIND_PER_TREASURE_SENSE = 20;
  */
 export function thrownView(d: PlayerDerived): PlayerDerived {
   return { ...d, attack: d.thrownAttack, damageType: d.thrownDamageType };
+}
+
+/**
+ * You, as a spell scores you. The conduit's Power goes in as the spell's
+ * own element, and only your matching elemental stat rides along: fire gear
+ * makes an Ember Bolt hit harder and a Rime Lance not at all. With no
+ * physical Attack the whole hit is elemental, which `playerHitsEnemy`
+ * already mitigates at half armour. Crits use the plain multiplier — a
+ * dagger in the other hand does not make the spell a dagger. Shared with the
+ * balance tables for the same reason as `thrownView`.
+ */
+export function spellView(d: PlayerDerived, spell: ConduitSpellDef): PlayerDerived {
+  const stats = { ...d.stats };
+  for (const el of ELEMENTS) if (el !== spell.element) stats[el] = 0;
+  stats[spell.element] = (stats[spell.element] ?? 0) + d.conduitPower * spell.power;
+  return {
+    ...d, stats, attack: 0, damageType: spell.element,
+    traits: { ...d.traits },
+    swing: { ...d.swing, critMult: undefined },
+  };
 }
 
 export function derivePlayer(eq: Equipment, meta: MetaLevels, difficulty?: DifficultyId): PlayerDerived {

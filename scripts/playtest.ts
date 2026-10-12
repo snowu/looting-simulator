@@ -18,7 +18,8 @@ import { GameState } from '../src/state/game-state';
 import { startRun, endRun, syncLoadout } from '../src/systems/run';
 import { addItem, removeItem } from '../src/state/inventory';
 import { World, WorldEvent } from '../src/world/world';
-import { Floor, EnemyState, blocksMove, propAt, doorAt, tileAt, inBounds, FLOOR } from '../src/systems/dungeon';
+import { Floor, EnemyState, blocksMove, blocksSight, enemyAt, propAt, doorAt, tileAt, inBounds, FLOOR } from '../src/systems/dungeon';
+import { ConduitSpellDef } from '../src/data/conduit-spells';
 import { enemyDef, BOSS_ID } from '../src/data/enemies';
 import { FINAL_DEPTH } from '../src/data/biomes';
 import { itemValue } from '../src/systems/items';
@@ -44,6 +45,11 @@ export interface Policy {
   lootUrns: boolean;
   /** Seek the Ashen King on depth six before leaving. */
   fightBoss?: boolean;
+  /**
+   * Use the conduit when one is worn and spells are loaded. Off by default, so
+   * every profile that predates the battlemage keeps measuring what it did.
+   */
+  cast?: boolean;
   /** Collects a line per decision. Debugging only — it is very noisy. */
   trace?: string[];
 }
@@ -81,6 +87,10 @@ export interface RunReport {
   /** What the pack was carrying when it was dropped. Only a death loses anything. */
   itemsLost: number;
   valueLost: number;
+  /** Casts released, by spell id; casts that struck nothing; hexes that took. */
+  casts: Record<string, number>;
+  spellMisses: number;
+  hexes: number;
   /** Most backpack slots occupied at any point, against the pack's capacity. */
   peakSlots: number;
   capacity: number;
@@ -188,7 +198,7 @@ class Bot {
     this.report = {
       seed, outcome: 'timeout', depth: 1, deepest: 1, bossKilled: false, kills: 0, time: 0, gold: 0, renown: 0,
       itemsKept: 0, valueKept: 0, damageTaken: {}, sips: 0, morselsEaten: 0, morselsRotted: 0, parries: 0, hitsTaken: 0,
-      blockedHits: 0, trapsSprung: 0, itemsLost: 0, valueLost: 0,
+      blockedHits: 0, trapsSprung: 0, itemsLost: 0, valueLost: 0, casts: {}, spellMisses: 0, hexes: 0,
       peakSlots: 0, capacity: w.run.backpack.capacity, brokenAtEnd: 0, perFloor: [],
     };
     this.beginFloor();
@@ -250,6 +260,11 @@ class Bot {
           break;
         case 'float':
           if (e.text === 'Parry!') r.parries++;
+          break;
+        case 'msg':
+          // The world says what a spell did in words, and only in words.
+          if (e.text.endsWith('finds nothing to strike.')) r.spellMisses++;
+          else if (e.text.endsWith(' is a penguin.')) r.hexes++;
           break;
       }
     }
@@ -316,8 +331,12 @@ class Bot {
       }
     }
 
-    // 2. Fight what is next to us.
     const threats = this.threats();
+
+    // 2. Spells, for a bot that carries a conduit and means to use it.
+    if (this.policy.cast && this.cast(threats)) return true;
+
+    // 3. Fight what is next to us.
     const adjacent = threats.filter((e) => Math.abs(e.x - p.x) + Math.abs(e.y - p.y) === 1);
     if (adjacent.length) {
       const e = adjacent[0];
@@ -365,7 +384,6 @@ class Bot {
       return this.navigate(food.x, food.y);
     }
 
-    // 3. Ranged attackers: close on them.
     // 4. Objectives.
     const target = this.pickTarget(hpFrac);
     this.trace(target ? `goal ${target[0]},${target[1]}` : 'goal none');
@@ -374,6 +392,72 @@ class Bot {
       return this.transition(hpFrac);
     }
     return this.navigate(target[0], target[1]);
+  }
+
+  /**
+   * The battlemage's turn. Looks down each of the four lines for the first
+   * monster in it, since that is what a bolt or a hitscan spell would strike,
+   * picks the spell this bot would want for it, turns, readies it and casts.
+   * One decision per tick, like everything else: turning, cycling the spell
+   * and casting are three ticks.
+   *
+   * The policy, kept simple so the numbers stay readable:
+   * - **Hex** an elite, or anything while two or more are closing, but never
+   *   one already a penguin, nor the King or a lieutenant (they refuse it).
+   * - **Smite** the undead, whom holy hurts double.
+   * - **Ember Bolt**, else **Rime Lance**, else Smite, at anything else
+   *   still on its way in. Next to it, the bot swings instead.
+   * - Never on a penguin, and never below a swing's worth of stamina after
+   *   the cast, so a cast does not leave it unable to fight.
+   */
+  private cast(threats: EnemyState[]): boolean {
+    const w = this.w;
+    const p = w.player;
+    const pool = w.run.conduit;
+    const spells = w.conduitSpells();
+    if (!w.derived.conduit || !pool || !spells.length || !threats.length) return false;
+    const closing = threats.filter((e) => Math.abs(e.x - p.x) + Math.abs(e.y - p.y) <= 4).length;
+    // Something already at arm's length decides the fight: turning away from
+    // it to cast down another line is how a bot gets hit in the back, and
+    // starting a cast into its wind-up is how it gets hit in the face.
+    const engaged = threats.some((e) => Math.abs(e.x - p.x) + Math.abs(e.y - p.y) === 1);
+    let best: { e: EnemyState; dir: Dir; dist: number; spell: ConduitSpellDef } | null = null;
+    for (const dir of DIRS) {
+      for (let dist = 1; dist <= 5; dist++) {
+        const x = p.x + DX[dir] * dist, y = p.y + DY[dir] * dist;
+        if (blocksSight(w.floor, x, y)) break;
+        const e = enemyAt(w.floor, x, y);
+        if (!e) continue;
+        if (engaged && (dist > 1 || e.ai === 'windup')) break;
+        const spell = this.spellFor(e, dist, closing, spells, pool.charges);
+        if (spell && (!best || dist < best.dist || (dist === best.dist && dir === p.facing))) best = { e, dir, dist, spell };
+        break;
+      }
+    }
+    if (!best) return false;
+    const spell = best.spell;
+    if (best.dir !== p.facing) { this.turnTo(best.dir); return true; }
+    if (w.selectedSpell()?.id !== spell.id) { w.nextSpell(); return true; }
+    if (!w.castSpell()) return false;
+    this.report.casts[spell.id] = (this.report.casts[spell.id] ?? 0) + 1;
+    this.trace(`cast ${spell.id} at ${best.e.def} (${best.dist})`);
+    return true;
+  }
+
+  /** The spell this bot wants for this monster, at this distance, or none. */
+  private spellFor(e: EnemyState, dist: number, closing: number, spells: ConduitSpellDef[], charges: number): ConduitSpellDef | null {
+    if ((e.hexT ?? 0) > 0) return null;
+    const p = this.w.player;
+    const swing = this.w.derived.swing.staminaCost;
+    const usable = (id: string) => spells.find((s) => s.id === id && s.charges <= charges && p.stamina - s.stamina >= swing && s.range >= dist);
+    const hexable = e.def !== BOSS_ID && !e.lieutenant;
+    if (hexable && (e.elite || closing >= 2)) {
+      const hex = usable('hex');
+      if (hex) return hex;
+    }
+    if (dist < 2) return null;
+    if (enemyDef(e.def).undead) return usable('smite') ?? usable('ember_bolt') ?? usable('rime_lance') ?? null;
+    return usable('ember_bolt') ?? usable('rime_lance') ?? usable('smite') ?? null;
   }
 
   /** Where the bot wants to be standing next. */
@@ -791,6 +875,11 @@ export function summarise(reports: RunReport[], label: string): string {
   L.push(`renown: ${renown.toFixed(1)}/run, ${hours > 0 ? (renown / hours).toFixed(0) : '—'}/sim-hour (whole tree costs ${META_TREE_COST})   broken gear at end: ${avg(reports.map((r) => r.brokenAtEnd)).toFixed(2)}`);
   // Gold *out* is not modelled: the bot never visits town, so it never pays a
   // smith, an appraiser or a merchant. Banked is income, not profit.
+  const cast = reports.flatMap((r) => Object.keys(r.casts));
+  if (cast.length) {
+    const ids = [...new Set(cast)].sort();
+    L.push(`casts: ${ids.map((id) => `${id} ${avg(reports.map((r) => r.casts[id] ?? 0)).toFixed(1)}`).join(', ')}  struck nothing ${avg(reports.map((r) => r.spellMisses)).toFixed(1)}  hexes taken ${avg(reports.map((r) => r.hexes)).toFixed(1)}`);
+  }
   L.push(`pack: peaked at ${avg(reports.map((r) => r.peakSlots)).toFixed(1)} of ${avg(reports.map((r) => r.capacity)).toFixed(0)} slots; ${pct(reports.filter((r) => r.peakSlots >= r.capacity).length, n)} of runs filled it`);
   L.push('note: income only — the bot never goes to town, so repairs, identification and restocking are unpriced.');
   L.push('per floor:');

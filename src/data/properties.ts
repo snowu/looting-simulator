@@ -14,7 +14,7 @@
  */
 import type { Slot } from '../types';
 
-export type PropertyId = 'riposte' | 'execution' | 'kindling' | 'bulwark' | 'retrieval' | 'last_flask';
+export type PropertyId = 'riposte' | 'execution' | 'kindling' | 'bulwark' | 'retrieval' | 'last_flask' | 'countercharm' | 'requiem';
 
 export interface PropertyDef {
   id: PropertyId;
@@ -46,6 +46,9 @@ export const BULWARK_MULT = 1.5;
 export const RETRIEVAL_MULT = 0.5;
 /** Last Flask: with the flask empty, food and leech heal this much more. */
 export const LAST_FLASK_MULT = 1.5;
+
+/** Countercharm: charges a parry puts back in your conduit. */
+export const COUNTERCHARM_CHARGES = 1;
 
 /** Gold to inscribe a property onto an item. Redoing it costs the same. */
 export const INSCRIBE_COST = 150;
@@ -82,6 +85,19 @@ export const PROPERTIES: Record<PropertyId, PropertyDef> = {
     id: 'last_flask', name: 'Last Flask', slots: ARMOUR, color: '#e07a7a',
     rule: 'With the flask empty, food and leeching heal more.',
     detail: `While your flask has no charges, morsels and life leech heal ×${LAST_FLASK_MULT}.`,
+  },
+  // The battlemage's two. A conduit's pool is the resource a caster runs
+  // out of, so both put charges back for doing something well: turning a
+  // blow aside, and finishing a fight with the spell rather than the blade.
+  countercharm: {
+    id: 'countercharm', name: 'Countercharm', slots: ['weapon', 'offhand'], color: '#b8a8ff',
+    rule: 'A parry puts a charge back in your conduit.',
+    detail: `Each parry returns ${COUNTERCHARM_CHARGES} charge to your conduit's pool, up to full. Nothing without a conduit.`,
+  },
+  requiem: {
+    id: 'requiem', name: 'Requiem', slots: ['hands'], color: '#e8d8a0',
+    rule: 'A spell that kills gives back what it cost.',
+    detail: 'When the hit of a battle spell kills a monster, the charges that spell cost return to your conduit. A burn that finishes it later does not count.',
   },
 };
 

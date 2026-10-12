@@ -9,7 +9,9 @@ import { parseSave } from '../state/save-format';
 import { SAVE_REVISION } from '../state/migrations';
 import { addItem } from '../state/inventory';
 import { learnTome, loadedSpells, makeTome, toggleLoaded, unknownConduitSpells } from '../systems/conduits';
-import { makeEquipment } from '../systems/items';
+import { makeEquipment, makeUnique } from '../systems/items';
+import { findUnique } from '../data/uniques';
+import { COUNTERCHARM_CHARGES } from '../data/properties';
 import { derivePlayer } from '../systems/player';
 import { startRun } from '../systems/run';
 import { createEnemy, FLOOR, WALL } from '../systems/dungeon';
@@ -380,5 +382,82 @@ describe('the Stave', () => {
     expect(w.run.conduit?.charges).toBe(5);
     expect(w.castSpell()).toBe(true);
     expect(w.anim.attackWeaponUid).toBe(state.equipment.weapon!.uid);
+  });
+});
+
+describe('battlemage payoffs', () => {
+  type Priv = { parryFlourish(x: number, y: number): void; hurt(e: unknown, dealt: number, text: string, color: string): void };
+  const priv = (w: World) => w as unknown as Priv;
+
+  it('Countercharm: a parry puts a charge back, never past full', () => {
+    const w = battlemage('rod');
+    w.state.equipment.offhand!.property = 'countercharm';
+    w.refreshDerived();
+    w.run.conduit!.charges = 1;
+    priv(w).parryFlourish(w.player.x, w.player.y - 1);
+    expect(w.run.conduit!.charges).toBe(1 + COUNTERCHARM_CHARGES);
+    w.run.conduit!.charges = w.derived.conduit!.charges;
+    priv(w).parryFlourish(w.player.x, w.player.y - 1);
+    expect(w.run.conduit!.charges).toBe(w.derived.conduit!.charges);
+  });
+
+  it('Countercharm does nothing on gear it was not made for', () => {
+    const w = battlemage('rod');
+    w.state.equipment.body = makeEquipment({ baseId: 'jerkin', materialId: 'leather', rarity: Rarity.Common, ilvl: 2, identified: true });
+    w.state.equipment.body.property = 'countercharm';
+    w.refreshDerived();
+    expect(w.derived.traits.countercharm).toBe(false);
+  });
+
+  it('Requiem: a spell that kills gives its charges back; one that does not, does not', () => {
+    const w = battlemage('rod', ['ember_bolt']);
+    w.state.equipment.hands = makeEquipment({ baseId: 'gloves', materialId: 'leather', rarity: Rarity.Common, ilvl: 2, identified: true });
+    w.state.equipment.hands.property = 'requiem';
+    w.refreshDerived();
+    const full = w.run.conduit!.charges;
+    const sturdy = target(w, 2);
+    expect(w.castSpell()).toBe(true);
+    run(w, 1);
+    expect(sturdy.hp).toBeLessThan(400);
+    expect(w.run.conduit!.charges).toBe(full - 1);
+    sturdy.hp = 1;
+    sturdy.burn = undefined;
+    w.player.stamina = w.derived.maxStamina;
+    expect(w.castSpell()).toBe(true);
+    run(w, 1);
+    expect(sturdy.ai).toBe('dead');
+    expect(w.run.conduit!.charges).toBe(full - 1);
+  });
+
+  it("Dr. Mantis Toboggan's Rod casts on credit, in health, but never the last point", () => {
+    const state = newGame(createRng(97));
+    const rod = makeUnique(findUnique('mantis_toboggan')!, createRng(97), 5, true);
+    state.equipment.offhand = rod;
+    state.spellbook = ['ember_bolt', 'hex'];
+    state.loadedSpells = ['hex'];
+    startRun(state, 97);
+    const w = new World(state);
+    w.floor.enemies = [];
+    expect(w.derived.traits.bloodCast).toBeCloseTo(0.1);
+    w.run.conduit!.charges = 1;
+    const hp = w.player.hp = w.derived.maxHp;
+    expect(w.spellReady()).toBe(true);
+    expect(w.castSpell()).toBe(true);
+    // One charge short of Hex's two: 10% of max health.
+    expect(w.player.hp).toBe(hp - Math.round(0.1 * w.derived.maxHp));
+    expect(w.run.conduit!.charges).toBe(0);
+    run(w, 1);
+    w.player.stamina = w.derived.maxStamina;
+    w.player.hp = Math.round(0.2 * w.derived.maxHp);
+    expect(w.spellReady()).toBe(false);
+    expect(w.castSpell()).toBe(false);
+    expect(w.player.hp).toBe(Math.round(0.2 * w.derived.maxHp));
+  });
+
+  it('an ordinary conduit still refuses a cast it cannot pay for', () => {
+    const w = battlemage('rod');
+    w.run.conduit!.charges = 0;
+    expect(w.spellReady()).toBe(false);
+    expect(w.castSpell()).toBe(false);
   });
 });

@@ -107,8 +107,8 @@ function oathLine(o: { id: string; kept: boolean; renown: number }): HTMLElement
     style: `color:${o.kept ? def.color : '#9a9aa8'}`,
     text: o.kept
       ? o.renown
-        ? `Oath kept: ${def.name}. You have learned every inscription, so it pays ${o.renown} renown instead.`
-        : `Oath kept: ${def.name}. ${def.tier === 'hard' ? 'Two inscriptions wait' : 'An inscription waits'} for you in Bleakmere: choose from three.`
+        ? `Oath kept: ${def.name}. You have learned everything the wardens teach, so it pays ${o.renown} renown instead.`
+        : `Oath kept: ${def.name}. ${def.tier === 'hard' ? 'Two lessons wait' : 'A lesson waits'} for you in Bleakmere, inscriptions or spells: choose from three.`
       : `Oath broken: ${def.name}. It costs you nothing but the reward.`,
   });
 }
@@ -117,7 +117,7 @@ function oathLine(o: { id: string; kept: boolean; renown: number }): HTMLElement
 function oathsLine(o: { results: { id: string; kept: boolean }[]; picks: number; renown: number; bonus: boolean }): HTMLElement {
   const parts = o.results.map((r) => `${findOath(r.id)?.name ?? r.id} ${r.kept ? 'kept' : 'broken'}`);
   const pay = o.picks
-    ? ` ${o.picks} inscription${o.picks === 1 ? '' : 's'} wait${o.picks === 1 ? 's' : ''} for you in Bleakmere${o.bonus ? ', one of them for keeping every oath' : ''}.`
-    : o.renown ? ` You know every inscription, so they pay ${o.renown} renown instead.` : ' They cost you nothing but the reward.';
+    ? ` ${o.picks} lesson${o.picks === 1 ? '' : 's'} wait${o.picks === 1 ? 's' : ''} for you in Bleakmere${o.bonus ? ', one of them for keeping every oath' : ''}.`
+    : o.renown ? ` You know everything the wardens teach, so they pay ${o.renown} renown instead.` : ' They cost you nothing but the reward.';
   return h('p', { style: `color:${o.results.some((r) => r.kept) ? '#e0c060' : '#9a9aa8'}`, text: `Oaths: ${parts.join(', ')}.${pay}` });
 }

@@ -3,7 +3,7 @@ import { SEALS, SEAL_FIND, SEAL_IDS, SEAL_RENOWN, validSeals } from '../data/sea
 import { sealsUnlocked, toggleSeal } from '../systems/seals';
 import { ROADS, roadsForDay } from '../data/routes';
 import { OATHS, OATH_PICKS, STACK_BONUS, STACK_BONUS_AT, findOath } from '../data/oaths';
-import { claimOathRewards, oathRewardPicks, pendingOaths, todaysOaths, toggleOath } from '../systems/oaths';
+import { claimOathRewards, oathRewardPicks, pendingOaths, rewardChoice, todaysOaths, toggleOath } from '../systems/oaths';
 import { INSCRIBE_COST, PropertyDef, findProperty } from '../data/properties';
 import { inscribe, inscribeTargets } from '../systems/properties';
 import { EQUIP_SLOTS, Item, MaterialCategory, Rarity, RARITY_COLORS, RARITY_ORDER, STAT_KEYS, STAT_LABELS, Stats } from '../types';
@@ -1206,10 +1206,14 @@ export class Town {
       const picks = oathRewardPicks(s);
       this.oathPicks = this.oathPicks.filter((id) => reward.choices.includes(id));
       const learn = (ids: string[]) => {
-        const names = ids.map((id) => findProperty(id)?.name).filter(Boolean);
+        const chosen = ids.map(rewardChoice).filter((c) => !!c);
         if (!claimOathRewards(s, ids)) return;
         this.oathPicks = [];
-        this.ctx.toast(`${names.join(' and ')} learned. Cut ${ids.length > 1 ? 'them' : 'it'} into your gear at the forge.`, findProperty(ids[0])?.color);
+        const spells = chosen.filter((c) => c.where === 'spell').length;
+        const where = spells === chosen.length
+          ? `Load ${chosen.length > 1 ? 'them' : 'it'} at the forge's Spells bench.`
+          : spells ? 'Inscribe and load them at the forge.' : `Cut ${chosen.length > 1 ? 'them' : 'it'} into your gear at the forge.`;
+        this.ctx.toast(`${chosen.map((c) => c.name).join(' and ')} learned. ${where}`, chosen[0]?.color);
         this.commit('study');
       };
       const kept = (reward.oaths ?? (reward.oath ? [reward.oath] : [])).map((id) => findOath(id)?.name).filter(Boolean);
@@ -1217,16 +1221,16 @@ export class Town {
         'div',
         { class: 'pane frame gold' },
         h('h3', { text: `Oath${kept.length === 1 ? '' : 's'} kept: ${kept.join(', ')}` }),
-        h('p', { class: 'dim', text: `The old wardens paid a kept oath in knowledge. Choose ${picks > 1 ? `${picks} inscriptions` : 'one inscription'} to learn; they can be cut into your gear at the forge.` }),
+        h('p', { class: 'dim', text: `The old wardens paid a kept oath in knowledge. Choose ${picks > 1 ? `${picks} lessons` : 'one lesson'} to learn: an inscription is cut into your gear at the forge, a spell goes into your spellbook.` }),
         h('div', { class: 'col' }, ...reward.choices.map((id) => {
-          const def = findProperty(id);
+          const def = rewardChoice(id);
           if (!def) return null;
           const chosen = this.oathPicks.includes(id);
           return h(
             'div',
             { class: 'row repair-row' },
             h('div', { class: 'grow' },
-              h('div', { style: `color:${def.color}`, text: `${chosen ? '✓ ' : ''}${def.name} · ${def.slots.join(', ')}` }),
+              h('div', { style: `color:${def.color}`, text: `${chosen ? '✓ ' : ''}${def.name} · ${def.where}` }),
               bothRegisters(def.rule, def.detail, 'dim small'),
             ),
             picks === 1
@@ -1305,13 +1309,13 @@ export class Town {
             h('div', { class: 'small', text: def.objective }),
           ),
           btn(on ? 'Unswear' : 'Swear', () => {
-            if (!toggleOath(s, id)) return this.ctx.toast('Choose your inscriptions from the last oaths first.', '#e8c060');
+            if (!toggleOath(s, id)) return this.ctx.toast('Choose what to learn from the last oaths first.', '#e8c060');
             this.ctx.toast(on ? `${def.name} unsworn.` : `You swear ${def.name}. It takes hold when you descend.`, def.color);
             this.commit('ui');
           }, `small${on ? '' : ' primary'}`),
         );
       })),
-      sworn.length ? h('p', { class: 'small', style: 'color:#e0c060', text: `${sworn.length} sworn: keep them all and learn ${picks} inscription${picks === 1 ? '' : 's'}.` }) : null,
+      sworn.length ? h('p', { class: 'small', style: 'color:#e0c060', text: `${sworn.length} sworn: keep them all and learn ${picks} lesson${picks === 1 ? '' : 's'}.` }) : null,
     );
   }
 

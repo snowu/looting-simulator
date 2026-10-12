@@ -16,7 +16,8 @@ import { rollContainerLoot, rollEnemyLoot, itemValue, makeEquipment, ContainerTi
 import { ITEM_BASES } from '../src/data/items';
 import { MATERIALS } from '../src/data/materials';
 import { AffixRoll, Item, Rarity, RARITY_ORDER } from '../src/types';
-import { derivePlayer, emptyEquipment, Equipment, thrownView } from '../src/systems/player';
+import { derivePlayer, emptyEquipment, Equipment, spellView, thrownView } from '../src/systems/player';
+import { BURN_SHARE, CONDUIT_SPELLS } from '../src/data/conduit-spells';
 import { playerHitsEnemy, enemyHitsPlayer } from '../src/systems/combat';
 import { depthPower, attackPower, defensePower } from '../src/systems/dungeon';
 
@@ -343,6 +344,67 @@ export function weapons(): string {
   return L.join('\n');
 }
 
+/**
+ * Every conduit casting every spell, against the whole bestiary, beside the
+ * weapon it shares a kit with.
+ *
+ * Built like `weapons()`: tier-3 material for each conduit's own `primary`, and
+ * a tier-3 Long Sword in the weapon hand of the offhand conduits so `swing`
+ * has something to be compared with (the Stave is its own weapon). Scored
+ * through `spellView`, the same helper the cast snapshots, so a spell here is
+ * the spell the game throws.
+ *
+ * `hit` includes Ember Bolt's burn. `pool` is a full conduit emptied on that
+ * one spell; `/min` is what regrow alone pays out after that, the sustained
+ * rate. Hex does no damage and is listed for its cost. Undead are averaged
+ * separately because Smite exists for them.
+ */
+export function spells(): string {
+  const L = ['--- spells: every conduit at tier 3, averaged over the bestiary (undead separately) ---'];
+  const rng = createRng(29);
+  const N = 300;
+  const ILVL = 10;
+  const tier3 = (primary: string[]) => MATERIALS.filter((m) => primary.includes(m.category) && m.tier <= 3)
+    .sort((a, b) => b.tier - a.tier || b.value - a.value)[0];
+  const sword = ITEM_BASES.find((b) => b.id === 'long_sword')!;
+  const avgHit = (d: ReturnType<typeof derivePlayer>, power: number, undead: boolean) => {
+    let total = 0, n = 0;
+    for (const def of ENEMIES) {
+      if (!!def.undead !== undead) continue;
+      const dp = depthPower(def, Math.max(def.minDepth, 1));
+      for (let i = 0; i < N; i++) total += playerHitsEnemy(rng, d, power, def, defensePower(dp)).damage;
+      n += N;
+    }
+    return total / Math.max(1, n);
+  };
+  for (const base of ITEM_BASES) {
+    if (!base.conduit) continue;
+    const mat = tier3(base.primary);
+    if (!mat) continue;
+    const c = base.conduit;
+    const eq = emptyEquipment();
+    if (base.slot === 'weapon') eq.weapon = makeEquipment({ baseId: base.id, materialId: mat.id, rarity: Rarity.Common, ilvl: ILVL });
+    else {
+      eq.offhand = makeEquipment({ baseId: base.id, materialId: mat.id, rarity: Rarity.Common, ilvl: ILVL });
+      eq.weapon = makeEquipment({ baseId: sword.id, materialId: tier3(sword.primary)!.id, rarity: Rarity.Common, ilvl: ILVL });
+    }
+    const d = derivePlayer(eq, {});
+    const swingHit = avgHit(d, 1, false);
+    const cycle = d.swing.windup + d.swing.recovery;
+    L.push(`  ${base.name} (${mat.name}): power=${d.conduitPower} slots=${c.slots} charges=${c.charges} regrow=${c.regrow}s | swing (${d.weaponClass ?? 'fists'}) hits ${f1(swingHit)}, ${f1(swingHit / cycle)} dps`);
+    for (const spell of CONDUIT_SPELLS) {
+      const view = spellView(d, spell);
+      const burn = spell.id === 'ember_bolt' ? 1 + BURN_SHARE : 1;
+      const hit = spell.power > 0 ? avgHit(view, 1, false) * burn : 0;
+      const undead = spell.power > 0 ? avgHit(view, 1, true) * burn : 0;
+      const casts = Math.floor(c.charges / spell.charges);
+      const perMin = (60 / c.regrow / spell.charges) * hit;
+      L.push(`    ${spell.name.padEnd(11)} ${spell.charges}ch ${String(spell.stamina).padStart(2)}sta | hit ${String(f1(hit)).padStart(5)} (undead ${String(f1(undead)).padStart(5)}) = ${f2(hit / Math.max(1, swingHit))}x a swing | pool ${casts} casts, ${String(f1(casts * hit)).padStart(6)} | ${String(f1(perMin)).padStart(6)}/min from regrow`);
+    }
+  }
+  return L.join('\n');
+}
+
 export function allTables(): string {
-  return [CAVEAT, '', weapons(), '', ladder(), '', composition(), '', yields(), '', matchups()].join('\n');
+  return [CAVEAT, '', weapons(), '', spells(), '', ladder(), '', composition(), '', yields(), '', matchups()].join('\n');
 }

@@ -199,6 +199,6 @@ describe('the effects', () => {
 });
 
 it('every property fits at least one kind of gear', () => {
-  const bases = ['long_sword', 'kite_shield', 'throwing_knives', 'plate'];
+  const bases = ['long_sword', 'kite_shield', 'throwing_knives', 'plate', 'gloves'];
   for (const id of PROPERTY_IDS) expect(bases.some((b) => canCarry(gear(b), id)), id).toBe(true);
 });
