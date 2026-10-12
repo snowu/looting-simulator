@@ -20,7 +20,7 @@
  * Every surface is drawn on its tile, so the setup is always readable: the
  * oil glistens before anything lights it.
  */
-export type SurfaceKind = 'oil' | 'water' | 'ice' | 'fire';
+export type SurfaceKind = 'oil' | 'water' | 'ice' | 'fire' | 'vent' | 'spores';
 
 export interface Surface {
   x: number;
@@ -33,6 +33,13 @@ export interface Surface {
   t?: number;
   /** Fire: seconds until it lights the oil beside it. Absent once it has. */
   spread?: number;
+  /**
+   * Ice frozen out of the Catacombs' flood rather than out of a pool: when it
+   * thaws it is gone, back into the flood, instead of becoming a puddle.
+   */
+  flood?: boolean;
+  /** Vent: seconds left of the burst's flames, for drawing. Absent between bursts. */
+  burst?: number;
 }
 
 /** Seconds an oil tile burns before it is spent and leaves bare floor. */
@@ -62,9 +69,45 @@ export const WATER_POOLS = 1;
 export const POOL_MIN = 3;
 export const POOL_MAX = 6;
 
+/**
+ * Oil barrels: red-hooped, on most floors. Broken, one spills a pool around
+ * itself; reached by fire, it bursts, lighting the spill at once and
+ * scorching everything beside it.
+ */
+export const OIL_BARRELS = 1;
+export const BARREL_SPILL = 5;
+/** A burst's bite, on the barrel's tile and the four beside it: this many of fire's ticks at once. */
+export const BURST_TICKS = 3;
+
+/**
+ * Biome laws on surfaces (`src/data/laws.ts`).
+ *
+ * The Catacombs (`flood`): frost that lands on the flood freezes every tile
+ * within `FLOOD_REACH` of where it landed, and whatever stands there.
+ */
+export const FLOOD_REACH = 1;
+/** The Frost Vault (`treacherous`): a monster that slips is open (double damage) as it goes down; you go down for this long when struck on ice. */
+export const PLAYER_SLIP_SECONDS = 0.6;
+/** The Emberworks (`vents`): vents per floor, seconds between bursts, the glowing warning before one, and how long its flames stand. */
+export const VENTS = 4;
+export const VENT_PERIOD_MIN = 7;
+export const VENT_PERIOD_MAX = 11;
+export const VENT_TELL = 1.2;
+export const VENT_FLAMES = 0.8;
+/** The Sporegrove (`spores`): patches per floor, and how long a puff blinds monsters (and dims your lamp). */
+export const SPORE_PATCHES = 4;
+export const SPORE_BLIND = 3;
+/** Fire's ticks a spore burst bites with, and a vent's burst on its own tile. */
+export const SPORE_BURST_TICKS = 2;
+export const VENT_TICKS = 2;
+/** Seconds burning spores burn: briefly, because they explode as they catch. */
+export const SPORE_FIRE_SECONDS = 2;
+
 export const SURFACE_NAMES: Record<SurfaceKind, string> = {
   oil: 'oil',
   water: 'water',
   ice: 'ice',
   fire: 'fire',
+  vent: 'a vent',
+  spores: 'spores',
 };

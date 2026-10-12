@@ -120,6 +120,8 @@ export interface Prop {
   shattered?: number;
   /** An emptied chest broken apart; it no longer blocks. Absent means intact. */
   smashed?: boolean;
+  /** A barrel of lamp oil (`src/data/surfaces.ts`): spills when broken, bursts in fire. Absent means an ordinary vessel. */
+  oil?: boolean;
 }
 
 /**

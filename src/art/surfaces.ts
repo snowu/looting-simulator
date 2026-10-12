@@ -1,4 +1,5 @@
 import { ArtDef } from './raster';
+import { POOF, POOF_B } from './spell-fx';
 
 /**
  * What lies on the floor: oil, water, ice, the scorch fire leaves while it
@@ -164,7 +165,83 @@ function flame(seed: number): string[] {
   return out;
 }
 
+/**
+ * An Emberworks vent: a round iron grate over the fire below, with the
+ * glow coming up through the bars dim and emissive. The renderer brightens
+ * it into the warning before a burst.
+ */
+const VENT_PAL: Record<string, string> = {
+  k: '#0e0a08', // the dark below
+  i: '#3a3634', // iron bars
+  l: '#5a5450', // bar highlight
+  c: '#241c18', // cracked crust round it
+  g: '#a03a10fa', // the glow, emissive
+  y: '#e07020fa',
+};
+
+const VENT = blob(91, 0.82, (inset, x, y) => {
+  const c = (SIZE - 1) / 2;
+  const r = Math.hypot(x - c, y - c);
+  if (inset < 0.1) return noise(x, y, 3, 97) > 0.7 ? 'g' : 'c';
+  if (r > 10) return 'i';
+  // Bars across the grate, three each way.
+  if (x % 5 === 0 || y % 5 === 0) return x % 5 === 0 && y % 5 === 0 ? 'l' : 'i';
+  return r < 5 && noise(x, y, 2, 101) > 0.45 ? 'y' : noise(x, y, 3, 103) > 0.35 ? 'g' : 'k';
+});
+
+/**
+ * Sporegrove puffballs from above: a cluster of pale round caps on a mat of
+ * moss, faintly aglow like the grove's fungus so they show in the dark.
+ */
+const SPORE_PAL: Record<string, string> = {
+  m: '#24361a', // moss
+  d: '#3c5228', // moss, lit
+  c: '#9ca87cfa', // cap, faintly aglow like the grove's fungus
+  s: '#d0d8b0fa', // cap, lit
+  h: '#5e6848', // cap in shadow
+  p: '#b0d870fa', // spore dust, faintly emissive
+};
+
+const SPORES = (() => {
+  const caps: [number, number, number][] = [[12, 13, 5], [20, 11, 4], [18, 20, 5], [10, 21, 3], [24, 18, 3]];
+  return blob(113, 0.8, (_inset, x, y) => {
+    for (const [cx, cy, r] of caps) {
+      const d = Math.hypot(x - cx, y - cy);
+      if (d < r) {
+        if (d < r * 0.45 && x <= cx && y <= cy) return 's';
+        if (hash(x, y, 127) > 0.88) return 'p';
+        return x - cx + y - cy > r * 0.6 ? 'h' : 'c';
+      }
+    }
+    return noise(x, y, 4, 131) > 0.55 ? 'd' : 'm';
+  });
+})();
+
+/** A puff of spores: Hex's smoke, in the Sporegrove's sickly green. */
+const SPORE_CLOUD_PAL: Record<string, string> = {
+  1: '#2e4418fa',
+  2: '#5a7a2cfa',
+  3: '#8cb048fa',
+  4: '#c8e080fa',
+  x: '#f0f8c8fa',
+};
+
+/** A burst of fire: the same shape, in flame. */
+const BLAST_PAL: Record<string, string> = {
+  1: '#801c08fa',
+  2: '#d04818fa',
+  3: '#ff8a28fa',
+  4: '#ffd060fa',
+  x: '#fff6d0fa',
+};
+
 export const SURFACE_ART: ArtDef[] = [
+  { id: 'surf_vent', palette: VENT_PAL, rows: VENT },
+  { id: 'surf_spores', palette: SPORE_PAL, rows: SPORES },
+  { id: 'fx_spores', palette: SPORE_CLOUD_PAL, rows: POOF },
+  { id: 'fx_spores_b', palette: SPORE_CLOUD_PAL, rows: POOF_B },
+  { id: 'fx_blast', palette: BLAST_PAL, rows: POOF },
+  { id: 'fx_blast_b', palette: BLAST_PAL, rows: POOF_B },
   { id: 'surf_oil', palette: OIL_PAL, rows: OIL },
   { id: 'surf_water', palette: WATER_PAL, rows: WATER },
   { id: 'surf_ice', palette: ICE_PAL, rows: ICE },

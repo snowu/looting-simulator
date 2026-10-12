@@ -26,6 +26,7 @@ import { EnemyFrame, enemyPose } from './enemy-pose';
 import { moveById } from '../data/attacks';
 import { quirkDef } from '../data/quirks';
 import { LevelView, TILE, WALL_H, buildLevel, tileX, tileZ } from './level-mesh';
+import { VENT_FLAMES, VENT_TELL } from '../data/surfaces';
 import { MAX_LIGHTS, PS1Material, PostPass, Shared, createLowResTarget, createShared, ps1Material } from './ps1';
 import { brightness } from './brightness';
 import { MORSEL_ART, MORSEL_ROT_SECONDS } from '../systems/healing';
@@ -561,8 +562,15 @@ export class DungeonRenderer {
         lights.push({ x: tileX(pr.x), y: 1.3, z: tileZ(pr.y), r: 4.5, color: cachedColor(SHRINE_LIGHT[shrineKind(pr)]), intensity: 0.95 });
       }
     }
-    // Burning oil lights the room it is in, unevenly.
+    // Burning oil lights the room it is in, unevenly; a vent glows, and
+    // flares in the warning before it bursts.
     for (const sf of floor.surfaces ?? []) {
+      if (sf.kind === 'vent') {
+        const warn = 1 - clamp((sf.t ?? VENT_TELL) / VENT_TELL, 0, 1);
+        const burst = (sf.burst ?? 0) > 0 ? 1.4 : 0;
+        lights.push({ x: tileX(sf.x), y: 0.4, z: tileZ(sf.y), r: 3 + 2 * warn + burst, color: cachedColor('#ff7020'), intensity: (0.55 + 1.1 * warn + burst) * flick(sf.x + sf.y) });
+        continue;
+      }
       if (sf.kind !== 'fire') continue;
       lights.push({ x: tileX(sf.x), y: 0.7, z: tileZ(sf.y), r: 3.8, color: cachedColor('#ff8a30'), intensity: 1.2 * flick(sf.x * 5 + sf.y * 3) * clamp(sf.t ?? 1, 0.3, 1) });
     }
@@ -580,7 +588,8 @@ export class DungeonRenderer {
     this.called = called;
     for (const fx of world.spellFx) {
       const k = 1 - clamp(fx.t / SPELL_FX_SECONDS[fx.kind], 0, 1);
-      if (!fx.miss) lights.push({ x: tileX(fx.x), y: 1.2, z: tileZ(fx.y), r: 4.5, color: cachedColor(fx.kind === 'smite' ? '#fff0b0' : '#b080ff'), intensity: 1.6 * k });
+      const glow = fx.kind === 'smite' ? '#fff0b0' : fx.kind === 'blast' ? '#ff8030' : fx.kind === 'spores' ? '#a8d878' : '#b080ff';
+      if (!fx.miss) lights.push({ x: tileX(fx.x), y: 1.2, z: tileZ(fx.y), r: 4.5, color: cachedColor(glow), intensity: (fx.kind === 'spores' ? 0.6 : 1.6) * k });
     }
     for (const en of floor.enemies) {
       const def = enemyDef(en.def);
@@ -724,10 +733,20 @@ export class DungeonRenderer {
       if (!near(sf.x, sf.y)) continue;
       const wx = tileX(sf.x), wz = tileZ(sf.y);
       const s = this.sprite(`sf:${sf.x},${sf.y}`);
-      this.placeFlat(s, sf.kind === 'fire' ? 'surf_scorch' : `surf_${sf.kind}`, wx, wz, TILE * 0.98);
+      this.placeFlat(s, sf.kind === 'fire' ? 'surf_scorch' : `surf_${sf.kind}`, wx, wz, sf.kind === 'vent' ? TILE * 0.8 : TILE * 0.98);
+      const frame = Math.floor(this.time * 9 + sf.x * 3 + sf.y * 5) % 2;
+      if (sf.kind === 'vent') {
+        // The warning: the grate brightens and pulses before it bursts.
+        const warn = 1 - clamp((sf.t ?? VENT_TELL) / VENT_TELL, 0, 1);
+        if (warn > 0) s.mat.uniforms.uTint.value.set(1, 0.55, 0.15, 0.2 + 0.4 * warn + 0.15 * Math.sin(this.time * 18));
+        if ((sf.burst ?? 0) > 0) {
+          const flame = this.sprite(`sff:${sf.x},${sf.y}`);
+          this.place(flame, `fx_flame_${frame}`, wx, 0, wz, 2.2 * clamp((sf.burst ?? 0) / VENT_FLAMES + 0.3, 0.4, 1));
+        }
+        continue;
+      }
       if (sf.kind !== 'fire') continue;
       const flame = this.sprite(`sff:${sf.x},${sf.y}`);
-      const frame = Math.floor(this.time * 9 + sf.x * 3 + sf.y * 5) % 2;
       this.place(flame, `fx_flame_${frame}`, wx, 0, wz, 1.25 * clamp(sf.t ?? 1, 0.35, 1));
     }
 
@@ -763,7 +782,7 @@ export class DungeonRenderer {
         case 'root_cache':
         case 'urn':
         case 'barrel':
-          this.place(s, pr.used ? `${pr.kind}_broken` : pr.kind, wx, 0, wz, VESSEL_SCALE[pr.kind]);
+          this.place(s, pr.used ? `${pr.kind}_broken` : pr.oil ? 'barrel_oil' : pr.kind, wx, 0, wz, VESSEL_SCALE[pr.kind]);
           break;
         case 'bones':
           this.place(s, 'bones', wx, 0, wz, 1.4);
@@ -912,7 +931,9 @@ export class DungeonRenderer {
         s.mat.uniforms.uTint.value.set(1, 0.97, 0.85, 0.5 * (1 - k));
       } else {
         const size = (k < 0.6 ? 0.8 + 0.6 * (k / 0.6) : 1.4 * (1 - (k - 0.6) / 0.4) + 0.1) * scale;
-        this.place(s, k < 0.45 ? 'fx_poof' : 'fx_poof_b', wx, 0.15, wz, size);
+        // Hex's smoke, a spore cloud and a burst of fire share the one shape.
+        const art = fx.kind === 'poof' ? 'fx_poof' : `fx_${fx.kind}`;
+        this.place(s, k < 0.45 ? art : `${art}_b`, wx, 0.15, wz, size * (fx.kind === 'poof' ? 1 : 1.5));
       }
     }
 
