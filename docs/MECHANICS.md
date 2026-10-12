@@ -191,6 +191,31 @@ out of every Legendary roll in the game, including the King's guaranteed drop.
 They are planted as a pickup on the walkable tile furthest from the arrival
 stair, unidentified like any other relic.
 
+### Surfaces: oil, water, ice and fire
+
+*Files: `src/data/surfaces.ts` (rules and numbers), `src/systems/surfaces.ts` (placement and state), `updateSurfaces` / `elementReaches` / `freeze` / `slip` / `escapeFire` / `stepOnto` in `src/world/world.ts`*
+
+Every fresh floor gets **pools** on the floor (`Floor.surfaces`), laid after generation on its own `surface:<runSeed>:<depth>` stream, so the floor itself and every golden hash are unchanged. Floors from before surfaces have none. A pool is 3–6 connected tiles grown from one tile of an ordinary room (normal, end, treasure, shrine), never on a stair or the tile in front of one, a door, a prop, a trap, or in the throne room.
+
+| Biome | Oil pools | Water pools |
+|---|---|---|
+| Most biomes | 2 | 1 |
+| Deep Mines (barrels) | 3 | 1 |
+| Emberworks | 3 | 0 |
+| Frost Vault | 1 | 2, laid as **ice** |
+| Sunken Catacombs (already flooded) | 1 | 0 |
+
+**One table, for everything.** Fire from any source lights oil and melts ice; frost from any source freezes water. The sources: a bolt crossing the tile (your Ember Bolt or Rime Lance, a monster's fire or frost bolt, a parried bolt), a blow landing on a monster there while it carries fire or frost (gear, a Kindled draught, a fire Weave), and the feet of a monster that is burning or made of fire (oil and ice only).
+
+| Surface | What happens |
+|---|---|
+| **Oil** | Fire lights it: the tile burns for **6s**, then is bare floor. The fire walks to each touching oil tile after **0.3s**, one tile at a time |
+| **Fire** | Every **0.5s** it bites whatever stands in it: you for `4 + 2 × depth` before armour (× the difficulty's trap damage, unavoidable like a trap), a monster for `10 + 5 × depth` × its fire resistance, raw. A monster it bites **burns** (Ember Bolt's burn, twice the bite over 3s), so it carries the fire into any oil it runs through. Monsters never step into fire, and step out of it before anything else unless mid-swing. The playtest bot walks round it |
+| **Water** | Fire never spreads onto it. A burning monster that steps in is put out. Frost freezes it into **ice for 20s**, and whatever stands in it: a monster is held **2.5s** (`frozenT`, drawn pale blue, out of whatever it was doing), you **1s** |
+| **Ice** | Fire melts it back to water. A monster **struck on ice** (blow, throw or spell) **slips**: down for **0.8s**, out of its wind-up. Ice laid by a frozen biome stays until melted |
+
+The Ashen King never freezes or slips. Every pool is drawn on its tile, with a few dim emissive pixels (oil's sheen, water's ripples, ice's glints) so it shows in a dark room; fire throws light and stands up as flames that shrink as it burns out.
+
 ### Elemental surfaces and residents
 
 Wall choices use a position hash, without generation RNG. Emberworks uses five

@@ -20,6 +20,7 @@ import { addItem, removeItem } from '../src/state/inventory';
 import { World, WorldEvent } from '../src/world/world';
 import { Floor, EnemyState, blocksMove, blocksSight, enemyAt, propAt, doorAt, tileAt, inBounds, FLOOR } from '../src/systems/dungeon';
 import { ConduitSpellDef } from '../src/data/conduit-spells';
+import { burningAt } from '../src/systems/surfaces';
 import { enemyDef, BOSS_ID } from '../src/data/enemies';
 import { FINAL_DEPTH } from '../src/data/biomes';
 import { itemValue } from '../src/systems/items';
@@ -131,6 +132,8 @@ function passable(f: Floor, x: number, y: number, keys: string[]): boolean {
   const p = propAt(f, x, y);
   // Urns and barrels are smashed through; chests and shrines are walked around.
   if (p && p.blocking && p.kind !== 'urn' && p.kind !== 'barrel' && p.kind !== 'root_cache') return false;
+  // Burning oil is walked around, like a player would, until it burns out.
+  if (burningAt(f, x, y)) return false;
   return true;
 }
 

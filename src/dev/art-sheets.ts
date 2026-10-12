@@ -363,6 +363,16 @@ function propGroups(): SheetGroup[] {
     // Worn rather than stood on the floor: the Silent Picture billboards these
     // above every creature, so they live with the herd art but belong here.
     { title: 'Worn on a strange floor', cells: plain(['prop_tophat', 'prop_monocle']) },
+    // Laid flat on the tile in play; fire is the scorch with the flames
+    // standing up out of it, two frames flickered.
+    { title: 'Surfaces', cells: [
+      { id: 'surf_oil', label: 'Oil' },
+      { id: 'surf_water', label: 'Water' },
+      { id: 'surf_ice', label: 'Ice' },
+      { id: 'surf_scorch', label: 'Burning oil · the scorch' },
+      { id: 'fx_flame_0', label: 'Flames' },
+      { id: 'fx_flame_1', label: 'Flames · second frame' },
+    ] },
   ];
 }
 

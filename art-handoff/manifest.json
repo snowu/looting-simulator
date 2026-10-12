@@ -2744,6 +2744,54 @@
     "recolorable": true
   },
   {
+    "id": "surf_oil",
+    "file": "props/surf_oil.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "surf_water",
+    "file": "props/surf_water.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "surf_ice",
+    "file": "props/surf_ice.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "surf_scorch",
+    "file": "props/surf_scorch.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "fx_flame_0",
+    "file": "props/fx_flame_0.png",
+    "width": 16,
+    "height": 24,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "fx_flame_1",
+    "file": "props/fx_flame_1.png",
+    "width": 16,
+    "height": 24,
+    "base": null,
+    "recolorable": false
+  },
+  {
     "id": "vm_dagger",
     "file": "viewmodels/vm_dagger.png",
     "width": 48,

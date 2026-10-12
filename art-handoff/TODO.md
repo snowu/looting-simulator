@@ -4,6 +4,15 @@ New code-drawn art exported by `npm run art:handoff`, newest first. Each is a pl
 
 ## 2026-10-12
 
+- [ ] `props/surf_oil.png` (32×32)
+- [ ] `props/surf_water.png` (32×32)
+- [ ] `props/surf_ice.png` (32×32)
+- [ ] `props/surf_scorch.png` (32×32)
+- [ ] `props/fx_flame_0.png` (16×24)
+- [ ] `props/fx_flame_1.png` (16×24)
+
+## 2026-10-12
+
 - [ ] `icons/ic_stave.png` (16×16)
 - [ ] `icons/ic_spell_smite.png` (16×16)
 - [ ] `icons/ic_spell_hex.png` (16×16)
