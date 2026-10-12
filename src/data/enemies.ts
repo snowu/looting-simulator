@@ -1,5 +1,5 @@
 import { MOVE_SETS } from './attacks';
-import { ELEMENTAL_VARIANTS, elementalVariant } from './elemental-variants';
+import { ELEMENTAL_VARIANTS, ELEMENTAL_VARIANT_IDS, elementalVariant } from './elemental-variants';
 import { DamageType, EnemyDef } from '../types';
 import { CHILL_WINDUP, PENGUIN_STEP } from './conduit-spells';
 import {
@@ -726,3 +726,15 @@ export function enemyDef(id: string): EnemyDef {
 }
 
 export const BOSS_ID = 'ashen_king';
+
+/**
+ * The creatures a floor of this biome at this depth can spawn: in range, allowed
+ * there, and of the biome's element if they have one. The dungeon weights them;
+ * the art tooling uses the same list to show an enemy beside its floor-mates.
+ */
+export function spawnPool(biome: { id: string; element?: 'fire' | 'frost' }, depth: number): EnemyDef[] {
+  return ENEMIES.filter((e) => e.weight > 0 && e.minDepth <= depth && depth <= e.maxDepth
+    && (!e.onlyIn || e.onlyIn.includes(biome.id))
+    && (!ELEMENTAL_VARIANT_IDS.has(e.id) || e.element === biome.element)
+    && !(biome.element && e.element && e.element !== biome.element));
+}

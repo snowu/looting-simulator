@@ -21,7 +21,6 @@ import { lightIntensity } from '../systems/meta';
 import { SPELL_FX_SECONDS, World } from '../world/world';
 import { artRaster, artSize, artTexture, rasterTexture } from './art-cache';
 import { HeldIcon, composeShade, shadeFrame, shadeKey } from './shade';
-import { getArt } from '../art/registry';
 import { EnemyFrame, enemyPose } from './enemy-pose';
 import { moveById } from '../data/attacks';
 import { quirkDef } from '../data/quirks';
@@ -70,25 +69,23 @@ const BREATH_HOLD = 1.1;
  * Enemy art is authored on a 32×32 canvas and almost nothing fills it — a bat
  * is drawn in the middle, a champion nearly to the edge. Hanging the hat off
  * the canvas top would float it a head's height above a bat and bury it in a
- * champion. Measured from the ArtDef's rows (cheap, exact, no raster needed)
- * and cached for ever, because it never changes.
- *
- * Note that this reads the **code-drawn** art rather than the PNG the renderer
- * actually samples. Those cannot disagree in a valid build — `npm run art:check`
- * fails if `public/art` has drifted from `src/art` — so the measurement holds.
- * If overrides ever stop being generated from the code art, this has to
- * measure the raster instead, and clearing the cache would not be enough.
+ * champion. Measured from the shipped PNG (the pixels the renderer samples, so
+ * a repainted enemy is measured as painted) and cached for ever, because the
+ * art does not change while the game runs.
  */
 const SPRITE_TOPS = new Map<string, number>();
 
 function spriteTop(artId: string): number {
   let top = SPRITE_TOPS.get(artId);
   if (top === undefined) {
-    const def = getArt(artId);
-    const rows = def?.rows ?? [];
-    let first = rows.findIndex((r) => /[^.]/.test(r));
-    if (first < 0) first = 0;
-    top = rows.length ? first / rows.length : 0;
+    const r = artRaster(artId);
+    let first = 0;
+    if (r) {
+      first = r.h;
+      for (let i = 3; i < r.data.length; i += 4) if (r.data[i]) { first = Math.floor((i >> 2) / r.w); break; }
+      if (first === r.h) first = 0;
+    }
+    top = r && r.h ? first / r.h : 0;
     SPRITE_TOPS.set(artId, top);
   }
   return top;
