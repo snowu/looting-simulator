@@ -64,13 +64,13 @@ export const PENGUIN_STEP = 0.7;
 export const CONDUIT_SPELLS: readonly ConduitSpellDef[] = [
   {
     id: 'ember_bolt', name: 'Ember Bolt', element: 'fire', sprite: 'proj_fireball', icon: 'ic_spell_ember', light: '#ff8a30',
-    power: 1, charges: 1, stamina: 14, windup: 0.22, recovery: 0.3, speed: 9, range: 5,
+    power: 1, charges: 1, stamina: 18, windup: 0.28, recovery: 0.38, speed: 9, range: 5,
     color: '#ff9a50', starter: true,
     description: 'A bolt of fire. What it hits keeps burning for a few seconds.',
   },
   {
     id: 'rime_lance', name: 'Rime Lance', element: 'frost', sprite: 'proj_icicle', icon: 'ic_spell_rime', light: '#7ab8ff',
-    power: 0.6, charges: 1, stamina: 12, windup: 0.2, recovery: 0.3, speed: 11, range: 5,
+    power: 0.6, charges: 1, stamina: 16, windup: 0.26, recovery: 0.36, speed: 11, range: 5,
     color: '#9ad0ff',
     description: 'A shard of frost. What it hits is chilled: its next wind-up is half as long again, which makes the parry easier to land.',
   },
@@ -80,14 +80,14 @@ export const CONDUIT_SPELLS: readonly ConduitSpellDef[] = [
   {
     id: 'smite', name: 'Smite', element: 'holy', sprite: 'fx_smite', icon: 'ic_spell_smite', light: '#fff0b0',
     hitscan: true,
-    power: 0.9, charges: 1, stamina: 14, windup: 0.26, recovery: 0.3, speed: 0, range: 5,
+    power: 0.9, charges: 1, stamina: 18, windup: 0.32, recovery: 0.38, speed: 0, range: 5,
     color: '#ffe8a0',
     description: 'A streak of light straight down on the first thing in your line. The undead take it double, and one it kills is sanctified: nothing will raise it again.',
   },
   {
     id: 'hex', name: 'Hex', element: 'shadow', sprite: 'fx_poof', icon: 'ic_spell_hex', light: '#b080ff',
     hitscan: true,
-    power: 0, charges: 2, stamina: 16, windup: 0.32, recovery: 0.36, speed: 0, range: 5,
+    power: 0, charges: 2, stamina: 22, windup: 0.38, recovery: 0.44, speed: 0, range: 5,
     color: '#c8a0ff',
     description: 'The first thing in your line becomes a penguin for 15 seconds. It cannot fight back, and hitting it does not break the spell. Elites are not spared; the King and the floor lieutenants refuse it.',
   },
@@ -115,4 +115,4 @@ export const STARTER_CONDUIT_SPELLS: ConduitSpellId[] = CONDUIT_SPELLS.filter((s
 export const WEAVE_SECONDS = 3;
 /** The weave's elemental bonus, as a fraction of the conduit's Power. */
 export const WEAVE_SHARE = 0.5;
-export const WEAVE_REGROW = 2;
+export const WEAVE_REGROW = 1.5;

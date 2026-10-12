@@ -103,7 +103,7 @@ export const ITEM_BASES: ItemBaseDef[] = [
     twoHanded: true, viewmodel: 'vm_stave',
     base: { attack: 26, speed: -4 }, perTier: { attack: 6 }, primary: ['wood'],
     swing: { windup: 0.32, recovery: 0.6, staminaCost: 22, reach: 1, cleave: CLEAVE, stagger: 0.3, chips: 1 },
-    conduit: { slots: 4, charges: 5, regrow: 6, castViewmodel: 'vm_stave_lit', power: 0.8 },
+    conduit: { slots: 4, charges: 5, regrow: 8, castViewmodel: 'vm_stave_lit', power: 0.8 },
     value: 150, minDepth: 4, weight: 0.35,
   },
 
@@ -212,13 +212,13 @@ export const ITEM_BASES: ItemBaseDef[] = [
   {
     id: 'wand', name: 'Wand', slot: 'offhand', icon: 'ic_wand', viewmodel: 'vm_wand',
     base: { attack: 10, block: 30 }, perTier: { attack: 3 }, primary: ['wood'],
-    conduit: { slots: 2, charges: 3, regrow: 9, castViewmodel: 'vm_wand_lit' },
+    conduit: { slots: 2, charges: 3, regrow: 12, castViewmodel: 'vm_wand_lit' },
     value: 30, minDepth: 1, weight: 1.2,
   },
   {
     id: 'rod', name: 'Rod', slot: 'offhand', icon: 'ic_rod', viewmodel: 'vm_rod',
     base: { attack: 16, block: 40, defense: 2 }, perTier: { attack: 3.5, defense: 1 }, primary: ['metal'],
-    conduit: { slots: 3, charges: 4, regrow: 7, castViewmodel: 'vm_rod_lit' },
+    conduit: { slots: 3, charges: 4, regrow: 10, castViewmodel: 'vm_rod_lit' },
     value: 70, minDepth: 3, weight: 0.6,
   },
 

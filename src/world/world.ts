@@ -958,7 +958,9 @@ export class World {
     a.blockT = since;
     a.parryArmed = this.guardPendingCd <= 0;
     if (a.parryArmed) a.parryCd = Math.max(0, (a.ward ? PARRY_COOLDOWN * 0.6 : PARRY_COOLDOWN) - since);
-    a.blockRaise = clamp(since / 0.12, 0, 1);
+    // A Wand or Rod never stays up (see update): a confirmed touch only arms
+    // the parry, it never raises the conduit.
+    a.blockRaise = this.derived.conduitHand === 'offhand' ? 0 : clamp(since / 0.12, 0, 1);
   }
 
   get busy(): boolean {
@@ -1116,6 +1118,10 @@ export class World {
     const wantGuard = this.held.has('block') && a.attack === 'idle' && !a.cast && a.stunT <= 0 && a.sip === null;
     const brokenGuard = wantGuard ? this.brokenGuardGear() : null;
     const wantBlock = wantGuard && !brokenGuard;
+    // A Wand or Rod never stays up: it guards nothing, so holding block only
+    // opens the parry window and never raises the conduit. A tap still parries.
+    const parryOnly = this.derived.conduitHand === 'offhand';
+    const wantRaise = wantBlock && !parryOnly;
     a.parryCd = Math.max(0, a.parryCd - dt);
     if (wantBlock) {
       if (a.blockT === Infinity) {
@@ -1130,7 +1136,7 @@ export class World {
       a.blockT = Infinity;
       a.parryArmed = false;
     }
-    a.blockRaise = clamp(a.blockRaise + (wantBlock ? dt : -dt) / 0.12, 0, 1);
+    a.blockRaise = clamp(a.blockRaise + (wantRaise ? dt : -dt) / 0.12, 0, 1);
 
     // Refusing the guard says why, throttled like the winded cue: holding
     // block with a broken shield would otherwise fail in silence.

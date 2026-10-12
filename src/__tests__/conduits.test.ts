@@ -116,6 +116,45 @@ describe('conduits', () => {
     expect(rod.conduit!.slots).toBeGreaterThan(wand.conduit!.slots);
     expect(rod.conduit!.regrow).toBeLessThan(wand.conduit!.regrow);
   });
+
+  it('never holds the conduit up: a Wand or Rod stays down, a Stave still rises', () => {
+    const w = battlemage();
+    w.setBlock(true);
+    run(w, 0.3);
+    expect(w.held.has('block')).toBe(true);
+    expect(w.anim.blockRaise).toBe(0);
+    const state = newGame(createRng(98));
+    state.equipment.weapon = makeEquipment({ baseId: 'stave', materialId: 'ironwood', rarity: Rarity.Common, ilvl: 4, quality: 1, identified: true });
+    state.equipment.offhand = null;
+    startRun(state, 98);
+    const s = new World(state);
+    s.floor.enemies = [];
+    s.setBlock(true);
+    run(s, 0.3);
+    expect(s.anim.blockRaise).toBe(1);
+  });
+
+  it('still parries on a tap, and meets a late blow whole with nothing raised', () => {
+    const early = battlemage();
+    const e1 = target(early, 1);
+    early.setBlock(true);
+    run(early, 0.05);
+    expect(early.anim.blockRaise).toBe(0);
+    const hp = early.player.hp;
+    guard(early).damagePlayer(20, 'slash', e1.x, e1.y, 'Ghoul', 'ghoul', e1);
+    expect(early.player.hp).toBe(hp);
+    expect(e1.vuln ?? 0).toBeGreaterThan(0);
+
+    const late = battlemage();
+    const e2 = target(late, 1);
+    late.setBlock(true);
+    run(late, 0.3);
+    expect(late.anim.blockRaise).toBe(0);
+    const hp2 = late.player.hp;
+    guard(late).damagePlayer(20, 'slash', e2.x, e2.y, 'Ghoul', 'ghoul', e2);
+    expect(late.player.hp).toBeLessThan(hp2);
+    expect(e2.vuln ?? 0).toBe(0);
+  });
 });
 
 describe('the spellbook', () => {
@@ -181,7 +220,7 @@ describe('casting', () => {
     const w = battlemage();
     const e = target(w, 2);
     w.castSpell();
-    run(w, 0.5);
+    run(w, 0.8);
     expect(e.burn).toBeDefined();
     const after = e.hp;
     run(w, 3.5);
@@ -195,7 +234,7 @@ describe('casting', () => {
     expect(w.selectedSpell()?.id).toBe('rime_lance');
     const e = target(w, 2);
     w.castSpell();
-    run(w, 0.5);
+    run(w, 0.8);
     expect(e.chillT).toBeGreaterThan(0);
     const plain = enemyView(enemyDef('ghoul'), e.hp, e.maxHp);
     const chilled = enemyView(enemyDef('ghoul'), e.hp, e.maxHp, { chilled: true });
@@ -223,12 +262,12 @@ describe('casting', () => {
     const w = battlemage();
     const e = target(w, 1);
     w.castSpell();
-    run(w, 0.6);
+    run(w, 1);
     expect(w.anim.weave?.element).toBe('fire');
     w.run.conduit!.regrow = 0;
     w.player.stamina = w.derived.maxStamina;
     w.attack();
-    run(w, 0.3);
+    run(w, 1);
     expect(w.anim.weave).toBeNull();
     expect(w.run.conduit!.regrow).toBeGreaterThanOrEqual(WEAVE_REGROW - 0.01);
     expect(e.hp).toBeLessThan(400);
