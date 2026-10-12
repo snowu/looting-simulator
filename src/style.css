@@ -1016,6 +1016,10 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
 .title-hero h1 { font-family: var(--font-title); font-size: clamp(48px, 10vh, 88px); line-height: .8; letter-spacing: 0; color: #f4d88c; text-shadow: 4px 4px #07060a, 8px 8px #251b0e; }
 .title-hero h1 span { display: block; }
 .title-hero h1 span:last-child { color: var(--gold); }
+/* Desktop has the width for the name on one line; phones and tablets stack it. */
+@media (min-width: 1000px) {
+  .title-hero h1 { display: flex; gap: .3em; }
+}
 .title-screen .prepare { font-family: var(--font-title); font-size: 30px; letter-spacing: 4px; margin: 16px 0 8px; color: #d65545; text-shadow: 2px 2px #07060a; }
 .title-screen .tag { margin: 0; font-size: 18px; color: #d5c6ac; text-shadow: 2px 2px #07060a; }
 .title-screen .title-panel { width: 100%; min-height: 0; overflow: auto; margin: 0; padding: 10px 14px 14px; background: #121015ed; border-radius: 0; }

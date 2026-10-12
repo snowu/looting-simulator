@@ -1,3 +1,13 @@
+# The name fits on one line
+
+*Save revision 29, unchanged: nothing about a save moves.*
+
+**Looting Simulator, side by side.** On a desktop-sized window the title screen now writes the name on one line instead of stacking it. Phones and tablets keep the two-line name, where it fits better.
+
+Validation: title screen checked at 1280×800 (one line), 390×844 and 844×390 (two lines).
+
+---
+
 # Hand-painted icons take their whole material
 
 *Save revision 29, unchanged: nothing about a save moves.*
