@@ -8,9 +8,10 @@ import { decodeArtPack, isArtPack } from './art-pack';
 /**
  * Browser-side cache turning art defs into canvases, textures and CSS URLs.
  *
- * Hand-drawn PNG overrides: list art ids in `public/art/manifest.json`
- * (e.g. ["wall_crypt", "rat_0"]) and drop `public/art/<id>.png` next to it.
- * An override replaces the built-in grid. Icon PNGs retain material ramp recolouring.
+ * The shipped PNGs: `public/art/<folder>/<id>.png`, listed by path in
+ * `public/art/manifest.json` (e.g. ["textures/wall_crypt.png", "enemies/rat_0.png"]),
+ * which `npm run art:sync` writes. A PNG replaces the built-in grid, which stays
+ * the fallback. Icon PNGs retain material ramp recolouring.
  */
 
 const canvases = new Map<string, HTMLCanvasElement>();
@@ -45,19 +46,20 @@ export async function loadArtOverrides({ pack = import.meta.env.PROD } = {}): Pr
   const manifestUrl = versionedAssetUrl(`${base}art/manifest.json`, BUILD_ID);
   const res = await fetch(manifestUrl, { cache: 'no-store' });
   if (!res.ok) throw new Error(`Failed to load art manifest ${manifestUrl}: HTTP ${res.status}`);
-  const ids = checkIds(await res.json(), manifestUrl);
+  const files = await res.json();
+  const ids = checkIds(Array.isArray(files) ? files.map(artIdOf) : files, manifestUrl);
 
   await Promise.all(
     ids.map(
-      (id) =>
+      (id, i) =>
         new Promise<void>((resolve, reject) => {
           const img = new Image();
           img.onload = () => {
             overrides.set(id, { source: img, w: img.naturalWidth, h: img.naturalHeight });
             resolve();
           };
-          img.onerror = () => reject(new Error(`Failed to load art asset ${base}art/${id}.png`));
-          img.src = versionedAssetUrl(`${base}art/${id}.png`, BUILD_ID);
+          img.onerror = () => reject(new Error(`Failed to load art asset ${base}art/${files[i]}`));
+          img.src = versionedAssetUrl(`${base}art/${files[i]}`, BUILD_ID);
         }),
     ),
   );
@@ -88,6 +90,9 @@ async function loadArtPack(base: string): Promise<boolean> {
   for (const [id, bitmap] of decoded) overrides.set(id, { source: bitmap, w: bitmap.width, h: bitmap.height });
   return true;
 }
+
+/** The art id a manifest path names: 'enemies/rat_0.png' -> 'rat_0'. Anything that is not such a path is passed on for checkIds to reject. */
+export const artIdOf = (file: unknown): unknown => (typeof file === 'string' && /^[\w-]+\/[\w-]+\.png$/.test(file) ? file.slice(file.indexOf('/') + 1, -4) : file);
 
 /** Every art id exactly once, and nothing else: an override set with gaps must not boot. */
 function checkIds(ids: unknown, from: string): string[] {

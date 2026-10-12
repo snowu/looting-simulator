@@ -7,6 +7,32 @@ and what the owner likes and rejects. The detailed per-round tables live in
 
 Last updated 2026-09-25, after four rounds.
 
+## For the artist
+
+Every sprite is a PNG in `public/art/`, one folder per kind: `enemies/`,
+`icons/`, `props/`, `textures/`, `ui/`, `viewmodels/`. That folder is what the
+game ships, so painting over a PNG there (same name, same size) is all it
+takes; there is no second copy to keep in step. New sprites arrive there as
+placeholders drawn in code and are listed in [`art-todo.md`](art-todo.md).
+`npm run art:status` shows what is painted and what is still a placeholder.
+
+- Open the project in [spritewright](https://snowu.github.io/spritewright/?repo=snowu/looting-simulator):
+  it lists `public/art/` by folder and family (frames and poses together),
+  judges the art on the game's background, and sends your changes as a pull
+  request. Any pixel editor works too.
+- Keep each PNG's size, with nearest-neighbour scaling only. Enemy idle,
+  attack and block poses are separate files (`rat_0`, `rat_1`, `rat_atk`).
+- Icons and viewmodels keep the game's four-colour material ramp: paint the
+  parts that change with material in that ramp's greys (the four exported
+  colours, any shade between them, or a little lighter than the lightest),
+  and the game carries each to the same place on the item's material.
+  Colours clearly off that grey line (outlines, warm or coloured details,
+  near-white glints) stay fixed.
+- Alpha: clear (0), solid (255), or **250 for pixels that glow** (they ignore
+  the dungeon light). Avoid soft brushes and soft erasers: the faint
+  half-transparent edges they leave either vanish or glow by accident. The art
+  check flags them, and `npm run art:alpha -- --fix` cleans them up.
+
 ## Where things stand
 
 | Round | PR | State | What it covered |
@@ -104,11 +130,12 @@ lines, ellipses with a shading callback, an auto-outline pass, tileable
 **Ship**
 
 - The item icons (`ic_*`) are hand-painted by a human artist now (#67, #68).
-  Their PNGs in `public/art/` come from `art-handoff/icons/`, not from
-  `src/art/`, whose icon grids are only the fallback and the material ramp
-  that recolouring matches. Don't redraw them in code, and never pass an
-  `ic_` id to `art:sync --ids`.
-- `npm run art:sync -- --ids a,b,c` rewrites only those PNGs in `public/art/`.
+  Their PNGs in `public/art/icons/` are the art; the icon grids in
+  `src/art/` are only the fallback and the material ramp that recolouring
+  matches. Don't redraw them in code, and never pass a painted id to
+  `art:sync --ids` (`npm run art:status -- --list` names the placeholders).
+- `npm run art:sync` adds PNGs for new sprites to `public/art/<folder>/` and lists
+  them for the artist in `docs/art-todo.md`. `-- --ids a,b,c` repaints only those PNGs from code.
   Never combine `--force` with `--ids`: `--force` rewrites all 300+ PNGs.
   New ids are added to the manifest automatically.
 - `npm run art:check` must report "in sync".

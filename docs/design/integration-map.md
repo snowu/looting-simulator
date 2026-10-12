@@ -256,11 +256,12 @@ and in the dev art sheet:**
    file + array, wired into `registry.ts` if it's a whole new category).
 2. If it's a new `weaponClass`, add a `case` in `viewmodelFor()`
    (`src/data/items.ts:203-211`) mapping to the new `vm_*` id.
-3. Run `npm run art:export` to regenerate `art-handoff/<folder>/<id>.png` and
-   `art-handoff/manifest.json` (or hand-author the PNG directly).
-4. Copy the finished PNG to `public/art/<id>.png`.
-5. Add `"<id>"` to `public/art/manifest.json` (order doesn't matter — it's
-   checked as a set — but it must be exactly the new id, no more, no less).
+3. Run `npm run art:sync`: it writes `public/art/<folder>/<id>.png` (a
+   placeholder from the code art, for the artist to paint over in place) and
+   lists it in `docs/art-todo.md`. *(Updated 2026-10-12: art-handoff/ is gone;
+   public/art is the only copy.)*
+4. (Nothing to copy any more.)
+5. (`art:sync` also adds it to `public/art/manifest.json`, by path.)
 6. Run `npm test` — `art.test.ts`'s "everything the data references exists"
    check should now pass for the new id; run the app (`npm run dev`) to
    confirm `loadArtOverrides` doesn't throw.

@@ -1,0 +1,5 @@
+{
+  "dirs": ["public/art"],
+  "background": "#24212e",
+  "repo": { "slug": "snowu/looting-simulator", "base": "master" }
+}
