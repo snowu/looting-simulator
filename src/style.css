@@ -642,7 +642,7 @@ body.touch #hud .quick, body.touch #hud .prompt, body.touch #hud .minimap { z-in
 .tbtn.blk img { width: 36px; height: 36px; }
 /* A Wand or Rod guards nothing: the button is a parry tap, tinted violet to say so. */
 .tbtn.blk.parry { border-color: #8f7bd8; }
-/* Rite tracing: the mark being drawn, violet and glowing, over the slowed world. */
+/* Rite tracing: an ember stroke over the slowed world. */
 /* A square ritual tablet keeps the mark honest on short landscape phones. */
 .rite-layer { display: grid; place-items: center; background: #08060499; pointer-events: auto; z-index: 30; }
 .rite-layer[hidden] { display: none; }
@@ -655,8 +655,9 @@ body.touch #hud .quick, body.touch #hud .prompt, body.touch #hud .minimap { z-in
 .rite-status[data-grade="weak"] { color: #e0a264; }
 .rite-status[data-grade="botch"] { color: #f08069; }
 .rite-svg { width: min(54vw, 55vh, 400px); height: min(54vw, 55vh, 400px); background: radial-gradient(circle, #49312655, #0c0907); border: 1px solid #534238; touch-action: none; cursor: crosshair; }
-.rite-guide { fill: none; stroke: #a36a43; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
-.rite-trace { fill: none; stroke: #ffcf87; stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 1px #ff792e); }
+.rite-guide { fill: none; stroke: #a36a43; stroke-opacity: 0.4; stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
+.rite-fire-layer { z-index: 31; pointer-events: none; }
+.rite-fire-layer > .rite-fire-canvas { position: absolute; pointer-events: none; image-rendering: pixelated; filter: drop-shadow(0 0 3px #ff792e70); }
 .rite-actions { display: flex; gap: 8px; }
 .rite-actions button { min-width: 66px; min-height: 36px; }
 

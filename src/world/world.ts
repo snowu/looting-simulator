@@ -121,6 +121,7 @@ export type WorldEvent =
   | { type: 'hurt'; amount: number; blocked: boolean }
   | { type: 'float'; x: number; y: number; text: string; color: string }
   | { type: 'shake'; amount: number }
+  | { type: 'rite'; grade: RiteGrade; points: TracePoint[] }
   | { type: 'sigil'; r: number; g: number; b: number; strength: number }
   | { type: 'loot'; pickupId: string }
   | { type: 'floor' }
@@ -1953,6 +1954,7 @@ export class World {
     pool.regrow = 0;
     this.run.riteCastDepth = this.run.depth;
     const grade: RiteGrade = gradeRite(draw.points, def.template);
+    this.events.push({ type: 'rite', grade, points: draw.points.map(p => ({ ...p })) });
     if (grade === 'botch') {
       this.msg(`The ${def.name} turns in your hands!`, '#ff6a50');
       this.botchedRite();

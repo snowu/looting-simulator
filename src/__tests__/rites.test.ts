@@ -202,6 +202,7 @@ describe('casting Meteor', () => {
     expect(w.run.conduit!.charges).toBe(0);
     expect(w.run.riteCastDepth).toBe(w.run.depth);
     expect(w.anim.weave?.element).toBe('fire');
+    expect(w.drainEvents().find(e => e.type === 'rite')).toMatchObject({ grade: 'full' });
   });
 
   it('closing an untouched surface or cancelling spends nothing', () => {
@@ -216,6 +217,7 @@ describe('casting Meteor', () => {
     expect(w.run.conduit!.charges).toBe(charges);
     expect(w.player.stamina).toBe(stamina);
     expect(w.run.riteCastDepth ?? null).toBeNull();
+    expect(w.drainEvents().some(e => e.type === 'rite')).toBe(false);
   });
 
   it('keeps the end of a slowly drawn, densely sampled mark', () => {
@@ -232,6 +234,7 @@ describe('casting Meteor', () => {
     const charges = w.run.conduit!.charges;
     expect(trace(w, Array.from({ length: 20 }, () => ({ x: 0.5, y: 0.5 })))).toBe(true);
     expect(w.player.hp).toBeLessThan(hp);
+    expect(w.drainEvents().find(e => e.type === 'rite')).toMatchObject({ grade: 'botch' });
     expect(w.run.conduit!.charges).toBe(charges - charges);
     expect(w.run.conduit!.charges).toBe(0);
   });
