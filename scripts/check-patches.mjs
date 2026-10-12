@@ -19,6 +19,10 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 const SKIP = {
   'ba69444': 'dev-only repeatable Meteor and carving controls in the scratch lab; previews and tests',
   '8dde823': 'documentation only: name the touch rite Cast control',
+  '898bad4': 'PR preview screenshots only',
+  '46be707': 'PR preview screenshots only',
+  'bb229b8': 'PR preview screenshot only',
+  'be2b7f2': 'art tooling (placeholder refresh, spritewright groups and alpha rule) and PNG-first shade/sprite-top reads; same pixels today, no player-facing change',
   '590ffd1': 'one-copy art restructure (public/art folders, art:status/alpha, spritewright config); same pixels, no player-facing change',
   '298e810': 'art handoff tooling (npm run art:handoff) and the repo rule for it; no player-facing change',
   '0824878': 'removes an unused art handoff icon',
@@ -246,7 +250,6 @@ const SKIP = {
   '0d7932b': 'dev materials helper behind DEV, not in the game',
   '86b47ff': 'lab mimic/honest chest buttons behind DEV, not in the game',
   '91926de': 'propAt skips wreckage; only reachable by stacking props with the dev lab',
-  '898bad4': 'PR preview screenshots only',
 };
 
 // Commits touching only these files maintain the notes themselves and never
