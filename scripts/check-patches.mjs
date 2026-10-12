@@ -17,6 +17,8 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 
 // Commits that must never become patch notes. Short hash -> reason.
 const SKIP = {
+  'bb229b8': 'PR preview screenshot only',
+  'be2b7f2': 'art tooling (placeholder refresh, spritewright groups and alpha rule) and PNG-first shade/sprite-top reads; same pixels today, no player-facing change',
   '590ffd1': 'one-copy art restructure (public/art folders, art:status/alpha, spritewright config); same pixels, no player-facing change',
   '298e810': 'art handoff tooling (npm run art:handoff) and the repo rule for it; no player-facing change',
   '0824878': 'removes an unused art handoff icon',

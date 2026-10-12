@@ -3,23 +3,28 @@
 // public/art/<folder>/<id>.png is the one copy of every sprite: the game ships
 // those PNGs, and the artist paints over them in place. A sprite drawn in code
 // starts there as a placeholder (its code art, rasterized) and is listed in
-// docs/art-todo.md for the artist; once painted, the PNG is the real art and
-// the code grid is only its fallback (and, for icons, the material ramp).
+// docs/art-todo.md for the artist. Until it is painted, editing its code art
+// and running this again refreshes the placeholder (src/art/placeholders.json
+// remembers which PNGs are untouched); once painted, the PNG is the real art,
+// never written again, and the code grid is only its fallback (and, for
+// icons, the material ramp).
 //
 // Why this exists: `loadArtOverrides()` in src/render/art-cache.ts refuses to
 // boot the game if public/art/manifest.json misses an id. Adding a sprite means
 // the def, the PNG and the manifest; this script does the last two from the
 // first.
 //
-// Usage: npm run art:sync               add PNGs for new sprites, drop removed ones, file any
-//                                       that sit in the wrong folder, rewrite the manifest
+// Usage: npm run art:sync               add PNGs for new sprites, refresh untouched placeholders whose
+//                                       code art changed, drop removed ones, file any that sit in the
+//                                       wrong folder, rewrite the manifest
 //        npm run art:sync -- --ids a,b  also repaint those from their code art (paints over them!)
 //        npm run art:sync -- --force    repaint every PNG from code art (paints over all hand-painted work!)
 //        npm run art:check              fail instead of writing (CI), stray alpha included
 import { mkdir, readFile, rename, rmdir, readdir, unlink, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { ART_DIR, TODO, decodePng, encodePng, isStrayAlpha, loadArt, pngsOnDisk, readManifest } from './art-lib.mjs';
+import { GROUPS_FILE, artGroups } from './art-groups.mjs';
+import { ART_DIR, TODO, decodePng, encodePng, isPlaceholder, samePixels, isStrayAlpha, loadArt, pixelHash, pngsOnDisk, readManifest, readPlaceholders, writePlaceholders } from './art-lib.mjs';
 
 const check = process.argv.includes('--check');
 const force = process.argv.includes('--force');
@@ -39,6 +44,18 @@ const added = wanted.filter((id) => !found.has(id));
 const stale = [...found.keys()].filter((id) => !wanted.includes(id));
 const misplaced = wanted.filter((id) => found.has(id) && found.get(id) !== artFile(id));
 const manifestDrift = JSON.stringify(await readManifest().catch(() => null)) !== JSON.stringify(files);
+const groupsJson = `${JSON.stringify(await artGroups({ ALL_ART, artFile }), null, 1)}\n`;
+const groupsDrift = (await readFile(GROUPS_FILE, 'utf8').catch(() => '')) !== groupsJson;
+
+// Untouched placeholders whose code art has changed since art:sync wrote them, and what is painted.
+const recorded = await readPlaceholders();
+const outdated = [], painted = new Set();
+for (const id of wanted) {
+  if (!found.has(id)) continue;
+  const png = decodePng(await readFile(resolve(ART_DIR, found.get(id)))), code = raster(ALL_ART.find((d) => d.id === id));
+  if (!isPlaceholder(png, code, recorded[id])) painted.add(id);
+  else if (!samePixels(png, code)) outdated.push(id);
+}
 
 if (check) {
   const problems = [];
@@ -47,6 +64,8 @@ if (check) {
   if (stale.length) problems.push(`orphan PNGs: ${stale.map((id) => found.get(id)).join(', ')}`);
   if (misplaced.length) problems.push(`in the wrong folder: ${misplaced.map((id) => `${found.get(id)} (belongs in ${artFile(id)})`).join(', ')}`);
   if (manifestDrift) problems.push('manifest.json does not match the registry');
+  if (groupsDrift) problems.push(`${GROUPS_FILE} (spritewright's Context groups) does not match the game data`);
+  if (outdated.length) problems.push(`placeholders older than their code art (art:sync refreshes them): ${outdated.map((id) => found.get(id)).join(', ')}`);
   for (const id of wanted) {
     if (!found.has(id)) continue;
     const img = decodePng(await readFile(resolve(ART_DIR, found.get(id))));
@@ -70,18 +89,27 @@ if (check) {
     await mkdir(dirname(resolve(ART_DIR, artFile(id))), { recursive: true });
     await rename(resolve(ART_DIR, found.get(id)), resolve(ART_DIR, artFile(id)));
   }
-  const write = force ? wanted : [...new Set([...added, ...(selected ?? [])])];
+  const write = force ? wanted : [...new Set([...added, ...outdated, ...(selected ?? [])])];
+  const placeholders = {};
+  for (const id of wanted) if (found.has(id) && !painted.has(id)) placeholders[id] = recorded[id];
   for (const id of write) {
-    const file = resolve(ART_DIR, artFile(id));
+    const file = resolve(ART_DIR, artFile(id)), code = raster(ALL_ART.find((d) => d.id === id));
     await mkdir(dirname(file), { recursive: true });
-    await writeFile(file, encodePng(raster(ALL_ART.find((d) => d.id === id))));
+    await writeFile(file, encodePng(code));
+    placeholders[id] = pixelHash(code);
   }
+  for (const id of wanted) if (placeholders[id] === undefined && found.has(id) && !painted.has(id)) {
+    placeholders[id] = pixelHash(decodePng(await readFile(resolve(ART_DIR, artFile(id)))));
+  }
+  await writePlaceholders(placeholders);
   for (const id of stale) await unlink(resolve(ART_DIR, found.get(id)));
   for (const e of await readdir(ART_DIR, { withFileTypes: true })) {
     if (e.isDirectory() && !(await readdir(resolve(ART_DIR, e.name))).length) await rmdir(resolve(ART_DIR, e.name));
   }
   await writeFile(resolve(ART_DIR, 'manifest.json'), `${JSON.stringify(files, null, 2)}\n`);
+  await writeFile(GROUPS_FILE, groupsJson);
   if (added.length) await listForArtist(added);
+  if (outdated.length) console.log(`Refreshed from changed code art: ${outdated.join(', ')}.`);
   console.log(`public/art: wrote ${write.length}, moved ${misplaced.length}, removed ${stale.length}, manifest lists ${wanted.length}.` + (added.length ? ` New placeholders for the artist: ${added.join(', ')} (listed in docs/art-todo.md).` : ''));
 }
 

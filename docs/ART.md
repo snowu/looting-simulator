@@ -19,7 +19,11 @@ placeholders drawn in code and are listed in [`art-todo.md`](art-todo.md).
 - Open the project in [spritewright](https://snowu.github.io/spritewright/?repo=snowu/looting-simulator):
   it lists `public/art/` by folder and family (frames and poses together),
   judges the art on the game's background, and sends your changes as a pull
-  request. Any pixel editor works too.
+  request. Any pixel editor works too. Its **Context** strip (`V`) stands the
+  sprite next to what it is seen with in the game: an enemy beside the others
+  of the same floor on that floor's fog colour, a weapon icon beside its class
+  and the viewmodel it is held as, a wall beside its biome's floor and ceiling
+  (the groups come from the game data, in `art-groups.json`).
 - Keep each PNG's size, with nearest-neighbour scaling only. Enemy idle,
   attack and block poses are separate files (`rat_0`, `rat_1`, `rat_atk`).
 - Icons and viewmodels keep the game's four-colour material ramp: paint the
@@ -32,6 +36,8 @@ placeholders drawn in code and are listed in [`art-todo.md`](art-todo.md).
   the dungeon light). Avoid soft brushes and soft erasers: the faint
   half-transparent edges they leave either vanish or glow by accident. The art
   check flags them, and `npm run art:alpha -- --fix` cleans them up.
+  spritewright snaps them for you when you save or propose a PR (the
+  `alpha` rule in `spritewright.config.json`).
 
 ## Where things stand
 
@@ -135,7 +141,9 @@ lines, ellipses with a shading callback, an auto-outline pass, tileable
   matches. Don't redraw them in code, and never pass a painted id to
   `art:sync --ids` (`npm run art:status -- --list` names the placeholders).
 - `npm run art:sync` adds PNGs for new sprites to `public/art/<folder>/` and lists
-  them for the artist in `docs/art-todo.md`. `-- --ids a,b,c` repaints only those PNGs from code.
+  them for the artist in `docs/art-todo.md`. Changed the code art of a sprite
+  that is still a placeholder? `art:sync` refreshes its PNG too (the game only
+  shows the PNG; `art:check` fails until you do). `-- --ids a,b,c` repaints only those PNGs from code.
   Never combine `--force` with `--ids`: `--force` rewrites all 300+ PNGs.
   New ids are added to the manifest automatically.
 - `npm run art:check` must report "in sync".

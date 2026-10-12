@@ -104,7 +104,8 @@ export function composeShade(
     return def && rasterize(def, ramp, resolve);
   },
 ): Raster {
-  const body = rasterize(resolve(`shade_${frame}`)!, undefined, resolve);
+  // The body comes from the same source as the held icons: the shipped PNG in the game.
+  const body = iconOf(`shade_${frame}`)!;
   const out: Raster = { w: body.w, h: body.h, data: body.data.slice() };
   const hands = SHADE_HANDS[frame];
   if (weapon) {

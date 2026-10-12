@@ -6,7 +6,7 @@
 name: art check
 on:
   pull_request:
-    paths: ['public/art/**', 'src/art/**', 'scripts/sync-public-art.mjs', 'scripts/art-lib.mjs', 'spritewright.config.json']
+    paths: ['public/art/**', 'src/art/**', 'scripts/sync-public-art.mjs', 'scripts/art-lib.mjs', 'spritewright.config.json', 'docs/art-groups.json', 'scripts/art-groups.mjs', 'src/data/**']
 permissions: { contents: read }
 jobs:
   check:

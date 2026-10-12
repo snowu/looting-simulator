@@ -2,7 +2,8 @@
 // the public/art folder layout. The game's sprites are drawn in src/art; the
 // PNGs in public/art/<folder>/<id>.png are what it ships, and the artist paints
 // over them in place.
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile, readdir, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { relative, resolve, sep } from 'node:path';
 import { deflateSync } from 'node:zlib';
 import { createRequire } from 'node:module';
@@ -13,6 +14,20 @@ const { PNG } = require('pngjs');
 
 export const ART_DIR = resolve('public/art');
 export const TODO = resolve('docs/art-todo.md');
+/*
+ * Which PNGs are still the placeholder art:sync wrote, by a hash of their pixels.
+ * A PNG whose pixels still hash to its entry has not been painted, so when its
+ * code art changes art:sync rewrites it (code art is iterated on until the
+ * artist takes over). Anything else is the artist's and is never written. A
+ * pixel hash, not a file hash: re-saving an untouched placeholder in another
+ * program changes the bytes, not the pixels.
+ */
+export const PLACEHOLDERS = resolve('src/art/placeholders.json');
+export const pixelHash = ({ w, h, data }) => createHash('sha1').update(`${w}x${h}:`).update(data).digest('hex').slice(0, 16);
+export const readPlaceholders = async () => JSON.parse(await readFile(PLACEHOLDERS, 'utf8').catch(() => '{}'));
+export const writePlaceholders = (map) => writeFile(PLACEHOLDERS, `${JSON.stringify(Object.fromEntries(Object.entries(map).sort(([a], [b]) => a.localeCompare(b))), null, 1)}\n`);
+/** Still the untouched placeholder: its pixels match what art:sync last wrote, or the current code art. */
+export const isPlaceholder = (png, code, recorded) => pixelHash(png) === recorded || samePixels(png, code);
 
 export async function loadModule(path) {
   const bundle = await rolldown({ input: resolve(path) });
