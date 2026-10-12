@@ -740,6 +740,7 @@ fails the suite rather than reaching a player.
 | The Big Toe | Wyrm-Bone Big Toe | +6 Attack; a 17% chance on each kill of a second morsel dropping beside the first |
 | The Prize Bull's Horn | Wyrm-Bone Horn — *Forbidden Pasture only* | +4 Attack per consecutive blow landed without one landing on you, to 6 (+24). Any damage clears it, **including a blow you blocked**. Keeps the spear reach of 2 |
 | The Impresario's Cane | Deep-Yew Cane — *Silent Picture only* | Wind-up, recovery, walking and drinking all take **92%** as long. A cane's Attack is a fraction of any real weapon at its depth, which is the trade |
+| Dr. Mantis Toboggan's Rod | Moonsilver Rod | +4 Attack (spell Power). A cast the pool can't cover is paid in health: **10% of max health per charge short**. Never the last point: a cast that would take it is refused |
 | Fight Milk | *Legendary flask infusion* | While infused: stamina regen 22/s → 37.4/s, −20 max stamina; sip potency −10 points |
 
 **Depth.** Legendary only becomes available at depth 6 (`rarityAvailableAtDepth`),
@@ -1089,7 +1090,7 @@ A stone is **inscribed at the forge**, on its *Sigils* bench, which consumes it 
 
 Pressing **Descend** for a new delve opens a *Before you go down* panel. Its **Oath Stone** offers **today's oaths**: **two hard and three medium**, drawn from the pool by the playthrough and the day (`oathsForDay`), so the offer turns with the days. **Swear as many as you dare**, or none; each takes hold when you descend (`run.oaths`) and is kept or broken on its own. **Not yet** (or Esc, or a click outside) closes the panel. Returning through a town portal or resuming an open delve skips it.
 
-**Keep an oath and come home alive** (by the stairs or the King's portal; a town-portal trip doesn't end the delve) and it pays: a **medium** oath one inscription, a **hard** oath **two**. **Keep every oath you swore, having sworn at least two, and learn one more.** The inscriptions are chosen in town from a list at least one longer than the picks, drawn from the run's seed so a reload can't reroll them; the reward pane stays until every pick is used. With every inscription already known, oaths pay renown instead: 10 per medium, 20 per hard, and 10 for the bonus. A broken or unkept oath loses only its own reward (and the bonus). No new oath can be sworn while a reward is unchosen.
+**Keep an oath and come home alive** (by the stairs or the King's portal; a town-portal trip doesn't end the delve) and it pays: a **medium** oath one lesson, a **hard** oath **two**. A lesson is an inscription or a **battle spell** you don't know (§9b; offered as `spell:<id>`, learned straight into the spellbook; a tome waiting in the stash counts as known). **Keep every oath you swore, having sworn at least two, and learn one more.** The lessons are chosen in town from a list at least one longer than the picks, drawn from the run's seed so a reload can't reroll them; the reward pane stays until every pick is used. With every inscription and spell already known, oaths pay renown instead: 10 per medium, 20 per hard, and 10 for the bonus. A broken or unkept oath loses only its own reward (and the bonus). No new oath can be sworn while a reward is unchosen.
 
 | Oath | Tier | Rule | Objective |
 |---|---|---|---|
@@ -1134,6 +1135,8 @@ A property is an effect that changes how a combat verb plays. Properties are **l
 | Bulwark | shield | A block that soaks at least **10%** of your max health makes your next landed strike within **3s** deal **×1.5** |
 | Retrieval | thrown belt | Called-back shafts hit each monster they pass through once, for **50%** of a throw |
 | Last Flask | head, body, hands | While the flask has no charges, morsels and life leech heal **×1.5** |
+| Countercharm | weapon, offhand | Each parry returns **1** charge to your conduit's pool, up to full. Nothing without a conduit |
+| Requiem | hands | When a battle spell's hit kills, the charges it cost come back. A burn that finishes the job later doesn't count |
 
 Riposte, Bulwark, the parry vulnerability and Marrow all multiply together. The tooltip shows the property in plain words, and its numbers on Shift or a tap.
 
@@ -1141,7 +1144,7 @@ Riposte, Bulwark, the parry vulnerability and Marrow all multiply together. The 
 
 Added in save revision 30, additively: older saves learn Ember Bolt, load it, and learn the Wand recipe.
 
-*Files: `src/data/conduit-spells.ts`, `src/systems/conduits.ts`, `src/world/world.ts` — `castSpell`, `spellView`, `castHitscan`, `spellLands`, `hexLands`, `updateHexed`, `updateAfflictions`, `updateConduit`, `refundConduit`*
+*Files: `src/data/conduit-spells.ts`, `src/systems/conduits.ts`, `spellView` in `src/systems/player.ts`, `src/world/world.ts` — `castSpell`, `castHitscan`, `spellLands`, `hexLands`, `updateHexed`, `updateAfflictions`, `updateConduit`, `refundConduit`*
 
 A **conduit** is an offhand that casts instead of guarding: the battlemage's trade. It is not a sigil — sigils stay one utility stone on a long cooldown. The one exception to "offhand" is the **Stave**, a two-handed weapon that is a conduit as well.
 
@@ -1180,6 +1183,10 @@ The Rod is the Wand's step up its gear line (`['wand', 'rod']`) and is better on
 - A melee blow that lands adds **2s** of regrow to the conduit.
 
 So the loop is cast, close, strike, cast: standing back and casting runs the pool dry, and swinging without casting wastes the weave.
+
+**Payoffs.** Two build properties put charges back for doing something well (§9a, Build properties): **Countercharm** (weapon or offhand) returns a charge on every parry, and **Requiem** (hands) returns a spell's charges when its hit kills. **Dr. Mantis Toboggan's Rod** (relic, depth 4+) casts on credit, taking what the pool lacks in health (§7, relics). Kept Delve Oaths can teach the spells you don't know (§9a, Delve Oaths).
+
+**Measured.** `npm run tables` prints every conduit casting every spell against the bestiary, beside the swing it shares a kit with (scored through the same `spellView`). At tier 3: a Wand's Ember Bolt (burn included) is 0.68× a Long Sword swing and its full pool 71 damage, under a belt of javelins (91); a Rod's is 0.98× and 136, about a belt of throwing axes (118); a Stave's 1.32× and 223. Smite is 0.57× a swing on the living and about 1× on the undead; Rime Lance is 0.38×, there for the chill. `npm run playtest:battlemage` plays the careful bot, which casts (`Policy.cast`), on the same 24 seeds in the depth-4 kit with the shield, a Rod never cast, a Rod cast, a Rod with both properties, a Wand and a Stave. On 2026-10-12 every one died 46–54% of the time against the shield's 50% (the idle Rod's 33% is within the ±10% this sample can resolve), taking the same ~200 monster damage; casting trades about 3 parries a delve for 20 casts. The bot casts at range only, Hexes elites and anything when two close in, and Smites the undead, so these are a floor on what a player gets from spells, not a ceiling.
 
 ## The bestiary codex
 
@@ -1504,6 +1511,6 @@ npx vitest run --config vitest.playtest.config.ts scripts/mechanics.bench.ts
 
 and paste the result in, rather than editing seventeen rows by hand and getting one of them wrong.
 
-**Measuring a change:** `npm run playtest` writes a full report — the ladder (each floor against the gear it is meant to be reached with), floor composition, loot yield, every matchup, and scripted runs for fresh, mid-gear, endgame and prepared characters under several policies. It takes a couple of minutes. `npm run tables` alone runs in seconds and is the one to use between individual knobs.
+**Measuring a change:** `npm run playtest` writes a full report — the ladder (each floor against the gear it is meant to be reached with), floor composition, loot yield, every matchup, and scripted runs for fresh, mid-gear, endgame and prepared characters under several policies. It takes a couple of minutes. `npm run tables` alone runs in seconds and is the one to use between individual knobs. `npm run playtest:battlemage` compares the conduits against a shield on the same seeds (§9b).
 
 Work that is designed but not built lives in [NEXT.md](NEXT.md); the account-sync brief is in [SUPABASE_SYNC.md](SUPABASE_SYNC.md).

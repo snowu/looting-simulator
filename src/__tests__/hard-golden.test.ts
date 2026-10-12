@@ -93,8 +93,10 @@ describe('Hard generation, loot and stats have explicit balance baselines', () =
     // Re-pinned again when the Wand and the Rod joined the offhand drop pool
     // (2026-10-11), for the same reason; oddityLootHash stays as the pre-conduit record.
     // And once more for the Stave in the weapon pool (2026-10-12);
-    // conduitLootHash stays as the pre-Stave record.
-    expect(hash(out)).toBe(golden.staveLootHash);
+    // conduitLootHash stays as the pre-Stave record. And for Dr. Mantis
+    // Toboggan's Rod joining the relic pool (2026-10-12); staveLootHash stays
+    // as the pre-relic record.
+    expect(hash(out)).toBe(golden.relicRodLootHash);
   }, 60_000);
 
   it('spawns every monster with the same health at every depth', () => {

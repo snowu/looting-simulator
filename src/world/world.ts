@@ -11,7 +11,7 @@ import {
 import { CACHE_MIN_GOLD, CRACK_BLOWS, CRACK_NOISE, CRACK_WEAR, Crack, SEAM_ORE } from '../data/walls';
 import {
   BULWARK_MULT, BULWARK_SOAK, BULWARK_WINDOW, EXECUTION_REFUND_MULT, KINDLING_AT, KINDLING_SPREAD, LAST_FLASK_MULT,
-  RETRIEVAL_MULT, RIPOSTE_MULT, RIPOSTE_WINDOW,
+  COUNTERCHARM_CHARGES, RETRIEVAL_MULT, RIPOSTE_MULT, RIPOSTE_WINDOW,
 } from '../data/properties';
 import { AttackMove, COMBO_BEAT, FEINT_AT, FEINT_HOLD, chooseMove, meleeReach, moveById } from '../data/attacks';
 import { quirkDef, quirkTimeScale } from '../data/quirks';
@@ -75,7 +75,7 @@ import {
 import { BOSS_ID, ENEMIES, enemyDef, enemyView, kingPhase, phaseForHp } from '../data/enemies';
 import { consumable, findConsumable, itemBase, viewmodelFor } from '../data/items';
 import { biomeForFloor, FINAL_DEPTH } from '../data/biomes';
-import { PlayerDerived, derivePlayer, thrownView } from '../systems/player';
+import { PlayerDerived, derivePlayer, spellView, thrownView } from '../systems/player';
 import { DifficultyId, DifficultyDef, difficultyOf } from '../data/difficulty';
 import { enemyHitsPlayer, playerHitsEnemy, staminaPower } from '../systems/combat';
 import { ContainerTier, LootRoll, durability, identify, isIdentified, itemName, makeMaterial, materialForDepth, rollContainerLoot, rollEnemyLoot, uniqueOf, wearItem } from '../systems/items';
@@ -696,6 +696,25 @@ export class World {
     if (!spells.length || !this.run.conduit) return null;
     const sel = ((this.run.conduit.sel % spells.length) + spells.length) % spells.length;
     return spells[sel];
+  }
+
+  /**
+   * Whether the selected spell can be paid for now: the pool covers it, or a
+   * blood-cast relic will take the shortfall in health without the last point.
+   */
+  spellReady(): boolean {
+    const spell = this.selectedSpell();
+    const pool = this.run.conduit;
+    if (!spell || !pool) return false;
+    const blood = this.bloodPrice(spell.charges - pool.charges);
+    return blood === 0 || (blood > 0 && blood < this.player.hp);
+  }
+
+  /** Health a cast short by `short` charges costs: 0 when not short, -1 when nothing will pay it. */
+  private bloodPrice(short: number): number {
+    if (short <= 0) return 0;
+    const rate = this.derived.traits.bloodCast;
+    return rate > 0 ? Math.max(1, Math.round(short * rate * this.derived.maxHp)) : -1;
   }
 
   /** Cycle to the next loaded spell. Free, and allowed mid-anything but death. */
@@ -1602,6 +1621,7 @@ export class World {
   /** Shared feedback for any parry: it should feel like a moment. */
   private parryFlourish(x: number, y: number): void {
     if (this.derived.traits.riposte) this.anim.riposteT = RIPOSTE_WINDOW;
+    if (this.derived.traits.countercharm) this.refundCharges(COUNTERCHARM_CHARGES);
     this.anim.blockT = Infinity;
     this.anim.parryArmed = false;
     this.sfx('parry', x, y);
@@ -1747,9 +1767,15 @@ export class World {
       this.msg('No spells loaded. Load them at the forge\'s Spells bench.', '#888');
       return false;
     }
-    if (pool.charges < spell.charges) {
-      const left = Math.ceil(conduit.regrow - pool.regrow);
-      this.msg(`Your conduit is spent — a charge returns in ${left}s.`, '#9a8fd8');
+    // Dr. Mantis Toboggan's Rod casts on credit: what the pool lacks is
+    // taken in health, but never the last point.
+    const blood = this.bloodPrice(spell.charges - pool.charges);
+    if (blood < 0 || blood >= this.player.hp) {
+      if (blood > 0) this.msg('The rod wants more of you than you have left.', '#c04050');
+      else {
+        const left = Math.ceil(conduit.regrow - pool.regrow);
+        this.msg(`Your conduit is spent — a charge returns in ${left}s.`, '#9a8fd8');
+      }
       return false;
     }
     if (this.player.stamina < spell.stamina) {
@@ -1759,9 +1785,14 @@ export class World {
       }
       return false;
     }
+    if (blood > 0) {
+      this.player.hp -= blood;
+      this.emit({ type: 'float', x: this.player.x, y: this.player.y, text: `-${blood}`, color: '#c04050' });
+      this.sfx('hurt');
+    }
     a.attackPower = staminaPower(this.player.stamina, this.derived.maxStamina);
     this.player.stamina = Math.max(0, this.player.stamina - spell.stamina);
-    pool.charges -= spell.charges;
+    pool.charges = Math.max(0, pool.charges - spell.charges);
     a.sinceStamina = 0;
     a.attack = 'windup';
     a.attackT = 0;
@@ -1769,33 +1800,13 @@ export class World {
     a.attackSpell = spell.id;
     a.attackBase = null;
     a.attackWeaponUid = (this.derived.conduitHand === 'weapon' ? this.state.equipment.weapon : this.state.equipment.offhand)?.uid ?? null;
-    a.attackSnapshot = this.spellView(spell);
+    a.attackSnapshot = spellView(this.derived, spell);
     a.attackRecovery = spell.recovery;
     a.attackDur = spell.windup;
     a.blockRaise = 0;
     this.sfx('magic');
     this.breakChannels();
     return true;
-  }
-
-  /**
-   * You, as a spell scores you. The conduit's Power goes in as the spell's
-   * own element, and only your matching elemental stat rides along: fire gear
-   * makes an Ember Bolt hit harder and a Rime Lance not at all. With no
-   * physical Attack the whole hit is elemental, which `playerHitsEnemy`
-   * already mitigates at half armour. Crits use the plain multiplier — a
-   * dagger in the other hand does not make the spell a dagger.
-   */
-  private spellView(spell: ConduitSpellDef): PlayerDerived {
-    const d = this.derived;
-    const stats = { ...d.stats };
-    for (const el of ELEMENTS) if (el !== spell.element) stats[el] = 0;
-    stats[spell.element] = (stats[spell.element] ?? 0) + d.conduitPower * spell.power;
-    return {
-      ...d, stats, attack: 0, damageType: spell.element,
-      traits: { ...d.traits },
-      swing: { ...d.swing, critMult: undefined },
-    };
   }
 
   private launchSpell(id: string): void {
@@ -1886,8 +1897,15 @@ export class World {
     if (e.hp <= 0) {
       // Holy light from above: what Smite kills stays down.
       if (spell.id === 'smite') this.markRemains(e, 'sanctified');
+      if (this.derived.traits.requiem) this.refundCharges(spell.charges);
       this.killEnemy(e);
     }
+  }
+
+  /** Put charges back in the worn conduit's pool, never past full. */
+  private refundCharges(n: number): void {
+    const pool = this.run.conduit, c = this.derived.conduit;
+    if (pool && c) pool.charges = Math.min(c.charges, pool.charges + n);
   }
 
   /** Weave: a landed spell's element now rides on your next blow. */
@@ -1909,8 +1927,7 @@ export class World {
     this.addSpellFx('poof', e.x, e.y, refused);
     if (refused) {
       this.msg(def.behavior === 'boss' ? 'The King will not be made a fool of. The hex slides off him.' : `The ${def.name} shrugs the hex off.`, '#c8a0ff');
-      const pool = this.run.conduit, c = this.derived.conduit;
-      if (pool && c) pool.charges = Math.min(c.charges, pool.charges + spell.charges);
+      this.refundCharges(spell.charges);
       this.sfx('break', e.x, e.y);
       return false;
     }

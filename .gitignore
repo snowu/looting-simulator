@@ -13,6 +13,7 @@ scripts/inject-forge-test-save.js
 # Harness output.
 playtest-report.txt
 playtest-normal.txt
+playtest-battlemage.txt
 balance-tables.txt
 trace.txt
 test-results/
