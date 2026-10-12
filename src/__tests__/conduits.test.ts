@@ -117,11 +117,13 @@ describe('conduits', () => {
     expect(rod.conduit!.regrow).toBeLessThan(wand.conduit!.regrow);
   });
 
-  it('never holds the conduit up: a Wand or Rod stays down, a Stave still rises', () => {
+  it('flicks the conduit up for the parry, but never holds it: a Stave still stays up', () => {
     const w = battlemage();
     w.setBlock(true);
-    run(w, 0.3);
+    run(w, 0.05);
     expect(w.held.has('block')).toBe(true);
+    expect(w.anim.blockRaise).toBeGreaterThan(0);
+    run(w, 0.3);
     expect(w.anim.blockRaise).toBe(0);
     const state = newGame(createRng(98));
     state.equipment.weapon = makeEquipment({ baseId: 'stave', materialId: 'ironwood', rarity: Rarity.Common, ilvl: 4, quality: 1, identified: true });
@@ -139,7 +141,7 @@ describe('conduits', () => {
     const e1 = target(early, 1);
     early.setBlock(true);
     run(early, 0.05);
-    expect(early.anim.blockRaise).toBe(0);
+    expect(early.anim.blockRaise).toBeGreaterThan(0);
     const hp = early.player.hp;
     guard(early).damagePlayer(20, 'slash', e1.x, e1.y, 'Ghoul', 'ghoul', e1);
     expect(early.player.hp).toBe(hp);

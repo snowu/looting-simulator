@@ -958,9 +958,7 @@ export class World {
     a.blockT = since;
     a.parryArmed = this.guardPendingCd <= 0;
     if (a.parryArmed) a.parryCd = Math.max(0, (a.ward ? PARRY_COOLDOWN * 0.6 : PARRY_COOLDOWN) - since);
-    // A Wand or Rod never stays up (see update): a confirmed touch only arms
-    // the parry, it never raises the conduit.
-    a.blockRaise = this.derived.conduitHand === 'offhand' ? 0 : clamp(since / 0.12, 0, 1);
+    a.blockRaise = clamp(since / 0.12, 0, 1);
   }
 
   get busy(): boolean {
@@ -1118,10 +1116,12 @@ export class World {
     const wantGuard = this.held.has('block') && a.attack === 'idle' && !a.cast && a.stunT <= 0 && a.sip === null;
     const brokenGuard = wantGuard ? this.brokenGuardGear() : null;
     const wantBlock = wantGuard && !brokenGuard;
-    // A Wand or Rod never stays up: it guards nothing, so holding block only
-    // opens the parry window and never raises the conduit. A tap still parries.
+    // A Wand or Rod guards nothing, so it only flicks up for the parry: it
+    // rises while the window is open, then lowers even while held. A tap
+    // flashes it; holding keeps nothing up.
     const parryOnly = this.derived.conduitHand === 'offhand';
-    const wantRaise = wantBlock && !parryOnly;
+    const flickWindow = PARRY_WINDOW * this.diff.parryWindow * CONDUIT_PARRY_WINDOW * (a.ward ? 2 : 1);
+    const wantRaise = wantBlock && (!parryOnly || a.blockT <= flickWindow);
     a.parryCd = Math.max(0, a.parryCd - dt);
     if (wantBlock) {
       if (a.blockT === Infinity) {
