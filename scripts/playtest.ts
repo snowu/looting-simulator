@@ -20,7 +20,9 @@ import { addItem, removeItem } from '../src/state/inventory';
 import { World, WorldEvent } from '../src/world/world';
 import { Floor, EnemyState, blocksMove, blocksSight, enemyAt, propAt, doorAt, tileAt, inBounds, FLOOR } from '../src/systems/dungeon';
 import { ConduitSpellDef } from '../src/data/conduit-spells';
-import { burningAt } from '../src/systems/surfaces';
+import { burningAt, oilBarrelAt, surfaceAt, surfaceKindAt } from '../src/systems/surfaces';
+import { VENT_TELL } from '../src/data/surfaces';
+import { biomeForFloor } from '../src/data/biomes';
 import { enemyDef, BOSS_ID } from '../src/data/enemies';
 import { FINAL_DEPTH } from '../src/data/biomes';
 import { itemValue } from '../src/systems/items';
@@ -92,6 +94,8 @@ export interface RunReport {
   casts: Record<string, number>;
   spellMisses: number;
   hexes: number;
+  /** Surfaces at work, whoever set them off: oil lit, monsters frozen, monsters slipping, monsters burned to death. */
+  hazards: { lit: number; frozen: number; slips: number; burned: number };
   /** Most backpack slots occupied at any point, against the pack's capacity. */
   peakSlots: number;
   capacity: number;
@@ -131,9 +135,14 @@ function passable(f: Floor, x: number, y: number, keys: string[]): boolean {
   if (d && !d.open && d.locked && !(d.keyId && keys.includes(d.keyId))) return false;
   const p = propAt(f, x, y);
   // Urns and barrels are smashed through; chests and shrines are walked around.
-  if (p && p.blocking && p.kind !== 'urn' && p.kind !== 'barrel' && p.kind !== 'root_cache') return false;
-  // Burning oil is walked around, like a player would, until it burns out.
+  // An oil barrel is never smashed through: it would leave the bot in a pool.
+  if (p && p.blocking && (p.oil || (p.kind !== 'urn' && p.kind !== 'barrel' && p.kind !== 'root_cache'))) return false;
+  // Burning oil is walked around, and a vent while it glows or burns, like a
+  // player would. A quiet vent is walked over: walling them off for good
+  // shut the bot out of rooms whose only way in ran across one.
   if (burningAt(f, x, y)) return false;
+  const vent = surfaceAt(f, x, y);
+  if (vent?.kind === 'vent' && ((vent.t ?? 0) <= VENT_TELL + 0.6 || (vent.burst ?? 0) > 0)) return false;
   return true;
 }
 
@@ -201,7 +210,7 @@ class Bot {
     this.report = {
       seed, outcome: 'timeout', depth: 1, deepest: 1, bossKilled: false, kills: 0, time: 0, gold: 0, renown: 0,
       itemsKept: 0, valueKept: 0, damageTaken: {}, sips: 0, morselsEaten: 0, morselsRotted: 0, parries: 0, hitsTaken: 0,
-      blockedHits: 0, trapsSprung: 0, itemsLost: 0, valueLost: 0, casts: {}, spellMisses: 0, hexes: 0,
+      blockedHits: 0, trapsSprung: 0, itemsLost: 0, valueLost: 0, casts: {}, spellMisses: 0, hexes: 0, hazards: { lit: 0, frozen: 0, slips: 0, burned: 0 },
       peakSlots: 0, capacity: w.run.backpack.capacity, brokenAtEnd: 0, perFloor: [],
     };
     this.beginFloor();
@@ -263,8 +272,12 @@ class Bot {
           break;
         case 'float':
           if (e.text === 'Parry!') r.parries++;
+          else if (e.text === 'frozen') r.hazards.frozen++;
+          else if (e.text === 'slips') r.hazards.slips++;
           break;
         case 'msg':
+          if (e.text === 'The oil catches!' || e.text === 'The oil barrel bursts into flame!') r.hazards.lit++;
+          else if (/^The .* burns\.$/.test(e.text)) r.hazards.burned++;
           // The world says what a spell did in words, and only in words.
           if (e.text.endsWith('finds nothing to strike.')) r.spellMisses++;
           else if (e.text.endsWith(' is a penguin.')) r.hexes++;
@@ -425,14 +438,20 @@ class Bot {
     // starting a cast into its wind-up is how it gets hit in the face.
     const engaged = threats.some((e) => Math.abs(e.x - p.x) + Math.abs(e.y - p.y) === 1);
     let best: { e: EnemyState; dir: Dir; dist: number; spell: ConduitSpellDef } | null = null;
+    // Never set fire to oil it is standing in or beside.
+    const hot = this.fuel(p.x, p.y) || DIRS.some((d) => this.fuel(p.x + DX[d], p.y + DY[d]));
     for (const dir of DIRS) {
+      // Fuel along the line or round the target: a bolt of fire would set it off.
+      let fuel = false;
       for (let dist = 1; dist <= 5; dist++) {
         const x = p.x + DX[dir] * dist, y = p.y + DY[dir] * dist;
         if (blocksSight(w.floor, x, y)) break;
+        if (this.fuel(x, y)) fuel = true;
         const e = enemyAt(w.floor, x, y);
         if (!e) continue;
         if (engaged && (dist > 1 || e.ai === 'windup')) break;
-        const spell = this.spellFor(e, dist, closing, spells, pool.charges);
+        if (DIRS.some((d) => this.fuel(x + DX[d], y + DY[d]))) fuel = true;
+        const spell = this.spellFor(e, dist, closing, spells, pool.charges, fuel && !hot);
         if (spell && (!best || dist < best.dist || (dist === best.dist && dir === p.facing))) best = { e, dir, dist, spell };
         break;
       }
@@ -447,8 +466,18 @@ class Bot {
     return true;
   }
 
-  /** The spell this bot wants for this monster, at this distance, or none. */
-  private spellFor(e: EnemyState, dist: number, closing: number, spells: ConduitSpellDef[], charges: number): ConduitSpellDef | null {
+  /** Oil, spores or an oil barrel on this tile: something fire would set off. */
+  private fuel(x: number, y: number): boolean {
+    const k = surfaceKindAt(this.w.floor, x, y);
+    return k === 'oil' || k === 'spores' || !!oilBarrelAt(this.w.floor, x, y);
+  }
+
+  /**
+   * The spell this bot wants for this monster, at this distance, or none.
+   * Surfaces come first: fire at anything with fuel near it, frost at
+   * anything standing in water (anywhere at all in the flooded Catacombs).
+   */
+  private spellFor(e: EnemyState, dist: number, closing: number, spells: ConduitSpellDef[], charges: number, fuel = false): ConduitSpellDef | null {
     if ((e.hexT ?? 0) > 0) return null;
     const p = this.w.player;
     const swing = this.w.derived.swing.staminaCost;
@@ -459,6 +488,15 @@ class Bot {
       if (hex) return hex;
     }
     if (dist < 2) return null;
+    if (fuel) {
+      const ember = usable('ember_bolt');
+      if (ember) return ember;
+    }
+    const wet = surfaceKindAt(this.w.floor, e.x, e.y) === 'water' || (biomeForFloor(this.w.floor).law === 'flood' && !surfaceKindAt(this.w.floor, e.x, e.y));
+    if (wet) {
+      const rime = usable('rime_lance');
+      if (rime) return rime;
+    }
     if (enemyDef(e.def).undead) return usable('smite') ?? usable('ember_bolt') ?? usable('rime_lance') ?? null;
     return usable('ember_bolt') ?? usable('rime_lance') ?? usable('smite') ?? null;
   }
@@ -878,6 +916,7 @@ export function summarise(reports: RunReport[], label: string): string {
   L.push(`renown: ${renown.toFixed(1)}/run, ${hours > 0 ? (renown / hours).toFixed(0) : '—'}/sim-hour (whole tree costs ${META_TREE_COST})   broken gear at end: ${avg(reports.map((r) => r.brokenAtEnd)).toFixed(2)}`);
   // Gold *out* is not modelled: the bot never visits town, so it never pays a
   // smith, an appraiser or a merchant. Banked is income, not profit.
+  L.push(`hazards: oil lit ${avg(reports.map((r) => r.hazards.lit)).toFixed(1)}, monsters frozen ${avg(reports.map((r) => r.hazards.frozen)).toFixed(1)}, slipped ${avg(reports.map((r) => r.hazards.slips)).toFixed(1)}, burned to death ${avg(reports.map((r) => r.hazards.burned)).toFixed(1)}`);
   const cast = reports.flatMap((r) => Object.keys(r.casts));
   if (cast.length) {
     const ids = [...new Set(cast)].sort();

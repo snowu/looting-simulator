@@ -4,6 +4,16 @@ New code-drawn art exported by `npm run art:handoff`, newest first. Each is a pl
 
 ## 2026-10-12
 
+- [ ] `props/barrel_oil.png` (32×32)
+- [ ] `props/surf_vent.png` (32×32)
+- [ ] `props/surf_spores.png` (32×32)
+- [ ] `props/fx_spores.png` (24×18)
+- [ ] `props/fx_spores_b.png` (24×18)
+- [ ] `props/fx_blast.png` (24×18)
+- [ ] `props/fx_blast_b.png` (24×18)
+
+## 2026-10-12
+
 - [ ] `props/surf_oil.png` (32×32)
 - [ ] `props/surf_water.png` (32×32)
 - [ ] `props/surf_ice.png` (32×32)

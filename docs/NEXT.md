@@ -1003,7 +1003,7 @@ every new sprite id in `ALL_ART` needs its PNG in `public/art` or boot throws.
 
 ---
 
-# 5. Elemental hazards — **STEP 1 BUILT 2026-10-12**
+# 5. Elemental hazards — **BUILT 2026-10-12**
 
 The user's follow-up, to come after section 4: biome hazards and elemental
 interactions, so that **fire burns oil, water puts out fire**, and so on.
@@ -1063,17 +1063,39 @@ the four biome laws, which come after.
 
 1. **Oil, water, ice, fire** on every floor, the interaction table, art,
    and the bot walking round fire. *(built)*
-2. **The four biome laws, as surfaces.** Candidates: Catacombs, *the water
-   carries*: frost on the flood freezes every connected tile around the
-   target. Frost Vault, *the ice is everywhere*: more ice, and you slip too
-   when struck on it. Emberworks, *the lava is live*: crust tiles that
-   ignite oil and burn what stands on them during a burst. Sporegrove,
-   *spores*: a surface that bursts into a choking cloud when fire or a blow
-   lands on it, burned away by holy.
-3. **Oil barrels**: a barrel that spills a pool when broken, for setting
-   your own trap.
-4. **Harness**: the bot uses surfaces (lights oil under monsters with a
-   fire spell), so playtest can price them.
+2. **The four biome laws, as surfaces.** *(built)*
+   - Catacombs, *the water carries*: frost that **lands** where a bolt
+     stops freezes the flood within 1 tile, and whatever stands there. Not
+     along a bolt's path, or one Rime Archer would freeze a corridor; and
+     not under a frost blade's blows, which in the first build froze
+     everything a moonsilver axe touched (141 freezes in 24 bot delves).
+     Flood ice thaws back into the flood. Your own bolt never holds you; a
+     monster's does.
+   - Frost Vault, *the ice is treacherous*: two more ice pools; a monster
+     that slips is also open (double damage) while down, and you go down
+     for 0.6s when an unblocked blow lands on you on the ice.
+   - Emberworks, *the vents breathe*: 4 vents per floor, bursting every
+     7–11s after a 1.2s glowing warning: the tile is scorched (2 of fire's
+     ticks) and oil beside it catches. Monsters do not avoid them, which is
+     the point. (Chosen over making the decorative lava live: a vent is a
+     tile you can read and plan around; the lava bubbles are scenery.)
+   - Sporegrove, *the spores*: 4 patches of 1–3 tiles. Treading on one
+     puffs it away, blinding every monster within a tile for 3s (they
+     stumble, as under Flash) and dimming your lamp for 3s if you are in
+     it. Fire makes spores burst: 2 ticks of fire over the tile and the four
+     beside it. (Holy burning them away was dropped: nothing would use it.)
+3. **Oil barrels**: red-hooped barrels, one per floor (two in the Mines,
+   the Emberworks and the barrel biomes), against a wall where they cut
+   nothing off. Smashed, a barrel spills oil over its tile and up to five
+   more, and holds no loot. Reached by fire it bursts: the spill goes up at
+   once and 3 of fire's ticks land on the tile and the four beside it.
+   *(built)*
+4. **Harness**: the casting bot prefers Ember Bolt when oil, spores or a
+   barrel lie on its line or beside the target (never when it is standing
+   in or beside fuel itself), and Rime Lance at a monster in water or
+   anywhere on the Catacombs' flood; it walks round vents and never smashes
+   an oil barrel. Reports count oil lit, monsters frozen, slipping and
+   burned to death. *(built)*
 
 ## Progress
 
@@ -1086,6 +1108,14 @@ the four biome laws, which come after.
   frozen tint), six sprites handed to the artist, the bot walking round
   fire. Not done: steps 2–4, the automap does not show surfaces, and no
   sound of its own (it borrows lava, splash and snuff sounds).
+- 2026-10-12 — **Steps 2–4 built** (branch `feat/hazards-2`, stacked on
+  `feat/hazards-1`). The four elemental biome laws (`flood`,
+  `treacherous`, `vents`, `spores` in `src/data/laws.ts`), oil barrels
+  (`Prop.oil`), and the bot working them. New sprites: oil barrel, vent,
+  spores, a spore cloud and a burst of fire (two frames each, the shape of
+  Hex's puff). Still optional fields only: no save change. Not done: the
+  automap, sounds of their own, a phone check, and nothing yet reads the
+  spores' blinding against the bot (it never steps on them on purpose).
 
 ---
 

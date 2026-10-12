@@ -372,6 +372,12 @@ function propGroups(): SheetGroup[] {
       { id: 'surf_scorch', label: 'Burning oil · the scorch' },
       { id: 'fx_flame_0', label: 'Flames' },
       { id: 'fx_flame_1', label: 'Flames · second frame' },
+      { id: 'surf_vent', label: 'Vent · Emberworks' },
+      { id: 'surf_spores', label: 'Spores · Sporegrove' },
+      { id: 'fx_spores', label: 'Spore cloud' },
+      { id: 'fx_spores_b', label: 'Spore cloud · second frame' },
+      { id: 'fx_blast', label: 'A burst of fire' },
+      { id: 'fx_blast_b', label: 'A burst · second frame' },
     ] },
   ];
 }

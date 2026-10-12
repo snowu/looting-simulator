@@ -89,6 +89,7 @@ export const BIOMES: BiomeDef[] = [
     glow: { color: '#55b9bc', density: 0.025, sprite: 'fungus' },
     favoredEnemies: ['rat', 'bat', 'skeleton', 'drowned_bones'],
     graves: true, flooded: true,
+    law: 'flood',
   },
   {
     id: 'burrows', name: 'The Vermin Burrows', depths: [1, 2, 3],
@@ -110,6 +111,7 @@ export const BIOMES: BiomeDef[] = [
     fog: '#050b17', ambient: '#23344c', torch: '#a9d5ff', torchDensity: 0.04, element: 'frost',
     favoredEnemies: ['frost_wisp', 'skeleton_archer', 'skeleton_shield', 'icebound_guard', 'elemental_frost'],
     frozen: true,
+    law: 'treacherous',
   },
   {
     id: 'emberworks', name: 'The Emberworks', depths: [3, 4, 5],
@@ -121,6 +123,7 @@ export const BIOMES: BiomeDef[] = [
     fog: '#160603', ambient: '#483022', torch: '#ff7848', torchDensity: 0.09, element: 'fire',
     favoredEnemies: ['ember_wisp', 'flame_wraith', 'goblin_shield', 'cinder_raider'],
     molten: true,
+    law: 'vents',
   },
   {
     id: 'sporegrove', name: 'The Sporegrove', depths: [3, 4, 5],
@@ -135,6 +138,7 @@ export const BIOMES: BiomeDef[] = [
     glow: { color: '#9acf65', density: 0.085, sprite: 'fungus' },
     favoredEnemies: ['spider', 'ghoul', 'bat', 'spore_hunter', 'bog_seraph'],
     vessel: 'barrel',
+    law: 'spores',
   },
 ];
 

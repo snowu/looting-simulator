@@ -150,12 +150,16 @@ The first time you take the down stair on **depth 2**, it splits. A panel shows 
 
 *Files: `src/data/laws.ts`, `ossuaryStir` / `collapse` / `noise` / `breakProp` in `src/world/world.ts`*
 
-Three biomes each have one rule you can turn to your advantage. The first time you arrive on such a floor, the log says so.
+Seven biomes each have one rule you can turn to your advantage; the four elemental ones are built on surfaces. The first time you arrive on such a floor, the log says so.
 
 | Biome | Law | How it works |
 |---|---|---|
 | The Ossuary | **The dead do not stay down** | An undead monster's remains **stir 8s** after it dies (they glow and rise into view) and **stand 2s later** at **50%** health, `risen`, so they pay nothing twice and never rise again. Shattered or sanctified remains (see *The Gravecaller and remains*) stay down, as do the living and bosses. It only triggers as the 8s mark passes, so corpses you left behind don't all stand when you come back |
 | The Deep Mines | **Braced walls come down hard** | Bringing down a cracked wall collapses its timbering: every monster on a tile beside the wall takes `30 + 12 × depth` blunt damage (× its blunt resistance) and reels for **1.2s** (bosses don't reel). You strike from beside it, so the roof never falls on you. The blows' noise draws monsters to you, often right beside the crack |
+| The Sunken Catacombs | **The water carries** | The floor is flood from wall to wall. Frost that **lands** where a bolt stops (struck something, hit a wall, ran out of range) freezes the flood within **1 tile**, and holds whatever stands there (monsters 2.5s, you 1s; your own bolt never holds you). Along a bolt's path only pools freeze, and a frost weapon's blows freeze only a pool, never the flood. Flood ice thaws back into the flood after 20s. See *Surfaces* |
+| The Frost Vault | **The ice is treacherous** | Two more ice pools. A monster that slips on the ice is also **open** (double damage) while it is down, 0.8s; an unblocked blow on you while you stand on ice puts you down for **0.6s** |
+| The Emberworks | **The vents breathe** | **4 vents** per floor burst every **7–11s**, after a **1.2s** warning in which the grate and the room flare. A burst scorches whatever stands on the vent (2 of fire's ticks) and lights oil beside it. Monsters don't avoid vents |
+| The Sporegrove | **The spores** | **4 patches** of puffballs (1–3 tiles). Treading on one, monster or you, puffs it away: every monster within **1 tile** is **blinded 3s** (it stumbles and loses its wind-up), and if you are within it your lamp dims for 3s. Fire makes spores **burst**: 2 of fire's ticks on the tile and the four beside it, lighting what is there |
 | The Vermin Burrows | **Noise carries** | Every noise reaches **×1.75** further: cracked-wall blows, Wardcry's shout, alarm wards and a struck chest's clang. Breaking a **root cache** makes a racket that draws every monster within **12** tiles to the **cache**, not to you, which makes it a lure |
 
 ### Strange floors
@@ -205,6 +209,8 @@ Every fresh floor gets **pools** on the floor (`Floor.surfaces`), laid after gen
 | Frost Vault | 1 | 2, laid as **ice** |
 | Sunken Catacombs (already flooded) | 1 | 0 |
 
+Every floor also gets **oil barrels** (`Prop.oil`, red hoops): **1**, or **2** in the Mines, the Emberworks and the Sporegrove (the barrel biomes). One stands against a wall, never beside a door, and only where it cuts nothing off (checked by a walk from the stair). It holds no loot. **Smashed**, it spills oil over its tile and up to **5** more (over bare floor or water). **Reached by fire**, it **bursts**: the spill goes up at once and **3** of fire's ticks land on its tile and the four beside it. The Emberworks also gets **vents** and the Sporegrove **spore patches** (*Biome laws*).
+
 **One table, for everything.** Fire from any source lights oil and melts ice; frost from any source freezes water. The sources: a bolt crossing the tile (your Ember Bolt or Rime Lance, a monster's fire or frost bolt, a parried bolt), a blow landing on a monster there while it carries fire or frost (gear, a Kindled draught, a fire Weave), and the feet of a monster that is burning or made of fire (oil and ice only).
 
 | Surface | What happens |
@@ -214,7 +220,7 @@ Every fresh floor gets **pools** on the floor (`Floor.surfaces`), laid after gen
 | **Water** | Fire never spreads onto it. A burning monster that steps in is put out. Frost freezes it into **ice for 20s**, and whatever stands in it: a monster is held **2.5s** (`frozenT`, drawn pale blue, out of whatever it was doing), you **1s** |
 | **Ice** | Fire melts it back to water. A monster **struck on ice** (blow, throw or spell) **slips**: down for **0.8s**, out of its wind-up. Ice laid by a frozen biome stays until melted |
 
-The Ashen King never freezes or slips. Every pool is drawn on its tile, with a few dim emissive pixels (oil's sheen, water's ripples, ice's glints) so it shows in a dark room; fire throws light and stands up as flames that shrink as it burns out.
+The Ashen King never freezes or slips, and is never blinded by spores. Every pool is drawn on its tile, with a few dim emissive pixels (oil's sheen, water's ripples, ice's glints) so it shows in a dark room; fire throws light and stands up as flames that shrink as it burns out.
 
 ### Elemental surfaces and residents
 

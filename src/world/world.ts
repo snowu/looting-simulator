@@ -16,10 +16,11 @@ import {
 import { AttackMove, COMBO_BEAT, FEINT_AT, FEINT_HOLD, chooseMove, meleeReach, moveById } from '../data/attacks';
 import { quirkDef, quirkTimeScale } from '../data/quirks';
 import { applyQuirk } from '../systems/quirks';
-import { burningAt, chill, ignite, placeSurfaces, surfaceKindAt, tickSurfaces } from '../systems/surfaces';
+import { burningAt, chill, freezeFlood, ignite, oilBarrelAt, placeSurfaces, spillOil, surfaceAt, surfaceKindAt, tickSurfaces } from '../systems/surfaces';
 import {
-  FIRE_MONSTER_BASE, FIRE_MONSTER_PER_DEPTH, FIRE_PLAYER_BASE, FIRE_PLAYER_PER_DEPTH, FIRE_TICK, FREEZE_SECONDS,
-  PLAYER_FREEZE_SECONDS, SLIP_SECONDS,
+  BURST_TICKS, FIRE_MONSTER_BASE, FIRE_MONSTER_PER_DEPTH, FIRE_PLAYER_BASE, FIRE_PLAYER_PER_DEPTH, FIRE_TICK, FLOOD_REACH,
+  FREEZE_SECONDS, PLAYER_FREEZE_SECONDS, PLAYER_SLIP_SECONDS, SLIP_SECONDS, SPORE_BLIND, SPORE_BURST_TICKS, Surface,
+  VENT_FLAMES, VENT_PERIOD_MAX, VENT_PERIOD_MIN, VENT_TICKS,
 } from '../data/surfaces';
 import { FORK_DEPTH, ROADS, ROAD_DEPTHS } from '../data/routes';
 import { SHADE_ID, placeShade } from '../systems/grave';
@@ -170,7 +171,8 @@ export interface Projectile {
  */
 export interface SpellFx {
   id: number;
-  kind: 'smite' | 'poof';
+  /** A spell's mark, or a surface's: a spore cloud, a burst of fire. */
+  kind: 'smite' | 'poof' | 'spores' | 'blast';
   x: number;
   y: number;
   /** Seconds since it appeared. */
@@ -179,7 +181,7 @@ export interface SpellFx {
 }
 
 /** How long each mark lasts, in seconds. */
-export const SPELL_FX_SECONDS: Record<SpellFx['kind'], number> = { smite: 0.55, poof: 0.7 };
+export const SPELL_FX_SECONDS: Record<SpellFx['kind'], number> = { smite: 0.55, poof: 0.7, spores: 0.9, blast: 0.6 };
 
 type Move = 'forward' | 'back' | 'left' | 'right';
 type Action = Move | 'turnLeft' | 'turnRight';
@@ -1298,6 +1300,7 @@ export class World {
       this.springTrap(trap, null);
       if (this.run.outcome !== 'active') return;
     }
+    if (surfaceKindAt(f, p.x, p.y) === 'spores') this.sporePuff(p.x, p.y);
     const s = stairsAt(f, p.x, p.y);
     this.sfx(biomeForFloor(f).flooded && !s ? 'splash' : 'step');
     if (s) {
@@ -2046,32 +2049,50 @@ export class World {
     const f = this.floor;
     this.surfaceMsgCd = Math.max(0, this.surfaceMsgCd - dt);
     if (!f.surfaces?.length) return;
-    const caught = tickSurfaces(f, dt);
-    if (caught.length) this.sfx('lava_burst', caught[0].x, caught[0].y);
+    const tick = tickSurfaces(f, dt);
+    if (tick.caught.length) this.sfx('lava_burst', tick.caught[0].x, tick.caught[0].y);
+    for (const s of tick.burst) this.sporesBurst(s.x, s.y);
+    for (const v of tick.vents) this.ventBurst(v);
+    if (this.run.outcome !== 'active') return;
     this.fireTick += dt;
     if (this.fireTick < FIRE_TICK) return;
     this.fireTick -= FIRE_TICK;
-    if (!f.surfaces.some((s) => s.kind === 'fire')) return;
+    const fires = f.surfaces.filter((s) => s.kind === 'fire');
+    if (!fires.length) return;
+    const p = this.player;
+    if (burningAt(f, p.x, p.y) && this.surfaceMsgCd <= 0) {
+      this.msg('You are standing in fire!', '#ff8040');
+      this.surfaceMsgCd = 2;
+    }
+    for (const s of fires) {
+      this.scorch(s.x, s.y, 1, 'burning oil');
+      if (this.run.outcome !== 'active') return;
+    }
+  }
+
+  /**
+   * Fire's bite on one tile, `ticks` times over: you through your armour,
+   * unavoidable like a trap; a monster raw, × its fire resistance, and set
+   * burning so it carries the fire out with it (into more oil, or into water,
+   * which puts it out).
+   */
+  private scorch(x: number, y: number, ticks: number, source: string): void {
+    const f = this.floor;
     const p = this.player;
     const depth = this.run.depth;
-    if (burningAt(f, p.x, p.y)) {
-      const bite = Math.max(1, Math.round((FIRE_PLAYER_BASE + FIRE_PLAYER_PER_DEPTH * depth) * this.diff.trapDamage));
-      if (this.surfaceMsgCd <= 0) {
-        this.msg('You are standing in fire!', '#ff8040');
-        this.surfaceMsgCd = 2;
-      }
-      this.damagePlayer(bite, 'fire', p.x, p.y, 'burning oil', undefined, undefined, true);
+    if (p.x === x && p.y === y) {
+      const bite = Math.max(1, Math.round((FIRE_PLAYER_BASE + FIRE_PLAYER_PER_DEPTH * depth) * ticks * this.diff.trapDamage));
+      this.damagePlayer(bite, 'fire', x, y, source, undefined, undefined, true);
       if (this.run.outcome !== 'active') return;
     }
     for (const e of f.enemies) {
-      if (e.ai === 'dead' || e.lurk || !burningAt(f, e.x, e.y) || this.protectedByFog(e)) continue;
+      if (e.ai === 'dead' || e.lurk || e.x !== x || e.y !== y || this.protectedByFog(e)) continue;
       const def = enemyDef(e.def);
-      const dealt = Math.max(1, Math.round((FIRE_MONSTER_BASE + FIRE_MONSTER_PER_DEPTH * depth) * (def.resist.fire ?? 1)));
+      const dealt = Math.max(1, Math.round((FIRE_MONSTER_BASE + FIRE_MONSTER_PER_DEPTH * depth) * ticks * (def.resist.fire ?? 1)));
+      if (dealt <= 0) continue;
       this.hurt(e, dealt, `${dealt}`, '#ff8040');
       recordDamageDealt(this.state.bestiary, def.id, dealt);
-      // It carries the fire out with it: a burn like Ember Bolt's, which lights
-      // any oil it runs through and goes out in water.
-      e.burn = { t: BURN_SECONDS, left: Math.max(e.burn?.left ?? 0, dealt * 2), acc: e.burn?.acc ?? 0 };
+      e.burn = { t: BURN_SECONDS, left: Math.max(e.burn?.left ?? 0, Math.round(dealt * 2 / ticks)), acc: e.burn?.acc ?? 0 };
       if (e.hp <= 0) {
         this.msg(`The ${def.name} burns.`, '#ff8040');
         this.killEnemy(e);
@@ -2079,14 +2100,55 @@ export class World {
     }
   }
 
+  /** A burst of fire over a tile and the four beside it: a barrel, or spores catching. */
+  private blast(x: number, y: number, ticks: number, source: string): void {
+    this.addSpellFx('blast', x, y);
+    this.sfx('lava_burst', x, y);
+    this.emit({ type: 'shake', amount: 0.3 });
+    for (const [dx, dy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      // The blast lights what it touches, then burns what stands there.
+      this.elementReaches(x + dx, y + dy, 'fire');
+      this.scorch(x + dx, y + dy, ticks, source);
+      if (this.run.outcome !== 'active') return;
+    }
+  }
+
+  /** Spores catching fire: they go up all at once. */
+  private sporesBurst(x: number, y: number): void {
+    if (this.surfaceMsgCd <= 0) {
+      this.msg('The spores go up in a gout of flame!', LAWS.spores.color);
+      this.surfaceMsgCd = 2;
+    }
+    this.blast(x, y, SPORE_BURST_TICKS, 'burning spores');
+  }
+
+  /**
+   * An Emberworks vent breathes out: whatever stands on it is scorched, the
+   * oil beside it catches, and it waits a while before the next. Its glow
+   * in the last `VENT_TELL` seconds is the warning.
+   */
+  private ventBurst(v: Surface): void {
+    v.t = VENT_PERIOD_MIN + this.rng.float(0, VENT_PERIOD_MAX - VENT_PERIOD_MIN);
+    v.burst = VENT_FLAMES;
+    this.sfx('lava_burst', v.x, v.y);
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) this.elementReaches(v.x + dx, v.y + dy, 'fire');
+    this.scorch(v.x, v.y, VENT_TICKS, 'a fire vent');
+  }
+
   /**
    * Fire or frost arriving on a tile, from anything: a bolt crossing it, a
    * blow landing on it, a burning creature's feet. Any other element passes.
-   * Water freezing around a monster holds it fast; around you, briefly.
+   * Water freezing around a monster holds it fast; around you, briefly. Fire
+   * reaching an oil barrel bursts it.
    */
   private elementReaches(x: number, y: number, element: DamageType): void {
     const f = this.floor;
     if (element === 'fire') {
+      const barrel = oilBarrelAt(f, x, y);
+      if (barrel) {
+        this.burstBarrel(barrel);
+        return;
+      }
       const change = ignite(f, x, y);
       if (change === 'lit') {
         this.sfx('lava_burst', x, y);
@@ -2094,17 +2156,88 @@ export class World {
           this.msg('The oil catches!', '#ff9a50');
           this.surfaceMsgCd = 2;
         }
-      } else if (change === 'melted') this.sfx('splash', x, y);
+      } else if (change === 'burst') this.sporesBurst(x, y);
+      else if (change === 'melted') this.sfx('splash', x, y);
       return;
     }
     if (element !== 'frost' || chill(f, x, y) !== 'froze') return;
     this.sfx('block', x, y);
-    const e = enemyAt(f, x, y);
+    this.frozeAt(x, y);
+  }
+
+  /** Water just froze on this tile: whoever stands in it is caught, except you by your own frost. */
+  private frozeAt(x: number, y: number, mine = false): void {
+    const e = enemyAt(this.floor, x, y);
     if (e) this.freeze(e);
     const p = this.player;
-    if (p.x === x && p.y === y) {
+    if (!mine && p.x === x && p.y === y) {
       this.anim.stunT = Math.max(this.anim.stunT, PLAYER_FREEZE_SECONDS);
       this.msg('The water freezes around your feet!', '#9ad0ff');
+    }
+  }
+
+  /**
+   * Frost has landed somewhere: where a bolt struck or ran out. In the
+   * Catacombs that is on the flood, which freezes around it. A frost blade's
+   * blows do not count — they land on the creature, not the water, and a
+   * moonsilver axe would otherwise freeze everything it touched. Your own
+   * bolt never holds you; theirs does.
+   */
+  private frostLands(x: number, y: number, mine: boolean): void {
+    if (biomeForFloor(this.floor).law !== 'flood') return;
+    const froze = freezeFlood(this.floor, x, y, FLOOD_REACH);
+    if (!froze.length) return;
+    this.sfx('block', x, y);
+    for (const s of froze) this.frozeAt(s.x, s.y, mine);
+  }
+
+  /** An oil barrel broken open: the oil goes everywhere, and nothing else is in it. */
+  private spillBarrel(p: Prop): Surface[] {
+    p.used = true;
+    this.sfx('break', p.x, p.y);
+    this.sfx('splash', p.x, p.y);
+    const oil = spillOil(this.floor, p.x, p.y, this.rng);
+    if (this.surfaceMsgCd <= 0) {
+      this.msg('Lamp oil spreads across the floor.', '#c8b8a0');
+      this.surfaceMsgCd = 2;
+    }
+    return oil;
+  }
+
+  /** Fire reaches an oil barrel: it bursts, its spill goes up at once, and what stands beside it is caught. */
+  private burstBarrel(p: Prop): void {
+    this.spillBarrel(p);
+    this.msg('The oil barrel bursts into flame!', '#ff9a50');
+    this.surfaceMsgCd = 2;
+    this.blast(p.x, p.y, BURST_TICKS, 'a burning oil barrel');
+  }
+
+  /**
+   * Something treads on a spore patch: it puffs, and every monster within a
+   * tile is blinded for `SPORE_BLIND` (bosses only wave it away). If you are
+   * in it too, your lamp dims for as long.
+   */
+  private sporePuff(x: number, y: number): void {
+    const f = this.floor;
+    const s = surfaceAt(f, x, y);
+    if (!s || s.kind !== 'spores') return;
+    f.surfaces = f.surfaces!.filter((o) => o !== s);
+    this.addSpellFx('spores', x, y);
+    this.sfx('snuff', x, y);
+    let blinded = 0;
+    for (const e of f.enemies) {
+      if (e.ai === 'dead' || e.lurk || manhattan(e.x, e.y, x, y) > 1) continue;
+      if (enemyDef(e.def).behavior === 'boss') continue;
+      e.blind = Math.max(e.blind ?? 0, SPORE_BLIND);
+      if (e.ai === 'windup') e.ai = 'recover';
+      blinded++;
+    }
+    const p = this.player;
+    const you = manhattan(p.x, p.y, x, y) <= 1;
+    if (you) this.anim.snuffT = Math.max(this.anim.snuffT, SPORE_BLIND);
+    if (this.surfaceMsgCd <= 0) {
+      this.msg(blinded ? `A cloud of spores bursts up. ${blinded === 1 ? 'Something' : 'They'} cannot see!` : you ? 'A cloud of spores bursts up around you.' : 'A puffball bursts.', LAWS.spores.color);
+      this.surfaceMsgCd = 2;
     }
   }
 
@@ -2134,6 +2267,8 @@ export class World {
     e.ai = 'recover';
     e.timer = Math.max(e.timer, SLIP_SECONDS);
     e.attackCd = Math.max(e.attackCd, SLIP_SECONDS + 0.2);
+    // The Frost Vault: it goes down hard, open like a parried thing.
+    if (biomeForFloor(this.floor).law === 'treacherous') e.vuln = Math.max(e.vuln ?? 0, SLIP_SECONDS);
     delete e.move;
     delete e.comboLeft;
     delete e.comboT;
@@ -3458,6 +3593,10 @@ export class World {
   }
 
   private breakProp(p: Prop): void {
+    if (p.oil) {
+      this.spillBarrel(p);
+      return;
+    }
     p.used = true;
     this.sfx('break', p.x, p.y);
     // Burrows: the crack of old roots is a lure. What hears it comes to the
@@ -4315,7 +4454,8 @@ export class World {
     const kind = surfaceKindAt(this.floor, e.x, e.y);
     if (!kind) return;
     const fiery = !!e.burn || enemyDef(e.def).element === 'fire';
-    if (fiery && (kind === 'oil' || kind === 'ice')) this.elementReaches(e.x, e.y, 'fire');
+    if (fiery && (kind === 'oil' || kind === 'ice' || kind === 'spores')) this.elementReaches(e.x, e.y, 'fire');
+    else if (kind === 'spores') this.sporePuff(e.x, e.y);
     else if (kind === 'water' && e.burn) {
       delete e.burn;
       this.sfx('snuff', e.x, e.y);
@@ -5058,6 +5198,11 @@ export class World {
       this.anim.chew = null;
       this.msg('The blow knocks the morsel from your hands.', '#c8a060');
     }
+    // The Frost Vault: struck on its ice, you go down too.
+    if (dmg > 0 && !blocked && surfaceKindAt(this.floor, p.x, p.y) === 'ice' && biomeForFloor(this.floor).law === 'treacherous') {
+      this.anim.stunT = Math.max(this.anim.stunT, PLAYER_SLIP_SECONDS);
+      this.msg('You go down on the ice!', '#c8e8ff');
+    }
     if (dmg > 0 && !blocked) this.wearArmour();
     // An unblocked hit empties whatever the blade had banked. Blocking keeps it:
     // the point of the thing is that you have to keep meeting the swing.
@@ -5210,7 +5355,13 @@ export class World {
         this.damagePlayer(pr.damage, pr.type, tx - pr.dx, ty - pr.dy, pr.source, pr.reflected ? undefined : pr.sourceId);
       }
     }
-    if (this.projectiles.some((pr) => pr.speed <= 0)) this.projectiles = this.projectiles.filter((pr) => pr.speed > 0);
+    if (this.projectiles.some((pr) => pr.speed <= 0)) {
+      // Frost lands where a bolt stops: the Catacombs' flood freezes there.
+      for (const pr of this.projectiles) {
+        if (pr.speed <= 0 && pr.type === 'frost' && !pr.thrownBase) this.frostLands(pr.tileX, pr.tileY, !!pr.spell || !!pr.reflected);
+      }
+      this.projectiles = this.projectiles.filter((pr) => pr.speed > 0);
+    }
     const receiving = this.anim.retrieving;
     if (receiving && receiving.left <= 0
       && !this.projectiles.some(pr => pr.returning && pr.thrownBase === receiving.base)) {

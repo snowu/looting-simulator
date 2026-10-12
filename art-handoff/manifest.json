@@ -864,6 +864,14 @@
     "recolorable": false
   },
   {
+    "id": "barrel_oil",
+    "file": "props/barrel_oil.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
     "id": "bones",
     "file": "props/bones.png",
     "width": 32,
@@ -2738,6 +2746,54 @@
   {
     "id": "fx_poof_b",
     "file": "props/fx_poof_b.png",
+    "width": 24,
+    "height": 18,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "surf_vent",
+    "file": "props/surf_vent.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "surf_spores",
+    "file": "props/surf_spores.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "fx_spores",
+    "file": "props/fx_spores.png",
+    "width": 24,
+    "height": 18,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "fx_spores_b",
+    "file": "props/fx_spores_b.png",
+    "width": 24,
+    "height": 18,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "fx_blast",
+    "file": "props/fx_blast.png",
+    "width": 24,
+    "height": 18,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "fx_blast_b",
+    "file": "props/fx_blast_b.png",
     "width": 24,
     "height": 18,
     "base": null,

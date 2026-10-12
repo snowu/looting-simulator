@@ -14,6 +14,8 @@
  *   stave       a Stave in both hands instead of axe and shield, all four loaded
  *   payoffs     the casting Rod inscribed with Countercharm, and gloves with
  *               Requiem: what the battlemage's two properties are worth
+ *   elements    a Rod with Ember Bolt and Rime Lance, the pair that works the
+ *               floor's surfaces (oil, water, the four biome laws)
  *
  * "rod, idle" against "shield" is the price of the offhand; "rod" against
  * "rod, idle" is what the spells buy back. A battlemage is in a good place
@@ -72,6 +74,8 @@ it('battlemage report', () => {
   run('depth-4 kit, Rod, never cast', battlemage(rod, ['ember_bolt', 'smite', 'hex']), false);
   run('depth-4 kit, Rod: Ember Bolt, Smite, Hex', battlemage(rod, ['ember_bolt', 'smite', 'hex']), true);
   run('depth-4 kit, Rod with Countercharm, gloves with Requiem', battlemage(payoffs, ['ember_bolt', 'smite', 'hex']), true);
+  // Fire and frost both, for the surfaces: the bot lights oil and freezes water when it sees them.
+  run('depth-4 kit, Rod: Ember Bolt, Rime Lance, Hex', battlemage(rod, ['ember_bolt', 'rime_lance', 'hex']), true);
   run('depth-4 kit, Wand: Ember Bolt, Hex', battlemage(wand, ['ember_bolt', 'hex']), true);
   run('depth-4 kit, Stave (no axe, no shield): all four', battlemage(stave, ['ember_bolt', 'rime_lance', 'smite', 'hex']), true);
 
