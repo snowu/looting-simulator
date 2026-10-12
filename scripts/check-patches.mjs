@@ -17,6 +17,8 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 
 // Commits that must never become patch notes. Short hash -> reason.
 const SKIP = {
+  '0824878': 'removes an unused art handoff icon',
+  '47c916b': 'art handoff export and its tooling only; no player-facing change',
   'f00a6ff': 'rites design doc only (docs/NEXT.md)',
   '95309e2': 'removes an unused PR preview',
   '46c4978': 'PR preview screenshots only',

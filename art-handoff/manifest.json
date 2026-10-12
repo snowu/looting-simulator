@@ -704,6 +704,78 @@
     "recolorable": false
   },
   {
+    "id": "wall_frostvault_glaze",
+    "file": "textures/wall_frostvault_glaze.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_frostvault",
+    "recolorable": false
+  },
+  {
+    "id": "wall_frostvault_fall",
+    "file": "textures/wall_frostvault_fall.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_frostvault",
+    "recolorable": false
+  },
+  {
+    "id": "wall_frostvault_split",
+    "file": "textures/wall_frostvault_split.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_frostvault",
+    "recolorable": false
+  },
+  {
+    "id": "wall_frostvault_grate",
+    "file": "textures/wall_frostvault_grate.png",
+    "width": 32,
+    "height": 32,
+    "base": "wall_frostvault",
+    "recolorable": false
+  },
+  {
+    "id": "floor_frostvault_rock",
+    "file": "textures/floor_frostvault_rock.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "floor_frostvault_rock_b",
+    "file": "textures/floor_frostvault_rock_b.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "floor_frostvault",
+    "file": "textures/floor_frostvault.png",
+    "width": 32,
+    "height": 32,
+    "base": "floor_frostvault_rock",
+    "recolorable": false
+  },
+  {
+    "id": "floor_frostvault_ice",
+    "file": "textures/floor_frostvault_ice.png",
+    "width": 32,
+    "height": 32,
+    "base": "floor_frostvault_rock_b",
+    "recolorable": false
+  },
+  {
+    "id": "ceil_frostvault",
+    "file": "textures/ceil_frostvault.png",
+    "width": 32,
+    "height": 32,
+    "base": "floor_frostvault_rock_b",
+    "recolorable": false
+  },
+  {
     "id": "chest",
     "file": "props/chest.png",
     "width": 32,
@@ -1072,6 +1144,38 @@
     "recolorable": true
   },
   {
+    "id": "proj_fireball",
+    "file": "props/proj_fireball.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "proj_icicle",
+    "file": "props/proj_icicle.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "proj_fireball_b",
+    "file": "props/proj_fireball_b.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "proj_icicle_b",
+    "file": "props/proj_icicle_b.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
     "id": "proj_axe_thrown",
     "file": "props/proj_axe_thrown.png",
     "width": 16,
@@ -1140,6 +1244,46 @@
     "file": "props/proj_arrow_holy.png",
     "width": 16,
     "height": 16,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "icicle_stub",
+    "file": "props/icicle_stub.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "icicle_spike",
+    "file": "props/icicle_spike.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "icicle_fang",
+    "file": "props/icicle_fang.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "root_cache",
+    "file": "props/root_cache.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "root_cache_broken",
+    "file": "props/root_cache_broken.png",
+    "width": 32,
+    "height": 32,
     "base": null,
     "recolorable": false
   },
@@ -1598,6 +1742,46 @@
     "height": 16,
     "base": null,
     "recolorable": true
+  },
+  {
+    "id": "ic_wand",
+    "file": "icons/ic_wand.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_rod",
+    "file": "icons/ic_rod.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_spell_ember",
+    "file": "icons/ic_spell_ember.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_spell_rime",
+    "file": "icons/ic_spell_rime.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "ic_spell_tome",
+    "file": "icons/ic_spell_tome.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": false
   },
   {
     "id": "ic_lore",
@@ -2256,6 +2440,238 @@
     "recolorable": false
   },
   {
+    "id": "skelember_0",
+    "file": "enemies/skelember_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "skelember_atk",
+    "file": "enemies/skelember_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "cinderguard_0",
+    "file": "enemies/cinderguard_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "cinderguard_atk",
+    "file": "enemies/cinderguard_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "cinderguard_block",
+    "file": "enemies/cinderguard_block.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "emberback_0",
+    "file": "enemies/emberback_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "emberback_atk",
+    "file": "enemies/emberback_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "slagborn_0",
+    "file": "enemies/slagborn_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "slagborn_atk",
+    "file": "enemies/slagborn_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "rimebound_0",
+    "file": "enemies/rimebound_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "rimebound_atk",
+    "file": "enemies/rimebound_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "hoarbat_0",
+    "file": "enemies/hoarbat_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "hoarbat_atk",
+    "file": "enemies/hoarbat_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "frozenwretch_0",
+    "file": "enemies/frozenwretch_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "frozenwretch_atk",
+    "file": "enemies/frozenwretch_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "glaciergoblin_0",
+    "file": "enemies/glaciergoblin_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "glaciergoblin_atk",
+    "file": "enemies/glaciergoblin_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "glaciergoblin_block",
+    "file": "enemies/glaciergoblin_block.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "mole_0",
+    "file": "enemies/mole_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "mole_block",
+    "file": "enemies/mole_block.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "mole_atk",
+    "file": "enemies/mole_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "cow_0",
+    "file": "enemies/cow_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "cow_atk",
+    "file": "enemies/cow_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "bull_0",
+    "file": "enemies/bull_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "bull_atk",
+    "file": "enemies/bull_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "prizebull_0",
+    "file": "enemies/prizebull_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "prizebull_atk",
+    "file": "enemies/prizebull_atk.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "prop_tophat",
+    "file": "enemies/prop_tophat.png",
+    "width": 16,
+    "height": 13,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "prop_monocle",
+    "file": "enemies/prop_monocle.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": false
+  },
+  {
     "id": "vm_dagger",
     "file": "viewmodels/vm_dagger.png",
     "width": 48,
@@ -2422,5 +2838,37 @@
     "height": 48,
     "base": null,
     "recolorable": false
+  },
+  {
+    "id": "vm_wand",
+    "file": "viewmodels/vm_wand.png",
+    "width": 48,
+    "height": 80,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "vm_wand_lit",
+    "file": "viewmodels/vm_wand_lit.png",
+    "width": 48,
+    "height": 80,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "vm_rod",
+    "file": "viewmodels/vm_rod.png",
+    "width": 48,
+    "height": 80,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "vm_rod_lit",
+    "file": "viewmodels/vm_rod_lit.png",
+    "width": 48,
+    "height": 80,
+    "base": null,
+    "recolorable": true
   }
 ]
