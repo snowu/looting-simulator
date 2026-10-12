@@ -11,9 +11,10 @@ import { ENEMY_ART_VARIETY } from './enemies-variety';
 import { ENEMY_ART_BIOMES } from './enemies-biomes';
 import { ENEMY_ART_ELEMENTAL } from './enemies-elemental';
 import { ENEMY_ART_PASTURE } from './enemies-pasture';
+import { SPELL_FX_ART } from './spell-fx';
 import { VIEWMODELS } from './viewmodels';
 
-export const ALL_ART: ArtDef[] = [...TEXTURES, ...FROST_TEXTURES, ...PROPS, ...BIOME_PROPS, ...ICONS, ...UI_ART, ...ENEMY_ART_A, ...ENEMY_ART_B, ...ENEMY_ART_VARIETY, ...ENEMY_ART_ELEMENTAL, ...ENEMY_ART_BIOMES, ...ENEMY_ART_PASTURE, ...VIEWMODELS];
+export const ALL_ART: ArtDef[] = [...TEXTURES, ...FROST_TEXTURES, ...PROPS, ...BIOME_PROPS, ...ICONS, ...UI_ART, ...ENEMY_ART_A, ...ENEMY_ART_B, ...ENEMY_ART_VARIETY, ...ENEMY_ART_ELEMENTAL, ...ENEMY_ART_BIOMES, ...ENEMY_ART_PASTURE, ...SPELL_FX_ART, ...VIEWMODELS];
 
 const BY_ID = new Map(ALL_ART.map((a) => [a.id, a]));
 

@@ -1760,6 +1760,14 @@
     "recolorable": true
   },
   {
+    "id": "ic_stave",
+    "file": "icons/ic_stave.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": true
+  },
+  {
     "id": "ic_spell_ember",
     "file": "icons/ic_spell_ember.png",
     "width": 16,
@@ -1774,6 +1782,22 @@
     "height": 16,
     "base": null,
     "recolorable": true
+  },
+  {
+    "id": "ic_spell_smite",
+    "file": "icons/ic_spell_smite.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "ic_spell_hex",
+    "file": "icons/ic_spell_hex.png",
+    "width": 16,
+    "height": 16,
+    "base": null,
+    "recolorable": false
   },
   {
     "id": "ic_spell_tome",
@@ -2672,6 +2696,54 @@
     "recolorable": false
   },
   {
+    "id": "penguin_0",
+    "file": "enemies/penguin_0.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "penguin_1",
+    "file": "enemies/penguin_1.png",
+    "width": 32,
+    "height": 32,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "fx_smite",
+    "file": "props/fx_smite.png",
+    "width": 16,
+    "height": 48,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "fx_smite_b",
+    "file": "props/fx_smite_b.png",
+    "width": 16,
+    "height": 48,
+    "base": null,
+    "recolorable": false
+  },
+  {
+    "id": "fx_poof",
+    "file": "props/fx_poof.png",
+    "width": 24,
+    "height": 18,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "fx_poof_b",
+    "file": "props/fx_poof_b.png",
+    "width": 24,
+    "height": 18,
+    "base": null,
+    "recolorable": true
+  },
+  {
     "id": "vm_dagger",
     "file": "viewmodels/vm_dagger.png",
     "width": 48,
@@ -2868,6 +2940,22 @@
     "file": "viewmodels/vm_rod_lit.png",
     "width": 48,
     "height": 80,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "vm_stave",
+    "file": "viewmodels/vm_stave.png",
+    "width": 48,
+    "height": 88,
+    "base": null,
+    "recolorable": true
+  },
+  {
+    "id": "vm_stave_lit",
+    "file": "viewmodels/vm_stave_lit.png",
+    "width": 48,
+    "height": 88,
     "base": null,
     "recolorable": true
   }

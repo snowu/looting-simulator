@@ -191,8 +191,10 @@ export interface PlayerDerived {
   thrownAttack: number;
   /** The shafts' own damage type, which need not match the weapon's. */
   thrownDamageType: DamageType;
-  /** The conduit in your offhand, if that is what you hold there. */
+  /** The conduit you hold: in your offhand, or the Stave in both hands. */
   conduit: ConduitProfile | null;
+  /** Which hand holds it. A Stave is the weapon; a Wand or Rod is the offhand. */
+  conduitHand: 'offhand' | 'weapon' | null;
   /**
    * What a spell is scored on before its own multiplier: the conduit's Attack,
    * read off it alone like a belt's. It never reaches your melee Attack.
@@ -258,12 +260,15 @@ export function derivePlayer(eq: Equipment, meta: MetaLevels, difficulty?: Diffi
   // everything that reads it — the sim, the harness, the tooltip — agrees.
   const speedFactor = Math.max(0.5, (1 + stats.speed / 100) / traits.haste);
   const baseSwing = weapon?.swing ?? FIST_SWING;
-  const conduitItem = !twoHanded && eq.offhand && itemBase(eq.offhand.ref).conduit ? eq.offhand : null;
+  const offhandConduit = !twoHanded && eq.offhand && itemBase(eq.offhand.ref).conduit ? eq.offhand : null;
+  // A Stave is a weapon and a conduit at once. Its Attack stays a melee
+  // Attack in `stats`; the spells see `conduit.power` of it on top.
+  const conduitItem = offhandConduit ?? (eq.weapon && weapon?.conduit ? eq.weapon : null);
   const conduit = conduitItem ? itemBase(conduitItem.ref).conduit ?? null : null;
   // A conduit fills the offhand but is not a shield: it does not wear on a
   // block, does not flare for the parry, and guards only as well as its own
   // Block says — the cost of carrying a spell instead.
-  const hasShield = !twoHanded && !!eq.offhand && !conduit;
+  const hasShield = !twoHanded && !!eq.offhand && !offhandConduit;
   // Difficulty pads the health bar on Normal; Hard multiplies by exactly 1, so
   // the old number survives the round trip unchanged.
   const diff = difficultyOf(difficulty);
@@ -289,7 +294,7 @@ export function derivePlayer(eq: Equipment, meta: MetaLevels, difficulty?: Diffi
     // Clamped at zero: a relic that spends Block can drive the stat negative,
     // and a negative absorption would turn raising your guard into taking more.
     // Normal adds its bonus before the shield cap, so it can never lift a guard past 90%.
-    block: clamp((hasShield || conduit ? stats.block / 100 : twoHanded ? 0.2 : weapon ? 0.3 : 0.12) + diff.blockBonus, 0, 0.9),
+    block: clamp((hasShield || offhandConduit ? stats.block / 100 : twoHanded ? 0.2 : weapon ? 0.3 : 0.12) + diff.blockBonus, 0, 0.9),
     hasShield,
     twoHanded,
     thrown: thrownProfile(eq.thrown),
@@ -297,7 +302,8 @@ export function derivePlayer(eq: Equipment, meta: MetaLevels, difficulty?: Diffi
     thrownAttack: eq.thrown ? Math.max(1, itemStats(eq.thrown).attack) : 0,
     thrownDamageType: (eq.thrown ? itemBase(eq.thrown.ref).damageType : undefined) ?? 'pierce',
     conduit,
-    conduitPower: conduitItem ? Math.max(1, itemStats(conduitItem).attack) : 0,
+    conduitHand: offhandConduit ? 'offhand' : conduitItem ? 'weapon' : null,
+    conduitPower: conduitItem ? Math.max(1, Math.round(itemStats(conduitItem).attack * (conduit?.power ?? 1))) : 0,
     find: stats.find + FIND_PER_TREASURE_SENSE * metaLevel(meta, 'treasure_sense'),
     traits,
   };

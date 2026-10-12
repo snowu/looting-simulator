@@ -94,7 +94,7 @@ import { Rarity } from '../types';
 import type { SfxName } from '../audio/sfx';
 import { SigilId, findSigil, sigil } from '../data/spells';
 import { makeSigil, unknownSigils } from '../systems/spells';
-import { BURN_SECONDS, BURN_SHARE, CHILL_SECONDS, ConduitSpellDef, WEAVE_REGROW, WEAVE_SECONDS, WEAVE_SHARE, conduitSpell, findConduitSpell } from '../data/conduit-spells';
+import { BURN_SECONDS, BURN_SHARE, CHILL_SECONDS, ConduitSpellDef, HEX_SECONDS, WEAVE_REGROW, WEAVE_SECONDS, WEAVE_SHARE, conduitSpell, findConduitSpell } from '../data/conduit-spells';
 import { loadedSpells, makeTome, unknownConduitSpells } from '../systems/conduits';
 import { CHEW_SECONDS, DREGS_FRACTION, FLASK_POTENCY, MORSEL_HEAL, MORSEL_ROT_SECONDS, SIP_BUFFER_SECONDS, SIP_SECONDS, flaskMax, morselChance } from '../systems/healing';
 import { findMaterial } from '../data/materials';
@@ -156,6 +156,25 @@ export interface Projectile {
   /** A battle spell from your conduit: it flies like a throw and lands nowhere. */
   spell?: string;
 }
+
+/**
+ * A hitscan spell's mark, drawn where it struck and gone in a moment: Smite's
+ * streak of light, Hex's puff of violet smoke (also when a hex wears off).
+ * `miss` is the same mark at the end of the line when nothing was there.
+ * Never saved; the renderer reads them and the world ages them out.
+ */
+export interface SpellFx {
+  id: number;
+  kind: 'smite' | 'poof';
+  x: number;
+  y: number;
+  /** Seconds since it appeared. */
+  t: number;
+  miss?: boolean;
+}
+
+/** How long each mark lasts, in seconds. */
+export const SPELL_FX_SECONDS: Record<SpellFx['kind'], number> = { smite: 0.55, poof: 0.7 };
 
 type Move = 'forward' | 'back' | 'left' | 'right';
 type Action = Move | 'turnLeft' | 'turnRight';
@@ -541,6 +560,8 @@ export class World {
   private flavorRng: Rng;
   derived!: PlayerDerived;
   projectiles: Projectile[] = [];
+  /** Hitscan spell marks on screen right now. See `SpellFx`. */
+  spellFx: SpellFx[] = [];
   events: WorldEvent[] = [];
   anim: PlayerAnim;
   held = new Set<Action | 'block'>();
@@ -1747,7 +1768,7 @@ export class World {
     a.attackThrow = false;
     a.attackSpell = spell.id;
     a.attackBase = null;
-    a.attackWeaponUid = this.state.equipment.offhand?.uid ?? null;
+    a.attackWeaponUid = (this.derived.conduitHand === 'weapon' ? this.state.equipment.weapon : this.state.equipment.offhand)?.uid ?? null;
     a.attackSnapshot = this.spellView(spell);
     a.attackRecovery = spell.recovery;
     a.attackDur = spell.windup;
@@ -1781,6 +1802,10 @@ export class World {
     const spell = findConduitSpell(id);
     const snapshot = this.anim.attackSnapshot;
     if (!spell || !snapshot) return;
+    if (spell.hitscan) {
+      this.castHitscan(spell, snapshot);
+      return;
+    }
     this.projectiles.push({
       id: this.projN++, x: this.player.x + 0.5, y: this.player.y + 0.5,
       dx: DX[this.player.facing], dy: DY[this.player.facing], speed: spell.speed,
@@ -1792,21 +1817,57 @@ export class World {
     this.sfx('shoot');
   }
 
-  /** A battle spell landing: the hit, its rider, and the weave it leaves on your blade. */
+  /**
+   * Smite and Hex: no bolt. The spell lands the moment the cast releases, on
+   * the first monster down your line within its range. A wall or the King's
+   * threshold stops the line as it stops a bolt. With nothing there, the mark
+   * flickers out at the end of the line so a miss is still something you saw.
+   */
+  private castHitscan(spell: ConduitSpellDef, snapshot: PlayerDerived): void {
+    let prev = { x: this.player.x, y: this.player.y };
+    for (let d = 1; d <= spell.range; d++) {
+      const t = this.frontTile(d);
+      if (blocksSight(this.floor, t.x, t.y) || this.crossesBossBoundary(prev.x, prev.y, t.x, t.y)) break;
+      const foe = enemyAt(this.floor, t.x, t.y);
+      if (foe) {
+        this.spellLands(spell, foe, snapshot, this.anim.attackPower);
+        return;
+      }
+      prev = t;
+    }
+    if (prev.x !== this.player.x || prev.y !== this.player.y) this.addSpellFx(spell.id === 'hex' ? 'poof' : 'smite', prev.x, prev.y, true);
+    this.msg(`${spell.name} finds nothing to strike.`, '#888');
+    this.sfx('break', prev.x, prev.y);
+  }
+
+  private addSpellFx(kind: SpellFx['kind'], x: number, y: number, miss = false): void {
+    this.spellFx.push({ id: this.projN++, kind, x, y, t: 0, ...(miss ? { miss } : {}) });
+  }
+
+  /** A battle bolt arriving. */
   private spellHit(pr: Projectile, e: EnemyState): void {
-    if (this.protectedByFog(e)) return;
     const spell = findConduitSpell(pr.spell);
-    const player = pr.player ?? this.derived;
-    if (!spell) return;
+    if (spell) this.spellLands(spell, e, pr.player ?? this.derived, pr.damage);
+  }
+
+  /** A battle spell landing: the hit, its rider, and the weave it leaves on your blade. */
+  private spellLands(spell: ConduitSpellDef, e: EnemyState, player: PlayerDerived, power: number): void {
+    if (this.protectedByFog(e)) return;
     const def = this.view(e);
     if ((e.eating ?? 0) > 0) e.eating = undefined;
-    // A raised shield takes a spell the way it takes a shaft: on the guard.
-    const reaction = this.guardReaction(e, def);
-    if (reaction) {
-      this.shieldChip(e, def, 1, pr.damage, player);
+    if (spell.id === 'hex') {
+      if (this.hexLands(spell, e)) this.weaveFrom(spell);
       return;
     }
-    const hit = playerHitsEnemy(this.rng, player, pr.damage, def, defensePower(e.power) * this.diff.enemyDefense);
+    // A raised shield takes a spell the way it takes a shaft: on the guard.
+    // Smite comes down from above, where no shield is held.
+    const reaction = spell.id === 'smite' ? null : this.guardReaction(e, def);
+    if (reaction) {
+      this.shieldChip(e, def, 1, power, player);
+      return;
+    }
+    if (spell.id === 'smite') this.addSpellFx('smite', e.x, e.y);
+    const hit = playerHitsEnemy(this.rng, player, power, def, defensePower(e.power) * this.diff.enemyDefense);
     const exposed = !!e.vuln && e.vuln > 0;
     if (exposed) hit.damage = Math.round(hit.damage * PARRY_VULN_MULT);
     this.hurt(e, hit.damage, hit.crit || exposed ? `${hit.damage}!` : `${hit.damage}`, hit.crit ? '#ffe040' : hit.effective === 'resist' ? '#9a9aa8' : spell.color);
@@ -1821,9 +1882,85 @@ export class World {
       e.burn = { t: BURN_SECONDS, left: (e.burn?.left ?? 0) + total, acc: e.burn?.acc ?? 0 };
     }
     if (spell.id === 'rime_lance' && def.behavior !== 'boss') e.chillT = CHILL_SECONDS;
-    // Weave: the element now rides on your next blow.
+    this.weaveFrom(spell);
+    if (e.hp <= 0) {
+      // Holy light from above: what Smite kills stays down.
+      if (spell.id === 'smite') this.markRemains(e, 'sanctified');
+      this.killEnemy(e);
+    }
+  }
+
+  /** Weave: a landed spell's element now rides on your next blow. */
+  private weaveFrom(spell: ConduitSpellDef): void {
     this.anim.weave = { t: WEAVE_SECONDS, element: spell.element, amount: Math.round(this.derived.conduitPower * WEAVE_SHARE) };
-    if (e.hp <= 0) this.killEnemy(e);
+  }
+
+  /**
+   * Hex: the monster is a penguin for `HEX_SECONDS`. Whatever it was in the
+   * middle of stops — a wind-up, a flurry, a chant over a corpse, a mimic's
+   * grip on you — and it waddles until the spell runs out (`updateHexed`).
+   * Damage does not break it. The King and the floor lieutenants refuse it,
+   * and a refusal gives the charges back: you could not have known until it
+   * landed, and the stamina is price enough.
+   */
+  private hexLands(spell: ConduitSpellDef, e: EnemyState): boolean {
+    const def = enemyDef(e.def);
+    const refused = def.behavior === 'boss' || !!e.lieutenant;
+    this.addSpellFx('poof', e.x, e.y, refused);
+    if (refused) {
+      this.msg(def.behavior === 'boss' ? 'The King will not be made a fool of. The hex slides off him.' : `The ${def.name} shrugs the hex off.`, '#c8a0ff');
+      const pool = this.run.conduit, c = this.derived.conduit;
+      if (pool && c) pool.charges = Math.min(c.charges, pool.charges + spell.charges);
+      this.sfx('break', e.x, e.y);
+      return false;
+    }
+    const fresh = !(e.hexT && e.hexT > 0);
+    e.hexT = HEX_SECONDS;
+    if (e.ai === 'windup' || e.ai === 'recover' || e.ai === 'flee') e.ai = 'wander';
+    delete e.move;
+    delete e.feintT;
+    delete e.feinted;
+    delete e.comboLeft;
+    delete e.comboT;
+    delete e.channel;
+    if ((e.grabT ?? 0) > 0) {
+      delete e.grabT;
+      this.msg('It lets go. Penguins cannot hold on to anything.', '#c8a0ff');
+    }
+    e.guard = 'down';
+    e.alert = Math.max(e.alert, 6);
+    if (fresh) this.msg(`The ${def.name} is a penguin.`, spell.color);
+    else this.msg(`The penguin stays a penguin a while longer.`, spell.color);
+    this.sfx('magic', e.x, e.y);
+    return true;
+  }
+
+  /** The hex runs out: a puff of smoke, and it is itself, awake and close. */
+  private unhex(e: EnemyState): void {
+    delete e.hexT;
+    this.addSpellFx('poof', e.x, e.y);
+    this.msg(`The ${enemyDef(e.def).name} is itself again.`, '#c8a0ff');
+    this.sfx('magic', e.x, e.y);
+    e.ai = manhattan(e.x, e.y, this.player.x, this.player.y) <= 6 ? 'chase' : 'idle';
+    e.alert = Math.max(e.alert, 6);
+    e.attackCd = Math.max(e.attackCd, 0.8);
+  }
+
+  /**
+   * A penguin's turn: no attack, no guard, no chant, no theft, no flight.
+   * It waddles about a step at a time, near enough at random, and when the
+   * hex runs out it is itself again, wide awake and close to you.
+   */
+  private updateHexed(e: EnemyState, dt: number): void {
+    e.guard = 'down';
+    e.ai = 'wander';
+    if (this.rng.chance(dt / 0.8)) {
+      const steps = DIRS.map((d) => [e.x + DX[d], e.y + DY[d]] as [number, number]).filter(([x, y]) => this.canStep(e, x, y));
+      if (steps.length) {
+        const [x, y] = this.rng.pick(steps);
+        this.stepEnemy(e, x, y);
+      }
+    }
   }
 
   /** Burns tick down and chills wear off. Run every frame over the floor. */
@@ -1832,7 +1969,14 @@ export class World {
       if (e.ai === 'dead') {
         if (e.burn) delete e.burn;
         if (e.chillT !== undefined) delete e.chillT;
+        if (e.hexT !== undefined) delete e.hexT;
         continue;
+      }
+      // The hex runs on the world's clock, not the penguin's: it counts down
+      // through every step it waddles, which the AI tick skips.
+      if (e.hexT !== undefined) {
+        e.hexT -= dt;
+        if (e.hexT <= 0) this.unhex(e);
       }
       if (e.chillT !== undefined) {
         e.chillT -= dt;
@@ -1863,6 +2007,10 @@ export class World {
   /** A charge grows back while the conduit is worn, and kills hurry it along. */
   private updateConduit(dt: number): void {
     const a = this.anim;
+    if (this.spellFx.length) {
+      for (const fx of this.spellFx) fx.t += dt;
+      this.spellFx = this.spellFx.filter((fx) => fx.t < SPELL_FX_SECONDS[fx.kind]);
+    }
     if (a.weave) {
       a.weave.t -= dt;
       if (a.weave.t <= 0) a.weave = null;
@@ -2380,7 +2528,7 @@ export class World {
    * reading the fields they always read.
    */
   private view(e: EnemyState): EnemyDef {
-    return enemyView(enemyDef(e.def), e.hp, e.maxHp, { elite: e.elite, carrying: !!e.stolen?.length, marked: e.marked, shadeType: e.shadeType, calm: e.calm, chilled: (e.chillT ?? 0) > 0 });
+    return enemyView(enemyDef(e.def), e.hp, e.maxHp, { elite: e.elite, carrying: !!e.stolen?.length, marked: e.marked, shadeType: e.shadeType, calm: e.calm, chilled: (e.chillT ?? 0) > 0, hexed: (e.hexT ?? 0) > 0 });
   }
 
   private guardReaction(e: EnemyState, def: EnemyDef): 'bash' | 'chip' | null {
@@ -2822,12 +2970,13 @@ export class World {
    * killing blow carrying holy damage, or struck from consecrated ground,
    * sanctifies them. Either way nothing raises it.
    */
-  private markRemains(e: EnemyState): void {
+  private markRemains(e: EnemyState, how?: 'sanctified'): void {
     if (!enemyDef(e.def).undead) return;
     const overkill = -e.hp >= e.maxHp * SHATTER_OVERKILL;
     const ward = this.anim.ward;
     const consecrated = !!ward && ward.x === this.player.x && ward.y === this.player.y;
-    if (this.derived.damageType === 'blunt' || overkill) e.remains = 'shattered';
+    if (how) e.remains = how;
+    else if (this.derived.damageType === 'blunt' || overkill) e.remains = 'shattered';
     else if ((this.derived.stats.holy ?? 0) > 0 || consecrated) e.remains = 'sanctified';
     else return;
     const caller = this.floor.enemies.some((g) => g.ai !== 'dead' && enemyDef(g.def).raises && manhattan(g.x, g.y, e.x, e.y) <= 10);
@@ -2842,6 +2991,11 @@ export class World {
     e.hp = 0;
     e.ai = 'dead';
     e.deadT = 0;
+    // It dies as itself: the remains are what the Gravecaller and the codex read.
+    if (e.hexT !== undefined) {
+      delete e.hexT;
+      this.addSpellFx('poof', e.x, e.y);
+    }
     this.sfx('enemyDie', e.x, e.y);
     // A Vengeful elite's fuse lights as it falls; `updateEnemies` sets it off.
     if (e.elite === 'vengeful') {
@@ -4311,6 +4465,10 @@ export class World {
         if (e.moveT < 1) continue;
       }
       const dist = manhattan(e.x, e.y, p.x, p.y);
+      if ((e.hexT ?? 0) > 0) {
+        this.updateHexed(e, dt);
+        continue;
+      }
       if ((e.blind ?? 0) > 0) {
         e.blind = Math.max(0, (e.blind ?? 0) - dt);
         e.guard = 'down';
@@ -5442,6 +5600,14 @@ export class World {
     // holding your weapon, which is not how anybody throws anything.
     const w = this.state.equipment.weapon;
     if (!w) return { id: 'vm_fist' };
+    // A Stave casts from the weapon hand, so its stone lights there, for the
+    // back half of the wind-up and the release, as a wand's does in the other.
+    const a = this.anim;
+    const c = this.derived.conduit;
+    if (c && this.derived.conduitHand === 'weapon' && a.attackSpell
+      && (a.attack === 'recover' || (a.attack === 'windup' && a.attackT > a.attackDur * 0.5))) {
+      return { id: c.castViewmodel, materialId: w.materialId };
+    }
     return { id: viewmodelFor(itemBase(w.ref)), materialId: w.materialId };
   }
 }

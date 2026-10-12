@@ -803,7 +803,7 @@ apply. The signals that do:
 
 ---
 
-# 4. The battlemage — **DESIGNED 2026-10-11**
+# 4. The battlemage — **STEPS 1–2 BUILT 2026-10-12**
 
 The user's direction: magic should make a **battlemage** possible, sword in one
 hand and spell in the other, rather than a ranged caster or a bigger sigil
@@ -944,6 +944,21 @@ every new sprite id in `ALL_ART` needs its PNG in `public/art` or boot throws.
   harness's bot does not cast yet (step 4). Not done: a phone-width check,
   Smite/Hex/Stave (step 2), and the lab room itself crashes the headless
   software renderer (on master too), so it was checked through `?autostart=dungeon`.
+- 2026-10-12 — **Step 2 built** (branch `feat/battlemage-2`). Smite and Hex,
+  both hitscan, with tomes (they joined the `tome:` pick automatically: never
+  one you know or carry). Smite: holy, a streak of light, not turned by a
+  shield, ×2 on undead through their existing holy resistance, and its kills
+  are sanctified. Hex: 2 charges, a penguin for 15s, refused by the King and
+  the lieutenants with the charges handed back. **Settled the open question:
+  no separate 30s cooldown**; 2 charges is the price (2 of a Wand's 3). The
+  Stave: a blunt two-hander and the strongest conduit (4 slots, 5 charges,
+  6s regrow), 80% of its Attack as spell Power, blueprint from depth 4.
+  Art: penguin (standing, mid-waddle), Smite streak and Hex puff (two frames
+  each), Smite and Hex icons, Stave icon and viewmodel with its lit crown.
+  Golden loot hash re-pinned as `staveLootHash` (the Stave joined the weapon
+  drop pool). No save revision bump: nothing new on `GameState`, and
+  `EnemyState.hexT` is optional like `chillT`. Next: step 3 (payoffs), step 4
+  (the harness bot casts), then rites (§6).
 
 ## Settled 2026-10-11
 

@@ -355,10 +355,17 @@ function tickCasts(t: number): void {
     const since = at - rest - windup;
     if (since >= 0 && since < recovery + flight) {
       const k = since / (recovery + flight);
-      const size = 16 * z * (1 - 0.7 * k);
-      c.bolt.style.opacity = String(1 - k * 0.5);
-      c.bolt.style.width = `${size}px`;
-      c.bolt.style.transform = `translate(-50%, ${-60 - k * 260}%)`;
+      if (c.cast.hitscan) {
+        // Nothing flies: the mark stands out in front and thins away.
+        c.bolt.style.opacity = String(1 - k);
+        c.bolt.style.width = `${12 * z}px`;
+        c.bolt.style.transform = `translate(-50%, -260%)`;
+      } else {
+        const size = 16 * z * (1 - 0.7 * k);
+        c.bolt.style.opacity = String(1 - k * 0.5);
+        c.bolt.style.width = `${size}px`;
+        c.bolt.style.transform = `translate(-50%, ${-60 - k * 260}%)`;
+      }
     } else {
       c.bolt.style.opacity = '0';
     }

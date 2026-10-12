@@ -1,7 +1,7 @@
 import { MOVE_SETS } from './attacks';
 import { ELEMENTAL_VARIANTS, elementalVariant } from './elemental-variants';
 import { DamageType, EnemyDef } from '../types';
-import { CHILL_WINDUP } from './conduit-spells';
+import { CHILL_WINDUP, PENGUIN_STEP } from './conduit-spells';
 import {
   ELITES, EliteTrait, FRENZIED_RECOVERY_MULT, FRENZIED_STEP_MULT, FRENZIED_WINDUP_MULT, FRENZY_AT,
   HASTED_RECOVERY_MULT, HASTED_STEP_MULT, HASTED_WINDUP_MULT, IRONHIDE_DEFENSE_MULT, IRONHIDE_STEP_MULT, THIEF_LADEN,
@@ -622,7 +622,12 @@ export interface ViewMods {
   calm?: boolean;
   /** Struck by a Rime Lance: every wind-up runs long while it lasts. */
   chilled?: boolean;
+  /** Hexed: a penguin for now. Same health, same name, same resistances. */
+  hexed?: boolean;
 }
+
+/** Sprite family of a hexed monster: `penguin_0` standing, `penguin_1` mid-waddle. */
+export const PENGUIN_SPRITE = 'penguin';
 
 /** A chilled creature's glow, so the slow wind-up has a visible cause. */
 const CHILL_GLOW = '#8ac8ff';
@@ -632,9 +637,9 @@ export const THIEF_GLOW = '#e8c060';
 
 export function enemyView(def: EnemyDef, hp: number, maxHp: number, mods?: ViewMods): EnemyDef {
   const base = phaseView(def, hp, maxHp, !!mods?.calm);
-  if (!mods || (!mods.elite && !mods.carrying && !mods.marked && !mods.shadeType && !mods.chilled)) return base;
+  if (!mods || (!mods.elite && !mods.carrying && !mods.marked && !mods.shadeType && !mods.chilled && !mods.hexed)) return base;
   const frenzy = mods.elite === 'frenzied' && maxHp > 0 && hp < maxHp * FRENZY_AT;
-  const key = `${base.id}:${base.sprite}${mods.calm ? ':calm' : ''}:${mods.elite ?? ''}:${frenzy ? 1 : 0}:${mods.carrying ? 1 : 0}:${mods.marked ? 1 : 0}:${mods.shadeType ?? ''}:${mods.chilled ? 1 : 0}`;
+  const key = `${base.id}:${base.sprite}${mods.calm ? ':calm' : ''}:${mods.elite ?? ''}:${frenzy ? 1 : 0}:${mods.carrying ? 1 : 0}:${mods.marked ? 1 : 0}:${mods.shadeType ?? ''}:${mods.chilled ? 1 : 0}:${mods.hexed ? 1 : 0}`;
   let view = VIEW_CACHE.get(key);
   if (view) return view;
   view = { ...base };
@@ -671,6 +676,20 @@ export function enemyView(def: EnemyDef, hp: number, maxHp: number, mods?: ViewM
   if (mods.chilled && base.behavior !== 'boss') {
     view.windup = view.windup * CHILL_WINDUP;
     view.glow = CHILL_GLOW;
+  }
+  // A penguin, whatever it was. It keeps what it *is* (health, resistances,
+  // undeath, its name in the log) and loses what it *does*: no shield to
+  // guard with, no bolt to loose, no float, and a waddle for a stride. The
+  // AI itself is held in `World.updateHexed`.
+  if (mods.hexed) {
+    view.name = `${view.name} (a penguin)`;
+    view.sprite = PENGUIN_SPRITE;
+    view.scale = 0.7;
+    view.step = PENGUIN_STEP;
+    view.floats = false;
+    view.shield = undefined;
+    view.projectile = undefined;
+    view.glow = undefined;
   }
   VIEW_CACHE.set(key, view);
   return view;

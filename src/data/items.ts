@@ -92,6 +92,20 @@ export const ITEM_BASES: ItemBaseDef[] = [
     swing: { windup: 0.40, recovery: 0.64, staminaCost: 29, reach: 1, cleave: CLEAVE, stagger: 0.3, chips: 2 },
     value: 172, minDepth: 5, weight: 0.3,
   },
+  {
+    // A quarterstaff with a stone in its crown: a blunt two-hander that is
+    // also the strongest conduit there is. It holds the most spells and the
+    // most charges and casts the hardest, and it pays for it with everything
+    // a two-hander pays (no shield, 20% block) and with the lightest blow of
+    // the four, because most of the wood is there to carry the stone. Only
+    // `conduit.power` of its Attack reaches a spell. A line of one.
+    id: 'stave', name: 'Stave', slot: 'weapon', icon: 'ic_stave', weaponClass: 'blunt', damageType: 'blunt',
+    twoHanded: true, viewmodel: 'vm_stave',
+    base: { attack: 26, speed: -4 }, perTier: { attack: 6 }, primary: ['wood'],
+    swing: { windup: 0.32, recovery: 0.6, staminaCost: 22, reach: 1, cleave: CLEAVE, stagger: 0.3, chips: 1 },
+    conduit: { slots: 4, charges: 5, regrow: 6, castViewmodel: 'vm_stave_lit', power: 0.8 },
+    value: 150, minDepth: 4, weight: 0.35,
+  },
 
   // --- Oddities -----------------------------------------------------------
   // Three weapons that are jokes with real numbers attached. Each one hooks a
@@ -333,6 +347,7 @@ export const GEAR_LINES: readonly (readonly string[])[] = [
   ['greatsword'],
   ['buckler', 'kite_shield', 'tower_shield'],
   ['wand', 'rod'],
+  ['stave'],
   ['cap', 'helm', 'great_helm'],
   ['robe'],
   ['jerkin', 'hauberk', 'plate'],

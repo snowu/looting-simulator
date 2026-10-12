@@ -476,9 +476,9 @@ Clues: *"The goblins here move in formation. Somewhere on this floor, someone is
 **Three answers:**
 - **Break the chant.** Any damage to the Gravecaller breaks it (1.5s before it can start again). It's under the stagger threshold, so thrown shafts and reflected bolts work at range.
 - **Shatter the remains.** A blunt killing blow, or one that overkills by **25%** of the monster's health (`SHATTER_OVERKILL`), leaves bones that can't be raised.
-- **Sanctify them.** A killing blow while you have any Holy damage, or struck while standing on Threshold's consecrated tile, leaves remains that can't be raised.
+- **Sanctify them.** A killing blow while you have any Holy damage, or struck while standing on Threshold's consecrated tile, leaves remains that can't be raised. So does a kill by **Smite** (§9b), the one spell that sets remains.
 
-The log says so ("The bones shatter…", "The remains are sanctified…") when a Gravecaller is within 10 tiles to care. Only melee killing blows set remains; a kill by a trap, a thrown shaft or a Vengeful burst leaves ordinary remains. The placement pass doesn't mark its tile as occupied, so loose loot and keys land exactly where they always did. The Hard golden test removes it and still matches the pre-elite hash.
+The log says so ("The bones shatter…", "The remains are sanctified…") when a Gravecaller is within 10 tiles to care. Only melee killing blows and Smite set remains; a kill by a trap, a thrown shaft, any other spell or a Vengeful burst leaves ordinary remains. The placement pass doesn't mark its tile as occupied, so loose loot and keys land exactly where they always did. The Hard golden test removes it and still matches the pre-elite hash.
 
 ### Ambushers
 
@@ -1141,16 +1141,19 @@ Riposte, Bulwark, the parry vulnerability and Marrow all multiply together. The 
 
 Added in save revision 30, additively: older saves learn Ember Bolt, load it, and learn the Wand recipe.
 
-*Files: `src/data/conduit-spells.ts`, `src/systems/conduits.ts`, `src/world/world.ts` — `castSpell`, `spellView`, `spellHit`, `updateAfflictions`, `updateConduit`, `refundConduit`*
+*Files: `src/data/conduit-spells.ts`, `src/systems/conduits.ts`, `src/world/world.ts` — `castSpell`, `spellView`, `castHitscan`, `spellLands`, `hexLands`, `updateHexed`, `updateAfflictions`, `updateConduit`, `refundConduit`*
 
-A **conduit** is an offhand that casts instead of guarding: the battlemage's trade. It is not a sigil — sigils stay one utility stone on a long cooldown — and it is not a weapon.
+A **conduit** is an offhand that casts instead of guarding: the battlemage's trade. It is not a sigil — sigils stay one utility stone on a long cooldown. The one exception to "offhand" is the **Stave**, a two-handed weapon that is a conduit as well.
 
 | Base | Material | Power (tier 1 / per tier) | Block | Charges | One back every | Spells loaded | From depth |
 |---|---|---|---|---|---|---|---|
 | Wand | wood | 10 / +3 | 30% | 3 | 9s | 2 | 1 (starter recipe) |
 | Rod | metal | 16 / +3.5, +2 Defense (+1/tier) | 40% | 4 | 7s | 3 | 3 (blueprint, 160g) |
+| Stave (2H weapon) | wood | 80% of its Attack: 26 / +6 Attack → 21 / +4.8 Power | 20% (two-hander) | 5 | 6s | 4 | 4 (blueprint, 220g) |
 
 The Rod is the Wand's step up its gear line (`['wand', 'rod']`) and is better on every axis. **Power** is the conduit's Attack, read off it alone the way a belt's is: it never reaches your melee Attack, and your sword never reaches a spell. A conduit is not a shield — it does not wear on a block, does not flare for the parry, and guards only as well as its own Block. **Parrying is unchanged.**
+
+**The Stave** is a line of one (`['stave']`): a blunt two-hander (wind-up 0.32s, recovery 0.60s, 22 stamina, −4 Speed, the two-hander cleave, stagger 0.3) that is also the strongest conduit. Its Attack is a real melee Attack *and*, through `conduit.power` (0.8), its spell Power — the only base where one number feeds both. It pays a two-hander's price (no shield, 20% block) and swings lighter than the other three, since most of it is there to carry the stone. `PlayerDerived.conduitHand` says which hand holds the conduit; the cast lifts the Stave itself and lights its crown, where a Wand or Rod rises in the left hand.
 
 **The spellbook.** Spells are learned for good into `state.spellbook`. Ember Bolt is known from the start; the rest come from **spell tomes**, rolled where sigil stones roll — every chest and mimic — on their own `tome:<seed>:<depth>:<stream>` stream, so adding them moved no chest's contents. A vault or secret chest rolls 18%; an ordinary one 0% on depth 1 rising to 5% at depth 5. Never a spell you know or are already carrying anywhere. A tome is read at the forge's **Spells** bench, which also **loads** spells (`state.loadedSpells`): load order is cast order, and a conduit reads as many from the top as it has slots. The loadout only changes in town or with a portal open, like sigil attunement.
 
@@ -1160,6 +1163,12 @@ The Rod is the Wand's step up its gear line (`['wand', 'rod']`) and is better on
 |---|---|---|---|---|---|---|---|
 | Ember Bolt | fire | 1.0 | 1 | 14 | 0.22 / 0.30 | 9 / 5 | **Burn**: 45% of the hit again, spread over 3s (stacks onto a burn already running) |
 | Rime Lance | frost | 0.6 | 1 | 12 | 0.20 / 0.30 | 11 / 5 | **Chill** 4s: every wind-up runs ×1.5. A wind-up begun chilled finishes chilled. The Ashen King does not slow |
+| Smite | holy | 0.9 | 1 | 14 | 0.26 / 0.30 | hitscan / 5 | A streak of light down onto the target. Not turned by a raised shield (it comes from above). ×2 on the undead through their own holy resistance (×1.5–2), not a second rule. What it kills is **sanctified**: no Gravecaller or Ossuary stir raises it |
+| Hex | shadow | — | **2** | 16 | 0.32 / 0.36 | hitscan / 5 | No damage. **A penguin for 15s** (`HEX_SECONDS`): see below |
+
+**Hitscan** (Smite, Hex): no bolt. At the release the spell lands on the first monster down your line within range; a wall or the King's threshold stops the line. A miss shows the spell's mark, smaller, at the end of the line. The marks (`World.spellFx`: Smite's streak, Hex's violet puff) are never saved.
+
+**Hex.** The monster becomes a penguin (`ViewMods.hexed`): same health, resistances, undeath and name, but no shield, no projectile, no float, and a step of 0.7s. Whatever it was doing stops — a wind-up, a flurry, a feint, a Gravecaller's chant, a mimic's grip on you — and until the hex runs out it only waddles: about one random step every 0.8s, never an attack, a guard, a theft, a dive or a flight. **Damage does not break it.** Casting it again on a penguin resets the 15s. Elites are not spared. **The Ashen King and the floor lieutenants refuse it**, and a refusal hands the 2 charges back (the stamina is spent). It dies as itself: a kill drops the hex first, so its remains, its codex entry and any Gravecaller see the real creature. When the 15s run out it is itself again, alert, with a 0.8s pause before it may swing. No separate cooldown: 2 of a Wand's 3 charges is its price.
 
 **How a spell is scored** (`spellView`): no physical Attack; the conduit's Power × the spell's multiplier is added to your matching elemental stat, and every other elemental stat is zeroed. So the whole hit is elemental, mitigated at half armour like any elemental damage, × the target's resistance to that element — fire gear makes an Ember Bolt hit harder and a Rime Lance not at all. Crits use the plain ×1.6 whatever is in your other hand; life leech applies; a parry opening doubles it. A raised monster shield takes a spell on the guard like a shaft.
 
@@ -1472,7 +1481,7 @@ A save written by a *newer* build than the one loading it is left as it is rathe
 | Parry window, stun and reflect | `src/world/world.ts` (`PARRY_*`) |
 | Sigil effects, cast times and cooldowns | `src/data/spells.ts`, `src/world/world.ts` (`resolveSigil`) |
 | Cooldown-on-kill refund and its cap | `src/world/world.ts` (`refundSigil`) |
-| Conduits, battle spells, burn, chill and weave | `src/data/conduit-spells.ts`, `src/data/items.ts` (`conduit`), `src/world/world.ts` (`castSpell`, `spellHit`, `refundConduit`) |
+| Conduits, battle spells, burn, chill, hex and weave | `src/data/conduit-spells.ts`, `src/data/items.ts` (`conduit`), `src/data/enemies.ts` (`enemyView` hexed), `src/world/world.ts` (`castSpell`, `castHitscan`, `spellLands`, `hexLands`, `refundConduit`) |
 | Two-handed rule, cleave and stagger | `src/systems/equip.ts`, `src/systems/player.ts`, `src/data/items.ts` (`CLEAVE`), `src/world/world.ts` (`cleave`) |
 | Thrown stock, flight and retrieval | `src/data/items.ts` (`thrown`), `src/world/world.ts` (`hurl`, `RETRIEVE_*`) |
 | How a throw is scored | `src/systems/player.ts` (`thrownView`) |

@@ -1,9 +1,20 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { deflateSync } from 'node:zlib';
 import { rolldown } from 'rolldown';
 
-const output = resolve(process.argv[2] ?? 'art-handoff');
+// Usage:
+//   npm run art:handoff            # only art the handoff folder lacks: the rule after drawing new art
+//   npm run art:export             # every sprite, replacing the folder (paints over delivered work)
+//   node scripts/export-art.mjs [--new] [out-dir]
+//
+// --new writes a PNG only for an id with no file in the handoff yet, keeps
+// every existing file (the artist's delivered work included) untouched, merges
+// the manifest, and lists what it added in TODO.md for the artist.
+const args = process.argv.slice(2);
+const onlyNew = args.includes('--new');
+const output = resolve(args.find((a) => !a.startsWith('--')) ?? 'art-handoff');
 async function loadModule(path) {
   const bundle = await rolldown({ input: resolve(path) });
   try {
@@ -65,10 +76,15 @@ function png({ w, h, data }) {
     ['enemies', 'src/art/enemies-elemental.ts', 'ENEMY_ART_ELEMENTAL'],
     ['enemies', 'src/art/enemies-biomes.ts', 'ENEMY_ART_BIOMES'],
     ['enemies', 'src/art/enemies-pasture.ts', 'ENEMY_ART_PASTURE'],
+    ['enemies', 'src/art/spell-fx.ts', 'PENGUIN_ART'],
+    ['props', 'src/art/spell-fx.ts', 'SPELL_MARK_ART'],
     ['viewmodels', 'src/art/viewmodels.ts', 'VIEWMODELS'],
   ];
+  const manifestPath = resolve(output, 'manifest.json');
+  const previous = onlyNew && existsSync(manifestPath) ? JSON.parse(await readFile(manifestPath, 'utf8')) : [];
   const manifest = [];
   const ids = new Set();
+  const added = [];
   for (const [folder, modulePath, exportName] of groups) {
     const definitions = (await loadModule(modulePath))[exportName];
     await mkdir(resolve(output, folder), { recursive: true });
@@ -77,13 +93,30 @@ function png({ w, h, data }) {
       ids.add(def.id);
       const image = rasterize(def, undefined, getArt);
       const file = `${folder}/${def.id}.png`;
+      if (onlyNew && existsSync(resolve(output, file))) {
+        manifest.push(previous.find((m) => m.id === def.id) ?? { id: def.id, file, width: image.w, height: image.h, base: def.base ?? null, recolorable: def.rows.some((row) => /[1-4]/.test(row)) });
+        continue;
+      }
       await writeFile(resolve(output, file), png(image));
+      added.push({ id: def.id, file, w: image.w, h: image.h });
       manifest.push({ id: def.id, file, width: image.w, height: image.h, base: def.base ?? null, recolorable: def.rows.some((row) => /[1-4]/.test(row)) });
     }
   }
   const missing = ALL_ART.filter((def) => !ids.has(def.id)).map((def) => def.id);
   if (missing.length) throw new Error(`Art in the registry but not exported (add its module to the groups): ${missing.join(', ')}`);
   await writeFile(resolve(output, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
-  await writeFile(resolve(output, 'README.md'), `# Art handoff\n\nEach PNG is exported at its native resolution with transparency. Edit at this size with nearest-neighbour scaling; keep the filename and canvas dimensions. The manifest maps every file to its in-game art ID. Enemy idle, attack, and block poses are separate files.\n\nTo use a finished image in the game, copy it to \`public/art/<id>.png\` (without the category folder), then add \`"<id>"\` to \`public/art/manifest.json\`. The original code art remains the fallback.\n\nRecolorable icon PNGs retain the game's four-colour material ramp. Paint the parts that should change with material in that ramp's greys: the four exported colours, or any shade between them or a little lighter than the lightest, and the game carries each to the same place on the item's material. Colours clearly off that grey line (outlines, warm or coloured details, near-white glints) stay fixed. Alpha 250 marks emissive pixels; preserve it when editing glowing details.\n\nKeep layered editor project files alongside these PNGs if useful. Run \`npm run art:export\` again only when you want a fresh export from the built-in art; it replaces files in this folder.\n`);
-  console.log(`Exported ${manifest.length} PNGs to ${output}`);
+  await writeFile(resolve(output, 'README.md'), `# Art handoff\n\nEach PNG is exported at its native resolution with transparency. Edit at this size with nearest-neighbour scaling; keep the filename and canvas dimensions. The manifest maps every file to its in-game art ID. Enemy idle, attack, and block poses are separate files.\n\nTo use a finished image in the game, copy it to \`public/art/<id>.png\` (without the category folder), then add \`"<id>"\` to \`public/art/manifest.json\`. The original code art remains the fallback.\n\nRecolorable icon PNGs retain the game's four-colour material ramp. Paint the parts that should change with material in that ramp's greys: the four exported colours, or any shade between them or a little lighter than the lightest, and the game carries each to the same place on the item's material. Colours clearly off that grey line (outlines, warm or coloured details, near-white glints) stay fixed. Alpha 250 marks emissive pixels; preserve it when editing glowing details.\n\nKeep layered editor project files alongside these PNGs if useful. After drawing new art in code, \`npm run art:handoff\` adds only the new sprites here (and lists them in TODO.md), leaving every file already here alone. \`npm run art:export\` re-exports everything and replaces files in this folder, painting over delivered work: use it only on purpose.\n`);
+  if (onlyNew) {
+    if (added.length) {
+      const todo = resolve(output, 'TODO.md');
+      const head = existsSync(todo) ? await readFile(todo, 'utf8') : '# Waiting for the artist\n\nNew code-drawn art exported by `npm run art:handoff`, newest first. Each is a placeholder drawn in `src/art/`; paint over it at the same size, then copy it to `public/art/<id>.png` and strike it off here.\n';
+      const [title, ...rest] = head.split('\n\n');
+      const today = new Date().toISOString().slice(0, 10);
+      const block = `## ${today}\n\n${added.map((a) => `- [ ] \`${a.file}\` (${a.w}×${a.h})`).join('\n')}`;
+      await writeFile(todo, [title, rest[0], block, ...rest.slice(1)].map((p) => p?.trim()).filter(Boolean).join('\n\n').replace(/\n*$/, '\n'));
+    }
+    console.log(added.length ? `Added ${added.length} new PNGs to ${output}: ${added.map((a) => a.id).join(', ')}` : `Nothing new: every sprite already has a file in ${output}`);
+  } else {
+    console.log(`Exported ${manifest.length} PNGs to ${output}`);
+  }
 }

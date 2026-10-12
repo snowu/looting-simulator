@@ -69,8 +69,10 @@ export interface SpellCast {
   /** The conduit at rest, and its lit model for the back half of the cast. */
   idle: string;
   lit: string;
-  /** The bolt that leaves it. */
+  /** The bolt that leaves it, or a hitscan spell's mark where it lands. */
   bolt: string;
+  /** No bolt flies: the mark appears out in front at the release. */
+  hitscan?: boolean;
   windup: number;
   recovery: number;
 }
@@ -418,16 +420,26 @@ function spellGroups(tier: number, materialId?: string): SheetGroup[] {
       id: viewmodelFor(b),
       label: `${b.name} · ${sp.name}`,
       ramp: m?.ramp,
-      cast: { idle: viewmodelFor(b), lit: b.conduit!.castViewmodel, bolt: sp.sprite, windup: sp.windup, recovery: sp.recovery },
+      cast: { idle: viewmodelFor(b), lit: b.conduit!.castViewmodel, bolt: sp.sprite, hitscan: sp.hitscan, windup: sp.windup, recovery: sp.recovery },
     }));
   });
   return [
     { title: heldTitle(tier, materialId), cells: casts },
     // Two frames each: the renderer alternates them while the bolt flies.
-    { title: 'Bolts in flight', cells: CONDUIT_SPELLS.flatMap((sp) => [
+    { title: 'Bolts in flight', cells: CONDUIT_SPELLS.filter((sp) => !sp.hitscan).flatMap((sp) => [
       { id: sp.sprite, label: `${sp.name} · ${sp.element}` },
       { id: `${sp.sprite}_b`, label: `${sp.name} · second frame` },
     ]) },
+    // Hitscan spells fly nowhere: their mark appears on what they strike.
+    { title: 'Marks where they land', cells: CONDUIT_SPELLS.filter((sp) => sp.hitscan).flatMap((sp) => [
+      { id: sp.sprite, label: `${sp.name} · ${sp.element}` },
+      { id: `${sp.sprite}_b`, label: `${sp.name} · second frame` },
+    ]) },
+    // What Hex leaves standing there for fifteen seconds.
+    { title: 'Hexed', cells: [
+      { id: 'penguin_0', label: 'Penguin · standing' },
+      { id: 'penguin_1', label: 'Penguin · mid-waddle' },
+    ] },
     { title: 'Spell icons', cells: CONDUIT_SPELLS.map((sp) => ({ id: sp.icon, label: sp.name })) },
   ];
 }
