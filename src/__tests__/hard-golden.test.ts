@@ -92,7 +92,9 @@ describe('Hard generation, loot and stats have explicit balance baselines', () =
     // `enemyHp` would be a bug, not a rebaseline.
     // Re-pinned again when the Wand and the Rod joined the offhand drop pool
     // (2026-10-11), for the same reason; oddityLootHash stays as the pre-conduit record.
-    expect(hash(out)).toBe(golden.conduitLootHash);
+    // And once more for the Stave in the weapon pool (2026-10-12);
+    // conduitLootHash stays as the pre-Stave record.
+    expect(hash(out)).toBe(golden.staveLootHash);
   }, 60_000);
 
   it('spawns every monster with the same health at every depth', () => {

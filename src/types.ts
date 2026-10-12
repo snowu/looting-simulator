@@ -236,6 +236,13 @@ export interface ConduitProfile {
   regrow: number;
   /** Art id of the casting hand's model while a spell is wound up. */
   castViewmodel: string;
+  /**
+   * Share of the item's Attack that is its spell Power. Only a weapon that is
+   * also a conduit (the Stave) sets it: there the Attack is a real melee
+   * Attack as well, and the share is how much of it the spells see. Absent
+   * means the whole Attack is Power and none of it is melee.
+   */
+  power?: number;
 }
 
 export interface ItemBaseDef {

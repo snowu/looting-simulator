@@ -224,6 +224,8 @@ export interface EnemyState {
   vuln?: number;
   /** Rime Lance: seconds of chill left. Held while a chilled wind-up runs. Absent means none. */
   chillT?: number;
+  /** Hex: seconds left as a penguin. Absent means itself. */
+  hexT?: number;
   /** Ember Bolt: burn seconds left, damage still to deal, and the fraction banked. Absent means not burning. */
   burn?: { t: number; left: number; acc: number };
   /** Consecutive blows turned on a carried shield. Resets when one gets through or the guard drops. */

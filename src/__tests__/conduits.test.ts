@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { createRng } from '../core/rng';
 import { Rarity } from '../types';
-import { CHILL_WINDUP, CONDUIT_SPELLS, WEAVE_REGROW } from '../data/conduit-spells';
+import { CHILL_WINDUP, CONDUIT_SPELLS, HEX_SECONDS, WEAVE_REGROW } from '../data/conduit-spells';
 import { itemBase } from '../data/items';
-import { enemyDef, enemyView } from '../data/enemies';
+import { PENGUIN_SPRITE, enemyDef, enemyView } from '../data/enemies';
 import { SAVE_VERSION, newGame } from '../state/game-state';
 import { parseSave } from '../state/save-format';
 import { SAVE_REVISION } from '../state/migrations';
@@ -12,18 +12,18 @@ import { learnTome, loadedSpells, makeTome, toggleLoaded, unknownConduitSpells }
 import { makeEquipment } from '../systems/items';
 import { derivePlayer } from '../systems/player';
 import { startRun } from '../systems/run';
-import { createEnemy, FLOOR } from '../systems/dungeon';
+import { createEnemy, FLOOR, WALL } from '../systems/dungeon';
 import { World, tomeChance } from '../world/world';
 
 const conduit = (baseId: 'wand' | 'rod', materialId = baseId === 'wand' ? 'ironwood' : 'iron') =>
   makeEquipment({ baseId, materialId, rarity: Rarity.Common, ilvl: 4, quality: 1, identified: true });
 
 /** A cleared room, a wand in the offhand, both starter-era spells known and loaded. */
-function battlemage(baseId: 'wand' | 'rod' = 'wand'): World {
+function battlemage(baseId: 'wand' | 'rod' = 'wand', spells = ['ember_bolt', 'rime_lance']): World {
   const state = newGame(createRng(91));
   state.equipment.offhand = conduit(baseId);
-  state.spellbook = ['ember_bolt', 'rime_lance'];
-  state.loadedSpells = ['ember_bolt', 'rime_lance'];
+  state.spellbook = [...spells];
+  state.loadedSpells = [...spells];
   startRun(state, 91);
   const w = new World(state);
   w.floor.enemies = [];
@@ -81,8 +81,8 @@ describe('the spellbook', () => {
   it('learns from tomes, never offers a known or carried spell, and loads in order', () => {
     const state = newGame(createRng(92));
     expect(state.spellbook).toEqual(['ember_bolt']);
-    expect(unknownConduitSpells(state.spellbook)).toEqual(['rime_lance']);
-    expect(unknownConduitSpells(state.spellbook, ['rime_lance'])).toEqual([]);
+    expect(unknownConduitSpells(state.spellbook)).toEqual(['rime_lance', 'smite', 'hex']);
+    expect(unknownConduitSpells(state.spellbook, ['rime_lance', 'hex'])).toEqual(['smite']);
     const tome = makeTome('rime_lance');
     addItem(state.stash, tome);
     expect(learnTome(state, state.stash, tome.uid)).toBe(true);
@@ -213,5 +213,172 @@ describe('casting', () => {
     w.state.equipment.offhand = wand;
     w.refreshDerived();
     expect(w.run.conduit!.charges).toBe(left);
+  });
+});
+
+describe('Smite', () => {
+  it('lands at once on the first monster in your line, with no bolt', () => {
+    const w = battlemage('rod', ['smite']);
+    const near = target(w, 3, 'goblin');
+    const far = target(w, 4);
+    w.castSpell();
+    run(w, w.selectedSpell()!.windup + 0.02);
+    expect(w.projectiles.filter((p) => p.spell)).toHaveLength(0);
+    expect(near.hp).toBeLessThan(400);
+    expect(far.hp).toBe(400);
+    expect(w.spellFx.some((fx) => fx.kind === 'smite' && fx.x === near.x && fx.y === near.y)).toBe(true);
+  });
+
+  it('is stopped by a wall, and reaches no further than its range', () => {
+    const w = battlemage('rod', ['smite']);
+    const wall = w.frontTile(2);
+    w.floor.tiles[wall.y * w.floor.width + wall.x] = WALL;
+    const behind = target(w, 3);
+    w.castSpell();
+    run(w, 0.5);
+    expect(behind.hp).toBe(400);
+    const w2 = battlemage('rod', ['smite']);
+    const beyond = target(w2, 6);
+    // Held where it stands, so it cannot walk into range.
+    beyond.ai = 'recover';
+    beyond.timer = 99;
+    w2.castSpell();
+    run(w2, 0.5);
+    expect(beyond.hp).toBe(400);
+  });
+
+  it('hits the undead harder, and what it kills stays down', () => {
+    const w = battlemage('rod', ['smite']);
+    const ghoul = target(w, 2);
+    w.castSpell();
+    run(w, 0.5);
+    const dealt = 400 - ghoul.hp;
+    const w2 = battlemage('rod', ['smite']);
+    const goblin = target(w2, 2, 'goblin');
+    w2.castSpell();
+    run(w2, 0.5);
+    expect(dealt).toBeGreaterThan(400 - goblin.hp);
+
+    const w3 = battlemage('rod', ['smite']);
+    const weak = target(w3, 2);
+    weak.hp = 1;
+    w3.castSpell();
+    run(w3, 0.5);
+    expect(weak.ai).toBe('dead');
+    expect(weak.remains).toBe('sanctified');
+  });
+});
+
+describe('Hex', () => {
+  function hexed(def = 'ghoul') {
+    const w = battlemage('rod', ['hex']);
+    const e = target(w, 1, def);
+    e.attackCd = 0;
+    e.alert = 6;
+    w.player.stamina = w.derived.maxStamina;
+    const charges = w.run.conduit!.charges;
+    expect(w.castSpell()).toBe(true);
+    expect(w.run.conduit!.charges).toBe(charges - 2);
+    run(w, w.selectedSpell()!.windup + 0.02);
+    return { w, e };
+  }
+
+  it('costs two charges and makes a penguin of it, health and all', () => {
+    const { w, e } = hexed();
+    expect(e.hexT).toBeGreaterThan(HEX_SECONDS - 0.2);
+    expect(e.hp).toBe(400);
+    const view = enemyView(enemyDef(e.def), e.hp, e.maxHp, { hexed: true });
+    expect(view.sprite).toBe(PENGUIN_SPRITE);
+    expect(view.shield).toBeUndefined();
+    expect(w.anim.weave?.element).toBe('shadow');
+  });
+
+  it('cannot fight back, and hitting it does not break the spell', () => {
+    const { w, e } = hexed();
+    const hp = w.player.hp;
+    run(w, 4);
+    expect(w.player.hp).toBe(hp);
+    expect(e.ai).not.toBe('windup');
+    // Whatever hurts it goes through `hurt`; none of it turns it back.
+    (w as unknown as { hurt(e: unknown, n: number, text: string, color: string): void }).hurt(e, 50, '50', '#fff');
+    run(w, 0.2);
+    expect(e.hp).toBeLessThan(400);
+    expect(e.hexT).toBeGreaterThan(0);
+  });
+
+  it('wears off after fifteen seconds, and it is itself again', () => {
+    const { w, e } = hexed();
+    run(w, HEX_SECONDS + 0.2);
+    expect(e.hexT).toBeUndefined();
+    expect(enemyView(enemyDef(e.def), e.hp, e.maxHp, { hexed: (e.hexT ?? 0) > 0 }).sprite).not.toBe(PENGUIN_SPRITE);
+  });
+
+  it('works on an elite', () => {
+    const w = battlemage('rod', ['hex']);
+    const e = target(w, 2);
+    e.elite = 'ironhide';
+    w.castSpell();
+    run(w, 0.5);
+    expect(e.hexT).toBeGreaterThan(0);
+  });
+
+  it('is refused by the King, and the charges come back', () => {
+    const w = battlemage('rod', ['hex']);
+    const king = target(w, 2, 'ashen_king');
+    const charges = w.run.conduit!.charges;
+    w.castSpell();
+    run(w, 0.5);
+    expect(king.hexT).toBeUndefined();
+    expect(w.run.conduit!.charges).toBe(charges);
+  });
+
+  it('dies as itself', () => {
+    const { w, e } = hexed();
+    e.hp = 1;
+    w.player.stamina = w.derived.maxStamina;
+    w.attack();
+    run(w, 1);
+    if (e.ai === 'dead') expect(e.hexT).toBeUndefined();
+  });
+});
+
+describe('the Stave', () => {
+  const stave = (materialId = 'ironwood') =>
+    makeEquipment({ baseId: 'stave', materialId, rarity: Rarity.Common, ilvl: 4, quality: 1, identified: true });
+
+  it('is a two-handed weapon and a conduit at once', () => {
+    const state = newGame(createRng(95));
+    const d = derivePlayer({ ...state.equipment, weapon: stave(), offhand: null }, state.meta);
+    expect(d.twoHanded).toBe(true);
+    expect(d.conduitHand).toBe('weapon');
+    expect(d.conduit?.slots).toBe(4);
+    expect(d.block).toBeCloseTo(0.2);
+    expect(d.attack).toBeGreaterThan(0);
+    // Only part of its Attack reaches a spell, and the rest is still a blow.
+    expect(d.conduitPower).toBe(Math.round(d.attack * itemBase('stave').conduit!.power!));
+  });
+
+  it('holds more and grows back faster than a Rod, and casts harder', () => {
+    const state = newGame(createRng(95));
+    const r = derivePlayer({ ...state.equipment, offhand: conduit('rod', 'iron') }, state.meta);
+    const s = derivePlayer({ ...state.equipment, weapon: stave('ironwood'), offhand: null }, state.meta);
+    const rod = itemBase('rod').conduit!, st = itemBase('stave').conduit!;
+    expect(st.slots).toBeGreaterThan(rod.slots);
+    expect(st.charges).toBeGreaterThan(rod.charges);
+    expect(st.regrow).toBeLessThan(rod.regrow);
+    expect(s.conduitPower).toBeGreaterThan(r.conduitPower);
+  });
+
+  it('casts from the weapon hand', () => {
+    const state = newGame(createRng(96));
+    state.equipment.weapon = stave();
+    state.equipment.offhand = null;
+    startRun(state, 96);
+    const w = new World(state);
+    w.floor.enemies = [];
+    expect(w.derived.conduit).not.toBeNull();
+    expect(w.run.conduit?.charges).toBe(5);
+    expect(w.castSpell()).toBe(true);
+    expect(w.anim.attackWeaponUid).toBe(state.equipment.weapon!.uid);
   });
 });

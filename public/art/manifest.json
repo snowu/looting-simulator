@@ -219,8 +219,11 @@
   "ic_scroll_recall",
   "ic_wand",
   "ic_rod",
+  "ic_stave",
   "ic_spell_ember",
   "ic_spell_rime",
+  "ic_spell_smite",
+  "ic_spell_hex",
   "ic_spell_tome",
   "ic_lore",
   "ic_blueprint",
@@ -333,6 +336,12 @@
   "prizebull_atk",
   "prop_tophat",
   "prop_monocle",
+  "penguin_0",
+  "penguin_1",
+  "fx_smite",
+  "fx_smite_b",
+  "fx_poof",
+  "fx_poof_b",
   "vm_dagger",
   "vm_short_sword",
   "vm_blade",
@@ -357,5 +366,7 @@
   "vm_wand",
   "vm_wand_lit",
   "vm_rod",
-  "vm_rod_lit"
+  "vm_rod_lit",
+  "vm_stave",
+  "vm_stave_lit"
 ]

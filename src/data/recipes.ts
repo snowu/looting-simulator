@@ -51,6 +51,8 @@ export const RECIPES: RecipeDef[] = [
     slots: [{ label: 'Stave', categories: ['wood'], qty: 2 }, { label: 'Binding', categories: SECONDARY_CATEGORIES, qty: 1 }, EXTRA, GEM] },
   { id: 'r_rod', baseId: 'rod', starter: false, value: 160,
     slots: [{ label: 'Core', categories: ['metal'], qty: 3 }, { label: 'Grip', categories: SECONDARY_CATEGORIES, qty: 2 }, EXTRA, GEM] },
+  { id: 'r_stave', baseId: 'stave', starter: false, value: 220,
+    slots: [{ label: 'Staff', categories: ['wood'], qty: 4 }, { label: 'Crown', categories: SECONDARY_CATEGORIES, qty: 2 }, EXTRA, GEM] },
 
   // Head
   { id: 'r_cap', baseId: 'cap', starter: true, value: 0,

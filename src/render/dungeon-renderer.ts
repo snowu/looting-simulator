@@ -18,7 +18,7 @@ import { SHADE_ID } from '../systems/grave';
 import type { EnemyDef } from '../types';
 import { itemIcon } from '../systems/items';
 import { lightIntensity } from '../systems/meta';
-import { World } from '../world/world';
+import { SPELL_FX_SECONDS, World } from '../world/world';
 import { artRaster, artSize, artTexture, rasterTexture } from './art-cache';
 import { HeldIcon, composeShade, shadeFrame, shadeKey } from './shade';
 import { getArt } from '../art/registry';
@@ -573,9 +573,13 @@ export class DungeonRenderer {
     // Ossuary: restless remains rise into view the same way, on their own.
     for (const en of floor.enemies) if (en.stirT !== undefined) called.set(en.id, 1 - Math.max(0, en.stirT) / OSSUARY_STIR);
     this.called = called;
+    for (const fx of world.spellFx) {
+      const k = 1 - clamp(fx.t / SPELL_FX_SECONDS[fx.kind], 0, 1);
+      if (!fx.miss) lights.push({ x: tileX(fx.x), y: 1.2, z: tileZ(fx.y), r: 4.5, color: cachedColor(fx.kind === 'smite' ? '#fff0b0' : '#b080ff'), intensity: 1.6 * k });
+    }
     for (const en of floor.enemies) {
       const def = enemyDef(en.def);
-      const view = enemyView(def, en.hp, en.maxHp, { elite: en.elite, carrying: !!en.stolen?.length, calm: en.calm, chilled: (en.chillT ?? 0) > 0 });
+      const view = enemyView(def, en.hp, en.maxHp, { elite: en.elite, carrying: !!en.stolen?.length, calm: en.calm, chilled: (en.chillT ?? 0) > 0, hexed: (en.hexT ?? 0) > 0 });
       const call = called.get(en.id);
       if (call !== undefined) lights.push({ x: tileX(en.x), y: 0.5, z: tileZ(en.y), r: 3 + 2 * call, color: cachedColor(RAISE_GLOW), intensity: 0.6 + 0.8 * call });
       // A lurker throws no light: an elite glowing on the ceiling would be no ambush.
@@ -605,7 +609,7 @@ export class DungeonRenderer {
       if (!near(en.x, en.y)) continue;
       // The phase view, so the King's sprite family, glow and guard all follow
       // the fight. Everything else gets its own stat block back unchanged.
-      const def = enemyView(enemyDef(en.def), en.hp, en.maxHp, { elite: en.elite, carrying: !!en.stolen?.length, calm: en.calm, chilled: (en.chillT ?? 0) > 0 });
+      const def = enemyView(enemyDef(en.def), en.hp, en.maxHp, { elite: en.elite, carrying: !!en.stolen?.length, calm: en.calm, chilled: (en.chillT ?? 0) > 0, hexed: (en.hexT ?? 0) > 0 });
       if (en.lurk && en.ai !== 'dead') {
         this.drawLurker(en, def);
         continue;
@@ -649,7 +653,12 @@ export class DungeonRenderer {
       let y = (def.floats ? 0.35 + Math.sin(this.time * 2.5 + en.x) * 0.1 : 0) + (en.moveT < 1 ? Math.abs(Math.sin(en.moveT * Math.PI)) * 0.08 : 0);
       // A called corpse lies at the floor and is drawn up as the chant runs.
       if (en.ai === 'dead') y -= call !== undefined ? (1 - call) * 1.2 : (fused ? Math.min(en.deadT, 0.3) : en.deadT) * 1.4;
-      this.place(s, `${def.sprite}_${pose.frame}`, wx, y, wz, height);
+      // A penguin has two frames, standing and mid-waddle, and rocks between
+      // them while it steps.
+      const frame = (en.hexT ?? 0) > 0 && en.ai !== 'dead'
+        ? (en.moveT < 1 && en.moveT % 0.5 < 0.25 ? '1' : '0')
+        : pose.frame;
+      this.place(s, `${def.sprite}_${frame}`, wx, y, wz, height);
       // Your Shade holds what you hold: your weapon and shield, in their materials.
       // No wash over it any more: the body is its own tell, and a tint would
       // only lift the dark and muddy the kit.
@@ -857,6 +866,36 @@ export class DungeonRenderer {
       }
     }
 
+    // Hitscan marks. Smite: a streak of light standing over the tile, tall
+    // as the room, narrowing and fading. Hex: a puff of violet smoke that
+    // swells as it thins. A miss is the same mark, smaller and fainter.
+    for (const fx of world.spellFx) {
+      if (!near(fx.x, fx.y)) continue;
+      const k = clamp(fx.t / SPELL_FX_SECONDS[fx.kind], 0, 1);
+      const s = this.sprite(`fx:${fx.id}`);
+      const scale = fx.miss ? 0.6 : 1;
+      // Drawn a little in front of what it struck, towards you, or the body
+      // standing on the same tile hides most of it.
+      let wx = tileX(fx.x), wz = tileZ(fx.y);
+      const tx = this.camera.position.x - wx, tz = this.camera.position.z - wz;
+      const len = Math.hypot(tx, tz);
+      if (len > 0.01) {
+        wx += (tx / len) * TILE * 0.35;
+        wz += (tz / len) * TILE * 0.35;
+      }
+      // Sprites are alpha-tested, not blended, so a mark cannot fade: the
+      // streak narrows to a thread instead, and the smoke swells then shrinks.
+      if (fx.kind === 'smite') {
+        const art = Math.floor(fx.t * 20) % 2 ? 'fx_smite_b' : 'fx_smite';
+        this.place(s, art, wx, 0, wz, WALL_H * scale);
+        s.mesh.scale.x *= Math.max(0.08, 1 - k);
+        s.mat.uniforms.uTint.value.set(1, 0.97, 0.85, 0.5 * (1 - k));
+      } else {
+        const size = (k < 0.6 ? 0.8 + 0.6 * (k / 0.6) : 1.4 * (1 - (k - 0.6) / 0.4) + 0.1) * scale;
+        this.place(s, k < 0.45 ? 'fx_poof' : 'fx_poof_b', wx, 0.15, wz, size);
+      }
+    }
+
     for (const [k, s] of this.sprites) {
       if (!s.seen) {
         s.mesh.visible = false;
@@ -931,7 +970,10 @@ export class DungeonRenderer {
     const sway = twoHanded ? 1.7 : 1;
     const bobX = Math.sin((a.steps + walking) * Math.PI) * 4 * sway;
     const bobY = Math.abs(Math.cos((a.steps + walking) * Math.PI)) * 4 * sway;
-    let x = W * (twoHanded ? 0.56 : casting ? 0.5 : 0.74) + bobX;
+    // A Stave is held off to the right of the two-handed spot: it is cast
+    // from as much as swung, and its crown would stand over whatever you aim at.
+    const stave = twoHanded && world.derived.conduitHand === 'weapon';
+    let x = W * (stave ? 0.68 : twoHanded ? 0.56 : casting ? 0.5 : 0.74) + bobX;
     let y = H * 0.12 - bobY - 8;
     let rot = twoHanded ? -0.05 : casting ? 0 : -0.18;
     // A throw runs through the same `anim.attack` states as a swing, because it
@@ -945,6 +987,15 @@ export class DungeonRenderer {
       const k = 1 - clamp(casting.t / total, 0, 1);
       y += 26 * k;
       rot = Math.sin(this.time * 22) * 0.05 * k;
+    } else if (a.attackSpell && world.derived.conduitHand === 'weapon') {
+      // A Stave is the conduit: it comes up and in, crown first, as the
+      // spell gathers, and settles back through the recovery.
+      const k = a.attack === 'windup'
+        ? clamp(a.attackT / Math.max(0.01, a.attackDur), 0, 1)
+        : a.attack === 'recover' ? 1 - clamp(a.attackT / Math.max(0.01, a.attackDur), 0, 1) : 0;
+      x -= 18 * k;
+      y += 34 * k;
+      rot += 0.05 * k;
     } else if (a.attackThrow || a.attackSpell) {
       // Deliberately nothing: a throw leaves the body and a spell leaves the
       // conduit in the other hand, so the weapon hand holds still.
@@ -976,7 +1027,8 @@ export class DungeonRenderer {
     // body rather than only in the log. Shafts are collected the moment they
     // reach the player tile, which is where the raised hand is.
     const retrieving = !!a.retrieving;
-    const conduit = world.derived.conduit;
+    // Only a conduit in the offhand is drawn there; a Stave is the weapon.
+    const conduit = world.derived.conduitHand === 'offhand' ? world.derived.conduit : null;
     const offhand = !retrieving && (world.derived.hasShield || conduit) ? world.state.equipment.offhand : null;
     // A spell comes up out of the conduit: the hand rises through the wind-up
     // and the stone flares for the back half of it and the release.

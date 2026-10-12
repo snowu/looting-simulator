@@ -1066,7 +1066,11 @@ export class Town {
     const loaded = (s.loadedSpells ?? []).filter((id) => known.includes(id) && findConduitSpell(id));
     const tomes = s.stash.items.filter((it) => it.kind === 'tome' && findConduitSpell(it.ref));
     const locked = loadoutLocked(s);
-    const worn = s.equipment.offhand ? itemBase(s.equipment.offhand.ref).conduit : undefined;
+    // A Wand or Rod in the offhand, or a Stave in both hands.
+    const weapon = s.equipment.weapon ? itemBase(s.equipment.weapon.ref) : null;
+    const holder = weapon?.conduit ? s.equipment.weapon
+      : !weapon?.twoHanded && s.equipment.offhand && itemBase(s.equipment.offhand.ref).conduit ? s.equipment.offhand : null;
+    const worn = holder ? itemBase(holder.ref).conduit : undefined;
     const slots = worn?.slots ?? 0;
 
     const tomeRows = tomes.map((it) => {
@@ -1098,7 +1102,7 @@ export class Town {
         artImg(def.icon, undefined, 34),
         h('div', { class: 'grow' },
           h('div', { style: `color:${def.color}`, text: `${at >= 0 ? `${at + 1}. ` : ''}${def.name}${at >= slots && at >= 0 ? ' (no slot)' : ''}` }),
-          h('div', { class: 'dim small', text: `${def.description} · ${def.stamina} stamina · ${def.charges} charge · range ${def.range}` }),
+          h('div', { class: 'dim small', text: `${def.description} · ${def.stamina} stamina · ${def.charges} charge${def.charges === 1 ? '' : 's'} · ${def.hitscan ? 'lands at once, ' : ''}range ${def.range}` }),
         ),
         btn(at >= 0 ? 'Unload' : 'Load', () => {
           if (!toggleLoaded(s, id)) return this.ctx.toast('Not while you are down there. Step back through a portal first.', '#9ab0d8');
@@ -1114,8 +1118,8 @@ export class Town {
       tomeRows.length ? h('div', { class: 'col' }, ...tomeRows) : null,
       h('div', { class: 'col' }, ...rows),
       h('p', { class: 'dim small', text: worn
-        ? `Your ${itemBase(s.equipment.offhand!.ref).name.toLowerCase()} holds ${slots} spell${slots === 1 ? '' : 's'} and ${worn.charges} charges, one back every ${worn.regrow}s. Load order is the order B cycles through. ${locked ? 'The loadout is fixed until you are back in town or a portal is open.' : ''}`
-        : 'Wear a conduit — a Wand or a Rod — in your offhand to cast these, with V. The Wand is on the Recipes bench. Tomes turn up in chests, more often in vaults and secret rooms.' }),
+        ? `Your ${itemBase(holder!.ref).name.toLowerCase()} holds ${slots} spell${slots === 1 ? '' : 's'} and ${worn.charges} charges, one back every ${worn.regrow}s. Load order is the order B cycles through. ${locked ? 'The loadout is fixed until you are back in town or a portal is open.' : ''}`
+        : 'Wear a conduit to cast these, with V: a Wand or a Rod in your offhand, or a Stave in both hands. The Wand is on the Recipes bench. Tomes turn up in chests, more often in vaults and secret rooms.' }),
     );
   }
 
