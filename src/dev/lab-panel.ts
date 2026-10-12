@@ -24,7 +24,7 @@ import { equipFrom } from '../systems/equip';
 import { createRng, randomSeed } from '../core/rng';
 import { Rarity } from '../types';
 import {
-  LAB_ILVL, loadLabLevel, clearLabMobs, killLabMobs, refurbish, restockLabMats, spawnLabChest, spawnLabConfig, spawnLabMob,
+  LAB_ILVL, beginLabRite, spawnLabCarving, loadLabLevel, clearLabMobs, killLabMobs, refurbish, restockLabMats, spawnLabChest, spawnLabConfig, spawnLabMob,
 } from './lab-room';
 import {
   LabConfig, LabMobEntry, deleteLabConfig, exportLabConfig, isBuiltinLabConfig,
@@ -104,6 +104,7 @@ function openLabPanel(
     text: 'I / Tab: pack & gear · all recipes Rank 5 · 999 mats in stash · forge below, no town trip needed.',
   }));
 
+  buildRiteSection(wrap, getWorld, notify);
   buildLevelSection(wrap, getWorld, notify);
   buildSpawnSection(wrap, getWorld, notify);
   buildConfigSection(wrap, getWorld, notify);
@@ -120,6 +121,32 @@ function openLabPanel(
   wrap.addEventListener('mousedown', (e) => e.stopPropagation());
   parent.append(wrap);
   el = wrap;
+}
+
+function buildRiteSection(
+  wrap: HTMLElement,
+  getWorld: () => World | null,
+  notify: (text: string, color?: string) => void,
+): void {
+  wrap.append(h('h3', { text: 'Rites', style: 'margin:6px 0 4px' }));
+  wrap.append(h('p', { class: 'dim small', style: 'margin:0 0 6px',
+    text: 'Draw Meteor readies a conduit, heals and refills, then opens the mark. F3 to repeat. Place carving lets you try studying it.' }));
+  wrap.append(h('div', { class: 'row', style: 'gap:4px;margin-bottom:8px' },
+    btn('Draw Meteor', () => {
+      const world = getWorld();
+      if (!world) return;
+      if (beginLabRite(world)) closeLabPanel();
+      else notify('Finish the current action, then try the rite again.', '#ff9070');
+    }, 'small primary'),
+    btn('Place carving', () => {
+      const world = getWorld();
+      if (!world) return;
+      if (spawnLabCarving(world)) {
+        closeLabPanel();
+        notify('Meteor carving ahead — F / Interact to study. F3 to reset or draw.', '#c080ff');
+      } else notify('Face an empty floor tile to place the carving.', '#ff9070');
+    }, 'small'),
+  ));
 }
 
 function buildLevelSection(

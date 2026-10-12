@@ -1230,7 +1230,7 @@ function frame(now: number): void {
     const paused = overlays.isOpen || isSettingsOpen() || gate.blocked;
     if (paused) world.retrieve(false);
     // An open overlay needs the cursor back; a touch device never took it.
-    if (paused || touchMode) pointerLock.release();
+    if (paused || touchMode || world.riteDraw) pointerLock.release();
     // A trace open into a menu is dropped unpaid, never cast.
     if (paused) {
       world.cancelRiteDraw();
@@ -1577,6 +1577,7 @@ async function enterLabArena(): Promise<void> {
 async function toggleLabConsole(): Promise<void> {
   if (!import.meta.env.DEV) return;
   const { toggleLabPanel } = await import('./dev/lab-panel');
+  pointerLock.release();
   toggleLabPanel(app, () => world, (t, c) => hud.message(t, c));
 }
 

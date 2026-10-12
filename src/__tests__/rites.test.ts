@@ -13,6 +13,7 @@ import { startRun } from '../systems/run';
 import { createEnemy, FLOOR, inRoom } from '../systems/dungeon';
 import { enemyDef } from '../data/enemies';
 import { World } from '../world/world';
+import { beginLabRite, spawnLabCarving } from '../dev/lab-room';
 
 const TEMPLATE = RITES[0].template;
 
@@ -237,5 +238,48 @@ describe('casting Meteor', () => {
     expect(w.drainEvents().find(e => e.type === 'rite')).toMatchObject({ grade: 'botch' });
     expect(w.run.conduit!.charges).toBe(charges - charges);
     expect(w.run.conduit!.charges).toBe(0);
+  });
+});
+
+
+describe('rite testing in the scratch lab', () => {
+  it('rearms another attempt and keeps an existing conduit equipped', () => {
+    const w = ritualist();
+    const wand = w.state.equipment.offhand;
+    expect(trace(w, alongTemplate())).toBe(true);
+    expect(beginLabRite(w)).toBe(true);
+    expect(w.state.equipment.offhand).toBe(wand);
+    expect(w.run.conduit!.charges).toBeGreaterThan(0);
+    expect(w.run.riteCastDepth).toBeNull();
+    for (const p of alongTemplate()) w.addRitePoint(p.x, p.y);
+    expect(w.endRiteDraw()).toBe(true);
+  });
+
+  it('equips a wand without losing a shield or a two-handed weapon', () => {
+    const w = ritualist();
+    const weapon = makeEquipment({ baseId: 'great_maul', materialId: 'iron', rarity: Rarity.Common, ilvl: 4, identified: true });
+    const shield = makeEquipment({ baseId: 'tower_shield', materialId: 'iron', rarity: Rarity.Common, ilvl: 4, identified: true });
+    w.state.equipment.weapon = weapon;
+    w.state.equipment.offhand = shield;
+    w.state.ritesKnown = [];
+    expect(beginLabRite(w)).toBe(true);
+    expect(w.state.equipment.offhand?.ref).toBe('wand');
+    expect(w.state.stash.items.some(item => item.uid === weapon.uid && item.ref === weapon.ref)).toBe(true);
+    expect(w.state.stash.items.some(item => item.uid === shield.uid && item.ref === shield.ref)).toBe(true);
+    expect(w.state.ritesKnown).toContain('meteor');
+  });
+
+  it('places and resets the real studyable carving', () => {
+    const w = ritualist();
+    expect(spawnLabCarving(w)).toBe(true);
+    expect(w.state.ritesKnown).not.toContain('meteor');
+    expect(w.interactionHint()).toBe('Study the carving');
+    w.interact();
+    expect(w.state.ritesKnown).toContain('meteor');
+    const carving = w.floor.props.find(p => p.kind === 'carving')!;
+    expect(carving.used).toBe(true);
+    expect(spawnLabCarving(w)).toBe(true);
+    expect(carving.used).toBe(false);
+    expect(w.state.ritesKnown).not.toContain('meteor');
   });
 });
