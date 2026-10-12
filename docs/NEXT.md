@@ -1121,7 +1121,7 @@ the four biome laws, which come after.
 
 # 6. Rites: sigils you draw — **IDEA 2026-10-11, SLICED 2026-10-12**
 
-**Sliced:** Meteor end-to-end — depth-3 carving, study-to-learn, trace-to-cast on mouse, touch and gamepad with the world at 15%, full/weak/botch grading, once-per-floor plus burn-every-charge cost. Still open: Glacial Tomb, Judgement and the Great Penguining; milestone pacing (depth 5, first King kill, rising random chance); whether the marks live in a rereadable book or in memory.
+**Sliced:** Meteor end-to-end — depth-3 carving, study-to-learn, trace-to-cast on mouse, touch and gamepad with the world at 15%, full/weak/botch grading, repeatable two-charge casts (the original once-per-floor/all-charge restriction was removed after playtesting). Still open: Glacial Tomb, Judgement and the Great Penguining; milestone pacing (depth 5, first King kill, rising random chance); whether the marks live in a rereadable book or in memory.
 
 The user's idea, from their claudemancy tool (draw a sigil to cast a skill):
 cast by **drawing** instead of a button, with time slowed while you draw.
@@ -1131,19 +1131,20 @@ button (§4).
 
 ## What a rite is
 
-- **Very powerful, and rare to cast.** Once per floor, and it burns every
-  charge in your conduit. You save it for the moment that matters.
+- **Powerful, and repeatable.** Meteor costs two conduit charges and 25 stamina.
+  Its old once-per-floor/all-charge cost was removed after playtesting; ordinary
+  charge recovery controls how often it can be used.
 - **Drawn, in slow motion.** Hold the cast input; the world slows (to about
   15%, tuned so it is a dramatic beat, not a free pause); trace the sigil on
-  the view; release to cast. Only possible this rarely, which is what keeps it
-  from undoing Hard's real-time reading of wind-ups. Touch and mouse draw;
-  gamepad would need the right stick or a fallback.
+  the view; release to cast. Touch and mouse draw; gamepad uses the right stick.
+  Meteor uses a simple one-stroke falling bolt, with a large square drawing area.
 - **Drawing quality decides the outcome.** The recogniser's match score: a
   clean trace lands the full rite, a sloppy one a weaker one, a botch
   **backfires** (a curse, a hit to yourself, or a burst on your own tile).
   The risk is what keeps it exciting the tenth time.
-- **Recognition:** port claudemancy's $P point-cloud recogniser (~150 lines)
-  and its plain-text `.sigil` format, one stroke per sigil.
+- **Recognition:** claudemancy's $P point-cloud recogniser is ported, including
+  tilted templates and forgiving full/weak thresholds. The plain-text `.sigil`
+  authoring format remains future work.
 
 Example rites, one per element:
 

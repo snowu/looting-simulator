@@ -252,7 +252,6 @@ export function beginLabRite(world: World): boolean {
   world.state.ritesKnown ??= [];
   if (!world.state.ritesKnown.includes('meteor')) world.state.ritesKnown.push('meteor');
   refurbish(world);
-  world.run.riteCastDepth = null;
   world.held.clear();
   world.setBlock(false);
   world.placePlayer(world.player.x, world.player.y, world.player.facing);

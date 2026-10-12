@@ -35,6 +35,7 @@ import { giveMaterials } from './give-materials';
 
 let el: HTMLElement | null = null;
 let godTimer = 0;
+let godWorld: World | null = null;
 
 function weaponBases(): typeof ITEM_BASES {
   return ITEM_BASES.filter((b) => b.slot === 'weapon' || b.slot === 'thrown' || !!b.conduit);
@@ -47,10 +48,7 @@ function materialsFor(baseId: string): typeof MATERIALS {
 }
 
 export function closeLabPanel(): void {
-  if (godTimer) {
-    clearInterval(godTimer);
-    godTimer = 0;
-  }
+  // Closing the console (including to draw) must not change the lab's god mode.
   el?.remove();
   el = null;
 }
@@ -681,16 +679,25 @@ function buildUtilitySection(
   ));
   const godLabel = h('label', { class: 'small', style: 'display:flex;gap:6px;align-items:center;margin-bottom:4px' });
   const godBox = h('input', { attrs: { type: 'checkbox' } }) as HTMLInputElement;
+  godBox.checked = godTimer !== 0 && godWorld === getWorld();
   godLabel.append(godBox, document.createTextNode('Godmode (top up HP continuously)'));
   godBox.addEventListener('change', () => {
     if (godTimer) {
       clearInterval(godTimer);
       godTimer = 0;
     }
-    if (godBox.checked) {
+    godWorld = godBox.checked ? getWorld() : null;
+    if (godWorld) {
+      const watched = godWorld;
       godTimer = window.setInterval(() => {
         const w = getWorld();
-        if (!w) return;
+        // God mode belongs to this lab world, never to a later character/run.
+        if (w !== watched || w.run.outcome !== 'active') {
+          clearInterval(godTimer);
+          godTimer = 0;
+          godWorld = null;
+          return;
+        }
         if (w.player.hp < w.derived.maxHp) {
           w.player.hp = w.derived.maxHp;
           w.player.stamina = w.derived.maxStamina;

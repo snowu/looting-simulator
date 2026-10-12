@@ -1,3 +1,4 @@
+import { RITES } from '../data/rites';
 import type { RiteGrade, TracePoint } from '../systems/rite-draw';
 
 /** Browser port of snowu/claudemancy's canvas.go, main.go and mandala.go:
@@ -7,6 +8,7 @@ import type { RiteGrade, TracePoint } from '../systems/rite-draw';
  */
 const SIZE = 256;
 const MAX_SPARKS = 1200;
+const STROKE_EDGE = [[-1, 0], [1, 0], [0, -1], [0, 1]] as const;
 const HEAT = [
   [0, 70, 12, 0], [0.35, 190, 55, 0], [0.7, 255, 130, 20],
   [1, 255, 190, 80], [1.5, 255, 248, 225],
@@ -115,7 +117,7 @@ export class RiteFire {
       const a = this.points[i - 1], b = this.points[i];
       let heat = alpha * (0.88 + 0.12 * Math.sin(this.time * 18 + i * 0.45));
       if (this.state !== 'fizzle' && this.random() < 0.03) heat = alpha * 1.45;
-      this.line(a.x * SIZE, a.y * SIZE, b.x * SIZE, b.y * SIZE, heat);
+      this.line(a.x * SIZE, a.y * SIZE, b.x * SIZE, b.y * SIZE, heat, true);
     }
     const tip = this.points.at(-1);
     if (tip && drawing && this.state === 'draw') this.circle(tip.x * SIZE, tip.y * SIZE, 1.5, 1.4);
@@ -150,9 +152,13 @@ export class RiteFire {
     this.intensity[i] = Math.max(this.intensity[i], v);
     if (line) this.lines[i] = Math.max(this.lines[i], v);
   }
-  private line(x0: number, y0: number, x1: number, y1: number, v: number): void {
+  private line(x0: number, y0: number, x1: number, y1: number, v: number, thick = false): void {
     const n = Math.ceil(Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0))) + 1;
-    for (let i = 0; i <= n; i++) this.plot(x0 + (x1 - x0) * i / n, y0 + (y1 - y0) * i / n, v);
+    for (let i = 0; i <= n; i++) {
+      const x = x0 + (x1 - x0) * i / n, y = y0 + (y1 - y0) * i / n;
+      this.plot(x, y, v);
+      if (thick) for (const [dx, dy] of STROKE_EDGE) this.plot(x + dx, y + dy, v * 0.9);
+    }
   }
   private circle(x: number, y: number, r: number, v: number): void {
     if (r < 1) return;
@@ -172,10 +178,10 @@ export class RiteFire {
     for (const [radius, heat] of [[1, 1], [0.955, 0.8], [0.8, 0.9], [0.62, 0.85], [0.26, 1], [0.2, 0.7]]) this.circle(cx, cy, r * radius, v * heat);
     const radial = (r0: number, r1: number, a: number, heat: number) => this.line(cx + r * r0 * Math.cos(a), cy + r * r0 * Math.sin(a), cx + r * r1 * Math.cos(a), cy + r * r1 * Math.sin(a), heat * v);
     for (let i = 0; i < 36; i++) radial(i % 3 === 0 ? 0.64 : 0.7, 0.78, -rot * 1.4 + i * Math.PI / 18, 0.75);
-    // Meteor's rune band is made of tiny incised M marks, avoiding terminal font cells.
+    // The rune band repeats the same drawable bolt as the guide and carving.
     for (let i = 0; i < 18; i++) {
       const a = rot + i * Math.PI / 9, x = cx + r * 0.877 * Math.cos(a), y = cy + r * 0.877 * Math.sin(a), s = r * 0.035;
-      const pts = [[-1, 1], [-1, -1], [0, 0], [1, -1], [1, 1]];
+      const pts = RITES[0].template.map(([x, y]) => [(x - 0.5) * 2, (y - 0.5) * 2]);
       for (let j = 1; j < pts.length; j++) this.line(x + pts[j - 1][0] * s, y + pts[j - 1][1] * s, x + pts[j][0] * s, y + pts[j][1] * s, v * (0.85 + 0.15 * Math.sin(this.elapsed * 7 + i * 1.7)));
     }
     for (let k = 0; k < 2; k++) for (let i = 0; i < 4; i++) {

@@ -9,7 +9,7 @@ import { biomeForFloor } from './data/biomes';
 import { itemBase } from './data/items';
 import { quirkDef } from './data/quirks';
 import { findRite } from './data/rites';
-import { gradeRite } from './systems/rite-draw';
+import { gradeRite, type RiteGrade, type TracePoint } from './systems/rite-draw';
 import { World, WorldEvent } from './world/world';
 import { DungeonRenderer } from './render/dungeon-renderer';
 import { RiteFire } from './render/rite-fire';
@@ -230,6 +230,9 @@ const riteGuide = document.createElementNS('http://www.w3.org/2000/svg', 'polyli
 riteGuide.setAttribute('class', 'rite-guide');
 riteSurface.append(riteGuide);
 let ritePointer: number | null = null;
+let riteGradedPoints: readonly TracePoint[] | null = null;
+let riteGradedTail: TracePoint | undefined;
+let riteGrade: RiteGrade = 'botch';
 const retryRite = () => {
   if (world?.riteDraw) world.riteDraw.points = [];
 };
@@ -302,14 +305,20 @@ function drawRiteTrace(w: World): void {
   const def = findRite(draw.rite);
   if (!def) return;
   riteTitle.textContent = def.name;
-  riteHint.textContent = 'Trace the ember mark in one stroke. Release X or choose Cast.';
+  riteHint.textContent = 'Draw the bolt in one stroke. Release X or choose Cast.';
   riteGuide.setAttribute('points', def.template.map(([x, y]) => `${x * 100},${y * 100}`).join(' '));
   riteFire.trace(draw.points);
   const r = riteSurface.getBoundingClientRect(), parent = app.getBoundingClientRect();
   // Place the transparent canvas on the same square; it stays here when the panel closes.
   Object.assign(riteFireCanvas.style, { left: `${r.left - parent.left + 1}px`, top: `${r.top - parent.top + 1}px`, width: `${r.width - 2}px`, height: `${r.height - 2}px` });
-  const grade = gradeRite(draw.points, def.template);
-  riteStatus.textContent = draw.points.length < 2 ? 'Begin at either foot of the mark · Cancel costs nothing' :
+  const tail = draw.points.at(-1);
+  if (draw.points !== riteGradedPoints || tail !== riteGradedTail) {
+    riteGrade = gradeRite(draw.points, def.template);
+    riteGradedPoints = draw.points;
+    riteGradedTail = tail;
+  }
+  const grade = riteGrade;
+  riteStatus.textContent = draw.points.length < 2 ? 'Start at either tip of the bolt · Cancel costs nothing' :
     grade === 'full' ? 'The mark holds · Full power' : grade === 'weak' ? 'The mark flickers · Half power' : 'The mark is broken · Retry or risk the backlash';
   riteStatus.dataset.grade = draw.points.length < 2 ? '' : grade;
 }

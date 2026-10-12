@@ -176,16 +176,21 @@ export interface Projectile {
 export interface SpellFx {
   id: number;
   /** A spell's mark, or a surface's: a spore cloud, a burst of fire. */
-  kind: 'smite' | 'poof' | 'spores' | 'blast';
+  kind: 'smite' | 'poof' | 'spores' | 'blast' | 'meteor';
   x: number;
   y: number;
   /** Seconds since it appeared. */
   t: number;
   miss?: boolean;
+  /** A rolled Meteor hit waiting for its falling star to land; never saved. */
+  meteor?: { target: EnemyState; damage: number; crit: boolean };
+  weak?: boolean;
 }
 
 /** How long each mark lasts, in seconds. */
-export const SPELL_FX_SECONDS: Record<SpellFx['kind'], number> = { smite: 0.55, poof: 0.7, spores: 0.9, blast: 0.6 };
+export const SPELL_FX_SECONDS: Record<SpellFx['kind'], number> = { smite: 0.55, poof: 0.7, spores: 0.9, blast: 0.6, meteor: 1.4 };
+export const METEOR_FALL_SECONDS = 0.45;
+export const METEOR_POWER_PER_CHARGE = 1.5;
 
 type Move = 'forward' | 'back' | 'left' | 'right';
 type Action = Move | 'turnLeft' | 'turnRight';
@@ -298,6 +303,7 @@ const GUARD_PENDING_MAX = 0.5;
 export const RITE_SLOWMO = 0.15;
 /** What it costs to finish a trace, win or lose: the stamina half of the price. */
 export const RITE_STAMINA = 25;
+export const RITE_CHARGE_COST = 2;
 /**
  * Opening a mimic, Dark Souls style: it snaps shut on you, chews for
  * MIMIC_GRAB seconds and bites once for MIMIC_BITE times its normal blow,
@@ -1443,6 +1449,7 @@ export class World {
     const spot = stairsFront(arrive);
     this.placePlayer(spot.x, spot.y, spot.facing);
     this.projectiles = [];
+    this.spellFx = [];
     this.pathCache.clear();
     // A new floor means a new path: stale trail entries point at tiles on the
     // floor you just left, and a backstep within 2s of the stairs would read
@@ -1867,7 +1874,7 @@ export class World {
 
   /**
    * Whether the trace input may open right now. A rite needs a conduit with
-   * something in it to burn, a floor that has not heard one yet, breath,
+   * two charges to burn, breath,
    * and still feet. Every refusal says why, like a cast's.
    */
   riteReady(id: string): boolean {
@@ -1879,10 +1886,8 @@ export class World {
     }
     if (!this.riteAvailable(id)) {
       const pool = this.run.conduit;
-      if (!this.derived.conduit || !pool || pool.charges <= 0) {
-        this.msg('Your conduit is spent — a rite burns every charge in it.', '#9a8fd8');
-      } else if ((this.run.riteCastDepth ?? null) === this.run.depth) {
-        this.msg('This floor has already heard a rite. It will not answer twice.', '#888');
+      if (!this.derived.conduit || !pool || pool.charges < RITE_CHARGE_COST) {
+        this.msg(`Meteor needs ${RITE_CHARGE_COST} conduit charges. They recover between casts.`, '#9a8fd8');
       } else if (this.player.stamina < RITE_STAMINA) {
         this.msg(`Not enough breath for a rite — ${RITE_STAMINA} needed.`, '#ff9070');
       }
@@ -1897,8 +1902,7 @@ export class World {
     if (!(this.state.ritesKnown ?? []).includes(id)) return false;
     if (this.riteDraw || this.busy || this.moving || this.anim.attack !== 'idle' || this.anim.cast || this.anim.stunT > 0) return false;
     const pool = this.run.conduit;
-    if (!this.derived.conduit || !pool || pool.charges <= 0) return false;
-    if ((this.run.riteCastDepth ?? null) === this.run.depth) return false;
+    if (!this.derived.conduit || !pool || pool.charges < RITE_CHARGE_COST) return false;
     if (this.player.stamina < RITE_STAMINA) return false;
     return true;
   }
@@ -1937,7 +1941,7 @@ export class World {
   }
 
   /**
-   * Close the trace and pay for it. The stamina and every charge burn
+   * Close the trace and pay for it. The stamina and two charges burn
    * whatever the trace grades — a botch backfires on top, it never refunds.
    */
   endRiteDraw(): boolean {
@@ -1947,10 +1951,11 @@ export class World {
     const def = findRite(draw.rite);
     if (!def) return false;
     const pool = this.run.conduit;
-    if (!pool || pool.charges <= 0 || (this.run.riteCastDepth ?? null) === this.run.depth) return false;
+    if (!pool || pool.charges < RITE_CHARGE_COST) return false;
     this.player.stamina = Math.max(0, this.player.stamina - RITE_STAMINA);
     this.anim.sinceStamina = 0;
-    pool.charges = 0;
+    const charges = RITE_CHARGE_COST;
+    pool.charges -= charges;
     pool.regrow = 0;
     this.run.riteCastDepth = this.run.depth;
     const grade: RiteGrade = gradeRite(draw.points, def.template);
@@ -1960,7 +1965,7 @@ export class World {
       this.botchedRite();
       return true;
     }
-    this.castMeteor(def, grade);
+    this.castMeteor(def, grade, charges);
     return true;
   }
 
@@ -1972,35 +1977,47 @@ export class World {
     return live.filter((e) => manhattan(e.x, e.y, this.player.x, this.player.y) <= 4 && this.los(this.player.x, this.player.y, e.x, e.y));
   }
 
-  /**
-   * Meteor: fire falls on every monster in the room, scored like an Ember
-   * Bolt at half again the conduit's Power. A weak trace brings half of
-   * that; what lands still burns, and still weaves your next blow.
-   */
-  private castMeteor(def: { id: string; name: string; element: Element }, grade: RiteGrade): void {
-    const meteor = { ...conduitSpell('ember_bolt'), power: 1.5 * (grade === 'weak' ? 0.5 : 1) };
+  /** Each spent charge contributes to the skyfall; damage lands with the impact. */
+  private castMeteor(def: { id: string; name: string; element: Element }, grade: RiteGrade, charges: number): void {
+    const meteor = { ...conduitSpell('ember_bolt'), power: METEOR_POWER_PER_CHARGE * charges * (grade === 'weak' ? 0.5 : 1) };
     const view = spellView(this.derived, meteor);
-    const targets = this.riteTargets();
-    if (!targets.length) this.msg(`${def.name} finds an empty room.`, '#888');
+    const targets = this.riteTargets().filter(e => !this.protectedByFog(e));
     for (const e of targets) {
       const enemy = this.view(e);
       const hit = playerHitsEnemy(this.rng, view, 1, enemy, defensePower(e.power) * this.diff.enemyDefense);
-      this.hurt(e, hit.damage, hit.crit ? `${hit.damage}!` : `${hit.damage}`, hit.crit ? '#ffe040' : '#ff9a50');
-      e.alert = 8;
-      e.lastSeenX = this.player.x;
-      e.lastSeenY = this.player.y;
-      recordDamageDealt(this.state.bestiary, enemy.id, hit.damage);
-      if (hit.damage > 0) {
-        e.burn = { t: BURN_SECONDS, left: (e.burn?.left ?? 0) + Math.max(1, Math.round(hit.damage * BURN_SHARE)), acc: e.burn?.acc ?? 0 };
-      }
-      if (e.hp <= 0) this.killEnemy(e);
-      else this.slip(e);
+      this.spellFx.push({ id: this.projN++, kind: 'meteor', x: e.x, y: e.y, t: 0,
+        weak: grade === 'weak', meteor: { target: e, damage: hit.damage, crit: hit.crit } });
+    }
+    if (!targets.length) {
+      // Empty-room tests still show the skyfall; no creature means no damage.
+      let tile = this.frontTile(2);
+      if (blocksMove(this.floor, tile.x, tile.y) || this.crossesBossBoundary(this.player.x, this.player.y, tile.x, tile.y)) tile = this.frontTile();
+      if (blocksMove(this.floor, tile.x, tile.y) || this.crossesBossBoundary(this.player.x, this.player.y, tile.x, tile.y)) tile = this.player;
+      this.spellFx.push({ id: this.projN++, kind: 'meteor', x: tile.x, y: tile.y, t: 0, weak: grade === 'weak' });
+      this.msg(`${def.name} falls on empty stone.`, '#888');
     }
     this.weaveFrom(meteor);
     this.sfx('magic');
-    this.emit({ type: 'shake', amount: 0.6 });
     this.emit({ type: 'float', x: this.player.x, y: this.player.y, text: grade === 'weak' ? 'Meteor, thinly!' : 'Meteor!', color: '#ff9a50' });
-    this.msg(grade === 'weak' ? 'The trace wavers: a thin meteor answers.' : 'The sky answers: meteor falls in the room.', '#ff9a50');
+    this.msg(grade === 'weak' ? 'The trace wavers: a thin meteor answers.' : `The sky answers: ${charges} charges fall as fire.`, '#ff9a50');
+  }
+
+  private landMeteor(fx: SpellFx): void {
+    const pending = fx.meteor;
+    if (pending && this.protectedByFog(pending.target)) { delete fx.meteor; return; }
+    // Impacts use the same elemental reaction path as bolts and burning feet.
+    this.elementReaches(fx.x, fx.y, 'fire');
+    delete fx.meteor;
+    if (!pending || pending.target.ai === 'dead' || this.protectedByFog(pending.target)) return;
+    const { target: e, damage, crit } = pending;
+    this.hurt(e, damage, crit ? `${damage}!` : `${damage}`, crit ? '#ffe040' : '#ff9a50');
+    e.alert = 8;
+    e.lastSeenX = this.player.x;
+    e.lastSeenY = this.player.y;
+    recordDamageDealt(this.state.bestiary, this.view(e).id, damage);
+    if (damage > 0) e.burn = { t: BURN_SECONDS, left: (e.burn?.left ?? 0) + Math.max(1, Math.round(damage * BURN_SHARE)), acc: e.burn?.acc ?? 0 };
+    if (e.hp <= 0) this.killEnemy(e);
+    else this.slip(e);
   }
 
   /** A botched trace brings the fire down on your own tile instead. */
@@ -2487,7 +2504,22 @@ export class World {
   private updateConduit(dt: number): void {
     const a = this.anim;
     if (this.spellFx.length) {
-      for (const fx of this.spellFx) fx.t += dt;
+      let landed = false;
+      for (const fx of this.spellFx) {
+        const before = fx.t;
+        fx.t += dt;
+        if (fx.kind !== 'meteor') continue;
+        if (fx.meteor && fx.meteor.target.ai !== 'dead') { fx.x = fx.meteor.target.x; fx.y = fx.meteor.target.y; }
+        if (before < METEOR_FALL_SECONDS && fx.t >= METEOR_FALL_SECONDS) {
+          this.landMeteor(fx);
+          landed = true;
+        }
+      }
+      if (landed) {
+        this.sfx('meteor');
+        this.emit({ type: 'shake', amount: 0.8 });
+        this.emit({ type: 'sigil', r: 1, g: 0.3, b: 0.06, strength: 0.35 });
+      }
       this.spellFx = this.spellFx.filter((fx) => fx.t < SPELL_FX_SECONDS[fx.kind]);
     }
     if (a.weave) {
@@ -3390,7 +3422,7 @@ export class World {
     p.used = true;
     this.sfx('secret', p.x, p.y);
     this.emit({ type: 'float', x: p.x, y: p.y, text: def.name, color: '#c8a0ff' });
-    this.msg(`You study the carving: ${def.name}. Hold X and trace its mark to cast it — once per floor, for every charge in your conduit.`, '#c8a0ff');
+    this.msg(`You study the carving: ${def.name}. Hold X and trace its mark to cast it — two charges each time, with no floor limit.`, '#c8a0ff');
   }
 
   private placeHunterMark(f: Floor): void {

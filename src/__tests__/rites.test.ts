@@ -12,7 +12,7 @@ import { derivePlayer } from '../systems/player';
 import { startRun } from '../systems/run';
 import { createEnemy, FLOOR, inRoom } from '../systems/dungeon';
 import { enemyDef } from '../data/enemies';
-import { World } from '../world/world';
+import { RITE_CHARGE_COST, World } from '../world/world';
 import { beginLabRite, spawnLabCarving } from '../dev/lab-room';
 
 const TEMPLATE = RITES[0].template;
@@ -63,10 +63,10 @@ describe('the recogniser', () => {  it('grades a clean trace full, wherever and 
 
   it('forgives a shaky hand but not a wrong shape', () => {
     expect(matchRite(jittered(alongTemplate(), 0.03), TEMPLATE)).toBeGreaterThan(0.8);
-    // A straight line is not an M.
+    // A straight line is not a falling bolt.
     const line = Array.from({ length: 40 }, (_, i) => ({ x: 0.1 + (0.8 * i) / 39, y: 0.5 }));
     expect(gradeRite(line, TEMPLATE)).toBe('botch');
-    // A square is not an M either.
+    // A square is not a falling bolt either.
     const square = [
       ...Array.from({ length: 10 }, (_, i) => ({ x: 0.2 + (0.6 * i) / 9, y: 0.2 })),
       ...Array.from({ length: 10 }, (_, i) => ({ x: 0.8, y: 0.2 + (0.6 * i) / 9 })),
@@ -76,14 +76,25 @@ describe('the recogniser', () => {  it('grades a clean trace full, wherever and 
     expect(gradeRite(square, TEMPLATE)).toBe('botch');
   });
 
+  it('accepts rounded corners and tilted hand drawing, but not a diagonal swipe', () => {
+    const rounded = [[.7,.12],[.45,.3],[.3,.44],[.4,.47],[.62,.46],[.52,.62],[.28,.87]].map(([x,y])=>({x,y}));
+    expect(gradeRite(rounded, TEMPLATE)).toBe('full');
+    const a = 12 * Math.PI / 180;
+    const tilted = alongTemplate().map(p=>({x:p.x*Math.cos(a)-p.y*Math.sin(a),y:p.x*Math.sin(a)+p.y*Math.cos(a)}));
+    expect(gradeRite(tilted, TEMPLATE)).toBe('full');
+    const swipe = Array.from({length:40},(_,i)=>({x:i/39,y:i/39}));
+    expect(gradeRite(swipe, TEMPLATE)).toBe('botch');
+  });
+
   it('a tap is never a trace', () => {
     expect(gradeRite([{ x: 0.5, y: 0.5 }], TEMPLATE)).toBe('botch');
     expect(gradeRite(Array.from({ length: 20 }, () => ({ x: 0.5, y: 0.5 })), TEMPLATE)).toBe('botch');
   });
 
   it('a shaky trace still reads, but only weakly past a point', () => {
-    expect(gradeRite(jittered(alongTemplate(), 0.05), TEMPLATE)).toBe('weak');
-    expect(gradeRite(jittered(alongTemplate(), 0.15), TEMPLATE)).toBe('botch');
+    expect(gradeRite(jittered(alongTemplate(), 0.05), TEMPLATE)).toBe('full');
+    expect(gradeRite(jittered(alongTemplate(), 0.15), TEMPLATE)).toBe('weak');
+    expect(gradeRite(jittered(alongTemplate(), 0.35), TEMPLATE)).toBe('botch');
   });
 });
 
@@ -91,14 +102,15 @@ const conduit = (baseId: 'wand' | 'rod', materialId = baseId === 'wand' ? 'ironw
   makeEquipment({ baseId, materialId, rarity: Rarity.Common, ilvl: 4, quality: 1, identified: true });
 
 /** A cleared room, a wand in the offhand, Meteor already learned. */
-function ritualist(): World {
+function ritualist(base: 'wand' | 'rod' = 'wand'): World {
   const state = newGame(createRng(91));
-  state.equipment.offhand = conduit('wand');
+  state.equipment.offhand = conduit(base);
   state.ritesKnown = ['meteor'];
   startRun(state, 91);
   const w = new World(state);
   w.floor.enemies = [];
   w.floor.traps = [];
+  w.floor.surfaces = [];
   const x = 10, y = 10;
   Object.assign(w.player, { x, y, facing: 0 });
   for (let yy = y - 7; yy <= y + 7; yy++) for (let xx = x - 7; xx <= x + 7; xx++) w.floor.tiles[yy * w.floor.width + xx] = FLOOR;
@@ -177,18 +189,22 @@ describe("Meteor's carving", () => {
 });
 
 describe('casting Meteor', () => {
-  it('refuses without a conduit, and refuses the same floor twice', () => {
+  it('refuses without a conduit, but allows repeated casts on the same floor', () => {
     const bare = ritualist();
     bare.state.equipment.offhand = null;
     bare.refreshDerived();
     expect(bare.beginRiteDraw('meteor')).toBe(false);
-    const w = ritualist();
+    const w = ritualist('rod');
+    w.run.riteCastDepth = w.run.depth; // Legacy saves must not keep the old lock.
     expect(trace(w, alongTemplate())).toBe(true);
+    expect(w.run.conduit!.charges).toBe(2);
+    expect(trace(w, alongTemplate())).toBe(true);
+    expect(w.run.conduit!.charges).toBe(0);
     expect(w.beginRiteDraw('meteor')).toBe(false);
     expect(w.endRiteDraw()).toBe(false);
   });
 
-  it('a clean trace burns every charge and brings the sky down on the room', () => {
+  it('a clean trace spends two charges and brings the sky down on the room', () => {
     const w = ritualist();
     const room = playerRoom(w);
     const e1 = roomTarget(w, room.x, room.y);
@@ -197,10 +213,13 @@ describe('casting Meteor', () => {
     const charges = w.run.conduit!.charges;
     expect(charges).toBeGreaterThan(0);
     expect(trace(w, alongTemplate())).toBe(true);
+    expect(e1.hp).toBe(400);
+    expect(w.spellFx.filter(fx => fx.kind === 'meteor')).toHaveLength(2);
+    for (let i = 0; i < 20; i++) w.update(0.025);
     expect(e1.hp).toBeLessThan(400);
     expect(e2.hp).toBeLessThan(400);
     expect(e1.burn).toBeDefined();
-    expect(w.run.conduit!.charges).toBe(0);
+    expect(w.run.conduit!.charges).toBe(charges - RITE_CHARGE_COST);
     expect(w.run.riteCastDepth).toBe(w.run.depth);
     expect(w.anim.weave?.element).toBe('fire');
     expect(w.drainEvents().find(e => e.type === 'rite')).toMatchObject({ grade: 'full' });
@@ -229,6 +248,69 @@ describe('casting Meteor', () => {
     expect(gradeRite(w.riteDraw!.points, TEMPLATE)).toBe('full');
   });
 
+  it('keeps a strong repeatable hit, with weak traces halving it', () => {
+    const damage = (points = alongTemplate()) => {
+      const w = ritualist();
+      const r = playerRoom(w);
+      const target = roomTarget(w, r.x, r.y);
+      expect(trace(w, points)).toBe(true);
+      for (let i = 0; i < 20; i++) w.update(0.025);
+      return 400 - target.hp;
+    };
+    const full = damage(), weak = damage(jittered(alongTemplate(), 0.15));
+    expect(full).toBeGreaterThan(0);
+    expect(weak).toBeLessThan(full * 0.6);
+    expect(weak).toBeGreaterThan(full * 0.4);
+  });
+
+  it('can be cast again after charges recover, without changing floor', () => {
+    const w = ritualist();
+    expect(trace(w, alongTemplate())).toBe(true);
+    expect(w.run.conduit!.charges).toBe(1);
+    expect(w.beginRiteDraw('meteor')).toBe(false);
+    for (let i = 0; i < 260; i++) w.update(0.05);
+    expect(w.beginRiteDraw('meteor')).toBe(true);
+  });
+
+  it('ignites oil when an empty-room meteor lands', () => {
+    const w = ritualist();
+    expect(trace(w, alongTemplate())).toBe(true);
+    const fx = w.spellFx.find(fx => fx.kind === 'meteor')!;
+    w.floor.surfaces = [{ x: fx.x, y: fx.y, kind: 'oil' }];
+    expect(w.floor.surfaces[0].kind).toBe('oil');
+    for (let i = 0; i < 20; i++) w.update(0.025);
+    expect(w.floor.surfaces[0].kind).toBe('fire');
+  });
+
+  it('shows a falling star in an empty room without hurting the caster', () => {
+    const w = ritualist();
+    const hp = w.player.hp;
+    expect(trace(w, alongTemplate())).toBe(true);
+    expect(w.spellFx.some(fx => fx.kind === 'meteor')).toBe(true);
+    for (let i = 0; i < 20; i++) w.update(0.025);
+    expect(w.player.hp).toBe(hp);
+    expect(w.drainEvents().some(e => e.type === 'sfx' && e.name === 'meteor')).toBe(true);
+  });
+
+  it('cannot land a pending hit across the living throne boundary', () => {
+    const w = ritualist();
+    const room = playerRoom(w);
+    room.role = 'throne';
+    const king = roomTarget(w, room.x + 1, room.y + 1, 'ashen_king');
+    expect(trace(w, alongTemplate())).toBe(true);
+    w.placePlayer(room.x - 1, room.y, 1);
+    for (let i = 0; i < 20; i++) w.update(0.025);
+    expect(king.hp).toBe(400);
+  });
+
+  it('clears pending impacts when leaving the floor', () => {
+    const w = ritualist();
+    expect(trace(w, alongTemplate())).toBe(true);
+    expect(w.spellFx.length).toBeGreaterThan(0);
+    w.changeFloorForTest('down');
+    expect(w.spellFx).toHaveLength(0);
+  });
+
   it('a botched trace burns the charges and the caster', () => {
     const w = ritualist();
     const hp = w.player.hp;
@@ -236,8 +318,7 @@ describe('casting Meteor', () => {
     expect(trace(w, Array.from({ length: 20 }, () => ({ x: 0.5, y: 0.5 })))).toBe(true);
     expect(w.player.hp).toBeLessThan(hp);
     expect(w.drainEvents().find(e => e.type === 'rite')).toMatchObject({ grade: 'botch' });
-    expect(w.run.conduit!.charges).toBe(charges - charges);
-    expect(w.run.conduit!.charges).toBe(0);
+    expect(w.run.conduit!.charges).toBe(charges - RITE_CHARGE_COST);
   });
 });
 
@@ -250,7 +331,7 @@ describe('rite testing in the scratch lab', () => {
     expect(beginLabRite(w)).toBe(true);
     expect(w.state.equipment.offhand).toBe(wand);
     expect(w.run.conduit!.charges).toBeGreaterThan(0);
-    expect(w.run.riteCastDepth).toBeNull();
+    expect(w.run.riteCastDepth).toBe(w.run.depth);
     for (const p of alongTemplate()) w.addRitePoint(p.x, p.y);
     expect(w.endRiteDraw()).toBe(true);
   });

@@ -103,9 +103,8 @@ export interface RunState {
    */
   conduit?: { charges: number; regrow: number; sel: number };
   /**
-   * The depth a rite was last cast on. A rite answers once per floor, so a
-   * cast is refused while this names the floor you stand on. Absent means
-   * no rite has ever been cast.
+   * Legacy record of the last cast depth, retained for save compatibility.
+   * It no longer limits how often a rite can be cast.
    */
   riteCastDepth?: number | null;
   /**

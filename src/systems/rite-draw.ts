@@ -1,13 +1,7 @@
-/**
- * The rite recogniser: an ordered, arc-length-resampled path matcher. A trace is
- * resampled to 32 evenly spaced points, normalised into a unit box
- * (position and size mean nothing; shape means everything), and scored
- * against the rite's template in both stroke directions — an M drawn
- * right-to-left is still an M.
- *
- * Scores run 0..1: 1 is a perfect trace. A tap or a dot is not a trace at
- * all and always botches, so pressing the input without drawing can never
- * cast for free.
+/** Claudemancy's $P point-cloud matcher, adapted for one-stroke rites.
+ * Even arc-length samples and a uniform unit-box scale preserve shape while
+ * forgiving speed, direction and small tilts. A conservative bend check keeps
+ * taps and straight swipes from masquerading as a zigzag.
  */
 export interface TracePoint {
   x: number;
@@ -21,8 +15,8 @@ const RESAMPLE_N = 32;
 const MIN_TRACE_POINTS = 2;
 const MIN_TRACE_LENGTH = 0.4;
 
-export const RITE_FULL_SCORE = 0.8;
-export const RITE_WEAK_SCORE = 0.6;
+export const RITE_FULL_SCORE = 0.65;
+export const RITE_WEAK_SCORE = 0.4;
 
 export function traceLength(points: readonly TracePoint[]): number {
   let len = 0;
@@ -58,35 +52,59 @@ function resample(points: readonly TracePoint[], n: number): TracePoint[] {
 }
 
 function normalize(points: readonly TracePoint[]): TracePoint[] {
-  let cx = 0, cy = 0;
-  for (const p of points) {
-    cx += p.x;
-    cy += p.y;
-  }
-  cx /= points.length;
-  cy /= points.length;
-  let maxSide = 0;
-  for (const p of points) {
-    maxSide = Math.max(maxSide, Math.abs(p.x - cx), Math.abs(p.y - cy));
-  }
-  if (maxSide === 0) return points.map(() => ({ x: 0, y: 0 }));
-  return points.map((p) => ({ x: (p.x - cx) / maxSide, y: (p.y - cy) / maxSide }));
+  const xs = points.map(p => p.x), ys = points.map(p => p.y);
+  const minX = Math.min(...xs), minY = Math.min(...ys);
+  const size = Math.max(Math.max(...xs) - minX, Math.max(...ys) - minY, 1e-9);
+  const scaled = points.map(p => ({ x: (p.x - minX) / size, y: (p.y - minY) / size }));
+  const cx = scaled.reduce((sum, p) => sum + p.x, 0) / points.length;
+  const cy = scaled.reduce((sum, p) => sum + p.y, 0) / points.length;
+  return scaled.map(p => ({ x: p.x - cx, y: p.y - cy }));
 }
 
-function meanDistance(a: readonly TracePoint[], b: readonly TracePoint[]): number {
+function cloudDistance(a: readonly TracePoint[], b: readonly TracePoint[], start: number): number {
+  const matched = new Uint8Array(b.length);
   let sum = 0;
-  for (let i = 0; i < a.length; i++) sum += Math.hypot(a[i].x - b[i].x, a[i].y - b[i].y);
-  return sum / a.length;
+  for (let k = 0; k < a.length; k++) {
+    const p = a[(start + k) % a.length];
+    let best = Infinity, index = 0;
+    for (let j = 0; j < b.length; j++) if (!matched[j]) {
+      const distance = Math.hypot(p.x - b[j].x, p.y - b[j].y);
+      if (distance < best) { best = distance; index = j; }
+    }
+    matched[index] = 1;
+    sum += (1 - k / a.length) * best;
+  }
+  return sum;
 }
 
-/** 0..1 match of a raw trace against a raw template (either direction). */
+function cloudMatch(a: readonly TracePoint[], b: readonly TracePoint[]): number {
+  let best = Infinity;
+  const step = Math.floor(Math.sqrt(a.length));
+  for (let i = 0; i < a.length; i += step) best = Math.min(best, cloudDistance(a, b, i), cloudDistance(b, a, i));
+  return best;
+}
+
+function bendRatio(points: readonly TracePoint[]): number {
+  const first = points[0], last = points[points.length - 1];
+  return traceLength(points) / Math.max(Math.hypot(last.x - first.x, last.y - first.y), 0.01);
+}
+
+/** 0..1 match, with Claudemancy's tilted templates and greedy cloud distance. */
 export function matchRite(points: readonly TracePoint[], template: readonly (readonly [number, number])[]): number {
-  if (points.length < MIN_TRACE_POINTS || traceLength(points) < MIN_TRACE_LENGTH) return 0;
-  const norm = normalize(resample(points, RESAMPLE_N));
-  const ref = normalize(resample(template.map(([x, y]) => ({ x, y })), RESAMPLE_N));
-  const fwd = meanDistance(norm, ref);
-  const rev = meanDistance(norm, [...ref].reverse());
-  return Math.max(0, 1 - Math.min(fwd, rev) / 0.5);
+  if (points.length < MIN_TRACE_POINTS || traceLength(points) < MIN_TRACE_LENGTH || points.some(p => !Number.isFinite(p.x) || !Number.isFinite(p.y))) return 0;
+  if (template.length < 2) return 0;
+  const rawRef = template.map(([x, y]) => ({ x, y }));
+  const sampled = resample(points, RESAMPLE_N);
+  // Round corners freely, but keep at least some of the template's bends.
+  if (bendRatio(sampled) < 1 + (Math.min(3, bendRatio(rawRef)) - 1) * 0.35) return 0;
+  const norm = normalize(sampled), ref = normalize(resample(rawRef, RESAMPLE_N));
+  let best = Infinity;
+  for (const degrees of [-15, 0, 15]) {
+    const angle = degrees * Math.PI / 180, cos = Math.cos(angle), sin = Math.sin(angle);
+    const tilted = ref.map(p => ({ x: p.x * cos - p.y * sin, y: p.x * sin + p.y * cos }));
+    best = Math.min(best, cloudMatch(norm, tilted));
+  }
+  return Math.max(0, 1 - best / 3);
 }
 
 export function gradeRite(points: readonly TracePoint[], template: readonly (readonly [number, number])[]): RiteGrade {

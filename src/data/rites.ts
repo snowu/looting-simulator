@@ -5,8 +5,8 @@ import type { Element } from '../types';
  * never by a button. Ordinary spells stay on the button; a rite is saved
  * for the moment that matters. See docs/NEXT.md §6 and MECHANICS.md.
  *
- * A rite is learned for good by studying its carving, costs every charge
- * in the worn conduit, and answers once per floor. Drawing quality decides
+ * A rite is learned for good by studying its carving, costs two charges
+ * in the worn conduit, and can be cast again as they recover. Drawing quality decides
  * the outcome: a clean trace lands the full rite, a sloppy one a weaker
  * one, a botch backfires.
  */
@@ -20,7 +20,7 @@ export interface RiteDef {
   element: Element;
   /** HUD and touch icon. */
   icon: string;
-  /** The mark, as vertices in a 0..1 box: an M for the falling star. */
+  /** The mark, as vertices in a 0..1 box: a single falling-bolt zigzag. */
   template: readonly (readonly [number, number])[];
   description: string;
 }
@@ -32,11 +32,10 @@ export const RITES: readonly RiteDef[] = [
     element: 'fire',
     icon: 'ic_rite_meteor',
     template: [
-      [0.15, 0.8],
-      [0.15, 0.2],
-      [0.5, 0.55],
-      [0.85, 0.2],
-      [0.85, 0.8],
+      [0.72, 0.12],
+      [0.28, 0.46],
+      [0.66, 0.46],
+      [0.28, 0.88],
     ],
     description: 'Fire falls on every monster in the room. A sloppy trace brings less of it; a botched one brings it down on you.',
   },

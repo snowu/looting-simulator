@@ -7,7 +7,7 @@ import { clamp } from '../core/math';
 export type SfxName =
   | 'step' | 'swing' | 'hit' | 'crit' | 'hurt' | 'block' | 'door' | 'locked' | 'unlock'
   | 'pickup' | 'gold' | 'chest' | 'break' | 'death' | 'enemyDie' | 'stairs' | 'shoot'
-   | 'magic' | 'study' | 'winded' | 'secret' | 'ui' | 'craft' | 'drink' | 'alert' | 'miss' | 'sell' | 'recall' | 'parry'
+   | 'magic' | 'meteor' | 'study' | 'winded' | 'secret' | 'ui' | 'craft' | 'drink' | 'alert' | 'miss' | 'sell' | 'recall' | 'parry'
   | 'kingturn' | 'snuff' | 'splash' | 'retrieve' | 'sigil' | 'sigil_land' | 'drip' | 'plop' | 'lava_drop' | 'lava_land' | 'lava_burst';
 
 export interface PlayOpts {
@@ -306,6 +306,11 @@ class AudioEngine {
       case 'shoot':
         this.noiseBurst(o, 0.2, 'bandpass', 3000 * r, 900, 0.4, 3);
         this.tone(o, 'triangle', 300 * r, 150, 0.08, 0.2);
+        break;
+      case 'meteor':
+        this.tone(o, 'sine', 110 * r, 28, 0.65, 0.5);
+        this.noiseBurst(o, 0.55, 'lowpass', 1800, 100, 0.7);
+        this.noiseBurst(o, 0.18, 'bandpass', 3500, 500, 0.3);
         break;
       case 'magic':
         this.tone(o, 'sine', 300 * r, 1200 * r, 0.35, 0.25);
