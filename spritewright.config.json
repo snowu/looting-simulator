@@ -1,5 +1,7 @@
 {
   "dirs": ["public/art"],
   "background": "#24212e",
+  "groups": "docs/art-groups.json",
+  "alpha": { "clear": 15, "solid": 245, "keep": [250] },
   "repo": { "slug": "snowu/looting-simulator", "base": "master" }
 }

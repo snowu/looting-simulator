@@ -1,9 +1,8 @@
-import { ELEMENTAL_VARIANT_IDS } from '../data/elemental-variants';
 import { iciclesFor } from './ceiling-decor';
 import { Rng, createRng, hashString } from '../core/rng';
 import { Dir, DIRS, DX, DY, turnAround, turnLeft, turnRight } from '../core/dir';
 import { BIOMES, biomeForDepth, FINAL_DEPTH } from '../data/biomes';
-import { BOSS_ID, ENEMIES, enemyDef } from '../data/enemies';
+import { BOSS_ID, enemyDef, spawnPool } from '../data/enemies';
 import { DifficultyId, DifficultyDef, DIFFICULTIES, difficultyOf } from '../data/difficulty';
 import { DamageType, EnemyDef, Item } from '../types';
 import { ELITE_HP_MULT, EliteTrait, IRONHIDE_HP_MULT, eliteFor } from '../data/elites';
@@ -1200,10 +1199,7 @@ function tryGenerate(
     occupied.add(idx(x, y));
     enemies.push(createEnemy(def, x, y, rng.pick(DIRS), `e${enemyN++}`, depth, diff.id));
   };
-  const pool = ENEMIES.filter((e) => e.weight > 0 && e.minDepth <= depth && depth <= e.maxDepth
-    && (!e.onlyIn || e.onlyIn.includes(biome.id))
-    && (!ELEMENTAL_VARIANT_IDS.has(e.id) || e.element === biome.element)
-    && !(biome.element && e.element && e.element !== biome.element));
+  const pool = spawnPool(biome, depth);
   const roomTiles = (r: Room) => {
     const out: [number, number][] = [];
     for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {

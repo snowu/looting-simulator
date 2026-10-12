@@ -41,11 +41,18 @@ describe('your Shade', () => {
     const painted = { w: 16, h: 16, data: new Uint8ClampedArray(16 * 16 * 4) };
     for (let y = 2; y < 14; y++) { const i = (y * 16 + 8) * 4; painted.data.set([0xab, 0xcd, 0xef, 255], i); }
     const asked: string[] = [];
-    const kitted = composeShade('0', { icon: 'ic_long_sword' }, undefined, undefined, (id) => (asked.push(id), painted));
-    expect(asked).toEqual(['ic_long_sword']);
+    const body = rasterize(getArt('shade_0')!);
+    const kitted = composeShade('0', { icon: 'ic_long_sword' }, undefined, undefined, (id) => (asked.push(id), id === 'shade_0' ? body : painted));
+    expect(asked).toEqual(['shade_0', 'ic_long_sword']);
     let found = false;
     for (let i = 0; i < kitted.data.length; i += 4) if (kitted.data[i] === 0xab && kitted.data[i + 1] === 0xcd) found = true;
     expect(found).toBe(true);
+  });
+
+  it('takes its body from the same source, so a repainted Shade PNG shows too', () => {
+    const repainted = { w: 32, h: 32, data: new Uint8ClampedArray(32 * 32 * 4).fill(0x42) };
+    const bare = composeShade('0', undefined, undefined, undefined, (id) => (id === 'shade_0' ? repainted : undefined));
+    expect(bare.data).toEqual(repainted.data);
   });
 
   it('keys its textures by frame and by kit', () => {
