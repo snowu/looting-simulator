@@ -28,6 +28,7 @@ import { TouchControls, TouchMove, isTouchDevice } from './ui/touch';
 import { sideMove, touchPrefs } from './ui/touch-prefs';
 import { TiltStrafe, requestTilt, tiltNeedsPermission } from './ui/tilt';
 import { OrientationGate, landscapeNow } from './ui/orientation-gate';
+import { PointerLock } from './ui/pointer-lock';
 import { GamepadController, type PadContext } from './ui/gamepad';
 import { FULLSCREEN_HELP, fullscreenSupported, isFullscreen, isStandalone, lockLandscape, mountFullscreenButton, wasButtonExit } from './ui/fullscreen';
 import { APP_VERSION, BUILD_ID, markResumeAfterUpdate, newerBuild, reloadToLatest, shouldAttemptReload, takeResumeAfterUpdate } from './ui/update';
@@ -83,6 +84,7 @@ document.documentElement.style.setProperty('--frame-gold', `url(${artUrl('ui_fra
 
 const canvas = h('canvas', { attrs: { id: 'view' } });
 app.append(canvas);
+const pointerLock = new PointerLock(canvas);
 const renderer = new DungeonRenderer(canvas);
 // A watched drop is heard when it lands, not while it is still falling.
 // Drops only ever fall in the catacombs (the pool clears on floor changes),
@@ -553,6 +555,8 @@ function show(m: Mode): void {
   pad.reset();
   canvas.style.visibility = m === 'dungeon' || m === 'title' ? 'visible' : 'hidden';
   canvas.classList.toggle('title-view', m === 'title');
+  // Menus need the cursor back.
+  if (m !== 'dungeon') pointerLock.release();
   if (m === 'title') {
     titleDirty = true;
     renderer.deathFade = 0;
@@ -1103,6 +1107,8 @@ function frame(now: number): void {
     // behind it, but nothing moves and nothing can hurt you while it is open.
     const paused = overlays.isOpen || isSettingsOpen() || gate.blocked;
     if (paused) world.retrieve(false);
+    // An open overlay needs the cursor back; a touch device never took it.
+    if (paused || touchMode) pointerLock.release();
     touch.visible = touchMode && !paused && !ending;
     if (touchMode) {
       touch.setAction(world.contextAction());
@@ -1285,9 +1291,11 @@ window.addEventListener('keyup', (e) => {
 });
 
 // Mouse: LMB attack, RMB block. (Touch goes through the drag zone in TouchControls.)
+// The same click pins the cursor to the view while the delve is live.
 canvas.addEventListener('pointerdown', (e) => {
   audio.unlock();
   if (!world || overlays.isOpen || isSettingsOpen() || e.pointerType !== 'mouse') return;
+  if (mode === 'dungeon' && !touchMode) pointerLock.request();
   if (e.button === 0) world.attack();
   if (e.button === 2) world.setBlock(true);
 });
@@ -1298,6 +1306,7 @@ window.addEventListener('mouseup', (e) => {
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 window.addEventListener('blur', () => {
   clearTouchHolds();
+  pointerLock.release();
   world?.held.clear();
   world?.retrieve(false);
   world?.setBlock(false);
@@ -1311,6 +1320,7 @@ window.addEventListener('beforeunload', () => commit());
 function goBackground(): void {
   commit();
   audio.suspend();
+  pointerLock.release();
   world?.held.clear();
   world?.setBlock(false);
   world?.retrieve(false);
