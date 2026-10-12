@@ -954,7 +954,7 @@ export class DungeonRenderer {
         const size = (k < 0.6 ? 0.8 + 0.6 * (k / 0.6) : 1.4 * (1 - (k - 0.6) / 0.4) + 0.1) * scale;
         // Hex's smoke, a spore cloud and a burst of fire share the one shape.
         const art = fx.kind === 'poof' ? 'fx_poof' : `fx_${fx.kind}`;
-        this.place(s, k < 0.45 ? art : `${art}_b`, wx, 0.15, wz, size * (fx.kind === 'poof' ? 1 : 1.5));
+        this.place(s, k < 0.45 ? art : `${art}_b`, wx, 0.15, wz, size * (fx.kind === 'poof' || fx.kind === 'frost' ? 1 : 1.5));
       }
     }
 
