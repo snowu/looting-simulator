@@ -301,9 +301,9 @@ export function derivePlayer(eq: Equipment, meta: MetaLevels, difficulty?: Diffi
   // Attack in `stats`; the spells see `conduit.power` of it on top.
   const conduitItem = offhandConduit ?? (eq.weapon && weapon?.conduit ? eq.weapon : null);
   const conduit = conduitItem ? itemBase(conduitItem.ref).conduit ?? null : null;
-  // A conduit fills the offhand but is not a shield: it does not wear on a
-  // block, does not flare for the parry, and guards only as well as its own
-  // Block says — the cost of carrying a spell instead.
+  // An offhand conduit is no guard at all: it absorbs nothing, so its bearer
+  // parries on a tighter window or takes the blow whole. (The Stave keeps its
+  // two-hander's 20%: it is a weapon first.)
   const hasShield = !twoHanded && !!eq.offhand && !offhandConduit;
   // Difficulty pads the health bar on Normal; Hard multiplies by exactly 1, so
   // the old number survives the round trip unchanged.
@@ -330,7 +330,9 @@ export function derivePlayer(eq: Equipment, meta: MetaLevels, difficulty?: Diffi
     // Clamped at zero: a relic that spends Block can drive the stat negative,
     // and a negative absorption would turn raising your guard into taking more.
     // Normal adds its bonus before the shield cap, so it can never lift a guard past 90%.
-    block: clamp((hasShield || offhandConduit ? stats.block / 100 : twoHanded ? 0.2 : weapon ? 0.3 : 0.12) + diff.blockBonus, 0, 0.9),
+    // An offhand conduit guards nothing at all — parry only — so it reads 0
+    // even on Normal: the display and the sim agree there is no guard to break.
+    block: offhandConduit ? 0 : clamp((hasShield ? stats.block / 100 : twoHanded ? 0.2 : weapon ? 0.3 : 0.12) + diff.blockBonus, 0, 0.9),
     hasShield,
     twoHanded,
     thrown: thrownProfile(eq.thrown),

@@ -54,24 +54,63 @@ function run(w: World, seconds: number): void {
 }
 
 describe('conduits', () => {
-  it('keep their Power out of your melee Attack and guard worse than a shield', () => {
+  type Guard = { damagePlayer(attack: number, type: 'slash', fromX: number, fromY: number, source: string, sourceId?: string, attacker?: unknown): void };
+  const guard = (w: World) => w as unknown as Guard;
+
+  it('keep their Power out of your melee Attack and guard nothing at all', () => {
     const state = newGame(createRng(90));
     const bare = derivePlayer({ ...state.equipment, offhand: null }, state.meta);
     const wand = derivePlayer({ ...state.equipment, offhand: conduit('wand') }, state.meta);
     expect(wand.attack).toBe(bare.attack);
     expect(wand.conduitPower).toBeGreaterThan(0);
     expect(wand.hasShield).toBe(false);
-    expect(wand.block).toBeCloseTo(0.3);
+    expect(wand.block).toBe(0);
     expect(wand.conduit?.slots).toBe(2);
   });
 
-  it('make the Rod better than the Wand on every axis', () => {
+  it('meet a mistimed blow whole: a raised guard absorbs nothing', () => {
+    // Same seed, same blow, twice: guard up past the window, and guard down.
+    // A shield would tell the two apart; a conduit takes both whole.
+    const dealt = (raise: boolean): number => {
+      const w = battlemage();
+      const e = target(w, 1);
+      if (raise) Object.assign(w.anim, { parryArmed: true, blockT: 1, blockRaise: 1 });
+      const hp = w.player.hp;
+      guard(w).damagePlayer(20, 'slash', e.x, e.y, 'Ghoul', 'ghoul', e);
+      return hp - w.player.hp;
+    };
+    const raised = dealt(true);
+    expect(raised).toBeGreaterThan(0);
+    expect(raised).toBe(dealt(false));
+  });
+
+  it('parry inside a tighter window, and only inside it', () => {
+    // Hard: 0.22s × 0.6 ≈ 0.13s. At 0.05s the blow is turned; at 0.18s —
+    // inside the old window — it lands whole, with no block to catch it.
+    const met = (blockT: number): { lost: number; vuln: number } => {
+      const w = battlemage();
+      const e = target(w, 1);
+      Object.assign(w.anim, { parryArmed: true, blockT, blockRaise: 1 });
+      const hp = w.player.hp;
+      guard(w).damagePlayer(20, 'slash', e.x, e.y, 'Ghoul', 'ghoul', e);
+      return { lost: hp - w.player.hp, vuln: e.vuln ?? 0 };
+    };
+    const inside = met(0.05);
+    expect(inside.lost).toBe(0);
+    expect(inside.vuln).toBeGreaterThan(0);
+    const outside = met(0.18);
+    expect(outside.lost).toBeGreaterThan(0);
+    expect(outside.vuln).toBe(0);
+  });
+
+  it('make the Rod better than the Wand on every axis but the guard, which neither has', () => {
     const wand = itemBase('wand'), rod = itemBase('rod');
     const state = newGame(createRng(90));
     const w = derivePlayer({ ...state.equipment, offhand: conduit('wand', 'ironwood') }, state.meta);
     const r = derivePlayer({ ...state.equipment, offhand: conduit('rod', 'iron') }, state.meta);
     expect(r.conduitPower).toBeGreaterThan(w.conduitPower);
-    expect(r.block).toBeGreaterThan(w.block);
+    expect(w.block).toBe(0);
+    expect(r.block).toBe(0);
     expect(r.stats.defense).toBeGreaterThan(w.stats.defense);
     expect(rod.conduit!.charges).toBeGreaterThan(wand.conduit!.charges);
     expect(rod.conduit!.slots).toBeGreaterThan(wand.conduit!.slots);

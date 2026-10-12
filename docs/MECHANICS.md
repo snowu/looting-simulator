@@ -59,13 +59,13 @@ Raising the guard opens a **0.22s window**. A hit that lands inside it is not ab
 
 | | |
 |---|---|
-| Window | 0.22s from the moment the guard starts to rise (0.35s on Normal) |
+| Window | 0.22s from the moment the guard starts to rise (0.35s on Normal); 0.13s with an offhand conduit (0.21s on Normal) |
 | Cooldown | 0.75s, measured from when the window opened |
 | Cost | Nothing. The cost is the risk of mistiming it |
-| Requires | Facing the attack. No shield needed — a weapon or bare hands parry the same |
+| Requires | Facing the attack. No shield needed — a weapon or bare hands parry the same; a conduit parries on the tighter window above |
 | Tell | Your shield flares pale gold while the window is open |
 
-**Holding the guard up does not parry.** The window only opens on the *rising edge*, and the cooldown means at best one attempt per 0.75s — against wind-ups of 0.35–0.8s you have to meet the swing, not sit behind the shield. Mistime it and it is a normal block, so there is no cliff.
+**Holding the guard up does not parry.** The window only opens on the *rising edge*, and the cooldown means at best one attempt per 0.75s — against wind-ups of 0.35–0.8s you have to meet the swing, not sit behind the shield. Mistime it and it is a normal block, so there is no cliff — unless the guard is a conduit, which blocks nothing and meets the blow whole.
 
 **Against melee:** the attacker is staggered for **1 second** (never shorter than the recovery it would have had) and takes **double damage** for that whole second. You are immune for the next **0.75s on Hard or 1.25s on Normal**, and other adjacent enemies are staggered for at least **0.25s**, preventing a cluster of near-simultaneous attacks from landing through a successful parry. Bosses are not exempt — this is the only way to open the Ashen King up, since he cannot be staggered out of his wind-up.
 
@@ -73,7 +73,7 @@ Raising the guard opens a **0.22s window**. A hit that lands inside it is not ab
 
 A volley can lose up to two closely stacked bolts to one timed parry; the follow-up is spent after the second reflection.
 
-*Files: `src/world/world.ts` — `PARRY_WINDOW`, `PARRY_COOLDOWN`, `PARRY_GRACE`, `MELEE_PARRY_*`, `PARRY_STUN`, `PARRY_VULN_MULT`; `src/data/difficulty.ts` — `parryGrace`*
+*Files: `src/world/world.ts` — `PARRY_WINDOW`, `CONDUIT_PARRY_WINDOW`, `PARRY_COOLDOWN`, `PARRY_GRACE`, `MELEE_PARRY_*`, `PARRY_STUN`, `PARRY_VULN_MULT`; `src/data/difficulty.ts` — `parryGrace`*
 
 **Life leech:** heals `damage × leech%` on every hit that lands.
 
@@ -1181,11 +1181,11 @@ A **conduit** is an offhand that casts instead of guarding: the battlemage's tra
 
 | Base | Material | Power (tier 1 / per tier) | Block | Charges | One back every | Spells loaded | From depth |
 |---|---|---|---|---|---|---|---|
-| Wand | wood | 10 / +3 | 30% | 3 | 9s | 2 | 1 (starter recipe) |
-| Rod | metal | 16 / +3.5, +2 Defense (+1/tier) | 40% | 4 | 7s | 3 | 3 (blueprint, 160g) |
+| Wand | wood | 10 / +3 | — (parry only) | 3 | 9s | 2 | 1 (starter recipe) |
+| Rod | metal | 16 / +3.5, +2 Defense (+1/tier) | — (parry only) | 4 | 7s | 3 | 3 (blueprint, 160g) |
 | Stave (2H weapon) | wood | 80% of its Attack: 26 / +6 Attack → 21 / +4.8 Power | 20% (two-hander) | 5 | 6s | 4 | 4 (blueprint, 220g) |
 
-The Rod is the Wand's step up its gear line (`['wand', 'rod']`) and is better on every axis. **Power** is the conduit's Attack, read off it alone the way a belt's is: it never reaches your melee Attack, and your sword never reaches a spell. A conduit is not a shield — it does not wear on a block, does not flare for the parry, and guards only as well as its own Block. **Parrying is unchanged.**
+The Rod is the Wand's step up its gear line (`['wand', 'rod']`) and is better on every axis. **Power** is the conduit's Attack, read off it alone the way a belt's is: it never reaches your melee Attack, and your sword never reaches a spell. A conduit is not a shield — it does not wear, does not flare for the parry, and an offhand one absorbs nothing at all: Wand and Rod are **parry-only**, on a tighter **0.13s** window (×0.6 the usual 0.22s; Normal scales both the same way), and a mistimed guard meets the blow whole.
 
 **The Stave** is a line of one (`['stave']`): a blunt two-hander (wind-up 0.32s, recovery 0.60s, 22 stamina, −4 Speed, the two-hander cleave, stagger 0.3) that is also the strongest conduit. Its Attack is a real melee Attack *and*, through `conduit.power` (0.8), its spell Power — the only base where one number feeds both. It pays a two-hander's price (no shield, 20% block) and swings lighter than the other three, since most of it is there to carry the stone. `PlayerDerived.conduitHand` says which hand holds the conduit; the cast lifts the Stave itself and lights its crown, where a Wand or Rod rises in the left hand.
 
