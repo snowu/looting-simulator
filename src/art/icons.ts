@@ -1,5 +1,5 @@
 import { ArtDef } from './raster';
-import { RITES } from '../data/rites';
+import { rite } from '../data/rites';
 import { rows, stamp, sym, traceRows } from './helpers';
 
 // 16×16 item icons. Ramp chars 1-4 are re-coloured per material at draw time;
@@ -1306,8 +1306,11 @@ export const ICONS: ArtDef[] = [
     ................
     ................
   `), { m: '#24123a', n: '#4a2a70', u: '#c8a8ff', v: '#f0e0ff', g: '#d0a040', p: '#e8dcc0', q: '#b8a078' }),
-  // The same falling bolt as the drawing guide, burning on dark stone.
-  sigilIcon('ic_rite_meteor', traceRows(RITES[0].template, 8, 8), '#ff8a30', '#3a1c12', '#6e3a24'),
+  // Each rite's mark, as drawn on its tablet, glowing on dark stone.
+  sigilIcon('ic_rite_meteor', traceRows(rite('meteor').template, 8, 8), '#ff8a30', '#3a1c12', '#6e3a24'),
+  sigilIcon('ic_rite_glacial_tomb', traceRows(rite('glacial_tomb').template, 8, 8), '#a8dcff', '#122a3a', '#24506e'),
+  sigilIcon('ic_rite_judgement', traceRows(rite('judgement').template, 8, 8), '#fff0a0', '#3a3212', '#6e5e24'),
+  sigilIcon('ic_rite_penguining', traceRows(rite('penguining').template, 8, 8), '#d0a8ff', '#24123a', '#4a2a70'),
   // A bound field journal: the codex page a kill can leave behind.
   icon('ic_lore', rows(`
     ................

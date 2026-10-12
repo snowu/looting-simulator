@@ -1262,7 +1262,7 @@ const CARVING_PAL = {
   k: '#171310', b: '#322923', d: '#54483b', c: '#89785e',
   f: '#b64d24fa', y: '#ffc071fa',
 };
-const CARVING = stamp(rows(`
+const CARVING_SLAB = rows(`
   ................................
   ................................
   ...........kkkkkkkk.............
@@ -1295,7 +1295,22 @@ const CARVING = stamp(rows(`
   ....kkkkkkkkkkkkkkkkkkkk........
   ................................
   ................................
-`), traceRows(RITES[0].template, 8, 10, 'y'), 11, 8);
+`);
+/** Each rite's slab carries its own mark, cut glowing in its element's light. */
+const CARVING_GLOW: Record<string, { f: string; y: string }> = {
+  fire: { f: '#b64d24fa', y: '#ffc071fa' },
+  frost: { f: '#3a78b8fa', y: '#bfe6fffa' },
+  holy: { f: '#b89a3afa', y: '#fff4c4fa' },
+  shadow: { f: '#6a3aa8fa', y: '#dcc0fffa' },
+};
+const CARVING_USED = { f: '#5a4a40', y: '#6a5a4a' };
+const CARVINGS: ArtDef[] = RITES.flatMap((r) => {
+  const mark = stamp(CARVING_SLAB, traceRows(r.template, 8, 10, 'y'), 11, 8);
+  return [
+    { id: r.carving, palette: { ...CARVING_PAL, ...CARVING_GLOW[r.element] }, rows: mark },
+    { id: r.carvingUsed, palette: { ...CARVING_PAL, ...CARVING_USED }, rows: mark },
+  ];
+});
 
 export const PROPS: ArtDef[] = [
   { id: 'chest', palette: CHEST_PAL, rows: CHEST },
@@ -1315,8 +1330,7 @@ export const PROPS: ArtDef[] = [
   { id: 'bones', palette: { k: '#1a150e', w: '#d8ccaa', v: '#9c8f72' }, rows: BONES },
   // A rite carving: a standing slab with the mark cut glowing into it. Studied,
   // the mark goes dark — the lesson is yours now, not the stone's.
-  { id: 'carving', palette: CARVING_PAL, rows: CARVING },
-  { id: 'carving_used', palette: { ...CARVING_PAL, f: '#5a4a40', y: '#6a5a4a' }, rows: CARVING },
+  ...CARVINGS,
   { id: 'shrine', palette: SHRINE_PAL, rows: SHRINE },
   { id: 'shrine_used', palette: SHRINE_PAL, rows: stamp(SHRINE, SHRINE_OFF) },
   { id: 'shrine_font', palette: { ...SHRINE_FONT_PAL, ...SHRINE_PROPS }, rows: SHRINE_FONT },

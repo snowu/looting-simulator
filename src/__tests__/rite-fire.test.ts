@@ -60,3 +60,27 @@ describe('claudemancy fire for rites', () => {
     expect(alpha(fire)).toBe(false);
   });
 });
+
+describe('each rite burns in its own colour', () => {
+  const tint = (fire: RiteFire) => {
+    let r = 0, b = 0;
+    for (let i = 0; i < fire.pixels.length; i += 4) if (fire.pixels[i + 3]) { r += fire.pixels[i]; b += fire.pixels[i + 2]; }
+    return { r, b };
+  };
+  it('frost burns blue where fire burns orange, and the cast keeps the drawn rite', () => {
+    const fire = new RiteFire();
+    fire.trace(mark);
+    fire.update(1 / 60, true);
+    const hot = tint(fire);
+    expect(hot.r).toBeGreaterThan(hot.b);
+    const frost = new RiteFire();
+    frost.setRite(RITES.find((r) => r.id === 'glacial_tomb')!);
+    frost.trace(mark);
+    frost.update(1 / 60, true);
+    const cold = tint(frost);
+    expect(cold.b).toBeGreaterThan(cold.r);
+    const cast = new RiteFire();
+    cast.finish(mark, 'full', RITES.find((r) => r.id === 'penguining')!);
+    expect(cast.rite).toBe('penguining');
+  });
+});

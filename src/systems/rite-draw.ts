@@ -105,8 +105,25 @@ export function matchRite(points: readonly TracePoint[], template: readonly (rea
 }
 
 export function gradeRite(points: readonly TracePoint[], template: readonly (readonly [number, number])[]): RiteGrade {
-  const score = matchRite(points, template);
-  if (score >= RITE_FULL_SCORE) return 'full';
-  if (score >= RITE_WEAK_SCORE) return 'weak';
-  return 'botch';
+  return gradeScore(matchRite(points, template));
+}
+
+export function gradeScore(score: number): RiteGrade {
+  return score >= RITE_FULL_SCORE ? 'full' : score >= RITE_WEAK_SCORE ? 'weak' : 'botch';
+}
+
+/**
+ * Which of several marks a trace is: the best-scoring one, graded on its own
+ * score. One tablet serves every rite you know, so the drawing is the choice.
+ * A botch still names its closest mark, which decides how it backfires.
+ */
+export function recogniseRite<T extends { template: readonly (readonly [number, number])[] }>(
+  points: readonly TracePoint[], candidates: readonly T[],
+): { def: T; score: number; grade: RiteGrade } | undefined {
+  let best: { def: T; score: number } | undefined;
+  for (const def of candidates) {
+    const score = matchRite(points, def.template);
+    if (!best || score > best.score) best = { def, score };
+  }
+  return best && { ...best, grade: gradeScore(best.score) };
 }

@@ -8,8 +8,8 @@ import { startRun, endRun, bankCarriedGold } from './systems/run';
 import { biomeForFloor } from './data/biomes';
 import { itemBase } from './data/items';
 import { quirkDef } from './data/quirks';
-import { findRite } from './data/rites';
-import { gradeRite, type RiteGrade, type TracePoint } from './systems/rite-draw';
+import { findRite, type RiteDef } from './data/rites';
+import { recogniseRite, type RiteGrade, type TracePoint } from './systems/rite-draw';
 import { World, WorldEvent } from './world/world';
 import { DungeonRenderer } from './render/dungeon-renderer';
 import { RiteFire } from './render/rite-fire';
@@ -163,7 +163,7 @@ const touch = new TouchControls(app, {
   rite: () => {
     if (!world) return;
     if (world.riteDraw) world.endRiteDraw();
-    else world.beginRiteDraw('meteor');
+    else world.beginRiteDraw();
   },
   tap: () => {
     if (!world) return;
@@ -228,15 +228,23 @@ riteSurface.setAttribute('class', 'rite-svg');
 riteSurface.setAttribute('aria-label', 'Draw the rite mark');
 const riteGuide = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
 riteGuide.setAttribute('class', 'rite-guide');
-riteSurface.append(riteGuide);
+// The stick's pen: where a controller trace is, or will start.
+const ritePen = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+ritePen.setAttribute('class', 'rite-pen');
+ritePen.setAttribute('r', '1.6');
+riteSurface.append(riteGuide, ritePen);
+// Every rite you know, as its mark: one tablet serves them all, so the drawing is the choice.
+const riteLegend = h('div', { class: 'rite-legend' });
+let riteLegendKey = '';
+let ritePenAt: TracePoint | null = null;
 let ritePointer: number | null = null;
 let riteGradedPoints: readonly TracePoint[] | null = null;
 let riteGradedTail: TracePoint | undefined;
-let riteGrade: RiteGrade = 'botch';
+let riteRead: { def: RiteDef; grade: RiteGrade } | undefined;
 const retryRite = () => {
   if (world?.riteDraw) world.riteDraw.points = [];
 };
-ritePanel.append(riteTitle, riteHint, riteSurface, riteStatus,
+ritePanel.append(riteTitle, riteHint, riteLegend, riteSurface, riteStatus,
   h('div', { class: 'rite-actions' },
     btn('Retry', retryRite),
     btn('Cast', () => world?.endRiteDraw()),
@@ -307,10 +315,20 @@ function closeRiteSurface(): void {
   riteFireLayer.hidden = true;
   releaseRitePointer();
   riteFirePlaced = false;
+  ritePenAt = null;
 }
 /** Whether the fire canvas sits on the open tablet: measured once per opening, not every frame. */
 let riteFirePlaced = false;
 window.addEventListener('resize', () => { riteFirePlaced = false; });
+function markSvg(def: RiteDef): SVGSVGElement {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 100 100');
+  const line = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+  line.setAttribute('points', def.template.map(([x, y]) => `${x * 100},${y * 100}`).join(' '));
+  line.setAttribute('stroke', def.color);
+  svg.append(line);
+  return svg;
+}
 function drawRiteTrace(w: World): void {
   const draw = w.riteDraw;
   riteSvg.hidden = !draw;
@@ -318,13 +336,37 @@ function drawRiteTrace(w: World): void {
     if (!riteFire.finishing) riteFire.reset();
     releaseRitePointer();
     riteFirePlaced = false;
+    ritePenAt = null;
     return;
   }
-  const def = findRite(draw.rite);
-  if (!def) return;
-  riteTitle.textContent = def.name;
-  riteHint.textContent = 'Draw the mark in one stroke. Release X or choose Cast.';
-  riteGuide.setAttribute('points', def.template.map(([x, y]) => `${x * 100},${y * 100}`).join(' '));
+  const defs = w.riteCandidates();
+  if (!defs.length) return;
+  const key = defs.map((d) => d.id).join();
+  if (key !== riteLegendKey) {
+    riteLegendKey = key;
+    riteLegend.replaceChildren(...defs.map((d) => h('div', { class: 'rite-chip', attrs: { 'data-rite': d.id } }, markSvg(d), h('span', {}, d.short))));
+    riteRead = undefined;
+  }
+  riteLegend.hidden = defs.length < 2;
+  const tail = draw.points.at(-1);
+  if (draw.points !== riteGradedPoints || tail !== riteGradedTail) {
+    riteRead = draw.points.length >= 2 ? recogniseRite(draw.points, defs) : undefined;
+    riteGradedPoints = draw.points;
+    riteGradedTail = tail;
+  }
+  // The rite the stroke reads as: named, guided and burning in its colour as you draw.
+  const lead = riteRead && riteRead.grade !== 'botch' ? riteRead.def : defs.length === 1 ? defs[0] : undefined;
+  riteTitle.textContent = lead ? lead.name : 'Draw a rite you know';
+  riteTitle.style.color = lead?.color ?? '';
+  riteHint.textContent = defs.length > 1 ? 'Draw any mark below in one stroke. Release X or choose Cast.' : 'Draw the mark in one stroke. Release X or choose Cast.';
+  riteGuide.setAttribute('points', lead ? lead.template.map(([x, y]) => `${x * 100},${y * 100}`).join(' ') : '');
+  for (const chip of riteLegend.children) chip.classList.toggle('lead', (chip as HTMLElement).dataset.rite === lead?.id);
+  if (lead && riteFire.rite !== lead.id) riteFire.setRite(lead);
+  ritePen.style.display = ritePenAt ? '' : 'none';
+  if (ritePenAt) {
+    ritePen.setAttribute('cx', `${ritePenAt.x * 100}`);
+    ritePen.setAttribute('cy', `${ritePenAt.y * 100}`);
+  }
   riteFire.trace(draw.points);
   if (!riteFirePlaced) {
     const r = riteSurface.getBoundingClientRect(), parent = app.getBoundingClientRect();
@@ -332,14 +374,8 @@ function drawRiteTrace(w: World): void {
     Object.assign(riteFireCanvas.style, { left: `${r.left - parent.left + 1}px`, top: `${r.top - parent.top + 1}px`, width: `${r.width - 2}px`, height: `${r.height - 2}px` });
     riteFirePlaced = r.width > 0;
   }
-  const tail = draw.points.at(-1);
-  if (draw.points !== riteGradedPoints || tail !== riteGradedTail) {
-    riteGrade = gradeRite(draw.points, def.template);
-    riteGradedPoints = draw.points;
-    riteGradedTail = tail;
-  }
-  const grade = riteGrade;
-  riteStatus.textContent = draw.points.length < 2 ? 'Start at either tip of the mark · Cancel costs nothing' :
+  const grade = riteRead?.grade ?? 'botch';
+  riteStatus.textContent = draw.points.length < 2 ? (defs.length > 1 ? 'Start anywhere · Cancel costs nothing' : 'Start at either tip of the mark · Cancel costs nothing') :
     grade === 'full' ? 'The mark holds · Full power' : grade === 'weak' ? 'The mark flickers · Half power' : 'The mark is broken · Retry or risk the backlash';
   riteStatus.dataset.grade = draw.points.length < 2 ? '' : grade;
 }
@@ -413,9 +449,10 @@ const padCtx: PadContext = {
   castSigil: () => world?.castSigil(),
   castSpell: () => world?.castSpell(),
   nextSpell: () => world?.nextSpell(),
-  riteAvailable: () => !!world?.riteAvailable('meteor'),
-  beginRite: () => !!world?.beginRiteDraw('meteor'),
-  traceRite: (x, y) => world?.addRitePoint(x, y),
+  riteAvailable: () => !!world?.riteAvailable(),
+  beginRite: () => !!world?.beginRiteDraw(),
+  aimRite: (x, y) => { ritePenAt = { x, y }; },
+  traceRite: (x, y) => { ritePenAt = { x, y }; world?.addRitePoint(x, y); },
   endRite: () => world?.endRiteDraw(),
   sipFlask: () => world?.sipFlask(),
   press: (m) => world?.press(m),
@@ -1188,7 +1225,7 @@ function handle(ev: WorldEvent): void {
       renderer.onShake(ev.amount);
       break;
     case 'rite':
-      if (mode === 'dungeon' && !overlays.isOpen && !isSettingsOpen() && !gate.blocked) riteFire.finish(ev.points, ev.grade);
+      if (mode === 'dungeon' && !overlays.isOpen && !isSettingsOpen() && !gate.blocked) riteFire.finish(ev.points, ev.grade, findRite(ev.rite));
       break;
     case 'sigil':
       renderer.onSigil(ev.r, ev.g, ev.b, ev.strength);
@@ -1280,7 +1317,7 @@ function frame(now: number): void {
         guardIcon: world.derived.conduitHand === 'offhand' && world.state.equipment.offhand
           ? itemBase(world.state.equipment.offhand.ref).icon
           : null,
-        rite: !!world.riteDraw || world.riteAvailable('meteor'),
+        rite: !!world.riteDraw || world.riteAvailable(),
       });
     }
     // Tilt is polled rather than pushed: a roll held through a pause must not
@@ -1418,7 +1455,7 @@ window.addEventListener('keydown', (e) => {
       break;
     case 'x':
       // Hold to trace a rite: the world slows and the pointer draws.
-      if (!e.repeat && !overlays.isOpen && world.beginRiteDraw('meteor')) pointerLock.release();
+      if (!e.repeat && !overlays.isOpen && world.beginRiteDraw()) pointerLock.release();
       break;
     case 'b':
       if (!e.repeat) world.nextSpell();

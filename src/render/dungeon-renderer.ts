@@ -3,6 +3,7 @@ import { LavaEffects, LavaSound } from './lava-effects';
 import { DX, DY, turnRight } from '../core/dir';
 import { biomeForFloor, ceilingForFloor } from '../data/biomes';
 import { enemyDef, enemyView } from '../data/enemies';
+import { findRite, rite } from '../data/rites';
 import { ELITES } from '../data/elites';
 import { DROP_SECONDS } from '../data/ambush';
 import { RAISE_CHANNEL } from '../data/necromancy';
@@ -585,7 +586,7 @@ export class DungeonRenderer {
     this.called = called;
     for (const fx of world.spellFx) {
       const k = 1 - clamp(fx.t / SPELL_FX_SECONDS[fx.kind], 0, 1);
-      const glow = fx.kind === 'smite' ? '#fff0b0' : (fx.kind === 'blast' || fx.kind === 'meteor') ? '#ff8030' : fx.kind === 'spores' ? '#a8d878' : '#b080ff';
+      const glow = fx.kind === 'smite' ? '#fff0b0' : (fx.kind === 'blast' || fx.kind === 'meteor') ? '#ff8030' : fx.kind === 'spores' ? '#a8d878' : fx.kind === 'frost' ? '#9ad0ff' : '#b080ff';
       if (!fx.miss) lights.push({ x: tileX(fx.x), y: fx.kind === 'meteor' ? 0.5 + WALL_H * (1 - clamp(fx.t / METEOR_FALL_SECONDS, 0, 1)) : 1.2, z: tileZ(fx.y), r: fx.kind === 'meteor' ? 6 : 4.5, color: cachedColor(glow), intensity: (fx.kind === 'meteor' ? 3.2 : fx.kind === 'spores' ? 0.6 : 1.6) * k });
     }
     for (const en of floor.enemies) {
@@ -789,9 +790,11 @@ export class DungeonRenderer {
           this.place(s, `shrine_${kind}${pr.used ? '_used' : ''}`, wx, 0, wz, 1.9);
           break;
         }
-        case 'carving':
-          this.place(s, pr.used ? 'carving_used' : 'carving', wx, 0, wz, 1.9);
+        case 'carving': {
+          const def = findRite(pr.rite) ?? rite('meteor');
+          this.place(s, pr.used ? def.carvingUsed : def.carving, wx, 0, wz, 1.9);
           break;
+        }
         case 'fungus':
           this.place(s, 'fungus', wx + ((pr.x * 7) % 5) * 0.12 - 0.25, 0, wz + ((pr.y * 3) % 5) * 0.12 - 0.25, 0.7);
           break;

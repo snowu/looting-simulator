@@ -17,7 +17,7 @@
  *   town-side, and recall scrolls are in the pack for going back to craft
  */
 import { PROPERTY_IDS } from '../data/properties';
-import { RITES } from '../data/rites';
+import { RITES, type RiteId } from '../data/rites';
 import { equipFrom } from '../systems/equip';
 import { CONDUIT_SPELLS } from '../data/conduit-spells';
 import { GameState } from '../state/game-state';
@@ -238,8 +238,12 @@ export function spawnLabChest(world: World, mimic: boolean): boolean {
   return true;
 }
 
-/** A repeatable rite attempt on the scratch game, through the real draw/cast path. */
-export function beginLabRite(world: World): boolean {
+/**
+ * A repeatable rite attempt on the scratch game, through the real draw/cast
+ * path. With an id it teaches that rite and pins the trace to it; without,
+ * it teaches every rite and the tablet reads whichever mark you draw.
+ */
+export function beginLabRite(world: World, id?: RiteId): boolean {
   if (world.run.outcome !== 'active') return false;
   world.cancelRiteDraw();
   world.refreshDerived();
@@ -250,7 +254,7 @@ export function beginLabRite(world: World): boolean {
     if (equipFrom(world.state.equipment, world.state.stash, wand.uid)) return false;
   }
   world.state.ritesKnown ??= [];
-  if (!world.state.ritesKnown.includes('meteor')) world.state.ritesKnown.push('meteor');
+  for (const r of id ? [id] : RITES.map((d) => d.id)) if (!world.state.ritesKnown.includes(r)) world.state.ritesKnown.push(r);
   refurbish(world);
   world.held.clear();
   world.setBlock(false);
@@ -258,21 +262,24 @@ export function beginLabRite(world: World): boolean {
   world.anim.attack = 'idle';
   world.anim.cast = null;
   world.anim.stunT = 0;
-  return world.beginRiteDraw('meteor');
+  return world.beginRiteDraw(id);
 }
 
 /** Put (or reset) a real carving ahead, forgetting its lesson so Study can be tried. */
-export function spawnLabCarving(world: World): boolean {
+export function spawnLabCarving(world: World, id: RiteId = 'meteor'): boolean {
   const f = world.floor, { x, y } = world.frontTile();
   if (x < 0 || y < 0 || x >= f.width || y >= f.height) return false;
   const existing = propAt(f, x, y);
-  if (existing?.kind === 'carving') existing.used = false;
+  if (existing?.kind === 'carving') {
+    existing.used = false;
+    existing.rite = id;
+  }
   else {
     if (existing || blocksMove(f, x, y) || enemyAt(f, x, y) || doorAt(f, x, y) || stairsAt(f, x, y)) return false;
     f.props.push({ id: `labcarving:${Date.now().toString(36)}`, kind: 'carving', x, y,
-      used: false, tier: 'none', blocking: true, mimic: false, rite: 'meteor' });
+      used: false, tier: 'none', blocking: true, mimic: false, rite: id });
   }
-  world.state.ritesKnown = (world.state.ritesKnown ?? []).filter(id => id !== 'meteor');
+  world.state.ritesKnown = (world.state.ritesKnown ?? []).filter(known => known !== id);
   return true;
 }
 
