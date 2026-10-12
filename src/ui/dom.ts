@@ -390,6 +390,7 @@ export function itemTooltip(item: Item, opts: TipOpts = {}): string {
       if (base.conduit) {
         const c = base.conduit;
         lines.push(`<div class="tt-dim">Holds ${c.slots} spells · ${c.charges} charges, one back every ${c.regrow}s</div>`);
+        if (!base.twoHanded) lines.push('<div class="tt-dim detail-only">No guard: it absorbs nothing — parry on its tighter window or take the blow whole.</div>');
         lines.push(c.power !== undefined
           ? `<div class="tt-dim detail-only">A weapon and a conduit at once: its Attack is your melee Attack, and ${Math.round(c.power * 100)}% of it is spell Power. Cast with V, B for the next spell.</div>`
           : '<div class="tt-dim detail-only">Its Attack is spell Power: what your spells hit for, never your melee Attack. Cast with V, B for the next spell.</div>');

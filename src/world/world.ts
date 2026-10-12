@@ -279,6 +279,11 @@ const STAMINA_DELAY = 0.9;
  */
 const PARRY_WINDOW = 0.22;
 const PARRY_COOLDOWN = 0.75;
+/**
+ * An offhand conduit parries on a tighter window: it absorbs nothing, so the
+ * timing has to be the defense. Multiplies the window above (after difficulty).
+ */
+export const CONDUIT_PARRY_WINDOW = 0.6;
 /** Longest a touch may stay undecided between block and walk (s); see World.guardPending. */
 const GUARD_PENDING_MAX = 0.5;
 /**
@@ -1588,13 +1593,14 @@ export class World {
    * Is an attack arriving from (x, y) inside the parry window? The guard has to
    * have gone up in the last PARRY_WINDOW seconds and be facing the attack —
    * the same facing rule blocking uses, since a parry is a sharper block.
+   * An offhand conduit answers on a tighter window (CONDUIT_PARRY_WINDOW).
    */
   private parries(fromX: number, fromY: number): boolean {
     // A touch still deciding between block and walk counts from when it
     // landed: a tap timed to the wind-up parries like a key press would.
     this.confirmGuard();
     const a = this.anim;
-    const base = PARRY_WINDOW * this.diff.parryWindow;
+    const base = PARRY_WINDOW * this.diff.parryWindow * (this.derived.conduitHand === 'offhand' ? CONDUIT_PARRY_WINDOW : 1);
     const window = a.ward ? base * 2 : base;
     if (!a.parryArmed || a.blockT > window) return false;
     return this.facingSource(fromX, fromY);
@@ -5157,7 +5163,9 @@ export class World {
     // heal still lands when the 0.5s commitment completes. Drinking in melee
     // range is supposed to get you hit.
     // Duelist: the guard is sworn away. A parry (above) still works.
-    if (!unavoidable && this.anim.sip === null && this.anim.blockRaise > 0.6 && facingSource && !runOath(this.run, 'duelist')) {
+    // An offhand conduit is parry-only: it absorbs nothing, so a mistimed
+    // guard meets the blow whole instead of falling back to a block.
+    if (!unavoidable && this.anim.sip === null && this.anim.blockRaise > 0.6 && facingSource && !runOath(this.run, 'duelist') && this.derived.conduitHand !== 'offhand') {
       const absorbed = dmg * this.derived.block;
       const cost = absorbed * 1.3 * this.diff.blockStamina;
       if (p.stamina >= cost) {
@@ -5881,7 +5889,8 @@ export class World {
 
   /** True while a raised guard can still turn a blow aside — the renderer's tell. */
   get parryWindow(): boolean {
-    return (this.anim.parryArmed && this.anim.blockT <= PARRY_WINDOW * this.diff.parryWindow) || this.anim.rangedParryT > 0;
+    const base = PARRY_WINDOW * this.diff.parryWindow * (this.derived.conduitHand === 'offhand' ? CONDUIT_PARRY_WINDOW : 1);
+    return (this.anim.parryArmed && this.anim.blockT <= base) || this.anim.rangedParryT > 0;
   }
 
   facingName(): string {
