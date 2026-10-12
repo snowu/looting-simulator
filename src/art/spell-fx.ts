@@ -171,11 +171,18 @@ const POOF_B = rows(`
   ..............x.........
 `);
 
-export const SPELL_FX_ART: ArtDef[] = [
+/** Hex's penguin, a creature like any other: exported with the enemies. */
+export const PENGUIN_ART: ArtDef[] = [
   { id: 'penguin_0', palette: PENGUIN_PAL, rows: PENGUIN },
   { id: 'penguin_1', palette: PENGUIN_PAL, rows: waddle(PENGUIN) },
+];
+
+/** The hitscan spells' marks: exported with the props, like the bolts. */
+export const SPELL_MARK_ART: ArtDef[] = [
   { id: 'fx_smite', palette: SMITE_PAL, rows: stamp(streak(0), SMITE_SPLASH, 0, 42) },
   { id: 'fx_smite_b', palette: SMITE_PAL, rows: stamp(streak(2.1), SMITE_SPLASH, 0, 42) },
   { id: 'fx_poof', palette: POOF_PAL, rows: POOF },
   { id: 'fx_poof_b', palette: POOF_PAL, rows: POOF_B },
 ];
+
+export const SPELL_FX_ART: ArtDef[] = [...PENGUIN_ART, ...SPELL_MARK_ART];
