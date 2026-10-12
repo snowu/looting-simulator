@@ -123,6 +123,10 @@ describe('conduits', () => {
     run(w, 0.05);
     expect(w.held.has('block')).toBe(true);
     expect(w.anim.blockRaise).toBeGreaterThan(0);
+    // The fall is slower than the rise, so the flick reads: still settling
+    // at 0.3s, all the way down at 0.6s.
+    run(w, 0.25);
+    expect(w.anim.blockRaise).toBeGreaterThan(0);
     run(w, 0.3);
     expect(w.anim.blockRaise).toBe(0);
     const state = newGame(createRng(98));
@@ -150,7 +154,7 @@ describe('conduits', () => {
     const late = battlemage();
     const e2 = target(late, 1);
     late.setBlock(true);
-    run(late, 0.3);
+    run(late, 0.6);
     expect(late.anim.blockRaise).toBe(0);
     const hp2 = late.player.hp;
     guard(late).damagePlayer(20, 'slash', e2.x, e2.y, 'Ghoul', 'ghoul', e2);
