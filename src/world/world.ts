@@ -16,6 +16,11 @@ import {
 import { AttackMove, COMBO_BEAT, FEINT_AT, FEINT_HOLD, chooseMove, meleeReach, moveById } from '../data/attacks';
 import { quirkDef, quirkTimeScale } from '../data/quirks';
 import { applyQuirk } from '../systems/quirks';
+import { burningAt, chill, ignite, placeSurfaces, surfaceKindAt, tickSurfaces } from '../systems/surfaces';
+import {
+  FIRE_MONSTER_BASE, FIRE_MONSTER_PER_DEPTH, FIRE_PLAYER_BASE, FIRE_PLAYER_PER_DEPTH, FIRE_TICK, FREEZE_SECONDS,
+  PLAYER_FREEZE_SECONDS, SLIP_SECONDS,
+} from '../data/surfaces';
 import { FORK_DEPTH, ROADS, ROAD_DEPTHS } from '../data/routes';
 import { SHADE_ID, placeShade } from '../systems/grave';
 import { LIGHTLESS_LIGHT, SEAL_FIND, sealDifficulty, sealFloorMods } from '../data/seals';
@@ -1229,6 +1234,7 @@ export class World {
     this.checkBossSeal();
     this.updateConduit(dt);
     this.updateAfflictions(dt);
+    this.updateSurfaces(dt);
     this.updateRetrieve(dt);
     this.updateEnemies(dt);
     this.updateProjectiles(dt);
@@ -1374,6 +1380,7 @@ export class World {
       // nothing. Your Shade is placed afterwards and so stays your Shade
       // rather than becoming a cow, which is also what you want.
       applyQuirk(run.floors[run.depth - 1]!, run.seed, this.difficultyId);
+      placeSurfaces(run.floors[run.depth - 1]!, run.seed);
       this.placeHunterMark(run.floors[run.depth - 1]!);
       this.placeLieutenant(run.floors[run.depth - 1]!);
       if (!run.shadePlaced && placeShade(this.state, run.floors[run.depth - 1]!, run.seed, this.difficultyId)) {
@@ -1899,7 +1906,7 @@ export class World {
       if (spell.id === 'smite') this.markRemains(e, 'sanctified');
       if (this.derived.traits.requiem) this.refundCharges(spell.charges);
       this.killEnemy(e);
-    }
+    } else this.slip(e);
   }
 
   /** Put charges back in the worn conduit's pool, never past full. */
@@ -1987,6 +1994,7 @@ export class World {
         if (e.burn) delete e.burn;
         if (e.chillT !== undefined) delete e.chillT;
         if (e.hexT !== undefined) delete e.hexT;
+        if (e.frozenT !== undefined) delete e.frozenT;
         continue;
       }
       // The hex runs on the world's clock, not the penguin's: it counts down
@@ -1994,6 +2002,10 @@ export class World {
       if (e.hexT !== undefined) {
         e.hexT -= dt;
         if (e.hexT <= 0) this.unhex(e);
+      }
+      if (e.frozenT !== undefined) {
+        e.frozenT -= dt;
+        if (e.frozenT <= 0) delete e.frozenT;
       }
       if (e.chillT !== undefined) {
         e.chillT -= dt;
@@ -2019,6 +2031,128 @@ export class World {
       if (burn.t <= 0 || burn.left <= 0) delete e.burn;
       if (e.hp <= 0) this.killEnemy(e);
     }
+  }
+
+  /** Seconds banked toward fire's next bite, and since the last word about it. */
+  private fireTick = 0;
+  private surfaceMsgCd = 0;
+
+  /**
+   * The floor's surfaces on the world clock (`tickSurfaces`), and fire biting
+   * whatever stands in it every `FIRE_TICK`: you through your armour, like a
+   * trap, and a monster raw, × its fire resistance.
+   */
+  private updateSurfaces(dt: number): void {
+    const f = this.floor;
+    this.surfaceMsgCd = Math.max(0, this.surfaceMsgCd - dt);
+    if (!f.surfaces?.length) return;
+    const caught = tickSurfaces(f, dt);
+    if (caught.length) this.sfx('lava_burst', caught[0].x, caught[0].y);
+    this.fireTick += dt;
+    if (this.fireTick < FIRE_TICK) return;
+    this.fireTick -= FIRE_TICK;
+    if (!f.surfaces.some((s) => s.kind === 'fire')) return;
+    const p = this.player;
+    const depth = this.run.depth;
+    if (burningAt(f, p.x, p.y)) {
+      const bite = Math.max(1, Math.round((FIRE_PLAYER_BASE + FIRE_PLAYER_PER_DEPTH * depth) * this.diff.trapDamage));
+      if (this.surfaceMsgCd <= 0) {
+        this.msg('You are standing in fire!', '#ff8040');
+        this.surfaceMsgCd = 2;
+      }
+      this.damagePlayer(bite, 'fire', p.x, p.y, 'burning oil', undefined, undefined, true);
+      if (this.run.outcome !== 'active') return;
+    }
+    for (const e of f.enemies) {
+      if (e.ai === 'dead' || e.lurk || !burningAt(f, e.x, e.y) || this.protectedByFog(e)) continue;
+      const def = enemyDef(e.def);
+      const dealt = Math.max(1, Math.round((FIRE_MONSTER_BASE + FIRE_MONSTER_PER_DEPTH * depth) * (def.resist.fire ?? 1)));
+      this.hurt(e, dealt, `${dealt}`, '#ff8040');
+      recordDamageDealt(this.state.bestiary, def.id, dealt);
+      // It carries the fire out with it: a burn like Ember Bolt's, which lights
+      // any oil it runs through and goes out in water.
+      e.burn = { t: BURN_SECONDS, left: Math.max(e.burn?.left ?? 0, dealt * 2), acc: e.burn?.acc ?? 0 };
+      if (e.hp <= 0) {
+        this.msg(`The ${def.name} burns.`, '#ff8040');
+        this.killEnemy(e);
+      }
+    }
+  }
+
+  /**
+   * Fire or frost arriving on a tile, from anything: a bolt crossing it, a
+   * blow landing on it, a burning creature's feet. Any other element passes.
+   * Water freezing around a monster holds it fast; around you, briefly.
+   */
+  private elementReaches(x: number, y: number, element: DamageType): void {
+    const f = this.floor;
+    if (element === 'fire') {
+      const change = ignite(f, x, y);
+      if (change === 'lit') {
+        this.sfx('lava_burst', x, y);
+        if (this.surfaceMsgCd <= 0) {
+          this.msg('The oil catches!', '#ff9a50');
+          this.surfaceMsgCd = 2;
+        }
+      } else if (change === 'melted') this.sfx('splash', x, y);
+      return;
+    }
+    if (element !== 'frost' || chill(f, x, y) !== 'froze') return;
+    this.sfx('block', x, y);
+    const e = enemyAt(f, x, y);
+    if (e) this.freeze(e);
+    const p = this.player;
+    if (p.x === x && p.y === y) {
+      this.anim.stunT = Math.max(this.anim.stunT, PLAYER_FREEZE_SECONDS);
+      this.msg('The water freezes around your feet!', '#9ad0ff');
+    }
+  }
+
+  /** Held fast in ice: it stops whatever it was doing. The King breaks free at once. */
+  private freeze(e: EnemyState): void {
+    const def = enemyDef(e.def);
+    if (def.behavior === 'boss' || e.ai === 'dead') return;
+    e.frozenT = FREEZE_SECONDS;
+    e.ai = 'recover';
+    e.timer = Math.max(e.timer, FREEZE_SECONDS);
+    e.attackCd = Math.max(e.attackCd, FREEZE_SECONDS + 0.2);
+    delete e.move;
+    delete e.feintT;
+    delete e.feinted;
+    delete e.comboLeft;
+    delete e.comboT;
+    delete e.channel;
+    this.emit({ type: 'float', x: e.x, y: e.y, text: 'frozen', color: '#9ad0ff' });
+    this.msg(`The water freezes around the ${def.name}!`, '#9ad0ff');
+  }
+
+  /** Struck on ice: it goes down, and whatever it was winding up is lost. */
+  private slip(e: EnemyState): void {
+    if (e.ai === 'dead' || (e.frozenT ?? 0) > 0 || surfaceKindAt(this.floor, e.x, e.y) !== 'ice') return;
+    const def = enemyDef(e.def);
+    if (def.behavior === 'boss') return;
+    e.ai = 'recover';
+    e.timer = Math.max(e.timer, SLIP_SECONDS);
+    e.attackCd = Math.max(e.attackCd, SLIP_SECONDS + 0.2);
+    delete e.move;
+    delete e.comboLeft;
+    delete e.comboT;
+    this.emit({ type: 'float', x: e.x, y: e.y - 0.3, text: 'slips', color: '#c8e8ff' });
+    if (this.surfaceMsgCd <= 0) {
+      this.msg(`The ${def.name} slips on the ice!`, '#c8e8ff');
+      this.surfaceMsgCd = 2;
+    }
+  }
+
+  /** One step out of the fire, to any tile that is not burning. False when there is none. */
+  private escapeFire(e: EnemyState): boolean {
+    const steps = DIRS.map((d) => [e.x + DX[d], e.y + DY[d]] as [number, number]).filter(([x, y]) => this.canStep(e, x, y));
+    if (!steps.length) return false;
+    const p = this.player;
+    // Out towards you if it was coming for you, else anywhere.
+    steps.sort((a, b) => manhattan(a[0], a[1], p.x, p.y) - manhattan(b[0], b[1], p.x, p.y));
+    this.stepEnemy(e, steps[0][0], steps[0][1]);
+    return true;
   }
 
   /** A charge grows back while the conduit is worn, and kills hurry it along. */
@@ -2736,6 +2870,9 @@ export class World {
       if (this.anim.chargeStacks === chargeMax) this.msg('The horn is up to speed.', '#f0e0ac');
     }
     if (this.derived.traits.kindling) this.kindle(e);
+    // A blow carrying fire or frost acts on the tile it lands on, like a bolt.
+    if ((striker.stats.fire ?? 0) > 0) this.elementReaches(e.x, e.y, 'fire');
+    if ((striker.stats.frost ?? 0) > 0) this.elementReaches(e.x, e.y, 'frost');
     const life = this.state.lifetime;
     if (hit.damage > (life.bestHit ?? 0)) life.bestHit = hit.damage;
     recordDamageDealt(this.state.bestiary, def.id, hit.damage);
@@ -2760,7 +2897,7 @@ export class World {
     if (e.hp <= 0) {
       this.markRemains(e);
       this.killEnemy(e);
-    }
+    } else this.slip(e);
   }
 
   /**
@@ -4149,8 +4286,9 @@ export class World {
     return this.floor.enemies.some((o) => o !== self && o.ai !== 'dead' && !o.lurk && o.x === x && o.y === y);
   }
 
+  /** Monsters do not walk into fire on purpose: burning oil is a wall to them until it burns out. */
   private canStep(e: EnemyState, x: number, y: number): boolean {
-    return !blocksMove(this.floor, x, y) && !this.occupied(x, y, e) && !stairsAt(this.floor, x, y);
+    return !blocksMove(this.floor, x, y) && !this.occupied(x, y, e) && !stairsAt(this.floor, x, y) && !burningAt(this.floor, x, y);
   }
 
   private stepEnemy(e: EnemyState, x: number, y: number): void {
@@ -4165,6 +4303,23 @@ export class World {
     // you already found worth doing.
     const trap = trapAt(this.floor, x, y);
     if (trap && trap.armed) this.springTrap(trap, e);
+    this.stepOnto(e);
+  }
+
+  /**
+   * What a monster's feet do to the floor: a burning one, or one made of
+   * fire, lights oil and melts ice where it steps, and water puts a burning
+   * one out.
+   */
+  private stepOnto(e: EnemyState): void {
+    const kind = surfaceKindAt(this.floor, e.x, e.y);
+    if (!kind) return;
+    const fiery = !!e.burn || enemyDef(e.def).element === 'fire';
+    if (fiery && (kind === 'oil' || kind === 'ice')) this.elementReaches(e.x, e.y, 'fire');
+    else if (kind === 'water' && e.burn) {
+      delete e.burn;
+      this.sfx('snuff', e.x, e.y);
+    }
   }
 
   /** BFS toward a target; returns the first step, cached briefly. */
@@ -4194,7 +4349,7 @@ export class World {
         const nx = x + DX[d], ny = y + DY[d];
         const n = ny * W + nx;
         if (prev.has(n)) continue;
-        if (n !== goal && (blocksMove(f, nx, ny) || busy.has(n))) continue;
+        if (n !== goal && (blocksMove(f, nx, ny) || busy.has(n) || burningAt(f, nx, ny))) continue;
         if (manhattan(nx, ny, e.x, e.y) > 18) continue;
         prev.set(n, i);
         q.push(n);
@@ -4482,6 +4637,8 @@ export class World {
         if (e.moveT < 1) continue;
       }
       const dist = manhattan(e.x, e.y, p.x, p.y);
+      // Standing in fire, anything not mid-swing gets out of it first.
+      if (burningAt(f, e.x, e.y) && e.ai !== 'windup' && e.ai !== 'recover' && this.escapeFire(e)) continue;
       if ((e.hexT ?? 0) > 0) {
         this.updateHexed(e, dt);
         continue;
@@ -4999,6 +5156,9 @@ export class World {
         else this.sfx('break', tx, ty);
         continue;
       }
+      // Fire and frost act on every tile they fly over, whoever loosed them:
+      // an Ember Bolt lights the oil it crosses, a frost bolt freezes water.
+      this.elementReaches(tx, ty, pr.type);
       // A spell is spent where it strikes, and gutters out at the end of its
       // range: nothing lands, so there is nothing to go and fetch.
       if (pr.spell) {
@@ -5094,6 +5254,7 @@ export class World {
     if (player.stats.leech > 0) this.heal(Math.max(1, Math.round(hit.damage * player.stats.leech / 100)), 'leech');
     this.wearThrown(pr.weaponUid);
     if (e.hp <= 0) this.killEnemy(e);
+    else this.slip(e);
   }
 
   private landThrown(base: string, x: number, y: number): void {

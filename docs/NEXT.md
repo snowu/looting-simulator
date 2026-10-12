@@ -1003,7 +1003,7 @@ every new sprite id in `ALL_ART` needs its PNG in `public/art` or boot throws.
 
 ---
 
-# 5. Elemental hazards — **IDEA 2026-10-11**
+# 5. Elemental hazards — **STEP 1 BUILT 2026-10-12**
 
 The user's follow-up, to come after section 4: biome hazards and elemental
 interactions, so that **fire burns oil, water puts out fire**, and so on.
@@ -1029,6 +1029,63 @@ To design once section 4 exists:
 - The test for each one, from the run-identity plan: it must be something you
   can *use* (lure a Slagborn onto oil, then light it), not just a tax on
   walking.
+
+## Decisions (2026-10-12)
+
+The user moved this ahead of rites (§6): "more interactive and more frequent
+gameplay". So the first step is the part that appears on **every** floor, not
+the four biome laws, which come after.
+
+- **Surfaces are common.** Every fresh floor from depth 1 gets pools: two of
+  oil and one of water as a base, 3–6 tiles each, in ordinary rooms. The
+  biome shifts the mix: Mines and Emberworks more oil, the Frost Vault lays
+  its water as ice, the flooded Catacombs (already water from wall to wall)
+  get only a slick of oil. Laid after generation on the `surface:` stream,
+  like quirks, so `generateFloor` and every golden hash stay put.
+- **Four surfaces to start:** oil, water, ice, fire. Spores (Sporegrove) and
+  live lava (Emberworks) wait for their biome laws.
+- **One table, applied to everything.** Fire from anywhere (a spell, a
+  monster's bolt, a blow carrying fire, a burning or fiery creature's feet)
+  lights oil and melts ice; frost from anywhere freezes water. You get no
+  exemption: a monster's fire bolt lights the oil under *you*, and its frost
+  bolt freezes the water you stand in (1s for you, 2.5s for a monster).
+- **Fire** burns 6s a tile, walks to the next oil tile every 0.3s, bites
+  whatever stands in it every 0.5s (you through armour like a trap; a
+  monster raw × its fire resistance) and sets a monster burning, so it
+  carries the fire out with it, into more oil, or into water, which puts it
+  out. Monsters will not walk into fire and step out of it.
+- **Ice** makes a monster struck on it slip: down for 0.8s, out of its
+  wind-up. Bosses never slip or freeze.
+- **Readable:** every pool is drawn on its tile with a few dim emissive
+  pixels so it shows in the dark; fire lights the room.
+
+## Build order
+
+1. **Oil, water, ice, fire** on every floor, the interaction table, art,
+   and the bot walking round fire. *(built)*
+2. **The four biome laws, as surfaces.** Candidates: Catacombs, *the water
+   carries*: frost on the flood freezes every connected tile around the
+   target. Frost Vault, *the ice is everywhere*: more ice, and you slip too
+   when struck on it. Emberworks, *the lava is live*: crust tiles that
+   ignite oil and burn what stands on them during a burst. Sporegrove,
+   *spores*: a surface that bursts into a choking cloud when fire or a blow
+   lands on it, burned away by holy.
+3. **Oil barrels**: a barrel that spills a pool when broken, for setting
+   your own trap.
+4. **Harness**: the bot uses surfaces (lights oil under monsters with a
+   fire spell), so playtest can price them.
+
+## Progress
+
+- 2026-10-12 — **Step 1 built** (branch `feat/hazards-1`). `Floor.surfaces`
+  (optional, no save revision bump: older floors simply have none),
+  `src/data/surfaces.ts` (rules and numbers), `src/systems/surfaces.ts`
+  (placement, `ignite`, `chill`, `tickSurfaces`), the world's hooks
+  (projectiles crossing tiles, blows, monster steps, `updateSurfaces`,
+  `freeze`, `slip`, `escapeFire`), the renderer (decals, flames, firelight,
+  frozen tint), six sprites handed to the artist, the bot walking round
+  fire. Not done: steps 2–4, the automap does not show surfaces, and no
+  sound of its own (it borrows lava, splash and snuff sounds).
 
 ---
 

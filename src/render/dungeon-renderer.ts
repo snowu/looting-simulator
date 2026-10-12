@@ -561,6 +561,11 @@ export class DungeonRenderer {
         lights.push({ x: tileX(pr.x), y: 1.3, z: tileZ(pr.y), r: 4.5, color: cachedColor(SHRINE_LIGHT[shrineKind(pr)]), intensity: 0.95 });
       }
     }
+    // Burning oil lights the room it is in, unevenly.
+    for (const sf of floor.surfaces ?? []) {
+      if (sf.kind !== 'fire') continue;
+      lights.push({ x: tileX(sf.x), y: 0.7, z: tileZ(sf.y), r: 3.8, color: cachedColor('#ff8a30'), intensity: 1.2 * flick(sf.x * 5 + sf.y * 3) * clamp(sf.t ?? 1, 0.3, 1) });
+    }
     for (const tr of floor.traps ?? []) {
       // Only the ward glows, because a ward is magic. A dart plate and a spike
       // pit are ironmongery in a dark floor: your lamp has to find them.
@@ -664,6 +669,8 @@ export class DungeonRenderer {
       // only lift the dark and muddy the kit.
       if (en.def === SHADE_ID) this.dressShade(s, world, pose.frame);
       if (en.hurtT > 0) s.mat.uniforms.uTint.value.set(1, 0.95, 0.9, Math.min(0.8, en.hurtT * 3));
+      // Held fast in ice: the whole creature goes pale blue until it thaws.
+      else if ((en.frozenT ?? 0) > 0 && en.ai !== 'dead') s.mat.uniforms.uTint.value.set(0.62, 0.84, 1, 0.55);
       else if (en.ai === 'windup' || (en.grabT ?? 0) > 0) {
         // The wind-up glows in the colour of the move being thrown, and the
         // glow deepens as it gathers: which attack is coming, and how soon,
@@ -709,6 +716,19 @@ export class DungeonRenderer {
           lens,
         );
       }
+    }
+
+    // Surfaces: oil, water and ice laid flat on the tile; fire is its scorch
+    // with flames standing up out of it, shrinking as it burns out.
+    for (const sf of floor.surfaces ?? []) {
+      if (!near(sf.x, sf.y)) continue;
+      const wx = tileX(sf.x), wz = tileZ(sf.y);
+      const s = this.sprite(`sf:${sf.x},${sf.y}`);
+      this.placeFlat(s, sf.kind === 'fire' ? 'surf_scorch' : `surf_${sf.kind}`, wx, wz, TILE * 0.98);
+      if (sf.kind !== 'fire') continue;
+      const flame = this.sprite(`sff:${sf.x},${sf.y}`);
+      const frame = Math.floor(this.time * 9 + sf.x * 3 + sf.y * 5) % 2;
+      this.place(flame, `fx_flame_${frame}`, wx, 0, wz, 1.25 * clamp(sf.t ?? 1, 0.35, 1));
     }
 
     for (const tr of floor.traps ?? []) {

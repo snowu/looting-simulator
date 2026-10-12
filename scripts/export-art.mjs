@@ -78,6 +78,7 @@ function png({ w, h, data }) {
     ['enemies', 'src/art/enemies-pasture.ts', 'ENEMY_ART_PASTURE'],
     ['enemies', 'src/art/spell-fx.ts', 'PENGUIN_ART'],
     ['props', 'src/art/spell-fx.ts', 'SPELL_MARK_ART'],
+    ['props', 'src/art/surfaces.ts', 'SURFACE_ART'],
     ['viewmodels', 'src/art/viewmodels.ts', 'VIEWMODELS'],
   ];
   const manifestPath = resolve(output, 'manifest.json');

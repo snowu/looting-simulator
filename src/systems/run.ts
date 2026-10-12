@@ -11,6 +11,7 @@ import { repairItem } from './items';
 import { GameState, RunState, RunSummary } from '../state/game-state';
 import { Container, addItem, createContainer } from '../state/inventory';
 import { generateFloor, stairsFront } from './dungeon';
+import { placeSurfaces } from './surfaces';
 import { backpackCapacity, metaLevel, renownForRun } from './meta';
 import { derivePlayer } from './player';
 import { difficultyOf } from '../data/difficulty';
@@ -67,6 +68,7 @@ export function startRun(state: GameState, seed = randomSeed()): RunState {
   // Ashen Seals, once the King has fallen: snapshotted for the whole delve.
   const seals = sealsUnlocked(state) ? validSeals(state.pendingSeals) : [];
   const floor = generateFloor(seed, 1, difficulty, false, undefined, sealFloorMods(seals));
+  placeSurfaces(floor, seed);
   const up = floor.stairs.find((s) => !s.down)!;
   const spawn = stairsFront(up);
   const d = derivePlayer(state.equipment, state.meta, difficulty);

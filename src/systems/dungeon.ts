@@ -8,6 +8,7 @@ import { DifficultyId, DifficultyDef, DIFFICULTIES, difficultyOf } from '../data
 import { DamageType, EnemyDef, Item } from '../types';
 import { ELITE_HP_MULT, EliteTrait, IRONHIDE_HP_MULT, eliteFor } from '../data/elites';
 import { STALKER_BURIED, droppersFor } from '../data/ambush';
+import type { Surface } from '../data/surfaces';
 import { gravecallerChance } from '../data/necromancy';
 import { Crack, SHORTCUT_MIN_SAVING, cracksFor } from '../data/walls';
 import type { FloorMods } from '../data/seals';
@@ -226,6 +227,8 @@ export interface EnemyState {
   chillT?: number;
   /** Hex: seconds left as a penguin. Absent means itself. */
   hexT?: number;
+  /** Frozen into freezing water: seconds left held fast. Absent means free. */
+  frozenT?: number;
   /** Ember Bolt: burn seconds left, damage still to deal, and the fraction banked. Absent means not burning. */
   burn?: { t: number; left: number; acc: number };
   /** Consecutive blows turned on a carried shield. Resets when one gets through or the guard drops. */
@@ -370,6 +373,12 @@ export interface Floor {
    * never by `generateFloor` — see `src/data/quirks.ts` for why.
    */
   quirk?: string;
+  /**
+   * Oil, water, ice and fire on the floor's tiles (`src/data/surfaces.ts`).
+   * **Absent on floors generated before surfaces existed**, which therefore
+   * have none; laid after generation by `placeSurfaces`, never by `generateFloor`.
+   */
+  surfaces?: Surface[];
 }
 
 // ---------------------------------------------------------------------------
