@@ -17,6 +17,7 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 
 // Commits that must never become patch notes. Short hash -> reason.
 const SKIP = {
+  'ba69444': 'dev-only repeatable Meteor and carving controls in the scratch lab; previews and tests',
   '8dde823': 'documentation only: name the touch rite Cast control',
   '590ffd1': 'one-copy art restructure (public/art folders, art:status/alpha, spritewright config); same pixels, no player-facing change',
   '298e810': 'art handoff tooling (npm run art:handoff) and the repo rule for it; no player-facing change',
