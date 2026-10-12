@@ -1,7 +1,7 @@
 /** Claudemancy's $P point-cloud matcher, adapted for one-stroke rites.
  * Even arc-length samples and a uniform unit-box scale preserve shape while
  * forgiving speed, direction and small tilts. A conservative bend check keeps
- * taps and straight swipes from masquerading as a zigzag.
+ * taps and straight swipes from masquerading as a rite.
  */
 export interface TracePoint {
   x: number;
@@ -28,26 +28,23 @@ export function traceLength(points: readonly TracePoint[]): number {
 
 function resample(points: readonly TracePoint[], n: number): TracePoint[] {
   const total = traceLength(points);
-  const step = total / (n - 1);
   const out: TracePoint[] = [{ ...points[0] }];
-  let acc = 0;
-  let prev = { ...points[0] };
-  for (let i = 1; i < points.length && out.length < n; i++) {
-    const cur = points[i];
-    const d = Math.hypot(cur.x - prev.x, cur.y - prev.y);
-    if (acc + d >= step && d > 0) {
-      const t = (step - acc) / d;
-      const next = { x: prev.x + t * (cur.x - prev.x), y: prev.y + t * (cur.y - prev.y) };
-      out.push(next);
-      prev = next;
-      acc = 0;
-      i--;
-    } else {
-      acc += d;
-      prev = { ...cur };
+  let segment = 1, travelled = 0;
+  for (let sample = 1; sample < n; sample++) {
+    const target = total * sample / (n - 1);
+    while (segment < points.length) {
+      const a = points[segment - 1], b = points[segment];
+      const length = Math.hypot(b.x - a.x, b.y - a.y);
+      if (length > 0 && travelled + length >= target) {
+        const t = Math.min(1, Math.max(0, (target - travelled) / length));
+        out.push({ x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y) });
+        break;
+      }
+      travelled += length;
+      segment++;
     }
+    if (segment >= points.length) out.push({ ...points[points.length - 1] });
   }
-  while (out.length < n) out.push({ ...points[points.length - 1] });
   return out;
 }
 

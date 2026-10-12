@@ -63,10 +63,10 @@ describe('the recogniser', () => {  it('grades a clean trace full, wherever and 
 
   it('forgives a shaky hand but not a wrong shape', () => {
     expect(matchRite(jittered(alongTemplate(), 0.03), TEMPLATE)).toBeGreaterThan(0.8);
-    // A straight line is not a falling bolt.
+    // A straight line is not the meteor impact mark.
     const line = Array.from({ length: 40 }, (_, i) => ({ x: 0.1 + (0.8 * i) / 39, y: 0.5 }));
     expect(gradeRite(line, TEMPLATE)).toBe('botch');
-    // A square is not a falling bolt either.
+    // A square is not the meteor impact mark either.
     const square = [
       ...Array.from({ length: 10 }, (_, i) => ({ x: 0.2 + (0.6 * i) / 9, y: 0.2 })),
       ...Array.from({ length: 10 }, (_, i) => ({ x: 0.8, y: 0.2 + (0.6 * i) / 9 })),
@@ -77,7 +77,7 @@ describe('the recogniser', () => {  it('grades a clean trace full, wherever and 
   });
 
   it('accepts rounded corners and tilted hand drawing, but not a diagonal swipe', () => {
-    const rounded = [[.7,.12],[.45,.3],[.3,.44],[.4,.47],[.62,.46],[.52,.62],[.28,.87]].map(([x,y])=>({x,y}));
+    const rounded = [[.18,.16],[.32,.48],[.46,.79],[.50,.83],[.54,.79],[.68,.48],[.82,.16]].map(([x,y])=>({x,y}));
     expect(gradeRite(rounded, TEMPLATE)).toBe('full');
     const a = 12 * Math.PI / 180;
     const tilted = alongTemplate().map(p=>({x:p.x*Math.cos(a)-p.y*Math.sin(a),y:p.x*Math.sin(a)+p.y*Math.cos(a)}));

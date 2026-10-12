@@ -20,7 +20,7 @@ export interface RiteDef {
   element: Element;
   /** HUD and touch icon. */
   icon: string;
-  /** The mark, as vertices in a 0..1 box: a single falling-bolt zigzag. */
+  /** The mark, as vertices in a 0..1 box: a single V: two trails meeting at the impact point. */
   template: readonly (readonly [number, number])[];
   description: string;
 }
@@ -32,10 +32,9 @@ export const RITES: readonly RiteDef[] = [
     element: 'fire',
     icon: 'ic_rite_meteor',
     template: [
-      [0.72, 0.12],
-      [0.28, 0.46],
-      [0.66, 0.46],
-      [0.28, 0.88],
+      [0.18, 0.16],
+      [0.50, 0.86],
+      [0.82, 0.16],
     ],
     description: 'Fire falls on every monster in the room. A sloppy trace brings less of it; a botched one brings it down on you.',
   },

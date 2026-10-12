@@ -1137,7 +1137,7 @@ button (§4).
 - **Drawn, in slow motion.** Hold the cast input; the world slows (to about
   15%, tuned so it is a dramatic beat, not a free pause); trace the sigil on
   the view; release to cast. Touch and mouse draw; gamepad uses the right stick.
-  Meteor uses a simple one-stroke falling bolt, with a large square drawing area.
+  Meteor uses a simple one-stroke V, meeting at an impact point, with a large square drawing area.
 - **Drawing quality decides the outcome.** The recogniser's match score: a
   clean trace lands the full rite, a sloppy one a weaker one, a botch
   **backfires** (a curse, a hit to yourself, or a burst on your own tile).

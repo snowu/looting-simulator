@@ -185,7 +185,7 @@ describe('gamepad mapping', () => {
     expect(calls).toContain('begin');
     expect(calls).not.toContain('interact');
     expect(traces.length).toBeGreaterThan(0);
-    expect(traces[0]).toEqual([0.72, 0.12]);
+    expect(traces[0]).toEqual([0.18, 0.16]);
     expect(calls.filter((k) => k.startsWith('press:turn') || k.startsWith('release:turn'))).toEqual([]);
     c.getPoll = () => pad();
     c.update(1 / 60);
