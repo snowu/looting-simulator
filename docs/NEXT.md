@@ -859,7 +859,7 @@ design has failed.
   the class:
   - A spell that lands **charges your weapon** with its element for the next
     blow within 3s (a bonus about the size of a tier-matched Kindled draught).
-  - A melee blow that lands **takes 2s off** the conduit's regrow.
+  - A melee blow that lands **takes 1.5s off** the conduit's regrow.
   - So the loop is cast, close, strike, cast. Standing back and casting runs
     dry; swinging without casting wastes the charge.
 
@@ -952,7 +952,7 @@ every new sprite id in `ALL_ART` needs its PNG in `public/art` or boot throws.
   the lieutenants with the charges handed back. **Settled the open question:
   no separate 30s cooldown**; 2 charges is the price (2 of a Wand's 3). The
   Stave: a blunt two-hander and the strongest conduit (4 slots, 5 charges,
-  6s regrow), 80% of its Attack as spell Power, blueprint from depth 4.
+  8s regrow), 80% of its Attack as spell Power, blueprint from depth 4.
   Art: penguin (standing, mid-waddle), Smite streak and Hex puff (two frames
   each), Smite and Hex icons, Stave icon and viewmodel with its lit crown.
   Golden loot hash re-pinned as `staveLootHash` (the Stave joined the weapon

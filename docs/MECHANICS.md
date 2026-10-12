@@ -1181,11 +1181,11 @@ A **conduit** is an offhand that casts instead of guarding: the battlemage's tra
 
 | Base | Material | Power (tier 1 / per tier) | Block | Charges | One back every | Spells loaded | From depth |
 |---|---|---|---|---|---|---|---|
-| Wand | wood | 10 / +3 | — (parry only) | 3 | 9s | 2 | 1 (starter recipe) |
-| Rod | metal | 16 / +3.5, +2 Defense (+1/tier) | — (parry only) | 4 | 7s | 3 | 3 (blueprint, 160g) |
-| Stave (2H weapon) | wood | 80% of its Attack: 26 / +6 Attack → 21 / +4.8 Power | 20% (two-hander) | 5 | 6s | 4 | 4 (blueprint, 220g) |
+| Wand | wood | 10 / +3 | — (parry only) | 3 | 12s | 2 | 1 (starter recipe) |
+| Rod | metal | 16 / +3.5, +2 Defense (+1/tier) | — (parry only) | 4 | 10s | 3 | 3 (blueprint, 160g) |
+| Stave (2H weapon) | wood | 80% of its Attack: 26 / +6 Attack → 21 / +4.8 Power | 20% (two-hander) | 5 | 8s | 4 | 4 (blueprint, 220g) |
 
-The Rod is the Wand's step up its gear line (`['wand', 'rod']`) and is better on every axis. **Power** is the conduit's Attack, read off it alone the way a belt's is: it never reaches your melee Attack, and your sword never reaches a spell. A conduit is not a shield — it does not wear, does not flare for the parry, and an offhand one absorbs nothing at all: Wand and Rod are **parry-only**, on a tighter **0.13s** window (×0.6 the usual 0.22s; Normal scales both the same way), and a mistimed guard meets the blow whole.
+The Rod is the Wand's step up its gear line (`['wand', 'rod']`) and is better on every axis. **Power** is the conduit's Attack, read off it alone the way a belt's is: it never reaches your melee Attack, and your sword never reaches a spell. A conduit is not a shield — it does not wear, does not flare for the parry, and an offhand one absorbs nothing at all: Wand and Rod are **parry-only**, on a tighter **0.13s** window (×0.6 the usual 0.22s; Normal scales both the same way), and a mistimed guard meets the blow whole. Holding the guard with one never raises it: tap to meet the swing and parry.
 
 **The Stave** is a line of one (`['stave']`): a blunt two-hander (wind-up 0.32s, recovery 0.60s, 22 stamina, −4 Speed, the two-hander cleave, stagger 0.3) that is also the strongest conduit. Its Attack is a real melee Attack *and*, through `conduit.power` (0.8), its spell Power — the only base where one number feeds both. It pays a two-hander's price (no shield, 20% block) and swings lighter than the other three, since most of it is there to carry the stone. `PlayerDerived.conduitHand` says which hand holds the conduit; the cast lifts the Stave itself and lights its crown, where a Wand or Rod rises in the left hand.
 
@@ -1195,10 +1195,10 @@ The Rod is the Wand's step up its gear line (`['wand', 'rod']`) and is better on
 
 | Spell | Element | Power × | Charges | Stamina | Wind-up / recovery | Speed / range | Rider |
 |---|---|---|---|---|---|---|---|
-| Ember Bolt | fire | 1.0 | 1 | 14 | 0.22 / 0.30 | 9 / 5 | **Burn**: 45% of the hit again, spread over 3s (stacks onto a burn already running) |
-| Rime Lance | frost | 0.6 | 1 | 12 | 0.20 / 0.30 | 11 / 5 | **Chill** 4s: every wind-up runs ×1.5. A wind-up begun chilled finishes chilled. The Ashen King does not slow |
-| Smite | holy | 0.9 | 1 | 14 | 0.26 / 0.30 | hitscan / 5 | A streak of light down onto the target. Not turned by a raised shield (it comes from above). ×2 on the undead through their own holy resistance (×1.5–2), not a second rule. What it kills is **sanctified**: no Gravecaller or Ossuary stir raises it |
-| Hex | shadow | — | **2** | 16 | 0.32 / 0.36 | hitscan / 5 | No damage. **A penguin for 15s** (`HEX_SECONDS`): see below |
+| Ember Bolt | fire | 1.0 | 1 | 18 | 0.28 / 0.38 | 9 / 5 | **Burn**: 45% of the hit again, spread over 3s (stacks onto a burn already running) |
+| Rime Lance | frost | 0.6 | 1 | 16 | 0.26 / 0.36 | 11 / 5 | **Chill** 4s: every wind-up runs ×1.5. A wind-up begun chilled finishes chilled. The Ashen King does not slow |
+| Smite | holy | 0.9 | 1 | 18 | 0.32 / 0.38 | hitscan / 5 | A streak of light down onto the target. Not turned by a raised shield (it comes from above). ×2 on the undead through their own holy resistance (×1.5–2), not a second rule. What it kills is **sanctified**: no Gravecaller or Ossuary stir raises it |
+| Hex | shadow | — | **2** | 22 | 0.38 / 0.44 | hitscan / 5 | No damage. **A penguin for 15s** (`HEX_SECONDS`): see below |
 
 **Hitscan** (Smite, Hex): no bolt. At the release the spell lands on the first monster down your line within range; a wall or the King's threshold stops the line. A miss shows the spell's mark, smaller, at the end of the line. The marks (`World.spellFx`: Smite's streak, Hex's violet puff) are never saved.
 
@@ -1211,7 +1211,7 @@ The Rod is the Wand's step up its gear line (`['wand', 'rod']`) and is better on
 **Weave**, the battlemage rule:
 
 - A spell that lands **charges your weapon** with its element for **3s**: the next melee blow that lands carries +50% of the conduit's Power as that element, and spends it. A cleave's spill does not get a second helping.
-- A melee blow that lands adds **2s** of regrow to the conduit.
+- A melee blow that lands adds **1.5s** of regrow to the conduit.
 
 So the loop is cast, close, strike, cast: standing back and casting runs the pool dry, and swinging without casting wastes the weave.
 
