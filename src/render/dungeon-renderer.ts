@@ -1053,7 +1053,10 @@ export class DungeonRenderer {
       y += (30 - 60 * k + 30 * back) * reach;
       rot = (twoHanded ? -1.0 : -0.73) + (twoHanded ? 2.3 : 1.6) * k - (twoHanded ? 1.5 : 1.05) * back;
     }
-    y -= a.blockRaise * 30;
+    // The weapon hand yields only to a real guard: with a shield the arm
+    // drops aside as the shield comes up, but a conduit flick or a Stave
+    // leaves the weapon where it is.
+    if (world.derived.hasShield) y -= a.blockRaise * 30;
     y -= this.deathFade * 120;
     w.mesh.scale.set(size.w * scale, size.h * scale, 1);
     w.mesh.position.set(x, y + (size.h * scale) / 2, 0);

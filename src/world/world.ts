@@ -1118,7 +1118,8 @@ export class World {
     const wantBlock = wantGuard && !brokenGuard;
     // A Wand or Rod guards nothing, so it only flicks up for the parry: it
     // rises while the window is open, then lowers even while held. A tap
-    // flashes it; holding keeps nothing up.
+    // flashes it; holding keeps nothing up. The fall is deliberately slower
+    // than a shield's, so the flick reads instead of twitching.
     const parryOnly = this.derived.conduitHand === 'offhand';
     const flickWindow = PARRY_WINDOW * this.diff.parryWindow * CONDUIT_PARRY_WINDOW * (a.ward ? 2 : 1);
     const wantRaise = wantBlock && (!parryOnly || a.blockT <= flickWindow);
@@ -1136,7 +1137,7 @@ export class World {
       a.blockT = Infinity;
       a.parryArmed = false;
     }
-    a.blockRaise = clamp(a.blockRaise + (wantRaise ? dt : -dt) / 0.12, 0, 1);
+    a.blockRaise = clamp(a.blockRaise + (wantRaise ? dt : -dt) / (wantRaise ? 0.12 : parryOnly ? 0.3 : 0.12), 0, 1);
 
     // Refusing the guard says why, throttled like the winded cue: holding
     // block with a broken shield would otherwise fail in silence.
