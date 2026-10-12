@@ -51,16 +51,20 @@ function png({ w, h, data }) {
 
 {
   const { rasterize } = await loadModule('src/art/raster.ts');
-  const { getArt } = await loadModule('src/art/registry.ts');
+  const { getArt, ALL_ART } = await loadModule('src/art/registry.ts');
   const groups = [
     ['textures', 'src/art/textures.ts', 'TEXTURES'],
+    ['textures', 'src/art/frost-textures.ts', 'FROST_TEXTURES'],
     ['props', 'src/art/props.ts', 'PROPS'],
+    ['props', 'src/art/biome-props.ts', 'BIOME_PROPS'],
     ['icons', 'src/art/icons.ts', 'ICONS'],
     ['ui', 'src/art/ui.ts', 'UI_ART'],
     ['enemies', 'src/art/enemies-a.ts', 'ENEMY_ART_A'],
     ['enemies', 'src/art/enemies-b.ts', 'ENEMY_ART_B'],
     ['enemies', 'src/art/enemies-variety.ts', 'ENEMY_ART_VARIETY'],
     ['enemies', 'src/art/enemies-elemental.ts', 'ENEMY_ART_ELEMENTAL'],
+    ['enemies', 'src/art/enemies-biomes.ts', 'ENEMY_ART_BIOMES'],
+    ['enemies', 'src/art/enemies-pasture.ts', 'ENEMY_ART_PASTURE'],
     ['viewmodels', 'src/art/viewmodels.ts', 'VIEWMODELS'],
   ];
   const manifest = [];
@@ -77,7 +81,9 @@ function png({ w, h, data }) {
       manifest.push({ id: def.id, file, width: image.w, height: image.h, base: def.base ?? null, recolorable: def.rows.some((row) => /[1-4]/.test(row)) });
     }
   }
+  const missing = ALL_ART.filter((def) => !ids.has(def.id)).map((def) => def.id);
+  if (missing.length) throw new Error(`Art in the registry but not exported (add its module to the groups): ${missing.join(', ')}`);
   await writeFile(resolve(output, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
-  await writeFile(resolve(output, 'README.md'), `# Art handoff\n\nEach PNG is exported at its native resolution with transparency. Edit at this size with nearest-neighbour scaling; keep the filename and canvas dimensions. The manifest maps every file to its in-game art ID. Enemy idle, attack, and block poses are separate files.\n\nTo use a finished image in the game, copy it to \`public/art/<id>.png\` (without the category folder), then add \`"<id>"\` to \`public/art/manifest.json\`. The original code art remains the fallback.\n\nRecolorable icon PNGs retain the game's four-colour material ramp. Keep their exported ramp colors for pixels that should change with material; other colors stay fixed. Alpha 250 marks emissive pixels; preserve it when editing glowing details.\n\nKeep layered editor project files alongside these PNGs if useful. Run \`npm run art:export\` again only when you want a fresh export from the built-in art; it replaces files in this folder.\n`);
+  await writeFile(resolve(output, 'README.md'), `# Art handoff\n\nEach PNG is exported at its native resolution with transparency. Edit at this size with nearest-neighbour scaling; keep the filename and canvas dimensions. The manifest maps every file to its in-game art ID. Enemy idle, attack, and block poses are separate files.\n\nTo use a finished image in the game, copy it to \`public/art/<id>.png\` (without the category folder), then add \`"<id>"\` to \`public/art/manifest.json\`. The original code art remains the fallback.\n\nRecolorable icon PNGs retain the game's four-colour material ramp. Paint the parts that should change with material in that ramp's greys: the four exported colours, or any shade between them or a little lighter than the lightest, and the game carries each to the same place on the item's material. Colours clearly off that grey line (outlines, warm or coloured details, near-white glints) stay fixed. Alpha 250 marks emissive pixels; preserve it when editing glowing details.\n\nKeep layered editor project files alongside these PNGs if useful. Run \`npm run art:export\` again only when you want a fresh export from the built-in art; it replaces files in this folder.\n`);
   console.log(`Exported ${manifest.length} PNGs to ${output}`);
 }
