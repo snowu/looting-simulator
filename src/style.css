@@ -640,6 +640,8 @@ body.touch #hud .quick, body.touch #hud .prompt, body.touch #hud .minimap { z-in
 .tbtn.atk .act-label { font-family: var(--font-title); letter-spacing: 1px; }
 .tbtn.blk { position: absolute; right: 106px; bottom: 6px; width: 76px; height: 64px; }
 .tbtn.blk img { width: 36px; height: 36px; }
+/* A Wand or Rod guards nothing: the button is a parry tap, tinted violet to say so. */
+.tbtn.blk.parry { border-color: #8f7bd8; }
 .tmenu {
   position: absolute;
   right: max(12px, env(safe-area-inset-right));

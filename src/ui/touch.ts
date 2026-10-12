@@ -49,6 +49,10 @@ export interface TouchTools {
   spellReady: boolean;
   /** How many spells are loaded; the swap chip only shows for two or more. */
   spells: number;
+  /** A Wand or Rod is worn: the guard never stays up, a tap only parries. */
+  parryOnly: boolean;
+  /** Item icon to show on the guard button while parry-only, if any. */
+  guardIcon: string | null;
 }
 
 export function isTouchDevice(): boolean {
@@ -242,6 +246,9 @@ export class TouchControls {
   private spellIcon = h('span', { class: 'tspell-icon' });
   private swapBtn: HTMLButtonElement;
   private spellArt = '';
+  private blockBtn: HTMLButtonElement;
+  private blockIcon = h('span', { class: 'tblock-icon' });
+  private blockArt = 'ic_buckler';
   private toolsKey = '';
   private edgeL: HTMLButtonElement;
   private edgeR: HTMLButtonElement;
@@ -287,7 +294,10 @@ export class TouchControls {
     this.main = hold('atk', () => hd.action(true), () => hd.action(false));
     this.main.append(this.mainImg, this.mainLabel);
     const block = hold('blk', () => this.guard('button', true), () => this.guard('button', false));
-    block.append(artImg('ic_buckler', undefined, 36));
+    this.blockBtn = block;
+    this.blockIcon.append(artImg('ic_buckler', undefined, 36));
+    block.append(this.blockIcon);
+    block.title = 'Block';
     const actions = h('div', { class: 'actions' }, block, this.main);
 
     const tap = (label: string, fn: () => void) => {
@@ -405,7 +415,7 @@ export class TouchControls {
 
   /** Show only the situational buttons that would do something. */
   setTools(t: TouchTools): void {
-    const key = `${t.thrown}${t.landed}${t.calling}${t.sigil}${t.spell}${t.spellReady}${t.spells}`;
+    const key = `${t.thrown}${t.landed}${t.calling}${t.sigil}${t.spell}${t.spellReady}${t.spells}${t.parryOnly}${t.guardIcon}`;
     if (key === this.toolsKey) return;
     this.toolsKey = key;
     this.throwBtn.hidden = !t.thrown;
@@ -420,6 +430,15 @@ export class TouchControls {
       this.spellArt = t.spell;
       this.spellIcon.replaceChildren(artImg(t.spell, undefined, 18));
     }
+    // A Wand or Rod guards nothing, so the guard button stops promising a
+    // shield: it shows the conduit and reads as a parry tap instead.
+    const wantArt = t.parryOnly && t.guardIcon ? t.guardIcon : 'ic_buckler';
+    if (wantArt !== this.blockArt) {
+      this.blockArt = wantArt;
+      this.blockIcon.replaceChildren(artImg(wantArt, undefined, 36));
+    }
+    this.blockBtn.classList.toggle('parry', t.parryOnly);
+    this.blockBtn.title = t.parryOnly ? 'Parry (tap)' : 'Block';
   }
 
   /** Show a sword when the main button will swing, or a word when it will interact. */

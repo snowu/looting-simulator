@@ -6,6 +6,7 @@ import { SLOTS, Slot, clearSave, lastSlot, loadGame, renameSave, saveGame, isScr
 import { displaySaveName, fallenRecord, sanitizeSaveName, serializeSave } from './state/save-format';
 import { startRun, endRun, bankCarriedGold } from './systems/run';
 import { biomeForFloor } from './data/biomes';
+import { itemBase } from './data/items';
 import { quirkDef } from './data/quirks';
 import { World, WorldEvent } from './world/world';
 import { DungeonRenderer } from './render/dungeon-renderer';
@@ -1119,6 +1120,10 @@ function frame(now: number): void {
         spell: world.selectedSpell()?.icon ?? null,
         spellReady: world.spellReady(),
         spells: world.conduitSpells().length,
+        parryOnly: world.derived.conduitHand === 'offhand',
+        guardIcon: world.derived.conduitHand === 'offhand' && world.state.equipment.offhand
+          ? itemBase(world.state.equipment.offhand.ref).icon
+          : null,
       });
     }
     // Tilt is polled rather than pushed: a roll held through a pause must not
