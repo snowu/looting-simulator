@@ -39,7 +39,7 @@ const versionFile = (): Plugin => ({
 });
 
 /**
- * Emits art/pack.bin: every PNG in public/art in one file, in manifest order,
+ * Emits art/pack.bin: every PNG in public/art (all folders) in one file, in manifest order,
  * so a cold start fetches the art in one request (see src/render/art-pack.ts).
  * The loose PNGs still ship beside it as the fallback.
  */
@@ -48,8 +48,8 @@ const artPack = (): Plugin => ({
   apply: 'build',
   generateBundle() {
     const dir = new URL('./public/art/', import.meta.url);
-    const ids = JSON.parse(readFileSync(new URL('manifest.json', dir), 'utf8')) as string[];
-    const pack = encodeArtPack(ids.map((id) => ({ id, png: readFileSync(new URL(`${id}.png`, dir)) })));
+    const files = JSON.parse(readFileSync(new URL('manifest.json', dir), 'utf8')) as string[];
+    const pack = encodeArtPack(files.map((file) => ({ id: file.slice(file.indexOf('/') + 1, -4), png: readFileSync(new URL(file, dir)) })));
     this.emitFile({ type: 'asset', fileName: 'art/pack.bin', source: pack });
   },
 });

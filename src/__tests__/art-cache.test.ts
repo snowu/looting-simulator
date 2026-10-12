@@ -1,12 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ALL_ART, getArt } from '../art/registry';
+import { ALL_ART, artFile, getArt } from '../art/registry';
 import { rasterize } from '../art/raster';
 import { artCanvas, loadArtOverrides } from '../render/art-cache';
 import { recolorIcon } from '../render/recolor-icon';
 
 const artIds = ALL_ART.map((art) => art.id);
+const artFiles = artIds.map(artFile); // what public/art/manifest.json lists: 'enemies/rat_0.png'
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -23,7 +24,7 @@ describe('art overrides', () => {
         getContext: () => ({ drawImage: vi.fn(), getImageData: () => pixels, putImageData }),
       }),
     });
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(artIds))));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(artFiles))));
     vi.stubGlobal('Image', class {
       naturalWidth = original.w;
       naturalHeight = original.h;
@@ -70,10 +71,10 @@ describe('art overrides', () => {
   it('ships a valid, correctly sized PNG for every art ID', () => {
     const artDir = resolve(process.cwd(), 'public/art');
     const manifest: string[] = JSON.parse(readFileSync(resolve(artDir, 'manifest.json'), 'utf8'));
-    expect(manifest).toEqual(artIds);
+    expect(manifest).toEqual(artFiles);
 
-    for (const id of manifest) {
-      const png = readFileSync(resolve(artDir, `${id}.png`));
+    for (const id of artIds) {
+      const png = readFileSync(resolve(artDir, artFile(id)));
       const raster = rasterize(getArt(id)!, undefined, getArt);
       const header = new DataView(png.buffer, png.byteOffset, png.byteLength);
       expect(Array.from(png.subarray(0, 8)), id).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
@@ -83,13 +84,13 @@ describe('art overrides', () => {
   });
 
   it('rejects an incomplete manifest', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(artIds.slice(1)))));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(artFiles.slice(1)))));
 
     await expect(loadArtOverrides()).rejects.toThrow(`missing [${artIds[0]}]`);
   });
 
   it('rejects when a listed PNG fails to load', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(artIds))));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(artFiles))));
     vi.stubGlobal(
       'Image',
       class {
@@ -102,6 +103,6 @@ describe('art overrides', () => {
       },
     );
 
-    await expect(loadArtOverrides()).rejects.toThrow('art/rat_0.png');
+    await expect(loadArtOverrides()).rejects.toThrow('art/enemies/rat_0.png');
   });
 });

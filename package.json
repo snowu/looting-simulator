@@ -22,11 +22,11 @@
     "upgrades": "vitest run --config vitest.playtest.config.ts scripts/upgrades.bench.ts",
     "find": "vitest run --config vitest.playtest.config.ts scripts/find.bench.ts",
     "patches": "node scripts/check-patches.mjs",
-    "art:export": "node scripts/export-art.mjs",
-    "art:handoff": "node scripts/export-art.mjs --new",
     "art:sheet": "node scripts/art-sheet.mjs",
     "art:sync": "node scripts/sync-public-art.mjs",
-    "art:check": "node scripts/sync-public-art.mjs --check"
+    "art:check": "node scripts/sync-public-art.mjs --check",
+    "art:status": "node scripts/art-status.mjs",
+    "art:alpha": "node scripts/art-alpha.mjs"
   },
   "keywords": [],
   "author": "",
