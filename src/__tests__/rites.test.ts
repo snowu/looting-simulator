@@ -56,6 +56,10 @@ describe('the recogniser', () => {  it('grades a clean trace full, wherever and 
     expect(gradeRite([...alongTemplate()].reverse(), TEMPLATE)).toBe('full');
   });
 
+  it('recognises sparse pointer events without depending on drawing speed', () => {
+    expect(gradeRite(TEMPLATE.map(([x, y]) => ({ x, y })), TEMPLATE)).toBe('full');
+  });
+
   it('forgives a shaky hand but not a wrong shape', () => {
     expect(matchRite(jittered(alongTemplate(), 0.03), TEMPLATE)).toBeGreaterThan(0.8);
     // A straight line is not an M.
@@ -198,6 +202,28 @@ describe('casting Meteor', () => {
     expect(w.run.conduit!.charges).toBe(0);
     expect(w.run.riteCastDepth).toBe(w.run.depth);
     expect(w.anim.weave?.element).toBe('fire');
+  });
+
+  it('closing an untouched surface or cancelling spends nothing', () => {
+    const w = ritualist();
+    const charges = w.run.conduit!.charges;
+    const stamina = w.player.stamina;
+    expect(w.beginRiteDraw('meteor')).toBe(true);
+    expect(w.endRiteDraw()).toBe(false);
+    expect(w.beginRiteDraw('meteor')).toBe(true);
+    w.addRitePoint(0.2, 0.4);
+    w.cancelRiteDraw();
+    expect(w.run.conduit!.charges).toBe(charges);
+    expect(w.player.stamina).toBe(stamina);
+    expect(w.run.riteCastDepth ?? null).toBeNull();
+  });
+
+  it('keeps the end of a slowly drawn, densely sampled mark', () => {
+    const w = ritualist();
+    expect(w.beginRiteDraw('meteor')).toBe(true);
+    for (const p of alongTemplate(1800)) w.addRitePoint(p.x, p.y);
+    expect(w.riteDraw!.points.length).toBeGreaterThan(256);
+    expect(gradeRite(w.riteDraw!.points, TEMPLATE)).toBe('full');
   });
 
   it('a botched trace burns the charges and the caster', () => {

@@ -4,8 +4,8 @@ New sprites drawn in code, newest first. Each PNG in `public/art/` is a placehol
 
 ## 2026-10-12
 
-- [ ] `props/carving.png` (32×32)
-- [ ] `props/carving_used.png` (32×32)
+- [ ] `props/carving.png` (32×32) — redrawn as a chipped tablet with a recessed ember mark
+- [ ] `props/carving_used.png` (32×32) — matching tablet, incision spent
 - [ ] `icons/ic_rite_meteor.png` (16×16)
 
 ## 2026-10-12

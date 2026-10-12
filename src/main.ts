@@ -8,6 +8,8 @@ import { startRun, endRun, bankCarriedGold } from './systems/run';
 import { biomeForFloor } from './data/biomes';
 import { itemBase } from './data/items';
 import { quirkDef } from './data/quirks';
+import { findRite } from './data/rites';
+import { gradeRite } from './systems/rite-draw';
 import { World, WorldEvent } from './world/world';
 import { DungeonRenderer } from './render/dungeon-renderer';
 import { createTitleDungeon } from './render/title-dungeon';
@@ -212,26 +214,84 @@ window.addEventListener('touchstart', () => {
   touch.visible = mode === 'dungeon';
 }, { passive: true });
 const toastLayer = h('div', { class: 'layer', style: 'pointer-events:none' });
-// A rite trace draws over the view while one is open: an SVG polyline in
-// view-normalised coordinates, violet like the Cast button's spent state.
-const riteSvg = h('div', { class: 'layer rite-layer', style: 'pointer-events:none' });
+// The drawing surface stays square on every screen; its coordinates also serve the stick.
+const riteSvg = h('div', { class: 'layer rite-layer' });
+const ritePanel = h('div', { class: 'rite-panel' });
+const riteTitle = h('strong', { class: 'rite-title' });
+const riteHint = h('div', { class: 'rite-hint' });
+const riteStatus = h('div', { class: 'rite-status' });
+riteStatus.setAttribute('role', 'status');
+const riteSurface = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+riteSurface.setAttribute('viewBox', '0 0 100 100');
+riteSurface.setAttribute('class', 'rite-svg');
+riteSurface.setAttribute('aria-label', 'Draw the rite mark');
+const riteGuide = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+riteGuide.setAttribute('class', 'rite-guide');
 const riteLine = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
-{
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('viewBox', '0 0 100 100');
-  svg.setAttribute('preserveAspectRatio', 'none');
-  svg.setAttribute('class', 'rite-svg');
-  riteLine.setAttribute('class', 'rite-trace');
-  svg.append(riteLine);
-  riteSvg.append(svg);
-  riteSvg.hidden = true;
-}
+riteLine.setAttribute('class', 'rite-trace');
+riteSurface.append(riteGuide, riteLine);
+let ritePointer: number | null = null;
+const retryRite = () => {
+  if (world?.riteDraw) world.riteDraw.points = [];
+};
+ritePanel.append(riteTitle, riteHint, riteSurface, riteStatus,
+  h('div', { class: 'rite-actions' },
+    btn('Retry', retryRite),
+    btn('Cast', () => world?.endRiteDraw()),
+    btn('Cancel', () => world?.cancelRiteDraw())));
+riteSvg.append(ritePanel);
+riteSvg.hidden = true;
 app.append(riteSvg);
+// Keep all ritual gestures away from the dungeon's touch and combat controls.
+riteSvg.addEventListener('pointerdown', (e) => e.stopPropagation());
+function sampleRitePointer(e: PointerEvent): void {
+  const r = riteSurface.getBoundingClientRect();
+  if (!r.width || !r.height) return;
+  world?.addRitePoint(
+    Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)),
+    Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)));
+}
+riteSurface.addEventListener('pointerdown', (e) => {
+  if (!world?.riteDraw || ritePointer !== null || e.button !== 0) return;
+  e.preventDefault();
+  retryRite();
+  ritePointer = e.pointerId;
+  riteSurface.setPointerCapture(e.pointerId);
+  sampleRitePointer(e);
+});
+riteSurface.addEventListener('pointermove', (e) => {
+  if (e.pointerId !== ritePointer) return;
+  for (const point of e.getCoalescedEvents?.() ?? [e]) sampleRitePointer(point);
+  sampleRitePointer(e);
+});
+riteSurface.addEventListener('pointerup', (e) => {
+  if (e.pointerId !== ritePointer) return;
+  sampleRitePointer(e);
+  ritePointer = null;
+});
+riteSurface.addEventListener('lostpointercapture', () => { ritePointer = null; });
+riteSurface.addEventListener('pointercancel', () => {
+  ritePointer = null;
+  retryRite();
+});
 function drawRiteTrace(w: World): void {
   const draw = w.riteDraw;
   riteSvg.hidden = !draw;
-  if (!draw) return;
-  riteLine.setAttribute('points', draw.points.map((p) => `${(p.x * 100).toFixed(2)},${(p.y * 100).toFixed(2)}`).join(' '));
+  if (!draw) {
+    if (ritePointer !== null && riteSurface.hasPointerCapture(ritePointer)) riteSurface.releasePointerCapture(ritePointer);
+    ritePointer = null;
+    return;
+  }
+  const def = findRite(draw.rite);
+  if (!def) return;
+  riteTitle.textContent = def.name;
+  riteHint.textContent = 'Trace the ember mark in one stroke. Release X or choose Cast.';
+  riteGuide.setAttribute('points', def.template.map(([x, y]) => `${x * 100},${y * 100}`).join(' '));
+  riteLine.setAttribute('points', draw.points.map((p) => `${p.x * 100},${p.y * 100}`).join(' '));
+  const grade = gradeRite(draw.points, def.template);
+  riteStatus.textContent = draw.points.length < 2 ? 'Begin at either foot of the mark · Cancel costs nothing' :
+    grade === 'full' ? 'The mark holds · Full power' : grade === 'weak' ? 'The mark flickers · Half power' : 'The mark is broken · Retry or risk the backlash';
+  riteStatus.dataset.grade = draw.points.length < 2 ? '' : grade;
 }
 const screen = h('div', { class: 'layer' });
 app.append(screen);
@@ -585,8 +645,14 @@ function show(m: Mode): void {
   pad.reset();
   canvas.style.visibility = m === 'dungeon' || m === 'title' ? 'visible' : 'hidden';
   canvas.classList.toggle('title-view', m === 'title');
-  // Menus need the cursor back.
-  if (m !== 'dungeon') pointerLock.release();
+  // Menus need the cursor back and cannot carry a ritual surface with them.
+  if (m !== 'dungeon') {
+    pointerLock.release();
+    world?.cancelRiteDraw();
+    riteSvg.hidden = true;
+    if (ritePointer !== null && riteSurface.hasPointerCapture(ritePointer)) riteSurface.releasePointerCapture(ritePointer);
+    ritePointer = null;
+  }
   if (m === 'title') {
     titleDirty = true;
     renderer.deathFade = 0;
@@ -1306,6 +1372,7 @@ window.addEventListener('keydown', (e) => {
       if (!e.repeat) world.nextSpell();
       break;
     case 'escape':
+      if (world.riteDraw) { world.cancelRiteDraw(); break; }
     case 'h':
       overlays.toggle('help', world);
       break;
@@ -1333,7 +1400,7 @@ window.addEventListener('keyup', (e) => {
 // The same click pins the cursor to the view while the delve is live.
 canvas.addEventListener('pointerdown', (e) => {
   audio.unlock();
-  if (!world || overlays.isOpen || isSettingsOpen() || e.pointerType !== 'mouse') return;
+  if (!world || world.riteDraw || overlays.isOpen || isSettingsOpen() || e.pointerType !== 'mouse') return;
   if (mode === 'dungeon' && !touchMode) pointerLock.request();
   if (e.button === 0) world.attack();
   if (e.button === 2) world.setBlock(true);
@@ -1343,19 +1410,8 @@ window.addEventListener('mouseup', (e) => {
   if (world && e.button === 2) world.setBlock(false);
 });
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-// While a rite trace is open the pointer draws it: mouse and touch alike,
-// sampled against the view. The lock is already released by the press that
-// opened the trace, so the cursor is there to draw with.
-window.addEventListener('pointermove', (e) => {
-  const draw = world?.riteDraw;
-  if (!draw || mode !== 'dungeon' || overlays.isOpen || isSettingsOpen()) return;
-  const r = canvas.getBoundingClientRect();
-  if (!r.width || !r.height) return;
-  const x = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
-  const y = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
-  world?.addRitePoint(x, y);
-});
 window.addEventListener('blur', () => {
+  world?.cancelRiteDraw();
   clearTouchHolds();
   pointerLock.release();
   world?.held.clear();

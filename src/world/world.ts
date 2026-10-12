@@ -1920,7 +1920,11 @@ export class World {
   /** One sampled point of the trace, in 0..1 across the view. */
   addRitePoint(x: number, y: number): void {
     const draw = this.riteDraw;
-    if (!draw || draw.points.length >= 256) return;
+    if (!draw || !Number.isFinite(x) || !Number.isFinite(y)) return;
+    // Thin long strokes instead of silently cutting off their final legs.
+    if (draw.points.length >= 1024) {
+      draw.points = draw.points.filter((_, i) => i % 2 === 0 || i === draw.points.length - 1);
+    }
     const last = draw.points[draw.points.length - 1];
     if (last && Math.hypot(x - last.x, y - last.y) < 0.004) return;
     draw.points.push({ x, y });
@@ -1938,7 +1942,7 @@ export class World {
   endRiteDraw(): boolean {
     const draw = this.riteDraw;
     this.riteDraw = null;
-    if (!draw) return false;
+    if (!draw || draw.points.length === 0) return false;
     const def = findRite(draw.rite);
     if (!def) return false;
     const pool = this.run.conduit;

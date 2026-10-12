@@ -486,7 +486,7 @@ export class DungeonOverlays {
       ['R button', 'Call shafts back — hold to call, release to stop, they fly to your raised hand'],
       ['Sigil button', 'Cast your attuned sigil when ready'],
       ['Cast · ↻', 'Cast your selected spell from a worn conduit · ↻ selects the next'],
-      ['Rite', 'Tap to open a learned rite, trace its mark, tap again to cast'],
+      ['Rite', 'Tap to open a learned rite, drag the ember mark, then Cast; Retry or Cancel before casting'],
       ['Quick slots', 'Tap to drink / read · drag to reorder'],
       ['Pack · Map', 'Gear, backpack and the automap · tap the minimap for the map too'],
     ];
@@ -502,7 +502,7 @@ export class DungeonOverlays {
       ['R', 'Call shafts back — hold to call, release to stop, they fly to your raised hand'],
       ['G / C', 'Cast your attuned sigil'],
       ['V · B', 'Cast your selected spell from a worn conduit · B selects the next'],
-      ['X', 'Hold to trace a learned rite: the world slows while you draw its mark'],
+      ['X', 'Hold to open a learned rite, drag its mark, release to cast; Escape cancels'],
       ['1 – 4', 'Drink / read your first four consumables · drag the bar to reorder'],
       ['I / Tab', 'Pack & gear'],
       ['M', 'Map · or click the minimap'],

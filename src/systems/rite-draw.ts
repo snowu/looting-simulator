@@ -1,5 +1,5 @@
 /**
- * The rite recogniser: a small $P-style point-cloud matcher. A trace is
+ * The rite recogniser: an ordered, arc-length-resampled path matcher. A trace is
  * resampled to 32 evenly spaced points, normalised into a unit box
  * (position and size mean nothing; shape means everything), and scored
  * against the rite's template in both stroke directions — an M drawn
@@ -18,7 +18,7 @@ export type RiteGrade = 'full' | 'weak' | 'botch';
 
 const RESAMPLE_N = 32;
 /** A trace with fewer points, or a shorter path, than this is a dot: a botch. */
-const MIN_TRACE_POINTS = 8;
+const MIN_TRACE_POINTS = 2;
 const MIN_TRACE_LENGTH = 0.4;
 
 export const RITE_FULL_SCORE = 0.8;

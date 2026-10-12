@@ -371,7 +371,7 @@ export class GamepadController {
       if (!this.riteTracing && this.riteHeld >= RITE_HOLD) {
         if (ctx.riteAvailable()) {
           this.riteTracing = true;
-          this.riteCursor = { x: 0.5, y: 0.5 };
+          this.riteCursor = { x: 0.15, y: 0.8 };
           ctx.beginRite();
         } else {
           // Nothing to trace: this hold stays an (unfired) tap, not a retry loop.
@@ -383,6 +383,7 @@ export class GamepadController {
         const mx = Math.abs(ax(2)) > PAD_TURN_DEADZONE ? ax(2) : 0;
         const my = Math.abs(ax(3)) > PAD_TURN_DEADZONE ? ax(3) : 0;
         if (mx || my) {
+          ctx.traceRite(this.riteCursor.x, this.riteCursor.y);
           this.riteCursor.x = Math.min(1, Math.max(0, this.riteCursor.x + mx * dt * 1.2));
           this.riteCursor.y = Math.min(1, Math.max(0, this.riteCursor.y + my * dt * 1.2));
           ctx.traceRite(this.riteCursor.x, this.riteCursor.y);
