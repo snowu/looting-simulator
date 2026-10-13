@@ -81,7 +81,7 @@ function card(v: SlotView, onPlay: OnPlay, actions: SlotActions): HTMLElement {
     }
     const s = describeSave(shown);
     const kids: Node[] = [h('div', { class: 'slot-name', text: title() })];
-    if (sanitizeSaveName(s.name)) kids.push(h('div', { class: 'dim small', text: `Slot ${v.slot}` }));
+    if (sanitizeSaveName(s.name)) kids.push(h('div', { class: 'dim small slot-sub', text: `Slot ${v.slot}` }));
     // One wrapper for the three facts, so a phone can run them on a single line.
     kids.push(h('div', { class: 'slot-meta' },
       h('span', { text: `Day ${s.day}` }),

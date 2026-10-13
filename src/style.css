@@ -1079,8 +1079,8 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
 .title-screen .slot-card .small { font-size: 18px; }
 .title-screen .slot-card .grow { min-height: 6px; }
 .title-screen .btn { font-family: var(--font-body); font-size: 18px; padding: 4px 10px; border-radius: 0; }
-.title-screen .slot-actions > .btn { width: 100%; min-height: 32px; background: #493314; box-shadow: inset 0 2px #9a763a, inset 0 -3px #251808; color: #ffe4a0; }
-.title-screen .slot-actions > .btn:hover { background: #66491c; color: #fff4d0; }
+.title-screen .slot-card > .btn, .title-screen .slot-actions > .btn { width: 100%; min-height: 32px; background: #493314; box-shadow: inset 0 2px #9a763a, inset 0 -3px #251808; color: #ffe4a0; }
+.title-screen .slot-card > .btn:hover, .title-screen .slot-actions > .btn:hover { background: #66491c; color: #fff4d0; }
 .title-screen .btn:focus-visible, .title-controls summary:focus-visible { outline: 2px solid #ffe08a; outline-offset: 3px; }
 .title-screen input { width: 100%; min-width: 0; font: 22px var(--font-body); border-radius: 0; }
 .title-screen .slot-diff .row { flex-wrap: wrap; }
@@ -1132,7 +1132,7 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
 @media (max-width: 560px), (max-height: 600px) and (min-width: 561px) and (max-width: 999px) {
   .title-screen .slot-card { min-height: 0; padding: 6px 8px 6px 30px; gap: 2px; }
   .title-screen .slot-card .slot-name { font-size: 24px; }
-  .title-screen .slot-card .grow { display: none; }
+  .title-screen .slot-card .grow, .title-screen .slot-card .slot-sub { display: none; }
   .title-screen .slot-meta { flex-direction: row; flex-wrap: wrap; gap: 0 10px; }
   .title-screen .slot-actions { flex-direction: row; gap: 6px; }
   .title-screen .slot-actions > .btn { flex: 1 1 0; width: auto; min-height: 30px; }
