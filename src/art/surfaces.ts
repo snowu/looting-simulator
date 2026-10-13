@@ -235,6 +235,15 @@ const BLAST_PAL: Record<string, string> = {
   x: '#fff6d0fa',
 };
 
+/** Glacial Tomb's burst of ice: the same shape again, in frost. */
+const FROST_PAL: Record<string, string> = {
+  1: '#1c4a7afa',
+  2: '#3a88c8fa',
+  3: '#8ccaf8fa',
+  4: '#d0f0fffa',
+  x: '#f8feffff',
+};
+
 export const SURFACE_ART: ArtDef[] = [
   { id: 'surf_vent', palette: VENT_PAL, rows: VENT },
   { id: 'surf_spores', palette: SPORE_PAL, rows: SPORES },
@@ -242,6 +251,8 @@ export const SURFACE_ART: ArtDef[] = [
   { id: 'fx_spores_b', palette: SPORE_CLOUD_PAL, rows: POOF_B },
   { id: 'fx_blast', palette: BLAST_PAL, rows: POOF },
   { id: 'fx_blast_b', palette: BLAST_PAL, rows: POOF_B },
+  { id: 'fx_frost', palette: FROST_PAL, rows: POOF },
+  { id: 'fx_frost_b', palette: FROST_PAL, rows: POOF_B },
   { id: 'surf_oil', palette: OIL_PAL, rows: OIL },
   { id: 'surf_water', palette: WATER_PAL, rows: WATER },
   { id: 'surf_ice', palette: ICE_PAL, rows: ICE },

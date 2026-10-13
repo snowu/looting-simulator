@@ -60,6 +60,7 @@ export async function artGroups({ ALL_ART, artFile }) {
   add('Consumables', CONSUMABLES.map((c) => c.icon));
   add('Materials', MATERIALS.map((m) => m.icon));
   add('Sigils', [...ids(/^ic_sig_/), ...ids(/^vm_sigil/)]);
+  add('Rites: marks and carvings', [...ids(/^ic_rite_/), ...ids(/^carving/), ...ids(/^fx_(blast|frost|smite|poof)/)]);
 
   // Props, by what they are in the dungeon.
   add('Containers', ids(/^(chest|urn|barrel|root_cache|mimic)/));

@@ -654,8 +654,15 @@ body.touch #hud .quick, body.touch #hud .prompt, body.touch #hud .minimap { z-in
 .rite-status[data-grade="full"] { color: #ffd3a0; }
 .rite-status[data-grade="weak"] { color: #e0a264; }
 .rite-status[data-grade="botch"] { color: #f08069; }
-.rite-svg { width: min(78vw, calc(100dvh - 150px), 620px); height: min(78vw, calc(100dvh - 150px), 620px); background: radial-gradient(circle, #49312655, #0c0907); border: 1px solid #534238; touch-action: none; cursor: crosshair; }
+.rite-svg { width: min(78vw, calc(100dvh - 184px), 620px); height: min(78vw, calc(100dvh - 184px), 620px); background: radial-gradient(circle, #49312655, #0c0907); border: 1px solid #534238; touch-action: none; cursor: crosshair; }
 .rite-guide { fill: none; stroke: #a36a43; stroke-opacity: 0.4; stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
+.rite-pen { fill: #ffe4c0; stroke: #2a1c14; stroke-width: 0.5; pointer-events: none; }
+.rite-legend { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+.rite-legend[hidden] { display: none; }
+.rite-chip { display: flex; align-items: center; gap: 4px; padding: 2px 8px 2px 4px; border: 1px solid #3a2e26; background: #0c0907; color: #b9a697; font-size: 14px; opacity: 0.75; }
+.rite-chip svg { width: 22px; height: 22px; }
+.rite-chip polyline { fill: none; stroke-width: 9; stroke-linecap: round; stroke-linejoin: round; }
+.rite-chip.lead { border-color: #a37a5a; color: #ffe4c0; opacity: 1; }
 .rite-fire-layer { z-index: 31; pointer-events: none; }
 .rite-fire-layer > .rite-fire-canvas { position: absolute; pointer-events: none; image-rendering: pixelated; filter: drop-shadow(0 0 3px #ff792e70); }
 .rite-actions { display: flex; gap: 8px; }
@@ -663,12 +670,15 @@ body.touch #hud .quick, body.touch #hud .prompt, body.touch #hud .minimap { z-in
 
 @media (max-height: 750px) and (min-aspect-ratio: 4/3) {
   /* Move controls beside the mark so landscape phones get the full height. */
-  .rite-panel { grid-template-columns: auto 160px; grid-template-rows: auto auto 1fr auto; gap: 6px 10px; padding: 6px 8px; }
-  .rite-svg { grid-column: 1; grid-row: 1 / 5; width: min(calc(94vw - 192px), calc(100dvh - 28px), 620px); height: min(calc(94vw - 192px), calc(100dvh - 28px), 620px); }
+  .rite-panel { grid-template-columns: auto 160px; grid-template-rows: auto auto auto 1fr auto; gap: 6px 10px; padding: 6px 8px; }
+  .rite-svg { grid-column: 1; grid-row: 1 / 6; width: min(calc(94vw - 192px), calc(100dvh - 28px), 620px); height: min(calc(94vw - 192px), calc(100dvh - 28px), 620px); }
   .rite-title { grid-column: 2; grid-row: 1; font-size: 20px; text-align: center; }
   .rite-hint { grid-column: 2; grid-row: 2; font-size: 14px; }
-  .rite-status { grid-column: 2; grid-row: 3; align-self: center; min-height: 18px; font-size: 14px; }
-  .rite-actions { grid-column: 2; grid-row: 4; flex-direction: column; width: 100%; gap: 4px; }
+  .rite-legend { grid-column: 2; grid-row: 3; }
+  .rite-chip { font-size: 12px; padding: 1px 6px 1px 2px; }
+  .rite-chip svg { width: 18px; height: 18px; }
+  .rite-status { grid-column: 2; grid-row: 4; align-self: center; min-height: 18px; font-size: 14px; }
+  .rite-actions { grid-column: 2; grid-row: 5; flex-direction: column; width: 100%; gap: 4px; }
   .rite-actions button { min-height: 40px; }
 }
 

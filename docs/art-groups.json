@@ -560,6 +560,8 @@
    "public/art/props/fx_spores_b.png",
    "public/art/props/fx_blast.png",
    "public/art/props/fx_blast_b.png",
+   "public/art/props/fx_frost.png",
+   "public/art/props/fx_frost_b.png",
    "public/art/props/fx_flame_0.png",
    "public/art/props/fx_flame_1.png"
   ]
@@ -644,6 +646,30 @@
    "public/art/icons/ic_sig_temper.png",
    "public/art/viewmodels/vm_sigil.png",
    "public/art/viewmodels/vm_sigil_lit.png"
+  ]
+ },
+ "Rites: marks and carvings": {
+  "sprites": [
+   "public/art/icons/ic_rite_meteor.png",
+   "public/art/icons/ic_rite_glacial_tomb.png",
+   "public/art/icons/ic_rite_judgement.png",
+   "public/art/icons/ic_rite_penguining.png",
+   "public/art/props/carving.png",
+   "public/art/props/carving_used.png",
+   "public/art/props/carving_glacial_tomb.png",
+   "public/art/props/carving_glacial_tomb_used.png",
+   "public/art/props/carving_judgement.png",
+   "public/art/props/carving_judgement_used.png",
+   "public/art/props/carving_penguining.png",
+   "public/art/props/carving_penguining_used.png",
+   "public/art/props/fx_smite.png",
+   "public/art/props/fx_smite_b.png",
+   "public/art/props/fx_poof.png",
+   "public/art/props/fx_poof_b.png",
+   "public/art/props/fx_blast.png",
+   "public/art/props/fx_blast_b.png",
+   "public/art/props/fx_frost.png",
+   "public/art/props/fx_frost_b.png"
   ]
  },
  "Containers": {

@@ -1,4 +1,5 @@
-import { RITES } from '../data/rites';
+import { RITES, type RiteDef } from '../data/rites';
+import type { Element } from '../types';
 import type { RiteGrade, TracePoint } from '../systems/rite-draw';
 
 /** Browser port of snowu/claudemancy's canvas.go, main.go and mandala.go:
@@ -9,10 +10,14 @@ import type { RiteGrade, TracePoint } from '../systems/rite-draw';
 const SIZE = 256;
 const MAX_SPARKS = 1200;
 const STROKE_EDGE = [[-1, 0], [1, 0], [0, -1], [0, 1]] as const;
-const HEAT = [
-  [0, 70, 12, 0], [0.35, 190, 55, 0], [0.7, 255, 130, 20],
-  [1, 255, 190, 80], [1.5, 255, 248, 225],
-] as const;
+type Ramp = readonly (readonly [number, number, number, number])[];
+/** Each element's heat ramp, dim to white-hot: the stroke burns in its rite's colour. */
+const HEATS: Record<Element, Ramp> = {
+  fire: [[0, 70, 12, 0], [0.35, 190, 55, 0], [0.7, 255, 130, 20], [1, 255, 190, 80], [1.5, 255, 248, 225]],
+  frost: [[0, 6, 28, 70], [0.35, 30, 100, 190], [0.7, 90, 180, 255], [1, 170, 225, 255], [1.5, 240, 252, 255]],
+  holy: [[0, 60, 44, 6], [0.35, 170, 130, 30], [0.7, 240, 200, 80], [1, 255, 236, 150], [1.5, 255, 252, 236]],
+  shadow: [[0, 34, 8, 60], [0.35, 100, 40, 170], [0.7, 170, 100, 245], [1, 214, 170, 255], [1.5, 248, 236, 255]],
+};
 interface Spark { x: number; y: number; vx: number; vy: number; life: number; max: number }
 
 export class RiteFire {
@@ -31,6 +36,19 @@ export class RiteFire {
   private strength = 1;
   private from = { x: SIZE / 2, y: SIZE / 2, r: SIZE * 0.3 };
   private rng = 0x9e3779b9;
+  private heat: Ramp = HEATS.fire;
+  private mark: RiteDef['template'] = RITES[0].template;
+  /** Which rite's colour and mark: the one the stroke reads as so far, or the one cast. */
+  private riteId: string = RITES[0].id;
+
+  get rite(): string { return this.riteId; }
+
+  /** Burn in this rite's colour, and ring with its mark when it is cast. */
+  setRite(def: Pick<RiteDef, 'id' | 'element' | 'template'>): void {
+    this.riteId = def.id;
+    this.heat = HEATS[def.element];
+    this.mark = def.template;
+  }
 
   get visible(): boolean { return this.state !== 'idle'; }
   get finishing(): boolean { return this.state === 'cast' || this.state === 'fizzle'; }
@@ -58,7 +76,8 @@ export class RiteFire {
     this.lastPoint = points.at(-1);
   }
 
-  finish(points: readonly TracePoint[], grade: RiteGrade): void {
+  finish(points: readonly TracePoint[], grade: RiteGrade, def?: Pick<RiteDef, 'id' | 'element' | 'template'>): void {
+    if (def) this.setRite(def);
     this.points = points;
     this.state = grade === 'botch' ? 'fizzle' : 'cast';
     this.strength = grade === 'weak' ? 0.65 : 1;
@@ -178,10 +197,10 @@ export class RiteFire {
     for (const [radius, heat] of [[1, 1], [0.955, 0.8], [0.8, 0.9], [0.62, 0.85], [0.26, 1], [0.2, 0.7]]) this.circle(cx, cy, r * radius, v * heat);
     const radial = (r0: number, r1: number, a: number, heat: number) => this.line(cx + r * r0 * Math.cos(a), cy + r * r0 * Math.sin(a), cx + r * r1 * Math.cos(a), cy + r * r1 * Math.sin(a), heat * v);
     for (let i = 0; i < 36; i++) radial(i % 3 === 0 ? 0.64 : 0.7, 0.78, -rot * 1.4 + i * Math.PI / 18, 0.75);
-    // The rune band repeats the same drawable bolt as the guide and carving.
+    // The rune band repeats the mark that was drawn, as on the guide and carving.
     for (let i = 0; i < 18; i++) {
       const a = rot + i * Math.PI / 9, x = cx + r * 0.877 * Math.cos(a), y = cy + r * 0.877 * Math.sin(a), s = r * 0.035;
-      const pts = RITES[0].template.map(([x, y]) => [(x - 0.5) * 2, (y - 0.5) * 2]);
+      const pts = this.mark.map(([x, y]) => [(x - 0.5) * 2, (y - 0.5) * 2]);
       for (let j = 1; j < pts.length; j++) this.line(x + pts[j - 1][0] * s, y + pts[j - 1][1] * s, x + pts[j][0] * s, y + pts[j][1] * s, v * (0.85 + 0.15 * Math.sin(this.elapsed * 7 + i * 1.7)));
     }
     for (let k = 0; k < 2; k++) for (let i = 0; i < 4; i++) {
@@ -195,12 +214,13 @@ export class RiteFire {
   private colour(): void {
     const ash = this.state === 'fizzle' ? Math.min(1, this.elapsed / 0.25) : 0;
     const fade = this.state === 'fizzle' ? Math.max(0, 1 - this.elapsed / 0.75) : 1;
+    const heat = this.heat;
     for (let i = 0; i < this.intensity.length; i++) {
       const v = this.intensity[i], p = i * 4;
       if (v <= 0.08) { this.pixels[p + 3] = 0; continue; }
       let stop = 1;
-      while (stop < HEAT.length - 1 && v > HEAT[stop][0]) stop++;
-      const a = HEAT[stop - 1], b = HEAT[stop], t = Math.min(1, Math.max(0, (v - a[0]) / (b[0] - a[0])));
+      while (stop < heat.length - 1 && v > heat[stop][0]) stop++;
+      const a = heat[stop - 1], b = heat[stop], t = Math.min(1, Math.max(0, (v - a[0]) / (b[0] - a[0])));
       const r = a[1] + (b[1] - a[1]) * t, g = a[2] + (b[2] - a[2]) * t, blue = a[3] + (b[3] - a[3]) * t;
       const grey = (r + g + blue) / 3 * 0.55;
       this.pixels[p] = r + (grey - r) * ash;

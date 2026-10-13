@@ -4,6 +4,20 @@ New sprites drawn in code, newest first. Each PNG in `public/art/` is a placehol
 
 ## 2026-10-12
 
+- [ ] `props/carving_glacial_tomb.png` (32×32)
+- [ ] `props/carving_glacial_tomb_used.png` (32×32)
+- [ ] `props/carving_judgement.png` (32×32)
+- [ ] `props/carving_judgement_used.png` (32×32)
+- [ ] `props/carving_penguining.png` (32×32)
+- [ ] `props/carving_penguining_used.png` (32×32)
+- [ ] `icons/ic_rite_glacial_tomb.png` (16×16)
+- [ ] `icons/ic_rite_judgement.png` (16×16)
+- [ ] `icons/ic_rite_penguining.png` (16×16)
+- [ ] `props/fx_frost.png` (24×18)
+- [ ] `props/fx_frost_b.png` (24×18)
+
+## 2026-10-12
+
 - [ ] `props/carving.png` (32×32) — redrawn as a chipped tablet with a recessed falling-bolt mark
 - [ ] `props/carving_used.png` (32×32) — matching tablet, incision spent
 - [ ] `icons/ic_rite_meteor.png` (16×16) — falling-bolt mark matches the carving and drawing guide

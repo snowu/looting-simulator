@@ -57,6 +57,8 @@ export interface RunState {
   road?: string;
   /** Whether this delve has already put your Shade on its floor. */
   shadePlaced?: boolean;
+  /** The rite carving this delve has laid, if any: one per delve (`src/data/rites.ts`). */
+  riteCarved?: string;
   /** The Ashen Seals this delve is under. Absent means none. */
   seals?: string[];
   seed: number;

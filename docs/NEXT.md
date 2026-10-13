@@ -1119,9 +1119,18 @@ the four biome laws, which come after.
 
 ---
 
-# 6. Rites: sigils you draw — **IDEA 2026-10-11, SLICED 2026-10-12**
+# 6. Rites: sigils you draw — **IDEA 2026-10-11, SLICED 2026-10-12, ALL FOUR 2026-10-13**
 
-**Sliced:** Meteor end-to-end — depth-3 carving, study-to-learn, trace-to-cast on mouse, touch and gamepad with the world at 15%, full/weak/botch grading, repeatable two-charge casts (the original once-per-floor/all-charge restriction was removed after playtesting). Still open: Glacial Tomb, Judgement and the Great Penguining; milestone pacing (depth 5, first King kill, rising random chance); whether the marks live in a rereadable book or in memory.
+**Sliced:** Meteor end-to-end — depth-3 carving, study-to-learn, trace-to-cast on mouse, touch and gamepad with the world at 15%, full/weak/botch grading, repeatable two-charge casts (the original once-per-floor/all-charge restriction was removed after playtesting).
+
+**Built 2026-10-13 (branch `feat/rites-2`):** Glacial Tomb (Z), Judgement (triangle) and the Great Penguining (circle), on the same tablet, carvings and costs. Decisions taken:
+- **No rite picker.** One tablet; the drawn mark is matched against every known rite and the best one is cast (claudemancy's own model: the sigil *is* the choice). The tablet shows a legend of known marks and names, guides and colours the stroke by what it currently reads as.
+- **Marks chosen for distance**, measured with the matcher: V, Z, closed triangle, circle score ≤0.33 against one another, against ≥0.65 for a clean own mark.
+- **Pacing as written above**: depth 3 / depth 5 / first King kill guarantees (stay owed until studied, like the shards), 2–5% from depth 3, one carving per delve, never a known rite. First is always Meteor; the Frozen Road teaches Glacial Tomb when it is next; otherwise random among those left.
+- **Botches by element**: fire and holy hit you; frost hits for half and freezes you 2 s; shadow hits for half and drains the conduit.
+- **Gamepad**: the left stick places the pen before the stroke (marks no longer all start top-left).
+
+Still open: whether the marks live in a rereadable book or in memory (the legend currently shows known marks on the tablet itself); the balance harness report of which delve each rite arrives on; sounds of their own.
 
 The user's idea, from their claudemancy tool (draw a sigil to cast a skill):
 cast by **drawing** instead of a button, with time slowed while you draw.

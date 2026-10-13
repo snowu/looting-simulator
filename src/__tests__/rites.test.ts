@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { createRng } from '../core/rng';
 import { DX, DY } from '../core/dir';
 import { Rarity } from '../types';
-import { RITES, RITE_CARVING_DEPTH, findRite, rite } from '../data/rites';
-import { gradeRite, matchRite, TracePoint } from '../systems/rite-draw';
+import { RITES, RITE_CARVING_DEPTH, findRite, rite, riteFloorChance } from '../data/rites';
+import { RITE_WEAK_SCORE, gradeRite, matchRite, recogniseRite, TracePoint } from '../systems/rite-draw';
 import { SAVE_VERSION, newGame } from '../state/game-state';
 import { parseSave } from '../state/save-format';
 import { SAVE_REVISION } from '../state/migrations';
@@ -13,7 +13,8 @@ import { startRun } from '../systems/run';
 import { createEnemy, doorAt, FLOOR, inRoom, stairsFront } from '../systems/dungeon';
 import { reachable, splitsNothing } from '../systems/surfaces';
 import { enemyDef } from '../data/enemies';
-import { RITE_CHARGE_COST, World } from '../world/world';
+import { GLACIAL_TOMB_SECONDS, RITE_BOTCH_FREEZE, RITE_CHARGE_COST, World } from '../world/world';
+import { HEX_SECONDS } from '../data/conduit-spells';
 import { beginLabRite, spawnLabCarving } from '../dev/lab-room';
 
 const TEMPLATE = RITES[0].template;
@@ -43,8 +44,11 @@ function jittered(points: TracePoint[], amt: number, seed = 7): TracePoint[] {
 }
 
 describe('the rite registry', () => {
-  it('opens with Meteor, and refuses unknown rites', () => {
-    expect(RITES.map((r) => r.id)).toEqual(['meteor']);
+  it('holds one rite per element, Meteor first, and refuses unknown rites', () => {
+    expect(RITES.map((r) => r.id)).toEqual(['meteor', 'glacial_tomb', 'judgement', 'penguining']);
+    expect(RITES.map((r) => r.element)).toEqual(['fire', 'frost', 'holy', 'shadow']);
+    expect(new Set(RITES.map((r) => r.icon)).size).toBe(4);
+    expect(new Set(RITES.map((r) => r.carving)).size).toBe(4);
     expect(findRite('meteor')?.element).toBe('fire');
     expect(findRite('nope')).toBeUndefined();
     expect(() => rite('nope')).toThrow();
@@ -212,7 +216,7 @@ describe("Meteor's carving", () => {
     expect(placed).toBeGreaterThanOrEqual(25); // the rules leave room for it on (nearly) every floor
   });
 
-  it('is not placed twice, nor for a rite already learned', () => {
+  it('is not owed on depth 3 once a rite is learned', () => {
     const state = newGame(createRng(95));
     state.equipment.offhand = conduit('wand');
     state.ritesKnown = ['meteor'];
@@ -428,5 +432,342 @@ describe('rite testing in the scratch lab', () => {
     expect(spawnLabCarving(w)).toBe(true);
     expect(carving.used).toBe(false);
     expect(w.state.ritesKnown).not.toContain('meteor');
+  });
+});
+
+/** Points along any rite's mark, densely interpolated. */
+function markOf(id: string, n = 60): TracePoint[] {
+  const verts = rite(id).template.map(([x, y]) => ({ x, y }));
+  const out: TracePoint[] = [];
+  const per = Math.max(2, Math.floor(n / (verts.length - 1)));
+  for (let s = 0; s < verts.length - 1; s++) {
+    for (let i = 0; i < per; i++) {
+      const t = i / per;
+      out.push({ x: verts[s].x + t * (verts[s + 1].x - verts[s].x), y: verts[s].y + t * (verts[s + 1].y - verts[s].y) });
+    }
+  }
+  out.push({ ...verts[verts.length - 1] });
+  return out;
+}
+
+/** Hold the rite input with no rite named: the tablet reads the mark. */
+function traceAny(w: World, points: TracePoint[]): boolean {
+  expect(w.beginRiteDraw()).toBe(true);
+  for (const p of points) w.addRitePoint(p.x, p.y);
+  return w.endRiteDraw();
+}
+
+function adept(): World {
+  const w = ritualist();
+  w.state.ritesKnown = RITES.map((r) => r.id);
+  return w;
+}
+
+/** A shaky hand on a mark: the first jitter that still reads as it, but only weakly. */
+function weakMark(id: string): TracePoint[] {
+  for (let amt = 0.08; amt < 0.3; amt += 0.01) for (let seed = 1; seed < 40; seed++) {
+    const points = jittered(markOf(id), amt, seed);
+    const read = recogniseRite(points, RITES)!;
+    if (read.def.id === id && read.grade === 'weak') return points;
+  }
+  throw new Error(`no weak ${id}`);
+}
+
+/** The player in a corner of their room, and up to three far tiles of it for targets. */
+function inRoomSpots(w: World): { x: number; y: number }[] {
+  const room = playerRoom(w);
+  Object.assign(w.player, { x: room.x, y: room.y });
+  const r = room.x + room.w - 1, b = room.y + room.h - 1;
+  return [{ x: r, y: b }, { x: r, y: room.y }, { x: room.x, y: b }];
+}
+
+/** A tile outside the player's room that they can still see. */
+function seenOutside(w: World): { x: number; y: number } {
+  const room = playerRoom(w);
+  for (let y = 3; y <= 17; y++) for (let x = 3; x <= 17; x++) {
+    if (inRoom(room, x, y) || w.floor.tiles[y * w.floor.width + x] !== FLOOR) continue;
+    if (Math.abs(x - w.player.x) + Math.abs(y - w.player.y) > 7) continue;
+    if ((w as any).los(w.player.x, w.player.y, x, y)) return { x, y };
+  }
+  throw new Error('nothing outside in sight');
+}
+
+const riteEvent = (w: World) => w.drainEvents().find((e) => e.type === 'rite') as { rite: string; grade: string } | undefined;
+
+describe('one tablet for every rite', () => {
+  it('reads each mark as its own rite, clean, shaky, reversed, small or off-centre', () => {
+    for (const def of RITES) {
+      const clean = markOf(def.id);
+      const variants = [
+        clean,
+        [...clean].reverse(),
+        clean.map((p) => ({ x: p.x * 0.35 + 0.55, y: p.y * 0.35 + 0.1 })),
+        ...[3, 11, 29].map((seed) => jittered(clean, 0.03, seed)),
+      ];
+      for (const points of variants) {
+        const read = recogniseRite(points, RITES)!;
+        expect(read.def.id, def.id).toBe(def.id);
+        expect(read.grade, def.id).toBe('full');
+      }
+    }
+  });
+
+  it('keeps the four marks apart: none passes for another', () => {
+    for (const a of RITES) for (const b of RITES) {
+      if (a === b) continue;
+      expect(matchRite(markOf(a.id), b.template), `${a.id} as ${b.id}`).toBeLessThan(RITE_WEAK_SCORE);
+    }
+  });
+
+  it('casts the rite whose mark was drawn, and only among those you know', () => {
+    const w = adept();
+    expect(traceAny(w, markOf('glacial_tomb'))).toBe(true);
+    expect(riteEvent(w)).toMatchObject({ rite: 'glacial_tomb', grade: 'full' });
+    // Knowing only Meteor, a Z is read against the V alone: a botch.
+    const novice = ritualist();
+    novice.run.conduit!.charges = 4;
+    expect(traceAny(novice, markOf('glacial_tomb'))).toBe(true);
+    expect(riteEvent(novice)).toMatchObject({ rite: 'meteor', grade: 'botch' });
+  });
+
+  it('opens with no rite named only once one is known', () => {
+    const w = ritualist();
+    w.state.ritesKnown = [];
+    expect(w.riteAvailable()).toBe(false);
+    expect(w.beginRiteDraw()).toBe(false);
+    w.state.ritesKnown = ['judgement'];
+    expect(w.riteAvailable()).toBe(true);
+    expect(w.riteAvailable('meteor')).toBe(false);
+    expect(w.riteCandidates({ rite: null }).map((r) => r.id)).toEqual(['judgement']);
+  });
+});
+
+describe('Glacial Tomb', () => {
+  it('freezes everything in the room and in sight down the corridor', () => {
+    const w = adept();
+    const [s1, s2] = inRoomSpots(w);
+    const a = roomTarget(w, s1.x, s1.y, 'rat');
+    const b = roomTarget(w, s2.x, s2.y, 'ghoul');
+    const o = seenOutside(w);
+    const c = roomTarget(w, o.x, o.y, 'rat');
+    expect(traceAny(w, markOf('glacial_tomb'))).toBe(true);
+    for (const e of [a, b, c]) {
+      expect(e.frozenT).toBe(GLACIAL_TOMB_SECONDS);
+      expect(e.ai).toBe('recover');
+    }
+    expect(w.spellFx.filter((f) => f.kind === 'frost')).toHaveLength(3);
+    // Held for the whole spell: it thaws only once the seconds run out.
+    for (let t = 0; t < GLACIAL_TOMB_SECONDS - 0.5; t += 1 / 30) w.update(1 / 30);
+    expect(a.frozenT).toBeGreaterThan(0);
+    for (let t = 0; t < 1; t += 1 / 30) w.update(1 / 30);
+    expect(a.frozenT).toBeUndefined();
+  });
+
+  it('holds half as long on a sloppy trace, slows the King, and leaves a penguin waddling', () => {
+    const w = adept();
+    const [s1, s2, s3] = inRoomSpots(w);
+    const a = roomTarget(w, s1.x, s1.y, 'rat');
+    const king = roomTarget(w, s2.x, s2.y, 'ashen_king');
+    const bird = roomTarget(w, s3.x, s3.y, 'goblin');
+    bird.hexT = 10;
+    expect(traceAny(w, weakMark('glacial_tomb'))).toBe(true);
+    expect(riteEvent(w)).toMatchObject({ rite: 'glacial_tomb', grade: 'weak' });
+    expect(a.frozenT).toBe(GLACIAL_TOMB_SECONDS / 2);
+    expect(king.frozenT).toBeUndefined();
+    expect(king.chillT).toBeGreaterThan(0);
+    expect(bird.frozenT).toBeUndefined();
+    expect(bird.hexT).toBe(10);
+  });
+
+  it('turns water under a monster to ice', () => {
+    const w = adept();
+    const [s1] = inRoomSpots(w);
+    const a = roomTarget(w, s1.x, s1.y, 'rat');
+    w.floor.surfaces = [{ x: a.x, y: a.y, kind: 'water' } as any];
+    expect(traceAny(w, markOf('glacial_tomb'))).toBe(true);
+    expect(w.floor.surfaces!.find((s) => s.x === a.x && s.y === a.y)?.kind).toBe('ice');
+  });
+});
+
+describe('Judgement', () => {
+  it('ends the undead in the room for good and strikes the living', () => {
+    const w = adept();
+    const [s1, s2] = inRoomSpots(w);
+    const dead = roomTarget(w, s1.x, s1.y, 'ghoul');
+    const living = roomTarget(w, s2.x, s2.y, 'goblin');
+    expect(traceAny(w, markOf('judgement'))).toBe(true);
+    expect(riteEvent(w)).toMatchObject({ rite: 'judgement', grade: 'full' });
+    expect(dead.ai).toBe('dead');
+    expect(dead.remains).toBe('sanctified');
+    expect(living.ai).not.toBe('dead');
+    expect(living.hp).toBeLessThan(400);
+    expect(w.spellFx.filter((f) => f.kind === 'smite')).toHaveLength(2);
+  });
+
+  it('on a sloppy trace only wounds the undead, twice as hard as the living', () => {
+    let undeadTotal = 0, livingTotal = 0;
+    for (let seed = 1; seed <= 6; seed++) {
+      const w = adept();
+      (w as any).rng = createRng(seed);
+      const [s1, s2] = inRoomSpots(w);
+      const dead = roomTarget(w, s1.x, s1.y, 'ghoul');
+      const living = roomTarget(w, s2.x, s2.y, 'ghoul');
+      (living as any).def = 'goblin';
+      expect(traceAny(w, weakMark('judgement'))).toBe(true);
+      expect(riteEvent(w)).toMatchObject({ grade: 'weak' });
+      expect(dead.ai).not.toBe('dead');
+      undeadTotal += 400 - dead.hp;
+      livingTotal += 400 - living.hp;
+    }
+    expect(undeadTotal).toBeGreaterThan(livingTotal * 1.4);
+  });
+
+  it('never ends the King outright', () => {
+    const w = adept();
+    const [s1] = inRoomSpots(w);
+    const king = roomTarget(w, s1.x, s1.y, 'ashen_king');
+    expect(traceAny(w, markOf('judgement'))).toBe(true);
+    expect(king.ai).not.toBe('dead');
+  });
+});
+
+describe('The Great Penguining', () => {
+  it('makes a penguin of every monster in the room, but not of the King or a lieutenant', () => {
+    const w = adept();
+    const [s1, s2, s3] = inRoomSpots(w);
+    const a = roomTarget(w, s1.x, s1.y, 'rat');
+    const b = roomTarget(w, s2.x, s2.y, 'ghoul');
+    const king = roomTarget(w, s3.x, s3.y, 'ashen_king');
+    const boss = roomTarget(w, w.player.x + 1, w.player.y, 'goblin');
+    boss.lieutenant = 'hoarder';
+    const charges = w.run.conduit!.charges;
+    expect(traceAny(w, markOf('penguining'))).toBe(true);
+    expect(riteEvent(w)).toMatchObject({ rite: 'penguining', grade: 'full' });
+    expect(a.hexT).toBe(HEX_SECONDS);
+    expect(b.hexT).toBe(HEX_SECONDS);
+    expect(king.hexT).toBeUndefined();
+    expect(boss.hexT).toBeUndefined();
+    // A rite gives nothing back for a refusal: the price was the drawing.
+    expect(w.run.conduit!.charges).toBe(charges - RITE_CHARGE_COST);
+  });
+
+  it('lasts half as long on a sloppy trace and stops at the room\'s walls', () => {
+    const w = adept();
+    const [s1] = inRoomSpots(w);
+    const a = roomTarget(w, s1.x, s1.y, 'rat');
+    const o = seenOutside(w);
+    const outside = roomTarget(w, o.x, o.y, 'rat');
+    expect(traceAny(w, weakMark('penguining'))).toBe(true);
+    expect(riteEvent(w)).toMatchObject({ rite: 'penguining', grade: 'weak' });
+    expect(a.hexT).toBe(HEX_SECONDS / 2);
+    expect(outside.hexT).toBeUndefined();
+  });
+});
+
+describe('botched rites backfire in their own element', () => {
+  const scribble = Array.from({ length: 20 }, () => ({ x: 0.5, y: 0.5 }));
+  const botch = (id: string) => {
+    const w = adept();
+    const hp = w.player.hp;
+    expect(w.beginRiteDraw(id)).toBe(true);
+    for (const p of scribble) w.addRitePoint(p.x, p.y);
+    expect(w.endRiteDraw()).toBe(true);
+    expect(riteEvent(w)).toMatchObject({ rite: id, grade: 'botch' });
+    return { w, lost: hp - w.player.hp };
+  };
+  it('frost holds you fast', () => {
+    const { w, lost } = botch('glacial_tomb');
+    expect(w.anim.stunT).toBeGreaterThanOrEqual(RITE_BOTCH_FREEZE);
+    expect(lost).toBeGreaterThan(0);
+  });
+  it('the light judges you', () => {
+    const fire = botch('meteor').lost;
+    expect(botch('judgement').lost).toBe(fire);
+  });
+  it('shadow drinks the conduit dry', () => {
+    const { w } = botch('penguining');
+    expect(w.run.conduit!.charges).toBe(0);
+  });
+});
+
+describe('when carvings appear', () => {
+  it('rises with depth from 2% on depth 3 to 5% on the throne', () => {
+    expect([1, 2, 3, 4, 5, 6].map(riteFloorChance)).toEqual([0, 0, 0.02, 0.03, 0.04, 0.05]);
+  });
+
+  it('owes your second rite by depth 5, never one you know, and lays one per delve', () => {
+    for (const seed of [95, 96, 97]) {
+      const state = newGame(createRng(seed));
+      state.ritesKnown = ['meteor'];
+      startRun(state, seed);
+      const w = new World(state);
+      for (let i = 0; i < 4; i++) w.changeFloorForTest('down');
+      expect(w.run.depth).toBe(5);
+      const carvings = w.run.floors.flatMap((f) => f?.props.filter((p) => p.kind === 'carving') ?? []);
+      expect(carvings).toHaveLength(1);
+      expect(carvings[0].rite).not.toBe('meteor');
+      expect(w.run.riteCarved).toBe(carvings[0].rite);
+    }
+  });
+
+  it('lays nothing more in a delve that has had its carving', () => {
+    const state = newGame(createRng(95));
+    startRun(state, 95);
+    const w = new World(state);
+    for (let i = 0; i < 4; i++) w.changeFloorForTest('down');
+    const carvings = w.run.floors.flatMap((f) => f?.props.filter((p) => p.kind === 'carving') ?? []);
+    expect(carvings.map((c) => c.rite)).toEqual(['meteor']);
+  });
+
+  it('the Frozen Road teaches Glacial Tomb when it is still to come', () => {
+    const w = ritualist();
+    w.run.road = 'frostvault';
+    w.run.depth = 3;
+    expect((w as any).nextRite(createRng(1))).toBe('glacial_tomb');
+    w.state.ritesKnown.push('glacial_tomb');
+    expect(['judgement', 'penguining']).toContain((w as any).nextRite(createRng(1)));
+    w.run.riteCarved = 'judgement';
+    expect((w as any).nextRite(createRng(1))).toBeNull();
+  });
+
+  it('your first King kill leaves a carving by the portal', () => {
+    const w = ritualist();
+    w.state.ritesKnown = ['meteor', 'judgement'];
+    const king = roomTarget(w, w.player.x + 3, w.player.y, 'ashen_king');
+    king.hp = 0;
+    (w as any).killEnemy(king);
+    const slab = w.floor.props.find((p) => p.kind === 'carving');
+    expect(slab).toBeTruthy();
+    expect(['glacial_tomb', 'penguining']).toContain(slab!.rite);
+    expect(Math.max(Math.abs(slab!.x - king.x), Math.abs(slab!.y - king.y))).toBeLessThanOrEqual(5);
+    // Three known: the King owes nothing more.
+    const done = ritualist();
+    done.state.ritesKnown = ['meteor', 'judgement', 'penguining'];
+    const k2 = roomTarget(done, done.player.x + 3, done.player.y, 'ashen_king');
+    k2.hp = 0;
+    (done as any).killEnemy(k2);
+    expect(done.floor.props.some((p) => p.kind === 'carving')).toBe(false);
+  });
+});
+
+describe('every rite in the scratch lab', () => {
+  it('teaches all four for the open tablet, or pins one by name', () => {
+    const w = ritualist();
+    w.state.ritesKnown = [];
+    expect(beginLabRite(w)).toBe(true);
+    expect(w.state.ritesKnown.slice().sort()).toEqual(RITES.map((r) => r.id).sort());
+    expect(w.riteDraw?.rite).toBeNull();
+    w.cancelRiteDraw();
+    expect(beginLabRite(w, 'penguining')).toBe(true);
+    expect(w.riteDraw?.rite).toBe('penguining');
+  });
+
+  it('carves any rite, forgetting only that one', () => {
+    const w = adept();
+    expect(spawnLabCarving(w, 'judgement')).toBe(true);
+    expect(w.state.ritesKnown).not.toContain('judgement');
+    expect(w.state.ritesKnown).toContain('meteor');
+    w.interact();
+    expect(w.state.ritesKnown).toContain('judgement');
   });
 });
