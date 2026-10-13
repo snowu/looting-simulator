@@ -1,6 +1,6 @@
 import { ArtDef } from './raster';
 import { RITES } from '../data/rites';
-import { rows, stamp, sym, traceRows } from './helpers';
+import { markRows, rows, stamp, sym, traceRows } from './helpers';
 
 // Emissive colours end in 'fa' (see textures.ts).
 
@@ -1258,54 +1258,75 @@ const TOWN_PORTAL = sym(rows(`
 
 // Chipped funerary tablet: a recessed ember groove framed by worked stone.
 // The mark fills the face; highlights sit inside the incision, not on the rim.
+/**
+ * A rite carving: an arched standing stone with a recessed panel, the mark
+ * cut into the panel and glowing in its element's light, and rune pips along
+ * the arch and the plinth in the same light. Lit from the top left like the
+ * rest of the props. Studied, every glow goes dark — the lesson is yours now,
+ * not the stone's.
+ */
 const CARVING_PAL = {
-  k: '#171310', b: '#322923', d: '#54483b', c: '#89785e',
-  f: '#b64d24fa', y: '#ffc071fa',
+  k: '#120f0d', b: '#2a231d', d: '#463c33', c: '#695c4e', e: '#8c7f6c',
+  p: '#1f1915', q: '#0e0b09', m: '#3c4a2a', n: '#5a6a3a',
 };
-const CARVING_SLAB = rows(`
-  ................................
-  ................................
-  ...........kkkkkkkk.............
-  ........kkkcccccdddbkk..........
-  .......kccccccccdddddbk.........
-  ......kccdddddddddddcbk.........
-  ......kcdkkkkkkkkkkkdbk.........
-  ......kcdkbddddddddkkdbk........
-  ......kcdkbddddddddbkdbk........
-  ......kcdkbddddddddbkdbk........
-  ......kcdkbddddddddbkdbk........
-  ......kcdkbddddddddbkdbk........
-  ......kcdkbddddddddbkdbk........
-  ......kcdkbddddddddbkdbk........
-  ......kcdkbddddddddbkdbk........
-  ......kcdkbddddddddbkdbk........
-  ......kcdkbddddddddbkdbk........
-  ......kcdkbddddddddbkdbk........
-  ......kcdkbddddddddbkdbk........
-  ......kcdbkkkkkkkkkkdbk.........
-  ......kcdcccccccccccdbk.........
-  ......kccdddbddddddddbk.........
-  ......kcdddkbddcddddbk..........
-  ......kccddbkdddcdddbk..........
-  ......kcddddddddddddbk..........
-  .....kkcccccccccccccbkk.........
-  ....kcccccccccccccccccbk........
-  ....kcddddddddddddddddbk........
-  ...kbbbbbbbbbbbbbbbbbbbbk.......
-  ....kkkkkkkkkkkkkkkkkkkk........
-  ................................
-  ................................
-`);
+const STELE_W = 32;
+/** The panel the mark is cut into, inside its recess. */
+const PANEL = { x: 9, y: 7, w: 14, h: 15 };
+function stele(): string[] {
+  const g = Array.from({ length: 32 }, () => Array<string>(STELE_W).fill('.'));
+  const cx = 15.5, half = 12;
+  const top = (x: number) => Math.round(1 + 7 * ((x - cx) / (half + 0.5)) ** 2);
+  const inside = (x: number, y: number) => x >= 4 && x <= 27 && y >= top(x) && y <= 26;
+  // Weathering on a fixed hash, so the stone never changes between builds.
+  const grain = (x: number, y: number) => ((x * 73856093) ^ (y * 19349663)) >>> 0;
+  for (let y = 0; y < 32; y++) for (let x = 0; x < STELE_W; x++) {
+    if (!inside(x, y)) continue;
+    const edge = !inside(x - 1, y) || !inside(x + 1, y) || !inside(x, y - 1) || !inside(x, y + 1);
+    if (edge) { g[y][x] = 'k'; continue; }
+    const t = (x - 4) / 23, shade = t < 0.1 ? 'e' : t < 0.52 ? 'c' : t < 0.9 ? 'd' : 'b';
+    const lit = y <= top(x) + 1 && shade !== 'b' ? (shade === 'd' ? 'c' : 'e') : shade;
+    const n = grain(x, y) % 11;
+    g[y][x] = n === 0 ? (lit === 'e' ? 'c' : lit === 'c' ? 'd' : 'b') : lit;
+  }
+  // The recess: shadowed on its top and left lip, lit on its bottom and right.
+  const rx0 = PANEL.x - 1, ry0 = PANEL.y - 1, rx1 = PANEL.x + PANEL.w, ry1 = PANEL.y + PANEL.h;
+  for (let y = ry0; y <= ry1; y++) for (let x = rx0; x <= rx1; x++) {
+    g[y][x] = y === ry0 || x === rx0 ? 'q' : y === ry1 || x === rx1 ? 'c' : 'p';
+  }
+  // A crack down from the right of the arch, chips on the edges, moss at the foot.
+  for (const [x, y] of [[24, 8], [25, 9], [25, 10], [24, 11], [25, 12], [25, 13]]) g[y][x] = 'b';
+  for (const [x, y] of [[27, 15], [4, 20]]) g[y][x] = '.';
+  for (const [x, y] of [[26, 15], [5, 20]]) g[y][x] = 'k';
+  for (const [x, y, c] of [[5, 25, 'm'], [6, 25, 'n'], [5, 24, 'm'], [7, 25, 'm'], [25, 25, 'm'], [26, 24, 'm']]) g[y as number][x as number] = c as string;
+  // Plinth: wider than the stone, lit along its top edge.
+  for (let y = 26; y <= 29; y++) for (let x = 2; x <= 29; x++) {
+    const edge = y === 29 || x === 2 || x === 29;
+    g[y][x] = edge ? 'k' : y === 26 ? (x < 16 ? 'e' : 'c') : y === 27 ? (x < 22 ? 'c' : 'd') : 'd';
+  }
+  for (let x = 3; x <= 28; x++) g[30][x] = x % 3 ? 'k' : '.';
+  // Rune pips along the arch and across the plinth, in the mark's light.
+  for (const x of [10, 13, 18, 21]) g[top(x) + 2][x] = 'r';
+  for (const [x, y] of [[6, 27], [11, 28], [16, 27], [20, 28], [25, 27]]) g[y][x] = 'r';
+  return g.map((row) => row.join(''));
+}
+const CARVING_SLAB = stele();
 /** Each rite's slab carries its own mark, cut glowing in its element's light. */
-const CARVING_GLOW: Record<string, { f: string; y: string }> = {
-  fire: { f: '#b64d24fa', y: '#ffc071fa' },
-  frost: { f: '#3a78b8fa', y: '#bfe6fffa' },
-  holy: { f: '#b89a3afa', y: '#fff4c4fa' },
-  shadow: { f: '#6a3aa8fa', y: '#dcc0fffa' },
+const CARVING_GLOW: Record<string, { f: string; y: string; w: string; r: string }> = {
+  fire: { f: '#8a2a10fa', y: '#ff9a3afa', w: '#ffe6a8fa', r: '#d0602afa' },
+  frost: { f: '#173f78fa', y: '#6cc0ffff', w: '#e6f8fffa', r: '#4a90d8fa' },
+  holy: { f: '#6a5214fa', y: '#ffd860fa', w: '#fffbe0fa', r: '#d8b040fa' },
+  shadow: { f: '#3a1868fa', y: '#b07afffa', w: '#f0e0fffa', r: '#8a58d0fa' },
 };
-const CARVING_USED = { f: '#5a4a40', y: '#6a5a4a' };
+/** Studied: the groove stays cut, but nothing in it burns. */
+const CARVING_USED = { f: '#1a1512', y: '#3a3129', w: '#4a3f35', r: '#2c241e' };
+/** The mark in its panel: a hot core with a white-hot spine, and a glow that bleeds into the stone. */
+function carvedMark(template: readonly (readonly [number, number])[]): string[] {
+  const halo = markRows(template, PANEL.w, PANEL.h, { core: 'y', halo: 'f', coreR: 0.8, haloR: 1.6, margin: 1 });
+  const spine = markRows(template, PANEL.w, PANEL.h, { core: 'w', halo: '.', coreR: 0.32, haloR: 0, margin: 1 });
+  return stamp(halo, spine);
+}
 const CARVINGS: ArtDef[] = RITES.flatMap((r) => {
-  const mark = stamp(CARVING_SLAB, traceRows(r.template, 8, 10, 'y'), 11, 8);
+  const mark = stamp(CARVING_SLAB, carvedMark(r.template), PANEL.x, PANEL.y);
   return [
     { id: r.carving, palette: { ...CARVING_PAL, ...CARVING_GLOW[r.element] }, rows: mark },
     { id: r.carvingUsed, palette: { ...CARVING_PAL, ...CARVING_USED }, rows: mark },

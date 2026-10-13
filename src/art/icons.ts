@@ -1,6 +1,6 @@
 import { ArtDef } from './raster';
 import { rite } from '../data/rites';
-import { rows, stamp, sym, traceRows } from './helpers';
+import { markRows, rows, stamp, sym } from './helpers';
 
 // 16×16 item icons. Ramp chars 1-4 are re-coloured per material at draw time;
 // the defaults below are plain iron.
@@ -44,11 +44,14 @@ const SIGIL_TOKEN = sym(rows(`
  * before you have looked at anything; and the mark is a whole bold shape rather
  * than a glyph — a crescent, an eye, an arch — read at a glance and at 16px.
  */
-const sigilIcon = (id: string, mark: string[], accent: string, dark: string, light: string): ArtDef => icon(
+const sigilIcon = (id: string, mark: string[], accent: string, dark: string, light: string, at = 4): ArtDef => icon(
   id,
-  stamp(SIGIL_TOKEN, mark, 4, 4),
+  stamp(SIGIL_TOKEN, mark, at, at),
   { k: '#0a090d', 1: dark, 2: light, s: accent },
 );
+
+/** A rite's mark at icon size, cut from the same stroke as its carving and tablet guide. */
+const riteMark = (id: string): string[] => markRows(rite(id).template, 10, 10, { core: 's', halo: '.', coreR: 0.62, haloR: 0, margin: 0.5 });
 
 export const ICONS: ArtDef[] = [
   // --- Materials ------------------------------------------------------------
@@ -1307,10 +1310,10 @@ export const ICONS: ArtDef[] = [
     ................
   `), { m: '#24123a', n: '#4a2a70', u: '#c8a8ff', v: '#f0e0ff', g: '#d0a040', p: '#e8dcc0', q: '#b8a078' }),
   // Each rite's mark, as drawn on its tablet, glowing on dark stone.
-  sigilIcon('ic_rite_meteor', traceRows(rite('meteor').template, 8, 8), '#ff8a30', '#3a1c12', '#6e3a24'),
-  sigilIcon('ic_rite_glacial_tomb', traceRows(rite('glacial_tomb').template, 8, 8), '#a8dcff', '#122a3a', '#24506e'),
-  sigilIcon('ic_rite_judgement', traceRows(rite('judgement').template, 8, 8), '#fff0a0', '#3a3212', '#6e5e24'),
-  sigilIcon('ic_rite_penguining', traceRows(rite('penguining').template, 8, 8), '#d0a8ff', '#24123a', '#4a2a70'),
+  sigilIcon('ic_rite_meteor', riteMark('meteor'), '#ff8a30', '#3a1c12', '#6e3a24', 3),
+  sigilIcon('ic_rite_glacial_tomb', riteMark('glacial_tomb'), '#a8dcff', '#122a3a', '#24506e', 3),
+  sigilIcon('ic_rite_judgement', riteMark('judgement'), '#fff0a0', '#3a3212', '#6e5e24', 3),
+  sigilIcon('ic_rite_penguining', riteMark('penguining'), '#d0a8ff', '#24123a', '#4a2a70', 3),
   // A bound field journal: the codex page a kill can leave behind.
   icon('ic_lore', rows(`
     ................
