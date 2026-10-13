@@ -17,6 +17,8 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 
 // Commits that must never become patch notes. Short hash -> reason.
 const SKIP = {
+  'a25c84e': 'PR preview screenshots and GIFs only',
+  'b272c8a': 'PR preview screenshots only',
   '494b8ba': 'merge of master into the Meteor branch; renumbers its patch only',
   'ba69444': 'dev-only repeatable Meteor and carving controls in the scratch lab; previews and tests',
   '8dde823': 'documentation only: name the touch rite Cast control',
