@@ -284,7 +284,9 @@ riteSurface.addEventListener('pointerdown', (e) => {
   e.preventDefault();
   retryRite();
   ritePointer = e.pointerId;
-  riteSurface.setPointerCapture(e.pointerId);
+  // A pointer already gone (a lightning tap, a touch the browser cancelled)
+  // cannot be captured; the stroke still starts, it just is not held.
+  try { riteSurface.setPointerCapture(e.pointerId); } catch { /* not capturable */ }
   sampleRitePointer(e);
 });
 riteSurface.addEventListener('pointermove', (e) => {
