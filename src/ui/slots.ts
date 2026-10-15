@@ -81,13 +81,14 @@ function card(v: SlotView, onPlay: OnPlay, actions: SlotActions): HTMLElement {
     }
     const s = describeSave(shown);
     const kids: Node[] = [h('div', { class: 'slot-name', text: title() })];
-    if (sanitizeSaveName(s.name)) kids.push(h('div', { class: 'dim small', text: `Slot ${v.slot}` }));
-    kids.push(
-      h('div', { text: `Day ${s.day}` }),
-      h('div', { class: 'dim small', text: s.place }),
-      h('div', { class: 'dim small', text: `${s.gold.toLocaleString()} gold · ${s.difficulty}` }),
-      h('div', { class: 'grow' }),
-    );
+    if (sanitizeSaveName(s.name)) kids.push(h('div', { class: 'dim small slot-sub', text: `Slot ${v.slot}` }));
+    // One wrapper for the three facts, so a phone can run them on a single line.
+    kids.push(h('div', { class: 'slot-meta' },
+      h('span', { text: `Day ${s.day}` }),
+      h('span', { class: 'dim small', text: s.place }),
+      h('span', { class: 'dim small', text: `${s.gold.toLocaleString()} gold · ${s.difficulty}` }),
+    ));
+    kids.push(h('div', { class: 'grow' }));
     const n = note(v);
     if (n) kids.push(n);
     // A fallen Hardcore hero: a headstone, not a game. It can be read, named
@@ -111,15 +112,18 @@ function card(v: SlotView, onPlay: OnPlay, actions: SlotActions): HTMLElement {
     // A save taken mid-delve resumes straight back in the dungeon, so say so:
     // "Continue" undersells the teleport.
     const midDelve = !!shown.run && shown.run.outcome === 'active';
-    kids.push(btn(midDelve ? 'Resume delve' : 'Continue', () => onPlay(v.slot), 'small primary'));
-    if (actions.onRename || actions.onDelete) {
-      kids.push(h(
+    const row = actions.onRename || actions.onDelete
+      ? h(
         'div',
         { class: 'row', style: 'margin-top:4px' },
         actions.onRename ? btn('Rename', () => { mode = 'rename'; render(); }, 'small') : null,
         actions.onDelete ? btn('Delete', () => { mode = 'confirm'; render(); }, 'small') : null,
-      ));
-    }
+      )
+      : null;
+    kids.push(h('div', { class: 'slot-actions' },
+      btn(midDelve ? 'Resume delve' : 'Continue', () => onPlay(v.slot), 'small primary'),
+      row,
+    ));
     return kids;
   }
 
