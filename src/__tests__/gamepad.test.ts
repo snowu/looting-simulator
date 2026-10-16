@@ -9,6 +9,9 @@ import {
   type PadContext,
   type RawPad,
 } from '../ui/gamepad';
+import { StickMotion, readMotion } from '../systems/rite-motion';
+import type { TracePoint } from '../systems/rite-draw';
+import { rite } from '../data/rites';
 
 function pad(over: Partial<RawPad> = {}): RawPad {
   const buttons = Array.from({ length: 17 }, () => ({ pressed: false, value: 0 }));
@@ -89,8 +92,7 @@ describe('gamepad mapping', () => {
       castSpell: () => calls.push('cast'),
       nextSpell: () => calls.push('next'),
       riteAvailable: () => false,
-      beginRite: () => false,
-      aimRite: noop,
+      beginRite: () => null,
       traceRite: noop,
       endRite: noop,
       sipFlask: () => calls.push('sip'),
@@ -138,10 +140,10 @@ describe('gamepad mapping', () => {
     expect(calls).toEqual(['next']);
   });
 
-  it('taps X to interact, holds it to trace a rite the right stick draws', () => {
+  it('taps X to interact, holds it to make a rite with right-stick flicks', () => {
     const calls: string[] = [];
-    const traces: [number, number][] = [];
-    const aims: [number, number][] = [];
+    const traces: TracePoint[] = [];
+    let motion: StickMotion | null = null;
     const noop = (): void => undefined;
     const ctx: PadContext = {
       paused: false,
@@ -156,9 +158,8 @@ describe('gamepad mapping', () => {
       castSpell: noop,
       nextSpell: noop,
       riteAvailable: () => true,
-      beginRite: () => { calls.push('begin'); return true; },
-      aimRite: (x, y) => aims.push([x, y]),
-      traceRite: (x, y) => traces.push([x, y]),
+      beginRite: () => { calls.push('begin'); motion = new StickMotion([rite('meteor').template]); return motion; },
+      traceRite: (points) => traces.push(...points),
       endRite: () => calls.push('end'),
       sipFlask: noop,
       press: (m) => calls.push(`press:${m}`),
@@ -180,41 +181,22 @@ describe('gamepad mapping', () => {
     c.getPoll = () => pad();
     c.update(1 / 60);
     expect(calls).toEqual(['interact']);
-    // A hold opens the trace instead, the stick draws, the release casts.
+    // A hold opens the trace; flicks make the mark and lay it on the tablet;
+    // the release casts. Neither stick turns or walks you meanwhile.
     calls.length = 0;
-    const held = press({ ...pad(), axes: [0, 0, 0.9, 0.4] }, PAD_BUTTONS.x);
-    c.getPoll = () => held;
-    for (let i = 0; i < 30; i++) c.update(1 / 60);
+    const hold = (rx: number, ry: number, lx = 0, ly = 0, frames = 1) => {
+      c.getPoll = () => press({ ...pad(), axes: [lx, ly, rx, ry] }, PAD_BUTTONS.x);
+      for (let i = 0; i < frames; i++) c.update(1 / 60);
+    };
+    hold(0, 0, 0.9, 0.9, 30);
     expect(calls).toContain('begin');
     expect(calls).not.toContain('interact');
-    expect(traces.length).toBeGreaterThan(0);
-    expect(traces[0]).toEqual([0.18, 0.16]);
-    expect(calls.filter((k) => k.startsWith('press:turn') || k.startsWith('release:turn'))).toEqual([]);
-    c.getPoll = () => pad();
-    c.update(1 / 60);
-    expect(calls[calls.length - 1]).toBe('end');
-
-    // Before the stroke, the left stick places the pen without drawing or
-    // walking; once the right stick draws, the left one does nothing.
-    calls.length = 0;
-    traces.length = 0;
-    aims.length = 0;
-    const aim = press({ ...pad(), axes: [0.9, 0.9, 0, 0] }, PAD_BUTTONS.x);
-    c.getPoll = () => aim;
-    for (let i = 0; i < 40; i++) c.update(1 / 60);
-    expect(calls).toContain('begin');
     expect(traces).toEqual([]);
+    for (const [x, y] of [[0.7, 0.7], [0, 0], [0.7, -0.7], [0, 0]]) hold(x, y, 0.9, 0.9, 3);
+    expect(motion!.tokens).toEqual([1, 7]);
+    expect(readMotion(motion!.tokens, [rite('meteor')])?.grade).toBe('full');
+    expect(traces.length).toBeGreaterThan(0);
     expect(calls.filter((k) => k.startsWith('press:'))).toEqual([]);
-    const [ax, ay] = aims.at(-1)!;
-    expect(ax).toBeGreaterThan(0.18);
-    expect(ay).toBeGreaterThan(0.16);
-    c.getPoll = () => press({ ...pad(), axes: [0.9, 0.9, 0, -0.9] }, PAD_BUTTONS.x);
-    c.update(1 / 60);
-    expect(traces[0]).toEqual([ax, ay]);
-    const aimsAfter = aims.length;
-    c.getPoll = () => press({ ...pad(), axes: [0.9, 0.9, 0, 0] }, PAD_BUTTONS.x);
-    for (let i = 0; i < 10; i++) c.update(1 / 60);
-    expect(aims.length).toBe(aimsAfter);
     c.getPoll = () => pad();
     c.update(1 / 60);
     expect(calls[calls.length - 1]).toBe('end');

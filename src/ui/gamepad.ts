@@ -12,8 +12,8 @@
  * - Right stick X / D-pad Left-Right: turn
  * - A (Cross) / RT: context action — interact when facing something useful,
  *   otherwise attack. Holding keeps swinging.
- * - X (Square): tap to interact explicitly, hold to trace a rite (right stick draws,
- *   left stick places the pen before the stroke starts)
+ * - X (Square): tap to interact explicitly, hold to trace a rite: flick the right
+ *   stick through the mark's legs, or roll it for a circle (systems/rite-motion)
  * - Y (Triangle): cast attuned sigil
  * - LB (L1): throw one shaft
  * - RB (R1, hold): call shafts back, release to stop
@@ -22,6 +22,9 @@
  * - B (Circle): sip the flask (back / close inside panels)
  */
 
+import type { StickMotion } from '../systems/rite-motion';
+import type { TracePoint } from '../systems/rite-draw';
+
 export type PadMove = 'forward' | 'back' | 'left' | 'right' | 'turnLeft' | 'turnRight';
 
 export const PAD_DEADZONE = 0.28;
@@ -29,8 +32,6 @@ export const PAD_TURN_DEADZONE = 0.35;
 export const PAD_TRIGGER_HELD = 0.35;
 /** Holding D-pad Down this long selects the next spell instead of casting. */
 export const SPELL_HOLD = 0.4;
-/** Where the stick's pen starts: the top-left tip, where the V and the Z begin. */
-export const RITE_PEN_START: Readonly<{ x: number; y: number }> = { x: 0.18, y: 0.16 };
 /** Holding X this long opens a rite trace instead of interacting. */
 export const RITE_HOLD = 0.4;
 
@@ -161,11 +162,11 @@ export interface PadContext {
   nextSpell: () => void;
   /** Whether a rite trace may open (for holds deciding what they mean). */
   riteAvailable: () => boolean;
-  /** Open a rite trace, trace one stick step, close and cast it. */
-  beginRite: () => boolean;
-  /** Move the pen without drawing: where the stroke will start. */
-  aimRite: (x: number, y: number) => void;
-  traceRite: (x: number, y: number) => void;
+  /** Open a rite trace, read by stick motion; null when none opens. */
+  beginRite: () => StickMotion | null;
+  /** The stroke the motion laid since the last call, for the tablet. */
+  traceRite: (points: TracePoint[]) => void;
+  /** Close the trace and cast what the motion read as. */
   endRite: () => void;
   sipFlask: () => void;
   press: (m: PadMove) => void;
@@ -200,10 +201,8 @@ export class GamepadController {
   /** Seconds X has been held, or null when it is up; and whether the hold opened a trace. */
   private riteHeld: number | null = null;
   private riteTracing = false;
-  /** The stick-drawn cursor, in 0..1 across the view; reset on every trace. */
-  private riteCursor = { ...RITE_PEN_START };
-  /** Whether the right stick has started drawing: until then the left stick moves the pen. */
-  private riteStroke = false;
+  /** The open trace's stick motion, read from the right stick. */
+  private riteMotion: StickMotion | null = null;
   private seenPad = false;
   lastUsedAt = 0;
   getPoll: () => (RawPad | null) | null = () => {
@@ -288,8 +287,8 @@ export class GamepadController {
       snap.moves.delete('turnLeft');
       snap.moves.delete('turnRight');
     }
-    // And the left stick places the pen, so it never walks you either — nor
-    // in the hold that may become a trace, or the pen would start on a step.
+    // And you stand still to make the motion — nor walk in the hold that may
+    // become a trace, or it would open on a step already underway.
     if (this.riteTracing || (btn(raw, P.x) && this.riteHeld !== -1 && ctx.riteAvailable())) snap.moves.clear();
 
     // --- Overlays / paused: release dungeon holds, navigate focus instead.
@@ -311,6 +310,7 @@ export class GamepadController {
       this.spellHeld = null;
       this.riteHeld = null;
       this.riteTracing = false;
+      this.riteMotion = null;
       this.menuRepeat(dt, snap, raw);
       if (edge(P.b)) ctx.closeOverlay();
       if (edge(P.a) || edge(P.x)) {
@@ -367,10 +367,10 @@ export class GamepadController {
   /**
    * X: with no rite to cast it interacts at once, on the press, as it always
    * has. With one ready, a tap interacts on release and a hold past RITE_HOLD
-   * opens a rite trace instead, drawn with the right stick until the button
+   * opens a rite trace instead, made with right-stick flicks until the button
    * comes up; a hold that cannot become a trace still interacts on release.
-   * While tracing the stick draws rather than turns. (riteHeld -1: this
-   * press already interacted, wait for the release.)
+   * While tracing the stick makes the mark rather than turns. (riteHeld -1:
+   * this press already interacted, wait for the release.)
    */
   private riteButton(dt: number, raw: RawPad, ctx: PadContext): void {
     const down = btn(raw, PAD_BUTTONS.x);
@@ -387,36 +387,21 @@ export class GamepadController {
       }
       if (!this.riteTracing && this.riteHeld >= RITE_HOLD && ctx.riteAvailable()) {
         this.riteTracing = true;
-        this.riteStroke = false;
-        this.riteCursor = { ...RITE_PEN_START };
-        ctx.beginRite();
-        ctx.aimRite(this.riteCursor.x, this.riteCursor.y);
+        this.riteMotion = ctx.beginRite();
       }
-      if (this.riteTracing) {
-        const ax = (i: number) => raw.axes[i] ?? 0;
-        const mx = Math.abs(ax(2)) > PAD_TURN_DEADZONE ? ax(2) : 0;
-        const my = Math.abs(ax(3)) > PAD_TURN_DEADZONE ? ax(3) : 0;
-        const lx = Math.abs(ax(0)) > PAD_TURN_DEADZONE ? ax(0) : 0;
-        const ly = Math.abs(ax(1)) > PAD_TURN_DEADZONE ? ax(1) : 0;
-        if (!this.riteStroke && !mx && !my && (lx || ly)) {
-          // Pen up: one stroke has to start where its mark starts.
-          this.riteCursor.x = Math.min(1, Math.max(0, this.riteCursor.x + lx * dt * 1.2));
-          this.riteCursor.y = Math.min(1, Math.max(0, this.riteCursor.y + ly * dt * 1.2));
-          ctx.aimRite(this.riteCursor.x, this.riteCursor.y);
-        }
-        if (mx || my) {
-          this.riteStroke = true;
-          ctx.traceRite(this.riteCursor.x, this.riteCursor.y);
-          this.riteCursor.x = Math.min(1, Math.max(0, this.riteCursor.x + mx * dt * 1.2));
-          this.riteCursor.y = Math.min(1, Math.max(0, this.riteCursor.y + my * dt * 1.2));
-          ctx.traceRite(this.riteCursor.x, this.riteCursor.y);
-        }
+      if (this.riteMotion) {
+        const laid = this.riteMotion.sample(raw.axes[2] ?? 0, raw.axes[3] ?? 0);
+        if (laid.length) ctx.traceRite(laid);
       }
     } else if (this.riteHeld !== null) {
-      if (this.riteTracing) ctx.endRite();
-      else if (this.riteHeld >= 0) ctx.interact();
+      if (this.riteTracing) {
+        const laid = this.riteMotion?.flush() ?? [];
+        if (laid.length) ctx.traceRite(laid);
+        ctx.endRite();
+      } else if (this.riteHeld >= 0) ctx.interact();
       this.riteHeld = null;
       this.riteTracing = false;
+      this.riteMotion = null;
     }
   }
 
@@ -487,7 +472,7 @@ export const GAMEPAD_HELP_ROWS: [string, string][] = [
   ['Left stick ← →', 'Strafe'],
   ['Right stick ← → / D-pad ← →', 'Turn'],
   ['A / RT', 'Swing — or Loot / Open when facing something'],
-  ['X', 'Interact — hold to trace a rite: left stick places the pen, right stick draws'],
+  ['X', 'Interact — hold to make a rite: flick the right stick along each leg of its mark, or roll it for a circle'],
   ['LT (hold)', 'Block — raise it as they strike to parry'],
   ['LB', 'Throw one shaft from your belt'],
   ['RB (hold)', 'Call shafts back — release to stop'],

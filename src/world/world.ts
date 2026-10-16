@@ -1990,14 +1990,17 @@ export class World {
    * Close the trace and pay for it. The stamina and two charges burn
    * whatever the trace grades — a botch backfires on top, it never refunds.
    */
-  endRiteDraw(): boolean {
+  endRiteDraw(made?: { def: RiteDef; grade: RiteGrade }): boolean {
     const draw = this.riteDraw;
     this.riteDraw = null;
     if (!draw || draw.points.length === 0) return false;
     // A run that ended mid-trace (killed while the world was slowed) casts
     // nothing: the trace is dropped unpaid, and a botch cannot lift the dead.
     if (this.run.outcome !== 'active' || this.player.hp <= 0) return false;
-    const read = recogniseRite(draw.points, this.riteCandidates(draw));
+    // A gamepad's stick motion arrives already read (systems/rite-motion);
+    // it may only cast a rite this trace allows.
+    const candidates = this.riteCandidates(draw);
+    const read = made ? (candidates.includes(made.def) ? made : undefined) : recogniseRite(draw.points, candidates);
     if (!read) return false;
     const pool = this.run.conduit;
     if (!pool || pool.charges < RITE_CHARGE_COST) return false;

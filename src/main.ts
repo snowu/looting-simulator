@@ -10,6 +10,7 @@ import { itemBase } from './data/items';
 import { quirkDef } from './data/quirks';
 import { findRite, type RiteDef } from './data/rites';
 import { recogniseRite, type RiteGrade, type TracePoint } from './systems/rite-draw';
+import { StickMotion, motionLabel, motionOf, readMotion } from './systems/rite-motion';
 import { World, WorldEvent } from './world/world';
 import { DungeonRenderer } from './render/dungeon-renderer';
 import { RiteFire } from './render/rite-fire';
@@ -241,6 +242,8 @@ let ritePointer: number | null = null;
 let riteGradedPoints: readonly TracePoint[] | null = null;
 let riteGradedTail: TracePoint | undefined;
 let riteRead: { def: RiteDef; grade: RiteGrade } | undefined;
+/** A gamepad trace's stick motion: it, not the drawn points, says what the mark reads as. */
+let riteMotion: StickMotion | null = null;
 const retryRite = () => {
   if (world?.riteDraw) world.riteDraw.points = [];
 };
@@ -318,6 +321,7 @@ function closeRiteSurface(): void {
   releaseRitePointer();
   riteFirePlaced = false;
   ritePenAt = null;
+  riteMotion = null;
 }
 /** Whether the fire canvas sits on the open tablet: measured once per opening, not every frame. */
 let riteFirePlaced = false;
@@ -339,20 +343,23 @@ function drawRiteTrace(w: World): void {
     releaseRitePointer();
     riteFirePlaced = false;
     ritePenAt = null;
+    riteMotion = null;
     return;
   }
   const defs = w.riteCandidates();
   if (!defs.length) return;
-  const key = defs.map((d) => d.id).join();
+  const key = defs.map((d) => d.id).join() + (riteMotion ? ':pad' : '');
   if (key !== riteLegendKey) {
     riteLegendKey = key;
-    riteLegend.replaceChildren(...defs.map((d) => h('div', { class: 'rite-chip', attrs: { 'data-rite': d.id } }, markSvg(d), h('span', {}, d.short))));
+    // On a pad each chip also says the motion that makes it.
+    const label = (d: RiteDef) => (riteMotion ? `${d.short} ${motionLabel(motionOf(d.template))}` : d.short);
+    riteLegend.replaceChildren(...defs.map((d) => h('div', { class: 'rite-chip', attrs: { 'data-rite': d.id } }, markSvg(d), h('span', {}, label(d)))));
     riteRead = undefined;
   }
-  riteLegend.hidden = defs.length < 2;
+  riteLegend.hidden = defs.length < 2 && !riteMotion;
   const tail = draw.points.at(-1);
   if (draw.points !== riteGradedPoints || tail !== riteGradedTail) {
-    riteRead = draw.points.length >= 2 ? recogniseRite(draw.points, defs) : undefined;
+    riteRead = riteMotion ? readMotion(riteMotion.tokens, defs) : draw.points.length >= 2 ? recogniseRite(draw.points, defs) : undefined;
     riteGradedPoints = draw.points;
     riteGradedTail = tail;
   }
@@ -360,8 +367,10 @@ function drawRiteTrace(w: World): void {
   const lead = riteRead && riteRead.grade !== 'botch' ? riteRead.def : defs.length === 1 ? defs[0] : undefined;
   riteTitle.textContent = lead ? lead.name : 'Draw a rite you know';
   riteTitle.style.color = lead?.color ?? '';
-  riteHint.textContent = defs.length > 1 ? 'Draw any mark below in one stroke. Release X or choose Cast.' : 'Draw the mark in one stroke. Release X or choose Cast.';
-  riteGuide.setAttribute('points', lead ? lead.template.map(([x, y]) => `${x * 100},${y * 100}`).join(' ') : '');
+  riteHint.textContent = riteMotion ? 'Flick the right stick along each leg of a mark below, or roll it for a circle. Release X to cast.'
+    : defs.length > 1 ? 'Draw any mark below in one stroke. Release X or choose Cast.' : 'Draw the mark in one stroke. Release X or choose Cast.';
+  const guide = lead ? (riteMotion ? riteMotion.guide(lead.template).map((p) => [p.x, p.y]) : lead.template) : [];
+  riteGuide.setAttribute('points', guide.map(([x, y]) => `${x * 100},${y * 100}`).join(' '));
   for (const chip of riteLegend.children) chip.classList.toggle('lead', (chip as HTMLElement).dataset.rite === lead?.id);
   if (lead && riteFire.rite !== lead.id) riteFire.setRite(lead);
   ritePen.style.display = ritePenAt ? '' : 'none';
@@ -377,7 +386,7 @@ function drawRiteTrace(w: World): void {
     riteFirePlaced = r.width > 0;
   }
   const grade = riteRead?.grade ?? 'botch';
-  riteStatus.textContent = draw.points.length < 2 ? (defs.length > 1 ? 'Start anywhere · Cancel costs nothing' : 'Start at either tip of the mark · Cancel costs nothing') :
+  riteStatus.textContent = draw.points.length < 2 ? riteMotion ? 'Flick from the centre and let it spring back · Release X before a flick to cancel' : (defs.length > 1 ? 'Start anywhere · Cancel costs nothing' : 'Start at either tip of the mark · Cancel costs nothing') :
     grade === 'full' ? 'The mark holds · Full power' : grade === 'weak' ? 'The mark flickers · Half power' : 'The mark is broken · Retry or risk the backlash';
   riteStatus.dataset.grade = draw.points.length < 2 ? '' : grade;
 }
@@ -452,10 +461,20 @@ const padCtx: PadContext = {
   castSpell: () => world?.castSpell(),
   nextSpell: () => world?.nextSpell(),
   riteAvailable: () => !!world?.riteAvailable(),
-  beginRite: () => !!world?.beginRiteDraw(),
-  aimRite: (x, y) => { ritePenAt = { x, y }; },
-  traceRite: (x, y) => { ritePenAt = { x, y }; world?.addRitePoint(x, y); },
-  endRite: () => world?.endRiteDraw(),
+  beginRite: () => {
+    if (!world?.beginRiteDraw()) return null;
+    riteMotion = new StickMotion(world.riteCandidates().map((d) => d.template));
+    return riteMotion;
+  },
+  traceRite: (points) => {
+    for (const p of points) world?.addRitePoint(p.x, p.y);
+    ritePenAt = points.at(-1) ?? ritePenAt;
+  },
+  endRite: () => {
+    const defs = world?.riteCandidates() ?? [];
+    const made = riteMotion ? readMotion(riteMotion.tokens, defs) : undefined;
+    world?.endRiteDraw(made);
+  },
   sipFlask: () => world?.sipFlask(),
   press: (m) => world?.press(m),
   release: (m) => world?.release(m),

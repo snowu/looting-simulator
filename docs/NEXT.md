@@ -1130,6 +1130,8 @@ the four biome laws, which come after.
 - **Botches by element**: fire and holy hit you; frost hits for half and freezes you 2 s; shadow hits for half and drains the conduit.
 - **Gamepad**: the left stick places the pen before the stroke (marks no longer all start top-left).
 
+**Gamepad stick motions (2026-10-17, unfinished):** pad rites are made with right-stick flicks and a roll instead of drawing (`src/systems/rite-motion.ts`, MECHANICS §9c). Unit tests pass and a mocked pad cast Meteor and Judgement at full power in the browser, but a later headless run read the Judgement flicks (↘ ← ↗) as a half-power Penguining. Not yet known whether that is the slow headless browser dropping stick samples or a real misread (e.g. a fast flick passing the rim being counted as a turn). Check before calling it done, and add the patch note then.
+
 Still open: whether the marks live in a rereadable book or in memory (the legend currently shows known marks on the tablet itself); the balance harness report of which delve each rite arrives on; sounds of their own.
 
 The user's idea, from their claudemancy tool (draw a sigil to cast a skill):
