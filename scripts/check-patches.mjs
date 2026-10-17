@@ -17,6 +17,7 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 
 // Commits that must never become patch notes. Short hash -> reason.
 const SKIP = {
+  '30505eb': 'docs, .gitignore and patch-check skip reasons only; no player-facing change',
   '036576c': 'merge of master into the lone King branch; renumbers its patch to 111 only',
   '98cf858': 'Steam assessment doc only (docs/)',
   '692a31d': 'art layout doc only (integration-map.md)',
