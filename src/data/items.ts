@@ -159,7 +159,7 @@ export const ITEM_BASES: ItemBaseDef[] = [
     id: 'throwing_knives', name: 'Throwing Knives', slot: 'thrown', icon: 'ic_throwing_knives', weaponClass: 'thrown', damageType: 'pierce',
     base: { attack: 5 }, perTier: { attack: 1.4 }, primary: ['metal'],
     thrown: {
-      stock: 6, stockPerTier: 0.5, windup: 0.16, recovery: 0.10, staminaCost: 9,
+      stock: 6, stockPerTier: 0.5, windup: 0.16, recovery: 0.15, staminaCost: 9,
       speed: 9, range: 4, power: 1.8, sprite: 'proj_knife', groundSprite: 'pickup_knives',
     },
     value: 26, minDepth: 2, weight: 1.6,
@@ -168,7 +168,7 @@ export const ITEM_BASES: ItemBaseDef[] = [
     id: 'throwing_axes', name: 'Throwing Axes', slot: 'thrown', icon: 'ic_throwing_axes', weaponClass: 'thrown', damageType: 'slash',
     base: { attack: 12 }, perTier: { attack: 2.8 }, primary: ['metal', 'wood'],
     thrown: {
-      stock: 4, stockPerTier: 0.5, windup: 0.24, recovery: 0.14, staminaCost: 15,
+      stock: 4, stockPerTier: 0.5, windup: 0.24, recovery: 0.35, staminaCost: 15,
       speed: 7, range: 5, power: 1.42, sprite: 'proj_axe_thrown', groundSprite: 'pickup_axes',
     },
     value: 58, minDepth: 3, weight: 0.9,
@@ -177,7 +177,7 @@ export const ITEM_BASES: ItemBaseDef[] = [
     id: 'javelins', name: 'Javelins', slot: 'thrown', icon: 'ic_javelins', weaponClass: 'thrown', damageType: 'pierce',
     base: { attack: 17 }, perTier: { attack: 2.9 }, primary: ['metal'],
     thrown: {
-      stock: 2, stockPerTier: 0.5, windup: 0.32, recovery: 0.18, staminaCost: 19,
+      stock: 2, stockPerTier: 0.5, windup: 0.32, recovery: 0.44, staminaCost: 19,
       speed: 8, range: 7, power: 1.54, sprite: 'proj_javelin', groundSprite: 'pickup_javelins',
     },
     value: 88, minDepth: 4, weight: 0.5,
