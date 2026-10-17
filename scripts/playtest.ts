@@ -24,6 +24,7 @@ import { burningAt, oilBarrelAt, surfaceAt, surfaceKindAt } from '../src/systems
 import { VENT_TELL } from '../src/data/surfaces';
 import { biomeForFloor } from '../src/data/biomes';
 import { enemyDef, BOSS_ID } from '../src/data/enemies';
+import { bestiaryEntry } from '../src/systems/bestiary';
 import { FINAL_DEPTH } from '../src/data/biomes';
 import { dropIntoThroneRoom } from '../src/dev/boss-arena';
 import { itemValue } from '../src/systems/items';
@@ -74,6 +75,13 @@ export interface Policy {
    * measuring what it did.
    */
   throw?: boolean;
+  /**
+   * Once a mimic has bitten this save, the chance of reading the tell on the
+   * next one and striking it awake instead of opening it, decided once per
+   * chest. A person learns the chest from the first bite; a bot without this
+   * opens every mimic it meets and dies to the second. Off by default.
+   */
+  wary?: number;
   /** Collects a line per decision. Debugging only — it is very noisy. */
   trace?: string[];
 }
@@ -122,6 +130,8 @@ export interface RunReport {
   hazards: { lit: number; frozen: number; slips: number; burned: number };
   /** Most backpack slots occupied at any point, against the pack's capacity. */
   peakSlots: number;
+  /** What those slots held at the peak, by item kind. */
+  peakMix: Record<string, number>;
   capacity: number;
   brokenAtEnd: number;
   perFloor: FloorReport[];
@@ -225,6 +235,8 @@ class Bot {
   private leaving = false;
   /** Piles the pack had no room for. Walked past, never edited. */
   private skipped = new Set<string>();
+  /** Chests already judged under `wary`: whether the tell was read. */
+  private doubted = new Map<string, boolean>();
   private killsAtFloorStart = 0;
   private lastPos = '';
   report: RunReport;
@@ -238,7 +250,7 @@ class Bot {
       seed, outcome: 'timeout', depth: 1, deepest: 1, bossKilled: false, kills: 0, time: 0, gold: 0, renown: 0,
       itemsKept: 0, valueKept: 0, damageTaken: {}, sips: 0, morselsEaten: 0, morselsRotted: 0, parries: 0, hitsTaken: 0,
       blockedHits: 0, trapsSprung: 0, itemsLost: 0, valueLost: 0, casts: {}, throws: 0, calling: 0, spellMisses: 0, hexes: 0, hazards: { lit: 0, frozen: 0, slips: 0, burned: 0 },
-      peakSlots: 0, capacity: w.run.backpack.capacity, brokenAtEnd: 0, perFloor: [],
+      peakSlots: 0, peakMix: {}, capacity: w.run.backpack.capacity, brokenAtEnd: 0, perFloor: [],
     };
     this.beginFloor();
   }
@@ -285,6 +297,7 @@ class Bot {
     // Attribution applies only to the following hurt in this event batch.
     let pendingPlayerTrap = false;
     for (const e of events) {
+      if (this.policy.trace && (e.type === 'msg' || e.type === 'hurt')) this.trace(e.type === 'msg' ? `log: ${e.text}` : `hurt ${e.amount}`);
       switch (e.type) {
         case 'hurt':
           this.report.damageTaken[pendingPlayerTrap ? 'trap' : 'monster'] =
@@ -357,7 +370,11 @@ class Bot {
     // which is how a human plays and exactly not how a scripted policy should:
     // one decision has to mean one step, or the bot walks until it hits a wall.
     w.held.clear();
-    if (w.run.backpack.items.length > this.report.peakSlots) this.report.peakSlots = w.run.backpack.items.length;
+    if (w.run.backpack.items.length > this.report.peakSlots) {
+      this.report.peakSlots = w.run.backpack.items.length;
+      this.report.peakMix = {};
+      for (const it of w.run.backpack.items) this.report.peakMix[it.kind] = (this.report.peakMix[it.kind] ?? 0) + 1;
+    }
     if (w.busy || w.moving) return true;
 
     const hpFrac = p.hp / d.maxHp;
@@ -791,6 +808,14 @@ class Bot {
       // by the adjacent-enemy branch; arriving here is always about loot.
       const front = propAt(w.floor, p.x + DX[p.facing], p.y + DY[p.facing]);
       if (front && !front.used && front.tier !== 'none') {
+        if (front.mimic && this.policy.wary && bestiaryEntry(w.state.bestiary, 'mimic').worstHit > 0) {
+          if (!this.doubted.has(front.id)) this.doubted.set(front.id, this.rng.chance(this.policy.wary));
+          if (this.doubted.get(front.id)) {
+            if (p.stamina >= w.derived.swing.staminaCost) w.attack();
+            this.trace('strike the chest awake');
+            return true;
+          }
+        }
         const act = w.contextAction();
         if (act.kind === 'attack') {
           if (p.stamina >= w.derived.swing.staminaCost) w.attack();
@@ -960,6 +985,15 @@ export function playOneRun(seed: number, policy: Policy, prepare?: (s: GameState
   // being comparable.
   state.saveId = `bot-${seed}`;
   prepare?.(state);
+  return playDelve(state, seed, policy);
+}
+
+/**
+ * One delve on a save that already exists: pack the consumables, go down,
+ * and settle through endRun. A timeout is left unsettled (`state.run` stays
+ * open), so a caller chaining delves has to decide what one means.
+ */
+export function playDelve(state: GameState, seed: number, policy: Policy): RunReport {
   packLoadout(state);
   startRun(state, seed);
   const w = new World(state);
@@ -1102,7 +1136,9 @@ export function summarise(reports: RunReport[], label: string): string {
   if (reports.some((r) => r.throws)) {
     L.push(`belt: ${avg(reports.map((r) => r.throws)).toFixed(1)} shafts thrown, ${avg(reports.map((r) => r.calling)).toFixed(0)}s calling them back`);
   }
-  L.push(`pack: peaked at ${avg(reports.map((r) => r.peakSlots)).toFixed(1)} of ${avg(reports.map((r) => r.capacity)).toFixed(0)} slots; ${pct(reports.filter((r) => r.peakSlots >= r.capacity).length, n)} of runs filled it`);
+  const kinds = [...new Set(reports.flatMap((r) => Object.keys(r.peakMix)))].sort();
+  L.push(`pack: peaked at ${avg(reports.map((r) => r.peakSlots)).toFixed(1)} of ${avg(reports.map((r) => r.capacity)).toFixed(0)} slots; ${pct(reports.filter((r) => r.peakSlots >= r.capacity).length, n)} of runs filled it` +
+    (kinds.length ? ` (at the peak: ${kinds.map((k) => `${k} ${avg(reports.map((r) => r.peakMix[k] ?? 0)).toFixed(1)}`).join(', ')})` : ''));
   L.push('note: income only — the bot never goes to town, so repairs, identification and restocking are unpriced.');
   L.push('per floor:');
   for (let d = 1; d <= 6; d++) {
