@@ -19,6 +19,7 @@
     "playtest:normal": "vitest run --config vitest.playtest.config.ts scripts/normal.bench.ts",
     "playtest:battlemage": "vitest run --config vitest.playtest.config.ts scripts/battlemage.bench.ts",
     "playtest:belts": "vitest run --config vitest.playtest.config.ts scripts/belts.bench.ts",
+    "playtest:career": "vitest run --config vitest.playtest.config.ts scripts/career.bench.ts",
     "tables": "vitest run --config vitest.playtest.config.ts scripts/tables.bench.ts",
     "upgrades": "vitest run --config vitest.playtest.config.ts scripts/upgrades.bench.ts",
     "find": "vitest run --config vitest.playtest.config.ts scripts/find.bench.ts",

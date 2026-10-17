@@ -1469,7 +1469,15 @@ One or two run at a time, announced the day before as a rumour.
 | Lantern Wick | +1 unit of light radius (½ a tile). L1 also spots traps 3 tiles ahead instead of 2 | 3, 7, 12 |
 | Warden's Vigil | +25% off your sigil's cooldown per kill, capped at a fifth of it | 6, 12, 20 |
 
-The whole tree costs **337 renown** — roughly 27 to 36 delves for a competent player, against 8 to 14 before the balance pass. The renown *payout* is unchanged: ordinary scripted profiles simply earn less, because they turn back or die sooner. `npm run playtest` reports renown per run against this total; it does not simulate buying the whole tree across many runs.
+The whole tree costs **337 renown**. The design aim was 30 to 40 delves for a competent player, against 8 to 14 before the balance pass; that figure was reasoned, never measured. `npm run playtest:career` now measures the long game: eight fresh Hard characters, 40 delves each, the careful bot aiming one floor past its best, and a scripted townsperson between delves (turn in contracts, identify when it pays, wear the best, sell the rest, repair, temper the flask, buy better gear, train the cheapest upgrade; it never crafts, buys consumables or swears an oath). On 2026-10-17:
+
+| Delves | Died | Deepest | Renown per delve | Income per delve (banked + sold + contracts) | Repairs per delve | Tree bought |
+|---|---|---|---|---|---|---|
+| 1–5 | 65% | 1.75 | 2.1 | 151g | 25g | 9 |
+| 16–20 | 68% | 2.05 | 2.9 | 331g | 59g | 42 |
+| 36–40 | 57% | 2.63 | 4.0 | 489g | 334g | 111 |
+
+So this bot, which dies on most delves, earns about 3 renown a delve and would need over a hundred delves for the whole tree; no career killed the King. A person who survives more delves earns more, but the bot is the only measurement there is, and it says the shallow game pays little renown. Two other things it shows: repairs grow with the kit until they take about two-thirds of income late on, and contracts pay 10–30g a delve. The day's market and contracts are seeded from `randomSeed()` in `endRun`, so careers do not replay exactly between runs of the bench; read differences under about 15% as noise.
 
 What did change is the tree's internal shape, because the dungeon moved under it. `scripts/upgrades.bench.ts` runs the same seeds with each upgrade maxed and alone, against no upgrades at all:
 
@@ -1604,6 +1612,6 @@ npx vitest run --config vitest.playtest.config.ts scripts/mechanics.bench.ts
 
 and paste the result in, rather than editing seventeen rows by hand and getting one of them wrong.
 
-**Measuring a change:** `npm run playtest` writes a full report — the ladder (each floor against the gear it is meant to be reached with), floor composition, loot yield, every matchup, and scripted runs for fresh, mid-gear, endgame and prepared characters under several policies. It takes a couple of minutes. `npm run tables` alone runs in seconds and is the one to use between individual knobs. `npm run playtest:battlemage` compares the conduits against a shield on the same seeds (§9b), and `npm run playtest:belts` each thrown belt against none.
+**Measuring a change:** `npm run playtest` writes a full report — the ladder (each floor against the gear it is meant to be reached with), floor composition, loot yield, every matchup, and scripted runs for fresh, mid-gear, endgame and prepared characters under several policies. It takes a couple of minutes. `npm run tables` alone runs in seconds and is the one to use between individual knobs. `npm run playtest:battlemage` compares the conduits against a shield on the same seeds (§9b), `npm run playtest:belts` each thrown belt against none, and `npm run playtest:career` chains 40 delves on one save with the town in between (§13).
 
 Work that is designed but not built lives in [NEXT.md](NEXT.md); the account-sync brief is in [SUPABASE_SYNC.md](SUPABASE_SYNC.md).
