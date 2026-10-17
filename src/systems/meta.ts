@@ -7,7 +7,7 @@ export interface MetaUpgrade {
 }
 
 export const META_UPGRADES: MetaUpgrade[] = [
-  { id: 'pack_mule', name: 'Pack Mule', description: '+4 backpack slots per level.', costs: [3, 6, 11] },
+  { id: 'pack_mule', name: 'Pack Mule', description: '+2 backpack slots per level.', costs: [3, 6, 11] },
   { id: 'toughness', name: 'Toughness', description: '+12 max health per level.', costs: [3, 6, 10, 15, 22] },
   { id: 'endurance', name: 'Second Wind', description: '+15 max stamina per level.', costs: [3, 7, 12] },
   { id: 'soul_pouch', name: 'Soul Pouch', description: 'On death, keep 3 backpack slots and 20% of carried gold per level.', costs: [5, 10, 16] },
@@ -44,8 +44,15 @@ export function nextCost(u: MetaUpgrade, levels: MetaLevels): number | null {
  * Back to sixteen since: more material families, more monsters and larger
  * floors made twelve a squeeze from the first floor down, which is not where
  * the carry-home decision belongs.
+ *
+ * Where it does belong is deep, and Pack Mule at +4 a level handed the deep
+ * runs twelve slots of slack: a depth-6 kit with three levels peaked at 20 of
+ * 28 and filled 8% of the time. At +2 a level it is 22, and fills 42% of the
+ * time, while a depth-4 delve still rarely does (8%).
  */
 export const BASE_BACKPACK = 16;
+/** Slots per level of Pack Mule. */
+export const PACK_MULE_SLOTS = 2;
 
 /**
  * The light you carry, in world units of radius. Kept deliberately small per
@@ -66,7 +73,7 @@ export function lightIntensity(levels: MetaLevels): number {
 }
 
 export function backpackCapacity(levels: MetaLevels): number {
-  return BASE_BACKPACK + 4 * metaLevel(levels, 'pack_mule');
+  return BASE_BACKPACK + PACK_MULE_SLOTS * metaLevel(levels, 'pack_mule');
 }
 
 export function haggleLevel(levels: MetaLevels): number {
