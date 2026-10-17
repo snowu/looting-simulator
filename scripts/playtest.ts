@@ -67,6 +67,13 @@ export interface Policy {
    * every profile that predates the battlemage keeps measuring what it did.
    */
   cast?: boolean;
+  /**
+   * Throw from the belt when one is worn: at anything coming down a line from
+   * two tiles or more, and call the shafts back (hold R) once nothing is
+   * hunting it. Off by default, so every profile that predates it keeps
+   * measuring what it did.
+   */
+  throw?: boolean;
   /** Collects a line per decision. Debugging only — it is very noisy. */
   trace?: string[];
 }
@@ -106,6 +113,9 @@ export interface RunReport {
   valueLost: number;
   /** Casts released, by spell id; casts that struck nothing; hexes that took. */
   casts: Record<string, number>;
+  /** Shafts thrown, and seconds spent with the call-back running. */
+  throws: number;
+  calling: number;
   spellMisses: number;
   hexes: number;
   /** Surfaces at work, whoever set them off: oil lit, monsters frozen, monsters slipping, monsters burned to death. */
@@ -227,7 +237,7 @@ class Bot {
     this.report = {
       seed, outcome: 'timeout', depth: 1, deepest: 1, bossKilled: false, kills: 0, time: 0, gold: 0, renown: 0,
       itemsKept: 0, valueKept: 0, damageTaken: {}, sips: 0, morselsEaten: 0, morselsRotted: 0, parries: 0, hitsTaken: 0,
-      blockedHits: 0, trapsSprung: 0, itemsLost: 0, valueLost: 0, casts: {}, spellMisses: 0, hexes: 0, hazards: { lit: 0, frozen: 0, slips: 0, burned: 0 },
+      blockedHits: 0, trapsSprung: 0, itemsLost: 0, valueLost: 0, casts: {}, throws: 0, calling: 0, spellMisses: 0, hexes: 0, hazards: { lit: 0, frozen: 0, slips: 0, burned: 0 },
       peakSlots: 0, capacity: w.run.backpack.capacity, brokenAtEnd: 0, perFloor: [],
     };
     this.beginFloor();
@@ -340,6 +350,7 @@ class Bot {
       this.report.hitsTaken++;
     }
     this.lastHp = p.hp;
+    if (w.anim.retrieving) this.report.calling += DT;
 
     // The bot restates its whole intent every decision, so nothing may be left
     // held from the last one. A held key repeats on its own between decisions,
@@ -371,6 +382,7 @@ class Bot {
 
     // 2. Spells, for a bot that carries a conduit and means to use it.
     if (this.policy.cast && this.cast(threats)) return true;
+    if (this.policy.throw && this.throwBelt(threats)) return true;
 
     // 3. Fight what is next to us.
     const adjacent = threats.filter((e) => Math.abs(e.x - p.x) + Math.abs(e.y - p.y) === 1);
@@ -537,6 +549,46 @@ class Bot {
     if (!w.castSpell()) return false;
     this.report.casts[spell.id] = (this.report.casts[spell.id] ?? 0) + 1;
     this.trace(`cast ${spell.id} at ${best.e.def} (${best.dist})`);
+    return true;
+  }
+
+  /**
+   * The belt's turn. The first monster down each line, from two tiles to the
+   * belt's range, is a target; the nearest wins and the bot turns, then
+   * throws. Never while something is already at arm's length (that fight is
+   * the sword's), and never below a swing's worth of stamina after the throw.
+   * With nothing hunting it and shafts out, it holds R until they are home;
+   * the call does not stop it walking, so it carries on with its errand.
+   */
+  private throwBelt(threats: EnemyState[]): boolean {
+    const w = this.w;
+    const p = w.player;
+    const t = w.derived.thrown;
+    const base = w.state.equipment.thrown?.ref;
+    if (!t || !base) return false;
+    const held = w.run.thrown?.held?.[base] ?? 0;
+    if (!threats.some((e) => e.alert > 0)) {
+      if (!w.anim.retrieving && (w.floor.thrown ?? []).some((m) => m.base === base && m.n > 0) && w.retrieve()) this.trace('call the belt back');
+      return false;
+    }
+    if (held <= 0 || p.stamina - t.staminaCost < w.derived.swing.staminaCost) return false;
+    if (threats.some((e) => Math.abs(e.x - p.x) + Math.abs(e.y - p.y) === 1)) return false;
+    let best: { dir: Dir; dist: number } | null = null;
+    for (const dir of DIRS) {
+      for (let dist = 1; dist <= t.range; dist++) {
+        const x = p.x + DX[dir] * dist, y = p.y + DY[dir] * dist;
+        if (blocksSight(this.w.floor, x, y)) break;
+        const e = enemyAt(w.floor, x, y);
+        if (!e) continue;
+        if (dist >= 2 && (!best || dist < best.dist || (dist === best.dist && dir === p.facing))) best = { dir, dist };
+        break;
+      }
+    }
+    if (!best) return false;
+    if (best.dir !== p.facing) { this.turnTo(best.dir); return true; }
+    if (!w.hurl()) return false;
+    this.report.throws++;
+    this.trace(`throw at ${best.dist}`);
     return true;
   }
 
@@ -1046,6 +1098,9 @@ export function summarise(reports: RunReport[], label: string): string {
   if (cast.length) {
     const ids = [...new Set(cast)].sort();
     L.push(`casts: ${ids.map((id) => `${id} ${avg(reports.map((r) => r.casts[id] ?? 0)).toFixed(1)}`).join(', ')}  struck nothing ${avg(reports.map((r) => r.spellMisses)).toFixed(1)}  hexes taken ${avg(reports.map((r) => r.hexes)).toFixed(1)}`);
+  }
+  if (reports.some((r) => r.throws)) {
+    L.push(`belt: ${avg(reports.map((r) => r.throws)).toFixed(1)} shafts thrown, ${avg(reports.map((r) => r.calling)).toFixed(0)}s calling them back`);
   }
   L.push(`pack: peaked at ${avg(reports.map((r) => r.peakSlots)).toFixed(1)} of ${avg(reports.map((r) => r.capacity)).toFixed(0)} slots; ${pct(reports.filter((r) => r.peakSlots >= r.capacity).length, n)} of runs filled it`);
   L.push('note: income only — the bot never goes to town, so repairs, identification and restocking are unpriced.');

@@ -14,6 +14,7 @@ scripts/inject-forge-test-save.js
 playtest-report.txt
 playtest-normal.txt
 playtest-battlemage.txt
+playtest-belts.txt
 balance-tables.txt
 upgrades.txt
 king-report.txt

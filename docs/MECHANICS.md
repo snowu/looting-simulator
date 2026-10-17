@@ -1057,11 +1057,13 @@ Two consequences follow from that and are worth stating plainly:
 
 | Base | Stock (tier 1) | Per tier | Windup / recovery / stamina | Speed | Range | Power | DPS | A full belt is worth |
 |---|---|---|---|---|---|---|---|---|
-| Throwing Knives | 6 | +0.5 | 0.16 / 0.34 / 9 | 9 tiles/s | 4 | ×1.8 | 23.9 | 84 damage |
-| Throwing Axes | 4 | +0.5 | 0.24 / 0.46 / 15 | 7 tiles/s | 5 | ×1.42 | 31.5 | 110 damage |
-| Javelins | 2 | +0.5 | 0.32 / 0.58 / 19 | 8 tiles/s | 7 | ×1.54 | 32.7 | 88 damage |
+| Throwing Knives | 6 | +0.5 | 0.16 / 0.15 / 9 | 9 tiles/s | 4 | ×1.8 | 39.8 | 86 damage |
+| Throwing Axes | 4 | +0.5 | 0.24 / 0.35 / 15 | 7 tiles/s | 5 | ×1.42 | 40.2 | 118 damage |
+| Javelins | 2 | +0.5 | 0.32 / 0.44 / 19 | 8 tiles/s | 7 | ×1.54 | 39.9 | 91 damage |
 
-DPS and belt value are measured at tier 3, averaged over the whole bestiary, by the weapon roster in `npm run tables`. A javelin thrown is about what a Long Sword swung is — but a full belt is three of them, and then it is nothing until you have walked over to get them back.
+DPS and belt value are measured at tier 3, averaged over the whole bestiary, by the weapon roster in `npm run tables`. A javelin thrown is about what a Long Sword swung is, and every belt throws at a Long Sword's rate of damage (40) — but a full belt is three to seven shafts, and then it is nothing until you call them back.
+
+**Recovery is the knob that matters.** The belt's value is fixed by its stock, so the recovery decides how much of it lands while one monster walks in from the belt's range (they close at 0.4–0.7s a tile). The recoveries were cut to 0.10 / 0.14 / 0.18s when throws lost their viewmodel, which put every belt at 47–62 DPS, above every weapon in the game, and let a belt empty itself into a single approaching monster before it arrived. They are 0.15 / 0.35 / 0.44s now: still quicker than the 0.34 / 0.46 / 0.58s they started at, and level with the Long Sword. `npm run playtest:belts` plays the careful bot in the depth-4 kit with and without each belt, throwing at anything coming down a line (`Policy.throw`); on 2026-10-17 it died 42% of the time with no belt against 46–58% with one, both before and after the retune — within the ±10% this sample can resolve. The bot never backs away while it throws, so a person gets more of the belt than it does.
 
 `attack × thrown.power` is the number to compare against a weapon's Attack. Material and craft rank ride along, which keeps thrown weapons inside the power ladder rather than beside it: a tier-3 javelin lands near a Long Sword, and knives well under one. That is where a thing you can only do a handful of times, from outside its reach, belongs.
 
@@ -1069,17 +1071,18 @@ DPS and belt value are measured at tier 3, averaged over the whole bestiary, by 
 
 A spent shaft flies, and where it stops — wall, enemy, or the end of its range — it lands on the floor as a marker on `Floor.thrown`, which persists with the floor: walk upstairs and back down and it is still lying where it fell. A shaft that hits something lands **on that thing's tile**, not the tile in front of it; landing it in front meant a point-blank throw fell at your own feet and was collected the same frame, so the one range at which a thrown weapon is supposed to be a bad idea was the one where it was free. Walking over a shaft collects it.
 
-**[R] calls them back, one at a time — tap, never hold.**
+**Hold [R] to call them back, one at a time.**
 
 | | |
 |---|---|
 | Rate | **One shaft leaves the floor every 0.75s**, then flies home at 11 tiles/s |
+| Reach | The whole run. A shaft on another floor, or more than 9 tiles away, starts its flight 2 tiles in front of you instead of crossing the dungeon |
 | Stamina | None. The wait is the whole cost — charging the bar you need *during* a fight for the thing you do *after* one paid for nothing |
 | Durability | One point of belt wear per shaft, as it lands back in your hand |
-| Cooldown | 6s, started when the last shaft the call itself sent home leaves the floor |
-| Stopped by | Swinging, casting, being stunned, taking a blow, unequipping the belt — or tapping R again |
+| Cooldown | None. Old saves may still carry a `retrieveCd`; it only counts down |
+| Stopped by | Letting go of R, swinging, casting, being stunned, taking a blow, unequipping the belt or changing floors. Walking does not stop it |
 
-Tap, because holding R re-toggled the call at the key-repeat rate and reset the timer every time, so shafts never arrived and it felt like the key had to be held down for something that is a tap. All of T, R, G and C ignore key repeats.
+The key ignores repeats, so a held R starts the call once rather than restarting it at the key-repeat rate. All of T, R, G and C ignore key repeats.
 
 A called shaft is never in limbo: it is a marker on the floor, a projectile in the air, or in your stock. The stock is credited when it reaches your hand, not when it leaves the floor, so stopping the call never loses what is already airborne — it still lands. Walking over a shaft collects it directly and spends the call's remainder, ending the call with no cooldown when nothing is left: the steps were the price. Changing floors keeps airborne shafts — they go into the stock rather than being dropped on the floor you walk off.
 
@@ -1598,6 +1601,6 @@ npx vitest run --config vitest.playtest.config.ts scripts/mechanics.bench.ts
 
 and paste the result in, rather than editing seventeen rows by hand and getting one of them wrong.
 
-**Measuring a change:** `npm run playtest` writes a full report — the ladder (each floor against the gear it is meant to be reached with), floor composition, loot yield, every matchup, and scripted runs for fresh, mid-gear, endgame and prepared characters under several policies. It takes a couple of minutes. `npm run tables` alone runs in seconds and is the one to use between individual knobs. `npm run playtest:battlemage` compares the conduits against a shield on the same seeds (§9b).
+**Measuring a change:** `npm run playtest` writes a full report — the ladder (each floor against the gear it is meant to be reached with), floor composition, loot yield, every matchup, and scripted runs for fresh, mid-gear, endgame and prepared characters under several policies. It takes a couple of minutes. `npm run tables` alone runs in seconds and is the one to use between individual knobs. `npm run playtest:battlemage` compares the conduits against a shield on the same seeds (§9b), and `npm run playtest:belts` each thrown belt against none.
 
 Work that is designed but not built lives in [NEXT.md](NEXT.md); the account-sync brief is in [SUPABASE_SYNC.md](SUPABASE_SYNC.md).
