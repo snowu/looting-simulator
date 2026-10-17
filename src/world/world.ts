@@ -195,6 +195,14 @@ export const METEOR_POWER_PER_CHARGE = 1.5;
 export const JUDGEMENT_POWER_PER_CHARGE = 1;
 /** Seconds Glacial Tomb holds what it catches; a sloppy trace holds half as long. */
 export const GLACIAL_TOMB_SECONDS = 5;
+/** Seconds it holds what is only in sight, outside your room: the room is the tomb. */
+export const GLACIAL_TOMB_SIGHT_SECONDS = 2.5;
+/**
+ * Judgement ends the undead outright only below this base health. The Hollow
+ * Knight and the Barrow Champion stand under it, as do elites and lieutenants,
+ * and take its holy fire at the undead's double instead.
+ */
+export const JUDGEMENT_SPARE_HP = 100;
 /** How far Glacial Tomb reaches beyond your room, down a clear line of sight. */
 export const RITE_SIGHT = 8;
 /** A botched Glacial Tomb holds you this long. */
@@ -451,6 +459,12 @@ function summarizeLost(lost: string[]): string {
     : n > 1 ? `${n}× ${l}` : l);
   if (gold) parts.push(`${gold} gold`);
   return parts.join(', ');
+}
+
+/** Whether a clean Judgement ends this undead outright, or only burns it. */
+export function judgementEnds(e: EnemyState): boolean {
+  const def = enemyDef(e.def);
+  return !!def.undead && def.behavior !== 'boss' && !e.elite && !e.lieutenant && def.hp < JUDGEMENT_SPARE_HP;
 }
 
 export function shortLabel(hint: string): string {
@@ -2075,10 +2089,12 @@ export class World {
    * King, who breaks free of ice at once, is only slowed.
    */
   private castGlacialTomb(def: RiteDef, grade: RiteGrade): void {
-    const seconds = grade === 'weak' ? GLACIAL_TOMB_SECONDS / 2 : GLACIAL_TOMB_SECONDS;
+    const scale = grade === 'weak' ? 0.5 : 1;
+    const room = this.riteTargets();
     const targets = this.riteSightTargets().filter(e => !this.protectedByFog(e));
     let held = 0;
     for (const e of targets) {
+      const seconds = (room.includes(e) ? GLACIAL_TOMB_SECONDS : GLACIAL_TOMB_SIGHT_SECONDS) * scale;
       this.addSpellFx('frost', e.x, e.y);
       this.elementReaches(e.x, e.y, 'frost');
       if (e.ai === 'dead') continue;
@@ -2111,15 +2127,16 @@ export class World {
 
   /**
    * Judgement: a pillar of light on everything in the room. A clean trace
-   * ends the undead outright, and what it ends stays down; a sloppy one
-   * strikes them twice as hard as the living. The living take holy fire,
-   * which no raised shield turns. The King is struck, never ended.
+   * ends the ordinary undead outright, and what it ends stays down; the great
+   * ones (see `judgementEnds`) and a sloppy trace's undead are struck twice as
+   * hard as the living instead. The living take holy fire, which no raised
+   * shield turns. The King is struck, never ended.
    */
   private castJudgement(def: RiteDef, grade: RiteGrade, charges: number): void {
     const light = { ...conduitSpell('smite'), power: JUDGEMENT_POWER_PER_CHARGE * charges * (grade === 'weak' ? 0.5 : 1) };
     const view = spellView(this.derived, light);
     const targets = this.riteTargets().filter(e => !this.protectedByFog(e));
-    let ended = 0;
+    let ended = 0, stood = 0;
     for (const e of targets) {
       const stat = enemyDef(e.def);
       this.addSpellFx('smite', e.x, e.y);
@@ -2127,7 +2144,7 @@ export class World {
       e.alert = 8;
       e.lastSeenX = this.player.x;
       e.lastSeenY = this.player.y;
-      if (stat.undead && stat.behavior !== 'boss' && grade === 'full') {
+      if (grade === 'full' && judgementEnds(e)) {
         const dealt = Math.max(1, e.hp);
         this.hurt(e, dealt, 'Judged', def.color);
         recordDamageDealt(this.state.bestiary, this.view(e).id, dealt);
@@ -2144,7 +2161,7 @@ export class World {
         this.markRemains(e, 'sanctified');
         this.killEnemy(e);
         if (stat.undead) ended++;
-      }
+      } else if (stat.undead && grade === 'full' && stat.behavior !== 'boss') stood++;
     }
     if (!targets.length) {
       const tile = this.riteEmptyTile();
@@ -2152,6 +2169,9 @@ export class World {
       this.msg(`${def.name} finds no one to judge.`, '#888');
     } else if (ended) {
       this.msg(`The light ends ${ended === 1 ? 'the dead thing' : `${ended} dead things`}. They will stay down.`, def.color);
+      if (stood) this.msg(stood === 1 ? 'One stands under it, burning.' : `${stood} stand under it, burning.`, def.color);
+    } else if (stood) {
+      this.msg(stood === 1 ? 'The dead thing stands under the light, burning.' : `${stood} dead things stand under the light, burning.`, def.color);
     } else {
       this.msg(grade === 'weak' ? 'The trace wavers: the light comes down thin.' : 'Light comes down on the room.', def.color);
     }

@@ -80,7 +80,7 @@ export const RITES: readonly RiteDef[] = [
       [0.16, 0.82],
       [0.84, 0.82],
     ],
-    description: 'Everything in sight is frozen solid for five seconds — the King only slowed. A sloppy trace holds them half as long; a botched one freezes you.',
+    description: 'Everything in the room is frozen solid for five seconds, and anything else in sight for half that — the King only slowed. A sloppy trace holds them half as long; a botched one freezes you.',
   },
   {
     id: 'judgement',
@@ -98,7 +98,7 @@ export const RITES: readonly RiteDef[] = [
       [0.14, 0.84],
       [0.50, 0.12],
     ],
-    description: 'A pillar of light on every monster in the room. The undead die and stay dead; the living are struck with holy fire. A sloppy trace only wounds the undead; a botched one judges you.',
+    description: 'A pillar of light on every monster in the room. The lesser undead die and stay dead; the great ones, elites and lieutenants burn twice as hard as the living; the living are struck with holy fire. A sloppy trace only wounds the undead; a botched one judges you.',
   },
   {
     id: 'penguining',

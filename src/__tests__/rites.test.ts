@@ -13,7 +13,7 @@ import { startRun } from '../systems/run';
 import { createEnemy, doorAt, FLOOR, inRoom, stairsFront } from '../systems/dungeon';
 import { reachable, splitsNothing } from '../systems/surfaces';
 import { enemyDef } from '../data/enemies';
-import { GLACIAL_TOMB_SECONDS, RITE_BOTCH_FREEZE, RITE_CHARGE_COST, World } from '../world/world';
+import { GLACIAL_TOMB_SECONDS, GLACIAL_TOMB_SIGHT_SECONDS, judgementEnds, RITE_BOTCH_FREEZE, RITE_CHARGE_COST, World } from '../world/world';
 import { HEX_SECONDS } from '../data/conduit-spells';
 import { beginLabRite, spawnLabCarving } from '../dev/lab-room';
 
@@ -551,10 +551,10 @@ describe('Glacial Tomb', () => {
     const o = seenOutside(w);
     const c = roomTarget(w, o.x, o.y, 'rat');
     expect(traceAny(w, markOf('glacial_tomb'))).toBe(true);
-    for (const e of [a, b, c]) {
-      expect(e.frozenT).toBe(GLACIAL_TOMB_SECONDS);
-      expect(e.ai).toBe('recover');
-    }
+    for (const e of [a, b]) expect(e.frozenT).toBe(GLACIAL_TOMB_SECONDS);
+    // Down the corridor it only catches them: the room is the tomb.
+    expect(c.frozenT).toBe(GLACIAL_TOMB_SIGHT_SECONDS);
+    for (const e of [a, b, c]) expect(e.ai).toBe('recover');
     expect(w.spellFx.filter((f) => f.kind === 'frost')).toHaveLength(3);
     // Held for the whole spell: it thaws only once the seconds run out.
     for (let t = 0; t < GLACIAL_TOMB_SECONDS - 0.5; t += 1 / 30) w.update(1 / 30);
@@ -620,6 +620,25 @@ describe('Judgement', () => {
       livingTotal += 400 - living.hp;
     }
     expect(undeadTotal).toBeGreaterThan(livingTotal * 1.4);
+  });
+
+  it('only burns the great undead, elites and lieutenants, at the undead\'s double', () => {
+    const w = adept();
+    const [s1, s2, s3] = inRoomSpots(w);
+    const knight = roomTarget(w, s1.x, s1.y, 'hollow_knight');
+    const elite = roomTarget(w, s2.x, s2.y, 'skeleton');
+    elite.elite = 'ironhide';
+    const lt = roomTarget(w, s3.x, s3.y, 'skeleton');
+    lt.lieutenant = 'hoarder';
+    const plain = roomTarget(w, w.player.x + 1, w.player.y, 'skeleton');
+    expect(judgementEnds(knight)).toBe(false);
+    expect(judgementEnds(plain)).toBe(true);
+    expect(traceAny(w, markOf('judgement'))).toBe(true);
+    expect(plain.ai).toBe('dead');
+    for (const e of [knight, elite, lt]) {
+      expect(e.ai).not.toBe('dead');
+      expect(e.hp).toBeLessThan(400);
+    }
   });
 
   it('never ends the King outright', () => {
