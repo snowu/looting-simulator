@@ -69,7 +69,9 @@ export interface DifficultyDef {
   gentleMoves: boolean;
   /**
    * How many monsters may be winding up at you at once. Anyone else in reach
-   * waits its turn. `Infinity` is no cap.
+   * waits its turn; the King never waits. `Infinity` is no cap. Two on both
+   * difficulties: you can only face one blow, and a third from the flank made
+   * a crowd a death sentence rather than pressure.
    */
   maxAttackers: number;
   /** Added to the share of a blow a raised guard absorbs, before the shield cap. */
@@ -153,7 +155,7 @@ const HARD: DifficultyDef = {
   enemyTempo: 1,
   parryWindow: 1,
   gentleMoves: false,
-  maxAttackers: Infinity,
+  maxAttackers: 2,
   blockBonus: 0,
   blockStamina: 1,
   gearWears: true,

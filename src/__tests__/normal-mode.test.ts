@@ -103,7 +103,7 @@ describe('normal slows the fight down', () => {
     expect(most).toBeLessThanOrEqual(DIFFICULTIES.normal.maxAttackers);
   });
 
-  it('hard lets the whole pack swing', () => {
+  it('hard holds the pack to two at once as well', () => {
     let most = 0;
     const w = arena('hard');
     spawnAround(w, 'skeleton', 4);
@@ -111,7 +111,7 @@ describe('normal slows the fight down', () => {
     tick(w, 12, () => {
       most = Math.max(most, w.floor.enemies.filter((e) => e.ai === 'windup' || (e.comboLeft ?? 0) > 0).length);
     });
-    expect(most).toBeGreaterThan(2);
+    expect(most).toBe(2);
   });
 
   it('never feints, and a flurry stops after one follow-up', () => {

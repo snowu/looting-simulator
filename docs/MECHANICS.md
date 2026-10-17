@@ -67,7 +67,7 @@ Raising the guard opens a **0.22s window**. A hit that lands inside it is not ab
 
 **Holding the guard up does not parry.** The window only opens on the *rising edge*, and the cooldown means at best one attempt per 0.75s — against wind-ups of 0.35–0.8s you have to meet the swing, not sit behind the shield. Mistime it and it is a normal block, so there is no cliff — unless the guard is a conduit, which blocks nothing and meets the blow whole.
 
-**Against melee:** the attacker is staggered for **1 second** (never shorter than the recovery it would have had) and takes **double damage** for that whole second. You are immune for the next **0.75s on Hard or 1.25s on Normal**, and other adjacent enemies are staggered for at least **0.25s**, preventing a cluster of near-simultaneous attacks from landing through a successful parry. Bosses are not exempt — this is the only way to open the Ashen King up, since he cannot be staggered out of his wind-up.
+**Against melee:** the attacker is staggered for **1 second** (never shorter than the recovery it would have had) and takes **double damage** for that whole second. You are immune for the next **0.75s on Hard or 1.25s on Normal**, and other adjacent enemies are staggered for at least **0.5s**, preventing a cluster of near-simultaneous attacks from landing through a successful parry. Bosses are not exempt — this is the only way to open the Ashen King up, since he cannot be staggered out of his wind-up.
 
 **Against ranged:** the bolt is **reflected**, keeping its damage and element, and flies back the way it came. The reflection leaves a **0.75s follow-up window on Hard or 1.25s on Normal** that can parry one more projectile, protecting against arrows stacked almost on top of each other. A reflected bolt hits **the first monster in its path** — which is usually the archer that fired it, but is whatever is standing in between. Incoming bolts still pass through monsters, so an archer's escort only shields it *after* you turn one around. Damage uses the target's own resistance, so a Flame Wraith's bolt turned onto a Frost Wisp lands at ×2.
 
@@ -1467,7 +1467,7 @@ When you die, what you lost (the backpack beyond any Soul Pouch slots, and the c
 
 *File: `src/data/difficulty.ts`, the only place these numbers live*
 
-A save picks **Normal**, **Hard** or **Hardcore** when it starts. Normal and Hard can be switched between delves; Hardcore is fixed for good. The delve reads the difficulty it started with (`run.difficulty`), so switching can never soften a fight in progress. **Hard is the game as designed, and every knob on it does nothing.** Hardcore is Hard, knob for knob, with one life.
+A save picks **Normal**, **Hard** or **Hardcore** when it starts. Normal and Hard can be switched between delves; Hardcore is fixed for good. The delve reads the difficulty it started with (`run.difficulty`), so switching can never soften a fight in progress. **Hard is the game as designed, and every knob on it does nothing** except the cap on attackers at once, which both difficulties share. Hardcore is Hard, knob for knob, with one life.
 
 Normal is for someone who wants the dungeon, the loot and the town without the reflex test, so it softens time and punishment as well as numbers:
 
@@ -1478,7 +1478,7 @@ Normal is for someone who wants the dungeon, the loot and the town without the r
 | **Monster tempo** | ×1.3 slower | wind-up, recovery, the gap before the next swing, combo beat, steps, a Gravecaller's chant. The monsters' clock runs slower, so every tell keeps its shape and just lasts longer |
 | **Parry window** | ×1.6 (0.22s → 0.35s) | `parries()` |
 | **Gentle moves** | on | no feints; a combo stops after its first follow-up |
-| **Attackers at once** | 2 | a third monster in reach holds off for a beat instead of winding up. The King never waits |
+| **Attackers at once** | 2 (Hard too) | a third monster in reach holds off for a beat instead of winding up. The King never waits. Hard has the same cap: one guard faces one blow, and a third from the flank made a crowd a death sentence |
 | **Block** | +15 points, stamina ×0.7 | added before the 90% shield cap |
 | Your health / healing / stamina regen | ×1.3 / ×1.35 / ×1.25 | |
 | **Resting** | mends to 50% | after 5s unhurt with nothing hunting you, 2% of max health a second, never above half |

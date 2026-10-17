@@ -375,7 +375,11 @@ class Bot {
     // 3. Fight what is next to us.
     const adjacent = threats.filter((e) => Math.abs(e.x - p.x) + Math.abs(e.y - p.y) === 1);
     if (adjacent.length) {
-      const e = adjacent[0];
+      // A patient fighter turns to the blow that lands first, not the nearest body.
+      const soonest = this.policy.patient
+        ? adjacent.filter((a) => a.ai === 'windup').sort((a, b) => a.timer - b.timer)[0]
+        : undefined;
+      const e = soonest ?? adjacent[0];
       const facing = dirTo(p.x, p.y, e.x, e.y);
       if (facing !== null && facing !== p.facing) {
         this.turnTo(facing);

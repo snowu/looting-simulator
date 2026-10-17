@@ -350,7 +350,7 @@ const CROWD_WAIT = 0.35;
 const REST_DELAY = 5;
 const REST_RATE = 0.02;
 /** Crowd control after turning aside a melee blow. */
-const MELEE_PARRY_SPLASH_STUN = 0.25;
+const MELEE_PARRY_SPLASH_STUN = 0.5;
 /** How long a parried melee attacker is left open, and how much harder it takes hits. */
 const PARRY_STUN = 1;
 
