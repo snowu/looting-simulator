@@ -17,6 +17,23 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 
 // Commits that must never become patch notes. Short hash -> reason.
 const SKIP = {
+  '036576c': 'merge of master into the lone King branch; renumbers its patch to 111 only',
+  '98cf858': 'Steam assessment doc only (docs/)',
+  '692a31d': 'art layout doc only (integration-map.md)',
+  'abab780': 'screenshot test harness only; no player-facing change',
+  '8f55d77': 'title redesign docs and PR previews only',
+  '01cf547': 'merge of master; keeps both title and battlemage patch notes',
+  'ec084df': 'title redesign docs and browser screenshots only',
+  '8aa1dae': 'merge of master into the Normal rebalance only',
+  '4d6b68e': 'art handoff export only; no player-facing change',
+  '064945e': 'Oath Stone help toggle and screenshot; a small help-text tidy covered by Patch 61\'s oaths',
+  'b7697fb': 'oath offer text sync and Patch 68 curation only',
+  '81c5381': 'tests only: the untested draughts',
+  '022c790': 'README and CONTRIBUTING only',
+  '61bd74a': 'compact forge UI, shipped 2026-09-16 beside Patch 52 before every commit was curated; a note now would read as news',
+  'dc1f8af': 'controller support, shipped 2026-09-16 before every commit was curated; later notes (91, 108) already treat it as known',
+  'b5370c9': 'reorderable quick bar, shipped 2026-09-16 before every commit was curated; a note now would read as news',
+  '9a64d47': 'auto-reload on a new version, shipped 2026-09-16 before every commit was curated; Patch 83 covers updating mid-delve',
   'e6adaf5': 'PR preview screenshots only',
   '5919b9c': 'balance harness only: the King bench and the bot policies it needs',
   'a25c84e': 'PR preview screenshots and GIFs only',
