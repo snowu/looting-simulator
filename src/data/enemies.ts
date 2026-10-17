@@ -1,4 +1,4 @@
-import { MOVE_SETS } from './attacks';
+import { MOVE_SETS, type MoveWeight } from './attacks';
 import { ELEMENTAL_VARIANTS, ELEMENTAL_VARIANT_IDS, elementalVariant } from './elemental-variants';
 import { DamageType, EnemyDef } from '../types';
 import { CHILL_WINDUP, PENGUIN_STEP } from './conduit-spells';
@@ -526,6 +526,12 @@ export interface BossPhase {
   shots: number[];
   /** A carried guard, if this phase has one. Absent means no guard at all. */
   shield?: { block: number; stun: number };
+  /**
+   * What he throws up close, from the vocabulary the floors above taught.
+   * Authored per phase rather than rolled from a creature set: each stage
+   * adds the answer it asks for.
+   */
+  moves: MoveWeight[];
   /** What the log says when he enters it. */
   entry: string;
 }
@@ -536,27 +542,36 @@ export interface BossPhase {
  */
 export const KING_PHASES: BossPhase[] = [
   {
-    // The Throne. Read the telegraph, step off the tile.
+    // The Throne. Read the telegraph. The thrust reaches over the step back
+    // and the sweep catches the step aside, so the answer is the guard, not
+    // the feet.
     sprite: 'king', glow: '#8a40ff', windup: 0.8, recovery: 1.0, shots: [0, -1, 1],
+    moves: [{ id: 'basic', weight: 4 }, { id: 'thrust', weight: 2 }, { id: 'sweep', weight: 2 }],
     entry: '',
   },
   {
-    // The Dark. He puts the room out and calls his guard back up. The volley is
-    // a wall now, and the wind-up is quicker, but the real change is that you
-    // cannot see him coming — only the two coals where his eyes were.
+    // The Dark. He puts the room out and steps through it: he melts away and
+    // re-forms beside you (World.shadowStep), so the fight is no longer always
+    // in front of you. The wind-up is quicker, and he feints and flurries, but
+    // the real change is that you cannot see him coming — only the two coals
+    // where his eyes were.
     // The volley stays three wide. The throne room is nine across and he stands
     // on its centre line, so five bolts would cover every tile you could step
     // to — and a dodge you cannot perform is not a mechanic, it is a tax. The
     // glow goes UP, not down: once the sconces are out he and your lantern are
     // the only things lighting the room, and a darker king is a black screen.
     sprite: 'king_dark', glow: '#b070ff', windup: 0.68, recovery: 0.9, shots: [0, -1, 1],
-    entry: 'The torches gutter and die. Two coals watch you from the dark.',
+    moves: [{ id: 'basic', weight: 3 }, { id: 'feint', weight: 2 }, { id: 'flurry', weight: 2 }, { id: 'thrust', weight: 1 }],
+    entry: 'The torches gutter and die. Two coals watch you from the dark, and then they are gone.',
   },
   {
     // The Last Stand. Cornered, faster, and behind a guard — which makes the
-    // parry the only reliable way in. Everything he has left, at once.
+    // parry the only reliable way in — and he spills burning pitch at your feet
+    // (World.spillPitch), so you parry while the floor tells you where not to
+    // stand. Everything he has left, at once.
     sprite: 'king_last', glow: '#ff5a20', windup: 0.55, recovery: 0.75, shots: [0, -1, 1],
     shield: { block: 0.6, stun: 1 },
+    moves: [{ id: 'basic', weight: 3 }, { id: 'slam', weight: 2 }, { id: 'sweep', weight: 2 }, { id: 'flurry', weight: 1 }],
     entry: 'The crown splits. What is left of him burns, and comes on.',
   },
 ];
@@ -697,11 +712,12 @@ export function enemyView(def: EnemyDef, hp: number, maxHp: number, mods?: ViewM
 
 function phaseView(def: EnemyDef, hp: number, maxHp: number, calm = false): EnemyDef {
   const phase = bossPhase(def, hp, maxHp);
-  if (!phase || phase === KING_PHASES[0]) return def;
+  if (!phase) return def;
   const key = `${def.id}:${phase.sprite}${calm ? ':calm' : ''}`;
   let view = VIEW_CACHE.get(key);
   if (!view) {
-    // Calm (Normal): the look and the volley move on, the rhythm and the guard do not.
+    // Calm (Normal): the look and the volley move on; the rhythm, the moves
+    // and the guard do not.
     const rhythm = calm ? KING_PHASES[0] : phase;
     view = {
       ...def,
@@ -711,6 +727,7 @@ function phaseView(def: EnemyDef, hp: number, maxHp: number, calm = false): Enem
       recovery: rhythm.recovery,
       shield: calm ? undefined : phase.shield,
       volley: phase.shots,
+      moves: rhythm.moves,
     };
     VIEW_CACHE.set(key, view);
   }

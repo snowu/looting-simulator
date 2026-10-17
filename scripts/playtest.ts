@@ -402,7 +402,10 @@ class Bot {
         return true;
       }
       this.parryFor = null;
-      if (this.policy.patient && e.ai !== 'recover' && !((e.vuln ?? 0) > 0)) {
+      // An opening is a creature recovering with its guard down, or one left
+      // reeling by a parry, which no guard turns.
+      const opening = (e.vuln ?? 0) > 0 || (e.ai === 'recover' && (e.guard ?? 'down') === 'down');
+      if (this.policy.patient && !opening) {
         w.setBlock(true);
         return true;
       }
@@ -447,6 +450,17 @@ class Bot {
   private dodge(threats: EnemyState[]): boolean {
     const w = this.w;
     const p = w.player;
+    // Standing in fire, or in pitch about to catch: the floor comes first.
+    const doomed = (x: number, y: number) => burningAt(w.floor, x, y) || w.pitchFuses.some((fz) => fz.x === x && fz.y === y);
+    if (doomed(p.x, p.y) && this.rng.chance(this.policy.dodgeSkill ?? 0)) {
+      for (const d of DIRS) {
+        const x = p.x + DX[d], y = p.y + DY[d];
+        if (blocksMove(w.floor, x, y) || enemyAt(w.floor, x, y) || doomed(x, y)) continue;
+        const relative = (d - p.facing + 4) % 4;
+        w.press(relative === 0 ? 'forward' : relative === 2 ? 'back' : relative === 1 ? 'right' : 'left');
+        return true;
+      }
+    }
     const aimed = threats.filter((e) => {
       const b = enemyDef(e.def).behavior;
       const dist = Math.abs(e.x - p.x) + Math.abs(e.y - p.y);

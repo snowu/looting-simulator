@@ -99,8 +99,6 @@ export interface DifficultyDef {
    * lid is up, so on Normal it is a scare, not a death.
    */
   mimicMercy: boolean;
-  /** Hollow Knights standing guard beside the Ashen King when the throne floor is made. */
-  throneGuards: number;
   /**
    * The throne's fog lets you back out. You still cannot strike across the
    * threshold or be struck across it, so stepping out is a breather, not a
@@ -164,7 +162,6 @@ const HARD: DifficultyDef = {
   flaskBonus: 0,
   mimicBite: 1,
   mimicMercy: false,
-  throneGuards: 2,
   throneRetreat: false,
   kingEscalates: true,
   restHeal: 0,
@@ -208,8 +205,7 @@ export const DIFFICULTIES: Record<DifficultyId, DifficultyDef> = {
     flaskBonus: 1,
     mimicBite: 0.5,
     mimicMercy: true,
-    throneGuards: 0,
-    throneRetreat: true,
+      throneRetreat: true,
     kingEscalates: false,
     restHeal: 0.5,
     softDeath: { goldLost: 0.1 },

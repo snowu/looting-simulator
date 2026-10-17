@@ -295,12 +295,12 @@ Depth 6 is the bottom (`FINAL_DEPTH = 6`); there are no stairs down, only the wa
 - A **9×11 throne room** is placed first, and the rest of the floor (8 rooms instead of `9 + depth`) is fitted around it.
 - The throne room is forced to be a **dead end**: it gets exactly one connection, no loop links, and its entrance is an **iron door**.
 - You arrive in the room **farthest from the throne**, so there's a floor to cross before the fight.
-- **The Ashen King** waits two tiles inside, flanked by **two Hollow Knights**. The floor also carries 3 more wanderers than the usual `3 + round(1.2 × depth) + floor(rooms/4)`.
+- **The Ashen King** waits two tiles inside, **alone**: a fight with him is a fight with him, not with whatever else is in reach while he winds up. The floor also carries 3 more wanderers than the usual `3 + round(1.2 × depth) + floor(rooms/4)`.
 - Only the deep roster spawns here: **Ghouls, Frost Wisps, Hollow Knights, Flame Wraiths**. Skeletons stop at depth 4, archers and spiders at 5.
 - Vaults, secret rooms (86% chance at this depth) and shrines still generate as normal. The key here is the **Ashen Key**.
 - The biome has the densest torches of the game, iron doors and obsidian walls whose mortar glows.
 
-**The fight.** 420 HP, 24 attack, 12 defense. It swings when adjacent and fires a **three-bolt shadow volley** when you line up at range 2+. It is immune to shadow, resists pierce (×0.95), takes ×1.5 from holy, and **can never be staggered** out of its wind-up — step out of the tile it aims at, block, or **parry**, which is the one thing that does stagger it and opens a second of double damage. Its volley can be parried a bolt at a time, and the returned bolt is shadow, which it is immune to — so reflect it into the Hollow Knights beside it instead.
+**The fight.** 420 HP, 24 attack, 12 defense. It swings when adjacent and fires a **three-bolt shadow volley** when you line up at range 2+. It is immune to shadow, resists pierce (×0.95), takes ×1.5 from holy, and **can never be staggered** out of its wind-up — step out of the tile it aims at, block, or **parry**, which is the one thing that does stagger it and opens a second of double damage. Its volley can be parried a bolt at a time, and the returned bolt is shadow, which it is immune to, so turning his volley back is a way to stay alive rather than a way to hurt him.
 
 **On its death** it drops a guaranteed **Legendary and an Epic item plus a blueprint**, star iron, shadow essence, a jewelled skull, 50% a dragon scale and 150–300 gold — dropped on a tile *beside* the king, because a **portal** opens on the tile he fell on and would otherwise bury the hoard. Killing it is worth **+25 renown** on top of the usual extraction reward (so 39 for a depth-6 extraction).
 
@@ -311,17 +311,44 @@ There is nothing below. Each new run rolls a fresh seed, so depth 6 can be farme
 *File: `src/data/enemies.ts` (`KING_PHASES`), `src/world/world.ts` (`checkBossPhase`)*
 
 He was a very large trash mob: one telegraph, one volley, and thirty swings of
-health. Now the fight asks a different question as it goes, and each question is
-one the six floors above it already taught you.
+health. Then he was a crowd: two Hollow Knights beside him, so a guard that faces
+one tile was always facing the wrong one. Now he fights **alone**, and the fight
+asks a different question as it goes, each one a question the six floors above
+already taught you, in their own vocabulary.
 
-| | health | what changes | what it asks |
-|---|---|---|---|
-| **The Throne** | 100–65% | nothing — the fight as it always was | can you read a telegraph? |
-| **The Dark** | 65–30% | he puts out every torch in the throne room, and the guards you killed get back up at a third of their health | can you fight blind, with company? |
-| **The Last Stand** | 30–0% | the crown splits; he is faster, and he raises a ward of shadow that turns blows the way a shieldbearer's guard does | can you parry under pressure? |
+| | health | his moves | what changes | what it asks |
+|---|---|---|---|---|
+| **The Throne** | 100–65% | plain blow, thrust, sweep | the fight as it was, but the thrust reaches over a step back and the sweep catches a step aside | can you read a telegraph, and answer it with the guard rather than the feet? |
+| **The Dark** | 65–30% | plain blow, feint, flurry, thrust | he puts out every torch in the throne room, and takes the **Shadow Step** (below) | can you fight blind, when he is not where you left him? |
+| **The Last Stand** | 30–0% | plain blow, slam, sweep, flurry | the crown splits; he is faster, raises a ward of shadow that turns blows the way a shieldbearer's guard does, and flings **burning pitch** (below) | can you parry under pressure while the floor tells you where not to stand? |
+
+The moves are the attack moves of section 5, with the same tells and the same
+pricing, authored per phase in `KING_PHASES` rather than rolled from a creature
+set.
+
+**The Shadow Step** (the Dark onward). He melts into the dark and re-forms on a
+tile beside you: never behind you, and on a flank rather than in front whenever
+one is open, because the point is to make you turn. For **0.8s**
+(`SHADOW_STEP_SECONDS`) he is a `lurk`, off his tile for every purpose: nothing
+strikes him and nothing is struck. A violet puff marks where he will stand for
+the whole of it, and he comes back in the ambusher's 0.5s recovery, so a step
+costs you your facing, never a free blow. Once every **6s**
+(`SHADOW_STEP_EVERY`): at once if you have backed off to two tiles or more,
+and toe to toe only after another 3s, so the Dark is a fight and not a
+teleporter. Rites cannot find him while he is gone.
+
+**Burning pitch** (the Last Stand, Hard only). Every **7s** (`PITCH_EVERY`),
+within three tiles of you, he flings pitch at your feet: your tile and up to
+two beside it become oil, which catches after **1.2s** (`PITCH_FUSE`) and burns
+like any oil (section 4, *Surfaces*). It never takes a way out while it leaves
+you fewer than two clean neighbours, and never covers more than two. He stoops
+to throw it, 0.6s of recovery, so the beat after is yours: step off, or punish
+him and pay for it. Your own tile is the one you cannot look down at, so pitch
+or fire under you shows as a glow up off the bottom of the frame and a status
+line, the way Threshold's ground does.
 
 **He stays one creature.** The phases change his sprite family, his glow, his
-wind-up, his recovery and whether he carries a guard — and nothing else. His id,
+wind-up, his recovery, his moves and whether he carries a guard — and nothing else. His id,
 name, resistances, hoard and health are untouched, because the codex, the field
 notes and the one guaranteed relic in the game are all keyed off them.
 `enemyView(def, hp, maxHp)` folds the phase into a copy of the stat block, so the
@@ -349,21 +376,27 @@ the corridor you came down stays lit, so the way back is still readable. The
 automap is untouched, because the map is a memory of where you have walked, not
 eyesight. This is also the moment the Lantern Wick finally earns its renown.
 
-**The risen pay nothing.** A guard the King stands back up is flagged `risen`,
-and killing it again costs it no second hoard, no second tally and no second
-contract credit — without that, the throne room would be the best place in the
-game to farm a Hollow Knight's moonsilver. Only guards you actually killed rise,
-so leaving them alive means there is nothing for him to call.
-
 **Testing it.** `npm run dev` then `?autostart=boss` kits you out in the
 depth-6 ladder gear and stands you at the back of the throne room. Dev builds
 only — the helper is behind an `import.meta.env.DEV` guard and its module is
 dropped from a production bundle.
 
-**They are optional.** Phase advance is driven by the King's health alone, so
-you can ignore the risen and burn him into his last phase — and carry two
-knights into it. Racing him is about 23 swings at the gear depth 6 is meant to
-be reached with; clearing everything is about 32. The old fight was a flat 30.
+**Measured.** `npx vitest run --config vitest.playtest.config.ts scripts/king.bench.ts`
+stands the bot in the throne room in the depth-6 ladder kit with a perfected
+flask and fights him at four skills (the chance of timing a parry and of
+stepping off a volley's line; it swings only into an opening and steps off
+pitch). On 2026-10-17, 24 seeds a row:
+
+| skill | Hard: won | Hard: died in phase 1/2/3 | Normal: won |
+|---|---|---|---|
+| 35% | 0/24 | 7 / 13 / 4 | 24/24 |
+| 55% | 6/24 | 0 / 11 / 7 | 24/24 |
+| 80% | 18/24 | 0 / 1 / 5 | 24/24 |
+| 100% | 20/24 | 0 / 0 / 4 | 24/24 |
+
+With the two knights the same bot won **0/24 at every skill** on Hard: it could
+only ever face one of three. The bot never steps out of a melee telegraph or
+reflects a bolt, so these are a floor on what a person manages.
 
 ## 5. Monsters
 
@@ -538,7 +571,7 @@ Placement uses its own stream (`ambush:<floorSeed>:<depth>`) after elites, so it
 
 *Files: `src/data/elites.ts`, `promoteElite` in `src/systems/dungeon.ts`, `enemyView` in `src/data/enemies.ts`*
 
-An ordinary spawn can be promoted to an **elite**: the same monster with one trait on top. The chance is **0 on depths 1–2**, then `3% + 2% × (depth − 2)`: **5% at depth 3, 7% at 4, 9% at 5, 11% at 6**, about 1.3 elites per floor from depth 3 down. It applies on every difficulty, with no Oath or Seal needed. The King and his throne guards are never promoted. The roll uses its own hashed stream (`elite:<floorSeed>:<enemyId>`) *after* generation, so it never moves a wall, a chest or another monster. `hard-golden.test.ts` proves this by demoting every elite and matching the pre-elite hash.
+An ordinary spawn can be promoted to an **elite**: the same monster with one trait on top. The chance is **0 on depths 1–2**, then `3% + 2% × (depth − 2)`: **5% at depth 3, 7% at 4, 9% at 5, 11% at 6**, about 1.3 elites per floor from depth 3 down. It applies on every difficulty, with no Oath or Seal needed. The King is never promoted. The roll uses its own hashed stream (`elite:<floorSeed>:<enemyId>`) *after* generation, so it never moves a wall, a chest or another monster. `hard-golden.test.ts` proves this by demoting every elite and matching the pre-elite hash.
 
 **Every elite can be read before it matters.** It throws light in its trait's colour, pulses slowly in that colour (never the fast red flicker of a wind-up), stands 10% taller, and its target bar shows the trait in its name and colour. Hovering the name gives the rule.
 
@@ -1484,7 +1517,7 @@ Normal is for someone who wants the dungeon, the loot and the town without the r
 | **Resting** | mends to 50% | after 5s unhurt with nothing hunting you, 2% of max health a second, never above half |
 | Flask | +1 charge | every delve |
 | Parry grace | ×5/3 (0.75s → 1.25s) | |
-| Throne | the King alone, no Hollow Knight guards; the fog lets you back out; his later phases keep the first phase's wind-up and recovery and never raise a shield (the dark, the sprites and the lines stay) | you still cannot strike or be struck across the threshold |
+| Throne | the fog lets you back out; his later phases keep the first phase's wind-up, recovery and moves, never raise a shield and never fling pitch (the dark, the Shadow Step, the sprites and the lines stay) | you still cannot strike or be struck across the threshold |
 | Mimic bite | ×0.5, and never kills | on top of the damage multiplier; at worst it leaves you on 1 health |
 | Elites / lieutenants | ×0.5 / ×0.6 chance | Seals still add on top |
 | **Gear wear** | none | nothing loses durability; every piece is mended whole as a delve starts and when you switch to Normal; the forge has no Repairs bench; tooltips hide condition; a blow on a chest spills coin instead of denting gear; the Sigil of Temper stops dropping and the Unbroken oath is not offered |

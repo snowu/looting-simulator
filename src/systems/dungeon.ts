@@ -295,7 +295,7 @@ export interface EnemyState {
    * purpose — you walk under it, bolts pass it, `enemyAt` never returns it —
    * until it drops or surfaces. See `src/data/ambush.ts`.
    */
-  lurk?: 'ceiling' | 'buried';
+  lurk?: 'ceiling' | 'buried' | 'shadow';
   /** Counting down to the drop or the surfacing, once it has been set off. Absent while it waits. */
   lurkT?: number;
   /** A ceiling lurker you have seen. Buried ones are always visible as their mound. */
@@ -1209,12 +1209,9 @@ function tryGenerate(
   };
   if (throne) {
     const bx = cx(throne), by = throne.y + 2;
+    // The King stands alone: a fight with him is a fight with him, not with
+    // whoever else is in reach while he winds up.
     spawnEnemy(enemyDef(BOSS_ID), bx, by);
-    const guard = enemyDef('hollow_knight');
-    if (diff.throneGuards >= 1 && free(bx - 2, by + 3)) spawnEnemy(guard, bx - 2, by + 3);
-    // Normal has no guards: the King alone. The slots they would have filled
-    // go to the floor count below, so the rest of the floor is no emptier.
-    if (diff.throneGuards >= 2 && free(bx + 2, by + 3)) spawnEnemy(guard, bx + 2, by + 3);
   }
   // Fights last three to seven swings now instead of one, so the same count
   // would turn a floor into a queue. Fewer and deadlier is the trade.
@@ -1225,7 +1222,7 @@ function tryGenerate(
   const authored = enemies.length;
   const wanted = Math.max(1, Math.round((3 + Math.round(depth * 1.6) + Math.floor(rooms.length / 3)) * diff.enemyCount * (mods?.enemyCount ?? 1)));
   const hostRooms = rooms.filter((r) => r.role !== 'start' && r.role !== 'secret' && r.role !== 'throne');
-  for (let guard = 0; enemies.length < wanted + (throne ? 1 + diff.throneGuards : 0) && guard < 200; guard++) {
+  for (let guard = 0; enemies.length < wanted + (throne ? 1 : 0) && guard < 200; guard++) {
     const def = rng.weighted(pool.map((e) => [e,
       e.weight
       * (biome.favoredEnemies?.includes(e.id) ? FAVORED_ENEMY_WEIGHT : 1)
@@ -1248,7 +1245,7 @@ function tryGenerate(
   }
   // Elites are decided after the fact, on their own stream, so the draws above
   // — and therefore every wall, chest and monster — are exactly what they were.
-  // The throne's King and his guards are spawned before the loop and are never
+  // The throne's King is spawned before the loop and is never
   // promoted: that fight is authored.
   for (const e of enemies.slice(authored)) {
     const trait = eliteFor(seed, e.id, depth, enemyDef(e.def), mods?.eliteBonus ?? 0, diff.eliteChance);

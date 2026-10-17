@@ -311,12 +311,12 @@ describe('the throne on normal', () => {
   const guards = (w: World, room: { x: number; y: number; w: number; h: number }) =>
     w.floor.enemies.filter((e) => e.def === 'hollow_knight' && e.x >= room.x && e.x < room.x + room.w && e.y >= room.y && e.y < room.y + room.h).length;
 
-  it('leaves the King without his guard', () => {
+  it('leaves the King without a guard, on every difficulty', () => {
     for (let seed = 70; seed < 76; seed++) {
-      const n = throne('normal', seed);
-      const h = throne('hard', seed);
-      expect(guards(n.w, n.room), `seed ${seed}`).toBe(0);
-      expect(guards(h.w, h.room), `seed ${seed}`).toBe(2);
+      for (const id of ['normal', 'hard'] as const) {
+        const t = throne(id, seed);
+        expect(guards(t.w, t.room), `${id} seed ${seed}`).toBe(0);
+      }
     }
   });
 
