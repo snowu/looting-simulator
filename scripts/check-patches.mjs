@@ -17,6 +17,8 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 
 // Commits that must never become patch notes. Short hash -> reason.
 const SKIP = {
+  'c51f649': 'balance harness and MECHANICS only: the career bench',
+  '467c2d1': 'Patch 114 text and a skip reason only',
   '99c9854': 'Patch 113 text and a skip reason only',
   'aee12a8': 'Patch 112 text and a skip reason only',
   '30505eb': 'docs, .gitignore and patch-check skip reasons only; no player-facing change',
