@@ -260,10 +260,11 @@ describe('a death on normal', () => {
 });
 
 describe('a mimic on normal', () => {
-  /** Open a mimic on 5 health and let it bite. */
+  /** Open a mimic on 5 health and let it bite, a mimic having bitten this save before. */
   function openAt5(id: DifficultyId): World {
     const state = newGame(createRng(73));
     state.difficulty = id;
+    state.bestiary.mimic = { kills: 0, deaths: 0, bestHit: 0, worstHit: 40, known: false };
     startRun(state, 73);
     const w = new World(state);
     const f = w.floor;
@@ -292,7 +293,7 @@ describe('a mimic on normal', () => {
     expect(w.player.hp).toBe(1);
   });
 
-  it('still kills on hard', () => {
+  it('still kills on hard, once the first bite is behind you', () => {
     expect(openAt5('hard').run.outcome).toBe('dead');
   });
 });

@@ -100,6 +100,32 @@ describe('mimics', () => {
     expect(hp - w.player.hp).toBeGreaterThan(30);
   });
 
+  it('never kills with the first bite a save takes, and names its tells', () => {
+    const open = (bitten: boolean) => {
+      const w = arena(73);
+      if (bitten) w.state.bestiary.mimic = { kills: 0, deaths: 0, bestHit: 0, worstHit: 40, known: false };
+      const t = w.frontTile();
+      w.floor.props.push({ id: 'jaws', kind: 'chest', x: t.x, y: t.y, used: false, tier: 'chest', blocking: true, mimic: true });
+      w.player.hp = 5;
+      const log: string[] = [];
+      w.interact();
+      const mimic = w.floor.enemies[0];
+      for (let i = 0; i < 25 && (mimic.grabT ?? 0) > 0; i++) {
+        w.update(0.05);
+        for (const ev of w.drainEvents()) if (ev.type === 'msg') log.push(ev.text);
+      }
+      return { w, log };
+    };
+    const first = open(false);
+    expect(first.w.state.difficulty).toBe('hard');
+    expect(first.w.run.outcome).toBe('active');
+    expect(first.w.player.hp).toBe(1);
+    expect(first.log.some((l) => /pale points/.test(l) && /breathes/.test(l))).toBe(true);
+    // The codex now remembers the bite, so the next one is the real thing.
+    expect(first.w.state.bestiary.mimic.worstHit).toBeGreaterThan(0);
+    expect(open(true).w.run.outcome).toBe('dead');
+  });
+
   it('only wakes when struck: it rises at full health and cannot grab', () => {
     const w = arena(74);
     const t = w.frontTile();

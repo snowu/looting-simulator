@@ -89,6 +89,7 @@ import { ContainerTier, LootRoll, durability, identify, isIdentified, itemName, 
 import { nameRelic } from '../systems/relics';
 import { recordDepth, recordKill } from '../systems/contracts';
 import {
+  bestiaryEntry,
   loreName,
   recordDamageDealt,
   recordDamageTaken,
@@ -4163,16 +4164,27 @@ export class World {
     return mimic;
   }
 
-  /** The held bite of a mimic you opened: nothing refuses it but armour. */
+  /**
+   * The held bite of a mimic you opened: nothing refuses it but armour.
+   *
+   * The first bite a save ever takes never kills, on any difficulty. Nothing
+   * can be answered once the lid is up, so a death there teaches nothing; a
+   * bite that leaves you on 1 health and names the tells teaches the chest.
+   * "Ever" is the codex's worst hit from a mimic, so it needs no save field.
+   */
   private mimicBite(e: EnemyState): void {
     const def = this.view(e);
     this.sfx('swing', e.x, e.y);
     e.strikeT = 0;
+    const was = bestiaryEntry(this.state.bestiary, def.id);
+    const first = was.worstHit === 0 && was.deaths === 0;
     this.damagePlayer(
       Math.max(1, Math.round(def.attack * MIMIC_BITE * attackPower(e.power) * this.diff.enemyDamage * this.diff.mimicBite)),
-      def.damageType, e.x, e.y, def.name, def.id, e, true, this.diff.mimicMercy,
+      def.damageType, e.x, e.y, def.name, def.id, e, true, this.diff.mimicMercy || first,
     );
-    if (this.run.outcome === 'active') this.msg('It chews, then spits you out. Get up!', '#ff9070');
+    if (this.run.outcome !== 'active') return;
+    this.msg('It chews, then spits you out. Get up!', '#ff9070');
+    if (first) this.msg('That was no chest. A mimic breathes when you watch it, and shows two pale points in its lid seam; strike a chest you doubt before you open it.', '#ffd080');
   }
 
   /** In a mimic's jaws: every other action waits for the bite. */
