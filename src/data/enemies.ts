@@ -390,7 +390,7 @@ export const ENEMIES: EnemyDef[] = [
   },
   {
     id: 'mimic', name: 'Mimic', sprite: 'mimic', scale: 0.85,
-    hp: 58, attack: 17, defense: 8, damageType: 'pierce', resist: { blunt: 1.25, pierce: 1.1, fire: 1.35 },
+    hp: 46, attack: 13, defense: 8, damageType: 'pierce', resist: { blunt: 1.25, pierce: 1.1, fire: 1.35 },
     behavior: 'melee', moves: MOVE_SETS.frenzied, step: 0.32, windup: 0.52, recovery: 0.8, sight: 8,
     minDepth: 1, maxDepth: 6, weight: 0,
     loot: [], gold: [0, 0], itemChance: 0,

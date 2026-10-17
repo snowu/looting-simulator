@@ -419,7 +419,7 @@ reflects a bolt, so these are a floor on what a person manages.
 | Hollow Knight | 5–6 | 135 | 21 | 20 | slash | undead: blunt ×1.2, slash ×0.7, pierce ×1.25, **holy ×1.6**, shadow ×0.5 | melee, shield (blocks 75%) | 0.7 | 1 | 0.65 | 7 |
 | Barrow Champion | 5–6 | 170 | 24 | 14 | blunt | undead: **blunt ×1.5**, slash ×0.55, pierce ×0.5, **holy ×2**, shadow ×0.5 | melee | 0.85 | 1.2 | 0.8 | 7 |
 | Flame Wraith | 5–6 | 82 | 19 | 6 | fire | blunt ×0.7, slash ×0.8, pierce ×0.6, fire ×0, **frost ×2** | ranged, fire bolt, speed 5.5, range 4, floats | 0.75 | 1.4 | 0.5 | 8 |
-| Mimic | any chest | 58 | 17 | 8 | pierce | blunt ×1.25, pierce ×1.1, **fire ×1.35** | melee | 0.52 | 0.8 | 0.32 | 8 |
+| Mimic | any chest | 46 | 13 | 8 | pierce | blunt ×1.25, pierce ×1.1, **fire ×1.35** | melee | 0.52 | 0.8 | 0.32 | 8 |
 | The Ashen King | 6 (boss) | 330 | 32 | 22 | shadow | undead: pierce ×0.95, **holy ×1.5**, shadow ×0 | boss, shadow bolt, speed 4.5, range 3 | 0.8 | 1 | 0.8 | 12 |
 
 Spawn weights: Giant Rat 3, Goblin Cutpurse 1 (3 until it learned to steal: a quarter of every depth-1 floor was pickpockets), Goblin Archer 2, Goblin Shieldbearer 1.5, Cave Bat 2.5, Skeleton 2, Skeleton Archer 2, Skeleton Shieldguard 1.5, Cave Spider 3, Ghoul 2, Ember Wisp 2, Frost Wisp 2, Hollow Knight 1.5, Barrow Champion 1.5, Flame Wraith 1.5. The Ember Wisp is the Frost Wisp's shallow counterpart, sharing its sprite rows under a warm palette — it puts the first elemental enemy on depth 3, which had none. Every floor holds at least five kinds, and each gives blunt, slash and pierce something it is good against — depth 6 without the Barrow Champion had no bone left to break, which left the club line with nothing to do on the final floor. Mimics never enter the ordinary spawn pool.
@@ -856,6 +856,7 @@ animation bench, so a new icon and a new effect can be read without a lucky drop
 Each newly generated chest has a deterministic **12% chance to be a mimic**. It looks almost right: two pale points interrupt the lid seam, visible to someone who has learned to check without announcing the trick to a first-time player. It follows the Dark Souls rules:
 
 - **Open it** and it grabs you. You are held for **1.1s** (no moving, guarding, drinking, parrying or interacting), then it bites once for **2.5× its normal attack** before armour. Guard, parry, parry grace and block stamina are all ignored; only armour softens it, and it can kill. It spits you out and you are down another **0.45s**, then the mimic has a 0.8s beat before its first ordinary wind-up.
+- **The first bite a save ever takes never kills**, on Hard as on Normal: it leaves you on 1 health at worst, and the log names both tells. Nothing can be answered once the lid is up, so a death there teaches nothing. "Ever" is read off the codex (a mimic's worst hit on you, or a death to one), so it needs no save field, and every bite after that is the real thing.
 - **Strike it first** and the blow only wakes it: no damage, it rises over 0.9s at **full health** and fights. No grab is possible.
 - **Strike an honest chest** and the blow glances off: the chest stays shut. **Every blow breaks one thing inside**, and a blunt or two-handed weapon has a 55% chance of breaking a second. The order is worst first: one unit of a fragile piece (gem, valuable, consumable, blueprint), then one unit of a crafting material, then a dent of 40% of max durability in a piece of gear, and when nothing else is left, 25% of the remaining gold. On opening, the log lists what was lost. Measured over 150 chests, one blow costs 23–27% of a chest's value (sell value plus gold), and two cost 32–36%.
 - **Any strike on a chest clangs.** Every living enemy within **7 tiles** (Manhattan, through walls) is alerted to your position.
@@ -863,6 +864,8 @@ Each newly generated chest has a deterministic **12% chance to be a mimic**. It 
 - Every chest strike costs 1 weapon wear. Testing costs loot and noise; reading the lid tell and opening a chest you trust costs neither.
 
 On touch, tap the action button to open a chest and hold it (0.35s) to strike it instead. Killing a mimic releases the same tier of hoard the chest would have contained, including vault and secret-chest rewards.
+
+**Why it is 46 health and 13 attack.** At 58 and 17 the mimic was the strongest thing on depths 1–2 (twice a skeleton's blow, ten club hits to kill) and the most consistent killer in the playtest. The bot reads the death for what it is with `Policy.wary`: once a mimic has bitten the save, it reads the tell on the next one at that rate and strikes it awake. On 2026-10-17, over 48 seeds each, a fresh character (parry 35%) took a bite down to 21% of its health on average and then lost 8 of its 23 mimic fights. Neither a longer beat after the spit (2s) nor a smaller bite (×2) moved that; the lighter body halved it, to 4 deaths for the fresh character and 1–2 for the depth-4 kit (from 5), with overall death rates inside the noise. The bite stays ×2.5: it is the homage, and it is the price of not checking.
 
 | Source | Contents |
 |---|---|
