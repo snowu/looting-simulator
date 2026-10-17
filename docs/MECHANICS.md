@@ -1457,7 +1457,7 @@ One or two run at a time, announced the day before as a rumour.
 
 | Upgrade | Effect per level | Costs |
 |---|---|---|
-| Pack Mule | +4 backpack slots | 3, 6, 11 |
+| Pack Mule | +2 backpack slots | 3, 6, 11 |
 | Toughness | +12 max health | 3, 6, 10, 15, 22 |
 | Second Wind | +15 max stamina | 3, 7, 12 |
 | Soul Pouch | Keep 3 backpack slots and 20% of carried gold on death | 5, 10, 16 |
@@ -1486,7 +1486,7 @@ Five upgrades were **not** repriced, because the harness cannot see them and a n
 
 *Files: `src/state/inventory.ts`, `src/systems/run.ts`*
 
-- **Backpack:** 16 slots (+4 per Pack Mule). Materials stack 20 per slot, consumables 5–10, gear 1. It was 16, sized against a dungeon that handed you forty items a floor; with loot cut by about sixty percent a deep delve peaks around nineteen slots, so 16 never filled and Pack Mule was worth measurably nothing. It went to 12, then back to 16 once more material families, more monsters and larger floors made 12 tight from the first floor.
+- **Backpack:** 16 slots (+2 per Pack Mule). Materials stack 20 per slot, consumables 5–10, gear 1. It was 16, sized against a dungeon that handed you forty items a floor; with loot cut by about sixty percent a deep delve peaks around nineteen slots, so 16 never filled and Pack Mule was worth measurably nothing. It went to 12, then back to 16 once more material families, more monsters and larger floors made 12 tight from the first floor. Pack Mule was +4 a level until 2026-10-17, which gave a depth-6 kit with three levels 28 slots against a peak of about 20, so the pack filled in 8% of those delves; at +2 (22 slots) it fills in 42%, and a depth-4 delve with one level still fills in only 8%. Materials are four slots in five at the peak. A pack packed in town under the old size sends what no longer fits back to the stash.
 - **Packing before a delve:** the *Stash & Gear* tab has a **Pack** panel beside the stash. Anything you put in it goes down with you as your backpack. Clicking a stash item moves it into the pack; gear equips instead unless you flip the **Equip / Pack** switch. **Take scrolls** fills the pack with every carryable consumable that fits. When a run is already open (you came home through a town portal) the panel is your actual backpack, so you can stash your haul and restock before going back.
 - Anything packed that no longer fits when you descend goes back to the stash rather than vanishing.
 - **Stash:** unlimited, in town, and materials merge into single stacks.

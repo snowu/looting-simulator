@@ -21,10 +21,15 @@ import { recordDepth, refreshContracts } from './contracts';
 /**
  * Keep the town-side pack at the current backpack size. Called whenever the
  * town is drawn, so buying Pack Mule widens it straight away.
+ *
+ * A pack can also shrink under a save (Pack Mule went from 4 slots a level to
+ * 2), and an over-full container refuses everything after it, so whatever no
+ * longer fits goes back to the stash rather than riding down into a delve.
  */
 export function syncLoadout(state: GameState): Container {
   state.loadout ??= createContainer(backpackCapacity(state.meta));
   state.loadout.capacity = backpackCapacity(state.meta);
+  while (state.loadout.items.length > state.loadout.capacity) addItem(state.stash, state.loadout.items.pop()!);
   return state.loadout;
 }
 
