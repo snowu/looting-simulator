@@ -3,8 +3,9 @@ import { createRng } from '../core/rng';
 import { DIRS, DX, DY, turnAround } from '../core/dir';
 import { newGame } from '../state/game-state';
 import { startRun } from '../systems/run';
-import { World } from '../world/world';
-import { EnemyState, FLOOR, Room, blocksSight, createEnemy, generateFloor, isBossDoor } from '../systems/dungeon';
+import { PITCH_FUSE, SHADOW_STEP_SECONDS, World } from '../world/world';
+import { EnemyState, FLOOR, Room, blocksMove, blocksSight, createEnemy, enemyAt, generateFloor, isBossDoor } from '../systems/dungeon';
+import { surfaceKindAt } from '../systems/surfaces';
 import { BOSS_ID, KING_PHASES, enemyDef, enemyView, kingPhase, phaseForHp } from '../data/enemies';
 import { makeConsumable } from '../systems/items';
 import { addItem } from '../state/inventory';
@@ -50,6 +51,12 @@ function king(w: World, hpFrac = 1): EnemyState {
   e.hp = Math.max(1, Math.round(e.maxHp * hpFrac));
   w.floor.enemies.push(e);
   return e;
+}
+
+/** Let him announce the stage his health is in, then hand him a free turn. */
+function ready(w: World, boss: EnemyState): void {
+  w.update(1 / 60);
+  Object.assign(boss, { ai: 'chase', timer: 0, attackCd: 0, alert: 6 });
 }
 
 /** A real depth-six floor, with the player put down inside the throne room. */
@@ -152,57 +159,92 @@ describe('the dark', () => {
     }
   });
 
-  it('stands up the guard you put down, and only that guard', () => {
-    const { w, room, boss } = throne(13);
-    const guards = w.floor.enemies.filter((e) => e.def === 'hollow_knight' && inRoom(room, e.x, e.y));
-    expect(guards.length).toBe(2);
-    const [dead, alive] = guards;
-    dead.ai = 'dead';
-    dead.hp = 0;
-    dead.deadT = 2;
-
-    boss.hp = Math.round(boss.maxHp * 0.5);
-    tick(w, 0.1);
-
-    expect(dead.ai, 'the one you killed is back').not.toBe('dead');
-    expect(dead.risen).toBe(true);
-    expect(dead.hp).toBe(Math.max(1, Math.round(dead.maxHp * 0.3)));
-    expect(dead.deadT).toBe(0);
-    expect(alive.risen, 'the one still standing is untouched').toBeUndefined();
+  it('melts away and re-forms beside you, never behind you, and never strikes as he comes', () => {
+    for (let seed = 1; seed <= 6; seed++) {
+      const w = arena(seed);
+      const boss = king(w, 0.5);
+      ready(w, boss);
+      // Stand him off, two tiles out: he comes for you through the dark.
+      const away = w.frontTile(3);
+      boss.x = boss.fromX = away.x;
+      boss.y = boss.fromY = away.y;
+      const hp = w.player.hp;
+      w.update(1 / 60);
+      expect(boss.lurk, `seed ${seed}`).toBe('shadow');
+      expect(Math.abs(boss.x - w.player.x) + Math.abs(boss.y - w.player.y)).toBe(1);
+      const back = turnAround(w.player.facing);
+      expect(boss.x === w.player.x + DX[back] && boss.y === w.player.y + DY[back], 'never behind you').toBe(false);
+      // Gone means gone: nothing is on his tile while he steps.
+      expect(enemyAt(w.floor, boss.x, boss.y)).toBeUndefined();
+      tick(w, SHADOW_STEP_SECONDS + 0.05);
+      expect(boss.lurk).toBeUndefined();
+      expect(boss.ai).toBe('recover');
+      expect(w.player.hp, 'he comes back in recovery, not swinging').toBe(hp);
+    }
   });
 
-  it('leaves corpses outside the throne room where they fell', () => {
-    const { w, room, boss } = throne(17);
-    const far = w.floor.enemies.find((e) => e.def === 'hollow_knight' && !inRoom(room, e.x, e.y));
-    if (!far) return; // not every seed puts one elsewhere
-    far.ai = 'dead';
-    far.hp = 0;
-    boss.hp = Math.round(boss.maxHp * 0.5);
-    tick(w, 0.1);
-    expect(far.ai).toBe('dead');
-  });
-
-  it('pays nothing for killing the same guard twice', () => {
-    const { w, room, boss } = throne(19);
-    const g = w.floor.enemies.find((e) => e.def === 'hollow_knight' && inRoom(room, e.x, e.y))!;
-    g.ai = 'dead';
-    g.hp = 0;
-    boss.hp = Math.round(boss.maxHp * 0.5);
-    tick(w, 0.1);
-    expect(g.risen).toBe(true);
-
-    const kills = w.run.stats.kills;
-    const piles = w.floor.pickups.length;
-    const tally = w.state.bestiary['hollow_knight']?.kills ?? 0;
-    g.hp = 1;
-    (w as unknown as { killEnemy(e: EnemyState): void }).killEnemy(g);
-    expect(w.run.stats.kills, 'it already counted the first time').toBe(kills);
-    expect(w.floor.pickups.length, 'and it already gave up its hoard').toBe(piles);
-    expect(w.state.bestiary['hollow_knight']?.kills ?? 0).toBe(tally);
+  it('does not step before the dark', () => {
+    const w = arena();
+    const boss = king(w, 0.9);
+    const away = w.frontTile(3);
+    boss.x = boss.fromX = away.x;
+    boss.y = boss.fromY = away.y;
+    boss.attackCd = 0;
+    tick(w, 0.5);
+    expect(boss.lurk).toBeUndefined();
   });
 });
 
 describe('the last stand', () => {
+  it('spills burning pitch at your feet, always leaving two ways out, and it catches', () => {
+    for (let seed = 1; seed <= 6; seed++) {
+      const w = arena(seed);
+      const boss = king(w, 0.2);
+      ready(w, boss);
+      const p = w.player;
+      const clean = () => DIRS.filter((d) => {
+        const x = p.x + DX[d], y = p.y + DY[d];
+        return !blocksMove(w.floor, x, y) && !enemyAt(w.floor, x, y) && surfaceKindAt(w.floor, x, y) !== 'oil' && surfaceKindAt(w.floor, x, y) !== 'fire';
+      }).length;
+      const before = clean();
+      w.update(1 / 60);
+      expect(surfaceKindAt(w.floor, p.x, p.y), `seed ${seed}`).toBe('oil');
+      // It takes ways out only while it leaves you two; with two or fewer it takes none.
+      expect(clean(), `seed ${seed}: ways out`).toBe(before <= 2 ? before : Math.max(2, before - 2));
+      // He stooped to throw it: that beat is yours.
+      expect(boss.ai).toBe('recover');
+      tick(w, PITCH_FUSE + 0.05);
+      expect(surfaceKindAt(w.floor, p.x, p.y)).toBe('fire');
+    }
+  });
+
+  it('keeps his pitch to Hard', () => {
+    const state = newGame(createRng(5));
+    state.difficulty = 'normal';
+    startRun(state, 5);
+    const w = new World(state);
+    w.floor.enemies = [];
+    w.floor.surfaces = [];
+    const t = w.frontTile(1);
+    const boss = createEnemy(enemyDef(BOSS_ID), t.x, t.y, turnAround(w.player.facing), 'king', 6, 'normal');
+    boss.calm = true;
+    boss.hp = Math.round(boss.maxHp * 0.2);
+    boss.alert = 6;
+    w.floor.enemies.push(boss);
+    tick(w, 3);
+    expect(w.pitchFuses).toEqual([]);
+    expect((w.floor.surfaces ?? []).some((s) => s.kind === 'oil' || s.kind === 'fire')).toBe(false);
+  });
+
+  it('brings a new answer to ask for in each stage, and Normal keeps the first', () => {
+    const def = enemyDef(BOSS_ID);
+    const ids = (hp: number, calm = false) => (enemyView(def, hp, 100, { calm }).moves ?? []).map((m) => m.id);
+    expect(ids(100)).toEqual(expect.arrayContaining(['thrust', 'sweep']));
+    expect(ids(50)).toEqual(expect.arrayContaining(['feint', 'flurry']));
+    expect(ids(20)).toEqual(expect.arrayContaining(['slam']));
+    expect(ids(20, true)).toEqual(ids(100));
+  });
+
   it('raises a guard only once he is cornered', () => {
     const def = enemyDef(BOSS_ID);
     expect(enemyView(def, 100, 100).shield, 'no guard on the throne').toBeUndefined();

@@ -334,6 +334,8 @@ export class DungeonRenderer {
    * then a dark shape high in the gloom; once it lets go, the fall.
    */
   private drawLurker(en: EnemyState, def: EnemyDef): void {
+    // The King mid Shadow Step is nowhere: the puff where he will stand is the whole tell.
+    if (en.lurk === 'shadow') return;
     const t = en.moveT < 1 ? en.moveT : 1;
     const wx = tileX(en.fromX + (en.x - en.fromX) * t), wz = tileZ(en.fromY + (en.y - en.fromY) * t);
     if (en.lurk === 'buried') {

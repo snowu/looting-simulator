@@ -89,6 +89,8 @@ export class Hud {
    * only place a tile under your feet can be shown from.
    */
   private wardGlow = h('div', { class: 'ward-glow' });
+  /** Pitch or fire on your own tile: the one tile you cannot see. */
+  private footGlow = h('div', { class: 'foot-glow' });
   /**
    * The conduit: the loaded spells in cycling order with the selected one lit,
    * and the shared charge pool as pips under them — the next one filling as
@@ -135,8 +137,10 @@ export class Hud {
     this.spellWrap.append(this.spellRow, this.spellPips);
     this.spellWrap.hidden = true;
     this.wardGlow.hidden = true;
+    this.footGlow.hidden = true;
     this.root.append(
       this.wardGlow,
+      this.footGlow,
       this.floatsEl,
       this.sigilWrap,
       this.spellWrap,
@@ -330,6 +334,9 @@ export class Hud {
     const ward = world.anim.ward ? Math.ceil(world.anim.ward.t) : 0;
     this.wardGlow.hidden = !ward;
     this.wardGlow.classList.toggle('fading', ward > 0 && ward <= 2);
+    const foot = world.underfoot();
+    this.footGlow.hidden = !foot;
+    this.footGlow.classList.toggle('lit', foot === 'fire');
     const snuffed = world.anim.snuffT > 0 ? Math.ceil(world.anim.snuffT) : 0;
     // The belt is three numbers, not one: in hand, on the floor, and flying
     // home. The call used to show only the stock, which is how it could promise
@@ -343,7 +350,7 @@ export class Hud {
     const stats = world.run.stats;
     const oathKey = runOaths(world.run).map((o) => `${o.id}:${o.status}:${o.marks}:${o.kills}:${o.prayers}`).join()
       + `|${stats.goldFound}|${stats.deepest}|${stats.bossKilled}|${sealCount}`;
-    const statusKey = `${world.run.depth}|${biome.id}|${world.run.gold}|${keyNames.join()}|${bless}|${curse}|${world.freeSlots}|${ward}|${snuffed}|${beltKey}|${oathKey}`;
+    const statusKey = `${world.run.depth}|${biome.id}|${world.run.gold}|${keyNames.join()}|${bless}|${curse}|${world.freeSlots}|${ward}|${foot}|${snuffed}|${beltKey}|${oathKey}`;
     if (statusKey !== this.statusKey) {
       this.statusKey = statusKey;
       const oathLine = oathStatus(world) + (sealCount ? `<div style="color:#c080ff">Sealed ×${sealCount}</div>` : '');
@@ -363,6 +370,7 @@ export class Hud {
         (curse ? `<div class="curse">${curse}</div>` : '') +
         oathLine +
         (ward ? `<div class="ward">Consecrated ground · ${ward}s</div>` : '') +
+        (foot ? `<div class="foot">${foot === 'fire' ? 'Burning ground · step off' : 'Pitch at your feet · it is about to catch'}</div>` : '') +
         (snuffed ? `<div class="ward">Snuffed · ${snuffed}s</div>` : '');
     }
 

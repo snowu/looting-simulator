@@ -25,6 +25,7 @@ import { VENT_TELL } from '../src/data/surfaces';
 import { biomeForFloor } from '../src/data/biomes';
 import { enemyDef, BOSS_ID } from '../src/data/enemies';
 import { FINAL_DEPTH } from '../src/data/biomes';
+import { dropIntoThroneRoom } from '../src/dev/boss-arena';
 import { itemValue } from '../src/systems/items';
 import { Item, Rarity, RARITY_ORDER } from '../src/types';
 import { derivePlayer, Equipment } from '../src/systems/player';
@@ -48,6 +49,19 @@ export interface Policy {
   lootUrns: boolean;
   /** Seek the Ashen King on depth six before leaving. */
   fightBoss?: boolean;
+  /**
+   * Probability of sidestepping off the line when a ranged attacker (or the
+   * King's volley) winds up in line at range, decided once per wind-up. Off
+   * by default, so every profile that predates it keeps measuring what it did.
+   */
+  dodgeSkill?: number;
+  /**
+   * Swing only into an opening: an adjacent enemy recovering or reeling,
+   * guard up otherwise. A swing still recovering when the next blow lands
+   * cannot become a parry, so a bot that swings whenever it can never gets
+   * to use its parry skill against anything with a short gap between blows.
+   */
+  patient?: boolean;
   /**
    * Use the conduit when one is worn and spells are loaded. Off by default, so
    * every profile that predates the battlemage keeps measuring what it did.
@@ -194,6 +208,9 @@ class Bot {
   private lastHp: number;
   private blockedUntil = 0;
   private parryFor: string | null = null;
+  /** The wind-up the last dodge decision was for, and whether it said to dodge. */
+  private dodgeFor: string | null = null;
+  private dodging = false;
   private stuck = 0;
   private leaving = false;
   /** Piles the pack had no room for. Walked past, never edited. */
@@ -349,13 +366,20 @@ class Bot {
 
     const threats = this.threats();
 
+    // 1b. Step off the line of a volley being wound up.
+    if (this.policy.dodgeSkill && this.dodge(threats)) return true;
+
     // 2. Spells, for a bot that carries a conduit and means to use it.
     if (this.policy.cast && this.cast(threats)) return true;
 
     // 3. Fight what is next to us.
     const adjacent = threats.filter((e) => Math.abs(e.x - p.x) + Math.abs(e.y - p.y) === 1);
     if (adjacent.length) {
-      const e = adjacent[0];
+      // A patient fighter turns to the blow that lands first, not the nearest body.
+      const soonest = this.policy.patient
+        ? adjacent.filter((a) => a.ai === 'windup').sort((a, b) => a.timer - b.timer)[0]
+        : undefined;
+      const e = soonest ?? adjacent[0];
       const facing = dirTo(p.x, p.y, e.x, e.y);
       if (facing !== null && facing !== p.facing) {
         this.turnTo(facing);
@@ -378,6 +402,13 @@ class Bot {
         return true;
       }
       this.parryFor = null;
+      // An opening is a creature recovering with its guard down, or one left
+      // reeling by a parry, which no guard turns.
+      const opening = (e.vuln ?? 0) > 0 || (e.ai === 'recover' && (e.guard ?? 'down') === 'down');
+      if (this.policy.patient && !opening) {
+        w.setBlock(true);
+        return true;
+      }
       w.setBlock(false);
       if (p.stamina >= d.swing.staminaCost) w.attack();
       return true;
@@ -408,6 +439,49 @@ class Bot {
       return this.transition(hpFrac);
     }
     return this.navigate(target[0], target[1]);
+  }
+
+  /**
+   * A person's answer to a telegraphed volley: step out of its line. Only a
+   * ranged attacker or the King, winding up in line with us from two or more
+   * tiles; the decision is made once per wind-up at `dodgeSkill`, and the
+   * step goes to a free tile that no other wind-up is aimed down.
+   */
+  private dodge(threats: EnemyState[]): boolean {
+    const w = this.w;
+    const p = w.player;
+    // Standing in fire, or in pitch about to catch: the floor comes first.
+    const doomed = (x: number, y: number) => burningAt(w.floor, x, y) || w.pitchFuses.some((fz) => fz.x === x && fz.y === y);
+    if (doomed(p.x, p.y) && this.rng.chance(this.policy.dodgeSkill ?? 0)) {
+      for (const d of DIRS) {
+        const x = p.x + DX[d], y = p.y + DY[d];
+        if (blocksMove(w.floor, x, y) || enemyAt(w.floor, x, y) || doomed(x, y)) continue;
+        const relative = (d - p.facing + 4) % 4;
+        w.press(relative === 0 ? 'forward' : relative === 2 ? 'back' : relative === 1 ? 'right' : 'left');
+        return true;
+      }
+    }
+    const aimed = threats.filter((e) => {
+      const b = enemyDef(e.def).behavior;
+      const dist = Math.abs(e.x - p.x) + Math.abs(e.y - p.y);
+      return e.ai === 'windup' && (b === 'ranged' || b === 'boss') && dist >= 2 && (e.x === p.x || e.y === p.y);
+    });
+    if (!aimed.length) { this.dodgeFor = null; return false; }
+    const e = aimed[0];
+    if (this.dodgeFor !== e.id) {
+      this.dodgeFor = e.id;
+      this.dodging = this.rng.chance(this.policy.dodgeSkill ?? 0);
+    }
+    if (!this.dodging) return false;
+    const inLine = (x: number, y: number) => aimed.some((a) => a.x === x || a.y === y);
+    for (const d of DIRS) {
+      const x = p.x + DX[d], y = p.y + DY[d];
+      if (blocksMove(w.floor, x, y) || enemyAt(w.floor, x, y) || inLine(x, y)) continue;
+      const relative = (d - p.facing + 4) % 4;
+      w.press(relative === 0 ? 'forward' : relative === 2 ? 'back' : relative === 1 ? 'right' : 'left');
+      return true;
+    }
+    return false;
   }
 
   /**
@@ -848,6 +922,57 @@ export function playOneRun(seed: number, policy: Policy, prepare?: (s: GameState
   if (w.run.outcome === 'active') bot.collect('timeout');
   else bot.collect();
   return bot.report;
+}
+
+export interface ThroneReport {
+  seed: number;
+  won: boolean;
+  died: boolean;
+  /** The King's health left when the fight ended, 0..1. */
+  kingHp: number;
+  /** Sim seconds from standing in the throne room to the fight's end. */
+  time: number;
+  sips: number;
+  parries: number;
+  hitsTaken: number;
+  killedBy?: string;
+}
+
+/**
+ * The King alone, without the six floors above him: the run starts in the
+ * throne room (the dev arena's spot, `?autostart=boss`) and ends when he or
+ * the bot falls, or after `limit` sim seconds. The bot fights what is next to
+ * it, parries at `parrySkill`, steps off a volley's line at `dodgeSkill`, and
+ * never leaves a melee telegraph or reflects a bolt, so a win rate here is a
+ * floor on what a player manages.
+ */
+export function playThrone(seed: number, policy: Partial<Policy>, prepare: (s: GameState) => void, difficulty: DifficultyId = 'hard', limit = 300): ThroneReport {
+  const state = newGame(createRng(seed));
+  state.difficulty = difficulty;
+  state.saveId = `bot-${seed}`;
+  prepare(state);
+  packLoadout(state);
+  startRun(state, seed);
+  const w = new World(state);
+  dropIntoThroneRoom(w);
+  const full = { ...DEFAULT_POLICY, ...policy, fightBoss: true, floorBudget: limit * 2 };
+  const bot = new Bot(w, full, seed, createRng(seed ^ 0xa5a5a5));
+  const start = w.run.stats.time;
+  const king = () => w.floor.enemies.find((e) => e.def === BOSS_ID);
+  for (let ticks = 0; ticks < limit * 60; ticks++) {
+    if (w.run.outcome !== 'active' || w.run.stats.bossKilled) break;
+    if (!bot.step()) break;
+    w.update(DT);
+    bot.observe(w.drainEvents());
+  }
+  const k = king();
+  const r = bot.report;
+  return {
+    seed, won: w.run.stats.bossKilled, died: w.run.outcome === 'dead' || w.player.hp <= 0,
+    kingHp: k && k.ai !== 'dead' ? Math.max(0, k.hp) / k.maxHp : 0,
+    time: w.run.stats.time - start, sips: r.sips, parries: r.parries, hitsTaken: r.hitsTaken,
+    killedBy: w.run.killedBy,
+  };
 }
 
 /**

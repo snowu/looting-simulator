@@ -23,11 +23,11 @@ import { Dir, turnAround } from '../core/dir';
  * match the pre-difficulty arithmetic exactly.
  */
 describe('hard is the game as it was', () => {
-  it('has identity tuning: every multiplier 1, every bonus 0, no cap, no mercy', () => {
+  it('has identity tuning: every multiplier 1, every bonus 0, no mercy, and two attackers at once', () => {
     const h = DIFFICULTIES.hard;
     // Knobs whose "does nothing" value is not 1. Anything else numeric must be 1.
     const identity: Record<string, unknown> = {
-      findBonus: 0, blockBonus: 0, flaskBonus: 0, restHeal: 0, maxAttackers: Infinity,
+      findBonus: 0, blockBonus: 0, flaskBonus: 0, restHeal: 0, maxAttackers: 2,
       gentleMoves: false, gearWears: true, mimicMercy: false, throneGuards: 2, throneRetreat: false, kingEscalates: true, softDeath: null, oneLife: false,
     };
     for (const [k, v] of Object.entries(h)) {

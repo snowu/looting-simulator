@@ -250,6 +250,27 @@ body.detail-mode .detail-hide { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .ward-glow { animation: none; } }
 
+/* Pitch or fire on your own tile, which you cannot look down at: dark and
+   smouldering while it lies, bright and flickering once it has caught. */
+.status .foot { color: #ff9a50; }
+.foot-glow {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 40vh;
+  pointer-events: none;
+  background: radial-gradient(120% 80% at 50% 100%, #e0702ae0 0%, #b0481c99 30%, #70200040 55%, transparent 75%);
+  animation: foot-smoulder 0.9s ease-in-out infinite;
+}
+.foot-glow.lit {
+  background: radial-gradient(120% 80% at 50% 100%, #ffb040f0 0%, #ff6a20aa 30%, #c0300044 55%, transparent 75%);
+  animation-duration: 0.25s;
+}
+@keyframes foot-smoulder {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) { .foot-glow { animation: none; } }
+
 .minimap { position: absolute; right: 16px; top: 14px; border: 2px solid #000; box-shadow: 0 0 0 2px #3a3040, 0 4px 12px #000a; border-radius: 50%; cursor: pointer; touch-action: none; }
 .minimap:hover { box-shadow: 0 0 0 2px var(--gold), 0 4px 12px #000a; }
 
