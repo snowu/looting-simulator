@@ -8,19 +8,25 @@ Porting Looting Simulator to the Zig/SDL_GPU approach used by `zig-game-lab` is 
 
 Use the lab's platform/build foundation, then build the dungeon renderer and game UI this game needs. Keep this repository as the game's home and keep `public/art` as its sole editable sprite source. Do not move the game into the swarm survivor's simulation or treat its 2D renderer as a ready-made dungeon engine.
 
-Planning ranges for one experienced engineer working full time, familiar with both codebases:
+The execution model should be agent-assisted development with human direction and play review. Existing source, shaders, art, tests and a working Zig host give agents concrete implementations to translate and compare. This removes much of the discovery and manual transcription work implicit in conventional staffing estimates. Independent implementation work can also overlap once the shared types and interfaces are settled.
 
-| Deliverable | Estimated effort | Scope |
+**The earlier 18–30 engineer-week / 4–7 month forecast is withdrawn.** It was not calibrated to this workflow or measured porting throughput. Source line counts establish scope, not calendar duration. Applying an arbitrary agent speed multiplier would not fix that mistake either.
+
+Use short experimental budgets and measurable completion gates:
+
+| Milestone | Initial planning budget | Required result |
 | --- | --- | --- |
-| Representative playable slice | 2–4 engineer-weeks | One dungeon scene, movement, one melee enemy, attack/guard, a small inventory interaction, sample save import/resume; native Linux/Windows plus browser rendering |
-| Current desktop and browser feature parity | 18–30 engineer-weeks total | Gameplay, content, UI, effects, audio, saves, cloud features, browser/offline behavior and release verification; includes the slice |
-| macOS | Additional 1–3 engineer-weeks | Metal shader path, SDK/build integration, packaging/signing and hardware testing |
-| Android | Additional 3–6 engineer-weeks | Android build integration, touch/sensors, lifecycle, storage, mobile layout and device testing |
-| iOS | Additional 3–6 engineer-weeks | Apple build integration, Metal, touch/lifecycle, storage, signing and physical-device testing |
+| First native dungeon rendering | One focused working day | Reuse the lab host, load existing art and a fixed floor fixture, draw perspective geometry and a billboard with depth and basic lighting |
+| Representative playable slice | 2–3 focused working days total, including the first checkpoint | Movement, one melee enemy, attack/guard, a small inventory interaction, sample save import/resume, Linux/Windows builds and the corresponding browser rendering path |
+| Desktop/browser feature parity | Forecast after measuring the slice | All gameplay, UI, effects, audio, saves, cloud features and browser/offline behavior pass an explicit feature checklist |
+| macOS | Estimate after a build/render probe | Metal shader path, pinned dependency integration, packaging/signing and hardware testing |
+| Android / iOS | Estimate after a minimal device build for each | Working graphics, input, suspend/resume and storage before expanding to full game testing |
 
-Desktop/browser parity is approximately 4–7 full-time engineering months before the mobile additions. These are planning judgments, not measured implementation velocity or delivery promises. They assume no gameplay redesign, reasonably stable scope, access to target devices, and retention of the current visual style. Store review delays, console ports, localization and new accessibility features are outside the ranges. Exact UI reproduction and simultaneous changes to the live game push toward the upper end or beyond it. AI assistance can reduce translation work; save correctness, device integration and play verification still determine completion.
+The day counts are proposed timeboxes for an experiment, **not measured completion estimates or promises**. They assume sustained agent work, prompt human review, working toolchains and available desktop test hosts. At each checkpoint, report what actually runs, what remains, and where time went. A failed timebox should produce a specific blocker and revised scope, rather than silently expanding into weeks.
 
-Changing only the web host to Cloudflare is much smaller: roughly 0.5–2 days for basic build/deploy configuration, excluding save transfer and rollout verification. That does not produce native applications.
+This assessment supports starting with a small commitment measured in days. It does not yet support a reliable full-release date. Establish that from completed, integrated features and remaining dependency chains; separately track time waiting for devices, credentials, signing or store review. Console ports, redesign, localization and new accessibility features are outside this assessment.
+
+Changing only the web host to Cloudflare is a small configuration task using an existing deployment pattern. Save transfer and rollout verification are separate completion gates. Hosting changes do not produce native applications.
 
 ## What the lab already provides
 
@@ -76,20 +82,23 @@ Specific requirements:
 
 Browser storage is scoped to an origin. A new Cloudflare domain cannot directly access the existing GitHub Pages localStorage, and native executables cannot assume access to it either. Keep the old site available with a transfer/export route; support import into the new build and cloud retrieval for players who already use it. A redirect alone does not transfer saves. This follows the [localStorage origin model](https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage).
 
-## Implementation sequence and budget
+## Agent-assisted implementation sequence
 
-| Workstream | Engineer-weeks | Completion evidence |
-| --- | ---: | --- |
-| Host/core boundaries, fixtures, asset export and build foundation | 1–2 | Headless core scaffold and native/browser builds with the existing art source |
-| Gameplay, content, state and migrations | 4–6 | Generation/loot fixtures, combat traces and old-save round trips agree |
-| Dungeon renderer and visual effects | 3–5 | Representative scenes match on native and browser targets |
-| UI, text, input and screen flows | 4–7 | Full town/dungeon flows work with mouse, keyboard, controller and browser touch |
-| Audio, cloud, reports and persistence integration | 2–3 | Offline play, sign-in, conflict resolution, resume and reports work |
-| Browser host, offline/update behavior and delivery | 2–3 | Shared Zig game runs in Wasm with working deployment and downloads |
-| Cross-platform regression, performance and release hardening | 2–4 | Save transfer and representative playthroughs pass on target hardware |
-| **Total** | **18–30** | **Desktop/browser feature parity** |
+| Workstream | How agents can accelerate it | Completion evidence |
+| --- | --- | --- |
+| Host/core boundaries, fixtures, asset export and builds | Adapt the lab's existing files; generate bindings and asset metadata | Headless core scaffold and native/browser builds using the existing art source |
+| Gameplay, content, state and migrations | Translate bounded modules against the TypeScript reference; generate differential test drivers | Generation/loot fixtures, combat traces and old-save round trips agree |
+| Dungeon renderer and visual effects | Translate existing mesh/shader algorithms; use fixed scene captures for iteration | Representative scenes match on native and browser targets |
+| UI, text, input and screen flows | Establish shared widgets first, then implement independent screens against explicit commands | Full town/dungeon flows work with mouse, keyboard, controller and browser touch |
+| Audio, cloud, reports and persistence | Adapt the lab's audio host and existing service contracts; automate failure/conflict cases | Offline play, sign-in, conflict resolution, resume and reports work |
+| Browser host and delivery | Extend the existing Wasm/WebGL bridge and deployment scripts | Shared Zig game runs in Wasm with offline/update behavior and downloads |
+| Integration and device review | Automate builds, traces, save comparisons and captures; keep human play review focused on differences | Save transfer and representative playthroughs pass on target hardware |
 
-The slice cuts across the first four rows and is included in this budget. Small platform overlaps may reduce total work later, but mobile lifecycle and device QA remain separate obligations. The estimate does not include building a universal engine or editor.
+Do not add these rows as sequential calendar blocks. Settle core types, command/event interfaces and the save representation first; gameplay translation, rendering and UI work can then proceed concurrently against fixtures. Integrate small working increments continuously. Shared-file conflicts, changing interfaces and unreviewed generated code can erase concurrency gains, so divide work by stable module ownership.
+
+The main uncertainty is how many integration and correction cycles are needed. Compilation and fixture comparisons provide fast feedback on translation. Visual feel, controller navigation, complete save preservation and platform lifecycle behavior need different evidence. Neither all coding nor all verification has to be manual, but passing builds alone does not establish feature parity.
+
+During the slice, record elapsed active work, review/wait time, modules completed, parity failures and integration fixes. Use that evidence to forecast the remaining workstream dependencies. Do not extrapolate from one easy data-table translation to all UI or rendering work. Building a universal engine or editor is outside scope.
 
 Recommended architecture: a Zig gameplay/state core accepts explicit input commands and emits gameplay events; presentation code consumes its state and creates mesh/sprite/UI draw data. Native SDL_GPU and browser WebGL2 hosts render that data and provide input, audio, storage, networking and lifecycle services. Share mode-transition and timing policy rather than duplicating the lab's two host loops wholesale. Retaining a small JavaScript browser adapter is compatible with fully native desktop/mobile executables.
 
@@ -97,7 +106,7 @@ Keep the TypeScript edition working while the port develops. Export fixtures and
 
 ## First slice: what it should prove
 
-Time-box the initial slice to 2–4 engineer-weeks and include the expensive uncertainties, not just a window containing sprites:
+Use the 2–3 focused-day experimental budget above, with a first-day rendering checkpoint. Include the expensive uncertainties, not just a window containing sprites:
 
 1. Load a copied current-format mid-delve save into Zig, preserve its floor and RNG state, write it back, and load the result in the TypeScript edition. Include an older-revision fixture and an unknown-field fixture. Never use a player's live slot for this work.
 2. Render an existing dungeon scene with perspective, depth, a door, an enemy, the held weapon, emissive pixels, lighting and PS1 post effects on Linux, Windows and the browser.
@@ -105,7 +114,7 @@ Time-box the initial slice to 2–4 engineer-weeks and include the expensive unc
 4. Compare seeded generation/loot and scripted combat traces against TypeScript. Separate rendering tolerances from exact gameplay invariants.
 5. Measure frame time, memory and startup on stated hardware, including a constrained device. Smaller bundles, faster startup or better performance are goals to measure, not results established by this assessment.
 
-Re-estimate after this slice. If the renderer works but UI construction is slow, revise the UI approach before translating every screen. If save or numerical parity fails, resolve it before expanding content. Target Windows/Linux first, then macOS, then Android/iOS while retaining browser support throughout.
+Re-estimate from the work completed during this slice, even if some gates remain unmet at the checkpoint. If the renderer works but UI construction is slow, revise the UI approach before translating every screen. If save or numerical parity fails, resolve it before expanding content. Target Windows/Linux first, then macOS, then Android/iOS while retaining browser support throughout.
 
 ## Verification and limits
 
