@@ -59,21 +59,21 @@ Raising the guard opens a **0.22s window**. A hit that lands inside it is not ab
 
 | | |
 |---|---|
-| Window | 0.22s from the moment the guard starts to rise |
+| Window | 0.22s from the moment the guard starts to rise (0.35s on Normal); 0.13s with an offhand conduit (0.21s on Normal) |
 | Cooldown | 0.75s, measured from when the window opened |
 | Cost | Nothing. The cost is the risk of mistiming it |
-| Requires | Facing the attack. No shield needed — a weapon or bare hands parry the same |
+| Requires | Facing the attack. No shield needed — a weapon or bare hands parry the same; a conduit parries on the tighter window above |
 | Tell | Your shield flares pale gold while the window is open |
 
-**Holding the guard up does not parry.** The window only opens on the *rising edge*, and the cooldown means at best one attempt per 0.75s — against wind-ups of 0.35–0.8s you have to meet the swing, not sit behind the shield. Mistime it and it is a normal block, so there is no cliff.
+**Holding the guard up does not parry.** The window only opens on the *rising edge*, and the cooldown means at best one attempt per 0.75s — against wind-ups of 0.35–0.8s you have to meet the swing, not sit behind the shield. Mistime it and it is a normal block, so there is no cliff — unless the guard is a conduit, which blocks nothing and meets the blow whole.
 
-**Against melee:** the attacker is staggered for **1 second** (never shorter than the recovery it would have had) and takes **double damage** for that whole second. You are immune for the next **0.75s on Hard or 1.25s on Normal**, and other adjacent enemies are staggered for at least **0.25s**, preventing a cluster of near-simultaneous attacks from landing through a successful parry. Bosses are not exempt — this is the only way to open the Ashen King up, since he cannot be staggered out of his wind-up.
+**Against melee:** the attacker is staggered for **1 second** (never shorter than the recovery it would have had) and takes **double damage** for that whole second. You are immune for the next **0.75s on Hard or 1.25s on Normal**, and other adjacent enemies are staggered for at least **0.5s**, preventing a cluster of near-simultaneous attacks from landing through a successful parry. Bosses are not exempt — this is the only way to open the Ashen King up, since he cannot be staggered out of his wind-up.
 
 **Against ranged:** the bolt is **reflected**, keeping its damage and element, and flies back the way it came. The reflection leaves a **0.75s follow-up window on Hard or 1.25s on Normal** that can parry one more projectile, protecting against arrows stacked almost on top of each other. A reflected bolt hits **the first monster in its path** — which is usually the archer that fired it, but is whatever is standing in between. Incoming bolts still pass through monsters, so an archer's escort only shields it *after* you turn one around. Damage uses the target's own resistance, so a Flame Wraith's bolt turned onto a Frost Wisp lands at ×2.
 
 A volley can lose up to two closely stacked bolts to one timed parry; the follow-up is spent after the second reflection.
 
-*Files: `src/world/world.ts` — `PARRY_WINDOW`, `PARRY_COOLDOWN`, `PARRY_GRACE`, `MELEE_PARRY_*`, `PARRY_STUN`, `PARRY_VULN_MULT`; `src/data/difficulty.ts` — `parryGrace`*
+*Files: `src/world/world.ts` — `PARRY_WINDOW`, `CONDUIT_PARRY_WINDOW`, `PARRY_COOLDOWN`, `PARRY_GRACE`, `MELEE_PARRY_*`, `PARRY_STUN`, `PARRY_VULN_MULT`; `src/data/difficulty.ts` — `parryGrace`*
 
 **Life leech:** heals `damage × leech%` on every hit that lands.
 
@@ -81,7 +81,7 @@ A volley can lose up to two closely stacked bolts to one timed parry; the follow
 
 ## 3. Controls
 
-See the README table. In short: W/S step, A/D turn, Q/E strafe, Space attack, Shift block, F interact/eat, T throw, R call your shafts back, G or C cast your sigil, 1 flask, 2–4 scrolls (identify, recall, flash, backstep), I pack, M map, Esc pause. On touch: drag anywhere to walk and turn, tap or press the big button for the context action, hold the shield to block.
+See the README table. In short: W/S step, A/D turn, Q/E strafe, Space attack, Shift block, F interact/eat, T throw, R call your shafts back, G or C cast your sigil, V cast your selected spell and B select the next, 1 flask, 2–4 scrolls (identify, recall, flash, backstep), I pack, M map, Esc pause. On touch: drag anywhere to walk and turn, tap or press the big button for the context action, hold the shield to block.
 
 **The one-button action** (tap the view, or the big button) swings at anything in reach and otherwise does whatever **[F]** would. One exception: a loot pile **underfoot never steals the swing while something is alive within 2 tiles**, or within 4 and hunting you. Killing the first of two monsters drops loot on your tile, and without that rule every tap became the loot window instead of a hit on the second one. Doors, stairs and portals still win over the swing, because running is a legitimate answer to a fight. **[F]** is unaffected — looting on the keyboard is always deliberate.
 
@@ -150,12 +150,16 @@ The first time you take the down stair on **depth 2**, it splits. A panel shows 
 
 *Files: `src/data/laws.ts`, `ossuaryStir` / `collapse` / `noise` / `breakProp` in `src/world/world.ts`*
 
-Three biomes each have one rule you can turn to your advantage. The first time you arrive on such a floor, the log says so.
+Seven biomes each have one rule you can turn to your advantage; the four elemental ones are built on surfaces. The first time you arrive on such a floor, the log says so.
 
 | Biome | Law | How it works |
 |---|---|---|
 | The Ossuary | **The dead do not stay down** | An undead monster's remains **stir 8s** after it dies (they glow and rise into view) and **stand 2s later** at **50%** health, `risen`, so they pay nothing twice and never rise again. Shattered or sanctified remains (see *The Gravecaller and remains*) stay down, as do the living and bosses. It only triggers as the 8s mark passes, so corpses you left behind don't all stand when you come back |
 | The Deep Mines | **Braced walls come down hard** | Bringing down a cracked wall collapses its timbering: every monster on a tile beside the wall takes `30 + 12 × depth` blunt damage (× its blunt resistance) and reels for **1.2s** (bosses don't reel). You strike from beside it, so the roof never falls on you. The blows' noise draws monsters to you, often right beside the crack |
+| The Sunken Catacombs | **The water carries** | The floor is flood from wall to wall. Frost that **lands** where a bolt stops (struck something, hit a wall, ran out of range) freezes the flood within **1 tile**, and holds whatever stands there (monsters 2.5s, you 1s; your own bolt never holds you). Along a bolt's path only pools freeze, and a frost weapon's blows freeze only a pool, never the flood. Flood ice thaws back into the flood after 20s. See *Surfaces* |
+| The Frost Vault | **The ice is treacherous** | Two more ice pools. A monster that slips on the ice is also **open** (double damage) while it is down, 0.8s; an unblocked blow on you while you stand on ice puts you down for **0.6s** |
+| The Emberworks | **The vents breathe** | **4 vents** per floor burst every **7–11s**, after a **1.2s** warning in which the grate and the room flare. A burst scorches whatever stands on the vent (2 of fire's ticks) and lights oil beside it. Monsters don't avoid vents |
+| The Sporegrove | **The spores** | **4 patches** of puffballs (1–3 tiles). Treading on one, monster or you, puffs it away: every monster within **1 tile** is **blinded 3s** (it stumbles and loses its wind-up), and if you are within it your lamp dims for 3s. Fire makes spores **burst**: 2 of fire's ticks on the tile and the four beside it, lighting what is there |
 | The Vermin Burrows | **Noise carries** | Every noise reaches **×1.75** further: cracked-wall blows, Wardcry's shout, alarm wards and a struck chest's clang. Breaking a **root cache** makes a racket that draws every monster within **12** tiles to the **cache**, not to you, which makes it a lure |
 
 ### Strange floors
@@ -190,6 +194,33 @@ Each floor's relic exists **nowhere else**: both carry a lock that keeps them
 out of every Legendary roll in the game, including the King's guaranteed drop.
 They are planted as a pickup on the walkable tile furthest from the arrival
 stair, unidentified like any other relic.
+
+### Surfaces: oil, water, ice and fire
+
+*Files: `src/data/surfaces.ts` (rules and numbers), `src/systems/surfaces.ts` (placement and state), `updateSurfaces` / `elementReaches` / `freeze` / `slip` / `escapeFire` / `stepOnto` in `src/world/world.ts`*
+
+Every fresh floor gets **pools** on the floor (`Floor.surfaces`), laid after generation on its own `surface:<runSeed>:<depth>` stream, so the floor itself and every golden hash are unchanged. Floors from before surfaces have none. A pool is 3–6 connected tiles grown from one tile of an ordinary room (normal, end, treasure, shrine), never on a stair or the tile in front of one, a door, a prop, a trap, or in the throne room.
+
+| Biome | Oil pools | Water pools |
+|---|---|---|
+| Most biomes | 2 | 1 |
+| Deep Mines (barrels) | 3 | 1 |
+| Emberworks | 3 | 0 |
+| Frost Vault | 1 | 2, laid as **ice** |
+| Sunken Catacombs (already flooded) | 1 | 0 |
+
+Every floor also gets **oil barrels** (`Prop.oil`, red hoops): **1**, or **2** in the Mines, the Emberworks and the Sporegrove (the barrel biomes). One stands against a wall, never beside a door, and only where it cuts nothing off (checked by a walk from the stair). It holds no loot. **Smashed**, it spills oil over its tile and up to **5** more (over bare floor or water). **Reached by fire**, it **bursts**: the spill goes up at once and **3** of fire's ticks land on its tile and the four beside it. The Emberworks also gets **vents** and the Sporegrove **spore patches** (*Biome laws*).
+
+**One table, for everything.** Fire from any source lights oil and melts ice; frost from any source freezes water. The sources: a bolt crossing the tile (your Ember Bolt or Rime Lance, a monster's fire or frost bolt, a parried bolt), a blow landing on a monster there while it carries fire or frost (gear, a Kindled draught, a fire Weave), and the feet of a monster that is burning or made of fire (oil and ice only).
+
+| Surface | What happens |
+|---|---|
+| **Oil** | Fire lights it: the tile burns for **6s**, then is bare floor. The fire walks to each touching oil tile after **0.3s**, one tile at a time |
+| **Fire** | Every **0.5s** it bites whatever stands in it: you for `4 + 2 × depth` before armour (× the difficulty's trap damage, unavoidable like a trap), a monster for `10 + 5 × depth` × its fire resistance, raw. A monster it bites **burns** (Ember Bolt's burn, twice the bite over 3s), so it carries the fire into any oil it runs through. Monsters never step into fire, and step out of it before anything else unless mid-swing. The playtest bot walks round it |
+| **Water** | Fire never spreads onto it. A burning monster that steps in is put out. Frost freezes it into **ice for 20s**, and whatever stands in it: a monster is held **2.5s** (`frozenT`, drawn pale blue, out of whatever it was doing), you **1s** |
+| **Ice** | Fire melts it back to water. A monster **struck on ice** (blow, throw or spell) **slips**: down for **0.8s**, out of its wind-up. Ice laid by a frozen biome stays until melted |
+
+The Ashen King never freezes or slips, and is never blinded by spores. Every pool is drawn on its tile, with a few dim emissive pixels (oil's sheen, water's ripples, ice's glints) so it shows in a dark room; fire throws light and stands up as flames that shrink as it burns out.
 
 ### Elemental surfaces and residents
 
@@ -264,12 +295,12 @@ Depth 6 is the bottom (`FINAL_DEPTH = 6`); there are no stairs down, only the wa
 - A **9×11 throne room** is placed first, and the rest of the floor (8 rooms instead of `9 + depth`) is fitted around it.
 - The throne room is forced to be a **dead end**: it gets exactly one connection, no loop links, and its entrance is an **iron door**.
 - You arrive in the room **farthest from the throne**, so there's a floor to cross before the fight.
-- **The Ashen King** waits two tiles inside, flanked by **two Hollow Knights**. The floor also carries 3 more wanderers than the usual `3 + round(1.2 × depth) + floor(rooms/4)`.
+- **The Ashen King** waits two tiles inside, **alone**: a fight with him is a fight with him, not with whatever else is in reach while he winds up. The floor also carries 3 more wanderers than the usual `3 + round(1.2 × depth) + floor(rooms/4)`.
 - Only the deep roster spawns here: **Ghouls, Frost Wisps, Hollow Knights, Flame Wraiths**. Skeletons stop at depth 4, archers and spiders at 5.
 - Vaults, secret rooms (86% chance at this depth) and shrines still generate as normal. The key here is the **Ashen Key**.
 - The biome has the densest torches of the game, iron doors and obsidian walls whose mortar glows.
 
-**The fight.** 420 HP, 24 attack, 12 defense. It swings when adjacent and fires a **three-bolt shadow volley** when you line up at range 2+. It is immune to shadow, resists pierce (×0.95), takes ×1.5 from holy, and **can never be staggered** out of its wind-up — step out of the tile it aims at, block, or **parry**, which is the one thing that does stagger it and opens a second of double damage. Its volley can be parried a bolt at a time, and the returned bolt is shadow, which it is immune to — so reflect it into the Hollow Knights beside it instead.
+**The fight.** 420 HP, 24 attack, 12 defense. It swings when adjacent and fires a **three-bolt shadow volley** when you line up at range 2+. It is immune to shadow, resists pierce (×0.95), takes ×1.5 from holy, and **can never be staggered** out of its wind-up — step out of the tile it aims at, block, or **parry**, which is the one thing that does stagger it and opens a second of double damage. Its volley can be parried a bolt at a time, and the returned bolt is shadow, which it is immune to, so turning his volley back is a way to stay alive rather than a way to hurt him.
 
 **On its death** it drops a guaranteed **Legendary and an Epic item plus a blueprint**, star iron, shadow essence, a jewelled skull, 50% a dragon scale and 150–300 gold — dropped on a tile *beside* the king, because a **portal** opens on the tile he fell on and would otherwise bury the hoard. Killing it is worth **+25 renown** on top of the usual extraction reward (so 39 for a depth-6 extraction).
 
@@ -280,17 +311,44 @@ There is nothing below. Each new run rolls a fresh seed, so depth 6 can be farme
 *File: `src/data/enemies.ts` (`KING_PHASES`), `src/world/world.ts` (`checkBossPhase`)*
 
 He was a very large trash mob: one telegraph, one volley, and thirty swings of
-health. Now the fight asks a different question as it goes, and each question is
-one the six floors above it already taught you.
+health. Then he was a crowd: two Hollow Knights beside him, so a guard that faces
+one tile was always facing the wrong one. Now he fights **alone**, and the fight
+asks a different question as it goes, each one a question the six floors above
+already taught you, in their own vocabulary.
 
-| | health | what changes | what it asks |
-|---|---|---|---|
-| **The Throne** | 100–65% | nothing — the fight as it always was | can you read a telegraph? |
-| **The Dark** | 65–30% | he puts out every torch in the throne room, and the guards you killed get back up at a third of their health | can you fight blind, with company? |
-| **The Last Stand** | 30–0% | the crown splits; he is faster, and he raises a ward of shadow that turns blows the way a shieldbearer's guard does | can you parry under pressure? |
+| | health | his moves | what changes | what it asks |
+|---|---|---|---|---|
+| **The Throne** | 100–65% | plain blow, thrust, sweep | the fight as it was, but the thrust reaches over a step back and the sweep catches a step aside | can you read a telegraph, and answer it with the guard rather than the feet? |
+| **The Dark** | 65–30% | plain blow, feint, flurry, thrust | he puts out every torch in the throne room, and takes the **Shadow Step** (below) | can you fight blind, when he is not where you left him? |
+| **The Last Stand** | 30–0% | plain blow, slam, sweep, flurry | the crown splits; he is faster, raises a ward of shadow that turns blows the way a shieldbearer's guard does, and flings **burning pitch** (below) | can you parry under pressure while the floor tells you where not to stand? |
+
+The moves are the attack moves of section 5, with the same tells and the same
+pricing, authored per phase in `KING_PHASES` rather than rolled from a creature
+set.
+
+**The Shadow Step** (the Dark onward). He melts into the dark and re-forms on a
+tile beside you: never behind you, and on a flank rather than in front whenever
+one is open, because the point is to make you turn. For **0.8s**
+(`SHADOW_STEP_SECONDS`) he is a `lurk`, off his tile for every purpose: nothing
+strikes him and nothing is struck. A violet puff marks where he will stand for
+the whole of it, and he comes back in the ambusher's 0.5s recovery, so a step
+costs you your facing, never a free blow. Once every **6s**
+(`SHADOW_STEP_EVERY`): at once if you have backed off to two tiles or more,
+and toe to toe only after another 3s, so the Dark is a fight and not a
+teleporter. Rites cannot find him while he is gone.
+
+**Burning pitch** (the Last Stand, Hard only). Every **7s** (`PITCH_EVERY`),
+within three tiles of you, he flings pitch at your feet: your tile and up to
+two beside it become oil, which catches after **1.2s** (`PITCH_FUSE`) and burns
+like any oil (section 4, *Surfaces*). It never takes a way out while it leaves
+you fewer than two clean neighbours, and never covers more than two. He stoops
+to throw it, 0.6s of recovery, so the beat after is yours: step off, or punish
+him and pay for it. Your own tile is the one you cannot look down at, so pitch
+or fire under you shows as a glow up off the bottom of the frame and a status
+line, the way Threshold's ground does.
 
 **He stays one creature.** The phases change his sprite family, his glow, his
-wind-up, his recovery and whether he carries a guard — and nothing else. His id,
+wind-up, his recovery, his moves and whether he carries a guard — and nothing else. His id,
 name, resistances, hoard and health are untouched, because the codex, the field
 notes and the one guaranteed relic in the game are all keyed off them.
 `enemyView(def, hp, maxHp)` folds the phase into a copy of the stat block, so the
@@ -318,21 +376,27 @@ the corridor you came down stays lit, so the way back is still readable. The
 automap is untouched, because the map is a memory of where you have walked, not
 eyesight. This is also the moment the Lantern Wick finally earns its renown.
 
-**The risen pay nothing.** A guard the King stands back up is flagged `risen`,
-and killing it again costs it no second hoard, no second tally and no second
-contract credit — without that, the throne room would be the best place in the
-game to farm a Hollow Knight's moonsilver. Only guards you actually killed rise,
-so leaving them alive means there is nothing for him to call.
-
 **Testing it.** `npm run dev` then `?autostart=boss` kits you out in the
 depth-6 ladder gear and stands you at the back of the throne room. Dev builds
 only — the helper is behind an `import.meta.env.DEV` guard and its module is
 dropped from a production bundle.
 
-**They are optional.** Phase advance is driven by the King's health alone, so
-you can ignore the risen and burn him into his last phase — and carry two
-knights into it. Racing him is about 23 swings at the gear depth 6 is meant to
-be reached with; clearing everything is about 32. The old fight was a flat 30.
+**Measured.** `npx vitest run --config vitest.playtest.config.ts scripts/king.bench.ts`
+stands the bot in the throne room in the depth-6 ladder kit with a perfected
+flask and fights him at four skills (the chance of timing a parry and of
+stepping off a volley's line; it swings only into an opening and steps off
+pitch). On 2026-10-17, 24 seeds a row:
+
+| skill | Hard: won | Hard: died in phase 1/2/3 | Normal: won |
+|---|---|---|---|
+| 35% | 0/24 | 7 / 13 / 4 | 24/24 |
+| 55% | 6/24 | 0 / 11 / 7 | 24/24 |
+| 80% | 18/24 | 0 / 1 / 5 | 24/24 |
+| 100% | 20/24 | 0 / 0 / 4 | 24/24 |
+
+With the two knights the same bot won **0/24 at every skill** on Hard: it could
+only ever face one of three. The bot never steps out of a melee telegraph or
+reflects a bolt, so these are a floor on what a person manages.
 
 ## 5. Monsters
 
@@ -355,7 +419,7 @@ be reached with; clearing everything is about 32. The old fight was a flat 30.
 | Hollow Knight | 5–6 | 135 | 21 | 20 | slash | undead: blunt ×1.2, slash ×0.7, pierce ×1.25, **holy ×1.6**, shadow ×0.5 | melee, shield (blocks 75%) | 0.7 | 1 | 0.65 | 7 |
 | Barrow Champion | 5–6 | 170 | 24 | 14 | blunt | undead: **blunt ×1.5**, slash ×0.55, pierce ×0.5, **holy ×2**, shadow ×0.5 | melee | 0.85 | 1.2 | 0.8 | 7 |
 | Flame Wraith | 5–6 | 82 | 19 | 6 | fire | blunt ×0.7, slash ×0.8, pierce ×0.6, fire ×0, **frost ×2** | ranged, fire bolt, speed 5.5, range 4, floats | 0.75 | 1.4 | 0.5 | 8 |
-| Mimic | any chest | 58 | 17 | 8 | pierce | blunt ×1.25, pierce ×1.1, **fire ×1.35** | melee | 0.52 | 0.8 | 0.32 | 8 |
+| Mimic | any chest | 46 | 13 | 8 | pierce | blunt ×1.25, pierce ×1.1, **fire ×1.35** | melee | 0.52 | 0.8 | 0.32 | 8 |
 | The Ashen King | 6 (boss) | 330 | 32 | 22 | shadow | undead: pierce ×0.95, **holy ×1.5**, shadow ×0 | boss, shadow bolt, speed 4.5, range 3 | 0.8 | 1 | 0.8 | 12 |
 
 Spawn weights: Giant Rat 3, Goblin Cutpurse 1 (3 until it learned to steal: a quarter of every depth-1 floor was pickpockets), Goblin Archer 2, Goblin Shieldbearer 1.5, Cave Bat 2.5, Skeleton 2, Skeleton Archer 2, Skeleton Shieldguard 1.5, Cave Spider 3, Ghoul 2, Ember Wisp 2, Frost Wisp 2, Hollow Knight 1.5, Barrow Champion 1.5, Flame Wraith 1.5. The Ember Wisp is the Frost Wisp's shallow counterpart, sharing its sprite rows under a warm palette — it puts the first elemental enemy on depth 3, which had none. Every floor holds at least five kinds, and each gives blunt, slash and pierce something it is good against — depth 6 without the Barrow Champion had no bone left to break, which left the club line with nothing to do on the final floor. Mimics never enter the ordinary spawn pool.
@@ -476,9 +540,9 @@ Clues: *"The goblins here move in formation. Somewhere on this floor, someone is
 **Three answers:**
 - **Break the chant.** Any damage to the Gravecaller breaks it (1.5s before it can start again). It's under the stagger threshold, so thrown shafts and reflected bolts work at range.
 - **Shatter the remains.** A blunt killing blow, or one that overkills by **25%** of the monster's health (`SHATTER_OVERKILL`), leaves bones that can't be raised.
-- **Sanctify them.** A killing blow while you have any Holy damage, or struck while standing on Threshold's consecrated tile, leaves remains that can't be raised.
+- **Sanctify them.** A killing blow while you have any Holy damage, or struck while standing on Threshold's consecrated tile, leaves remains that can't be raised. So does a kill by **Smite** (§9b), the one spell that sets remains.
 
-The log says so ("The bones shatter…", "The remains are sanctified…") when a Gravecaller is within 10 tiles to care. Only melee killing blows set remains; a kill by a trap, a thrown shaft or a Vengeful burst leaves ordinary remains. The placement pass doesn't mark its tile as occupied, so loose loot and keys land exactly where they always did. The Hard golden test removes it and still matches the pre-elite hash.
+The log says so ("The bones shatter…", "The remains are sanctified…") when a Gravecaller is within 10 tiles to care. Only melee killing blows and Smite set remains; a kill by a trap, a thrown shaft, any other spell or a Vengeful burst leaves ordinary remains. The placement pass doesn't mark its tile as occupied, so loose loot and keys land exactly where they always did. The Hard golden test removes it and still matches the pre-elite hash.
 
 ### Ambushers
 
@@ -507,7 +571,7 @@ Placement uses its own stream (`ambush:<floorSeed>:<depth>`) after elites, so it
 
 *Files: `src/data/elites.ts`, `promoteElite` in `src/systems/dungeon.ts`, `enemyView` in `src/data/enemies.ts`*
 
-An ordinary spawn can be promoted to an **elite**: the same monster with one trait on top. The chance is **0 on depths 1–2**, then `3% + 2% × (depth − 2)`: **5% at depth 3, 7% at 4, 9% at 5, 11% at 6**, about 1.3 elites per floor from depth 3 down. It applies on every difficulty, with no Oath or Seal needed. The King and his throne guards are never promoted. The roll uses its own hashed stream (`elite:<floorSeed>:<enemyId>`) *after* generation, so it never moves a wall, a chest or another monster. `hard-golden.test.ts` proves this by demoting every elite and matching the pre-elite hash.
+An ordinary spawn can be promoted to an **elite**: the same monster with one trait on top. The chance is **0 on depths 1–2**, then `3% + 2% × (depth − 2)`: **5% at depth 3, 7% at 4, 9% at 5, 11% at 6**, about 1.3 elites per floor from depth 3 down. It applies on every difficulty, with no Oath or Seal needed. The King is never promoted. The roll uses its own hashed stream (`elite:<floorSeed>:<enemyId>`) *after* generation, so it never moves a wall, a chest or another monster. `hard-golden.test.ts` proves this by demoting every elite and matching the pre-elite hash.
 
 **Every elite can be read before it matters.** It throws light in its trait's colour, pulses slowly in that colour (never the fast red flicker of a wind-up), stands 10% taller, and its target bar shows the trait in its name and colour. Hovering the name gives the rule.
 
@@ -740,6 +804,7 @@ fails the suite rather than reaching a player.
 | The Big Toe | Wyrm-Bone Big Toe | +6 Attack; a 17% chance on each kill of a second morsel dropping beside the first |
 | The Prize Bull's Horn | Wyrm-Bone Horn — *Forbidden Pasture only* | +4 Attack per consecutive blow landed without one landing on you, to 6 (+24). Any damage clears it, **including a blow you blocked**. Keeps the spear reach of 2 |
 | The Impresario's Cane | Deep-Yew Cane — *Silent Picture only* | Wind-up, recovery, walking and drinking all take **92%** as long. A cane's Attack is a fraction of any real weapon at its depth, which is the trade |
+| Dr. Mantis Toboggan's Rod | Moonsilver Rod | +4 Attack (spell Power). A cast the pool can't cover is paid in health: **10% of max health per charge short**. Never the last point: a cast that would take it is refused |
 | Fight Milk | *Legendary flask infusion* | While infused: stamina regen 22/s → 37.4/s, −20 max stamina; sip potency −10 points |
 
 **Depth.** Legendary only becomes available at depth 6 (`rarityAvailableAtDepth`),
@@ -791,6 +856,7 @@ animation bench, so a new icon and a new effect can be read without a lucky drop
 Each newly generated chest has a deterministic **12% chance to be a mimic**. It looks almost right: two pale points interrupt the lid seam, visible to someone who has learned to check without announcing the trick to a first-time player. It follows the Dark Souls rules:
 
 - **Open it** and it grabs you. You are held for **1.1s** (no moving, guarding, drinking, parrying or interacting), then it bites once for **2.5× its normal attack** before armour. Guard, parry, parry grace and block stamina are all ignored; only armour softens it, and it can kill. It spits you out and you are down another **0.45s**, then the mimic has a 0.8s beat before its first ordinary wind-up.
+- **The first bite a save ever takes never kills**, on Hard as on Normal: it leaves you on 1 health at worst, and the log names both tells. Nothing can be answered once the lid is up, so a death there teaches nothing. "Ever" is read off the codex (a mimic's worst hit on you, or a death to one), so it needs no save field, and every bite after that is the real thing.
 - **Strike it first** and the blow only wakes it: no damage, it rises over 0.9s at **full health** and fights. No grab is possible.
 - **Strike an honest chest** and the blow glances off: the chest stays shut. **Every blow breaks one thing inside**, and a blunt or two-handed weapon has a 55% chance of breaking a second. The order is worst first: one unit of a fragile piece (gem, valuable, consumable, blueprint), then one unit of a crafting material, then a dent of 40% of max durability in a piece of gear, and when nothing else is left, 25% of the remaining gold. On opening, the log lists what was lost. Measured over 150 chests, one blow costs 23–27% of a chest's value (sell value plus gold), and two cost 32–36%.
 - **Any strike on a chest clangs.** Every living enemy within **7 tiles** (Manhattan, through walls) is alerted to your position.
@@ -798,6 +864,8 @@ Each newly generated chest has a deterministic **12% chance to be a mimic**. It 
 - Every chest strike costs 1 weapon wear. Testing costs loot and noise; reading the lid tell and opening a chest you trust costs neither.
 
 On touch, tap the action button to open a chest and hold it (0.35s) to strike it instead. Killing a mimic releases the same tier of hoard the chest would have contained, including vault and secret-chest rewards.
+
+**Why it is 46 health and 13 attack.** At 58 and 17 the mimic was the strongest thing on depths 1–2 (twice a skeleton's blow, ten club hits to kill) and the most consistent killer in the playtest. The bot reads the death for what it is with `Policy.wary`: once a mimic has bitten the save, it reads the tell on the next one at that rate and strikes it awake. On 2026-10-17, over 48 seeds each, a fresh character (parry 35%) took a bite down to 21% of its health on average and then lost 8 of its 23 mimic fights. Neither a longer beat after the spit (2s) nor a smaller bite (×2) moved that; the lighter body halved it, to 4 deaths for the fresh character and 1–2 for the depth-4 kit (from 5), with overall death rates inside the noise. The bite stays ×2.5: it is the homage, and it is the price of not checking.
 
 | Source | Contents |
 |---|---|
@@ -992,11 +1060,13 @@ Two consequences follow from that and are worth stating plainly:
 
 | Base | Stock (tier 1) | Per tier | Windup / recovery / stamina | Speed | Range | Power | DPS | A full belt is worth |
 |---|---|---|---|---|---|---|---|---|
-| Throwing Knives | 6 | +0.5 | 0.16 / 0.34 / 9 | 9 tiles/s | 4 | ×1.8 | 23.9 | 84 damage |
-| Throwing Axes | 4 | +0.5 | 0.24 / 0.46 / 15 | 7 tiles/s | 5 | ×1.42 | 31.5 | 110 damage |
-| Javelins | 2 | +0.5 | 0.32 / 0.58 / 19 | 8 tiles/s | 7 | ×1.54 | 32.7 | 88 damage |
+| Throwing Knives | 6 | +0.5 | 0.16 / 0.15 / 9 | 9 tiles/s | 4 | ×1.8 | 39.8 | 86 damage |
+| Throwing Axes | 4 | +0.5 | 0.24 / 0.35 / 15 | 7 tiles/s | 5 | ×1.42 | 40.2 | 118 damage |
+| Javelins | 2 | +0.5 | 0.32 / 0.44 / 19 | 8 tiles/s | 7 | ×1.54 | 39.9 | 91 damage |
 
-DPS and belt value are measured at tier 3, averaged over the whole bestiary, by the weapon roster in `npm run tables`. A javelin thrown is about what a Long Sword swung is — but a full belt is three of them, and then it is nothing until you have walked over to get them back.
+DPS and belt value are measured at tier 3, averaged over the whole bestiary, by the weapon roster in `npm run tables`. A javelin thrown is about what a Long Sword swung is, and every belt throws at a Long Sword's rate of damage (40) — but a full belt is three to seven shafts, and then it is nothing until you call them back.
+
+**Recovery is the knob that matters.** The belt's value is fixed by its stock, so the recovery decides how much of it lands while one monster walks in from the belt's range (they close at 0.4–0.7s a tile). The recoveries were cut to 0.10 / 0.14 / 0.18s when throws lost their viewmodel, which put every belt at 47–62 DPS, above every weapon in the game, and let a belt empty itself into a single approaching monster before it arrived. They are 0.15 / 0.35 / 0.44s now: still quicker than the 0.34 / 0.46 / 0.58s they started at, and level with the Long Sword. `npm run playtest:belts` plays the careful bot in the depth-4 kit with and without each belt, throwing at anything coming down a line (`Policy.throw`); on 2026-10-17 it died 42% of the time with no belt against 46–58% with one, both before and after the retune — within the ±10% this sample can resolve. The bot never backs away while it throws, so a person gets more of the belt than it does.
 
 `attack × thrown.power` is the number to compare against a weapon's Attack. Material and craft rank ride along, which keeps thrown weapons inside the power ladder rather than beside it: a tier-3 javelin lands near a Long Sword, and knives well under one. That is where a thing you can only do a handful of times, from outside its reach, belongs.
 
@@ -1004,17 +1074,18 @@ DPS and belt value are measured at tier 3, averaged over the whole bestiary, by 
 
 A spent shaft flies, and where it stops — wall, enemy, or the end of its range — it lands on the floor as a marker on `Floor.thrown`, which persists with the floor: walk upstairs and back down and it is still lying where it fell. A shaft that hits something lands **on that thing's tile**, not the tile in front of it; landing it in front meant a point-blank throw fell at your own feet and was collected the same frame, so the one range at which a thrown weapon is supposed to be a bad idea was the one where it was free. Walking over a shaft collects it.
 
-**[R] calls them back, one at a time — tap, never hold.**
+**Hold [R] to call them back, one at a time.**
 
 | | |
 |---|---|
 | Rate | **One shaft leaves the floor every 0.75s**, then flies home at 11 tiles/s |
+| Reach | The whole run. A shaft on another floor, or more than 9 tiles away, starts its flight 2 tiles in front of you instead of crossing the dungeon |
 | Stamina | None. The wait is the whole cost — charging the bar you need *during* a fight for the thing you do *after* one paid for nothing |
 | Durability | One point of belt wear per shaft, as it lands back in your hand |
-| Cooldown | 6s, started when the last shaft the call itself sent home leaves the floor |
-| Stopped by | Swinging, casting, being stunned, taking a blow, unequipping the belt — or tapping R again |
+| Cooldown | None. Old saves may still carry a `retrieveCd`; it only counts down |
+| Stopped by | Letting go of R, swinging, casting, being stunned, taking a blow, unequipping the belt or changing floors. Walking does not stop it |
 
-Tap, because holding R re-toggled the call at the key-repeat rate and reset the timer every time, so shafts never arrived and it felt like the key had to be held down for something that is a tap. All of T, R, G and C ignore key repeats.
+The key ignores repeats, so a held R starts the call once rather than restarting it at the key-repeat rate. All of T, R, G and C ignore key repeats.
 
 A called shaft is never in limbo: it is a marker on the floor, a projectile in the air, or in your stock. The stock is credited when it reaches your hand, not when it leaves the floor, so stopping the call never loses what is already airborne — it still lands. Walking over a shaft collects it directly and spends the call's remainder, ending the call with no cooldown when nothing is left: the steps were the price. Changing floors keeps airborne shafts — they go into the stock rather than being dropped on the floor you walk off.
 
@@ -1089,7 +1160,7 @@ A stone is **inscribed at the forge**, on its *Sigils* bench, which consumes it 
 
 Pressing **Descend** for a new delve opens a *Before you go down* panel. Its **Oath Stone** offers **today's oaths**: **two hard and three medium**, drawn from the pool by the playthrough and the day (`oathsForDay`), so the offer turns with the days. **Swear as many as you dare**, or none; each takes hold when you descend (`run.oaths`) and is kept or broken on its own. **Not yet** (or Esc, or a click outside) closes the panel. Returning through a town portal or resuming an open delve skips it.
 
-**Keep an oath and come home alive** (by the stairs or the King's portal; a town-portal trip doesn't end the delve) and it pays: a **medium** oath one inscription, a **hard** oath **two**. **Keep every oath you swore, having sworn at least two, and learn one more.** The inscriptions are chosen in town from a list at least one longer than the picks, drawn from the run's seed so a reload can't reroll them; the reward pane stays until every pick is used. With every inscription already known, oaths pay renown instead: 10 per medium, 20 per hard, and 10 for the bonus. A broken or unkept oath loses only its own reward (and the bonus). No new oath can be sworn while a reward is unchosen.
+**Keep an oath and come home alive** (by the stairs or the King's portal; a town-portal trip doesn't end the delve) and it pays: a **medium** oath one lesson, a **hard** oath **two**. A lesson is an inscription or a **battle spell** you don't know (§9b; offered as `spell:<id>`, learned straight into the spellbook; a tome waiting in the stash counts as known). **Keep every oath you swore, having sworn at least two, and learn one more.** The lessons are chosen in town from a list at least one longer than the picks, drawn from the run's seed so a reload can't reroll them; the reward pane stays until every pick is used. With every inscription and spell already known, oaths pay renown instead: 10 per medium, 20 per hard, and 10 for the bonus. A broken or unkept oath loses only its own reward (and the bonus). No new oath can be sworn while a reward is unchosen.
 
 | Oath | Tier | Rule | Objective |
 |---|---|---|---|
@@ -1134,8 +1205,81 @@ A property is an effect that changes how a combat verb plays. Properties are **l
 | Bulwark | shield | A block that soaks at least **10%** of your max health makes your next landed strike within **3s** deal **×1.5** |
 | Retrieval | thrown belt | Called-back shafts hit each monster they pass through once, for **50%** of a throw |
 | Last Flask | head, body, hands | While the flask has no charges, morsels and life leech heal **×1.5** |
+| Countercharm | weapon, offhand | Each parry returns **1** charge to your conduit's pool, up to full. Nothing without a conduit |
+| Requiem | hands | When a battle spell's hit kills, the charges it cost come back. A burn that finishes the job later doesn't count |
 
 Riposte, Bulwark, the parry vulnerability and Marrow all multiply together. The tooltip shows the property in plain words, and its numbers on Shift or a tap.
+
+## 9b. Conduits and battle spells
+
+Added in save revision 30, additively: older saves learn Ember Bolt, load it, and learn the Wand recipe.
+
+*Files: `src/data/conduit-spells.ts`, `src/systems/conduits.ts`, `spellView` in `src/systems/player.ts`, `src/world/world.ts` — `castSpell`, `castHitscan`, `spellLands`, `hexLands`, `updateHexed`, `updateAfflictions`, `updateConduit`, `refundConduit`*
+
+A **conduit** is an offhand that casts instead of guarding: the battlemage's trade. It is not a sigil — sigils stay one utility stone on a long cooldown. The one exception to "offhand" is the **Stave**, a two-handed weapon that is a conduit as well.
+
+| Base | Material | Power (tier 1 / per tier) | Block | Charges | One back every | Spells loaded | From depth |
+|---|---|---|---|---|---|---|---|
+| Wand | wood | 10 / +3 | — (parry only) | 3 | 12s | 2 | 1 (starter recipe) |
+| Rod | metal | 16 / +3.5, +2 Defense (+1/tier) | — (parry only) | 4 | 10s | 3 | 3 (blueprint, 160g) |
+| Stave (2H weapon) | wood | 80% of its Attack: 26 / +6 Attack → 21 / +4.8 Power | 20% (two-hander) | 5 | 8s | 4 | 4 (blueprint, 220g) |
+
+The Rod is the Wand's step up its gear line (`['wand', 'rod']`) and is better on every axis. **Power** is the conduit's Attack, read off it alone the way a belt's is: it never reaches your melee Attack, and your sword never reaches a spell. A conduit is not a shield — it does not wear, does not flare for the parry, and an offhand one absorbs nothing at all: Wand and Rod are **parry-only**, on a tighter **0.13s** window (×0.6 the usual 0.22s; Normal scales both the same way), and a mistimed guard meets the blow whole. Holding the guard with one only flicks it up for the parry — keeping it held raises nothing: tap to meet the swing and parry.
+
+**The Stave** is a line of one (`['stave']`): a blunt two-hander (wind-up 0.32s, recovery 0.60s, 22 stamina, −4 Speed, the two-hander cleave, stagger 0.3) that is also the strongest conduit. Its Attack is a real melee Attack *and*, through `conduit.power` (0.8), its spell Power — the only base where one number feeds both. It pays a two-hander's price (no shield, 20% block) and swings lighter than the other three, since most of it is there to carry the stone. `PlayerDerived.conduitHand` says which hand holds the conduit; the cast lifts the Stave itself and lights its crown, where a Wand or Rod rises in the left hand.
+
+**The spellbook.** Spells are learned for good into `state.spellbook`. Ember Bolt is known from the start; the rest come from **spell tomes**, rolled where sigil stones roll — every chest and mimic — on their own `tome:<seed>:<depth>:<stream>` stream, so adding them moved no chest's contents. A vault or secret chest rolls 18%; an ordinary one 0% on depth 1 rising to 5% at depth 5. Never a spell you know or are already carrying anywhere. A tome is read at the forge's **Spells** bench, which also **loads** spells (`state.loadedSpells`): load order is cast order, and a conduit reads as many from the top as it has slots. The loadout only changes in town or with a portal open, like sigil attunement.
+
+**Casting.** V (touch: Cast; gamepad: tap D-pad Down) casts the **selected** spell; B (touch: ↻; gamepad: hold D-pad Down 0.4s) selects the next. A cast runs through the same wind-up and recovery as a throw, costs stamina from the bar you swing with and charges from the conduit's **shared pool**, and refuses with a reason when either is short. The pool lives on the run, not the item: it fills the first time a conduit is worn on a delve, and taking it off and on refills nothing.
+
+| Spell | Element | Power × | Charges | Stamina | Wind-up / recovery | Speed / range | Rider |
+|---|---|---|---|---|---|---|---|
+| Ember Bolt | fire | 1.0 | 1 | 18 | 0.28 / 0.38 | 9 / 5 | **Burn**: 45% of the hit again, spread over 3s (stacks onto a burn already running) |
+| Rime Lance | frost | 0.6 | 1 | 16 | 0.26 / 0.36 | 11 / 5 | **Chill** 4s: every wind-up runs ×1.5. A wind-up begun chilled finishes chilled. The Ashen King does not slow |
+| Smite | holy | 0.9 | 1 | 18 | 0.32 / 0.38 | hitscan / 5 | A streak of light down onto the target. Not turned by a raised shield (it comes from above). ×2 on the undead through their own holy resistance (×1.5–2), not a second rule. What it kills is **sanctified**: no Gravecaller or Ossuary stir raises it |
+| Hex | shadow | — | **2** | 22 | 0.38 / 0.44 | hitscan / 5 | No damage. **A penguin for 15s** (`HEX_SECONDS`): see below |
+
+**Hitscan** (Smite, Hex): no bolt. At the release the spell lands on the first monster down your line within range; a wall or the King's threshold stops the line. A miss shows the spell's mark, smaller, at the end of the line. The marks (`World.spellFx`: Smite's streak, Hex's violet puff) are never saved.
+
+**Hex.** The monster becomes a penguin (`ViewMods.hexed`): same health, resistances, undeath and name, but no shield, no projectile, no float, and a step of 0.7s. Whatever it was doing stops — a wind-up, a flurry, a feint, a Gravecaller's chant, a mimic's grip on you — and until the hex runs out it only waddles: about one random step every 0.8s, never an attack, a guard, a theft, a dive or a flight. **Damage does not break it.** Casting it again on a penguin resets the 15s. Elites are not spared. **The Ashen King and the floor lieutenants refuse it**, and a refusal hands the 2 charges back (the stamina is spent). It dies as itself: a kill drops the hex first, so its remains, its codex entry and any Gravecaller see the real creature. When the 15s run out it is itself again, alert, with a 0.8s pause before it may swing. No separate cooldown: 2 of a Wand's 3 charges is its price.
+
+**How a spell is scored** (`spellView`): no physical Attack; the conduit's Power × the spell's multiplier is added to your matching elemental stat, and every other elemental stat is zeroed. So the whole hit is elemental, mitigated at half armour like any elemental damage, × the target's resistance to that element — fire gear makes an Ember Bolt hit harder and a Rime Lance not at all. Crits use the plain ×1.6 whatever is in your other hand; life leech applies; a parry opening doubles it. A raised monster shield takes a spell on the guard like a shaft.
+
+**Regrow.** One charge grows back every *n* seconds while the conduit is worn. A kill adds `(1 + 4 × min(1, hp/140)) × (1 + 0.25 × Warden's Vigil + Focus%/100)` seconds of regrow, capped at a fifth of one charge's time — the sigil's rule.
+
+**Weave**, the battlemage rule:
+
+- A spell that lands **charges your weapon** with its element for **3s**: the next melee blow that lands carries +50% of the conduit's Power as that element, and spends it. A cleave's spill does not get a second helping.
+- A melee blow that lands adds **1.5s** of regrow to the conduit.
+
+So the loop is cast, close, strike, cast: standing back and casting runs the pool dry, and swinging without casting wastes the weave. After the Patch 101 cost pass the same harness has casting kits dying 21–38% against the shield's 25%, taking the same ~160–200 monster damage; casting now trades about 6 parries a delve for 15 casts.
+
+**Payoffs.** Two build properties put charges back for doing something well (§9a, Build properties): **Countercharm** (weapon or offhand) returns a charge on every parry, and **Requiem** (hands) returns a spell's charges when its hit kills. **Dr. Mantis Toboggan's Rod** (relic, depth 4+) casts on credit, taking what the pool lacks in health (§7, relics). Kept Delve Oaths can teach the spells you don't know (§9a, Delve Oaths).
+
+**Measured.** `npm run tables` prints every conduit casting every spell against the bestiary, beside the swing it shares a kit with (scored through the same `spellView`). At tier 3: a Wand's Ember Bolt (burn included) is 0.68× a Long Sword swing and its full pool 71 damage, under a belt of javelins (91); a Rod's is 0.98× and 136, about a belt of throwing axes (118); a Stave's 1.32× and 223. Smite is 0.57× a swing on the living and about 1× on the undead; Rime Lance is 0.38×, there for the chill. `npm run playtest:battlemage` plays the careful bot, which casts (`Policy.cast`), on the same 24 seeds in the depth-4 kit with the shield, a Rod never cast, a Rod cast, a Rod with both properties, a Wand and a Stave. On 2026-10-12 every one died 46–54% of the time against the shield's 50% (the idle Rod's 33% is within the ±10% this sample can resolve), taking the same ~200 monster damage; casting trades about 3 parries a delve for 20 casts. The bot casts at range only, Hexes elites and anything when two close in, and Smites the undead, so these are a floor on what a player gets from spells, not a ceiling.
+
+## 9c. Rites
+
+Added in save revision 31, additively: older saves know no rites, and no floor has heard one cast.
+
+*Files: `src/data/rites.ts`, `src/systems/rite-draw.ts`, `World.beginRiteDraw/addRitePoint/endRiteDraw` and `castMeteor/castGlacialTomb/castJudgement/castPenguining`, `placeRiteCarving/placeKingCarving/studyCarving` in `src/world/world.ts`*
+
+A **rite** is a sigil you draw: a powerful room spell, cast by a deliberate drawing gesture. There are four, one per element:
+
+| Rite | Mark | Effect | Sloppy trace | Botch |
+|---|---|---|---|---|
+| Rite of Meteor (fire) | V | Fire falls on every monster in the room | half the hit | fire on your own tile |
+| Glacial Tomb (frost) | Z | Everything in the room is frozen for **5 s**, and anything else in sight within 8 tiles for **2.5 s** (`GLACIAL_TOMB_SIGHT_SECONDS`); the King is only chilled; penguins stay penguins; water under them freezes | half of each | half the hit, and you are frozen for 2 s |
+| Rite of Judgement (holy) | triangle, apex up | A pillar of light on every monster in the room. Undead under **100 base health** (`JUDGEMENT_SPARE_HP`) **die outright and stay dead** (sanctified); the King, elites, lieutenants, the Hollow Knight and the Barrow Champion are struck at twice the living's damage instead. The living take holy fire at **2× conduit Power**, which no shield turns | the undead are only wounded, at twice the living's damage | the full hit, on you |
+| The Great Penguining (shadow) | circle | Every monster in the room is a penguin for **15 s**, as Hex; the King and floor lieutenants refuse it, with no refund | 7.5 s | half the hit, and the conduit is drained to 0 |
+
+**Meteor** (fire): fire falls on every monster in the room, scored like an Ember Bolt at **3× conduit Power** for a full trace, with the burn and the weave riding along. Every room target gets a falling star: it tracks the target for **0.45 seconds**, then lands its rolled hit, burn and stagger with a fire burst, floor flare, rumble and flash. Weak traces halve the hit. The visual mark lasts **1.4 seconds**, and an empty room still shows a fall onto stone without dealing damage. Pending falls are cleared on floor changes and respect the living throne boundary. Impacts call the common fire-on-tile reaction: oil ignites, oil barrels burst, spores catch and ice melts, even when a meteor falls on empty stone.
+
+**Found, not given.** A **carving** (a standing slab, its rite's mark glowing in its element's colour) teaches one rite. Carvings are paced like the flask shards: the first floor at **depth 3 or deeper** owes a carving while you know no rite, **depth 5** while you know fewer than two, and your **King kill** while you know fewer than three (it rises 2–5 tiles from where he fell). Any other floor from depth 3 rolls a small chance — **2% / 3% / 4% / 5%** on depths 3 / 4 / 5 / 6. A promise stays owed until you study a rite, so a carving left unread comes back on a later delve. **At most one carving per delve** (`run.riteCarved`), never for a rite you know. Your first is always Meteor; after that the **Frozen Road** teaches Glacial Tomb on depths 3–4 while it is unknown, and otherwise the rite is drawn from those left. Floor carvings wait in the vault, else the secret room, else any normal room — placed after generation on their own `rite:` stream, so no floor moves underneath them. Study one where it stands (F, or the touch action button): the rite is learned for good and the mark goes dark. Nothing before depth 3, so the opening floors keep their tuning.
+
+**Drawn, in slow motion.** Hold X (touch: tap Rite, drag, then Cast; gamepad: hold X, place the pen with the left stick if the mark does not start top-left, and draw with the right stick): a square tablet opens. **One tablet serves every rite you know**: you never pick one, the mark you draw is read against each of them and the best match is cast, graded on its own score. With more than one known, a legend under the title shows each mark, and as you draw the tablet names the rite your stroke reads as, shows its guide and burns in its colour (fire orange, frost blue, holy gold, shadow violet); with one, it shows that mark as before. A botch still names the closest mark, which decides how it backfires. The four marks were chosen to sit far apart for the matcher: each scores under 0.4 against the others; press and drag to draw one stroke, with Retry and Cancel available before casting. The trace previews full, half, or backlash strength. The fiery stroke ports claudemancy’s heat ramp, shimmer, ember halo and damped sparks to a pixel canvas. Successful casts resolve into a spinning ring that collapses into a burst; botches fade to ash. These effects run on real time without delaying the cast or consuming gameplay randomness. The world runs at 15% while the trace is open, and everything else waits for the release. Meteor’s mark is a simple impact V: down from one tip, up to the other, in one stroke and either way round. It is scored with claudemancy’s $P point-cloud matcher, including ±15° template tilts. Full power needs ≥0.65; ≥0.4 brings half power. Rounded corners and hand shake are forgiven, while taps, straight swipes and wrong shapes (upside down, sideways, a circle) still fail. With no rite ready, X interacts on the press as always; a trace can open mid-stride, and one still open when the run ends casts nothing. A clean trace lands the full rite, a shaky one half of it, and a botch brings the fire down on your own tile (20 + 2 per depth, leaving you on 1 health at worst — it humbles, never kills).
+
+**Priced like the moment matters.** Finishing a trace costs **25 stamina and two conduit charges**, win or lose. There is **no floor limit**: repeat casts are allowed as charges recover, and unspent charges remain available for ordinary spells. The old `riteCastDepth` save field remains as history and is no longer a lock. A rite with no conduit, fewer than two charges, or insufficient stamina refuses with its reason. A trace opened into a menu, cancelled, or closed without drawing is dropped unpaid. Pointer hover never draws; beginning a new stroke replaces the previous attempt. Recognition resamples path length, so sparse pointer events and drawing speed do not change the result.
 
 ## The bestiary codex
 
@@ -1313,7 +1457,7 @@ One or two run at a time, announced the day before as a rumour.
 
 | Upgrade | Effect per level | Costs |
 |---|---|---|
-| Pack Mule | +4 backpack slots | 3, 6, 11 |
+| Pack Mule | +2 backpack slots | 3, 6, 11 |
 | Toughness | +12 max health | 3, 6, 10, 15, 22 |
 | Second Wind | +15 max stamina | 3, 7, 12 |
 | Soul Pouch | Keep 3 backpack slots and 20% of carried gold on death | 5, 10, 16 |
@@ -1325,7 +1469,15 @@ One or two run at a time, announced the day before as a rumour.
 | Lantern Wick | +1 unit of light radius (½ a tile). L1 also spots traps 3 tiles ahead instead of 2 | 3, 7, 12 |
 | Warden's Vigil | +25% off your sigil's cooldown per kill, capped at a fifth of it | 6, 12, 20 |
 
-The whole tree costs **371 renown** — 30 to 40 delves for a competent player, against 8 to 14 before the balance pass. The renown *payout* is unchanged: ordinary scripted profiles simply earn less, because they turn back or die sooner. `npm run playtest` reports renown per run against this total; it does not simulate buying the whole tree across many runs.
+The whole tree costs **337 renown**. The design aim was 30 to 40 delves for a competent player, against 8 to 14 before the balance pass; that figure was reasoned, never measured. `npm run playtest:career` now measures the long game: eight fresh Hard characters, 40 delves each, the careful bot aiming one floor past its best, and a scripted townsperson between delves (turn in contracts, identify when it pays, wear the best, sell the rest, repair, temper the flask, buy better gear, train the cheapest upgrade; it never crafts, buys consumables or swears an oath). On 2026-10-17:
+
+| Delves | Died | Deepest | Renown per delve | Income per delve (banked + sold + contracts) | Repairs per delve | Tree bought |
+|---|---|---|---|---|---|---|
+| 1–5 | 65% | 1.75 | 2.1 | 151g | 25g | 9 |
+| 16–20 | 68% | 2.05 | 2.9 | 331g | 59g | 42 |
+| 36–40 | 57% | 2.63 | 4.0 | 489g | 334g | 111 |
+
+So this bot, which dies on most delves, earns about 3 renown a delve and would need over a hundred delves for the whole tree; no career killed the King. A person who survives more delves earns more, but the bot is the only measurement there is, and it says the shallow game pays little renown. Two other things it shows: repairs grow with the kit until they take about two-thirds of income late on, and contracts pay 10–30g a delve. The day's market and contracts are seeded from `randomSeed()` in `endRun`, so careers do not replay exactly between runs of the bench; read differences under about 15% as noise.
 
 What did change is the tree's internal shape, because the dungeon moved under it. `scripts/upgrades.bench.ts` runs the same seeds with each upgrade maxed and alone, against no upgrades at all:
 
@@ -1342,12 +1494,12 @@ Five upgrades were **not** repriced, because the harness cannot see them and a n
 
 *Files: `src/state/inventory.ts`, `src/systems/run.ts`*
 
-- **Backpack:** 16 slots (+4 per Pack Mule). Materials stack 20 per slot, consumables 5–10, gear 1. It was 16, sized against a dungeon that handed you forty items a floor; with loot cut by about sixty percent a deep delve peaks around nineteen slots, so 16 never filled and Pack Mule was worth measurably nothing. It went to 12, then back to 16 once more material families, more monsters and larger floors made 12 tight from the first floor.
+- **Backpack:** 16 slots (+2 per Pack Mule). Materials stack 20 per slot, consumables 5–10, gear 1. It was 16, sized against a dungeon that handed you forty items a floor; with loot cut by about sixty percent a deep delve peaks around nineteen slots, so 16 never filled and Pack Mule was worth measurably nothing. It went to 12, then back to 16 once more material families, more monsters and larger floors made 12 tight from the first floor. Pack Mule was +4 a level until 2026-10-17, which gave a depth-6 kit with three levels 28 slots against a peak of about 20, so the pack filled in 8% of those delves; at +2 (22 slots) it fills in 42%, and a depth-4 delve with one level still fills in only 8%. Materials are four slots in five at the peak. A pack packed in town under the old size sends what no longer fits back to the stash.
 - **Packing before a delve:** the *Stash & Gear* tab has a **Pack** panel beside the stash. Anything you put in it goes down with you as your backpack. Clicking a stash item moves it into the pack; gear equips instead unless you flip the **Equip / Pack** switch. **Take scrolls** fills the pack with every carryable consumable that fits. When a run is already open (you came home through a town portal) the panel is your actual backpack, so you can stash your haul and restock before going back.
 - Anything packed that no longer fits when you descend goes back to the stash rather than vanishing.
 - **Stash:** unlimited, in town, and materials merge into single stacks.
 - **Extracting** banks the whole backpack and the gold you carried.
-- **Dying** loses the backpack and your carried gold. Soul Pouch saves the first `3 × level` slots and `20% × level` of the gold. **Equipped gear is always kept.**
+- **Dying** loses the backpack and your carried gold. Soul Pouch saves the first `3 × level` slots and `20% × level` of the gold. **Equipped gear is always kept.** On **Normal** a death keeps the whole backpack and costs only **10%** of the carried gold, and that tenth is what the Shade holds (see [Difficulty](#14a-difficulty)).
 - Coins and keys are picked up automatically; everything else goes through the loot window and needs space.
 
 ---
@@ -1357,6 +1509,38 @@ Five upgrades were **not** repriced, because the harness cannot see them and a n
 *Files: `src/systems/grave.ts`, `endRun` in `src/systems/run.ts`, the Shade hooks in `src/world/world.ts`*
 
 When you die, what you lost (the backpack beyond any Soul Pouch slots, and the carried coin beyond its share) goes into a **grave** on the depth where you fell (`state.grave`). The next delve that reaches that depth finds **Your Shade** there, at least **10** steps from the arrival stair and never in the throne room. Its stats: 60 health, 12 attack, 6 defense, holy ×1.5, shadow ×0.5, scaled by depth like any monster. It strikes with the **damage type of the weapon you fell holding**, is drawn as a pale, cold version of the knight's frame, and glows blue. **Kill it and the whole pack drops where it stood**, coin included. Only one grave exists at a time: **die again before reclaiming it and it is replaced**, and the old pack is gone for good. Coming home without reclaiming it leaves it where it is. The Shade is placed once per delve (`run.shadePlaced`), and never on **Hardcore**, where a death ends the save. The town news and the results screen say where it waits.
+
+## 14a. Difficulty
+
+*File: `src/data/difficulty.ts`, the only place these numbers live*
+
+A save picks **Normal**, **Hard** or **Hardcore** when it starts. Normal and Hard can be switched between delves; Hardcore is fixed for good. The delve reads the difficulty it started with (`run.difficulty`), so switching can never soften a fight in progress. **Hard is the game as designed, and every knob on it does nothing** except the cap on attackers at once, which both difficulties share. Hardcore is Hard, knob for knob, with one life.
+
+Normal is for someone who wants the dungeon, the loot and the town without the reflex test, so it softens time and punishment as well as numbers:
+
+| Knob | Normal | What it touches |
+|---|---|---|
+| Monster health / damage / armour | ×0.75 / ×0.65 / ×0.8 | `createEnemy`, every monster blow, `defensePower` |
+| Monster count / traps / trap damage | ×0.8 / ×0.6 / ×0.5 | floor generation, sprung traps |
+| **Monster tempo** | ×1.3 slower | wind-up, recovery, the gap before the next swing, combo beat, steps, a Gravecaller's chant. The monsters' clock runs slower, so every tell keeps its shape and just lasts longer |
+| **Parry window** | ×1.6 (0.22s → 0.35s) | `parries()` |
+| **Gentle moves** | on | no feints; a combo stops after its first follow-up |
+| **Attackers at once** | 2 (Hard too) | a third monster in reach holds off for a beat instead of winding up. The King never waits. Hard has the same cap: one guard faces one blow, and a third from the flank made a crowd a death sentence |
+| **Block** | +15 points, stamina ×0.7 | added before the 90% shield cap |
+| Your health / healing / stamina regen | ×1.3 / ×1.35 / ×1.25 | |
+| **Resting** | mends to 50% | after 5s unhurt with nothing hunting you, 2% of max health a second, never above half |
+| Flask | +1 charge | every delve |
+| Parry grace | ×5/3 (0.75s → 1.25s) | |
+| Throne | the fog lets you back out; his later phases keep the first phase's wind-up, recovery and moves, never raise a shield and never fling pitch (the dark, the Shadow Step, the sprites and the lines stay) | you still cannot strike or be struck across the threshold |
+| Mimic bite | ×0.5, and never kills | on top of the damage multiplier; at worst it leaves you on 1 health |
+| Elites / lieutenants | ×0.5 / ×0.6 chance | Seals still add on top |
+| **Gear wear** | none | nothing loses durability; every piece is mended whole as a delve starts and when you switch to Normal; the forge has no Repairs bench; tooltips hide condition; a blow on a chest spills coin instead of denting gear; the Sigil of Temper stops dropping and the Unbroken oath is not offered |
+| Gold / find / gear odds | ×1.2 / +25 / ×1.25 | |
+| **Death** | keep the pack, lose 10% of carried gold | the Shade holds the tenth |
+
+`npm run playtest:normal` plays the same seeds on both difficulties with a bot that barely parries, for the before-and-after on any change here.
+
+---
 
 ## 15. Saving
 
@@ -1405,6 +1589,7 @@ A save written by a *newer* build than the one loading it is left as it is rathe
 | Parry window, stun and reflect | `src/world/world.ts` (`PARRY_*`) |
 | Sigil effects, cast times and cooldowns | `src/data/spells.ts`, `src/world/world.ts` (`resolveSigil`) |
 | Cooldown-on-kill refund and its cap | `src/world/world.ts` (`refundSigil`) |
+| Conduits, battle spells, burn, chill, hex and weave | `src/data/conduit-spells.ts`, `src/data/items.ts` (`conduit`), `src/data/enemies.ts` (`enemyView` hexed), `src/world/world.ts` (`castSpell`, `castHitscan`, `spellLands`, `hexLands`, `refundConduit`) |
 | Two-handed rule, cleave and stagger | `src/systems/equip.ts`, `src/systems/player.ts`, `src/data/items.ts` (`CLEAVE`), `src/world/world.ts` (`cleave`) |
 | Thrown stock, flight and retrieval | `src/data/items.ts` (`thrown`), `src/world/world.ts` (`hurl`, `RETRIEVE_*`) |
 | How a throw is scored | `src/systems/player.ts` (`thrownView`) |
@@ -1427,6 +1612,6 @@ npx vitest run --config vitest.playtest.config.ts scripts/mechanics.bench.ts
 
 and paste the result in, rather than editing seventeen rows by hand and getting one of them wrong.
 
-**Measuring a change:** `npm run playtest` writes a full report — the ladder (each floor against the gear it is meant to be reached with), floor composition, loot yield, every matchup, and scripted runs for fresh, mid-gear, endgame and prepared characters under several policies. It takes a couple of minutes. `npm run tables` alone runs in seconds and is the one to use between individual knobs.
+**Measuring a change:** `npm run playtest` writes a full report — the ladder (each floor against the gear it is meant to be reached with), floor composition, loot yield, every matchup, and scripted runs for fresh, mid-gear, endgame and prepared characters under several policies. It takes a couple of minutes. `npm run tables` alone runs in seconds and is the one to use between individual knobs. `npm run playtest:battlemage` compares the conduits against a shield on the same seeds (§9b), `npm run playtest:belts` each thrown belt against none, and `npm run playtest:career` chains 40 delves on one save with the town in between (§13).
 
 Work that is designed but not built lives in [NEXT.md](NEXT.md); the account-sync brief is in [SUPABASE_SYNC.md](SUPABASE_SYNC.md).

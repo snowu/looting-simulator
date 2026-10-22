@@ -1,6 +1,7 @@
-import { MOVE_SETS } from './attacks';
-import { ELEMENTAL_VARIANTS, elementalVariant } from './elemental-variants';
+import { MOVE_SETS, type MoveWeight } from './attacks';
+import { ELEMENTAL_VARIANTS, ELEMENTAL_VARIANT_IDS, elementalVariant } from './elemental-variants';
 import { DamageType, EnemyDef } from '../types';
+import { CHILL_WINDUP, PENGUIN_STEP } from './conduit-spells';
 import {
   ELITES, EliteTrait, FRENZIED_RECOVERY_MULT, FRENZIED_STEP_MULT, FRENZIED_WINDUP_MULT, FRENZY_AT,
   HASTED_RECOVERY_MULT, HASTED_STEP_MULT, HASTED_WINDUP_MULT, IRONHIDE_DEFENSE_MULT, IRONHIDE_STEP_MULT, THIEF_LADEN,
@@ -46,10 +47,11 @@ export const ENEMIES: EnemyDef[] = [
   },
   {
     // Never in the ordinary pool (weight 0): placed only by the corpse run, on
-    // the depth you last fell, guarding what you lost. A hollowed you: it
-    // borrows the knight's frame without the shield, and strikes with the
-    // damage type of the weapon you died holding (`EnemyState.shadeType`).
-    id: 'shade', name: 'Your Shade', sprite: 'knight', scale: 0.95,
+    // the depth you last fell, guarding what you lost. A hollowed you: a dark
+    // figure of its own holding the weapon and shield you have equipped
+    // (`src/render/shade.ts`), striking with the damage type of the weapon
+    // you died holding (`EnemyState.shadeType`).
+    id: 'shade', name: 'Your Shade', sprite: 'shade', scale: 1.1,
     hp: 60, attack: 12, defense: 6, damageType: 'shadow', resist: { holy: 1.5, shadow: 0.5 },
     behavior: 'melee', moves: MOVE_SETS.drilled, step: 0.5, windup: 0.6, recovery: 0.9, sight: 7,
     minDepth: 1, maxDepth: 6, weight: 0,
@@ -388,7 +390,7 @@ export const ENEMIES: EnemyDef[] = [
   },
   {
     id: 'mimic', name: 'Mimic', sprite: 'mimic', scale: 0.85,
-    hp: 58, attack: 17, defense: 8, damageType: 'pierce', resist: { blunt: 1.25, pierce: 1.1, fire: 1.35 },
+    hp: 46, attack: 13, defense: 8, damageType: 'pierce', resist: { blunt: 1.25, pierce: 1.1, fire: 1.35 },
     behavior: 'melee', moves: MOVE_SETS.frenzied, step: 0.32, windup: 0.52, recovery: 0.8, sight: 8,
     minDepth: 1, maxDepth: 6, weight: 0,
     loot: [], gold: [0, 0], itemChance: 0,
@@ -524,6 +526,12 @@ export interface BossPhase {
   shots: number[];
   /** A carried guard, if this phase has one. Absent means no guard at all. */
   shield?: { block: number; stun: number };
+  /**
+   * What he throws up close, from the vocabulary the floors above taught.
+   * Authored per phase rather than rolled from a creature set: each stage
+   * adds the answer it asks for.
+   */
+  moves: MoveWeight[];
   /** What the log says when he enters it. */
   entry: string;
 }
@@ -534,27 +542,36 @@ export interface BossPhase {
  */
 export const KING_PHASES: BossPhase[] = [
   {
-    // The Throne. Read the telegraph, step off the tile.
+    // The Throne. Read the telegraph. The thrust reaches over the step back
+    // and the sweep catches the step aside, so the answer is the guard, not
+    // the feet.
     sprite: 'king', glow: '#8a40ff', windup: 0.8, recovery: 1.0, shots: [0, -1, 1],
+    moves: [{ id: 'basic', weight: 4 }, { id: 'thrust', weight: 2 }, { id: 'sweep', weight: 2 }],
     entry: '',
   },
   {
-    // The Dark. He puts the room out and calls his guard back up. The volley is
-    // a wall now, and the wind-up is quicker, but the real change is that you
-    // cannot see him coming — only the two coals where his eyes were.
+    // The Dark. He puts the room out and steps through it: he melts away and
+    // re-forms beside you (World.shadowStep), so the fight is no longer always
+    // in front of you. The wind-up is quicker, and he feints and flurries, but
+    // the real change is that you cannot see him coming — only the two coals
+    // where his eyes were.
     // The volley stays three wide. The throne room is nine across and he stands
     // on its centre line, so five bolts would cover every tile you could step
     // to — and a dodge you cannot perform is not a mechanic, it is a tax. The
     // glow goes UP, not down: once the sconces are out he and your lantern are
     // the only things lighting the room, and a darker king is a black screen.
     sprite: 'king_dark', glow: '#b070ff', windup: 0.68, recovery: 0.9, shots: [0, -1, 1],
-    entry: 'The torches gutter and die. Two coals watch you from the dark.',
+    moves: [{ id: 'basic', weight: 3 }, { id: 'feint', weight: 2 }, { id: 'flurry', weight: 2 }, { id: 'thrust', weight: 1 }],
+    entry: 'The torches gutter and die. Two coals watch you from the dark, and then they are gone.',
   },
   {
     // The Last Stand. Cornered, faster, and behind a guard — which makes the
-    // parry the only reliable way in. Everything he has left, at once.
+    // parry the only reliable way in — and he spills burning pitch at your feet
+    // (World.spillPitch), so you parry while the floor tells you where not to
+    // stand. Everything he has left, at once.
     sprite: 'king_last', glow: '#ff5a20', windup: 0.55, recovery: 0.75, shots: [0, -1, 1],
     shield: { block: 0.6, stun: 1 },
+    moves: [{ id: 'basic', weight: 3 }, { id: 'slam', weight: 2 }, { id: 'sweep', weight: 2 }, { id: 'flurry', weight: 1 }],
     entry: 'The crown splits. What is left of him burns, and comes on.',
   },
 ];
@@ -616,16 +633,28 @@ export interface ViewMods {
   marked?: boolean;
   /** A Shade strikes with the damage type of the weapon you fell with. */
   shadeType?: DamageType;
+  /** A calm King: later phases keep the first one's rhythm and carry no shield. */
+  calm?: boolean;
+  /** Struck by a Rime Lance: every wind-up runs long while it lasts. */
+  chilled?: boolean;
+  /** Hexed: a penguin for now. Same health, same name, same resistances. */
+  hexed?: boolean;
 }
+
+/** Sprite family of a hexed monster: `penguin_0` standing, `penguin_1` mid-waddle. */
+export const PENGUIN_SPRITE = 'penguin';
+
+/** A chilled creature's glow, so the slow wind-up has a visible cause. */
+const CHILL_GLOW = '#8ac8ff';
 
 /** The glow of a thief carrying your things: a lamp to chase by. */
 export const THIEF_GLOW = '#e8c060';
 
 export function enemyView(def: EnemyDef, hp: number, maxHp: number, mods?: ViewMods): EnemyDef {
-  const base = phaseView(def, hp, maxHp);
-  if (!mods || (!mods.elite && !mods.carrying && !mods.marked && !mods.shadeType)) return base;
+  const base = phaseView(def, hp, maxHp, !!mods?.calm);
+  if (!mods || (!mods.elite && !mods.carrying && !mods.marked && !mods.shadeType && !mods.chilled && !mods.hexed)) return base;
   const frenzy = mods.elite === 'frenzied' && maxHp > 0 && hp < maxHp * FRENZY_AT;
-  const key = `${base.id}:${base.sprite}:${mods.elite ?? ''}:${frenzy ? 1 : 0}:${mods.carrying ? 1 : 0}:${mods.marked ? 1 : 0}:${mods.shadeType ?? ''}`;
+  const key = `${base.id}:${base.sprite}${mods.calm ? ':calm' : ''}:${mods.elite ?? ''}:${frenzy ? 1 : 0}:${mods.carrying ? 1 : 0}:${mods.marked ? 1 : 0}:${mods.shadeType ?? ''}:${mods.chilled ? 1 : 0}:${mods.hexed ? 1 : 0}`;
   let view = VIEW_CACHE.get(key);
   if (view) return view;
   view = { ...base };
@@ -657,24 +686,48 @@ export function enemyView(def: EnemyDef, hp: number, maxHp: number, mods?: ViewM
     // Laden: running with your things slows it down. See `runWithLoot`.
     view.step = view.step * THIEF_LADEN;
   }
+  // The King does not slow, as he does not blink at a Flash scroll: his
+  // fight is the parry, and a spell that widened every window would end it.
+  if (mods.chilled && base.behavior !== 'boss') {
+    view.windup = view.windup * CHILL_WINDUP;
+    view.glow = CHILL_GLOW;
+  }
+  // A penguin, whatever it was. It keeps what it *is* (health, resistances,
+  // undeath, its name in the log) and loses what it *does*: no shield to
+  // guard with, no bolt to loose, no float, and a waddle for a stride. The
+  // AI itself is held in `World.updateHexed`.
+  if (mods.hexed) {
+    view.name = `${view.name} (a penguin)`;
+    view.sprite = PENGUIN_SPRITE;
+    view.scale = 0.7;
+    view.step = PENGUIN_STEP;
+    view.floats = false;
+    view.shield = undefined;
+    view.projectile = undefined;
+    view.glow = undefined;
+  }
   VIEW_CACHE.set(key, view);
   return view;
 }
 
-function phaseView(def: EnemyDef, hp: number, maxHp: number): EnemyDef {
+function phaseView(def: EnemyDef, hp: number, maxHp: number, calm = false): EnemyDef {
   const phase = bossPhase(def, hp, maxHp);
-  if (!phase || phase === KING_PHASES[0]) return def;
-  const key = `${def.id}:${phase.sprite}`;
+  if (!phase) return def;
+  const key = `${def.id}:${phase.sprite}${calm ? ':calm' : ''}`;
   let view = VIEW_CACHE.get(key);
   if (!view) {
+    // Calm (Normal): the look and the volley move on; the rhythm, the moves
+    // and the guard do not.
+    const rhythm = calm ? KING_PHASES[0] : phase;
     view = {
       ...def,
       sprite: phase.sprite,
       glow: phase.glow,
-      windup: phase.windup,
-      recovery: phase.recovery,
-      shield: phase.shield,
+      windup: rhythm.windup,
+      recovery: rhythm.recovery,
+      shield: calm ? undefined : phase.shield,
       volley: phase.shots,
+      moves: rhythm.moves,
     };
     VIEW_CACHE.set(key, view);
   }
@@ -690,3 +743,15 @@ export function enemyDef(id: string): EnemyDef {
 }
 
 export const BOSS_ID = 'ashen_king';
+
+/**
+ * The creatures a floor of this biome at this depth can spawn: in range, allowed
+ * there, and of the biome's element if they have one. The dungeon weights them;
+ * the art tooling uses the same list to show an enemy beside its floor-mates.
+ */
+export function spawnPool(biome: { id: string; element?: 'fire' | 'frost' }, depth: number): EnemyDef[] {
+  return ENEMIES.filter((e) => e.weight > 0 && e.minDepth <= depth && depth <= e.maxDepth
+    && (!e.onlyIn || e.onlyIn.includes(biome.id))
+    && (!ELEMENTAL_VARIANT_IDS.has(e.id) || e.element === biome.element)
+    && !(biome.element && e.element && e.element !== biome.element));
+}

@@ -1,0 +1,744 @@
+{
+ "Enemies · The Ossuary": {
+  "background": "#040308",
+  "sprites": [
+   "public/art/enemies/drowned_0.png",
+   "public/art/enemies/rat_0.png",
+   "public/art/enemies/goblin_0.png",
+   "public/art/enemies/bat_0.png",
+   "public/art/enemies/skeleton_0.png",
+   "public/art/enemies/stalker_0.png",
+   "public/art/enemies/gobarcher_0.png",
+   "public/art/enemies/gobshield_0.png",
+   "public/art/enemies/archer_0.png"
+  ]
+ },
+ "Enemies · The Deep Mines": {
+  "background": "#080503",
+  "sprites": [
+   "public/art/enemies/drowned_0.png",
+   "public/art/enemies/stalker_0.png",
+   "public/art/enemies/cinder_0.png",
+   "public/art/enemies/rime_0.png",
+   "public/art/enemies/iceguard_0.png",
+   "public/art/enemies/spore_0.png",
+   "public/art/enemies/rat_0.png",
+   "public/art/enemies/goblin_0.png",
+   "public/art/enemies/gobarcher_0.png",
+   "public/art/enemies/gobshield_0.png",
+   "public/art/enemies/bat_0.png",
+   "public/art/enemies/skeleton_0.png",
+   "public/art/enemies/archer_0.png",
+   "public/art/enemies/skelshield_0.png",
+   "public/art/enemies/spider_0.png",
+   "public/art/enemies/ghoul_0.png",
+   "public/art/enemies/ember_0.png",
+   "public/art/enemies/gloom_0.png",
+   "public/art/enemies/dawn_0.png",
+   "public/art/enemies/wisp_0.png"
+  ]
+ },
+ "Enemies · The Ashen Throne": {
+  "background": "#090103",
+  "sprites": [
+   "public/art/enemies/ghoul_0.png",
+   "public/art/enemies/wisp_0.png",
+   "public/art/enemies/knight_0.png",
+   "public/art/enemies/champion_0.png",
+   "public/art/enemies/wraith_0.png"
+  ]
+ },
+ "Enemies · The Sunken Catacombs": {
+  "background": "#061013",
+  "sprites": [
+   "public/art/enemies/drowned_0.png",
+   "public/art/enemies/rat_0.png",
+   "public/art/enemies/bat_0.png",
+   "public/art/enemies/skeleton_0.png",
+   "public/art/enemies/goblin_0.png",
+   "public/art/enemies/stalker_0.png",
+   "public/art/enemies/gobarcher_0.png",
+   "public/art/enemies/gobshield_0.png",
+   "public/art/enemies/archer_0.png",
+   "public/art/enemies/cinder_0.png",
+   "public/art/enemies/rime_0.png",
+   "public/art/enemies/iceguard_0.png",
+   "public/art/enemies/spore_0.png",
+   "public/art/enemies/skelshield_0.png",
+   "public/art/enemies/spider_0.png",
+   "public/art/enemies/ghoul_0.png",
+   "public/art/enemies/ember_0.png"
+  ]
+ },
+ "Enemies · The Vermin Burrows": {
+  "background": "#0e0904",
+  "sprites": [
+   "public/art/enemies/rat_0.png",
+   "public/art/enemies/goblin_0.png",
+   "public/art/enemies/bat_0.png",
+   "public/art/enemies/mole_0.png",
+   "public/art/enemies/stalker_0.png",
+   "public/art/enemies/spider_0.png",
+   "public/art/enemies/drowned_0.png",
+   "public/art/enemies/skeleton_0.png",
+   "public/art/enemies/gobarcher_0.png",
+   "public/art/enemies/gobshield_0.png",
+   "public/art/enemies/archer_0.png",
+   "public/art/enemies/cinder_0.png",
+   "public/art/enemies/rime_0.png",
+   "public/art/enemies/iceguard_0.png",
+   "public/art/enemies/spore_0.png",
+   "public/art/enemies/skelshield_0.png",
+   "public/art/enemies/ghoul_0.png",
+   "public/art/enemies/ember_0.png"
+  ]
+ },
+ "Enemies · The Frost Vault": {
+  "background": "#050b17",
+  "sprites": [
+   "public/art/enemies/rime_0.png",
+   "public/art/enemies/iceguard_0.png",
+   "public/art/enemies/archer_0.png",
+   "public/art/enemies/skelshield_0.png",
+   "public/art/enemies/wisp_0.png",
+   "public/art/enemies/drowned_0.png",
+   "public/art/enemies/stalker_0.png",
+   "public/art/enemies/spore_0.png",
+   "public/art/enemies/rat_0.png",
+   "public/art/enemies/goblin_0.png",
+   "public/art/enemies/gobarcher_0.png",
+   "public/art/enemies/gobshield_0.png",
+   "public/art/enemies/bat_0.png",
+   "public/art/enemies/skeleton_0.png",
+   "public/art/enemies/spider_0.png",
+   "public/art/enemies/ghoul_0.png",
+   "public/art/enemies/rimebound_0.png",
+   "public/art/enemies/hoarbat_0.png",
+   "public/art/enemies/frozenwretch_0.png",
+   "public/art/enemies/glaciergoblin_0.png",
+   "public/art/enemies/gloom_0.png",
+   "public/art/enemies/dawn_0.png",
+   "public/art/enemies/knight_0.png",
+   "public/art/enemies/champion_0.png"
+  ]
+ },
+ "Enemies · The Emberworks": {
+  "background": "#160603",
+  "sprites": [
+   "public/art/enemies/cinder_0.png",
+   "public/art/enemies/gobshield_0.png",
+   "public/art/enemies/ember_0.png",
+   "public/art/enemies/wraith_0.png",
+   "public/art/enemies/drowned_0.png",
+   "public/art/enemies/stalker_0.png",
+   "public/art/enemies/spore_0.png",
+   "public/art/enemies/rat_0.png",
+   "public/art/enemies/goblin_0.png",
+   "public/art/enemies/gobarcher_0.png",
+   "public/art/enemies/bat_0.png",
+   "public/art/enemies/skeleton_0.png",
+   "public/art/enemies/archer_0.png",
+   "public/art/enemies/skelshield_0.png",
+   "public/art/enemies/spider_0.png",
+   "public/art/enemies/ghoul_0.png",
+   "public/art/enemies/skelember_0.png",
+   "public/art/enemies/cinderguard_0.png",
+   "public/art/enemies/emberback_0.png",
+   "public/art/enemies/slagborn_0.png",
+   "public/art/enemies/gloom_0.png",
+   "public/art/enemies/dawn_0.png",
+   "public/art/enemies/knight_0.png",
+   "public/art/enemies/champion_0.png"
+  ]
+ },
+ "Enemies · The Sporegrove": {
+  "background": "#071007",
+  "sprites": [
+   "public/art/enemies/spore_0.png",
+   "public/art/enemies/bogseraph_0.png",
+   "public/art/enemies/bat_0.png",
+   "public/art/enemies/spider_0.png",
+   "public/art/enemies/ghoul_0.png",
+   "public/art/enemies/drowned_0.png",
+   "public/art/enemies/stalker_0.png",
+   "public/art/enemies/cinder_0.png",
+   "public/art/enemies/rime_0.png",
+   "public/art/enemies/iceguard_0.png",
+   "public/art/enemies/rat_0.png",
+   "public/art/enemies/goblin_0.png",
+   "public/art/enemies/gobarcher_0.png",
+   "public/art/enemies/gobshield_0.png",
+   "public/art/enemies/skeleton_0.png",
+   "public/art/enemies/archer_0.png",
+   "public/art/enemies/skelshield_0.png",
+   "public/art/enemies/ember_0.png",
+   "public/art/enemies/gloom_0.png",
+   "public/art/enemies/dawn_0.png",
+   "public/art/enemies/wisp_0.png",
+   "public/art/enemies/knight_0.png",
+   "public/art/enemies/champion_0.png",
+   "public/art/enemies/wraith_0.png"
+  ]
+ },
+ "Melee enemies": {
+  "sprites": [
+   "public/art/enemies/drowned_0.png",
+   "public/art/enemies/shade_0.png",
+   "public/art/enemies/quartermaster_0.png",
+   "public/art/enemies/iceguard_0.png",
+   "public/art/enemies/rat_0.png",
+   "public/art/enemies/bogseraph_0.png",
+   "public/art/enemies/gobshield_0.png",
+   "public/art/enemies/bat_0.png",
+   "public/art/enemies/skeleton_0.png",
+   "public/art/enemies/skelshield_0.png",
+   "public/art/enemies/spider_0.png",
+   "public/art/enemies/ghoul_0.png",
+   "public/art/enemies/knight_0.png",
+   "public/art/enemies/champion_0.png",
+   "public/art/props/mimic_0.png",
+   "public/art/enemies/cow_0.png",
+   "public/art/enemies/bull_0.png",
+   "public/art/enemies/prizebull_0.png",
+   "public/art/enemies/skelember_0.png",
+   "public/art/enemies/cinderguard_0.png",
+   "public/art/enemies/emberback_0.png",
+   "public/art/enemies/slagborn_0.png",
+   "public/art/enemies/rimebound_0.png",
+   "public/art/enemies/hoarbat_0.png",
+   "public/art/enemies/frozenwretch_0.png",
+   "public/art/enemies/glaciergoblin_0.png"
+  ]
+ },
+ "Ranged enemies": {
+  "sprites": [
+   "public/art/enemies/gravecaller_0.png",
+   "public/art/enemies/cinder_0.png",
+   "public/art/enemies/rime_0.png",
+   "public/art/enemies/gloom_0.png",
+   "public/art/enemies/dawn_0.png",
+   "public/art/enemies/gobarcher_0.png",
+   "public/art/enemies/archer_0.png",
+   "public/art/enemies/ember_0.png",
+   "public/art/enemies/wisp_0.png",
+   "public/art/enemies/wraith_0.png"
+  ]
+ },
+ "Skittish creatures": {
+  "sprites": [
+   "public/art/enemies/hoarder_0.png",
+   "public/art/enemies/stalker_0.png",
+   "public/art/enemies/spore_0.png",
+   "public/art/enemies/goblin_0.png",
+   "public/art/enemies/cow_0.png",
+   "public/art/enemies/mole_0.png"
+  ]
+ },
+ "Bosses": {
+  "sprites": [
+   "public/art/enemies/king_0.png",
+   "public/art/enemies/king_dark_0.png",
+   "public/art/enemies/king_last_0.png"
+  ]
+ },
+ "Undead": {
+  "sprites": [
+   "public/art/enemies/drowned_0.png",
+   "public/art/enemies/gravecaller_0.png",
+   "public/art/enemies/iceguard_0.png",
+   "public/art/enemies/skeleton_0.png",
+   "public/art/enemies/archer_0.png",
+   "public/art/enemies/skelshield_0.png",
+   "public/art/enemies/ghoul_0.png",
+   "public/art/enemies/knight_0.png",
+   "public/art/enemies/champion_0.png",
+   "public/art/enemies/king_0.png",
+   "public/art/enemies/skelember_0.png",
+   "public/art/enemies/cinderguard_0.png",
+   "public/art/enemies/slagborn_0.png",
+   "public/art/enemies/rimebound_0.png",
+   "public/art/enemies/frozenwretch_0.png"
+  ]
+ },
+ "Fire creatures": {
+  "sprites": [
+   "public/art/enemies/cinder_0.png",
+   "public/art/enemies/ember_0.png",
+   "public/art/enemies/wraith_0.png",
+   "public/art/enemies/skelember_0.png",
+   "public/art/enemies/cinderguard_0.png",
+   "public/art/enemies/emberback_0.png",
+   "public/art/enemies/slagborn_0.png"
+  ]
+ },
+ "Frost creatures": {
+  "sprites": [
+   "public/art/enemies/rime_0.png",
+   "public/art/enemies/iceguard_0.png",
+   "public/art/enemies/wisp_0.png",
+   "public/art/enemies/rimebound_0.png",
+   "public/art/enemies/hoarbat_0.png",
+   "public/art/enemies/frozenwretch_0.png",
+   "public/art/enemies/glaciergoblin_0.png"
+  ]
+ },
+ "Surfaces · The Ossuary": {
+  "background": "#040308",
+  "sprites": [
+   "public/art/textures/wall_crypt.png",
+   "public/art/textures/wall_crypt_b.png",
+   "public/art/textures/wall_crypt_s.png",
+   "public/art/textures/floor_crypt.png",
+   "public/art/textures/floor_crypt_grave.png",
+   "public/art/textures/floor_crypt_drain.png",
+   "public/art/textures/ceil_crypt.png",
+   "public/art/textures/door_wood.png",
+   "public/art/textures/wall_crypt_cracked.png",
+   "public/art/textures/wall_crypt_ore.png",
+   "public/art/textures/wall_crypt_sealed.png"
+  ]
+ },
+ "Surfaces · The Deep Mines": {
+  "background": "#080503",
+  "sprites": [
+   "public/art/textures/wall_mine.png",
+   "public/art/textures/wall_mine_b.png",
+   "public/art/textures/wall_mine_s.png",
+   "public/art/textures/floor_mine.png",
+   "public/art/textures/floor_mine_ore.png",
+   "public/art/textures/floor_mine_pick.png",
+   "public/art/textures/ceil_mine.png",
+   "public/art/textures/door_wood.png",
+   "public/art/textures/ceil_mine_cap_x.png",
+   "public/art/textures/ceil_mine_cap_z.png",
+   "public/art/textures/wall_mine_set.png",
+   "public/art/textures/wall_mine_cracked.png",
+   "public/art/textures/wall_mine_ore.png",
+   "public/art/textures/wall_mine_sealed.png"
+  ]
+ },
+ "Surfaces · The Ashen Throne": {
+  "background": "#090103",
+  "sprites": [
+   "public/art/textures/wall_throne.png",
+   "public/art/textures/wall_throne_b.png",
+   "public/art/textures/wall_throne_s.png",
+   "public/art/textures/floor_throne.png",
+   "public/art/textures/ceil_throne.png",
+   "public/art/textures/door_iron.png"
+  ]
+ },
+ "Surfaces · The Sunken Catacombs": {
+  "background": "#061013",
+  "sprites": [
+   "public/art/textures/wall_catacombs.png",
+   "public/art/textures/wall_catacombs_b.png",
+   "public/art/textures/wall_catacombs_s.png",
+   "public/art/textures/floor_cave.png",
+   "public/art/textures/ceil_crypt.png",
+   "public/art/textures/door_wood.png",
+   "public/art/textures/wall_catacombs_cracked.png",
+   "public/art/textures/wall_catacombs_ore.png",
+   "public/art/textures/wall_catacombs_sealed.png"
+  ]
+ },
+ "Surfaces · The Vermin Burrows": {
+  "background": "#0e0904",
+  "sprites": [
+   "public/art/textures/wall_burrows.png",
+   "public/art/textures/wall_burrows_b.png",
+   "public/art/textures/wall_burrows_s.png",
+   "public/art/textures/wall_burrows_stones.png",
+   "public/art/textures/wall_burrows_claws.png",
+   "public/art/textures/floor_burrows.png",
+   "public/art/textures/ceil_burrows.png",
+   "public/art/textures/door_wood.png",
+   "public/art/textures/wall_burrows_cracked.png",
+   "public/art/textures/wall_burrows_ore.png",
+   "public/art/textures/wall_burrows_sealed.png"
+  ]
+ },
+ "Surfaces · The Frost Vault": {
+  "background": "#050b17",
+  "sprites": [
+   "public/art/textures/wall_frostvault.png",
+   "public/art/textures/wall_frostvault_b.png",
+   "public/art/textures/wall_frostvault_s.png",
+   "public/art/textures/wall_frostvault_glaze.png",
+   "public/art/textures/wall_frostvault_fall.png",
+   "public/art/textures/wall_frostvault_split.png",
+   "public/art/textures/wall_frostvault_grate.png",
+   "public/art/textures/floor_frostvault.png",
+   "public/art/textures/floor_frostvault_ice.png",
+   "public/art/textures/ceil_frostvault.png",
+   "public/art/textures/door_iron.png",
+   "public/art/textures/wall_frostvault_brick.png",
+   "public/art/textures/wall_frostvault_cracked.png",
+   "public/art/textures/wall_frostvault_ore.png",
+   "public/art/textures/wall_frostvault_sealed.png"
+  ]
+ },
+ "Surfaces · The Emberworks": {
+  "background": "#160603",
+  "sprites": [
+   "public/art/textures/wall_emberworks.png",
+   "public/art/textures/wall_emberworks_b.png",
+   "public/art/textures/wall_emberworks_s.png",
+   "public/art/textures/wall_emberworks_seam.png",
+   "public/art/textures/wall_emberworks_pool.png",
+   "public/art/textures/wall_emberworks_grate.png",
+   "public/art/textures/floor_emberworks.png",
+   "public/art/textures/floor_emberworks_shelf.png",
+   "public/art/textures/floor_emberworks_shards.png",
+   "public/art/textures/floor_emberworks_vent.png",
+   "public/art/textures/ceil_emberworks.png",
+   "public/art/textures/ceil_emberworks_shelf.png",
+   "public/art/textures/ceil_emberworks_blister.png",
+   "public/art/textures/ceil_emberworks_split.png",
+   "public/art/textures/door_iron.png",
+   "public/art/textures/wall_emberworks_cracked.png",
+   "public/art/textures/wall_emberworks_ore.png",
+   "public/art/textures/wall_emberworks_sealed.png"
+  ]
+ },
+ "Surfaces · The Sporegrove": {
+  "background": "#071007",
+  "sprites": [
+   "public/art/textures/wall_cave.png",
+   "public/art/textures/wall_cave_b.png",
+   "public/art/textures/wall_cave_s.png",
+   "public/art/textures/wall_cave_moss.png",
+   "public/art/textures/wall_cave_shelf.png",
+   "public/art/textures/floor_cave.png",
+   "public/art/textures/floor_cave_dirt.png",
+   "public/art/textures/floor_cave_moss.png",
+   "public/art/textures/ceil_cave.png",
+   "public/art/textures/door_wood.png",
+   "public/art/textures/wall_cave_cracked.png",
+   "public/art/textures/wall_cave_ore.png",
+   "public/art/textures/wall_cave_sealed.png"
+  ]
+ },
+ "Weapons · dagger": {
+  "sprites": [
+   "public/art/icons/ic_dagger.png",
+   "public/art/viewmodels/vm_dagger.png"
+  ]
+ },
+ "Weapons · blade": {
+  "sprites": [
+   "public/art/icons/ic_short_sword.png",
+   "public/art/icons/ic_long_sword.png",
+   "public/art/viewmodels/vm_short_sword.png",
+   "public/art/viewmodels/vm_blade.png"
+  ]
+ },
+ "Weapons · axe": {
+  "sprites": [
+   "public/art/icons/ic_axe.png",
+   "public/art/viewmodels/vm_axe.png"
+  ]
+ },
+ "Weapons · pick": {
+  "sprites": [
+   "public/art/icons/ic_mining_pick.png",
+   "public/art/viewmodels/vm_pick.png"
+  ]
+ },
+ "Weapons · blunt": {
+  "sprites": [
+   "public/art/icons/ic_mace.png",
+   "public/art/icons/ic_club.png",
+   "public/art/icons/ic_stave.png",
+   "public/art/icons/ic_big_toe.png",
+   "public/art/icons/ic_cane.png",
+   "public/art/viewmodels/vm_blunt.png",
+   "public/art/viewmodels/vm_club.png",
+   "public/art/viewmodels/vm_stave.png",
+   "public/art/viewmodels/vm_big_toe.png",
+   "public/art/viewmodels/vm_cane.png"
+  ]
+ },
+ "Weapons · spear": {
+  "sprites": [
+   "public/art/icons/ic_spear.png",
+   "public/art/icons/ic_prize_horn.png",
+   "public/art/viewmodels/vm_spear.png",
+   "public/art/viewmodels/vm_prize_horn.png"
+  ]
+ },
+ "Weapons · halberd": {
+  "sprites": [
+   "public/art/icons/ic_halberd.png",
+   "public/art/viewmodels/vm_polearm.png"
+  ]
+ },
+ "Weapons · maul": {
+  "sprites": [
+   "public/art/icons/ic_great_maul.png",
+   "public/art/viewmodels/vm_maul.png"
+  ]
+ },
+ "Weapons · greatsword": {
+  "sprites": [
+   "public/art/icons/ic_greatsword.png",
+   "public/art/viewmodels/vm_greatsword.png"
+  ]
+ },
+ "Melee weapons": {
+  "sprites": [
+   "public/art/icons/ic_dagger.png",
+   "public/art/icons/ic_short_sword.png",
+   "public/art/icons/ic_long_sword.png",
+   "public/art/icons/ic_axe.png",
+   "public/art/icons/ic_mining_pick.png",
+   "public/art/icons/ic_mace.png",
+   "public/art/icons/ic_spear.png",
+   "public/art/icons/ic_club.png",
+   "public/art/icons/ic_halberd.png",
+   "public/art/icons/ic_great_maul.png",
+   "public/art/icons/ic_greatsword.png",
+   "public/art/icons/ic_stave.png",
+   "public/art/icons/ic_big_toe.png",
+   "public/art/icons/ic_prize_horn.png",
+   "public/art/icons/ic_cane.png"
+  ]
+ },
+ "Ranged: thrown weapons and projectiles": {
+  "sprites": [
+   "public/art/icons/ic_throwing_knives.png",
+   "public/art/icons/ic_throwing_axes.png",
+   "public/art/icons/ic_javelins.png",
+   "public/art/props/proj_frost.png",
+   "public/art/props/proj_fire.png",
+   "public/art/props/proj_shadow.png",
+   "public/art/props/proj_arrow.png",
+   "public/art/props/proj_knife.png",
+   "public/art/props/proj_fireball.png",
+   "public/art/props/proj_icicle.png",
+   "public/art/props/proj_fireball_b.png",
+   "public/art/props/proj_icicle_b.png",
+   "public/art/props/proj_axe_thrown.png",
+   "public/art/props/proj_javelin.png",
+   "public/art/props/pickup_knives.png",
+   "public/art/props/pickup_axes.png",
+   "public/art/props/pickup_javelins.png",
+   "public/art/props/proj_arrow_fire.png",
+   "public/art/props/proj_arrow_frost.png",
+   "public/art/props/proj_arrow_shadow.png",
+   "public/art/props/proj_arrow_holy.png"
+  ]
+ },
+ "Spells and conduits": {
+  "sprites": [
+   "public/art/icons/ic_spell_ember.png",
+   "public/art/icons/ic_spell_rime.png",
+   "public/art/icons/ic_spell_smite.png",
+   "public/art/icons/ic_spell_hex.png",
+   "public/art/icons/ic_spell_tome.png",
+   "public/art/icons/ic_wand.png",
+   "public/art/icons/ic_rod.png",
+   "public/art/icons/ic_stave.png",
+   "public/art/viewmodels/vm_wand.png",
+   "public/art/viewmodels/vm_wand_lit.png",
+   "public/art/viewmodels/vm_rod.png",
+   "public/art/viewmodels/vm_rod_lit.png",
+   "public/art/viewmodels/vm_stave.png",
+   "public/art/viewmodels/vm_stave_lit.png",
+   "public/art/props/proj_frost.png",
+   "public/art/props/proj_fire.png",
+   "public/art/props/proj_shadow.png",
+   "public/art/props/proj_fireball.png",
+   "public/art/props/proj_icicle.png",
+   "public/art/props/proj_fireball_b.png",
+   "public/art/props/proj_icicle_b.png",
+   "public/art/props/fx_smite.png",
+   "public/art/props/fx_smite_b.png",
+   "public/art/props/fx_poof.png",
+   "public/art/props/fx_poof_b.png",
+   "public/art/props/fx_spores.png",
+   "public/art/props/fx_spores_b.png",
+   "public/art/props/fx_blast.png",
+   "public/art/props/fx_blast_b.png",
+   "public/art/props/fx_frost.png",
+   "public/art/props/fx_frost_b.png",
+   "public/art/props/fx_flame_0.png",
+   "public/art/props/fx_flame_1.png"
+  ]
+ },
+ "Shields": {
+  "sprites": [
+   "public/art/icons/ic_buckler.png",
+   "public/art/icons/ic_kite_shield.png",
+   "public/art/icons/ic_tower_shield.png",
+   "public/art/viewmodels/vm_shield.png",
+   "public/art/viewmodels/vm_kite_shield.png",
+   "public/art/viewmodels/vm_tower_shield.png"
+  ]
+ },
+ "Armour · head": {
+  "sprites": [
+   "public/art/icons/ic_cap.png",
+   "public/art/icons/ic_helm.png",
+   "public/art/icons/ic_great_helm.png"
+  ]
+ },
+ "Armour · body": {
+  "sprites": [
+   "public/art/icons/ic_robe.png",
+   "public/art/icons/ic_jerkin.png",
+   "public/art/icons/ic_hauberk.png",
+   "public/art/icons/ic_plate.png"
+  ]
+ },
+ "Armour · hands": {
+  "sprites": [
+   "public/art/icons/ic_gloves.png",
+   "public/art/icons/ic_gauntlets.png"
+  ]
+ },
+ "Rings and amulets": {
+  "sprites": [
+   "public/art/icons/ic_ring.png",
+   "public/art/icons/ic_amulet.png"
+  ]
+ },
+ "Consumables": {
+  "sprites": [
+   "public/art/icons/ic_potion.png",
+   "public/art/icons/ic_potion_greater.png",
+   "public/art/icons/ic_tonic.png",
+   "public/art/icons/ic_scroll_identify.png",
+   "public/art/icons/ic_scroll_flash.png",
+   "public/art/icons/ic_scroll_backstep.png",
+   "public/art/icons/ic_milk.png",
+   "public/art/icons/ic_scroll_recall.png"
+  ]
+ },
+ "Materials": {
+  "sprites": [
+   "public/art/icons/ic_ore.png",
+   "public/art/icons/ic_ingot.png",
+   "public/art/icons/ic_nugget.png",
+   "public/art/icons/ic_plank.png",
+   "public/art/icons/ic_hide.png",
+   "public/art/icons/ic_scale.png",
+   "public/art/icons/ic_cloth.png",
+   "public/art/icons/ic_bone.png",
+   "public/art/icons/ic_gem_cabochon.png",
+   "public/art/icons/ic_shard.png",
+   "public/art/icons/ic_gem_emerald.png",
+   "public/art/icons/ic_gem.png",
+   "public/art/icons/ic_essence.png",
+   "public/art/icons/ic_idol.png",
+   "public/art/icons/ic_chalice.png",
+   "public/art/icons/ic_candelabra.png",
+   "public/art/icons/ic_tome.png",
+   "public/art/icons/ic_skull.png"
+  ]
+ },
+ "Sigils": {
+  "sprites": [
+   "public/art/icons/ic_sig_wardcry.png",
+   "public/art/icons/ic_sig_snuff.png",
+   "public/art/icons/ic_sig_sounding.png",
+   "public/art/icons/ic_sig_threshold.png",
+   "public/art/icons/ic_sig_temper.png",
+   "public/art/viewmodels/vm_sigil.png",
+   "public/art/viewmodels/vm_sigil_lit.png"
+  ]
+ },
+ "Rites: marks and carvings": {
+  "sprites": [
+   "public/art/icons/ic_rite_meteor.png",
+   "public/art/icons/ic_rite_glacial_tomb.png",
+   "public/art/icons/ic_rite_judgement.png",
+   "public/art/icons/ic_rite_penguining.png",
+   "public/art/props/carving.png",
+   "public/art/props/carving_used.png",
+   "public/art/props/carving_glacial_tomb.png",
+   "public/art/props/carving_glacial_tomb_used.png",
+   "public/art/props/carving_judgement.png",
+   "public/art/props/carving_judgement_used.png",
+   "public/art/props/carving_penguining.png",
+   "public/art/props/carving_penguining_used.png",
+   "public/art/props/fx_smite.png",
+   "public/art/props/fx_smite_b.png",
+   "public/art/props/fx_poof.png",
+   "public/art/props/fx_poof_b.png",
+   "public/art/props/fx_blast.png",
+   "public/art/props/fx_blast_b.png",
+   "public/art/props/fx_frost.png",
+   "public/art/props/fx_frost_b.png"
+  ]
+ },
+ "Containers": {
+  "sprites": [
+   "public/art/props/chest.png",
+   "public/art/props/chest_mimic.png",
+   "public/art/props/chest_mimic_in.png",
+   "public/art/props/chest_open.png",
+   "public/art/props/chest_broken.png",
+   "public/art/props/mimic_0.png",
+   "public/art/props/mimic_atk.png",
+   "public/art/props/urn.png",
+   "public/art/props/urn_broken.png",
+   "public/art/props/barrel.png",
+   "public/art/props/barrel_broken.png",
+   "public/art/props/barrel_oil.png",
+   "public/art/props/root_cache.png",
+   "public/art/props/root_cache_broken.png"
+  ]
+ },
+ "Shrines": {
+  "sprites": [
+   "public/art/props/shrine.png",
+   "public/art/props/shrine_used.png",
+   "public/art/props/shrine_font.png",
+   "public/art/props/shrine_font_used.png",
+   "public/art/props/shrine_idol.png",
+   "public/art/props/shrine_idol_used.png",
+   "public/art/props/shrine_coffer.png",
+   "public/art/props/shrine_coffer_used.png",
+   "public/art/props/shrine_blood.png",
+   "public/art/props/shrine_blood_used.png",
+   "public/art/props/shrine_combat.png",
+   "public/art/props/shrine_combat_used.png"
+  ]
+ },
+ "Traps and wards": {
+  "sprites": [
+   "public/art/props/trap_dart.png",
+   "public/art/props/trap_spikes.png",
+   "public/art/props/trap_alarm.png",
+   "public/art/props/ward_threshold.png",
+   "public/art/props/ward_threshold_dim.png",
+   "public/art/props/trap_dart_spent.png",
+   "public/art/props/trap_spikes_spent.png",
+   "public/art/props/trap_alarm_spent.png"
+  ]
+ },
+ "Surfaces underfoot": {
+  "sprites": [
+   "public/art/props/surf_vent.png",
+   "public/art/props/surf_spores.png",
+   "public/art/props/surf_oil.png",
+   "public/art/props/surf_water.png",
+   "public/art/props/surf_ice.png",
+   "public/art/props/surf_scorch.png"
+  ]
+ },
+ "Ice and fire on the walls": {
+  "sprites": [
+   "public/art/props/sconce.png",
+   "public/art/props/flame_0.png",
+   "public/art/props/flame_1.png",
+   "public/art/props/flame_2.png",
+   "public/art/props/icicle_stub.png",
+   "public/art/props/icicle_spike.png",
+   "public/art/props/icicle_fang.png",
+   "public/art/props/fx_flame_0.png",
+   "public/art/props/fx_flame_1.png"
+  ]
+ }
+}

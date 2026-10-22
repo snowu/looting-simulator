@@ -92,6 +92,20 @@ export const ITEM_BASES: ItemBaseDef[] = [
     swing: { windup: 0.40, recovery: 0.64, staminaCost: 29, reach: 1, cleave: CLEAVE, stagger: 0.3, chips: 2 },
     value: 172, minDepth: 5, weight: 0.3,
   },
+  {
+    // A quarterstaff with a stone in its crown: a blunt two-hander that is
+    // also the strongest conduit there is. It holds the most spells and the
+    // most charges and casts the hardest, and it pays for it with everything
+    // a two-hander pays (no shield, 20% block) and with the lightest blow of
+    // the four, because most of the wood is there to carry the stone. Only
+    // `conduit.power` of its Attack reaches a spell. A line of one.
+    id: 'stave', name: 'Stave', slot: 'weapon', icon: 'ic_stave', weaponClass: 'blunt', damageType: 'blunt',
+    twoHanded: true, viewmodel: 'vm_stave',
+    base: { attack: 26, speed: -4 }, perTier: { attack: 6 }, primary: ['wood'],
+    swing: { windup: 0.32, recovery: 0.6, staminaCost: 22, reach: 1, cleave: CLEAVE, stagger: 0.3, chips: 1 },
+    conduit: { slots: 4, charges: 5, regrow: 8, castViewmodel: 'vm_stave_lit', power: 0.8 },
+    value: 150, minDepth: 4, weight: 0.35,
+  },
 
   // --- Oddities -----------------------------------------------------------
   // Three weapons that are jokes with real numbers attached. Each one hooks a
@@ -145,7 +159,7 @@ export const ITEM_BASES: ItemBaseDef[] = [
     id: 'throwing_knives', name: 'Throwing Knives', slot: 'thrown', icon: 'ic_throwing_knives', weaponClass: 'thrown', damageType: 'pierce',
     base: { attack: 5 }, perTier: { attack: 1.4 }, primary: ['metal'],
     thrown: {
-      stock: 6, stockPerTier: 0.5, windup: 0.16, recovery: 0.10, staminaCost: 9,
+      stock: 6, stockPerTier: 0.5, windup: 0.16, recovery: 0.15, staminaCost: 9,
       speed: 9, range: 4, power: 1.8, sprite: 'proj_knife', groundSprite: 'pickup_knives',
     },
     value: 26, minDepth: 2, weight: 1.6,
@@ -154,7 +168,7 @@ export const ITEM_BASES: ItemBaseDef[] = [
     id: 'throwing_axes', name: 'Throwing Axes', slot: 'thrown', icon: 'ic_throwing_axes', weaponClass: 'thrown', damageType: 'slash',
     base: { attack: 12 }, perTier: { attack: 2.8 }, primary: ['metal', 'wood'],
     thrown: {
-      stock: 4, stockPerTier: 0.5, windup: 0.24, recovery: 0.14, staminaCost: 15,
+      stock: 4, stockPerTier: 0.5, windup: 0.24, recovery: 0.35, staminaCost: 15,
       speed: 7, range: 5, power: 1.42, sprite: 'proj_axe_thrown', groundSprite: 'pickup_axes',
     },
     value: 58, minDepth: 3, weight: 0.9,
@@ -163,7 +177,7 @@ export const ITEM_BASES: ItemBaseDef[] = [
     id: 'javelins', name: 'Javelins', slot: 'thrown', icon: 'ic_javelins', weaponClass: 'thrown', damageType: 'pierce',
     base: { attack: 17 }, perTier: { attack: 2.9 }, primary: ['metal'],
     thrown: {
-      stock: 2, stockPerTier: 0.5, windup: 0.32, recovery: 0.18, staminaCost: 19,
+      stock: 2, stockPerTier: 0.5, windup: 0.32, recovery: 0.44, staminaCost: 19,
       speed: 8, range: 7, power: 1.54, sprite: 'proj_javelin', groundSprite: 'pickup_javelins',
     },
     value: 88, minDepth: 4, weight: 0.5,
@@ -187,6 +201,25 @@ export const ITEM_BASES: ItemBaseDef[] = [
     viewmodel: 'vm_tower_shield',
     base: { defense: 8, block: 74, speed: -10 }, perTier: { defense: 2, block: 4 }, primary: ['metal'],
     value: 60, minDepth: 3, weight: 0.85,
+  },
+
+  // --- Conduits -----------------------------------------------------------
+  // Offhands that cast instead of guard: the battlemage's half of the trade.
+  // `attack` is the conduit's Power, the number a spell is scored on, and
+  // never reaches your melee Attack (see `derivePlayer`). `block` is what the
+  // hand still turns aside — well under any shield, which is the cost.
+  // The Rod is the Wand's step up its line and better on every axis.
+  {
+    id: 'wand', name: 'Wand', slot: 'offhand', icon: 'ic_wand', viewmodel: 'vm_wand',
+    base: { attack: 10 }, perTier: { attack: 3 }, primary: ['wood'],
+    conduit: { slots: 2, charges: 3, regrow: 12, castViewmodel: 'vm_wand_lit' },
+    value: 30, minDepth: 1, weight: 1.2,
+  },
+  {
+    id: 'rod', name: 'Rod', slot: 'offhand', icon: 'ic_rod', viewmodel: 'vm_rod',
+    base: { attack: 16, defense: 2 }, perTier: { attack: 3.5, defense: 1 }, primary: ['metal'],
+    conduit: { slots: 3, charges: 4, regrow: 10, castViewmodel: 'vm_rod_lit' },
+    value: 70, minDepth: 3, weight: 0.6,
   },
 
   // --- Head ---------------------------------------------------------------
@@ -249,44 +282,44 @@ export const CONSUMABLES: ConsumableDef[] = [
     rarity: Rarity.Common, value: 24, stack: 5,
   },
   {
-    id: 'greater_healing', name: 'Greater Healing', icon: 'ic_potion', ramp: ['#3a0428', '#7a0c5a', '#d0209a', '#ffa0e0'],
+    id: 'greater_healing', name: 'Greater Healing', icon: 'ic_potion_greater', ramp: ['#3a0428', '#7a0c5a', '#d0209a', '#ffa0e0'],
     description: 'Restores 55% of your health.', effect: { type: 'heal', fraction: 0.55 },
     rarity: Rarity.Rare, value: 70, stack: 5,
   },
   {
-    id: 'stamina_tonic', name: 'Stamina Tonic', icon: 'ic_potion', ramp: ['#0c3a10', '#1a7020', '#40b030', '#b0ff80'],
+    id: 'stamina_tonic', name: 'Stamina Tonic', icon: 'ic_tonic', ramp: ['#0c3a10', '#1a7020', '#40b030', '#b0ff80'],
     description: 'Refills your stamina at once.', effect: { type: 'stamina', fraction: 1 },
     rarity: Rarity.Common, value: 16, stack: 5,
   },
   {
-    id: 'scroll_identify', name: 'Scroll of Identify', icon: 'ic_scroll', ramp: ['#4a3a20', '#8a7040', '#c8a868', '#f4e4b0'],
+    id: 'scroll_identify', name: 'Scroll of Identify', icon: 'ic_scroll_identify', ramp: ['#4a3a20', '#8a7040', '#c8a868', '#f4e4b0'],
     description: 'Reveals the true nature of one item.', effect: { type: 'identify' },
     rarity: Rarity.Uncommon, value: 30, stack: 10,
   },
   {
     // Blinding true light in a tube: expensive, because answering every
     // wind-up for the price of an Identify would make telegraphs decorative.
-    id: 'scroll_flash', name: 'Flash Scroll', icon: 'ic_scroll', ramp: ['#f4ecd8', '#e8d8a0', '#fff8e0', '#ffffff'],
+    id: 'scroll_flash', name: 'Flash Scroll', icon: 'ic_scroll_flash', ramp: ['#5a2a04', '#b05a08', '#f0a020', '#fff080'],
     description: 'A blinding flash at whatever faces you. Blind 2s, 3s with the swing cancelled mid-wind-up. It burns whether it lands or not.',
     effect: { type: 'flash' }, rarity: Rarity.Rare, value: 210, stack: 5,
   },
   {
     // A short step back along your own path: the escape half of torn Recall,
     // priced so it is a decision rather than a habit.
-    id: 'scroll_backstep', name: 'Backstep Scroll', icon: 'ic_scroll', ramp: ['#2a3a5a', '#5a7ab0', '#9ac0ff', '#e0f0ff'],
+    id: 'scroll_backstep', name: 'Backstep Scroll', icon: 'ic_scroll_backstep', ramp: ['#2a3a5a', '#5a7ab0', '#9ac0ff', '#e0f0ff'],
     description: 'Snaps you back to where you stood 2 seconds ago. Torn while standing still, it burns and comes to nothing.',
     effect: { type: 'backstep' }, rarity: Rarity.Rare, value: 160, stack: 5,
   },
   {
     // A legendary flask infusion, found only in the dark: never stocked by any
     // merchant and not craftable. Installed at the forge, never drunk.
-    id: 'fight_milk', name: 'Fight Milk', icon: 'ic_potion', ramp: ['#2a2410', '#6a6030', '#c8c088', '#f8f4d8'],
+    id: 'fight_milk', name: 'Fight Milk', icon: 'ic_milk', ramp: ['#2a2410', '#6a6030', '#c8c088', '#f8f4d8'],
     description: "Infused at the forge, it lasts the delve. You come back quicker and you have less to come back with.",
     effect: { type: 'tonic', tonicId: 'fight_milk' },
     rarity: Rarity.Legendary, value: 420, stack: 2,
   },
   {
-    id: 'scroll_recall', name: 'Scroll of Recall', icon: 'ic_scroll', ramp: ['#1a2a4a', '#34508a', '#6a90d0', '#d0e4ff'],
+    id: 'scroll_recall', name: 'Scroll of Recall', icon: 'ic_scroll_recall', ramp: ['#1a2a4a', '#34508a', '#6a90d0', '#d0e4ff'],
     description: 'After 5 seconds of stillness, carries you and your pack back to town.',
     effect: { type: 'recall', seconds: 5 }, rarity: Rarity.Rare, value: 95, stack: 5,
   },
@@ -313,6 +346,8 @@ export const GEAR_LINES: readonly (readonly string[])[] = [
   ['great_maul'],
   ['greatsword'],
   ['buckler', 'kite_shield', 'tower_shield'],
+  ['wand', 'rod'],
+  ['stave'],
   ['cap', 'helm', 'great_helm'],
   ['robe'],
   ['jerkin', 'hauberk', 'plate'],

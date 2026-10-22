@@ -8,6 +8,12 @@ declare module 'node:fs' {
   export function readFileSync(path: string, encoding: 'utf8'): string;
   export function writeFileSync(path: string, data: string): void;
   export function mkdirSync(path: string, opts?: { recursive?: boolean }): void;
+  export interface Dirent {
+    name: string;
+    isDirectory(): boolean;
+  }
+  export function readdirSync(path: string): string[];
+  export function readdirSync(path: string, opts: { withFileTypes: true }): Dirent[];
 }
 
 declare module 'node:path' {

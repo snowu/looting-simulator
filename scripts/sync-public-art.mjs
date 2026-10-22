@@ -1,101 +1,80 @@
-// Regenerates public/art from the built-in pixel art, so the shipped PNG
-// overrides and the code art cannot drift apart.
+// Keeps public/art in step with the sprites registered in src/art.
+//
+// public/art/<folder>/<id>.png is the one copy of every sprite: the game ships
+// those PNGs, and the artist paints over them in place. A sprite drawn in code
+// starts there as a placeholder (its code art, rasterized) and is listed in
+// docs/art-todo.md for the artist. Until it is painted, editing its code art
+// and running this again refreshes the placeholder (src/art/placeholders.json
+// remembers which PNGs are untouched); once painted, the PNG is the real art,
+// never written again, and the code grid is only its fallback (and, for
+// icons, the material ramp).
 //
 // Why this exists: `loadArtOverrides()` in src/render/art-cache.ts refuses to
-// boot the game if any id in ALL_ART is missing from public/art/manifest.json.
-// Adding a sprite therefore means three edits — the art def, the PNG, and the
-// manifest — and forgetting the third breaks the game while every test still
-// passes, because the test suite only ever looks at the defs. This script does
-// all three from one source of truth.
+// boot the game if public/art/manifest.json misses an id. Adding a sprite means
+// the def, the PNG and the manifest; this script does the last two from the
+// first.
 //
-// Usage: node scripts/sync-public-art.mjs  (or `npm run art:sync`)
-// Pass --check to fail instead of writing, for CI or a pre-commit hook.
-import { readFile, readdir, writeFile, unlink } from 'node:fs/promises';
-import { resolve } from 'node:path';
-import { deflateSync } from 'node:zlib';
-import { rolldown } from 'rolldown';
+// Usage: npm run art:sync               add PNGs for new sprites, refresh untouched placeholders whose
+//                                       code art changed, drop removed ones, file any that sit in the
+//                                       wrong folder, rewrite the manifest
+//        npm run art:sync -- --ids a,b  also repaint those from their code art (paints over them!)
+//        npm run art:sync -- --force    repaint every PNG from code art (paints over all hand-painted work!)
+//        npm run art:check              fail instead of writing (CI), stray alpha included
+import { mkdir, readFile, rename, rmdir, readdir, unlink, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { GROUPS_FILE, artGroups } from './art-groups.mjs';
+import { ART_DIR, TODO, decodePng, encodePng, isPlaceholder, samePixels, isStrayAlpha, loadArt, pixelHash, pngsOnDisk, readManifest, readPlaceholders, writePlaceholders } from './art-lib.mjs';
 
-const OUT = resolve('public/art');
 const check = process.argv.includes('--check');
-// The PNGs override the code art, so editing a sprite in src/art has no visible
-// effect until its PNG is rewritten. --force does that for every sprite; without
-// it only ids the art code gained or lost are touched, so a hand-painted PNG
-// dropped into this folder survives an ordinary sync.
 const force = process.argv.includes('--force');
-// Redraw only a named family without replacing unrelated hand-painted PNGs.
 const idsIndex = process.argv.indexOf('--ids');
 const selected = idsIndex === -1 ? null : process.argv[idsIndex + 1]?.split(',');
-if (idsIndex !== -1 && (!selected?.length || selected.some(id => !id || id.startsWith('--')))) {
+if (idsIndex !== -1 && (!selected?.length || selected.some((id) => !id || id.startsWith('--')))) {
   throw new Error('--ids requires a comma-separated list of art IDs');
 }
 
-async function loadModule(path) {
-  const bundle = await rolldown({ input: resolve(path) });
-  try {
-    const { output } = await bundle.generate({ format: 'esm', codeSplitting: false });
-    return import(`data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`);
-  } finally {
-    await bundle.close();
-  }
-}
-
-function crc32(bytes) {
-  let crc = 0xffffffff;
-  for (const byte of bytes) {
-    crc ^= byte;
-    for (let i = 0; i < 8; i++) crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
-  }
-  return (crc ^ 0xffffffff) >>> 0;
-}
-
-function chunk(type, data) {
-  const name = Buffer.from(type);
-  const length = Buffer.alloc(4);
-  length.writeUInt32BE(data.length);
-  const checksum = Buffer.alloc(4);
-  checksum.writeUInt32BE(crc32(Buffer.concat([name, data])));
-  return Buffer.concat([length, name, data, checksum]);
-}
-
-function png({ w, h, data }) {
-  const header = Buffer.alloc(13);
-  header.writeUInt32BE(w, 0);
-  header.writeUInt32BE(h, 4);
-  header[8] = 8; // 8-bit RGBA
-  header[9] = 6;
-  const stride = w * 4;
-  const raw = Buffer.alloc(h * (stride + 1));
-  for (let y = 0; y < h; y++) raw.set(data.subarray(y * stride, (y + 1) * stride), y * (stride + 1) + 1);
-  return Buffer.concat([
-    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
-    chunk('IHDR', header),
-    chunk('IDAT', deflateSync(raw)),
-    chunk('IEND', Buffer.alloc(0)),
-  ]);
-}
-
-const { rasterize } = await loadModule('src/art/raster.ts');
-const { ALL_ART, getArt } = await loadModule('src/art/registry.ts');
-
-const listed = JSON.parse(await readFile(resolve(OUT, 'manifest.json'), 'utf8'));
-const onDisk = new Set((await readdir(OUT)).filter((f) => f.endsWith('.png')).map((f) => f.slice(0, -4)));
+const { ALL_ART, artFile, raster } = await loadArt();
 const wanted = ALL_ART.map((d) => d.id);
-if (selected?.some(id => !wanted.includes(id))) throw new Error('Unknown art ID in --ids');
+if (selected?.some((id) => !wanted.includes(id))) throw new Error('Unknown art ID in --ids');
+const files = wanted.map(artFile);
 
-const added = wanted.filter((id) => !onDisk.has(id));
-const stale = [...onDisk].filter((id) => !wanted.includes(id));
-const manifestDrift = JSON.stringify(listed) !== JSON.stringify(wanted);
+const { found, twice } = await pngsOnDisk();
+const added = wanted.filter((id) => !found.has(id));
+const stale = [...found.keys()].filter((id) => !wanted.includes(id));
+const misplaced = wanted.filter((id) => found.has(id) && found.get(id) !== artFile(id));
+const manifestDrift = JSON.stringify(await readManifest().catch(() => null)) !== JSON.stringify(files);
+const groupsJson = `${JSON.stringify(await artGroups({ ALL_ART, artFile }), null, 1)}\n`;
+const groupsDrift = (await readFile(GROUPS_FILE, 'utf8').catch(() => '')) !== groupsJson;
+
+// Untouched placeholders whose code art has changed since art:sync wrote them, and what is painted.
+const recorded = await readPlaceholders();
+const outdated = [], painted = new Set();
+for (const id of wanted) {
+  if (!found.has(id)) continue;
+  const png = decodePng(await readFile(resolve(ART_DIR, found.get(id)))), code = raster(ALL_ART.find((d) => d.id === id));
+  if (!isPlaceholder(png, code, recorded[id])) painted.add(id);
+  else if (!samePixels(png, code)) outdated.push(id);
+}
 
 if (check) {
   const problems = [];
+  if (twice.length) problems.push(`the same sprite twice: ${twice.join('; ')}`);
   if (added.length) problems.push(`missing PNGs: ${added.join(', ')}`);
-  if (stale.length) problems.push(`orphan PNGs: ${stale.join(', ')}`);
-  if (manifestDrift) problems.push('manifest.json does not match ALL_ART');
-  for (const id of selected ?? []) {
-    if (!onDisk.has(id)) continue;
-    const def = ALL_ART.find(d => d.id === id);
-    const expected = png(rasterize(def, undefined, getArt));
-    if (!(await readFile(resolve(OUT, `${id}.png`))).equals(expected)) problems.push(`${id}: PNG differs from source`);
+  if (stale.length) problems.push(`orphan PNGs: ${stale.map((id) => found.get(id)).join(', ')}`);
+  if (misplaced.length) problems.push(`in the wrong folder: ${misplaced.map((id) => `${found.get(id)} (belongs in ${artFile(id)})`).join(', ')}`);
+  if (manifestDrift) problems.push('manifest.json does not match the registry');
+  if (groupsDrift) problems.push(`${GROUPS_FILE} (spritewright's Context groups) does not match the game data`);
+  if (outdated.length) problems.push(`placeholders older than their code art (art:sync refreshes them): ${outdated.map((id) => found.get(id)).join(', ')}`);
+  for (const id of wanted) {
+    if (!found.has(id)) continue;
+    const img = decodePng(await readFile(resolve(ART_DIR, found.get(id))));
+    const code = raster(ALL_ART.find((d) => d.id === id));
+    if (img.w !== code.w || img.h !== code.h) problems.push(`${found.get(id)} is ${img.w}×${img.h}; the game expects ${code.w}×${code.h}`);
+    let stray = 0;
+    for (let i = 3; i < img.data.length; i += 4) if (isStrayAlpha(img.data[i])) stray++;
+    if (stray) problems.push(`${found.get(id)}: ${stray} pixel${stray > 1 ? 's' : ''} with stray alpha (run npm run art:alpha -- --fix)`);
+    if (selected?.includes(id) && !Buffer.from(await readFile(resolve(ART_DIR, found.get(id)))).equals(encodePng(code))) problems.push(`${id}: PNG differs from its code art`);
   }
   if (problems.length) {
     console.error(`public/art is out of date:\n  ${problems.join('\n  ')}\nRun: npm run art:sync`);
@@ -103,14 +82,43 @@ if (check) {
   }
   console.log(`public/art is in sync (${wanted.length} sprites).`);
 } else {
-  // Hand-edited PNGs are the point of this folder, so only ids the art code
-  // gained or lost are touched. Everything already present is left alone.
-  const write = force ? wanted : [...new Set([...added, ...(selected ?? [])])];
-  for (const id of write) {
-    const def = ALL_ART.find((d) => d.id === id);
-    await writeFile(resolve(OUT, `${id}.png`), png(rasterize(def, undefined, getArt)));
+  if (twice.length) throw new Error(`The same sprite is in public/art twice, keep one: ${twice.join('; ')}`);
+  // Hand-painted PNGs are the point of this folder: only sprites the code gained
+  // are written (plus --ids / --force on purpose). Everything else is left alone.
+  for (const id of misplaced) {
+    await mkdir(dirname(resolve(ART_DIR, artFile(id))), { recursive: true });
+    await rename(resolve(ART_DIR, found.get(id)), resolve(ART_DIR, artFile(id)));
   }
-  for (const id of stale) await unlink(resolve(OUT, `${id}.png`));
-  await writeFile(resolve(OUT, 'manifest.json'), `${JSON.stringify(wanted, null, 2)}\n`);
-  console.log(`public/art: wrote ${write.length}, removed ${stale.length}, manifest lists ${wanted.length}.`);
+  const write = force ? wanted : [...new Set([...added, ...outdated, ...(selected ?? [])])];
+  const placeholders = {};
+  for (const id of wanted) if (found.has(id) && !painted.has(id)) placeholders[id] = recorded[id];
+  for (const id of write) {
+    const file = resolve(ART_DIR, artFile(id)), code = raster(ALL_ART.find((d) => d.id === id));
+    await mkdir(dirname(file), { recursive: true });
+    await writeFile(file, encodePng(code));
+    placeholders[id] = pixelHash(code);
+  }
+  for (const id of wanted) if (placeholders[id] === undefined && found.has(id) && !painted.has(id)) {
+    placeholders[id] = pixelHash(decodePng(await readFile(resolve(ART_DIR, artFile(id)))));
+  }
+  await writePlaceholders(placeholders);
+  for (const id of stale) await unlink(resolve(ART_DIR, found.get(id)));
+  for (const e of await readdir(ART_DIR, { withFileTypes: true })) {
+    if (e.isDirectory() && !(await readdir(resolve(ART_DIR, e.name))).length) await rmdir(resolve(ART_DIR, e.name));
+  }
+  await writeFile(resolve(ART_DIR, 'manifest.json'), `${JSON.stringify(files, null, 2)}\n`);
+  await writeFile(GROUPS_FILE, groupsJson);
+  if (added.length) await listForArtist(added);
+  if (outdated.length) console.log(`Refreshed from changed code art: ${outdated.join(', ')}.`);
+  console.log(`public/art: wrote ${write.length}, moved ${misplaced.length}, removed ${stale.length}, manifest lists ${wanted.length}.` + (added.length ? ` New placeholders for the artist: ${added.join(', ')} (listed in docs/art-todo.md).` : ''));
+}
+
+/** New sprites are placeholders until painted: list them for the artist under today's date, newest first. */
+async function listForArtist(ids) {
+  const intro = '# Waiting for the artist\n\nNew sprites drawn in code, newest first. Each PNG in `public/art/` is a placeholder rasterized from `src/art/`: paint over it in place, at the same size, then tick it off here. `npm run art:status` shows what is still a placeholder.';
+  const text = existsSync(TODO) ? await readFile(TODO, 'utf8') : intro;
+  const [title, lead, ...rest] = text.split('\n\n');
+  const today = new Date().toISOString().slice(0, 10);
+  const block = `## ${today}\n\n${ids.map((id) => { const r = raster(ALL_ART.find((d) => d.id === id)); return `- [ ] \`${artFile(id)}\` (${r.w}×${r.h})`; }).join('\n')}`;
+  await writeFile(TODO, [title, lead, block, ...rest].map((p) => p?.trim()).filter(Boolean).join('\n\n') + '\n');
 }

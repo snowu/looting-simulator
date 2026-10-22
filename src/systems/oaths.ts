@@ -5,10 +5,65 @@ import {
   PILGRIM_PRAYERS, SILENCE_DEPTH, STACK_BONUS, STACK_BONUS_AT, UNBROKEN_DEPTH, findOath, oathsForDay,
 } from '../data/oaths';
 import { learnProperty, unlearnedProperties } from './properties';
+import { unknownConduitSpells } from './conduits';
+import { findProperty } from '../data/properties';
+import { findConduitSpell } from '../data/conduit-spells';
+import { difficultyOf } from '../data/difficulty';
+
+/**
+ * What a kept oath can teach. Build properties by their own id, and battle
+ * spells as `spell:<id>`, so the two never collide and a reward written
+ * before spells joined still reads as properties.
+ */
+const SPELL_REWARD = 'spell:';
+
+export interface RewardChoice {
+  id: string;
+  name: string;
+  color: string;
+  rule: string;
+  detail: string;
+  /** Where it goes: the gear it can be cut into, or the spellbook. */
+  where: string;
+}
+
+/** Everything an oath could teach you that you do not know yet: inscriptions first, then spells. */
+export function unlearnedRewards(state: GameState): string[] {
+  const tomes = state.stash.items.filter((it) => it.kind === 'tome').map((it) => it.ref);
+  return [
+    ...unlearnedProperties(state),
+    ...unknownConduitSpells(state.spellbook ?? [], tomes).map((id) => SPELL_REWARD + id),
+  ];
+}
+
+export function rewardChoice(id: string): RewardChoice | undefined {
+  if (id.startsWith(SPELL_REWARD)) {
+    const spell = findConduitSpell(id.slice(SPELL_REWARD.length));
+    return spell && {
+      id, name: spell.name, color: spell.color, rule: spell.description,
+      detail: `${spell.description} ${spell.charges} charge${spell.charges === 1 ? '' : 's'}, ${spell.stamina} stamina, range ${spell.range}.`,
+      where: 'spell',
+    };
+  }
+  const def = findProperty(id);
+  return def && { id, name: def.name, color: def.color, rule: def.rule, detail: def.detail, where: def.slots.join(', ') };
+}
+
+/** Learn one reward: a property to inscribe, or a spell into the spellbook. */
+function learnReward(state: GameState, id: string): boolean {
+  if (!id.startsWith(SPELL_REWARD)) return learnProperty(state, id);
+  const spell = findConduitSpell(id.slice(SPELL_REWARD.length));
+  if (!spell) return false;
+  state.spellbook ??= [];
+  if (state.spellbook.includes(spell.id)) return false;
+  state.spellbook.push(spell.id);
+  return true;
+}
 
 /** Today's oaths on the stone, for this playthrough. */
 export function todaysOaths(state: GameState): OathId[] {
-  return oathsForDay(state.saveId ?? '', state.market.day);
+  // Unbroken asks you not to break your gear, which cannot happen where nothing wears.
+  return oathsForDay(state.saveId ?? '', state.market.day, difficultyOf(state.difficulty).gearWears ? [] : ['unbroken']);
 }
 
 /** The oaths sworn for the next delve, from the current field or the single one before oaths stacked. */
@@ -48,7 +103,9 @@ export function toggleOath(state: GameState, id: OathId): boolean {
 
 /** Called as a delve starts: the sworn oaths move onto the run and take hold. */
 export function beginOaths(state: GameState, run: RunState): void {
-  const ids = pendingOaths(state);
+  // Unbroken sworn on Hard before a switch to Normal has nothing to ask of the delve: dropped.
+  const wears = difficultyOf(state.difficulty).gearWears;
+  const ids = pendingOaths(state).filter((id) => wears || id !== 'unbroken');
   state.pendingOaths = [];
   state.pendingOath = null;
   if (!ids.length) return;
@@ -90,7 +147,7 @@ export function oathKept(run: RunState, oath: OathState, outcome: 'dead' | 'extr
 
 export interface OathOutcome {
   results: { id: OathId; kept: boolean }[];
-  /** Inscriptions to learn from the reward, or 0. */
+  /** Lessons (inscriptions or spells) to learn from the reward, or 0. */
   picks: number;
   /** Renown paid instead, when there is nothing left to learn. */
   renown: number;
@@ -99,11 +156,12 @@ export interface OathOutcome {
 }
 
 /**
- * Settle the delve's oaths. Each kept oath pays on its own: a medium one an
- * inscription, a hard one two. Keep every oath you swore, having sworn at
- * least `STACK_BONUS_AT`, and one more on top. The inscriptions are chosen in
- * town from a list at least one longer than the picks, drawn from the run's
- * seed so a reload cannot reroll it. With nothing left to learn, renown.
+ * Settle the delve's oaths. Each kept oath pays on its own: a medium one a
+ * lesson, a hard one two. A lesson is an inscription or a battle spell you do
+ * not know. Keep every oath you swore, having sworn at least
+ * `STACK_BONUS_AT`, and one more on top. They are chosen in town from a list
+ * at least one longer than the picks, drawn from the run's seed so a reload
+ * cannot reroll it. With nothing left to learn, renown.
  */
 export function settleOaths(state: GameState, run: RunState, outcome: 'dead' | 'extracted'): OathOutcome | null {
   const oaths = runOaths(run);
@@ -114,7 +172,7 @@ export function settleOaths(state: GameState, run: RunState, outcome: 'dead' | '
   let picks = kept.reduce((n, r) => n + OATH_PICKS[findOath(r.id)!.tier], 0) + (bonus ? STACK_BONUS : 0);
   let renown = 0;
   if (picks > 0) {
-    const pool = unlearnedProperties(state);
+    const pool = unlearnedRewards(state);
     if (pool.length) {
       const rng = createRng(hashString(`oath:${run.seed}:${kept.map((r) => r.id).join(',')}`));
       const choices = rng.shuffle([...pool]).slice(0, Math.max(3, picks + 1));
@@ -143,7 +201,7 @@ export function claimOathRewards(state: GameState, ids: string[]): boolean {
   const reward = state.oathReward;
   if (!reward || new Set(ids).size !== ids.length || ids.length !== oathRewardPicks(state)) return false;
   if (!ids.every((id) => reward.choices.includes(id))) return false;
-  for (const id of ids) learnProperty(state, id);
+  for (const id of ids) learnReward(state, id);
   state.oathReward = null;
   return true;
 }
@@ -155,7 +213,7 @@ export function claimOathRewards(state: GameState, ids: string[]): boolean {
 export function claimOathReward(state: GameState, id: string): boolean {
   const reward = state.oathReward;
   if (!reward || !reward.choices.includes(id)) return false;
-  learnProperty(state, id);
+  learnReward(state, id);
   const left = (reward.picks ?? 1) - 1;
   const choices = reward.choices.filter((c) => c !== id);
   state.oathReward = left > 0 && choices.length ? { ...reward, choices, picks: left } : null;

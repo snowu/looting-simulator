@@ -9,7 +9,8 @@ import {
   OATH_FALLBACK, OATH_IDS, OathId, PILGRIM_PRAYERS, SILENCE_DEPTH, SILENCE_NOISE, SILENCE_SIGHT, UNBROKEN_DEPTH, oathsForDay,
 } from '../data/oaths';
 import { PROPERTY_IDS } from '../data/properties';
-import { claimOathReward, claimOathRewards, oathKept, oathProgress, oathRewardPicks, runOath, settleOaths, todaysOaths, toggleOath } from '../systems/oaths';
+import { CONDUIT_SPELLS } from '../data/conduit-spells';
+import { claimOathReward, claimOathRewards, oathKept, rewardChoice, unlearnedRewards, oathProgress, oathRewardPicks, runOath, settleOaths, todaysOaths, toggleOath } from '../systems/oaths';
 import { endRun, startRun } from '../systems/run';
 import { durability, makeEquipment } from '../systems/items';
 import { Rarity } from '../types';
@@ -231,13 +232,34 @@ describe('the reward', () => {
     expect(state.oathReward ?? null).toBeNull();
   });
 
-  it('renown instead when every inscription is known', () => {
+  it('renown instead when every inscription and spell is known', () => {
     const { state } = sworn(['blood_price'], 333);
     state.properties = [...PROPERTY_IDS];
+    state.spellbook = CONDUIT_SPELLS.map((sp) => sp.id);
     state.run!.stats.goldFound = BLOOD_PRICE_GOLD;
     const renown = state.renown;
     expect(settleOaths(state, state.run!, 'extracted')!.renown).toBe(OATH_FALLBACK.hard);
     expect(state.renown).toBe(renown + OATH_FALLBACK.hard);
+  });
+
+  it('offers the battle spells you do not know beside the inscriptions', () => {
+    const state = newGame(createRng(340));
+    state.properties = [...PROPERTY_IDS];
+    // Ember Bolt is known from the start; a tome waiting in the stash counts as known too.
+    state.stash.items.push({ uid: 't1', kind: 'tome', ref: 'smite', qty: 1 });
+    expect(unlearnedRewards(state)).toEqual(['spell:rime_lance', 'spell:hex']);
+    expect(rewardChoice('spell:hex')!.where).toBe('spell');
+    expect(rewardChoice('countercharm')!.where).toBe('weapon, offhand');
+    expect(rewardChoice('spell:nonsense')).toBeUndefined();
+  });
+
+  it('learns a spell reward into the spellbook, not the inscriptions', () => {
+    const state = newGame(createRng(341));
+    state.oathReward = { oaths: ['hunter'], choices: ['spell:hex', 'riposte', 'bulwark'], picks: 1 };
+    expect(claimOathReward(state, 'spell:hex')).toBe(true);
+    expect(state.spellbook).toContain('hex');
+    expect(state.properties).not.toContain('spell:hex');
+    expect(state.oathReward).toBeNull();
   });
 
   it('learns every pick of a reward together, and only exactly that many', () => {

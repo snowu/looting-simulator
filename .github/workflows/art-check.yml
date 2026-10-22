@@ -1,0 +1,21 @@
+# Art check for pull requests that touch the art. Two parts:
+#  - npm run art:check: the game's own rules (every sprite at public/art/<folder>/<id>.png, listed in
+#    the manifest, at the size the game expects, with no stray alpha). Fails the check.
+#  - spritewright check: a table of the changed sprites (before → after, size, colours) on the run's
+#    summary page (open the check's "Details"). Fails only on unreadable or oversized PNGs.
+name: art check
+on:
+  pull_request:
+    paths: ['public/art/**', 'src/art/**', 'scripts/sync-public-art.mjs', 'scripts/art-lib.mjs', 'spritewright.config.json', 'docs/art-groups.json', 'scripts/art-groups.mjs', 'src/data/**']
+permissions: { contents: read }
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run art:check
+      - run: npx --yes --allow-git=root github:snowu/spritewright check . --since "origin/${{ github.base_ref }}" --summary "$GITHUB_STEP_SUMMARY"

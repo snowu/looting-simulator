@@ -3,6 +3,7 @@ import { LavaEffects, LavaSound } from './lava-effects';
 import { DX, DY, turnRight } from '../core/dir';
 import { biomeForFloor, ceilingForFloor } from '../data/biomes';
 import { enemyDef, enemyView } from '../data/enemies';
+import { findRite, rite } from '../data/rites';
 import { ELITES } from '../data/elites';
 import { DROP_SECONDS } from '../data/ambush';
 import { RAISE_CHANNEL } from '../data/necromancy';
@@ -18,13 +19,14 @@ import { SHADE_ID } from '../systems/grave';
 import type { EnemyDef } from '../types';
 import { itemIcon } from '../systems/items';
 import { lightIntensity } from '../systems/meta';
-import { World } from '../world/world';
-import { artSize, artTexture } from './art-cache';
-import { getArt } from '../art/registry';
-import { enemyPose } from './enemy-pose';
+import { METEOR_FALL_SECONDS, SPELL_FX_SECONDS, World } from '../world/world';
+import { artRaster, artSize, artTexture, rasterTexture } from './art-cache';
+import { HeldIcon, composeShade, shadeFrame, shadeKey } from './shade';
+import { EnemyFrame, enemyPose } from './enemy-pose';
 import { moveById } from '../data/attacks';
 import { quirkDef } from '../data/quirks';
 import { LevelView, TILE, WALL_H, buildLevel, tileX, tileZ } from './level-mesh';
+import { VENT_FLAMES, VENT_TELL } from '../data/surfaces';
 import { MAX_LIGHTS, PS1Material, PostPass, Shared, createLowResTarget, createShared, ps1Material } from './ps1';
 import { brightness } from './brightness';
 import { MORSEL_ART, MORSEL_ROT_SECONDS } from '../systems/healing';
@@ -53,6 +55,13 @@ const HAT_SINK = 0.42;
 const MONOCLE_SCALE = 0.17;
 const MONOCLE_DROP = 0.2;
 const MONOCLE_SIDE = 0.1;
+/**
+ * A mimic breathes: once every BREATH_PERIOD seconds its lid lifts a pixel
+ * for BREATH_HOLD seconds (`chest_mimic_in`). Slow and brief on purpose, so
+ * only someone watching the chest sees it. Each mimic keeps its own phase.
+ */
+const BREATH_PERIOD = 6.5;
+const BREATH_HOLD = 1.1;
 
 /**
  * Where a sprite's drawn content actually starts, as a fraction of its canvas
@@ -61,25 +70,23 @@ const MONOCLE_SIDE = 0.1;
  * Enemy art is authored on a 32×32 canvas and almost nothing fills it — a bat
  * is drawn in the middle, a champion nearly to the edge. Hanging the hat off
  * the canvas top would float it a head's height above a bat and bury it in a
- * champion. Measured from the ArtDef's rows (cheap, exact, no raster needed)
- * and cached for ever, because it never changes.
- *
- * Note that this reads the **code-drawn** art rather than the PNG the renderer
- * actually samples. Those cannot disagree in a valid build — `npm run art:check`
- * fails if `public/art` has drifted from `src/art` — so the measurement holds.
- * If overrides ever stop being generated from the code art, this has to
- * measure the raster instead, and clearing the cache would not be enough.
+ * champion. Measured from the shipped PNG (the pixels the renderer samples, so
+ * a repainted enemy is measured as painted) and cached for ever, because the
+ * art does not change while the game runs.
  */
 const SPRITE_TOPS = new Map<string, number>();
 
 function spriteTop(artId: string): number {
   let top = SPRITE_TOPS.get(artId);
   if (top === undefined) {
-    const def = getArt(artId);
-    const rows = def?.rows ?? [];
-    let first = rows.findIndex((r) => /[^.]/.test(r));
-    if (first < 0) first = 0;
-    top = rows.length ? first / rows.length : 0;
+    const r = artRaster(artId);
+    let first = 0;
+    if (r) {
+      first = r.h;
+      for (let i = 3; i < r.data.length; i += 4) if (r.data[i]) { first = Math.floor((i >> 2) / r.w); break; }
+      if (first === r.h) first = 0;
+    }
+    top = r && r.h ? first / r.h : 0;
     SPRITE_TOPS.set(artId, top);
   }
   return top;
@@ -170,6 +177,21 @@ export class DungeonRenderer {
   private shake = 0;
   private flash = new THREE.Vector4();
   private time = 0;
+  /** Dev screenshot harness: hold torch animation at a repeatable frame. */
+  prepareVisualCapture(legacy: boolean): void {
+    if (!import.meta.env.DEV) return;
+    this.time = 0;
+    this.deathFade = 0;
+    this.flash.set(0, 0, 0, 0);
+    const uniforms = this.post.material.uniforms;
+    // Reproduce the original shader as well as its uniform values.
+    if (legacy) {
+      uniforms.uDither.value = 0.9;
+      uniforms.uVignette.value = 1.1;
+      this.post.material.fragmentShader = this.post.material.fragmentShader.replace('bayer4(px) - 0.46875', 'bayer4(px) - 0.5');
+      this.post.material.needsUpdate = true;
+    }
+  }
   /** Corpses being chanted over this frame, with how far along the chant is (0..1). */
   private called = new Map<string, number>();
   private trapTriggeredAt = new Map<string, number>();
@@ -289,6 +311,22 @@ export class DungeonRenderer {
     s.mat.uniforms.uTint.value.set(0, 0, 0, 0);
   }
 
+  /** A sleeping mimic's frame: mostly still, now and then drawing one slow breath. */
+  private mimicChest(x: number, y: number): string {
+    const phase = ((x * 7919 + y * 104729) % 97) / 97 * BREATH_PERIOD;
+    return (this.time + phase) % BREATH_PERIOD < BREATH_HOLD ? 'chest_mimic_in' : 'chest_mimic';
+  }
+
+  /** Swap a placed Shade's texture for its body holding your equipped weapon and shield. */
+  private dressShade(s: SpriteObj, world: World, frame: EnemyFrame): void {
+    const eq = world.state.equipment;
+    const held = (it: typeof eq.weapon): HeldIcon | undefined => (it ? itemIcon(it) : undefined);
+    const f = shadeFrame(frame);
+    const weapon = held(eq.weapon), shield = held(eq.offhand);
+    const tex = rasterTexture(shadeKey(f, weapon, shield), () => composeShade(f, weapon, shield, undefined, artRaster));
+    if (s.mat.uniforms.map.value !== tex) s.mat.uniforms.map.value = tex;
+  }
+
   /** Lay a sprite flat on the floor as a decal, one tile wide. */
   /**
    * A hidden monster. Buried: its mound, sliding between tiles as it travels
@@ -296,6 +334,8 @@ export class DungeonRenderer {
    * then a dark shape high in the gloom; once it lets go, the fall.
    */
   private drawLurker(en: EnemyState, def: EnemyDef): void {
+    // The King mid Shadow Step is nowhere: the puff where he will stand is the whole tell.
+    if (en.lurk === 'shadow') return;
     const t = en.moveT < 1 ? en.moveT : 1;
     const wx = tileX(en.fromX + (en.x - en.fromX) * t), wz = tileZ(en.fromY + (en.y - en.fromY) * t);
     if (en.lurk === 'buried') {
@@ -410,7 +450,7 @@ export class DungeonRenderer {
     return { canvas: this.canvas, frame };
   }
 
-  render(world: World, dt: number): void {
+  render(world: World, dt: number, viewmodel = true): void {
     this.time += dt;
     this.shared.uTime.value = this.time;
     const floor = world.floor;
@@ -442,6 +482,7 @@ export class DungeonRenderer {
     if (biome.molten && !floorQuirk) {
       this.shared.uAmbient.value.multiplyScalar(1 + 0.08 * Math.sin(this.time * Math.PI * 0.8 + 1.7));
     }
+    if (!viewmodel) this.shared.uAmbient.value.multiplyScalar(1.6);
     this.level!.update(dt);
 
     // --- Camera ---------------------------------------------------------------
@@ -502,9 +543,9 @@ export class DungeonRenderer {
     lights.push({
       x: this.camera.position.x, y: EYE + 0.2, z: this.camera.position.z,
       // A lamp you are carrying counts on top of the one the Warden sold you.
-      r: world.playerLightRadius,
+      r: viewmodel ? world.playerLightRadius : 12,
       color: handLight,
-      intensity: lightIntensity(meta) * flick(0),
+      intensity: lightIntensity(meta) * flick(0) * (viewmodel ? 1 : 1.25),
     });
     lights.push(...this.lava.lights());
     for (const t of floor.torches) {
@@ -521,6 +562,18 @@ export class DungeonRenderer {
         lights.push({ x: tileX(pr.x), y: 1.3, z: tileZ(pr.y), r: 4.5, color: cachedColor(SHRINE_LIGHT[shrineKind(pr)]), intensity: 0.95 });
       }
     }
+    // Burning oil lights the room it is in, unevenly; a vent glows, and
+    // flares in the warning before it bursts.
+    for (const sf of floor.surfaces ?? []) {
+      if (sf.kind === 'vent') {
+        const warn = 1 - clamp((sf.t ?? VENT_TELL) / VENT_TELL, 0, 1);
+        const burst = (sf.burst ?? 0) > 0 ? 1.4 : 0;
+        lights.push({ x: tileX(sf.x), y: 0.4, z: tileZ(sf.y), r: 3 + 2 * warn + burst, color: cachedColor('#ff7020'), intensity: (0.55 + 1.1 * warn + burst) * flick(sf.x + sf.y) });
+        continue;
+      }
+      if (sf.kind !== 'fire') continue;
+      lights.push({ x: tileX(sf.x), y: 0.7, z: tileZ(sf.y), r: 3.8, color: cachedColor('#ff8a30'), intensity: 1.2 * flick(sf.x * 5 + sf.y * 3) * clamp(sf.t ?? 1, 0.3, 1) });
+    }
     for (const tr of floor.traps ?? []) {
       // Only the ward glows, because a ward is magic. A dart plate and a spike
       // pit are ironmongery in a dark floor: your lamp has to find them.
@@ -533,9 +586,14 @@ export class DungeonRenderer {
     // Ossuary: restless remains rise into view the same way, on their own.
     for (const en of floor.enemies) if (en.stirT !== undefined) called.set(en.id, 1 - Math.max(0, en.stirT) / OSSUARY_STIR);
     this.called = called;
+    for (const fx of world.spellFx) {
+      const k = 1 - clamp(fx.t / SPELL_FX_SECONDS[fx.kind], 0, 1);
+      const glow = fx.kind === 'smite' ? '#fff0b0' : (fx.kind === 'blast' || fx.kind === 'meteor') ? '#ff8030' : fx.kind === 'spores' ? '#a8d878' : fx.kind === 'frost' ? '#9ad0ff' : '#b080ff';
+      if (!fx.miss) lights.push({ x: tileX(fx.x), y: fx.kind === 'meteor' ? 0.5 + WALL_H * (1 - clamp(fx.t / METEOR_FALL_SECONDS, 0, 1)) : 1.2, z: tileZ(fx.y), r: fx.kind === 'meteor' ? 6 : 4.5, color: cachedColor(glow), intensity: (fx.kind === 'meteor' ? 3.2 : fx.kind === 'spores' ? 0.6 : 1.6) * k });
+    }
     for (const en of floor.enemies) {
       const def = enemyDef(en.def);
-      const view = enemyView(def, en.hp, en.maxHp, { elite: en.elite, carrying: !!en.stolen?.length });
+      const view = enemyView(def, en.hp, en.maxHp, { elite: en.elite, carrying: !!en.stolen?.length, calm: en.calm, chilled: (en.chillT ?? 0) > 0, hexed: (en.hexT ?? 0) > 0 });
       const call = called.get(en.id);
       if (call !== undefined) lights.push({ x: tileX(en.x), y: 0.5, z: tileZ(en.y), r: 3 + 2 * call, color: cachedColor(RAISE_GLOW), intensity: 0.6 + 0.8 * call });
       // A lurker throws no light: an elite glowing on the ceiling would be no ambush.
@@ -565,7 +623,7 @@ export class DungeonRenderer {
       if (!near(en.x, en.y)) continue;
       // The phase view, so the King's sprite family, glow and guard all follow
       // the fight. Everything else gets its own stat block back unchanged.
-      const def = enemyView(enemyDef(en.def), en.hp, en.maxHp, { elite: en.elite, carrying: !!en.stolen?.length });
+      const def = enemyView(enemyDef(en.def), en.hp, en.maxHp, { elite: en.elite, carrying: !!en.stolen?.length, calm: en.calm, chilled: (en.chillT ?? 0) > 0, hexed: (en.hexT ?? 0) > 0 });
       if (en.lurk && en.ai !== 'dead') {
         this.drawLurker(en, def);
         continue;
@@ -609,10 +667,19 @@ export class DungeonRenderer {
       let y = (def.floats ? 0.35 + Math.sin(this.time * 2.5 + en.x) * 0.1 : 0) + (en.moveT < 1 ? Math.abs(Math.sin(en.moveT * Math.PI)) * 0.08 : 0);
       // A called corpse lies at the floor and is drawn up as the chant runs.
       if (en.ai === 'dead') y -= call !== undefined ? (1 - call) * 1.2 : (fused ? Math.min(en.deadT, 0.3) : en.deadT) * 1.4;
-      this.place(s, `${def.sprite}_${pose.frame}`, wx, y, wz, height);
+      // A penguin has two frames, standing and mid-waddle, and rocks between
+      // them while it steps.
+      const frame = (en.hexT ?? 0) > 0 && en.ai !== 'dead'
+        ? (en.moveT < 1 && en.moveT % 0.5 < 0.25 ? '1' : '0')
+        : pose.frame;
+      this.place(s, `${def.sprite}_${frame}`, wx, y, wz, height);
+      // Your Shade holds what you hold: your weapon and shield, in their materials.
+      // No wash over it any more: the body is its own tell, and a tint would
+      // only lift the dark and muddy the kit.
+      if (en.def === SHADE_ID) this.dressShade(s, world, pose.frame);
       if (en.hurtT > 0) s.mat.uniforms.uTint.value.set(1, 0.95, 0.9, Math.min(0.8, en.hurtT * 3));
-      // Your Shade: a pale, cold wash so it never reads as an ordinary knight.
-      else if (en.def === SHADE_ID && en.ai !== 'dead' && en.ai !== 'windup') s.mat.uniforms.uTint.value.set(0.6, 0.72, 1, 0.45 + 0.08 * Math.sin(this.time * 2));
+      // Held fast in ice: the whole creature goes pale blue until it thaws.
+      else if ((en.frozenT ?? 0) > 0 && en.ai !== 'dead') s.mat.uniforms.uTint.value.set(0.62, 0.84, 1, 0.55);
       else if (en.ai === 'windup' || (en.grabT ?? 0) > 0) {
         // The wind-up glows in the colour of the move being thrown, and the
         // glow deepens as it gathers: which attack is coming, and how soon,
@@ -660,6 +727,29 @@ export class DungeonRenderer {
       }
     }
 
+    // Surfaces: oil, water and ice laid flat on the tile; fire is its scorch
+    // with flames standing up out of it, shrinking as it burns out.
+    for (const sf of floor.surfaces ?? []) {
+      if (!near(sf.x, sf.y)) continue;
+      const wx = tileX(sf.x), wz = tileZ(sf.y);
+      const s = this.sprite(`sf:${sf.x},${sf.y}`);
+      this.placeFlat(s, sf.kind === 'fire' ? 'surf_scorch' : `surf_${sf.kind}`, wx, wz, sf.kind === 'vent' ? TILE * 0.8 : TILE * 0.98);
+      const frame = Math.floor(this.time * 9 + sf.x * 3 + sf.y * 5) % 2;
+      if (sf.kind === 'vent') {
+        // The warning: the grate brightens and pulses before it bursts.
+        const warn = 1 - clamp((sf.t ?? VENT_TELL) / VENT_TELL, 0, 1);
+        if (warn > 0) s.mat.uniforms.uTint.value.set(1, 0.55, 0.15, 0.2 + 0.4 * warn + 0.15 * Math.sin(this.time * 18));
+        if ((sf.burst ?? 0) > 0) {
+          const flame = this.sprite(`sff:${sf.x},${sf.y}`);
+          this.place(flame, `fx_flame_${frame}`, wx, 0, wz, 2.2 * clamp((sf.burst ?? 0) / VENT_FLAMES + 0.3, 0.4, 1));
+        }
+        continue;
+      }
+      if (sf.kind !== 'fire') continue;
+      const flame = this.sprite(`sff:${sf.x},${sf.y}`);
+      this.place(flame, `fx_flame_${frame}`, wx, 0, wz, 1.25 * clamp(sf.t ?? 1, 0.35, 1));
+    }
+
     for (const tr of floor.traps ?? []) {
       if (!tr.found || !near(tr.x, tr.y)) continue;
       const s = this.sprite(`t:${tr.id}`);
@@ -679,7 +769,7 @@ export class DungeonRenderer {
       const wx = tileX(pr.x), wz = tileZ(pr.y);
       switch (pr.kind) {
         case 'chest':
-          this.place(s, pr.smashed ? 'chest_broken' : pr.used ? 'chest_open' : pr.mimic ? 'chest_mimic' : 'chest', wx, 0, wz, 1.5);
+          this.place(s, pr.smashed ? 'chest_broken' : pr.used ? 'chest_open' : pr.mimic ? this.mimicChest(pr.x, pr.y) : 'chest', wx, 0, wz, 1.5);
           break;
         case 'icicle': {
           const c = pr.ceiling;
@@ -692,7 +782,7 @@ export class DungeonRenderer {
         case 'root_cache':
         case 'urn':
         case 'barrel':
-          this.place(s, pr.used ? `${pr.kind}_broken` : pr.kind, wx, 0, wz, VESSEL_SCALE[pr.kind]);
+          this.place(s, pr.used ? `${pr.kind}_broken` : pr.oil ? 'barrel_oil' : pr.kind, wx, 0, wz, VESSEL_SCALE[pr.kind]);
           break;
         case 'bones':
           this.place(s, 'bones', wx, 0, wz, 1.4);
@@ -700,6 +790,11 @@ export class DungeonRenderer {
         case 'shrine': {
           const kind = shrineKind(pr);
           this.place(s, `shrine_${kind}${pr.used ? '_used' : ''}`, wx, 0, wz, 1.9);
+          break;
+        }
+        case 'carving': {
+          const def = findRite(pr.rite) ?? rite('meteor');
+          this.place(s, pr.used ? def.carvingUsed : def.carving, wx, 0, wz, 1.9);
           break;
         }
         case 'fungus':
@@ -787,10 +882,81 @@ export class DungeonRenderer {
     }
 
     for (const pr of world.projectiles) {
+      // A cast bolt and a parried one both start on your tile, which is where
+      // the camera is, and a sprite at zero distance blew up to fill the whole
+      // screen. So nothing is drawn inside your own head, and from there it
+      // grows out of the cast: a third of its size just in front of you, full
+      // size a tile and a half out. Its centre stays at the same height.
+      const near = Math.hypot(pr.x * TILE - this.camera.position.x, pr.y * TILE - this.camera.position.z) / TILE;
+      if (near < 0.45) continue;
+      const size = 0.7 * clamp((near - 0.45) / 1.05, 0.3, 1);
       const s = this.sprite(`j:${pr.id}`);
-      this.place(s, pr.sprite, pr.x * TILE, 0.95, pr.y * TILE, 0.7);
+      // A spell bolt alternates two frames (flame, glint) so it never hangs
+      // in the air like a pasted sticker; each bolt starts on its own beat.
+      const art = pr.spell && Math.floor(this.time * 10 + pr.id) % 2 ? `${pr.sprite}_b` : pr.sprite;
+      this.place(s, art, pr.x * TILE, 1.3 - size / 2, pr.y * TILE, size);
       if (pr.sprite.startsWith('proj_arrow')) {
         s.mesh.rotation.set(0, this.camera.rotation.y, Math.atan2(-pr.dy, pr.dx));
+      } else if (pr.spell) {
+        // A spell bolt is drawn head-up. Turn it by
+        // its flight *as you see it*: away from you is up the screen (towards
+        // the horizon, its trail coming back at you), across your view is
+        // sideways. By compass heading instead, a bolt cast straight ahead
+        // would lean a different way on every corridor.
+        const fwd = p.facing, right = turnRight(p.facing);
+        const away = pr.dx * DX[fwd] + pr.dy * DY[fwd];
+        const across = pr.dx * DX[right] + pr.dy * DY[right];
+        s.mesh.rotation.set(0, this.camera.rotation.y, Math.atan2(away, across) - Math.PI / 2);
+      }
+    }
+
+    // Hitscan marks. Smite: a streak of light standing over the tile, tall
+    // as the room, narrowing and fading. Hex: a puff of violet smoke that
+    // swells as it thins. A miss is the same mark, smaller and fainter.
+    for (const fx of world.spellFx) {
+      if (!near(fx.x, fx.y)) continue;
+      const k = clamp(fx.t / SPELL_FX_SECONDS[fx.kind], 0, 1);
+      const s = this.sprite(`fx:${fx.id}`);
+      const scale = fx.miss ? 0.6 : 1;
+      // Drawn a little in front of what it struck, towards you, or the body
+      // standing on the same tile hides most of it.
+      let wx = tileX(fx.x), wz = tileZ(fx.y);
+      const tx = this.camera.position.x - wx, tz = this.camera.position.z - wz;
+      const len = Math.hypot(tx, tz);
+      if (len > 0.01) {
+        wx += (tx / len) * TILE * 0.35;
+        wz += (tz / len) * TILE * 0.35;
+      }
+      if (fx.kind === 'meteor') {
+        const force = fx.weak ? 0.75 : 1;
+        if (fx.t < METEOR_FALL_SECONDS) {
+          const fall = clamp(fx.t / METEOR_FALL_SECONDS, 0, 1);
+          // Flip the bolt so its white-hot head leads down and its tail trails up.
+          this.place(s, Math.floor(fx.t * 24) % 2 ? 'proj_fireball_b' : 'proj_fireball', wx, WALL_H * (1 - fall * fall), wz, 1.8 * force);
+          s.mesh.rotation.z = Math.PI;
+          s.mesh.scale.x *= 0.65;
+        } else {
+          const impact = clamp((fx.t - METEOR_FALL_SECONDS) / (SPELL_FX_SECONDS.meteor - METEOR_FALL_SECONDS), 0, 1);
+          const bloom = (0.9 + 1.8 * Math.sin(Math.PI * impact)) * force;
+          this.place(s, impact < 0.5 ? 'fx_blast' : 'fx_blast_b', wx, 0.05, wz, bloom);
+          const scorch = this.sprite(`meteor:ground:${fx.id}`);
+          this.placeFlat(scorch, 'fx_blast_b', tileX(fx.x), tileZ(fx.y), (0.8 + impact * 2.8) * force);
+          scorch.mat.uniforms.uTint.value.set(0.7, 0.12, 0, impact * 0.7);
+        }
+        continue;
+      }
+      // Sprites are alpha-tested, not blended, so a mark cannot fade: the
+      // streak narrows to a thread instead, and the smoke swells then shrinks.
+      if (fx.kind === 'smite') {
+        const art = Math.floor(fx.t * 20) % 2 ? 'fx_smite_b' : 'fx_smite';
+        this.place(s, art, wx, 0, wz, WALL_H * scale);
+        s.mesh.scale.x *= Math.max(0.08, 1 - k);
+        s.mat.uniforms.uTint.value.set(1, 0.97, 0.85, 0.5 * (1 - k));
+      } else {
+        const size = (k < 0.6 ? 0.8 + 0.6 * (k / 0.6) : 1.4 * (1 - (k - 0.6) / 0.4) + 0.1) * scale;
+        // Hex's smoke, a spore cloud and a burst of fire share the one shape.
+        const art = fx.kind === 'poof' ? 'fx_poof' : `fx_${fx.kind}`;
+        this.place(s, k < 0.45 ? art : `${art}_b`, wx, 0.15, wz, size * (fx.kind === 'poof' || fx.kind === 'frost' ? 1 : 1.5));
       }
     }
 
@@ -804,12 +970,13 @@ export class DungeonRenderer {
 
     // --- Viewmodel ---------------------------------------------------------------
     this.updateDrips(dt);
-    this.updateViewmodel(world, dt, flick(0));
+    if (viewmodel) this.updateViewmodel(world, dt, flick(0));
 
     // --- Draw ---------------------------------------------------------------------
     const pu = this.post.material.uniforms;
     this.flash.w = Math.max(0, this.flash.w - dt * 1.6);
-    pu.uFlash.value.copy(this.flash);
+    if (viewmodel) pu.uFlash.value.copy(this.flash);
+    else pu.uFlash.value.set(0, 0, 0, 0);
     // Polled per frame, not pushed: the settings slider stays live with no
     // wiring, and dev arenas using this renderer get it for free.
     pu.uBrightness.value = brightness.get();
@@ -824,8 +991,10 @@ export class DungeonRenderer {
     this.renderer.setClearColor(this.shared.uFogColor.value, 1);
     this.renderer.clear();
     this.renderer.render(this.scene, this.camera);
-    this.renderer.clearDepth();
-    this.renderer.render(this.vmScene, this.vmCamera);
+    if (viewmodel) {
+      this.renderer.clearDepth();
+      this.renderer.render(this.vmScene, this.vmCamera);
+    }
     this.post.render(this.renderer, this.target);
   }
 
@@ -865,7 +1034,10 @@ export class DungeonRenderer {
     const sway = twoHanded ? 1.7 : 1;
     const bobX = Math.sin((a.steps + walking) * Math.PI) * 4 * sway;
     const bobY = Math.abs(Math.cos((a.steps + walking) * Math.PI)) * 4 * sway;
-    let x = W * (twoHanded ? 0.56 : casting ? 0.5 : 0.74) + bobX;
+    // A Stave is held off to the right of the two-handed spot: it is cast
+    // from as much as swung, and its crown would stand over whatever you aim at.
+    const stave = twoHanded && world.derived.conduitHand === 'weapon';
+    let x = W * (stave ? 0.68 : twoHanded ? 0.56 : casting ? 0.5 : 0.74) + bobX;
     let y = H * 0.12 - bobY - 8;
     let rot = twoHanded ? -0.05 : casting ? 0 : -0.18;
     // A throw runs through the same `anim.attack` states as a swing, because it
@@ -879,8 +1051,18 @@ export class DungeonRenderer {
       const k = 1 - clamp(casting.t / total, 0, 1);
       y += 26 * k;
       rot = Math.sin(this.time * 22) * 0.05 * k;
-    } else if (a.attackThrow) {
-      // Deliberately nothing.
+    } else if (a.attackSpell && world.derived.conduitHand === 'weapon') {
+      // A Stave is the conduit: it comes up and in, crown first, as the
+      // spell gathers, and settles back through the recovery.
+      const k = a.attack === 'windup'
+        ? clamp(a.attackT / Math.max(0.01, a.attackDur), 0, 1)
+        : a.attack === 'recover' ? 1 - clamp(a.attackT / Math.max(0.01, a.attackDur), 0, 1) : 0;
+      x -= 18 * k;
+      y += 34 * k;
+      rot += 0.05 * k;
+    } else if (a.attackThrow || a.attackSpell) {
+      // Deliberately nothing: a throw leaves the body and a spell leaves the
+      // conduit in the other hand, so the weapon hand holds still.
     } else if (a.attack === 'windup') {
       const k = a.attackT / Math.max(0.01, a.attackDur);
       x += (twoHanded ? 40 : 22) * k;
@@ -894,7 +1076,10 @@ export class DungeonRenderer {
       y += (30 - 60 * k + 30 * back) * reach;
       rot = (twoHanded ? -1.0 : -0.73) + (twoHanded ? 2.3 : 1.6) * k - (twoHanded ? 1.5 : 1.05) * back;
     }
-    y -= a.blockRaise * 30;
+    // The weapon hand yields only to a real guard: with a shield the arm
+    // drops aside as the shield comes up, but a conduit flick or a Stave
+    // leaves the weapon where it is.
+    if (world.derived.hasShield) y -= a.blockRaise * 30;
     y -= this.deathFade * 120;
     w.mesh.scale.set(size.w * scale, size.h * scale, 1);
     w.mesh.position.set(x, y + (size.h * scale) / 2, 0);
@@ -909,19 +1094,31 @@ export class DungeonRenderer {
     // body rather than only in the log. Shafts are collected the moment they
     // reach the player tile, which is where the raised hand is.
     const retrieving = !!a.retrieving;
-    const offhand = !retrieving && world.derived.hasShield ? world.state.equipment.offhand : null;
+    // Only a conduit in the offhand is drawn there; a Stave is the weapon.
+    const conduit = world.derived.conduitHand === 'offhand' ? world.derived.conduit : null;
+    const offhand = !retrieving && (world.derived.hasShield || conduit) ? world.state.equipment.offhand : null;
+    // A spell comes up out of the conduit: the hand rises through the wind-up
+    // and the stone flares for the back half of it and the release.
+    const spellLift = conduit && a.attackSpell && a.attack !== 'idle'
+      ? (a.attack === 'windup' ? clamp(a.attackT / Math.max(0.01, a.attackDur), 0, 1) : 1 - clamp(a.attackT / Math.max(0.01, a.attackDur), 0, 1))
+      : 0;
+    const lit = !!conduit && !!a.attackSpell && (a.attack === 'recover' || spellLift > 0.5);
     sh.mesh.visible = !!offhand || retrieving;
     if (sh.mesh.visible) {
       const sramp = offhand?.materialId ? findMaterial(offhand.materialId)?.ramp : undefined;
-      const texId = offhand ? viewmodelFor(itemBase(offhand.ref)) : 'vm_hand';
+      const texId = offhand ? (lit && conduit ? conduit.castViewmodel : viewmodelFor(itemBase(offhand.ref))) : 'vm_hand';
       const tex = artTexture(texId, sramp);
       if (sh.mat.uniforms.map.value !== tex) sh.mat.uniforms.map.value = tex;
       // Sized off the art, not a constant: the box is 24 rows tall but a
       // denser sprite (the bare hand is drawn at 2×) rides the same pose at
       // the same on-screen size with finer pixels.
       const box = artSize(texId);
-      const ss = (H * 0.42) / box.h;
-      const raise = Math.max(a.blockRaise, retrieving ? 1 : 0);
+      // A conduit is drawn larger than a shield (its canvas is a weapon's
+      // height) and never sinks fully out of view: the stone peeks in at rest,
+      // so you can see what is in your hand before you cast it.
+      const held = !!conduit && !retrieving;
+      const ss = (H * (held ? 0.62 : 0.42)) / box.h;
+      const raise = Math.max(a.blockRaise, retrieving ? 1 : 0, spellLift, held ? 0.62 : 0);
       sh.mesh.scale.set(box.w * ss, box.h * ss, 1);
       // Mostly out of frame until raised.
       sh.mesh.position.set(W * 0.16 + raise * W * 0.16 - bobX * 0.5, -H * 0.12 + raise * H * 0.4 - bobY - this.deathFade * 120, 0);
@@ -931,7 +1128,7 @@ export class DungeonRenderer {
       sh.mesh.rotation.set(0, 0, 0.2 - raise * 0.2 - beckon * 0.035);
       // The shield flares white while a parry would land, so the window is
       // something you learn to see rather than something you read about.
-      const flare = world.parryWindow ? 0.38 : 0;
+      const flare = world.parryWindow && !conduit ? 0.38 : lit ? 0.22 : 0;
       sh.mat.uniforms.uTint.value.set(1, 0.95, 0.75, flare);
     }
   }

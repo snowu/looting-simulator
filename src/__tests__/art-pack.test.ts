@@ -6,8 +6,9 @@ import { decodeArtPack, encodeArtPack } from '../render/art-pack';
 import { artCanvas, loadArtOverrides } from '../render/art-cache';
 
 const artDir = resolve(process.cwd(), 'public/art');
-const manifest: string[] = JSON.parse(readFileSync(resolve(artDir, 'manifest.json'), 'utf8'));
-const shipped = () => manifest.map((id) => ({ id, png: new Uint8Array(readFileSync(resolve(artDir, `${id}.png`))) }));
+const files: string[] = JSON.parse(readFileSync(resolve(artDir, 'manifest.json'), 'utf8')); // 'enemies/rat_0.png'
+const manifest = files.map((f) => f.slice(f.indexOf('/') + 1, -4)); // the ids, in the same order
+const shipped = () => files.map((f, i) => ({ id: manifest[i], png: new Uint8Array(readFileSync(resolve(artDir, f))) }));
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -53,7 +54,7 @@ describe('the art pack', () => {
   ])('falls back to the loose PNGs when %s', async (_, packResponse) => {
     const fetch = vi.fn()
       .mockResolvedValueOnce(packResponse())
-      .mockResolvedValueOnce(new Response(JSON.stringify(manifest)));
+      .mockResolvedValueOnce(new Response(JSON.stringify(files)));
     vi.stubGlobal('fetch', fetch);
     const loaded: string[] = [];
     vi.stubGlobal('Image', class {

@@ -53,10 +53,11 @@ All of these exist only under `npm run dev`. They sit behind `import.meta.env.DE
 |---|---|
 | `?autostart=1` | Skip the title and open Bleakmere on your last slot |
 | `?autostart=dungeon` | Go straight into a delve |
-| `?autostart=lab` | **Combat lab**: every recipe at Rank 5, 999 of every material, one of every weapon, a cleared room, and a spawn console. Pick a biome, depth, seed and **strange floor**, then spawn any enemy (already mid-swing if you like). The strange-floor selector is the only practical way to see the Forbidden Pasture or the Silent Picture, which otherwise roll at 5–9.5% per floor |
+| `?autostart=lab` | **Combat lab**: every recipe at Rank 5, 999 of every material, one of every weapon, a cleared room, and a spawn console. Pick a biome, depth, seed and **strange floor**, then spawn any enemy (already mid-swing if you like). The strange-floor selector is the only practical way to see the Forbidden Pasture or the Silent Picture, which otherwise roll at 5–9.5% per floor. **Rites → Draw Meteor** readies/refills a conduit and opens a repeatable rite test; **Place carving** puts a studyable tablet ahead |
 | `?autostart=boss` | Depth-6 kit, standing in the throne room facing the Ashen King |
 | `?autostart=archers` / `?autostart=melee` | Staged rooms for ranged and melee encounter tuning |
 | `?repro=<code>` | Stand where an in-game bug report was filed: same seed, road, seals and floor, on the reported tile and facing. The code is in the issue's *Game details*. Rebuilds the layout, not the reporter's monsters or loot, and says so if the floor came from an older build |
+| `?fakeupdate=<id>` | Pretend build `<id>` was just deployed: the update banner appears (a pill mid-delve), and updating reloads for real. Add `&autostart=dungeon` to try updating mid-delve, which should land you back in the same delve |
 | `?art` or **F2** | In-game art sheet: every sprite, with enemy attack cadences animated |
 | **F3** | Toggle the lab spawn console |
 | `window.__game` | Live `state`, `world`, `mode`, plus `enterDungeon()`, `enterTown()`, `useSlot(n)` |
@@ -125,7 +126,19 @@ supabase/          SQL schema and email template for cloud saves
 - Any new field goes in as an **additive migration**: bump `SAVE_REVISION` in `src/state/migrations.ts` and append a step that backfills the field. Migrations must be safe on partial state and must never throw.
 - Old items, floors and runs have to keep loading. `persistence.test.ts` and `save-format.test.ts` cover the round trip, so add a case when you add a field.
 
-**Art has one source of truth.** Sprites are drawn in `src/art/`. After adding or changing one, run `npm run art:sync` (or `npm run art:sync -- --ids <id,...>` for just a few) to regenerate `public/art/` and its manifest. The game won't boot if the manifest misses an id. `npm run art:sheet` and `node scripts/art-gif.mjs` export sheets and GIFs for PRs into `docs/previews/`.
+**Art lives in one place.** Every sprite's PNG is at `public/art/<folder>/<id>.png` (folders: `enemies`, `icons`, `props`, `textures`, `ui`, `viewmodels`, set by `ART_FOLDERS` in `src/art/registry.ts`). The game always ships those PNGs, and the artist paints over them in place (with [spritewright](https://snowu.github.io/spritewright/?repo=snowu/looting-simulator), which opens straight on that folder, or any pixel editor). New sprites are drawn in code in `src/art/` and start as placeholders: the PNG is their code art, rasterized. Once painted, the PNG is the art, and the code grid is only the fallback (and, for icons and viewmodels, the material ramp that recolouring matches). The game won't boot if `public/art/manifest.json` misses a sprite.
+
+**Every new sprite goes to the artist (repo rule).** Whenever you add art in `src/art/` (a new icon, creature, prop, effect or viewmodel), run `npm run art:sync` in the same change and commit what it writes: the new placeholder PNGs, `public/art/manifest.json`, and `docs/art-todo.md`, where it lists them under today's date so the artist knows what to paint. **Iterating on code art is fine until the artist paints it:** after you change an existing sprite's code, `npm run art:sync` refreshes its PNG if it is still the untouched placeholder (`src/art/placeholders.json` remembers which are), and `npm run art:check` fails if you forgot, because the game only ever shows the PNG. Painted PNGs are never written, so painted work is safe. `art:sync -- --ids a,b` repaints those PNGs from their code art and `--force` repaints every one: both paint over hand-painted work, so only use them on placeholders (`npm run art:status -- --list` names them). `art-files.test.ts` fails if a sprite has no PNG, or a PNG sits outside its folder or isn't listed.
+
+| Command | What it does |
+|---|---|
+| `npm run art:sync` | add PNGs for new sprites (and list them in `docs/art-todo.md`), refresh untouched placeholders whose code art changed, drop removed ones, move misfiled ones, rewrite the manifest and the spritewright groups |
+| `npm run art:check` | fail instead of writing: missing, extra or misfiled PNGs, wrong sizes, stray alpha (CI runs it on art PRs) |
+| `npm run art:status` | painted vs placeholder, per folder (`-- --list` names the placeholders, `-- --md` prints a table for a PR) |
+| `npm run art:alpha` | find stray alpha; `-- --fix` snaps it (specks to clear, near-opaque to solid, or to emissive where the code art glows) |
+| `npm run art:sheet`, `node scripts/art-gif.mjs` | sheets and GIFs for PRs, into `docs/previews/` |
+
+**Alpha.** A pixel is clear (alpha 0), solid (255) or emissive (250: it glows and ignores the dungeon light; the shader treats about 245–252 as emissive). The code art also uses a few deliberate in-between values for soft glows and shadows. *Stray alpha* is what a soft brush or an eraser leaves behind: specks at 1–15 and near-opaque 245–254 other than 250, which glow by accident. `art:check` fails on it and `art:alpha -- --fix` cleans it.
 
 **Patch notes are curated.** Player-facing changes get an entry at the top of `src/data/patches.ts`, which is what the title-screen scroll shows. Commits that shouldn't become notes (docs, tooling, merges) get a skip reason in `scripts/check-patches.mjs`. `npm run patches` fails on a broken sequence or a bad hash and warns about commits that aren't covered.
 
@@ -137,4 +150,4 @@ supabase/          SQL schema and email template for cloud saves
 
 ## Shipping
 
-Every push to `master` builds and deploys to GitHub Pages (`.github/workflows/deploy.yml`). Open copies, installed ones included, check `version.json` and reload into the new build. Open a pull request against `master`. The PR description should include what you changed, how you verified it (tests, build, a real play of the feature), and screenshots or a GIF for anything visual.
+Every push to `master` builds and deploys to GitHub Pages (`.github/workflows/deploy.yml`). Open copies, installed ones included, check `version.json` (on load, on returning to the app, and every two minutes). Out of a delve they reload into the new build by themselves after a short countdown; mid-delve they show a small Update pill instead, which saves, reloads and reopens the same slot straight back into the delve. Open a pull request against `master`. The PR description should include what you changed, how you verified it (tests, build, a real play of the feature), and screenshots or a GIF for anything visual.

@@ -22,6 +22,7 @@ describe('biome traits', () => {
   it('give each law to exactly one biome', () => {
     expect(Object.fromEntries(BIOMES.filter((b) => b.law).map((b) => [b.law, b.id]))).toEqual({
       restless: 'crypt', collapse: 'mines', noise: 'burrows',
+      flood: 'catacombs', treacherous: 'frostvault', vents: 'emberworks', spores: 'sporegrove',
     });
     for (const b of BIOMES) expect(lawFor(b)).toBe(b.law ? LAWS[b.law] : undefined);
   });

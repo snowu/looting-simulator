@@ -6,6 +6,7 @@ import { material } from '../data/materials';
 import { affix } from '../data/affixes';
 import { masteryBonus, recipe } from '../data/recipes';
 import { findSigil } from '../data/spells';
+import { findConduitSpell } from '../data/conduit-spells';
 import { HELP, HelpId } from '../data/help';
 import { durability, isIdentified, itemCraftRank, itemIcon, itemName, itemRarity, itemStats, itemValue, thrownCapacity, uniqueOf } from '../systems/items';
 import { artUrl } from '../render/art-cache';
@@ -351,10 +352,19 @@ export function statLines(s: Stats, compare?: Stats): string[] {
   return out;
 }
 
+/**
+ * Whether tooltips show gear condition. Off on a difficulty where nothing
+ * wears; the town and the dungeon screens set it from the save as they draw.
+ */
+let conditionShown = true;
+export function showCondition(on: boolean): void {
+  conditionShown = on;
+}
+
 /** Whether this item has anything extra to say when the reader asks for numbers. */
 function hasDetail(item: Item): boolean {
   if (uniqueOf(item) && isIdentified(item)) return true;
-  return item.kind === 'equipment' && durability(item).wears;
+  return conditionShown && item.kind === 'equipment' && durability(item).wears;
 }
 
 export interface TipOpts {
@@ -372,10 +382,18 @@ export function itemTooltip(item: Item, opts: TipOpts = {}): string {
       const base = itemBase(item.ref);
       const mat = item.materialId ? material(item.materialId) : null;
       const rank = itemCraftRank(item);
-      lines.push(`<div class="tt-sub">${itemRarity(item)} ${SLOT_LABEL[base.slot]}${base.damageType ? ` · ${base.damageType}` : ''}${item.crafted ? ` · crafted Rank ${rank}` : ''}</div>`);
+      lines.push(`<div class="tt-sub">${itemRarity(item)} ${base.conduit ? 'Conduit' : SLOT_LABEL[base.slot]}${base.damageType ? ` · ${base.damageType}` : ''}${item.crafted ? ` · crafted Rank ${rank}` : ''}</div>`);
       if (base.twoHanded) {
         lines.push('<div class="tt-warn">Two-handed — your off hand must be empty.</div>');
         lines.push('<div class="tt-dim detail-only">Block 20% (a shield gives 35–90%). Parry timing and effect are unchanged.</div>');
+      }
+      if (base.conduit) {
+        const c = base.conduit;
+        lines.push(`<div class="tt-dim">Holds ${c.slots} spells · ${c.charges} charges, one back every ${c.regrow}s</div>`);
+        if (!base.twoHanded) lines.push('<div class="tt-dim detail-only">No guard: it absorbs nothing — parry on its tighter window or take the blow whole.</div>');
+        lines.push(c.power !== undefined
+          ? `<div class="tt-dim detail-only">A weapon and a conduit at once: its Attack is your melee Attack, and ${Math.round(c.power * 100)}% of it is spell Power. Cast with V, B for the next spell.</div>`
+          : '<div class="tt-dim detail-only">Its Attack is spell Power: what your spells hit for, never your melee Attack. Cast with V, B for the next spell.</div>');
       }
       if (base.thrown) {
         const t = base.thrown;
@@ -404,7 +422,7 @@ export function itemTooltip(item: Item, opts: TipOpts = {}): string {
         lines.push(`<div class="tt-unique" style="color:${property.color}">${esc(property.name)}: ${esc(detailed ? property.detail : property.rule)}</div>`);
       }
       const d = durability(item);
-      if (d.wears) {
+      if (d.wears && conditionShown) {
         const pct = Math.round(d.frac * 100);
         const tone = d.broken ? '#ff7070' : d.frac <= 0.25 ? '#e8c060' : '#8a8f9a';
         const label = d.broken ? 'Broken' : detailed ? `Condition ${d.cur} / ${d.max}` : `Condition ${pct}%`;
@@ -415,7 +433,7 @@ export function itemTooltip(item: Item, opts: TipOpts = {}): string {
       }
       lines.push(...statLines(itemStats(item), opts.compare ? itemStats(opts.compare) : undefined));
       if (d.broken) lines.push(`<div class="tt-warn">Worn out — 15% of its stats until the smith sees it.</div>`);
-      if (unique && !d.wears) lines.push(`<div class="tt-dim">Never needs mending.</div>`);
+      if (unique && !d.wears && conditionShown) lines.push(`<div class="tt-dim">Never needs mending.</div>`);
       if (!isIdentified(item)) {
         lines.push(`<div class="tt-warn">Unidentified — ${item.affixes?.length ?? 0} hidden propert${item.affixes?.length === 1 ? 'y' : 'ies'}. Its powers are unknown and it cannot be worn.</div>`);
       } else for (const a of item.affixes ?? []) {
@@ -461,6 +479,16 @@ export function itemTooltip(item: Item, opts: TipOpts = {}): string {
       const r = recipe(item.ref);
       lines.push(`<div class="tt-sub">Blueprint</div><div class="tt-desc">Unlocks or advances ${itemBase(r.baseId).name} mastery up to Rank 5.</div>`);
       lines.push(`<div class="tt-dim">${r.slots.map((s) => `${s.qty}× ${s.label}${s.optional ? ' (optional)' : ''}`).join(' · ')}</div>`);
+      break;
+    }
+    case 'tome': {
+      const t = findConduitSpell(item.ref);
+      if (t) {
+        lines.push('<div class="tt-sub">Spell tome</div>');
+        lines.push(`<div class="tt-desc">${esc(t.description)}</div>`);
+        lines.push(`<div class="tt-dim">${t.element} · ${t.charges} charge · ${t.stamina} stamina · range ${t.range}</div>`);
+        lines.push('<div class="tt-hint">Read it at the forge\'s Spells bench to learn the spell for good.</div>');
+      }
       break;
     }
     case 'sigil': {

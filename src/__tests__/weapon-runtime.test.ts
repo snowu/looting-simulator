@@ -227,7 +227,7 @@ describe('recoverable thrown stock', () => {
   }
 
   it.each([
-    ['throwing_knives', 0.10], ['throwing_axes', 0.14], ['javelins', 0.18],
+    ['throwing_knives', 0.15], ['throwing_axes', 0.35], ['javelins', 0.44],
   ] as const)('%s allows another action promptly after release', (base, recovery) => {
     const w = belted(base);
     expect(w.hurl()).toBe(true);

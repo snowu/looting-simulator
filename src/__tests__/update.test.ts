@@ -1,7 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   buildUpdateUrl,
   isNewerBuild,
+  markResumeAfterUpdate,
+  takeResumeAfterUpdate,
   versionedAssetUrl,
 } from '../ui/update';
 
@@ -46,5 +48,40 @@ describe('versioning system', () => {
 
   it('leaves dev asset URLs alone', () => {
     expect(versionedAssetUrl('/art/manifest.json', 'dev')).toBe('/art/manifest.json');
+  });
+});
+
+describe('resuming a delve after an update', () => {
+  const store = new Map<string, string>();
+  const fake = {
+    getItem: (k: string) => store.get(k) ?? null,
+    setItem: (k: string, v: string) => void store.set(k, v),
+    removeItem: (k: string) => void store.delete(k),
+  };
+  const g = globalThis as { sessionStorage?: unknown };
+  let saved: unknown;
+  beforeEach(() => {
+    saved = g.sessionStorage;
+    g.sessionStorage = fake;
+    store.clear();
+  });
+  afterEach(() => {
+    g.sessionStorage = saved;
+  });
+
+  it('hands the slot to the next boot, once', () => {
+    markResumeAfterUpdate(2);
+    expect(takeResumeAfterUpdate()).toBe(2);
+    expect(takeResumeAfterUpdate()).toBe(null);
+  });
+
+  it('is empty when no update asked for it', () => {
+    expect(takeResumeAfterUpdate()).toBe(null);
+  });
+
+  it('shrugs off blocked storage', () => {
+    g.sessionStorage = { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('blocked'); }, removeItem: () => {} };
+    expect(() => markResumeAfterUpdate(1)).not.toThrow();
+    expect(takeResumeAfterUpdate()).toBe(null);
   });
 });

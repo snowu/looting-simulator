@@ -22,8 +22,9 @@ export const MORSEL_ART = {
   heart: { art: 'ic_drumstick', name: 'Chicken thigh', height: 0.5 },
 } as const;
 
-export function flaskMax(shards: number): number {
-  return BASE_FLASK_CHARGES + clamp(Math.trunc(shards), 0, MAX_FLASK_SHARDS);
+/** Charges a full flask holds: the base, the shards, and Normal's `flaskBonus`. */
+export function flaskMax(shards: number, bonus = 0): number {
+  return BASE_FLASK_CHARGES + clamp(Math.trunc(shards), 0, MAX_FLASK_SHARDS) + bonus;
 }
 
 export function morselChance(depth: number): number {

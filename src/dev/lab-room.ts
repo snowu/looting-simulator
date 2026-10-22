@@ -17,6 +17,9 @@
  *   town-side, and recall scrolls are in the pack for going back to craft
  */
 import { PROPERTY_IDS } from '../data/properties';
+import { RITES, type RiteId } from '../data/rites';
+import { equipFrom } from '../systems/equip';
+import { CONDUIT_SPELLS } from '../data/conduit-spells';
 import { GameState } from '../state/game-state';
 import { emptyEquipment } from '../systems/player';
 import { makeConsumable, makeEquipment, makeMaterial, repairItem, thrownCapacity } from '../systems/items';
@@ -31,7 +34,7 @@ import { MATERIALS } from '../data/materials';
 import { MAX_RECIPE_RANK, RECIPES } from '../data/recipes';
 import { META_UPGRADES } from '../systems/meta';
 import { enemyDef } from '../data/enemies';
-import { blocksMove, createEnemy, doorAt, enemyAt, generateFloor, promoteElite, stairsAt } from '../systems/dungeon';
+import { blocksMove, createEnemy, doorAt, enemyAt, generateFloor, promoteElite, propAt, stairsAt } from '../systems/dungeon';
 import { EliteTrait, eligibleTraits } from '../data/elites';
 import { BIOMES, biomeForDepth } from '../data/biomes';
 import { hashString } from '../core/rng';
@@ -66,6 +69,10 @@ export function prepare(state: GameState): void {
   // Every build property learned, so the Inscribe bench can be tried without keeping an oath.
   state.properties = [...PROPERTY_IDS];
   state.attuned = 'wardcry';
+  // Every battle spell known and loaded, so a conduit off the rack casts all of them.
+  state.spellbook = CONDUIT_SPELLS.map((sp) => sp.id);
+  state.loadedSpells = [...state.spellbook];
+  state.ritesKnown = RITES.map(r => r.id);
 
   // 999 of everything in the stash (unlimited, so it fits). The forge is
   // town-side, so this is where crafting draws from — go back through a
@@ -92,7 +99,7 @@ export function prepare(state: GameState): void {
   // this is the weapon-feel rack. Swap with I (inventory) at any time.
   const pack = syncLoadout(state);
   for (const base of ITEM_BASES) {
-    if (base.slot !== 'weapon' && base.slot !== 'thrown') continue;
+    if (base.slot !== 'weapon' && base.slot !== 'thrown' && !base.conduit) continue;
     addItem(pack, makeEquipment({
       baseId: base.id, materialId: bestMaterialFor(base.id),
       rarity: Rarity.Epic, ilvl: LAB_ILVL, quality: 1, identified: true,
@@ -231,6 +238,51 @@ export function spawnLabChest(world: World, mimic: boolean): boolean {
   return true;
 }
 
+/**
+ * A repeatable rite attempt on the scratch game, through the real draw/cast
+ * path. With an id it teaches that rite and pins the trace to it; without,
+ * it teaches every rite and the tablet reads whichever mark you draw.
+ */
+export function beginLabRite(world: World, id?: RiteId): boolean {
+  if (world.run.outcome !== 'active') return false;
+  world.cancelRiteDraw();
+  world.refreshDerived();
+  if (!world.derived.conduit) {
+    const wand = makeEquipment({ baseId: 'wand', materialId: 'ironwood', rarity: Rarity.Epic, ilvl: LAB_ILVL, quality: 1, identified: true });
+    // The unlimited stash safely receives a displaced shield or two-handed weapon.
+    addItem(world.state.stash, wand);
+    if (equipFrom(world.state.equipment, world.state.stash, wand.uid)) return false;
+  }
+  world.state.ritesKnown ??= [];
+  for (const r of id ? [id] : RITES.map((d) => d.id)) if (!world.state.ritesKnown.includes(r)) world.state.ritesKnown.push(r);
+  refurbish(world);
+  world.held.clear();
+  world.setBlock(false);
+  world.placePlayer(world.player.x, world.player.y, world.player.facing);
+  world.anim.attack = 'idle';
+  world.anim.cast = null;
+  world.anim.stunT = 0;
+  return world.beginRiteDraw(id);
+}
+
+/** Put (or reset) a real carving ahead, forgetting its lesson so Study can be tried. */
+export function spawnLabCarving(world: World, id: RiteId = 'meteor'): boolean {
+  const f = world.floor, { x, y } = world.frontTile();
+  if (x < 0 || y < 0 || x >= f.width || y >= f.height) return false;
+  const existing = propAt(f, x, y);
+  if (existing?.kind === 'carving') {
+    existing.used = false;
+    existing.rite = id;
+  }
+  else {
+    if (existing || blocksMove(f, x, y) || enemyAt(f, x, y) || doorAt(f, x, y) || stairsAt(f, x, y)) return false;
+    f.props.push({ id: `labcarving:${Date.now().toString(36)}`, kind: 'carving', x, y,
+      used: false, tier: 'none', blocking: true, mimic: false, rite: id });
+  }
+  world.state.ritesKnown = (world.state.ritesKnown ?? []).filter(known => known !== id);
+  return true;
+}
+
 /** Spawn every entry of a config. Returns the total actually spawned. */
 export function spawnLabConfig(world: World, entries: LabMobEntry[]): number {
   let n = 0;
@@ -264,6 +316,8 @@ export function refurbish(world: World): void {
     const probe = makeEquipment({ baseId: base.id, materialId: bestMaterialFor(base.id), rarity: Rarity.Epic, ilvl: LAB_ILVL });
     world.run.thrown.held[base.id] = thrownCapacity(probe);
   }
+  // And a full conduit.
+  if (world.derived.conduit) world.run.conduit = { charges: world.derived.conduit.charges, regrow: 0, sel: world.run.conduit?.sel ?? 0 };
 }
 
 /** Pick a seed that naturally generates the requested biome, including its residents. */

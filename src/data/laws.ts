@@ -10,7 +10,7 @@
 import type { BiomeDef } from './biomes';
 
 /** Each law belongs to the biome that names it in `BiomeDef.law`. */
-export type LawId = 'restless' | 'collapse' | 'noise';
+export type LawId = 'restless' | 'collapse' | 'noise' | 'flood' | 'treacherous' | 'vents' | 'spores';
 
 export interface LawDef {
   name: string;
@@ -31,6 +31,23 @@ export const LAWS: Record<LawId, LawDef> = {
   noise: {
     name: 'Noise carries', color: '#c8a070',
     arrival: 'The Vermin Burrows carry every sound a long way, and something is always listening. A broken root cache makes a fine lure.',
+  },
+  // The four elemental biomes' laws are surfaces (`src/data/surfaces.ts`).
+  flood: {
+    name: 'The water carries', color: '#9ad0ff',
+    arrival: 'The Catacombs stand in water from wall to wall. Frost that lands here freezes the flood around it, and whatever is standing in it. Yours, or theirs.',
+  },
+  treacherous: {
+    name: 'The ice is treacherous', color: '#c8e8ff',
+    arrival: 'The Frost Vault is sheeted in ice. Strike a monster standing on it and it goes down open; be struck on it yourself and so do you.',
+  },
+  vents: {
+    name: 'The vents breathe', color: '#ff9a50',
+    arrival: 'The Emberworks floor breathes fire. The vents glow before they burst: let something else be standing there when they do.',
+  },
+  spores: {
+    name: 'The spores', color: '#a8d878',
+    arrival: 'The Sporegrove is thick with puffballs. Tread on one and the cloud blinds whatever is close, and dims your lamp. Fire makes them burst.',
   },
 };
 

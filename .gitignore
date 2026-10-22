@@ -12,5 +12,17 @@ scripts/inject-forge-test-save.js
 
 # Harness output.
 playtest-report.txt
+playtest-normal.txt
+playtest-battlemage.txt
+playtest-belts.txt
+playtest-career.txt
 balance-tables.txt
+upgrades.txt
+king-report.txt
 trace.txt
+test-results/
+playwright-report/
+visual-review/
+
+# Python bytecode from scripts/pixel_painter.py
+__pycache__/

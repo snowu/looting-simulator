@@ -23,8 +23,9 @@ import { addItem } from '../state/inventory';
 import { equipFrom } from '../systems/equip';
 import { createRng, randomSeed } from '../core/rng';
 import { Rarity } from '../types';
+import { RITES, type RiteId } from '../data/rites';
 import {
-  LAB_ILVL, loadLabLevel, clearLabMobs, killLabMobs, refurbish, restockLabMats, spawnLabChest, spawnLabConfig, spawnLabMob,
+  LAB_ILVL, beginLabRite, spawnLabCarving, loadLabLevel, clearLabMobs, killLabMobs, refurbish, restockLabMats, spawnLabChest, spawnLabConfig, spawnLabMob,
 } from './lab-room';
 import {
   LabConfig, LabMobEntry, deleteLabConfig, exportLabConfig, isBuiltinLabConfig,
@@ -35,9 +36,10 @@ import { giveMaterials } from './give-materials';
 
 let el: HTMLElement | null = null;
 let godTimer = 0;
+let godWorld: World | null = null;
 
 function weaponBases(): typeof ITEM_BASES {
-  return ITEM_BASES.filter((b) => b.slot === 'weapon' || b.slot === 'thrown');
+  return ITEM_BASES.filter((b) => b.slot === 'weapon' || b.slot === 'thrown' || !!b.conduit);
 }
 
 function materialsFor(baseId: string): typeof MATERIALS {
@@ -47,10 +49,7 @@ function materialsFor(baseId: string): typeof MATERIALS {
 }
 
 export function closeLabPanel(): void {
-  if (godTimer) {
-    clearInterval(godTimer);
-    godTimer = 0;
-  }
+  // Closing the console (including to draw) must not change the lab's god mode.
   el?.remove();
   el = null;
 }
@@ -104,6 +103,7 @@ function openLabPanel(
     text: 'I / Tab: pack & gear · all recipes Rank 5 · 999 mats in stash · forge below, no town trip needed.',
   }));
 
+  buildRiteSection(wrap, getWorld, notify);
   buildLevelSection(wrap, getWorld, notify);
   buildSpawnSection(wrap, getWorld, notify);
   buildConfigSection(wrap, getWorld, notify);
@@ -120,6 +120,34 @@ function openLabPanel(
   wrap.addEventListener('mousedown', (e) => e.stopPropagation());
   parent.append(wrap);
   el = wrap;
+}
+
+function buildRiteSection(
+  wrap: HTMLElement,
+  getWorld: () => World | null,
+  notify: (text: string, color?: string) => void,
+): void {
+  wrap.append(h('h3', { text: 'Rites', style: 'margin:6px 0 4px' }));
+  wrap.append(h('p', { class: 'dim small', style: 'margin:0 0 6px',
+    text: 'Draw readies a conduit, heals and refills, then opens the tablet: Any rite reads whichever known mark you draw, a named one pins the trace to it. F3 to repeat. Place carving lets you try studying one.' }));
+  const draw = (id?: RiteId) => () => {
+    const world = getWorld();
+    if (!world) return;
+    if (beginLabRite(world, id)) closeLabPanel();
+    else notify('Finish the current action, then try the rite again.', '#ff9070');
+  };
+  wrap.append(h('div', { class: 'row', style: 'gap:4px;margin-bottom:4px;flex-wrap:wrap' },
+    btn('Draw any rite', draw(), 'small primary'),
+    ...RITES.map((r) => btn(`Draw ${r.short}`, draw(r.id), 'small'))));
+  wrap.append(h('div', { class: 'row', style: 'gap:4px;margin-bottom:8px;flex-wrap:wrap' },
+    ...RITES.map((r) => btn(`Carve ${r.short}`, () => {
+      const world = getWorld();
+      if (!world) return;
+      if (spawnLabCarving(world, r.id)) {
+        closeLabPanel();
+        notify(`${r.name} carving ahead — F / Interact to study. F3 to reset or draw.`, r.color);
+      } else notify('Face an empty floor tile to place the carving.', '#ff9070');
+    }, 'small'))));
 }
 
 function buildLevelSection(
@@ -600,7 +628,7 @@ function buildWeaponSection(
   for (const b of weaponBases()) {
     const o = document.createElement('option');
     o.value = b.id;
-    o.textContent = `${b.name}${b.twoHanded ? ' (2H)' : ''}`;
+    o.textContent = `${b.name}${b.twoHanded ? ' (2H)' : b.conduit ? ' (conduit)' : ''}`;
     if (b.id === 'long_sword') o.selected = true;
     baseSel.append(o);
   }
@@ -654,16 +682,25 @@ function buildUtilitySection(
   ));
   const godLabel = h('label', { class: 'small', style: 'display:flex;gap:6px;align-items:center;margin-bottom:4px' });
   const godBox = h('input', { attrs: { type: 'checkbox' } }) as HTMLInputElement;
+  godBox.checked = godTimer !== 0 && godWorld === getWorld();
   godLabel.append(godBox, document.createTextNode('Godmode (top up HP continuously)'));
   godBox.addEventListener('change', () => {
     if (godTimer) {
       clearInterval(godTimer);
       godTimer = 0;
     }
-    if (godBox.checked) {
+    godWorld = godBox.checked ? getWorld() : null;
+    if (godWorld) {
+      const watched = godWorld;
       godTimer = window.setInterval(() => {
         const w = getWorld();
-        if (!w) return;
+        // God mode belongs to this lab world, never to a later character/run.
+        if (w !== watched || w.run.outcome !== 'active') {
+          clearInterval(godTimer);
+          godTimer = 0;
+          godWorld = null;
+          return;
+        }
         if (w.player.hp < w.derived.maxHp) {
           w.player.hp = w.derived.maxHp;
           w.player.stamina = w.derived.maxStamina;

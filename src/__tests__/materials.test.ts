@@ -13,7 +13,7 @@ describe('Wardstone', () => {
       rarity: Rarity.Rare,
       value: 98,
       icon: 'ic_gem',
-      ramp: ['#1a1a24', '#3c3a56', '#6e6a96', '#c0bce0'],
+      ramp: ['#1a0a2e', '#3e1a6a', '#7040b0', '#c8a0f0'],
       mods: { focus: 4 },
       catalystAffix: 'vigil',
       description: 'Catalyst: grants of the Vigil (+Spell Focus).',

@@ -86,6 +86,13 @@ describe('gamepad mapping', () => {
       setRetrieve: noop,
       setBlock: noop,
       castSigil: noop,
+      castSpell: () => calls.push('cast'),
+      nextSpell: () => calls.push('next'),
+      riteAvailable: () => false,
+      beginRite: () => false,
+      aimRite: noop,
+      traceRite: noop,
+      endRite: noop,
       sipFlask: () => calls.push('sip'),
       press: noop,
       release: noop,
@@ -109,5 +116,130 @@ describe('gamepad mapping', () => {
     c2.getPoll = () => press(pad(), PAD_BUTTONS.b);
     c2.update(1 / 60);
     expect(calls).toEqual(['close']);
+
+    // D-pad Down: a tap casts when it comes up, a hold selects the next spell
+    // and casts nothing, and it no longer steps back.
+    calls.length = 0;
+    ctx.overlayOpen = false;
+    expect(snapshotPad(press(pad(), PAD_BUTTONS.dDown), new Set()).moves.has('back')).toBe(false);
+    const c3 = new GamepadController(ctx);
+    c3.getPoll = () => press(pad(), PAD_BUTTONS.dDown);
+    c3.update(1 / 60);
+    expect(calls).toEqual([]);
+    c3.getPoll = () => pad();
+    c3.update(1 / 60);
+    expect(calls).toEqual(['cast']);
+    calls.length = 0;
+    c3.getPoll = () => press(pad(), PAD_BUTTONS.dDown);
+    for (let i = 0; i < 30; i++) c3.update(1 / 60);
+    expect(calls).toEqual(['next']);
+    c3.getPoll = () => pad();
+    c3.update(1 / 60);
+    expect(calls).toEqual(['next']);
+  });
+
+  it('taps X to interact, holds it to trace a rite the right stick draws', () => {
+    const calls: string[] = [];
+    const traces: [number, number][] = [];
+    const aims: [number, number][] = [];
+    const noop = (): void => undefined;
+    const ctx: PadContext = {
+      paused: false,
+      overlayOpen: false,
+      contextKind: () => 'attack',
+      attack: noop,
+      interact: () => calls.push('interact'),
+      hurl: noop,
+      setRetrieve: noop,
+      setBlock: noop,
+      castSigil: noop,
+      castSpell: noop,
+      nextSpell: noop,
+      riteAvailable: () => true,
+      beginRite: () => { calls.push('begin'); return true; },
+      aimRite: (x, y) => aims.push([x, y]),
+      traceRite: (x, y) => traces.push([x, y]),
+      endRite: () => calls.push('end'),
+      sipFlask: noop,
+      press: (m) => calls.push(`press:${m}`),
+      release: (m) => calls.push(`release:${m}`),
+      toggleInventory: noop,
+      toggleMap: noop,
+      toggleHelp: noop,
+      takeAll: noop,
+      closeOverlay: noop,
+      quickUseNext: noop,
+      menuNav: () => false,
+      menuActivate: () => false,
+    };
+    // A tap interacts when it comes up, and traces nothing.
+    const c = new GamepadController(ctx);
+    c.getPoll = () => press(pad(), PAD_BUTTONS.x);
+    c.update(1 / 60);
+    expect(calls).toEqual([]);
+    c.getPoll = () => pad();
+    c.update(1 / 60);
+    expect(calls).toEqual(['interact']);
+    // A hold opens the trace instead, the stick draws, the release casts.
+    calls.length = 0;
+    const held = press({ ...pad(), axes: [0, 0, 0.9, 0.4] }, PAD_BUTTONS.x);
+    c.getPoll = () => held;
+    for (let i = 0; i < 30; i++) c.update(1 / 60);
+    expect(calls).toContain('begin');
+    expect(calls).not.toContain('interact');
+    expect(traces.length).toBeGreaterThan(0);
+    expect(traces[0]).toEqual([0.18, 0.16]);
+    expect(calls.filter((k) => k.startsWith('press:turn') || k.startsWith('release:turn'))).toEqual([]);
+    c.getPoll = () => pad();
+    c.update(1 / 60);
+    expect(calls[calls.length - 1]).toBe('end');
+
+    // Before the stroke, the left stick places the pen without drawing or
+    // walking; once the right stick draws, the left one does nothing.
+    calls.length = 0;
+    traces.length = 0;
+    aims.length = 0;
+    const aim = press({ ...pad(), axes: [0.9, 0.9, 0, 0] }, PAD_BUTTONS.x);
+    c.getPoll = () => aim;
+    for (let i = 0; i < 40; i++) c.update(1 / 60);
+    expect(calls).toContain('begin');
+    expect(traces).toEqual([]);
+    expect(calls.filter((k) => k.startsWith('press:'))).toEqual([]);
+    const [ax, ay] = aims.at(-1)!;
+    expect(ax).toBeGreaterThan(0.18);
+    expect(ay).toBeGreaterThan(0.16);
+    c.getPoll = () => press({ ...pad(), axes: [0.9, 0.9, 0, -0.9] }, PAD_BUTTONS.x);
+    c.update(1 / 60);
+    expect(traces[0]).toEqual([ax, ay]);
+    const aimsAfter = aims.length;
+    c.getPoll = () => press({ ...pad(), axes: [0.9, 0.9, 0, 0] }, PAD_BUTTONS.x);
+    for (let i = 0; i < 10; i++) c.update(1 / 60);
+    expect(aims.length).toBe(aimsAfter);
+    c.getPoll = () => pad();
+    c.update(1 / 60);
+    expect(calls[calls.length - 1]).toBe('end');
+
+    // With no rite ready (no rite known yet, conduit spent...), X interacts
+    // on the press, as before rites, and a long hold never swallows it.
+    let ready = false;
+    const idle = new GamepadController({ ...ctx, riteAvailable: () => ready });
+    calls.length = 0;
+    idle.getPoll = () => press(pad(), PAD_BUTTONS.x);
+    idle.update(1 / 60);
+    expect(calls).toEqual(['interact']);
+    for (let i = 0; i < 40; i++) idle.update(1 / 60);
+    idle.getPoll = () => pad();
+    idle.update(1 / 60);
+    expect(calls).toEqual(['interact']);
+    // A rite that stops being castable mid-hold leaves a tap: it interacts on release.
+    ready = true;
+    calls.length = 0;
+    idle.getPoll = () => press(pad(), PAD_BUTTONS.x);
+    idle.update(1 / 60);
+    ready = false;
+    for (let i = 0; i < 40; i++) idle.update(1 / 60);
+    idle.getPoll = () => pad();
+    idle.update(1 / 60);
+    expect(calls).toEqual(['interact']);
   });
 });

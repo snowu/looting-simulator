@@ -221,6 +221,30 @@ export interface ThrownProfile {
   groundSprite: string;
 }
 
+/**
+ * A conduit: an offhand that casts battle spells instead of guarding.
+ * See `src/data/conduit-spells.ts`. Its `attack` stat is the conduit's
+ * **Power**, read separately like a belt's — it never reaches your melee
+ * Attack, and your sword never makes a spell hit harder.
+ */
+export interface ConduitProfile {
+  /** Spells it holds loaded at once. */
+  slots: number;
+  /** Size of the shared charge pool. */
+  charges: number;
+  /** Seconds for one spent charge to grow back. */
+  regrow: number;
+  /** Art id of the casting hand's model while a spell is wound up. */
+  castViewmodel: string;
+  /**
+   * Share of the item's Attack that is its spell Power. Only a weapon that is
+   * also a conduit (the Stave) sets it: there the Attack is a real melee
+   * Attack as well, and the share is how much of it the spells see. Absent
+   * means the whole Attack is Power and none of it is melee.
+   */
+  power?: number;
+}
+
 export interface ItemBaseDef {
   id: string;
   name: string;
@@ -240,6 +264,8 @@ export interface ItemBaseDef {
    * never something you stab with, and you have a real weapon in hand for that.
    */
   thrown?: ThrownProfile;
+  /** Present on an offhand that casts rather than guards. */
+  conduit?: ConduitProfile;
   /** Stats at material tier 1. */
   base: Partial<Stats>;
   /** Added per material tier above 1. */
@@ -302,12 +328,12 @@ export interface AffixRoll {
   value: number;
 }
 
-export type ItemKind = 'equipment' | 'consumable' | 'material' | 'blueprint' | 'lore' | 'sigil';
+export type ItemKind = 'equipment' | 'consumable' | 'material' | 'blueprint' | 'lore' | 'sigil' | 'tome';
 
 /**
  * One inventory entry. `ref` points into the matching data table:
  * equipment → ITEM_BASES, consumable → CONSUMABLES, material → MATERIALS,
- * blueprint → RECIPES, lore → ENEMIES, sigil → SIGILS. Stats and names are derived, never
+ * blueprint → RECIPES, lore → ENEMIES, sigil → SIGILS, tome → CONDUIT_SPELLS. Stats and names are derived, never
  * stored.
  */
 export interface Item {

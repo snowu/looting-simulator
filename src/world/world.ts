@@ -1,7 +1,7 @@
 import { Rng, createRng, hashString } from '../core/rng';
 import { gold } from '../core/format';
 import { Dir, DIR_NAMES, DIRS, DX, DY, dirOf, turnAround, turnLeft, turnRight } from '../core/dir';
-import { DamageType, EnemyDef, EquipSlot, EQUIP_SLOTS, Item, SwingProfile } from '../types';
+import { DamageType, ELEMENTS, Element, EnemyDef, EquipSlot, EQUIP_SLOTS, Item, SwingProfile } from '../types';
 import { GameState, RunState } from '../state/game-state';
 import { addItem, canFit, findItem, freeSlots, removeItem, roomFor, takeQty } from '../state/inventory';
 import {
@@ -11,11 +11,17 @@ import {
 import { CACHE_MIN_GOLD, CRACK_BLOWS, CRACK_NOISE, CRACK_WEAR, Crack, SEAM_ORE } from '../data/walls';
 import {
   BULWARK_MULT, BULWARK_SOAK, BULWARK_WINDOW, EXECUTION_REFUND_MULT, KINDLING_AT, KINDLING_SPREAD, LAST_FLASK_MULT,
-  RETRIEVAL_MULT, RIPOSTE_MULT, RIPOSTE_WINDOW,
+  COUNTERCHARM_CHARGES, RETRIEVAL_MULT, RIPOSTE_MULT, RIPOSTE_WINDOW,
 } from '../data/properties';
 import { AttackMove, COMBO_BEAT, FEINT_AT, FEINT_HOLD, chooseMove, meleeReach, moveById } from '../data/attacks';
 import { quirkDef, quirkTimeScale } from '../data/quirks';
 import { applyQuirk } from '../systems/quirks';
+import { burningAt, chill, freezeFlood, ignite, oilBarrelAt, placeSurfaces, reachable, spillOil, splitsNothing, surfaceAt, surfaceKindAt, tickSurfaces } from '../systems/surfaces';
+import {
+  BURST_TICKS, FIRE_MONSTER_BASE, FIRE_MONSTER_PER_DEPTH, FIRE_PLAYER_BASE, FIRE_PLAYER_PER_DEPTH, FIRE_TICK, FLOOD_REACH,
+  FREEZE_SECONDS, PLAYER_FREEZE_SECONDS, PLAYER_SLIP_SECONDS, SLIP_SECONDS, SPORE_BLIND, SPORE_BURST_TICKS, Surface,
+  VENT_FLAMES, VENT_PERIOD_MAX, VENT_PERIOD_MIN, VENT_TICKS,
+} from '../data/surfaces';
 import { FORK_DEPTH, ROADS, ROAD_DEPTHS } from '../data/routes';
 import { SHADE_ID, placeShade } from '../systems/grave';
 import { LIGHTLESS_LIGHT, SEAL_FIND, sealDifficulty, sealFloorMods } from '../data/seals';
@@ -68,6 +74,7 @@ import {
   shrinePityFor,
   stairsAt,
   stairsFront,
+  tileAt,
   Trap,
   TrapKind,
   trapAt,
@@ -75,13 +82,14 @@ import {
 import { BOSS_ID, ENEMIES, enemyDef, enemyView, kingPhase, phaseForHp } from '../data/enemies';
 import { consumable, findConsumable, itemBase, viewmodelFor } from '../data/items';
 import { biomeForFloor, FINAL_DEPTH } from '../data/biomes';
-import { PlayerDerived, derivePlayer, thrownView } from '../systems/player';
+import { PlayerDerived, derivePlayer, spellView, thrownView } from '../systems/player';
 import { DifficultyId, DifficultyDef, difficultyOf } from '../data/difficulty';
 import { enemyHitsPlayer, playerHitsEnemy, staminaPower } from '../systems/combat';
 import { ContainerTier, LootRoll, durability, identify, isIdentified, itemName, makeMaterial, materialForDepth, rollContainerLoot, rollEnemyLoot, uniqueOf, wearItem } from '../systems/items';
 import { nameRelic } from '../systems/relics';
 import { recordDepth, recordKill } from '../systems/contracts';
 import {
+  bestiaryEntry,
   loreName,
   recordDamageDealt,
   recordDamageTaken,
@@ -94,6 +102,10 @@ import { Rarity } from '../types';
 import type { SfxName } from '../audio/sfx';
 import { SigilId, findSigil, sigil } from '../data/spells';
 import { makeSigil, unknownSigils } from '../systems/spells';
+import { BURN_SECONDS, BURN_SHARE, CHILL_SECONDS, ConduitSpellDef, HEX_SECONDS, WEAVE_REGROW, WEAVE_SECONDS, WEAVE_SHARE, conduitSpell, findConduitSpell } from '../data/conduit-spells';
+import { RITES, RITE_CARVING_DEPTH, RITE_KING_KNOWN, RITE_MILESTONES, ROAD_RITES, RiteDef, RiteId, findRite, rite, riteFloorChance } from '../data/rites';
+import { RiteGrade, TracePoint, recogniseRite } from '../systems/rite-draw';
+import { loadedSpells, makeTome, unknownConduitSpells } from '../systems/conduits';
 import { CHEW_SECONDS, DREGS_FRACTION, FLASK_POTENCY, MORSEL_HEAL, MORSEL_ROT_SECONDS, SIP_BUFFER_SECONDS, SIP_SECONDS, flaskMax, morselChance } from '../systems/healing';
 import { findMaterial } from '../data/materials';
 import { Draught, KINDLE_SECONDS, MARROW_SECONDS, WARD_SECONDS, draught } from '../systems/infusion';
@@ -110,6 +122,7 @@ export type WorldEvent =
   | { type: 'hurt'; amount: number; blocked: boolean }
   | { type: 'float'; x: number; y: number; text: string; color: string }
   | { type: 'shake'; amount: number }
+  | { type: 'rite'; rite: string; grade: RiteGrade; points: TracePoint[] }
   | { type: 'sigil'; r: number; g: number; b: number; strength: number }
   | { type: 'loot'; pickupId: string }
   | { type: 'floor' }
@@ -151,7 +164,50 @@ export interface Projectile {
   traveled?: number;
   player?: PlayerDerived;
   weaponUid?: string;
+  /** A battle spell from your conduit: it flies like a throw and lands nowhere. */
+  spell?: string;
 }
+
+/**
+ * A hitscan spell's mark, drawn where it struck and gone in a moment: Smite's
+ * streak of light, Hex's puff of violet smoke (also when a hex wears off).
+ * `miss` is the same mark at the end of the line when nothing was there.
+ * Never saved; the renderer reads them and the world ages them out.
+ */
+export interface SpellFx {
+  id: number;
+  /** A spell's mark, or a surface's: a spore cloud, a burst of fire. */
+  kind: 'smite' | 'poof' | 'spores' | 'blast' | 'meteor' | 'frost';
+  x: number;
+  y: number;
+  /** Seconds since it appeared. */
+  t: number;
+  miss?: boolean;
+  /** A rolled Meteor hit waiting for its falling star to land; never saved. */
+  meteor?: { target: EnemyState; damage: number; crit: boolean };
+  weak?: boolean;
+}
+
+/** How long each mark lasts, in seconds. */
+export const SPELL_FX_SECONDS: Record<SpellFx['kind'], number> = { smite: 0.55, poof: 0.7, spores: 0.9, blast: 0.6, meteor: 1.4, frost: 0.8 };
+export const METEOR_FALL_SECONDS = 0.45;
+export const METEOR_POWER_PER_CHARGE = 1.5;
+/** Judgement's holy fire on the living, per charge: below Meteor, since the undead are its point. */
+export const JUDGEMENT_POWER_PER_CHARGE = 1;
+/** Seconds Glacial Tomb holds what it catches; a sloppy trace holds half as long. */
+export const GLACIAL_TOMB_SECONDS = 5;
+/** Seconds it holds what is only in sight, outside your room: the room is the tomb. */
+export const GLACIAL_TOMB_SIGHT_SECONDS = 2.5;
+/**
+ * Judgement ends the undead outright only below this base health. The Hollow
+ * Knight and the Barrow Champion stand under it, as do elites and lieutenants,
+ * and take its holy fire at the undead's double instead.
+ */
+export const JUDGEMENT_SPARE_HP = 100;
+/** How far Glacial Tomb reaches beyond your room, down a clear line of sight. */
+export const RITE_SIGHT = 8;
+/** A botched Glacial Tomb holds you this long. */
+export const RITE_BOTCH_FREEZE = 2;
 
 type Move = 'forward' | 'back' | 'left' | 'right';
 type Action = Move | 'turnLeft' | 'turnRight';
@@ -182,6 +238,10 @@ export interface PlayerAnim {
   retrieving: { base: string; left: number; t: number } | null;
   attackRecovery: number;
   attackBase: string | null;
+  /** The battle spell this wind-up releases, if it is a cast rather than a swing or throw. */
+  attackSpell: string | null;
+  /** Weave: a landed spell's element riding on your next blow, and for how long. */
+  weave: { t: number; element: Element; amount: number } | null;
   attackWeaponUid: string | null;
   attackSnapshot: PlayerDerived | null;
   blockRaise: number;
@@ -245,8 +305,22 @@ const STAMINA_DELAY = 0.9;
  */
 const PARRY_WINDOW = 0.22;
 const PARRY_COOLDOWN = 0.75;
+/**
+ * An offhand conduit parries on a tighter window: it absorbs nothing, so the
+ * timing has to be the defense. Multiplies the window above (after difficulty).
+ */
+export const CONDUIT_PARRY_WINDOW = 0.6;
 /** Longest a touch may stay undecided between block and walk (s); see World.guardPending. */
 const GUARD_PENDING_MAX = 0.5;
+/**
+ * A rite being traced: the world runs at this fraction of its speed while
+ * the trace is open — a dramatic beat, not a free pause. Tracing is the
+ * only thing you can do meanwhile: everything else waits for the release.
+ */
+export const RITE_SLOWMO = 0.15;
+/** What it costs to finish a trace, win or lose: the stamina half of the price. */
+export const RITE_STAMINA = 25;
+export const RITE_CHARGE_COST = 2;
 /**
  * Opening a mimic, Dark Souls style: it snaps shut on you, chews for
  * MIMIC_GRAB seconds and bites once for MIMIC_BITE times its normal blow,
@@ -276,8 +350,16 @@ const CHEST_SPILL = 0.25;
 const CHEST_CLANG_RADIUS = 7;
 /** Base grace after a parry; Normal extends it through difficulty tuning. */
 const PARRY_GRACE = 0.75;
+/**
+ * How long a monster held back by Normal's attacker cap waits before it asks
+ * again. On the monsters' clock, so Normal's slower tempo stretches it too.
+ */
+const CROWD_WAIT = 0.35;
+/** Normal's mending: seconds unhurt before it starts, and share of max health per second. */
+const REST_DELAY = 5;
+const REST_RATE = 0.02;
 /** Crowd control after turning aside a melee blow. */
-const MELEE_PARRY_SPLASH_STUN = 0.25;
+const MELEE_PARRY_SPLASH_STUN = 0.5;
 /** How long a parried melee attacker is left open, and how much harder it takes hits. */
 const PARRY_STUN = 1;
 
@@ -338,14 +420,23 @@ const STAGGER_HP = 55;
  * cutscene.
  */
 const BOSS_PHASE_BEAT = 1.2;
-
 /**
- * What share of its health a guard comes back up with, and how many rise. They
- * came back wrong: a third of what they were is enough to be a problem while
- * you are trying to fight something else, without becoming the fight.
+ * The Dark's Shadow Step: how long the King is gone, and how often he goes.
+ * Gone means gone (a `lurk`): nothing strikes him and nothing is struck. A
+ * violet puff marks where he will come back for the whole of it, and he
+ * re-forms in the ambusher's recovery, so a step costs you your facing and
+ * never a free blow.
  */
-const RAISED_GUARD_HP = 0.3;
-const MAX_RAISED_GUARDS = 2;
+export const SHADOW_STEP_SECONDS = 0.8;
+export const SHADOW_STEP_EVERY = 6;
+/** The Last Stand's burning pitch: how often, and how long it lies before it catches. */
+export const PITCH_EVERY = 7;
+export const PITCH_FUSE = 1.2;
+/** He stoops to fling it, and the beat after is yours. */
+const PITCH_STOOP = 0.6;
+/** Neighbouring tiles the pitch reaches besides your own. Two of the four always stay clean. */
+const PITCH_SPREAD = 2;
+
 /** Compact button label for an interaction hint. */
 /** What a blow on a chest breaks first: gems, valuables, and anything in a flask or on a page. */
 function fragileLoot(it: Item): boolean {
@@ -369,6 +460,12 @@ function summarizeLost(lost: string[]): string {
     : n > 1 ? `${n}× ${l}` : l);
   if (gold) parts.push(`${gold} gold`);
   return parts.join(', ');
+}
+
+/** Whether a clean Judgement ends this undead outright, or only burns it. */
+export function judgementEnds(e: EnemyState): boolean {
+  const def = enemyDef(e.def);
+  return !!def.undead && def.behavior !== 'boss' && !e.elite && !e.lieutenant && def.hp < JUDGEMENT_SPARE_HP;
 }
 
 export function shortLabel(hint: string): string {
@@ -510,6 +607,14 @@ export const SHRINE_PROMPT: Record<ShrineKind, (cost: number) => string> = {
   combat: () => 'Challenge the ember shrine',
 };
 
+/**
+ * A spell tome's chance in a chest: a vault or secret room's is a real
+ * prospect, an ordinary chest's grows from nothing on depth 1 to 5% at depth 5.
+ */
+export function tomeChance(tier: string, depth: number): number {
+  return tier === 'vault' || tier === 'secret' ? 0.18 : 0.05 * clamp((depth - 1) / 4, 0, 1);
+}
+
 export class World {
   readonly state: GameState;
   readonly run: RunState;
@@ -517,6 +622,18 @@ export class World {
   private flavorRng: Rng;
   derived!: PlayerDerived;
   projectiles: Projectile[] = [];
+  /** Hitscan spell marks on screen right now. See `SpellFx`. */
+  spellFx: SpellFx[] = [];
+  /**
+   * A rite trace in progress: screen-normalised points (0..1 across the
+   * view) for the overlay to draw, and which rite is being traced. Null
+   * when no trace is open. The world runs slowed while one is (`RITE_SLOWMO`).
+   */
+  riteDraw: { rite: string | null; points: TracePoint[] } | null = null;
+  /** The King's own actions on cooldown, by enemy id. Never saved: a reload finds them ready. */
+  private kingCd = new Map<string, { step: number; pitch: number }>();
+  /** Burning pitch waiting to catch. Never saved: a reload finds it lying unlit. */
+  pitchFuses: { x: number; y: number; t: number }[] = [];
   events: WorldEvent[] = [];
   anim: PlayerAnim;
   held = new Set<Action | 'block'>();
@@ -549,7 +666,7 @@ export class World {
       fromX: this.run.player.x, fromY: this.run.player.y, moveT: 1, moveDur: STEP_TIME,
       yaw, yawFrom: yaw, yawTo: yaw, turnT: 1,
       attack: 'idle', attackT: 0, attackDur: 0, attackPower: 1, attackThrow: false, retrieving: null, attackRecovery: 0,
-      attackBase: null, attackWeaponUid: null, attackSnapshot: null,
+      attackBase: null, attackSpell: null, weave: null, attackWeaponUid: null, attackSnapshot: null,
       blockRaise: 0, blockT: Infinity, parryArmed: false, parryCd: 0,
       rangedParryT: 0, parryInvulnT: 0, stunT: 0, steps: 0, parryStacks: 0, chargeStacks: 0,
       sinceStamina: 10, windedCd: 0, recall: null, cast: null, snuffT: 0, unseenT: 0, riposteT: 0, riposteSwing: false, bulwarkT: 0, ward: null, transition: null,
@@ -624,6 +741,70 @@ export class World {
     this.player.hp = Math.min(this.player.hp, this.derived.maxHp);
     this.player.stamina = Math.min(this.player.stamina, this.derived.maxStamina);
     this.ensureThrownStock();
+    this.ensureConduit();
+  }
+
+  /**
+   * The charge pool lives on the run, not the item: it is filled the first
+   * time a conduit is worn on a delve and never again, so taking a wand off
+   * and putting it back on refills nothing. A smaller conduit just caps it.
+   */
+  private ensureConduit(): void {
+    const c = this.derived.conduit;
+    if (!c) return;
+    this.run.conduit ??= { charges: c.charges, regrow: 0, sel: 0 };
+    this.run.conduit.charges = Math.min(this.run.conduit.charges, c.charges);
+  }
+
+  /** The spells your conduit can cast right now, in cycling order. */
+  conduitSpells(): ConduitSpellDef[] {
+    const c = this.derived.conduit;
+    return c ? loadedSpells(this.state, c.slots).map(conduitSpell) : [];
+  }
+
+  /** The selected spell, kept in range of whatever is loaded. */
+  selectedSpell(): ConduitSpellDef | null {
+    const spells = this.conduitSpells();
+    if (!spells.length || !this.run.conduit) return null;
+    const sel = ((this.run.conduit.sel % spells.length) + spells.length) % spells.length;
+    return spells[sel];
+  }
+
+  /**
+   * Whether the selected spell can be paid for now: the pool covers it, or a
+   * blood-cast relic will take the shortfall in health without the last point.
+   */
+  spellReady(): boolean {
+    const spell = this.selectedSpell();
+    const pool = this.run.conduit;
+    if (!spell || !pool) return false;
+    const blood = this.bloodPrice(spell.charges - pool.charges);
+    return blood === 0 || (blood > 0 && blood < this.player.hp);
+  }
+
+  /** Health a cast short by `short` charges costs: 0 when not short, -1 when nothing will pay it. */
+  private bloodPrice(short: number): number {
+    if (short <= 0) return 0;
+    const rate = this.derived.traits.bloodCast;
+    return rate > 0 ? Math.max(1, Math.round(short * rate * this.derived.maxHp)) : -1;
+  }
+
+  /** Cycle to the next loaded spell. Free, and allowed mid-anything but death. */
+  nextSpell(): boolean {
+    const spells = this.conduitSpells();
+    if (!spells.length || !this.run.conduit) {
+      this.msg(this.derived.conduit ? 'No spells loaded. Load them at the forge\'s Spells bench.' : 'No conduit in your offhand.', '#888');
+      return false;
+    }
+    if (spells.length === 1) {
+      this.msg(`${spells[0].name} is the only spell loaded.`, '#888');
+      return false;
+    }
+    this.run.conduit.sel = (this.run.conduit.sel + 1) % spells.length;
+    const next = spells[this.run.conduit.sel];
+    this.msg(`${next.name} readied.`, next.color);
+    this.sfx('ui');
+    return true;
   }
 
   private ensureThrownStock(): void {
@@ -647,8 +828,8 @@ export class World {
     this.player.hp += healed;
     const overflow = Math.max(0, scaled - healed);
     if (overflow > 0) {
-      const flask = (this.run.flask ??= { charges: flaskMax(this.state.flask?.shards ?? 0), dregs: 0 });
-      const max = flaskMax(this.state.flask?.shards ?? 0);
+      const flask = (this.run.flask ??= { charges: flaskMax(this.state.flask?.shards ?? 0, this.diff.flaskBonus), dregs: 0 });
+      const max = flaskMax(this.state.flask?.shards ?? 0, this.diff.flaskBonus);
       const threshold = Math.max(1, this.derived.maxHp * DREGS_FRACTION);
       flask.dregs = Math.min(threshold, flask.dregs + overflow);
       if (flask.dregs >= threshold && flask.charges < max) {
@@ -676,6 +857,8 @@ export class World {
    * finding a font urgent rather than theoretical.
    */
   private wear(slot: EquipSlot, amount = 1): void {
+    // Normal: gear does not wear at all.
+    if (!this.diff.gearWears) return;
     const it = this.state.equipment[slot];
     if (this.run.curse === 'brittle') amount += 1;
     const oath = runOath(this.run, 'unbroken');
@@ -695,6 +878,26 @@ export class World {
     }
     this.refreshDerived();
   }
+
+  /**
+   * Normal's slow mending. After REST_DELAY seconds without losing health,
+   * with nothing on the floor hunting you, health creeps back up to
+   * `restHeal` of the maximum. Any lost health, from any source, restarts
+   * the wait. It never tops you up past the line, and never fights for you.
+   */
+  private restHeal(dt: number): void {
+    const p = this.player;
+    if (p.hp < this.restLastHp) this.restWait = 0;
+    else this.restWait += dt;
+    const cap = Math.round(this.derived.maxHp * this.diff.restHeal);
+    const hunted = this.floor.enemies.some((e) => e.ai !== 'dead' && !e.lurk && e.alert > 0);
+    if (!hunted && this.restWait >= REST_DELAY && p.hp > 0 && p.hp < cap) {
+      p.hp = Math.min(cap, p.hp + this.derived.maxHp * REST_RATE * dt);
+    }
+    this.restLastHp = p.hp;
+  }
+  private restWait = 0;
+  private restLastHp = Infinity;
 
   /** Armour wears where you were actually hit: one worn piece takes the scuff. */
   private wearArmour(): void {
@@ -754,6 +957,9 @@ export class World {
   // -------------------------------------------------------------------------
 
   press(a: Action): void {
+    // A trace holds your hands: drawing is the only thing you can do
+    // meanwhile, so a walk pressed mid-trace waits for the release.
+    if (this.riteDraw) return;
     this.held.add(a);
     this.queued = a;
   }
@@ -763,6 +969,7 @@ export class World {
   }
 
   setBlock(on: boolean): void {
+    if (on && this.riteDraw) return;
     if (on) this.confirmGuard();
     else this.guardPendingAt = null;
     this.guardFromTouch = false;
@@ -860,7 +1067,8 @@ export class World {
 
   /** Begin the flask commitment. The charge is spent only when the sip lands. */
   sipFlask(): boolean {
-    const flask = (this.run.flask ??= { charges: flaskMax(this.state.flask?.shards ?? 0), dregs: 0 });
+    const flask = (this.run.flask ??= { charges: flaskMax(this.state.flask?.shards ?? 0, this.diff.flaskBonus), dregs: 0 });
+    if (this.riteDraw) return false;
     if (this.player.hp >= this.derived.maxHp) {
       this.sipBuffered = 0;
       this.msg('You are already at full health.', '#888');
@@ -904,6 +1112,11 @@ export class World {
     // together, rather than being sprinkled over whichever systems remembered
     // to ask. Nothing hits harder on a fast floor; it only arrives sooner.
     dt *= quirkTimeScale(this.floor.quirk);
+    // A trace holds the world at a crawl: the beat lands, and the monsters
+    // you are drawing around barely move. Everything else reads the same
+    // dt, so the slowdown reaches the player, the monsters and the shafts
+    // together — including the run clock, which is the honest price of it.
+    if (this.riteDraw) dt *= RITE_SLOWMO;
     this.time += dt;
     if (this.run.outcome !== 'active') return;
     this.run.stats.time += dt;
@@ -973,6 +1186,13 @@ export class World {
     const wantGuard = this.held.has('block') && a.attack === 'idle' && !a.cast && a.stunT <= 0 && a.sip === null;
     const brokenGuard = wantGuard ? this.brokenGuardGear() : null;
     const wantBlock = wantGuard && !brokenGuard;
+    // A Wand or Rod guards nothing, so it only flicks up for the parry: it
+    // rises while the window is open, then lowers even while held. A tap
+    // flashes it; holding keeps nothing up. The fall is deliberately slower
+    // than a shield's, so the flick reads instead of twitching.
+    const parryOnly = this.derived.conduitHand === 'offhand';
+    const flickWindow = PARRY_WINDOW * this.diff.parryWindow * CONDUIT_PARRY_WINDOW * (a.ward ? 2 : 1);
+    const wantRaise = wantBlock && (!parryOnly || a.blockT <= flickWindow);
     a.parryCd = Math.max(0, a.parryCd - dt);
     if (wantBlock) {
       if (a.blockT === Infinity) {
@@ -987,7 +1207,7 @@ export class World {
       a.blockT = Infinity;
       a.parryArmed = false;
     }
-    a.blockRaise = clamp(a.blockRaise + (wantBlock ? dt : -dt) / 0.12, 0, 1);
+    a.blockRaise = clamp(a.blockRaise + (wantRaise ? dt : -dt) / (wantRaise ? 0.12 : parryOnly ? 0.3 : 0.12), 0, 1);
 
     // Refusing the guard says why, throttled like the winded cue: holding
     // block with a broken shield would otherwise fail in silence.
@@ -1020,6 +1240,7 @@ export class World {
         // set, one javelin put shafts in your hands for the rest of the delve
         // and your sword was never seen again.
         a.attackThrow = false;
+        a.attackSpell = null;
       }
     }
 
@@ -1074,7 +1295,9 @@ export class World {
       }
     }
 
-    // Stamina recovers; health never does on its own (flask, food, shrines and leech only).
+    // Stamina recovers; health never does on its own (flask, food, shrines and
+    // leech only) — except on Normal, which mends you slowly while nothing hunts you.
+    if (this.diff.restHeal > 0) this.restHeal(dt);
     a.windedCd = Math.max(0, a.windedCd - dt);
     a.sinceStamina += dt;
     if (a.sinceStamina > STAMINA_DELAY && a.attack === 'idle') {
@@ -1093,6 +1316,10 @@ export class World {
     }
 
     this.checkBossSeal();
+    this.updateConduit(dt);
+    this.updateAfflictions(dt);
+    this.updatePitch(dt);
+    this.updateSurfaces(dt);
     this.updateRetrieve(dt);
     this.updateEnemies(dt);
     this.updateProjectiles(dt);
@@ -1156,6 +1383,7 @@ export class World {
       this.springTrap(trap, null);
       if (this.run.outcome !== 'active') return;
     }
+    if (surfaceKindAt(f, p.x, p.y) === 'spores') this.sporePuff(p.x, p.y);
     const s = stairsAt(f, p.x, p.y);
     this.sfx(biomeForFloor(f).flooded && !s ? 'splash' : 'step');
     if (s) {
@@ -1238,7 +1466,9 @@ export class World {
       // nothing. Your Shade is placed afterwards and so stays your Shade
       // rather than becoming a cow, which is also what you want.
       applyQuirk(run.floors[run.depth - 1]!, run.seed, this.difficultyId);
+      placeSurfaces(run.floors[run.depth - 1]!, run.seed);
       this.placeHunterMark(run.floors[run.depth - 1]!);
+      this.placeRiteCarving(run.floors[run.depth - 1]!);
       this.placeLieutenant(run.floors[run.depth - 1]!);
       if (!run.shadePlaced && placeShade(this.state, run.floors[run.depth - 1]!, run.seed, this.difficultyId)) {
         run.shadePlaced = true;
@@ -1256,6 +1486,8 @@ export class World {
     const spot = stairsFront(arrive);
     this.placePlayer(spot.x, spot.y, spot.facing);
     this.projectiles = [];
+    this.spellFx = [];
+    this.pitchFuses = [];
     this.pathCache.clear();
     // A new floor means a new path: stale trail entries point at tiles on the
     // floor you just left, and a backstep within 2s of the stairs would read
@@ -1318,6 +1550,7 @@ export class World {
 
   private finish(outcome: 'dead' | 'extracted'): void {
     if (this.run.outcome !== 'active') return;
+    this.riteDraw = null; // an open trace ends with the run, unpaid
     this.run.outcome = outcome;
     this.emit({ type: 'end', outcome });
   }
@@ -1442,13 +1675,15 @@ export class World {
    * Is an attack arriving from (x, y) inside the parry window? The guard has to
    * have gone up in the last PARRY_WINDOW seconds and be facing the attack —
    * the same facing rule blocking uses, since a parry is a sharper block.
+   * An offhand conduit answers on a tighter window (CONDUIT_PARRY_WINDOW).
    */
   private parries(fromX: number, fromY: number): boolean {
     // A touch still deciding between block and walk counts from when it
     // landed: a tap timed to the wind-up parries like a key press would.
     this.confirmGuard();
     const a = this.anim;
-    const window = a.ward ? PARRY_WINDOW * 2 : PARRY_WINDOW;
+    const base = PARRY_WINDOW * this.diff.parryWindow * (this.derived.conduitHand === 'offhand' ? CONDUIT_PARRY_WINDOW : 1);
+    const window = a.ward ? base * 2 : base;
     if (!a.parryArmed || a.blockT > window) return false;
     return this.facingSource(fromX, fromY);
   }
@@ -1484,6 +1719,7 @@ export class World {
   /** Shared feedback for any parry: it should feel like a moment. */
   private parryFlourish(x: number, y: number): void {
     if (this.derived.traits.riposte) this.anim.riposteT = RIPOSTE_WINDOW;
+    if (this.derived.traits.countercharm) this.refundCharges(COUNTERCHARM_CHARGES);
     this.anim.blockT = Infinity;
     this.anim.parryArmed = false;
     this.sfx('parry', x, y);
@@ -1521,7 +1757,7 @@ export class World {
 
   attack(): void {
     const a = this.anim;
-    if (this.busy || a.attack !== 'idle' || a.stunT > 0 || a.cast) return;
+    if (this.busy || this.riteDraw || a.attack !== 'idle' || a.stunT > 0 || a.cast) return;
     // A swing has to be paid for in full. This used to clamp at zero and land
     // anyway at staminaPower's 40% floor, so a spent player could attack for
     // free forever. Gating on "any stamina at all" is not enough either: the
@@ -1569,7 +1805,7 @@ export class World {
    */
   hurl(): boolean {
     const a = this.anim;
-    if (this.busy || a.attack !== 'idle' || a.stunT > 0 || a.cast) return false;
+    if (this.busy || this.riteDraw || a.attack !== 'idle' || a.stunT > 0 || a.cast) return false;
     const thrown = this.derived.thrown;
     const base = this.state.equipment.thrown?.ref;
     if (!thrown || !base) {
@@ -1606,6 +1842,952 @@ export class World {
     a.blockRaise = 0;
     this.breakChannels();
     return true;
+  }
+
+  /**
+   * Cast the selected battle spell from the conduit in your offhand.
+   *
+   * It runs through the same wind-up and recovery a throw does, so it cannot
+   * be stacked on a swing, and it costs stamina from the bar you fight with
+   * as well as charges from the conduit's pool. Every refusal says why.
+   */
+  castSpell(): boolean {
+    const a = this.anim;
+    if (this.busy || this.riteDraw || a.attack !== 'idle' || a.stunT > 0 || a.cast) return false;
+    const conduit = this.derived.conduit;
+    if (!conduit) {
+      this.msg('No conduit in your offhand to cast with.', '#888');
+      return false;
+    }
+    const spell = this.selectedSpell();
+    const pool = this.run.conduit;
+    if (!spell || !pool) {
+      this.msg('No spells loaded. Load them at the forge\'s Spells bench.', '#888');
+      return false;
+    }
+    // Dr. Mantis Toboggan's Rod casts on credit: what the pool lacks is
+    // taken in health, but never the last point.
+    const blood = this.bloodPrice(spell.charges - pool.charges);
+    if (blood < 0 || blood >= this.player.hp) {
+      if (blood > 0) this.msg('The rod wants more of you than you have left.', '#c04050');
+      else {
+        const left = Math.ceil(conduit.regrow - pool.regrow);
+        this.msg(`Your conduit is spent — a charge returns in ${left}s.`, '#9a8fd8');
+      }
+      return false;
+    }
+    if (this.player.stamina < spell.stamina) {
+      if (a.windedCd <= 0) {
+        a.windedCd = 1.6;
+        this.sfx('winded');
+      }
+      return false;
+    }
+    if (blood > 0) {
+      this.player.hp -= blood;
+      this.emit({ type: 'float', x: this.player.x, y: this.player.y, text: `-${blood}`, color: '#c04050' });
+      this.sfx('hurt');
+    }
+    a.attackPower = staminaPower(this.player.stamina, this.derived.maxStamina);
+    this.player.stamina = Math.max(0, this.player.stamina - spell.stamina);
+    pool.charges = Math.max(0, pool.charges - spell.charges);
+    a.sinceStamina = 0;
+    a.attack = 'windup';
+    a.attackT = 0;
+    a.attackThrow = false;
+    a.attackSpell = spell.id;
+    a.attackBase = null;
+    a.attackWeaponUid = (this.derived.conduitHand === 'weapon' ? this.state.equipment.weapon : this.state.equipment.offhand)?.uid ?? null;
+    a.attackSnapshot = spellView(this.derived, spell);
+    a.attackRecovery = spell.recovery;
+    a.attackDur = spell.windup;
+    a.blockRaise = 0;
+    this.sfx('magic');
+    this.breakChannels();
+    return true;
+  }
+
+  // -------------------------------------------------------------------------
+  // Rites
+  // -------------------------------------------------------------------------
+
+  /** The rites you know, in the order the tablet lists them. */
+  knownRites(): RiteDef[] {
+    const known = this.state.ritesKnown ?? [];
+    return RITES.filter((r) => known.includes(r.id));
+  }
+
+  /**
+   * Whether the trace input may open right now. A rite needs a conduit with
+   * two charges to burn, breath, and free hands. Every refusal says why,
+   * like a cast's. With no id, any rite you know will do: the drawing
+   * decides which one it was.
+   */
+  riteReady(id?: string): boolean {
+    if (id ? !findRite(id) : false) return false;
+    if (id ? !(this.state.ritesKnown ?? []).includes(id) : !this.knownRites().length) {
+      this.msg(id ? 'You know no such rite. Its carving is still out there.' : 'You know no rite yet. Their carvings are still out there.', '#888');
+      return false;
+    }
+    if (!this.riteAvailable(id)) {
+      const pool = this.run.conduit;
+      if (!this.derived.conduit || !pool || pool.charges < RITE_CHARGE_COST) {
+        this.msg(`A rite needs ${RITE_CHARGE_COST} conduit charges. They recover between casts.`, '#9a8fd8');
+      } else if (this.player.stamina < RITE_STAMINA) {
+        this.msg(`Not enough breath for a rite — ${RITE_STAMINA} needed.`, '#ff9070');
+      } else if (!this.riteDraw) {
+        this.msg('Your hands are busy — the rite waits for them.', '#888');
+      }
+      return false;
+    }
+    return true;
+  }
+
+  /** The same check with nothing to say: for buttons deciding whether to show. */
+  riteAvailable(id?: string): boolean {
+    if (id ? !findRite(id) || !(this.state.ritesKnown ?? []).includes(id) : !this.knownRites().length) return false;
+    // Mid-stride is fine: the step finishes in the slowed world, and no new
+    // one starts until the release (see beginRiteDraw).
+    if (this.riteDraw || this.busy || this.anim.attack !== 'idle' || this.anim.cast || this.anim.stunT > 0) return false;
+    const pool = this.run.conduit;
+    if (!this.derived.conduit || !pool || pool.charges < RITE_CHARGE_COST) return false;
+    if (this.player.stamina < RITE_STAMINA) return false;
+    return true;
+  }
+
+  /**
+   * Open the trace: the world slows and the overlay draws what follows.
+   * Hands and feet stop until the release, so opening one mid-stride is
+   * safe — the step you were taking is simply forgotten. An id pins the
+   * trace to that one rite (the lab, and tests); without one, the mark is
+   * read against every rite you know when it closes.
+   */
+  beginRiteDraw(id?: string): boolean {
+    if (this.riteDraw || !this.riteReady(id)) return false;
+    this.riteDraw = { rite: id ?? null, points: [] };
+    this.held.clear();
+    this.setBlock(false);
+    this.breakChannels();
+    this.sfx('sigil');
+    return true;
+  }
+
+  /** One sampled point of the trace, in 0..1 across the view. */
+  addRitePoint(x: number, y: number): void {
+    const draw = this.riteDraw;
+    if (!draw || !Number.isFinite(x) || !Number.isFinite(y)) return;
+    // Thin long strokes instead of silently cutting off their final legs. In
+    // place: the trace's fire knows a stroke by its array, and a new array
+    // would read as a new stroke and wipe it mid-draw.
+    const pts = draw.points;
+    if (pts.length >= 1024) {
+      let keep = 0;
+      for (let i = 0; i < pts.length; i++) if (i % 2 === 0 || i === pts.length - 1) pts[keep++] = pts[i];
+      pts.length = keep;
+    }
+    const last = draw.points[draw.points.length - 1];
+    if (last && Math.hypot(x - last.x, y - last.y) < 0.004) return;
+    draw.points.push({ x, y });
+  }
+
+  /** Drop an open trace unpaid: menus, pauses and mode changes take it, never the rite. */
+  cancelRiteDraw(): void {
+    this.riteDraw = null;
+  }
+
+  /** The rites an open trace is read against: the pinned one, else all you know. */
+  riteCandidates(draw: { rite: string | null } | null = this.riteDraw): RiteDef[] {
+    if (!draw) return [];
+    const pinned = findRite(draw.rite);
+    return pinned ? [pinned] : this.knownRites();
+  }
+
+  /**
+   * Close the trace and pay for it. The stamina and two charges burn
+   * whatever the trace grades — a botch backfires on top, it never refunds.
+   */
+  endRiteDraw(): boolean {
+    const draw = this.riteDraw;
+    this.riteDraw = null;
+    if (!draw || draw.points.length === 0) return false;
+    // A run that ended mid-trace (killed while the world was slowed) casts
+    // nothing: the trace is dropped unpaid, and a botch cannot lift the dead.
+    if (this.run.outcome !== 'active' || this.player.hp <= 0) return false;
+    const read = recogniseRite(draw.points, this.riteCandidates(draw));
+    if (!read) return false;
+    const pool = this.run.conduit;
+    if (!pool || pool.charges < RITE_CHARGE_COST) return false;
+    this.player.stamina = Math.max(0, this.player.stamina - RITE_STAMINA);
+    this.anim.sinceStamina = 0;
+    const charges = RITE_CHARGE_COST;
+    pool.charges -= charges;
+    pool.regrow = 0;
+    const { def, grade } = read;
+    this.events.push({ type: 'rite', rite: def.id, grade, points: draw.points.map(p => ({ ...p })) });
+    if (grade === 'botch') {
+      this.msg(`The ${def.name} turns in your hands!`, '#ff6a50');
+      this.botchedRite(def);
+      return true;
+    }
+    if (def.id === 'glacial_tomb') this.castGlacialTomb(def, grade);
+    else if (def.id === 'judgement') this.castJudgement(def, grade, charges);
+    else if (def.id === 'penguining') this.castPenguining(def, grade);
+    else this.castMeteor(def, grade, charges);
+    return true;
+  }
+
+  /** The monsters a rite falls on: your room, or what is close when the stone has no walls. */
+  private riteTargets(): EnemyState[] {
+    // A King mid Shadow Step is nowhere to be struck.
+    const live = this.floor.enemies.filter((e) => e.ai !== 'dead' && e.lurk !== 'shadow');
+    const room = this.floor.rooms.find((r) => inRoom(r, this.player.x, this.player.y));
+    if (room) return live.filter((e) => inRoom(room, e.x, e.y));
+    return live.filter((e) => manhattan(e.x, e.y, this.player.x, this.player.y) <= 4 && this.los(this.player.x, this.player.y, e.x, e.y));
+  }
+
+  /** Glacial Tomb's reach: the room, and anything else you can see down a corridor. */
+  private riteSightTargets(): EnemyState[] {
+    const room = this.riteTargets();
+    const seen = this.floor.enemies.filter((e) => e.ai !== 'dead' && !room.includes(e)
+      && manhattan(e.x, e.y, this.player.x, this.player.y) <= RITE_SIGHT && this.los(this.player.x, this.player.y, e.x, e.y));
+    return [...room, ...seen];
+  }
+
+  /** Where a rite that found nothing still shows itself: two tiles ahead, else one, else here. */
+  private riteEmptyTile(): { x: number; y: number } {
+    let tile = this.frontTile(2);
+    if (blocksMove(this.floor, tile.x, tile.y) || this.crossesBossBoundary(this.player.x, this.player.y, tile.x, tile.y)) tile = this.frontTile();
+    if (blocksMove(this.floor, tile.x, tile.y) || this.crossesBossBoundary(this.player.x, this.player.y, tile.x, tile.y)) tile = this.player;
+    return tile;
+  }
+
+  /** Each spent charge contributes to the skyfall; damage lands with the impact. */
+  private castMeteor(def: RiteDef, grade: RiteGrade, charges: number): void {
+    const meteor = { ...conduitSpell('ember_bolt'), power: METEOR_POWER_PER_CHARGE * charges * (grade === 'weak' ? 0.5 : 1) };
+    const view = spellView(this.derived, meteor);
+    const targets = this.riteTargets().filter(e => !this.protectedByFog(e));
+    for (const e of targets) {
+      const enemy = this.view(e);
+      const hit = playerHitsEnemy(this.rng, view, 1, enemy, defensePower(e.power) * this.diff.enemyDefense);
+      this.spellFx.push({ id: this.projN++, kind: 'meteor', x: e.x, y: e.y, t: 0,
+        weak: grade === 'weak', meteor: { target: e, damage: hit.damage, crit: hit.crit } });
+    }
+    if (!targets.length) {
+      // Empty-room tests still show the skyfall; no creature means no damage.
+      const tile = this.riteEmptyTile();
+      this.spellFx.push({ id: this.projN++, kind: 'meteor', x: tile.x, y: tile.y, t: 0, weak: grade === 'weak' });
+      this.msg(`${def.name} falls on empty stone.`, '#888');
+    }
+    this.weaveFrom(meteor);
+    this.sfx('magic');
+    this.emit({ type: 'float', x: this.player.x, y: this.player.y, text: grade === 'weak' ? 'Meteor, thinly!' : 'Meteor!', color: def.color });
+    this.msg(grade === 'weak' ? 'The trace wavers: a thin meteor answers.' : `The sky answers: ${charges} charges fall as fire.`, def.color);
+  }
+
+  /**
+   * Glacial Tomb: everything in sight is held in ice. The frost reaches each
+   * tile as a Rime Lance's would — water freezes, fire goes out — and the
+   * King, who breaks free of ice at once, is only slowed.
+   */
+  private castGlacialTomb(def: RiteDef, grade: RiteGrade): void {
+    const scale = grade === 'weak' ? 0.5 : 1;
+    const room = this.riteTargets();
+    const targets = this.riteSightTargets().filter(e => !this.protectedByFog(e));
+    let held = 0;
+    for (const e of targets) {
+      const seconds = (room.includes(e) ? GLACIAL_TOMB_SECONDS : GLACIAL_TOMB_SIGHT_SECONDS) * scale;
+      this.addSpellFx('frost', e.x, e.y);
+      this.elementReaches(e.x, e.y, 'frost');
+      if (e.ai === 'dead') continue;
+      if (enemyDef(e.def).behavior === 'boss') {
+        e.chillT = Math.max(e.chillT ?? 0, CHILL_SECONDS);
+        this.emit({ type: 'float', x: e.x, y: e.y, text: 'chilled', color: def.color });
+        this.msg('The ice cannot hold the King, but it slows him.', def.color);
+        continue;
+      }
+      // A penguin is harmless already: the ice leaves it waddling.
+      if ((e.hexT ?? 0) > 0) continue;
+      this.freeze(e, seconds, true);
+      e.alert = Math.max(e.alert, 8);
+      held++;
+    }
+    if (!targets.length) {
+      const tile = this.riteEmptyTile();
+      this.addSpellFx('frost', tile.x, tile.y);
+      this.elementReaches(tile.x, tile.y, 'frost');
+      this.msg(`${def.name} closes on empty air.`, '#888');
+    } else if (held) {
+      this.msg(grade === 'weak'
+        ? `The trace wavers: thin ice holds ${held === 1 ? 'it' : `all ${held}`} for a moment.`
+        : `Ice closes over ${held === 1 ? 'it' : `all ${held} of them`}. Nothing moves.`, def.color);
+    }
+    this.weaveFrom(conduitSpell('rime_lance'));
+    this.sfx('block');
+    this.emit({ type: 'float', x: this.player.x, y: this.player.y, text: grade === 'weak' ? 'Thin ice!' : 'Glacial Tomb!', color: def.color });
+  }
+
+  /**
+   * Judgement: a pillar of light on everything in the room. A clean trace
+   * ends the ordinary undead outright, and what it ends stays down; the great
+   * ones (see `judgementEnds`) and a sloppy trace's undead are struck twice as
+   * hard as the living instead. The living take holy fire, which no raised
+   * shield turns. The King is struck, never ended.
+   */
+  private castJudgement(def: RiteDef, grade: RiteGrade, charges: number): void {
+    const light = { ...conduitSpell('smite'), power: JUDGEMENT_POWER_PER_CHARGE * charges * (grade === 'weak' ? 0.5 : 1) };
+    const view = spellView(this.derived, light);
+    const targets = this.riteTargets().filter(e => !this.protectedByFog(e));
+    let ended = 0, stood = 0;
+    for (const e of targets) {
+      const stat = enemyDef(e.def);
+      this.addSpellFx('smite', e.x, e.y);
+      if ((e.eating ?? 0) > 0) e.eating = undefined;
+      e.alert = 8;
+      e.lastSeenX = this.player.x;
+      e.lastSeenY = this.player.y;
+      if (grade === 'full' && judgementEnds(e)) {
+        const dealt = Math.max(1, e.hp);
+        this.hurt(e, dealt, 'Judged', def.color);
+        recordDamageDealt(this.state.bestiary, this.view(e).id, dealt);
+        this.markRemains(e, 'sanctified');
+        this.killEnemy(e);
+        ended++;
+        continue;
+      }
+      const hit = playerHitsEnemy(this.rng, view, 1, this.view(e), defensePower(e.power) * this.diff.enemyDefense);
+      if (stat.undead) hit.damage *= 2;
+      this.hurt(e, hit.damage, hit.crit ? `${hit.damage}!` : `${hit.damage}`, hit.crit ? '#ffe040' : def.color);
+      recordDamageDealt(this.state.bestiary, this.view(e).id, hit.damage);
+      if (e.hp <= 0) {
+        this.markRemains(e, 'sanctified');
+        this.killEnemy(e);
+        if (stat.undead) ended++;
+      } else if (stat.undead && grade === 'full' && stat.behavior !== 'boss') stood++;
+    }
+    if (!targets.length) {
+      const tile = this.riteEmptyTile();
+      this.addSpellFx('smite', tile.x, tile.y);
+      this.msg(`${def.name} finds no one to judge.`, '#888');
+    } else if (ended) {
+      this.msg(`The light ends ${ended === 1 ? 'the dead thing' : `${ended} dead things`}. They will stay down.`, def.color);
+      if (stood) this.msg(stood === 1 ? 'One stands under it, burning.' : `${stood} stand under it, burning.`, def.color);
+    } else if (stood) {
+      this.msg(stood === 1 ? 'The dead thing stands under the light, burning.' : `${stood} dead things stand under the light, burning.`, def.color);
+    } else {
+      this.msg(grade === 'weak' ? 'The trace wavers: the light comes down thin.' : 'Light comes down on the room.', def.color);
+    }
+    this.weaveFrom(light);
+    this.sfx('magic');
+    this.emit({ type: 'float', x: this.player.x, y: this.player.y, text: grade === 'weak' ? 'Judgement, thinly!' : 'Judgement!', color: def.color });
+  }
+
+  /**
+   * The Great Penguining: Hex, on the whole room at once. Those who refuse a
+   * hex refuse this; a sloppy trace wears off in half the time.
+   */
+  private castPenguining(def: RiteDef, grade: RiteGrade): void {
+    const seconds = grade === 'weak' ? HEX_SECONDS / 2 : HEX_SECONDS;
+    const targets = this.riteTargets().filter(e => !this.protectedByFog(e));
+    let birds = 0;
+    for (const e of targets) {
+      if (this.polymorph(e, seconds, def.color, true) !== 'refused') birds++;
+    }
+    if (!targets.length) {
+      const tile = this.riteEmptyTile();
+      this.addSpellFx('poof', tile.x, tile.y, true);
+      this.msg(`${def.name} finds no one to make a penguin of.`, '#888');
+    } else if (birds) {
+      this.msg(birds === 1 ? 'It is a penguin.' : `${birds} monsters are penguins. The room waddles.`, def.color);
+    }
+    this.weaveFrom(conduitSpell('hex'));
+    this.sfx('magic');
+    this.emit({ type: 'float', x: this.player.x, y: this.player.y, text: grade === 'weak' ? 'Penguins, briefly!' : 'Penguins!', color: def.color });
+  }
+
+  private landMeteor(fx: SpellFx): void {
+    const pending = fx.meteor;
+    delete fx.meteor;
+    // Nothing lands across the living throne boundary, not even the fire on
+    // the tile: the one guard for target and tile alike.
+    if (pending && this.protectedByFog(pending.target)) return;
+    // Impacts use the same elemental reaction path as bolts and burning feet.
+    this.elementReaches(fx.x, fx.y, 'fire');
+    if (!pending || pending.target.ai === 'dead') return;
+    const { target: e, damage, crit } = pending;
+    this.hurt(e, damage, crit ? `${damage}!` : `${damage}`, crit ? '#ffe040' : '#ff9a50');
+    e.alert = 8;
+    e.lastSeenX = this.player.x;
+    e.lastSeenY = this.player.y;
+    recordDamageDealt(this.state.bestiary, this.view(e).id, damage);
+    if (damage > 0) e.burn = { t: BURN_SECONDS, left: (e.burn?.left ?? 0) + Math.max(1, Math.round(damage * BURN_SHARE)), acc: e.burn?.acc ?? 0 };
+    if (e.hp <= 0) this.killEnemy(e);
+    else this.slip(e);
+  }
+
+  /**
+   * A botched trace turns on you, in the element of the mark it came
+   * closest to: fire falls on your own tile, frost holds you fast, the light
+   * judges you, and shadow drinks what the conduit had left.
+   */
+  private botchedRite(def: RiteDef = rite('meteor')): void {
+    const full = 20 + this.run.depth * 2;
+    const dmg = def.element === 'fire' || def.element === 'holy' ? full : Math.round(full / 2);
+    this.sfx('hurt');
+    this.emit({ type: 'shake', amount: 0.6 });
+    this.emit({ type: 'float', x: this.player.x, y: this.player.y, text: `-${dmg}`, color: '#ff6a50' });
+    this.player.hp = Math.max(1, this.player.hp - dmg);
+    if (def.element === 'frost') {
+      this.anim.stunT = Math.max(this.anim.stunT, RITE_BOTCH_FREEZE);
+      this.addSpellFx('frost', this.player.x, this.player.y);
+      this.msg('The ice closes over you instead.', def.color);
+    } else if (def.element === 'shadow') {
+      const pool = this.run.conduit;
+      if (pool) {
+        pool.charges = 0;
+        pool.regrow = 0;
+      }
+      this.addSpellFx('poof', this.player.x, this.player.y);
+      this.msg('The shadow drinks your conduit dry.', def.color);
+    } else if (def.element === 'holy') {
+      this.addSpellFx('smite', this.player.x, this.player.y);
+      this.msg('The light comes down on you. You are found wanting.', def.color);
+    }
+  }
+
+  private launchSpell(id: string): void {
+    const spell = findConduitSpell(id);
+    const snapshot = this.anim.attackSnapshot;
+    if (!spell || !snapshot) return;
+    if (spell.hitscan) {
+      this.castHitscan(spell, snapshot);
+      return;
+    }
+    this.projectiles.push({
+      id: this.projN++, x: this.player.x + 0.5, y: this.player.y + 0.5,
+      dx: DX[this.player.facing], dy: DY[this.player.facing], speed: spell.speed,
+      damage: this.anim.attackPower, type: spell.element, sprite: spell.sprite, light: spell.light,
+      tileX: this.player.x, tileY: this.player.y, source: 'your spell',
+      thrownRange: spell.range, traveled: 0, player: snapshot, weaponUid: this.anim.attackWeaponUid ?? undefined,
+      spell: spell.id,
+    });
+    this.sfx('shoot');
+  }
+
+  /**
+   * Smite and Hex: no bolt. The spell lands the moment the cast releases, on
+   * the first monster down your line within its range. A wall or the King's
+   * threshold stops the line as it stops a bolt. With nothing there, the mark
+   * flickers out at the end of the line so a miss is still something you saw.
+   */
+  private castHitscan(spell: ConduitSpellDef, snapshot: PlayerDerived): void {
+    let prev = { x: this.player.x, y: this.player.y };
+    for (let d = 1; d <= spell.range; d++) {
+      const t = this.frontTile(d);
+      if (blocksSight(this.floor, t.x, t.y) || this.crossesBossBoundary(prev.x, prev.y, t.x, t.y)) break;
+      const foe = enemyAt(this.floor, t.x, t.y);
+      if (foe) {
+        this.spellLands(spell, foe, snapshot, this.anim.attackPower);
+        return;
+      }
+      prev = t;
+    }
+    if (prev.x !== this.player.x || prev.y !== this.player.y) this.addSpellFx(spell.id === 'hex' ? 'poof' : 'smite', prev.x, prev.y, true);
+    this.msg(`${spell.name} finds nothing to strike.`, '#888');
+    this.sfx('break', prev.x, prev.y);
+  }
+
+  private addSpellFx(kind: SpellFx['kind'], x: number, y: number, miss = false): void {
+    this.spellFx.push({ id: this.projN++, kind, x, y, t: 0, ...(miss ? { miss } : {}) });
+  }
+
+  /** A battle bolt arriving. */
+  private spellHit(pr: Projectile, e: EnemyState): void {
+    const spell = findConduitSpell(pr.spell);
+    if (spell) this.spellLands(spell, e, pr.player ?? this.derived, pr.damage);
+  }
+
+  /** A battle spell landing: the hit, its rider, and the weave it leaves on your blade. */
+  private spellLands(spell: ConduitSpellDef, e: EnemyState, player: PlayerDerived, power: number): void {
+    if (this.protectedByFog(e)) return;
+    const def = this.view(e);
+    if ((e.eating ?? 0) > 0) e.eating = undefined;
+    if (spell.id === 'hex') {
+      if (this.hexLands(spell, e)) this.weaveFrom(spell);
+      return;
+    }
+    // A raised shield takes a spell the way it takes a shaft: on the guard.
+    // Smite comes down from above, where no shield is held.
+    const reaction = spell.id === 'smite' ? null : this.guardReaction(e, def);
+    if (reaction) {
+      this.shieldChip(e, def, 1, power, player);
+      return;
+    }
+    if (spell.id === 'smite') this.addSpellFx('smite', e.x, e.y);
+    const hit = playerHitsEnemy(this.rng, player, power, def, defensePower(e.power) * this.diff.enemyDefense);
+    const exposed = !!e.vuln && e.vuln > 0;
+    if (exposed) hit.damage = Math.round(hit.damage * PARRY_VULN_MULT);
+    this.hurt(e, hit.damage, hit.crit || exposed ? `${hit.damage}!` : `${hit.damage}`, hit.crit ? '#ffe040' : hit.effective === 'resist' ? '#9a9aa8' : spell.color);
+    e.alert = 8;
+    e.lastSeenX = this.player.x;
+    e.lastSeenY = this.player.y;
+    recordDamageDealt(this.state.bestiary, def.id, hit.damage);
+    this.sfx(hit.crit ? 'crit' : 'hit', e.x, e.y);
+    if (player.stats.leech > 0) this.heal(Math.max(1, Math.round(hit.damage * player.stats.leech / 100)), 'leech');
+    if (spell.id === 'ember_bolt' && hit.damage > 0) {
+      const total = Math.max(1, Math.round(hit.damage * BURN_SHARE));
+      e.burn = { t: BURN_SECONDS, left: (e.burn?.left ?? 0) + total, acc: e.burn?.acc ?? 0 };
+    }
+    if (spell.id === 'rime_lance' && def.behavior !== 'boss') e.chillT = CHILL_SECONDS;
+    this.weaveFrom(spell);
+    if (e.hp <= 0) {
+      // Holy light from above: what Smite kills stays down.
+      if (spell.id === 'smite') this.markRemains(e, 'sanctified');
+      if (this.derived.traits.requiem) this.refundCharges(spell.charges);
+      this.killEnemy(e);
+    } else this.slip(e);
+  }
+
+  /** Put charges back in the worn conduit's pool, never past full. */
+  private refundCharges(n: number): void {
+    const pool = this.run.conduit, c = this.derived.conduit;
+    if (pool && c) pool.charges = Math.min(c.charges, pool.charges + n);
+  }
+
+  /** Weave: a landed spell's element now rides on your next blow. */
+  private weaveFrom(spell: ConduitSpellDef): void {
+    this.anim.weave = { t: WEAVE_SECONDS, element: spell.element, amount: Math.round(this.derived.conduitPower * WEAVE_SHARE) };
+  }
+
+  /**
+   * Hex: the monster is a penguin for `HEX_SECONDS`. Whatever it was in the
+   * middle of stops — a wind-up, a flurry, a chant over a corpse, a mimic's
+   * grip on you — and it waddles until the spell runs out (`updateHexed`).
+   * Damage does not break it. The King and the floor lieutenants refuse it,
+   * and a refusal gives the charges back: you could not have known until it
+   * landed, and the stamina is price enough.
+   */
+  private hexLands(spell: ConduitSpellDef, e: EnemyState): boolean {
+    if (this.polymorph(e, HEX_SECONDS, spell.color) !== 'refused') return true;
+    this.refundCharges(spell.charges);
+    return false;
+  }
+
+  /** The penguin itself, for Hex and the Great Penguining alike. `quiet` leaves the telling to the rite. */
+  private polymorph(e: EnemyState, seconds: number, color: string, quiet = false): 'refused' | 'fresh' | 'again' {
+    const def = enemyDef(e.def);
+    const refused = def.behavior === 'boss' || !!e.lieutenant;
+    this.addSpellFx('poof', e.x, e.y, refused);
+    if (refused) {
+      this.msg(def.behavior === 'boss' ? 'The King will not be made a fool of. The hex slides off him.' : `The ${def.name} shrugs the hex off.`, '#c8a0ff');
+      this.sfx('break', e.x, e.y);
+      return 'refused';
+    }
+    const fresh = !(e.hexT && e.hexT > 0);
+    e.hexT = Math.max(e.hexT ?? 0, seconds);
+    if (e.ai === 'windup' || e.ai === 'recover' || e.ai === 'flee') e.ai = 'wander';
+    delete e.move;
+    delete e.feintT;
+    delete e.feinted;
+    delete e.comboLeft;
+    delete e.comboT;
+    delete e.channel;
+    if ((e.frozenT ?? 0) > 0) delete e.frozenT;
+    if ((e.grabT ?? 0) > 0) {
+      delete e.grabT;
+      this.msg('It lets go. Penguins cannot hold on to anything.', '#c8a0ff');
+    }
+    e.guard = 'down';
+    e.alert = Math.max(e.alert, 6);
+    if (!quiet) {
+      if (fresh) this.msg(`The ${def.name} is a penguin.`, color);
+      else this.msg(`The penguin stays a penguin a while longer.`, color);
+    }
+    this.sfx('magic', e.x, e.y);
+    return fresh ? 'fresh' : 'again';
+  }
+
+  /** The hex runs out: a puff of smoke, and it is itself, awake and close. */
+  private unhex(e: EnemyState): void {
+    delete e.hexT;
+    this.addSpellFx('poof', e.x, e.y);
+    this.msg(`The ${enemyDef(e.def).name} is itself again.`, '#c8a0ff');
+    this.sfx('magic', e.x, e.y);
+    e.ai = manhattan(e.x, e.y, this.player.x, this.player.y) <= 6 ? 'chase' : 'idle';
+    e.alert = Math.max(e.alert, 6);
+    e.attackCd = Math.max(e.attackCd, 0.8);
+  }
+
+  /**
+   * A penguin's turn: no attack, no guard, no chant, no theft, no flight.
+   * It waddles about a step at a time, near enough at random, and when the
+   * hex runs out it is itself again, wide awake and close to you.
+   */
+  private updateHexed(e: EnemyState, dt: number): void {
+    e.guard = 'down';
+    e.ai = 'wander';
+    if (this.rng.chance(dt / 0.8)) {
+      const steps = DIRS.map((d) => [e.x + DX[d], e.y + DY[d]] as [number, number]).filter(([x, y]) => this.canStep(e, x, y));
+      if (steps.length) {
+        const [x, y] = this.rng.pick(steps);
+        this.stepEnemy(e, x, y);
+      }
+    }
+  }
+
+  /** Burns tick down and chills wear off. Run every frame over the floor. */
+  private updateAfflictions(dt: number): void {
+    for (const e of this.floor.enemies) {
+      if (e.ai === 'dead') {
+        if (e.burn) delete e.burn;
+        if (e.chillT !== undefined) delete e.chillT;
+        if (e.hexT !== undefined) delete e.hexT;
+        if (e.frozenT !== undefined) delete e.frozenT;
+        continue;
+      }
+      // The hex runs on the world's clock, not the penguin's: it counts down
+      // through every step it waddles, which the AI tick skips.
+      if (e.hexT !== undefined) {
+        e.hexT -= dt;
+        if (e.hexT <= 0) this.unhex(e);
+      }
+      if (e.frozenT !== undefined) {
+        e.frozenT -= dt;
+        if (e.frozenT <= 0) delete e.frozenT;
+      }
+      if (e.chillT !== undefined) {
+        e.chillT -= dt;
+        // A wind-up begun chilled runs to its end chilled, or its tell would
+        // jump forward the instant the frost wore off.
+        if (e.chillT <= 0) {
+          if (e.ai === 'windup') e.chillT = 0.01;
+          else delete e.chillT;
+        }
+      }
+      const burn = e.burn;
+      if (!burn) continue;
+      const step = Math.min(burn.left, (burn.left / Math.max(dt, burn.t)) * dt);
+      burn.t -= dt;
+      burn.left -= step;
+      burn.acc += step;
+      const whole = Math.floor(burn.acc);
+      if (whole >= 1 && !this.protectedByFog(e)) {
+        burn.acc -= whole;
+        this.hurt(e, whole, `${whole}`, '#ff9a50');
+        recordDamageDealt(this.state.bestiary, enemyDef(e.def).id, whole);
+      }
+      if (burn.t <= 0 || burn.left <= 0) delete e.burn;
+      if (e.hp <= 0) this.killEnemy(e);
+    }
+  }
+
+  /** Seconds banked toward fire's next bite, and since the last word about it. */
+  private fireTick = 0;
+  private surfaceMsgCd = 0;
+
+  /**
+   * The floor's surfaces on the world clock (`tickSurfaces`), and fire biting
+   * whatever stands in it every `FIRE_TICK`: you through your armour, like a
+   * trap, and a monster raw, × its fire resistance.
+   */
+  private updateSurfaces(dt: number): void {
+    const f = this.floor;
+    this.surfaceMsgCd = Math.max(0, this.surfaceMsgCd - dt);
+    if (!f.surfaces?.length) return;
+    const tick = tickSurfaces(f, dt);
+    if (tick.caught.length) this.sfx('lava_burst', tick.caught[0].x, tick.caught[0].y);
+    for (const s of tick.burst) this.sporesBurst(s.x, s.y);
+    for (const v of tick.vents) this.ventBurst(v);
+    if (this.run.outcome !== 'active') return;
+    this.fireTick += dt;
+    if (this.fireTick < FIRE_TICK) return;
+    this.fireTick -= FIRE_TICK;
+    const fires = f.surfaces.filter((s) => s.kind === 'fire');
+    if (!fires.length) return;
+    const p = this.player;
+    if (burningAt(f, p.x, p.y) && this.surfaceMsgCd <= 0) {
+      this.msg('You are standing in fire!', '#ff8040');
+      this.surfaceMsgCd = 2;
+    }
+    for (const s of fires) {
+      this.scorch(s.x, s.y, 1, 'burning oil');
+      if (this.run.outcome !== 'active') return;
+    }
+  }
+
+  /**
+   * Fire's bite on one tile, `ticks` times over: you through your armour,
+   * unavoidable like a trap; a monster raw, × its fire resistance, and set
+   * burning so it carries the fire out with it (into more oil, or into water,
+   * which puts it out).
+   */
+  private scorch(x: number, y: number, ticks: number, source: string): void {
+    const f = this.floor;
+    const p = this.player;
+    const depth = this.run.depth;
+    if (p.x === x && p.y === y) {
+      const bite = Math.max(1, Math.round((FIRE_PLAYER_BASE + FIRE_PLAYER_PER_DEPTH * depth) * ticks * this.diff.trapDamage));
+      this.damagePlayer(bite, 'fire', x, y, source, undefined, undefined, true);
+      if (this.run.outcome !== 'active') return;
+    }
+    for (const e of f.enemies) {
+      if (e.ai === 'dead' || e.lurk || e.x !== x || e.y !== y || this.protectedByFog(e)) continue;
+      const def = enemyDef(e.def);
+      const dealt = Math.max(1, Math.round((FIRE_MONSTER_BASE + FIRE_MONSTER_PER_DEPTH * depth) * ticks * (def.resist.fire ?? 1)));
+      if (dealt <= 0) continue;
+      this.hurt(e, dealt, `${dealt}`, '#ff8040');
+      recordDamageDealt(this.state.bestiary, def.id, dealt);
+      e.burn = { t: BURN_SECONDS, left: Math.max(e.burn?.left ?? 0, Math.round(dealt * 2 / ticks)), acc: e.burn?.acc ?? 0 };
+      if (e.hp <= 0) {
+        this.msg(`The ${def.name} burns.`, '#ff8040');
+        this.killEnemy(e);
+      }
+    }
+  }
+
+  /** A burst of fire over a tile and the four beside it: a barrel, or spores catching. */
+  private blast(x: number, y: number, ticks: number, source: string): void {
+    this.addSpellFx('blast', x, y);
+    this.sfx('lava_burst', x, y);
+    this.emit({ type: 'shake', amount: 0.3 });
+    for (const [dx, dy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      // The blast lights what it touches, then burns what stands there.
+      this.elementReaches(x + dx, y + dy, 'fire');
+      this.scorch(x + dx, y + dy, ticks, source);
+      if (this.run.outcome !== 'active') return;
+    }
+  }
+
+  /** Spores catching fire: they go up all at once. */
+  private sporesBurst(x: number, y: number): void {
+    if (this.surfaceMsgCd <= 0) {
+      this.msg('The spores go up in a gout of flame!', LAWS.spores.color);
+      this.surfaceMsgCd = 2;
+    }
+    this.blast(x, y, SPORE_BURST_TICKS, 'burning spores');
+  }
+
+  /**
+   * An Emberworks vent breathes out: whatever stands on it is scorched, the
+   * oil beside it catches, and it waits a while before the next. Its glow
+   * in the last `VENT_TELL` seconds is the warning.
+   */
+  private ventBurst(v: Surface): void {
+    v.t = VENT_PERIOD_MIN + this.rng.float(0, VENT_PERIOD_MAX - VENT_PERIOD_MIN);
+    v.burst = VENT_FLAMES;
+    this.sfx('lava_burst', v.x, v.y);
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) this.elementReaches(v.x + dx, v.y + dy, 'fire');
+    this.scorch(v.x, v.y, VENT_TICKS, 'a fire vent');
+  }
+
+  /**
+   * Fire or frost arriving on a tile, from anything: a bolt crossing it, a
+   * blow landing on it, a burning creature's feet. Any other element passes.
+   * Water freezing around a monster holds it fast; around you, briefly. Fire
+   * reaching an oil barrel bursts it.
+   */
+  private elementReaches(x: number, y: number, element: DamageType): void {
+    const f = this.floor;
+    if (element === 'fire') {
+      const barrel = oilBarrelAt(f, x, y);
+      if (barrel) {
+        this.burstBarrel(barrel);
+        return;
+      }
+      const change = ignite(f, x, y);
+      if (change === 'lit') {
+        this.sfx('lava_burst', x, y);
+        if (this.surfaceMsgCd <= 0) {
+          this.msg('The oil catches!', '#ff9a50');
+          this.surfaceMsgCd = 2;
+        }
+      } else if (change === 'burst') this.sporesBurst(x, y);
+      else if (change === 'melted') this.sfx('splash', x, y);
+      return;
+    }
+    if (element !== 'frost' || chill(f, x, y) !== 'froze') return;
+    this.sfx('block', x, y);
+    this.frozeAt(x, y);
+  }
+
+  /** Water just froze on this tile: whoever stands in it is caught, except you by your own frost. */
+  private frozeAt(x: number, y: number, mine = false): void {
+    const e = enemyAt(this.floor, x, y);
+    if (e) this.freeze(e);
+    const p = this.player;
+    if (!mine && p.x === x && p.y === y) {
+      this.anim.stunT = Math.max(this.anim.stunT, PLAYER_FREEZE_SECONDS);
+      this.msg('The water freezes around your feet!', '#9ad0ff');
+    }
+  }
+
+  /**
+   * Frost has landed somewhere: where a bolt struck or ran out. In the
+   * Catacombs that is on the flood, which freezes around it. A frost blade's
+   * blows do not count — they land on the creature, not the water, and a
+   * moonsilver axe would otherwise freeze everything it touched. Your own
+   * bolt never holds you; theirs does.
+   */
+  private frostLands(x: number, y: number, mine: boolean): void {
+    if (biomeForFloor(this.floor).law !== 'flood') return;
+    const froze = freezeFlood(this.floor, x, y, FLOOD_REACH);
+    if (!froze.length) return;
+    this.sfx('block', x, y);
+    for (const s of froze) this.frozeAt(s.x, s.y, mine);
+  }
+
+  /** An oil barrel broken open: the oil goes everywhere, and nothing else is in it. */
+  private spillBarrel(p: Prop): Surface[] {
+    p.used = true;
+    this.sfx('break', p.x, p.y);
+    this.sfx('splash', p.x, p.y);
+    const oil = spillOil(this.floor, p.x, p.y, this.rng);
+    if (this.surfaceMsgCd <= 0) {
+      this.msg('Lamp oil spreads across the floor.', '#c8b8a0');
+      this.surfaceMsgCd = 2;
+    }
+    return oil;
+  }
+
+  /** Fire reaches an oil barrel: it bursts, its spill goes up at once, and what stands beside it is caught. */
+  private burstBarrel(p: Prop): void {
+    this.spillBarrel(p);
+    this.msg('The oil barrel bursts into flame!', '#ff9a50');
+    this.surfaceMsgCd = 2;
+    this.blast(p.x, p.y, BURST_TICKS, 'a burning oil barrel');
+  }
+
+  /**
+   * Something treads on a spore patch: it puffs, and every monster within a
+   * tile is blinded for `SPORE_BLIND` (bosses only wave it away). If you are
+   * in it too, your lamp dims for as long.
+   */
+  private sporePuff(x: number, y: number): void {
+    const f = this.floor;
+    const s = surfaceAt(f, x, y);
+    if (!s || s.kind !== 'spores') return;
+    f.surfaces = f.surfaces!.filter((o) => o !== s);
+    this.addSpellFx('spores', x, y);
+    this.sfx('snuff', x, y);
+    let blinded = 0;
+    for (const e of f.enemies) {
+      if (e.ai === 'dead' || e.lurk || manhattan(e.x, e.y, x, y) > 1) continue;
+      if (enemyDef(e.def).behavior === 'boss') continue;
+      e.blind = Math.max(e.blind ?? 0, SPORE_BLIND);
+      if (e.ai === 'windup') e.ai = 'recover';
+      blinded++;
+    }
+    const p = this.player;
+    const you = manhattan(p.x, p.y, x, y) <= 1;
+    if (you) this.anim.snuffT = Math.max(this.anim.snuffT, SPORE_BLIND);
+    if (this.surfaceMsgCd <= 0) {
+      this.msg(blinded ? `A cloud of spores bursts up. ${blinded === 1 ? 'Something' : 'They'} cannot see!` : you ? 'A cloud of spores bursts up around you.' : 'A puffball bursts.', LAWS.spores.color);
+      this.surfaceMsgCd = 2;
+    }
+  }
+
+  /** Held fast in ice: it stops whatever it was doing. The King breaks free at once. */
+  private freeze(e: EnemyState, seconds = FREEZE_SECONDS, quiet = false): void {
+    const def = enemyDef(e.def);
+    if (def.behavior === 'boss' || e.ai === 'dead') return;
+    e.frozenT = Math.max(e.frozenT ?? 0, seconds);
+    e.ai = 'recover';
+    e.timer = Math.max(e.timer, seconds);
+    e.attackCd = Math.max(e.attackCd, seconds + 0.2);
+    delete e.move;
+    delete e.feintT;
+    delete e.feinted;
+    delete e.comboLeft;
+    delete e.comboT;
+    delete e.channel;
+    this.emit({ type: 'float', x: e.x, y: e.y, text: 'frozen', color: '#9ad0ff' });
+    if (!quiet) this.msg(`The water freezes around the ${def.name}!`, '#9ad0ff');
+  }
+
+  /** Struck on ice: it goes down, and whatever it was winding up is lost. */
+  private slip(e: EnemyState): void {
+    if (e.ai === 'dead' || (e.frozenT ?? 0) > 0 || surfaceKindAt(this.floor, e.x, e.y) !== 'ice') return;
+    const def = enemyDef(e.def);
+    if (def.behavior === 'boss') return;
+    e.ai = 'recover';
+    e.timer = Math.max(e.timer, SLIP_SECONDS);
+    e.attackCd = Math.max(e.attackCd, SLIP_SECONDS + 0.2);
+    // The Frost Vault: it goes down hard, open like a parried thing.
+    if (biomeForFloor(this.floor).law === 'treacherous') e.vuln = Math.max(e.vuln ?? 0, SLIP_SECONDS);
+    delete e.move;
+    delete e.comboLeft;
+    delete e.comboT;
+    this.emit({ type: 'float', x: e.x, y: e.y - 0.3, text: 'slips', color: '#c8e8ff' });
+    if (this.surfaceMsgCd <= 0) {
+      this.msg(`The ${def.name} slips on the ice!`, '#c8e8ff');
+      this.surfaceMsgCd = 2;
+    }
+  }
+
+  /** One step out of the fire, to any tile that is not burning. False when there is none. */
+  private escapeFire(e: EnemyState): boolean {
+    const steps = DIRS.map((d) => [e.x + DX[d], e.y + DY[d]] as [number, number]).filter(([x, y]) => this.canStep(e, x, y));
+    if (!steps.length) return false;
+    const p = this.player;
+    // Out towards you if it was coming for you, else anywhere.
+    steps.sort((a, b) => manhattan(a[0], a[1], p.x, p.y) - manhattan(b[0], b[1], p.x, p.y));
+    this.stepEnemy(e, steps[0][0], steps[0][1]);
+    return true;
+  }
+
+  /** A charge grows back while the conduit is worn, and kills hurry it along. */
+  private updateConduit(dt: number): void {
+    const a = this.anim;
+    if (this.spellFx.length) {
+      let landed = false;
+      for (const fx of this.spellFx) {
+        const before = fx.t;
+        fx.t += dt;
+        if (fx.kind !== 'meteor') continue;
+        if (fx.meteor && fx.meteor.target.ai !== 'dead') { fx.x = fx.meteor.target.x; fx.y = fx.meteor.target.y; }
+        if (before < METEOR_FALL_SECONDS && fx.t >= METEOR_FALL_SECONDS) {
+          this.landMeteor(fx);
+          landed = true;
+        }
+      }
+      if (landed) {
+        this.sfx('meteor');
+        this.emit({ type: 'shake', amount: 0.8 });
+        this.emit({ type: 'sigil', r: 1, g: 0.3, b: 0.06, strength: 0.35 });
+      }
+      this.spellFx = this.spellFx.filter((fx) => fx.t < SPELL_FX_SECONDS[fx.kind]);
+    }
+    if (a.weave) {
+      a.weave.t -= dt;
+      if (a.weave.t <= 0) a.weave = null;
+    }
+    const c = this.derived.conduit;
+    const pool = this.run.conduit;
+    if (!c || !pool) return;
+    this.growConduit(c.charges, c.regrow, dt);
+  }
+
+  private growConduit(max: number, per: number, seconds: number): void {
+    const pool = this.run.conduit;
+    if (!pool) return;
+    if (pool.charges >= max) {
+      pool.regrow = 0;
+      return;
+    }
+    pool.regrow += seconds;
+    while (pool.regrow >= per && pool.charges < max) {
+      pool.regrow -= per;
+      pool.charges++;
+    }
+    if (pool.charges >= max) pool.regrow = 0;
+  }
+
+  /** Kills shave the regrow, under the same fifth-of-a-cycle cap as a sigil. */
+  private refundConduit(def: EnemyDef): void {
+    const c = this.derived.conduit;
+    if (!c) return;
+    const base = 1 + 4 * Math.min(1, def.hp / 140);
+    const multiplier = 1 + 0.25 * metaLevel(this.state.meta, 'attunement') + this.derived.stats.focus / 100;
+    this.growConduit(c.charges, c.regrow, Math.min(base * multiplier, c.regrow * 0.2));
   }
 
   /** Everything that a deliberate action of your own cancels. */
@@ -1817,6 +2999,7 @@ export class World {
     }
     const def = sigil(active.id);
     if (a.cast) return false;
+    if (this.riteDraw) return false;
     if (active.cd > 0) {
       this.msg(`${def.name} is still cold — ${Math.ceil(active.cd)}s.`, '#888');
       return false;
@@ -1969,6 +3152,10 @@ export class World {
 
   private resolvePlayerAttack(): void {
     const f = this.floor;
+    if (this.anim.attackSpell) {
+      this.launchSpell(this.anim.attackSpell);
+      return;
+    }
     if (this.anim.attackThrow) {
       this.throwWeapon();
       return;
@@ -2087,7 +3274,7 @@ export class World {
    * reading the fields they always read.
    */
   private view(e: EnemyState): EnemyDef {
-    return enemyView(enemyDef(e.def), e.hp, e.maxHp, { elite: e.elite, carrying: !!e.stolen?.length, marked: e.marked, shadeType: e.shadeType });
+    return enemyView(enemyDef(e.def), e.hp, e.maxHp, { elite: e.elite, carrying: !!e.stolen?.length, marked: e.marked, shadeType: e.shadeType, calm: e.calm, chilled: (e.chillT ?? 0) > 0, hexed: (e.hexT ?? 0) > 0 });
   }
 
   private guardReaction(e: EnemyState, def: EnemyDef): 'bash' | 'chip' | null {
@@ -2231,7 +3418,20 @@ export class World {
     const chargeMax = this.derived.traits.chargeMax;
     this.anim.chargeStacks = Math.min(this.anim.chargeStacks, chargeMax);
     const charged = this.anim.chargeStacks * this.derived.traits.charge;
-    const hit = playerHitsEnemy(this.rng, this.derived, this.anim.attackPower * powerMult, def, defensePower(e.power) * this.diff.enemyDefense, charged);
+    // Weave: a spell that landed in the last few seconds rides on this blow as
+    // its element, and is spent by it. Only the blow itself — a cleave's spill
+    // is the same swing and does not get a second helping.
+    const weave = powerMult === 1 ? this.anim.weave : null;
+    const striker = weave
+      ? { ...this.derived, stats: { ...this.derived.stats, [weave.element]: (this.derived.stats[weave.element] ?? 0) + weave.amount } }
+      : this.derived;
+    const hit = playerHitsEnemy(this.rng, striker, this.anim.attackPower * powerMult, def, defensePower(e.power) * this.diff.enemyDefense, charged);
+    if (weave) {
+      this.anim.weave = null;
+      this.emit({ type: 'float', x: e.x, y: e.y - 0.3, text: 'woven', color: '#c8b8ff' });
+    }
+    // And the other half: a blow that lands feeds the conduit.
+    if (powerMult === 1 && this.derived.conduit) this.growConduit(this.derived.conduit.charges, this.derived.conduit.regrow, WEAVE_REGROW);
     // Everything you land while the parry opening lasts hits twice as hard.
     const exposed = !!e.vuln && e.vuln > 0;
     if (exposed) hit.damage = Math.round(hit.damage * PARRY_VULN_MULT);
@@ -2265,6 +3465,9 @@ export class World {
       if (this.anim.chargeStacks === chargeMax) this.msg('The horn is up to speed.', '#f0e0ac');
     }
     if (this.derived.traits.kindling) this.kindle(e);
+    // A blow carrying fire or frost acts on the tile it lands on, like a bolt.
+    if ((striker.stats.fire ?? 0) > 0) this.elementReaches(e.x, e.y, 'fire');
+    if ((striker.stats.frost ?? 0) > 0) this.elementReaches(e.x, e.y, 'frost');
     const life = this.state.lifetime;
     if (hit.damage > (life.bestHit ?? 0)) life.bestHit = hit.damage;
     recordDamageDealt(this.state.bestiary, def.id, hit.damage);
@@ -2289,7 +3492,7 @@ export class World {
     if (e.hp <= 0) {
       this.markRemains(e);
       this.killEnemy(e);
-    }
+    } else this.slip(e);
   }
 
   /**
@@ -2301,7 +3504,7 @@ export class World {
   private placeLieutenant(f: Floor): void {
     if (f.rooms.some((r) => r.role === 'throne')) return;
     const rng = createRng(hashString(`lt:${this.run.seed}:${f.depth}`));
-    if (!rng.chance(lieutenantChance(f.depth))) return;
+    if (!rng.chance(lieutenantChance(f.depth) * this.diff.lieutenantChance)) return;
     const goblins = f.enemies.filter((e) => e.ai !== 'dead' && isGoblin(e.def));
     const options: LieutenantId[] = goblins.length >= QUARTERMASTER_MIN_GOBLINS ? ['quartermaster', 'hoarder'] : ['hoarder'];
     const id = rng.pick(options);
@@ -2399,6 +3602,134 @@ export class World {
       delete e.hoardGold;
       this.msg(n ? 'The sack splits. Everything the Hoarder gathered spills across the floor.' : 'The sack splits, heavy with coin.', LIEUTENANTS.hoarder.color);
     }
+  }
+
+  /**
+   * The rite this delve's next carving would teach, or none: one carving per
+   * delve, never a rite you know. Your first is always Meteor, the one the
+   * tablet was built around; after that the Frozen Road teaches Glacial Tomb
+   * when it is still to come, and otherwise it is drawn from those left.
+   */
+  private nextRite(rng: Rng): RiteId | null {
+    if (this.run.riteCarved) return null;
+    const known = this.state.ritesKnown ?? [];
+    const left = RITES.filter((r) => !known.includes(r.id));
+    if (!left.length) return null;
+    if (!known.length && left.some((r) => r.id === 'meteor')) return 'meteor';
+    const road = this.run.road && ROAD_RITES[this.run.road];
+    if (road && ROAD_DEPTHS.includes(this.run.depth) && left.some((r) => r.id === road)) return road;
+    return rng.pick(left).id;
+  }
+
+  /**
+   * A rite carving, laid after generation like surfaces and quirks, so the
+   * generated floor underneath never moves: no golden hash changes, and the
+   * roll has its own stream. Guaranteed on the first floor that reaches a
+   * milestone you have not yet studied a rite for (depth 3, then depth 5),
+   * else a small chance on every floor from depth 3. It waits in the vault,
+   * else the secret room, else any normal room, so it is still found.
+   */
+  private placeRiteCarving(f: Floor): void {
+    if (f.depth < RITE_CARVING_DEPTH) return;
+    if (f.props.some((p) => p.kind === 'carving')) return;
+    const rng = createRng(hashString(`rite:${this.run.seed}:${f.depth}`));
+    const known = (this.state.ritesKnown ?? []).length;
+    const owed = RITE_MILESTONES.some((m) => f.depth >= m.depth && known < m.known);
+    // Roll even when owed, so the draw below never depends on the milestone.
+    const lucky = rng.chance(riteFloorChance(f.depth));
+    if (!owed && !lucky) return;
+    const id = this.nextRite(rng);
+    if (!id) return;
+    const vault = f.rooms.find((r) => r.role === 'vault');
+    const secret = f.rooms.find((r) => r.role === 'secret');
+    const normals = f.rooms.filter((r) => r.role === 'normal');
+    for (const room of [...(vault ? [vault] : []), ...(secret ? [secret] : []), ...normals]) {
+      if (this.layCarving(f, id, rng.shuffle(this.carvingTiles(f, room)))) return;
+    }
+  }
+
+  /**
+   * Your first King kill promises a rite, as it promises a flask shard: a
+   * carving rises beside the portal, unless this delve already laid one.
+   */
+  private placeKingCarving(x: number, y: number): void {
+    const f = this.floor;
+    if ((this.state.ritesKnown ?? []).length >= RITE_KING_KNOWN) return;
+    if (f.props.some((p) => p.kind === 'carving' && !p.used)) return;
+    const rng = createRng(hashString(`rite:king:${this.run.seed}`));
+    const id = this.nextRite(rng);
+    if (!id) return;
+    const near: { x: number; y: number }[] = [];
+    for (let r = 2; r <= 5 && near.length < 12; r++) {
+      for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        const t = { x: x + dx, y: y + dy };
+        if (this.carvingFits(f, t.x, t.y, this.carvingLandings(f)) && !(t.x === this.player.x && t.y === this.player.y)) near.push(t);
+      }
+    }
+    if (this.layCarving(f, id, near)) this.msg('Where the King fell, the stone remembers a mark.', rite(id).color);
+  }
+
+  private carvingLandings(f: Floor): Set<number> {
+    return new Set(f.stairs.map((s) => { const p = stairsFront(s); return p.y * f.width + p.x; }));
+  }
+
+  /**
+   * The slab blocks its tile, so it follows the barrel rules: never in or
+   * beside a doorway, on a stair's landing, a trap or a pool, and never
+   * where it would cut anything off.
+   */
+  private carvingFits(f: Floor, x: number, y: number, landings: Set<number>): boolean {
+    if (tileAt(f, x, y) !== FLOOR || propAt(f, x, y) || stairsAt(f, x, y) || enemyAt(f, x, y)) return false;
+    if (doorAt(f, x, y) || DIRS.some((d) => doorAt(f, x + DX[d], y + DY[d])) || landings.has(y * f.width + x)) return false;
+    if (f.pickups.some((p) => p.x === x && p.y === y)) return false;
+    return !trapAt(f, x, y) && !surfaceAt(f, x, y) && splitsNothing(f, x, y);
+  }
+
+  private carvingTiles(f: Floor, room: { x: number; y: number; w: number; h: number }): { x: number; y: number }[] {
+    const landings = this.carvingLandings(f);
+    const free: { x: number; y: number }[] = [];
+    for (let y = room.y; y < room.y + room.h; y++) {
+      for (let x = room.x; x < room.x + room.w; x++) if (this.carvingFits(f, x, y, landings)) free.push({ x, y });
+    }
+    return free;
+  }
+
+  /** Stand the slab on the first tile that leaves everything reachable. */
+  private layCarving(f: Floor, id: RiteId, tiles: readonly { x: number; y: number }[]): boolean {
+    const before = reachable(f);
+    for (const t of tiles) {
+      const slab: Prop = {
+        id: `carving_${f.depth}_${id}`, kind: 'carving', x: t.x, y: t.y,
+        used: false, tier: 'none', blocking: true, mimic: false, rite: id,
+      };
+      f.props.push(slab);
+      if (reachable(f) >= before - 1) {
+        this.run.riteCarved = id;
+        return true;
+      }
+      f.props.pop();
+    }
+    return false;
+  }
+
+  /** Read where it stands: a studied carving teaches its rite for good. */
+  private studyCarving(p: Prop): void {
+    const def = findRite(p.rite);
+    if (!def) return;
+    this.state.ritesKnown ??= [];
+    if (this.state.ritesKnown.includes(def.id)) {
+      this.msg('The mark is familiar: you already know this rite.', '#888');
+      return;
+    }
+    this.state.ritesKnown.push(def.id);
+    p.used = true;
+    this.sfx('secret', p.x, p.y);
+    this.emit({ type: 'float', x: p.x, y: p.y, text: def.name, color: '#c8a0ff' });
+    const many = this.state.ritesKnown.length > 1;
+    this.msg(many
+      ? `You study the carving: ${def.name}. Hold X and draw its mark — the tablet knows which rite you mean by what you draw.`
+      : `You study the carving: ${def.name}. Hold X and trace its mark to cast it — two charges each time, with no floor limit.`, def.color);
   }
 
   /**
@@ -2516,12 +3847,13 @@ export class World {
    * killing blow carrying holy damage, or struck from consecrated ground,
    * sanctifies them. Either way nothing raises it.
    */
-  private markRemains(e: EnemyState): void {
+  private markRemains(e: EnemyState, how?: 'sanctified'): void {
     if (!enemyDef(e.def).undead) return;
     const overkill = -e.hp >= e.maxHp * SHATTER_OVERKILL;
     const ward = this.anim.ward;
     const consecrated = !!ward && ward.x === this.player.x && ward.y === this.player.y;
-    if (this.derived.damageType === 'blunt' || overkill) e.remains = 'shattered';
+    if (how) e.remains = how;
+    else if (this.derived.damageType === 'blunt' || overkill) e.remains = 'shattered';
     else if ((this.derived.stats.holy ?? 0) > 0 || consecrated) e.remains = 'sanctified';
     else return;
     const caller = this.floor.enemies.some((g) => g.ai !== 'dead' && enemyDef(g.def).raises && manhattan(g.x, g.y, e.x, e.y) <= 10);
@@ -2536,6 +3868,11 @@ export class World {
     e.hp = 0;
     e.ai = 'dead';
     e.deadT = 0;
+    // It dies as itself: the remains are what the Gravecaller and the codex read.
+    if (e.hexT !== undefined) {
+      delete e.hexT;
+      this.addSpellFx('poof', e.x, e.y);
+    }
     this.sfx('enemyDie', e.x, e.y);
     // A Vengeful elite's fuse lights as it falls; `updateEnemies` sets it off.
     if (e.elite === 'vengeful') {
@@ -2571,6 +3908,7 @@ export class World {
         : `Marked quarry slain: ${oath.marks} of ${HUNTER_MARKS}.`, OATHS.hunter.color);
     }
     this.refundSigil(def, this.derived.traits.execution && (e.vuln ?? 0) > 0 ? EXECUTION_REFUND_MULT : 1);
+    this.refundConduit(def);
     this.run.stats.kills++;
     recordKill(this.state.contracts, def.id);
     recordBestiaryKill(this.state.bestiary, def.id);
@@ -2583,6 +3921,8 @@ export class World {
         ? this.rollSigil(`chest:${e.mimicPropId}`, e.mimicTier === 'vault' || e.mimicTier === 'secret' ? 0.22 : 0.03 * clamp((this.run.depth - 1) / 4, 0, 1))
         : null;
     if (sigilDrop) loot.items.push(sigilDrop);
+    const tomeDrop = e.mimicTier && e.mimicPropId ? this.rollTome(`chest:${e.mimicPropId}`, tomeChance(e.mimicTier, this.run.depth)) : null;
+    if (tomeDrop) loot.items.push(tomeDrop);
     if (def.behavior === 'boss') {
       // The portal opens where the king fell, so his hoard goes beside it —
       // dropped on the same tile it would be unreachable behind the portal.
@@ -2597,6 +3937,7 @@ export class World {
       this.msg('The Ashen King crumbles to cinders. A portal tears open.', '#c080ff');
       this.unsealBossDoors();
       this.floor.props.push({ id: `portal${this.time}`, kind: 'portal', x: e.x, y: e.y, used: false, tier: 'none', blocking: false, mimic: false });
+      this.placeKingCarving(e.x, e.y);
     } else {
       if (def.morsel) {
         const foodRng = createRng(hashString(`morsel:${this.floor.seed}:${e.id}`));
@@ -2677,6 +4018,24 @@ export class World {
     active.cd = Math.max(0, active.cd - Math.min(base * multiplier, spell.cooldown * 0.2));
   }
 
+  /**
+   * A spell tome, rolled where sigil stones roll but on its own `tome:` stream,
+   * so adding tomes moved no chest's existing contents. Never one you know or
+   * are already carrying anywhere, the same rule as a stone.
+   */
+  private rollTome(stream: string, chance: number): Item | null {
+    const carried = [
+      ...this.state.stash.items,
+      ...this.state.loadout.items,
+      ...this.run.backpack.items,
+      ...this.run.floors.flatMap((f) => f?.pickups.flatMap((p) => p.items) ?? []),
+    ].filter((i) => i.kind === 'tome').map((i) => i.ref);
+    const unknown = unknownConduitSpells(this.state.spellbook ?? [], carried);
+    if (!unknown.length) return null;
+    const rng = createRng(hashString(`tome:${this.run.seed}:${this.run.depth}:${stream}`));
+    return rng.chance(chance) ? makeTome(rng.pick(unknown)) : null;
+  }
+
   private rollSigil(stream: string, chance: number): Item | null {
     const carried = [
       ...this.state.stash.items,
@@ -2684,7 +4043,8 @@ export class World {
       ...this.run.backpack.items,
       ...this.run.floors.flatMap((f) => f?.pickups.flatMap((p) => p.items) ?? []),
     ].filter((i) => i.kind === 'sigil').map((i) => i.ref);
-    const unknown = unknownSigils(this.state.spells ?? [], carried);
+    // Temper mends worn gear, and on Normal nothing wears: it never drops there.
+    const unknown = unknownSigils(this.state.spells ?? [], carried).filter((id) => this.diff.gearWears || id !== 'temper');
     if (!unknown.length) return null;
     const rng = createRng(hashString(`sigil:${this.run.seed}:${this.run.depth}:${stream}`));
     return rng.chance(chance) ? makeSigil(rng.pick(unknown)) : null;
@@ -2749,7 +4109,8 @@ export class World {
       if (fragile.length) { takeOne(pick.pick(fragile)); continue; }
       const mats = loot.items.filter((it) => it.kind === 'material');
       if (mats.length) { takeOne(pick.pick(mats)); continue; }
-      const gear = loot.items.filter((it) => it.kind === 'equipment' && durability(it).wears && durability(it).cur > 0);
+      // Where nothing wears, a blow dents nothing either: it spills coin instead.
+      const gear = this.diff.gearWears ? loot.items.filter((it) => it.kind === 'equipment' && durability(it).wears && durability(it).cur > 0) : [];
       if (gear.length) {
         const it = pick.pick(gear);
         const d = durability(it);
@@ -2803,16 +4164,27 @@ export class World {
     return mimic;
   }
 
-  /** The held bite of a mimic you opened: nothing refuses it but armour. */
+  /**
+   * The held bite of a mimic you opened: nothing refuses it but armour.
+   *
+   * The first bite a save ever takes never kills, on any difficulty. Nothing
+   * can be answered once the lid is up, so a death there teaches nothing; a
+   * bite that leaves you on 1 health and names the tells teaches the chest.
+   * "Ever" is the codex's worst hit from a mimic, so it needs no save field.
+   */
   private mimicBite(e: EnemyState): void {
     const def = this.view(e);
     this.sfx('swing', e.x, e.y);
     e.strikeT = 0;
+    const was = bestiaryEntry(this.state.bestiary, def.id);
+    const first = was.worstHit === 0 && was.deaths === 0;
     this.damagePlayer(
-      Math.max(1, Math.round(def.attack * MIMIC_BITE * attackPower(e.power) * this.diff.enemyDamage)),
-      def.damageType, e.x, e.y, def.name, def.id, e, true,
+      Math.max(1, Math.round(def.attack * MIMIC_BITE * attackPower(e.power) * this.diff.enemyDamage * this.diff.mimicBite)),
+      def.damageType, e.x, e.y, def.name, def.id, e, true, this.diff.mimicMercy || first,
     );
-    if (this.run.outcome === 'active') this.msg('It chews, then spits you out. Get up!', '#ff9070');
+    if (this.run.outcome !== 'active') return;
+    this.msg('It chews, then spits you out. Get up!', '#ff9070');
+    if (first) this.msg('That was no chest. A mimic breathes when you watch it, and shows two pale points in its lid seam; strike a chest you doubt before you open it.', '#ffd080');
   }
 
   /** In a mimic's jaws: every other action waits for the bite. */
@@ -2821,6 +4193,10 @@ export class World {
   }
 
   private breakProp(p: Prop): void {
+    if (p.oil) {
+      this.spillBarrel(p);
+      return;
+    }
     p.used = true;
     this.sfx('break', p.x, p.y);
     // Burrows: the crack of old roots is a lure. What hears it comes to the
@@ -2859,6 +4235,7 @@ export class World {
     const p = propAt(f, t.x, t.y);
     if (p && !p.used) {
       if (p.kind === 'chest') return 'Open chest';
+      if (p.kind === 'carving') return 'Study the carving';
       if (p.kind === 'shrine') {
         // A stone that has already taken coin names its rising price and how
         // many offerings it has left, so the second and third are decisions.
@@ -2988,7 +4365,7 @@ export class World {
   }
 
   interact(): void {
-    if (this.busy || this.moving || this.grabbed) return;
+    if (this.busy || this.moving || this.grabbed || this.riteDraw) return;
     const f = this.floor;
     const t = this.frontTile();
 
@@ -3071,6 +4448,8 @@ export class World {
           tier === 'vault' || tier === 'secret' ? 0.22 : 0.03 * clamp((this.run.depth - 1) / 4, 0, 1),
         );
         if (sigilDrop) loot.items.push(sigilDrop);
+        const tomeDrop = this.rollTome(`chest:${p.id}`, tomeChance(tier, this.run.depth));
+        if (tomeDrop) loot.items.push(tomeDrop);
         let pk = this.dropLoot(p.x, p.y, loot.items, 0);
         if ((tier === 'vault' || tier === 'secret') && (this.state.flask?.shards ?? 0) < 3 && createRng(hashString(`flask-shard:${f.seed}:${p.id}`)).chance(0.04)) {
           pk ??= { id: `shard_${p.id}`, x: p.x, y: p.y, items: [], gold: 0 };
@@ -3096,6 +4475,10 @@ export class World {
           pilgrim.prayers = (pilgrim.prayers ?? 0) + 1;
           if (pilgrim.prayers === PILGRIM_PRAYERS) this.msg(`${PILGRIM_PRAYERS} shrines. The Pilgrim's oath is met: now bring it home.`, OATHS.pilgrim.color);
         }
+        return;
+      }
+      if (p.kind === 'carving') {
+        this.studyCarving(p);
         return;
       }
     }
@@ -3193,7 +4576,7 @@ export class World {
     this.player.stamina = this.derived.maxStamina;
     if (refillFlask) {
       const flask = this.run.flask;
-      flask.charges = Math.min(flaskMax(this.state.flask?.shards ?? 0), flask.charges + 1);
+      flask.charges = Math.min(flaskMax(this.state.flask?.shards ?? 0, this.diff.flaskBonus), flask.charges + 1);
     }
   }
 
@@ -3389,7 +4772,7 @@ export class World {
     let moved = 0;
     if (pk.flaskShard && (this.state.flask?.shards ?? 0) < 3) {
       this.state.flask.shards++;
-      this.run.flask.charges = Math.min(flaskMax(this.state.flask.shards), this.run.flask.charges + 1);
+      this.run.flask.charges = Math.min(flaskMax(this.state.flask.shards, this.diff.flaskBonus), this.run.flask.charges + 1);
       pk.flaskShard = false;
       if (this.state.flask.shards >= 3) {
         for (const fl of this.run.floors ?? []) for (const other of fl?.pickups ?? []) other.flaskShard = false;
@@ -3647,8 +5030,9 @@ export class World {
     return this.floor.enemies.some((o) => o !== self && o.ai !== 'dead' && !o.lurk && o.x === x && o.y === y);
   }
 
+  /** Monsters do not walk into fire on purpose: burning oil is a wall to them until it burns out. */
   private canStep(e: EnemyState, x: number, y: number): boolean {
-    return !blocksMove(this.floor, x, y) && !this.occupied(x, y, e) && !stairsAt(this.floor, x, y);
+    return !blocksMove(this.floor, x, y) && !this.occupied(x, y, e) && !stairsAt(this.floor, x, y) && !burningAt(this.floor, x, y);
   }
 
   private stepEnemy(e: EnemyState, x: number, y: number): void {
@@ -3663,6 +5047,24 @@ export class World {
     // you already found worth doing.
     const trap = trapAt(this.floor, x, y);
     if (trap && trap.armed) this.springTrap(trap, e);
+    this.stepOnto(e);
+  }
+
+  /**
+   * What a monster's feet do to the floor: a burning one, or one made of
+   * fire, lights oil and melts ice where it steps, and water puts a burning
+   * one out.
+   */
+  private stepOnto(e: EnemyState): void {
+    const kind = surfaceKindAt(this.floor, e.x, e.y);
+    if (!kind) return;
+    const fiery = !!e.burn || enemyDef(e.def).element === 'fire';
+    if (fiery && (kind === 'oil' || kind === 'ice' || kind === 'spores')) this.elementReaches(e.x, e.y, 'fire');
+    else if (kind === 'spores') this.sporePuff(e.x, e.y);
+    else if (kind === 'water' && e.burn) {
+      delete e.burn;
+      this.sfx('snuff', e.x, e.y);
+    }
   }
 
   /** BFS toward a target; returns the first step, cached briefly. */
@@ -3692,7 +5094,7 @@ export class World {
         const nx = x + DX[d], ny = y + DY[d];
         const n = ny * W + nx;
         if (prev.has(n)) continue;
-        if (n !== goal && (blocksMove(f, nx, ny) || busy.has(n))) continue;
+        if (n !== goal && (blocksMove(f, nx, ny) || busy.has(n) || burningAt(f, nx, ny))) continue;
         if (manhattan(nx, ny, e.x, e.y) > 18) continue;
         prev.set(n, i);
         q.push(n);
@@ -3756,13 +5158,125 @@ export class World {
       // breath: whatever he already had in the air goes out with the torches.
       this.projectiles = this.projectiles.filter((pr) => pr.sourceId !== e.def);
       this.snuffThrone();
-      this.raiseTheGuard();
     }
 
     if (!announce) return;
     this.sfx('kingturn', e.x, e.y);
     this.emit({ type: 'shake', amount: 0.6 });
     if (profile.entry) this.msg(profile.entry, '#c080ff');
+  }
+
+  /**
+   * The King's own turn, beyond the blow and the volley: the Dark's Shadow
+   * Step and the Last Stand's burning pitch. Only from a free stance and off
+   * cooldown; true when he spent the turn on one.
+   */
+  private kingTurn(e: EnemyState, dist: number): boolean {
+    let cd = this.kingCd.get(e.id);
+    if (!cd) this.kingCd.set(e.id, (cd = { step: 0, pitch: 0 }));
+    if (e.attackCd > 0) return false;
+    const phase = e.phase ?? 1;
+    if (phase >= 3 && this.diff.kingEscalates && cd.pitch <= 0 && dist <= 3 && this.spillPitch(e)) {
+      cd.pitch = PITCH_EVERY;
+      return true;
+    }
+    // Backed away from him, he comes for you at once; toe to toe, he waits out
+    // half a cooldown more, so the Dark is a fight and not a teleporter.
+    const ready = dist >= 2 ? cd.step <= 0 : cd.step <= -SHADOW_STEP_EVERY / 2;
+    if (phase >= 2 && ready && this.shadowStep(e)) {
+      cd.step = SHADOW_STEP_EVERY;
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * He melts into the dark and re-forms beside you: never behind you, and on
+   * a flank rather than in front whenever one is open, because the point is
+   * to make you turn. The puff where he will stand lasts the whole step.
+   */
+  private shadowStep(e: EnemyState): boolean {
+    const p = this.player;
+    const room = this.throneRoom();
+    const behind = turnAround(p.facing);
+    const spots = DIRS.filter((d) => d !== behind)
+      .map((d) => ({ x: p.x + DX[d], y: p.y + DY[d], d }))
+      .filter((t) => !blocksMove(this.floor, t.x, t.y) && !enemyAt(this.floor, t.x, t.y)
+        && !(t.x === e.x && t.y === e.y) && (!room || inRoom(room, t.x, t.y)));
+    if (!spots.length) return false;
+    const flanks = spots.filter((t) => t.d !== p.facing);
+    const to = this.rng.pick(flanks.length ? flanks : spots);
+    this.addSpellFx('poof', e.x, e.y);
+    this.addSpellFx('poof', to.x, to.y);
+    e.x = e.fromX = to.x;
+    e.y = e.fromY = to.y;
+    e.moveT = 1;
+    e.lurk = 'shadow';
+    e.lurkT = SHADOW_STEP_SECONDS;
+    e.ai = 'recover';
+    this.sfx('magic', to.x, to.y);
+    this.msg('The King melts into the dark. Ash stirs beside you.', '#c080ff');
+    return true;
+  }
+
+  /** The Shadow Step runs out: he stands where the ash stirred, in recovery, never striking as he comes. */
+  private updateShadowStep(e: EnemyState, dt: number): void {
+    e.lurkT = (e.lurkT ?? 0) - dt;
+    if (e.lurkT <= 0) this.emerge(e, false);
+  }
+
+  /**
+   * Burning pitch at your feet: your tile and up to two beside it, never
+   * leaving fewer than two of the four clean. It lies as oil, drawn like any
+   * oil, and catches after `PITCH_FUSE`. He stoops to fling it, which is an
+   * opening: step out, or punish him and pay for it.
+   */
+  private spillPitch(e: EnemyState): boolean {
+    const p = this.player;
+    const f = this.floor;
+    const room = this.throneRoom();
+    const walkable = (x: number, y: number) => !blocksMove(f, x, y) && !enemyAt(f, x, y) && (!room || inRoom(room, x, y));
+    const takes = (x: number, y: number) => walkable(x, y) && !doorAt(f, x, y) && (!surfaceAt(f, x, y) || surfaceKindAt(f, x, y) === 'water');
+    if (!takes(p.x, p.y)) return false;
+    const around = DIRS.map((d) => ({ x: p.x + DX[d], y: p.y + DY[d] }));
+    // A way out is a tile you can step to that is not already oil or fire.
+    const clean = (x: number, y: number) => walkable(x, y) && surfaceKindAt(f, x, y) !== 'oil' && !burningAt(f, x, y);
+    const open = around.filter((t) => clean(t.x, t.y)).length;
+    const spread = this.rng.shuffle(around.filter((t) => clean(t.x, t.y) && takes(t.x, t.y))).slice(0, Math.max(0, Math.min(PITCH_SPREAD, open - 2)));
+    for (const t of [{ x: p.x, y: p.y }, ...spread]) {
+      const s = surfaceAt(f, t.x, t.y);
+      if (s) {
+        s.kind = 'oil';
+        delete s.t;
+      } else (f.surfaces ??= []).push({ x: t.x, y: t.y, kind: 'oil' });
+      this.pitchFuses.push({ x: t.x, y: t.y, t: PITCH_FUSE });
+    }
+    e.ai = 'recover';
+    e.timer = PITCH_STOOP;
+    e.attackCd = PITCH_STOOP + 0.2;
+    this.sfx('splash', p.x, p.y);
+    this.msg('The King flings burning pitch at your feet!', '#ff9a50');
+    return true;
+  }
+
+  /**
+   * What is under your feet that you cannot look down at: pitch about to
+   * catch, or fire already biting. The HUD shows it the way it shows
+   * Threshold's ground, as light coming up off the bottom of the frame.
+   */
+  underfoot(): 'pitch' | 'fire' | null {
+    const p = this.player;
+    if (burningAt(this.floor, p.x, p.y)) return 'fire';
+    return this.pitchFuses.some((fz) => fz.x === p.x && fz.y === p.y) ? 'pitch' : null;
+  }
+
+  /** Pitch that has lain its fuse out catches, like any oil a flame reaches. */
+  private updatePitch(dt: number): void {
+    if (!this.pitchFuses.length) return;
+    for (const fz of this.pitchFuses) fz.t -= dt;
+    const lit = this.pitchFuses.filter((fz) => fz.t <= 0);
+    this.pitchFuses = this.pitchFuses.filter((fz) => fz.t > 0);
+    for (const fz of lit) if (surfaceKindAt(this.floor, fz.x, fz.y) === 'oil') this.elementReaches(fz.x, fz.y, 'fire');
   }
 
   /** The tiles of the room the King is standing his last in. */
@@ -3805,6 +5319,14 @@ export class World {
    */
   private checkBossSeal(): void {
     if (!this.bossAlive() || !this.playerInThrone()) return;
+    if (this.diff.throneRetreat) {
+      // Normal: the fog gathers but does not close. Said once per delve.
+      if (!this.fogWarned) {
+        this.fogWarned = true;
+        this.msg('The fog gathers at your back, but lets you pass. Step out to catch your breath.', '#c0a0ff');
+      }
+      return;
+    }
     const open = this.bossDoors().filter((d) => !d.locked);
     if (!open.length) return;
     for (const g of open) {
@@ -3815,6 +5337,8 @@ export class World {
     this.sfx('door');
     this.emit({ type: 'shake', amount: 0.4 });
   }
+
+  private fogWarned = false;
 
   /** His death thins the fog: the way out stands open. */
   private unsealBossDoors(): void {
@@ -3846,49 +5370,6 @@ export class World {
   }
 
   /**
-   * The guard gets up. Only the ones you actually put down — leave them alive
-   * and you simply do not get a second pair, which is a real reason to think
-   * about whether to kill them at all.
-   */
-  private raiseTheGuard(): void {
-    const room = this.throneRoom();
-    if (!room) return;
-    // Only inside the throne room: Hollow Knights are ordinary depth-six
-    // monsters, and without the bounds test he would be calling every corpse on
-    // the floor. Nearest first and capped, so this cannot become a mob.
-    const fallen = this.floor.enemies
-      .filter((g) => g.def === 'hollow_knight' && g.ai === 'dead' && inRoom(room, g.x, g.y))
-      .sort((a, b) => manhattan(a.x, a.y, room.x, room.y) - manhattan(b.x, b.y, room.x, room.y))
-      .slice(0, MAX_RAISED_GUARDS);
-    for (const g of fallen) {
-      const spot = this.freeTileForRise(g.x, g.y);
-      g.hp = Math.max(1, Math.round(g.maxHp * RAISED_GUARD_HP));
-      g.risen = true;
-      g.ai = 'chase';
-      g.timer = 0;
-      g.deadT = 0;
-      g.hurtT = 0.3;
-      g.alert = 8;
-      g.vuln = 0;
-      g.guard = 'down';
-      g.guardT = GUARD_DOWN;
-      g.blocks = 0;
-      g.blockT = 0;
-      // They do not come up swinging — the same beat the King gets.
-      g.attackCd = BOSS_PHASE_BEAT;
-      g.x = g.fromX = spot.x;
-      g.y = g.fromY = spot.y;
-      g.moveT = 1;
-      g.lastSeenX = this.player.x;
-      g.lastSeenY = this.player.y;
-    }
-    if (fallen.length) {
-      this.sfx('alert');
-      this.msg(fallen.length > 1 ? 'His fallen stand back up.' : 'His fallen stands back up.', '#c080ff');
-    }
-  }
-
-  /**
    * Where a corpse can stand up. Its own tile if nothing is on it — a knight
    * that rises underneath you can never reach you, because a melee strike wants
    * a distance of exactly one and it would sit at zero swinging forever.
@@ -3910,6 +5391,12 @@ export class World {
     const f = this.floor;
     const p = this.player;
     const restless = biomeForFloor(f).law === 'restless';
+    // The monsters' own clock. Normal runs it slower, so every tell lasts
+    // longer without changing shape; on Hard it is exactly `dt`.
+    const tempo = this.diff.enemyTempo;
+    const edt = dt / tempo;
+    // Who is already swinging at you, for the cap on how many may at once.
+    this.committed = this.diff.maxAttackers === Infinity ? 0 : f.enemies.filter((e) => e.ai === 'windup' || (e.comboLeft ?? 0) > 0).length;
     for (const e of f.enemies) {
       if (e.ai === 'dead') {
         const before = e.deadT;
@@ -3925,6 +5412,10 @@ export class World {
         continue;
       }
       if (this.protectedByFog(e)) continue;
+      if (e.lurk === 'shadow') {
+        this.updateShadowStep(e, dt / tempo);
+        continue;
+      }
       if (e.lurk) {
         this.updateLurker(e, dt);
         continue;
@@ -3944,7 +5435,14 @@ export class World {
           continue;
         }
       }
-      e.attackCd -= dt;
+      e.attackCd -= edt;
+      if (def.behavior === 'boss') {
+        const cd = this.kingCd.get(e.id);
+        if (cd) {
+          cd.step = Math.max(-SHADOW_STEP_EVERY, cd.step - edt);
+          cd.pitch -= edt;
+        }
+      }
       if (e.strikeT !== undefined) e.strikeT += dt;
       if (e.vuln) e.vuln = Math.max(0, e.vuln - dt);
       if ((e.grabT ?? 0) > 0) {
@@ -3960,10 +5458,16 @@ export class World {
         if (e.blockT === 0) e.blocks = 0;
       }
       if (e.moveT < 1) {
-        e.moveT = Math.min(1, e.moveT + dt / def.step);
+        e.moveT = Math.min(1, e.moveT + dt / (def.step * tempo));
         if (e.moveT < 1) continue;
       }
       const dist = manhattan(e.x, e.y, p.x, p.y);
+      // Standing in fire, anything not mid-swing gets out of it first.
+      if (burningAt(f, e.x, e.y) && e.ai !== 'windup' && e.ai !== 'recover' && this.escapeFire(e)) continue;
+      if ((e.hexT ?? 0) > 0) {
+        this.updateHexed(e, dt);
+        continue;
+      }
       if ((e.blind ?? 0) > 0) {
         e.blind = Math.max(0, (e.blind ?? 0) - dt);
         e.guard = 'down';
@@ -4002,7 +5506,7 @@ export class World {
       this.updateGuard(e, def, dt, e.alert > 0 && dist <= GUARD_RANGE);
 
       // A Gravecaller chanting over a corpse stands still until it finishes or is broken.
-      if (def.raises && this.updateRaiser(e, def, dt)) continue;
+      if (def.raises && this.updateRaiser(e, def, edt)) continue;
 
       // A thief with your things in its hands does nothing but run.
       if (e.stolen?.length && e.ai !== 'windup' && e.ai !== 'recover') {
@@ -4010,16 +5514,16 @@ export class World {
       }
 
       // The rest of a flurry lands while the creature is already recovering.
-      this.updateCombo(e, def, dt);
+      this.updateCombo(e, def, edt);
 
       switch (e.ai) {
         case 'windup':
           // A feint holds the lean once, then runs the rest of the wind-up.
-          if (!this.updateFeint(e, def, dt)) e.timer -= dt;
+          if (!this.updateFeint(e, def, edt)) e.timer -= edt;
           if (e.timer <= 0) this.enemyStrike(e, def);
           continue;
         case 'recover':
-          e.timer -= dt;
+          e.timer -= edt;
           if (e.timer <= 0) e.ai = e.alert > 0 ? 'chase' : 'idle';
           continue;
         case 'flee': {
@@ -4048,8 +5552,15 @@ export class World {
 
       if (e.alert > 0) {
         e.ai = 'chase';
+        if (def.behavior === 'boss' && this.kingTurn(e, dist)) continue;
         const aligned = (e.x === p.x || e.y === p.y) && sees;
         const ranged = !!def.projectile && (def.behavior === 'ranged' || def.behavior === 'boss');
+        // Normal's crowd rule: past the cap, a monster that could swing holds
+        // its place and waits a beat instead. The King never waits.
+        if (e.attackCd <= 0 && this.committed >= this.diff.maxAttackers && def.behavior !== 'boss' && dist <= (def.range ?? 4) + 2) {
+          e.attackCd = CROWD_WAIT;
+          if (dist <= 2) continue;
+        }
         if (dist === 1 && e.attackCd <= 0 && (def.behavior !== 'ranged')) {
           this.beginWindup(e, def, p.x, p.y);
           continue;
@@ -4106,7 +5617,11 @@ export class World {
     }
   }
 
+  /** Monsters winding up or mid-flurry this frame, for `DifficultyDef.maxAttackers`. */
+  private committed = 0;
+
   private beginWindup(e: EnemyState, def: EnemyDef, tx: number, ty: number, minReach = 1): void {
+    this.committed++;
     const d = dirOf(Math.sign(tx - e.x), Math.sign(ty - e.y));
     if (d !== null) e.facing = d;
     // Swinging means the shield is elsewhere: the guard drops tired.
@@ -4117,7 +5632,9 @@ export class World {
     }
     // What it commits to is rolled here, not at spawn: a creature knocked out
     // of a slam and coming back may well answer with something quicker.
-    const pool = minReach > 1 ? def.moves?.filter((m) => moveById(m.id).reach >= minReach) : def.moves;
+    let pool = minReach > 1 ? def.moves?.filter((m) => moveById(m.id).reach >= minReach) : def.moves;
+    // Normal: no feints. A set that was nothing but feints falls back to the basic blow.
+    if (this.diff.gentleMoves && pool) pool = pool.filter((m) => !moveById(m.id).feint);
     const move = chooseMove(pool, (total) => this.rng.float(0, total));
     e.move = move.id === 'basic' ? undefined : move.id;
     delete e.feintT;
@@ -4194,7 +5711,7 @@ export class World {
     e.timer = def.recovery * move.recovery;
     e.attackCd = def.recovery * move.recovery + 0.2;
     if (move.combo) {
-      e.comboLeft = move.combo;
+      e.comboLeft = this.diff.gentleMoves ? Math.min(1, move.combo) : move.combo;
       e.comboT = COMBO_BEAT;
     }
     // Stamped by the blow itself, so the follow-through is drawn only when
@@ -4279,6 +5796,8 @@ export class World {
     sourceId?: string,
     attacker?: EnemyState,
     unavoidable = false,
+    /** Leave the player on at least 1 health, however hard this lands. */
+    spare = false,
   ): void {
     const p = this.player;
     // A parry denies the hit outright and leaves the attacker open.
@@ -4304,7 +5823,7 @@ export class World {
           other.timer = Math.max(other.timer, MELEE_PARRY_SPLASH_STUN);
           other.attackCd = Math.max(other.attackCd, MELEE_PARRY_SPLASH_STUN);
         }
-        this.msg(`You turn the ${def.name}'s blow aside. It reels — strike now!`, '#ffe8a0');
+        this.msg(`You turn the ${def.name.replace(/^The /, '')}'s blow aside. It reels — strike now!`, '#ffe8a0');
         // A shield that answers: the blow it threw, thrown back.
         if (traits.parryReflect > 0) this.reflectOntoAttacker(attacker, Math.round(attack * traits.parryReflect), type);
       } else {
@@ -4324,9 +5843,11 @@ export class World {
     // heal still lands when the 0.5s commitment completes. Drinking in melee
     // range is supposed to get you hit.
     // Duelist: the guard is sworn away. A parry (above) still works.
-    if (!unavoidable && this.anim.sip === null && this.anim.blockRaise > 0.6 && facingSource && !runOath(this.run, 'duelist')) {
+    // An offhand conduit is parry-only: it absorbs nothing, so a mistimed
+    // guard meets the blow whole instead of falling back to a block.
+    if (!unavoidable && this.anim.sip === null && this.anim.blockRaise > 0.6 && facingSource && !runOath(this.run, 'duelist') && this.derived.conduitHand !== 'offhand') {
       const absorbed = dmg * this.derived.block;
-      const cost = absorbed * 1.3;
+      const cost = absorbed * 1.3 * this.diff.blockStamina;
       if (p.stamina >= cost) {
         p.stamina -= cost;
         dmg = Math.round(dmg - absorbed);
@@ -4365,6 +5886,11 @@ export class World {
       this.anim.chew = null;
       this.msg('The blow knocks the morsel from your hands.', '#c8a060');
     }
+    // The Frost Vault: struck on its ice, you go down too.
+    if (dmg > 0 && !blocked && surfaceKindAt(this.floor, p.x, p.y) === 'ice' && biomeForFloor(this.floor).law === 'treacherous') {
+      this.anim.stunT = Math.max(this.anim.stunT, PLAYER_SLIP_SECONDS);
+      this.msg('You go down on the ice!', '#c8e8ff');
+    }
     if (dmg > 0 && !blocked) this.wearArmour();
     // An unblocked hit empties whatever the blade had banked. Blocking keeps it:
     // the point of the thing is that you have to keep meeting the swing.
@@ -4392,6 +5918,7 @@ export class World {
         this.msg(dmg > 0 ? 'The iron takes the worst of it.' : 'The iron takes the blow.', '#a8c0e0');
       }
     }
+    if (spare) dmg = Math.max(0, Math.min(dmg, Math.ceil(p.hp) - 1));
     p.hp -= dmg;
     // A thief's blow that gets through takes something with it.
     if (attacker && dmg > 0 && !blocked && p.hp > 0 && !attacker.stolen?.length && this.view(attacker).thief) {
@@ -4455,11 +5982,27 @@ export class World {
       const previous = { x: pr.tileX, y: pr.tileY };
       pr.tileX = tx;
       pr.tileY = ty;
-      if (pr.thrownBase) pr.traveled = (pr.traveled ?? 0) + 1;
+      if (pr.thrownBase || pr.spell) pr.traveled = (pr.traveled ?? 0) + 1;
       if (blocksSight(f, tx, ty) || this.crossesBossBoundary(previous.x, previous.y, tx, ty)) {
         pr.speed = 0;
         if (pr.thrownBase) this.landThrown(pr.thrownBase, previous.x, previous.y);
         else this.sfx('break', tx, ty);
+        continue;
+      }
+      // Fire and frost act on every tile they fly over, whoever loosed them:
+      // an Ember Bolt lights the oil it crosses, a frost bolt freezes water.
+      this.elementReaches(tx, ty, pr.type);
+      // A spell is spent where it strikes, and gutters out at the end of its
+      // range: nothing lands, so there is nothing to go and fetch.
+      if (pr.spell) {
+        const enemy = enemyAt(f, tx, ty);
+        if (enemy) {
+          pr.speed = 0;
+          this.spellHit(pr, enemy);
+        } else if ((pr.traveled ?? 0) >= (pr.thrownRange ?? 0)) {
+          pr.speed = 0;
+          this.sfx('break', tx, ty);
+        }
         continue;
       }
       if (pr.thrownBase) {
@@ -4500,7 +6043,13 @@ export class World {
         this.damagePlayer(pr.damage, pr.type, tx - pr.dx, ty - pr.dy, pr.source, pr.reflected ? undefined : pr.sourceId);
       }
     }
-    if (this.projectiles.some((pr) => pr.speed <= 0)) this.projectiles = this.projectiles.filter((pr) => pr.speed > 0);
+    if (this.projectiles.some((pr) => pr.speed <= 0)) {
+      // Frost lands where a bolt stops: the Catacombs' flood freezes there.
+      for (const pr of this.projectiles) {
+        if (pr.speed <= 0 && pr.type === 'frost' && !pr.thrownBase) this.frostLands(pr.tileX, pr.tileY, !!pr.spell || !!pr.reflected);
+      }
+      this.projectiles = this.projectiles.filter((pr) => pr.speed > 0);
+    }
     const receiving = this.anim.retrieving;
     if (receiving && receiving.left <= 0
       && !this.projectiles.some(pr => pr.returning && pr.thrownBase === receiving.base)) {
@@ -4544,6 +6093,7 @@ export class World {
     if (player.stats.leech > 0) this.heal(Math.max(1, Math.round(hit.damage * player.stats.leech / 100)), 'leech');
     this.wearThrown(pr.weaponUid);
     if (e.hp <= 0) this.killEnemy(e);
+    else this.slip(e);
   }
 
   private landThrown(base: string, x: number, y: number): void {
@@ -4562,7 +6112,7 @@ export class World {
       return;
     }
     const item = this.run.backpack.items.find((it) => it.uid === uid);
-    if (item) wearItem(item);
+    if (item && this.diff.gearWears) wearItem(item);
   }
 
   private collectThrownHere(): number {
@@ -4710,6 +6260,12 @@ export class World {
     e.alert = 8;
     e.lastSeenX = p.x;
     e.lastSeenY = p.y;
+    if (was === 'shadow') {
+      this.addSpellFx('poof', e.x, e.y);
+      this.sfx('kingturn', e.x, e.y);
+      this.msg('The King steps out of the dark!', '#c080ff');
+      return;
+    }
     this.sfx(was === 'ceiling' ? 'plop' : 'break', e.x, e.y);
     this.emit({ type: 'shake', amount: 0.2 });
     const behind = e.x === p.x - DX[p.facing] && e.y === p.y - DY[p.facing];
@@ -5019,7 +6575,8 @@ export class World {
 
   /** True while a raised guard can still turn a blow aside — the renderer's tell. */
   get parryWindow(): boolean {
-    return (this.anim.parryArmed && this.anim.blockT <= PARRY_WINDOW) || this.anim.rangedParryT > 0;
+    const base = PARRY_WINDOW * this.diff.parryWindow * (this.derived.conduitHand === 'offhand' ? CONDUIT_PARRY_WINDOW : 1);
+    return (this.anim.parryArmed && this.anim.blockT <= base) || this.anim.rangedParryT > 0;
   }
 
   facingName(): string {
@@ -5067,6 +6624,14 @@ export class World {
     // holding your weapon, which is not how anybody throws anything.
     const w = this.state.equipment.weapon;
     if (!w) return { id: 'vm_fist' };
+    // A Stave casts from the weapon hand, so its stone lights there, for the
+    // back half of the wind-up and the release, as a wand's does in the other.
+    const a = this.anim;
+    const c = this.derived.conduit;
+    if (c && this.derived.conduitHand === 'weapon' && a.attackSpell
+      && (a.attack === 'recover' || (a.attack === 'windup' && a.attackT > a.attackDur * 0.5))) {
+      return { id: c.castViewmodel, materialId: w.materialId };
+    }
     return { id: viewmodelFor(itemBase(w.ref)), materialId: w.materialId };
   }
 }

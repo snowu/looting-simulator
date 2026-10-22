@@ -15,7 +15,7 @@
  */
 import { artSize, artUrl } from '../render/art-cache';
 import { enemyPose } from '../render/enemy-pose';
-import { Creature, DEFAULT_TIER, GEAR_MATERIALS, MATERIAL_TIERS, creatureStatLines, sheets } from './art-sheets';
+import { Creature, DEFAULT_TIER, GEAR_MATERIALS, MATERIAL_TIERS, SpellCast, creatureStatLines, sheets } from './art-sheets';
 
 const CSS = `
 .art-sheet { position: absolute; inset: 0; background: #0b0a0dfa; overflow: auto; z-index: 60; font-family: var(--font-ui, inherit); }
@@ -28,7 +28,8 @@ const CSS = `
 .art-sheet-group { padding: 8px 12px 2px; color: #9ac0ff; font-size: 20px; }
 .art-sheet-grid { display: grid; gap: 4px; padding: 0 8px 8px; grid-template-columns: repeat(auto-fill, minmax(var(--cell), 1fr)); }
 .art-cell { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 2px 3px; border: 1px solid #1e1a26; background: var(--sheet-bg); }
-.art-cell .stage { display: grid; place-items: center; height: var(--stage); width: 100%; overflow: hidden; }
+.art-cell .stage { display: grid; place-items: center; height: var(--stage); width: 100%; overflow: hidden; position: relative; }
+.art-cell .stage .bolt { position: absolute; left: 50%; top: 50%; pointer-events: none; }
 .art-cell img { image-rendering: pixelated; }
 .art-cell .cap { font-size: 15px; color: #b8b0c0; text-align: center; line-height: 1.05; }
 .art-cell .cap b { color: #e8e0d0; font-weight: normal; }
@@ -60,6 +61,11 @@ let root: HTMLElement | null = null;
 let raf = 0;
 let state = { sheet: 'melee', zoom: 3, play: true, bg: 'dark' as Bg, filter: '', tier: DEFAULT_TIER, material: null as string | null };
 let playing: Playing[] = [];
+/** Conduit cells running their cast: the held model, and the bolt that leaves it. */
+interface Casting { el: HTMLImageElement; bolt: HTMLImageElement; cast: SpellCast; ramp?: Parameters<typeof artUrl>[1]; offset: number }
+let casting: Casting[] = [];
+/** Native pixels a conduit rises through its cast on the sheet. */
+const CAST_LIFT = 10;
 
 export function toggleArtSheet(into: HTMLElement): void {
   if (root) closeArtSheet();
@@ -137,6 +143,7 @@ function render(): void {
   const all = sheets(state.tier, state.material ?? undefined);
   const active = all.find((s) => s.id === state.sheet) ?? all[0];
   playing = [];
+  casting = [];
   root.replaceChildren();
   root.style.setProperty('--sheet-bg', BACKDROPS[state.bg]);
 
@@ -186,7 +193,7 @@ function render(): void {
   root.append(el('div', 'art-sheet-note', `${active.note} · [ ] switch sheets, ± zoom, P play, Esc close · npm run art:sheet writes these as PNGs`));
 
   const match = (text: string) => !state.filter || text.toLowerCase().includes(state.filter.toLowerCase());
-  const held = active.id === 'viewmodels';
+  const held = active.id === 'viewmodels' || active.id === 'spells';
   let shown = 0;
   for (const group of active.groups) {
     // Playing collapses a creature's frames into one cell that runs the whole
@@ -204,7 +211,10 @@ function render(): void {
     // Stat lines do not scale with zoom, so creature cells get a floor width
     // that fits `HP 135 · ATK 21 · DEF 20` without wrapping every other word.
     const cellPx = hasStats && !held ? Math.max(basePx, 210) : basePx;
-    const stagePx = (held ? Math.max(...sizes.map(s => s.h)) : 34) * state.zoom + (held ? 8 : 0);
+    // A cast lifts the conduit by CAST_LIFT native pixels, so its stage keeps
+    // that much headroom or the stone rises out of the cell.
+    const lift = group.cells.some((c) => c.cast) ? CAST_LIFT : 0;
+    const stagePx = (held ? Math.max(...sizes.map(s => s.h)) + lift : 34) * state.zoom + (held ? 8 : 0);
     shown += visible.length;
     root.append(el('div', 'art-sheet-group', group.title));
     const grid = el('div', 'art-sheet-grid');
@@ -227,6 +237,14 @@ function render(): void {
       }
       grid.append(cell);
       if (state.play && c.creature) playing.push({ el: img, creature: c.creature, offset: playing.length * 0.37 });
+      if (state.play && c.cast) {
+        const bolt = document.createElement('img');
+        bolt.className = 'bolt';
+        bolt.src = artUrl(c.cast.bolt);
+        bolt.style.opacity = '0';
+        stage.append(bolt);
+        casting.push({ el: img, bolt, cast: c.cast, ramp: c.ramp, offset: casting.length * 0.41 });
+      }
     }
     root.append(grid);
   }
@@ -279,6 +297,7 @@ function dedupeCreatures<T extends { id: string; creature?: Creature }>(cells: T
 function tick(now: number): void {
   raf = requestAnimationFrame(tick);
   const t = now / 1000;
+  tickCasts(t);
   for (const p of playing) {
     const c = p.creature;
     const guardFor = c.hasShield ? 0.8 : 0;
@@ -304,6 +323,52 @@ function tick(now: number): void {
     const bob = c.floats ? Math.sin(t * 2.5 + p.offset) * 4 : 0;
     p.el.style.transformOrigin = '50% 100%';
     p.el.style.transform = `translateY(${bob}px) scale(${1 + pose.lunge * 0.34})`;
+  }
+}
+
+/**
+ * One cast per loop, timed as the dungeon times it: the conduit at rest, then
+ * the hand rising through the wind-up with the stone lit for its back half,
+ * the bolt leaving at the release and shrinking away as it flies, and the
+ * hand settling through the recovery. Matches `dungeon-renderer`'s offhand.
+ */
+function tickCasts(t: number): void {
+  const z = state.zoom;
+  for (const c of casting) {
+    const { windup, recovery } = c.cast;
+    const rest = 0.9, flight = 0.45;
+    const cycle = rest + windup + recovery + flight;
+    const at = (t + c.offset) % cycle;
+    let lift = 0;
+    let lit = false;
+    if (at >= rest && at < rest + windup) {
+      lift = (at - rest) / windup;
+      lit = lift > 0.5;
+    } else if (at >= rest + windup && at < rest + windup + recovery) {
+      lift = 1 - (at - rest - windup) / recovery;
+      lit = true;
+    }
+    const src = artUrl(lit ? c.cast.lit : c.cast.idle, c.ramp);
+    if (c.el.src !== src) c.el.src = src;
+    c.el.style.transform = `translateY(${(CAST_LIFT / 2 - lift * CAST_LIFT) * z}px)`;
+    c.el.style.filter = lit ? 'brightness(1.25)' : 'none';
+    const since = at - rest - windup;
+    if (since >= 0 && since < recovery + flight) {
+      const k = since / (recovery + flight);
+      if (c.cast.hitscan) {
+        // Nothing flies: the mark stands out in front and thins away.
+        c.bolt.style.opacity = String(1 - k);
+        c.bolt.style.width = `${12 * z}px`;
+        c.bolt.style.transform = `translate(-50%, -260%)`;
+      } else {
+        const size = 16 * z * (1 - 0.7 * k);
+        c.bolt.style.opacity = String(1 - k * 0.5);
+        c.bolt.style.width = `${size}px`;
+        c.bolt.style.transform = `translate(-50%, ${-60 - k * 260}%)`;
+      }
+    } else {
+      c.bolt.style.opacity = '0';
+    }
   }
 }
 

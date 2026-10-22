@@ -1,3 +1,4 @@
+import { flaskMax } from '../systems/healing';
 import { DIR_NAMES, DX, DY, turnLeft, turnRight } from '../core/dir';
 import { OATHS, findOath } from '../data/oaths';
 import { oathProgress, runOaths } from '../systems/oaths';
@@ -88,16 +89,37 @@ export class Hud {
    * only place a tile under your feet can be shown from.
    */
   private wardGlow = h('div', { class: 'ward-glow' });
+  /** Pitch or fire on your own tile: the one tile you cannot see. */
+  private footGlow = h('div', { class: 'foot-glow' });
+  /**
+   * The conduit: the loaded spells in cycling order with the selected one lit,
+   * and the shared charge pool as pips under them — the next one filling as
+   * it regrows, so "when can I cast again" is a glance, like the sigil dial.
+   */
+  private spellWrap = h('div', { class: 'spells' });
+  private spellRow = h('div', { class: 'spell-row' });
+  private spellPips = h('div', { class: 'spell-pips' });
+  private spellKey = '';
   private time = 0;
   /** Active pointer-drag reorder of the quick bar, if a slot is being dragged. */
   private quickDrag: { from: number; el: HTMLElement; over: number | null; pointerId: number; startX: number; startY: number; active: boolean } | null = null;
   /** Set when a drag just ended so the trailing click doesn't drink anything. */
   private suppressQuickClick = false;
 
-  constructor(parent: HTMLElement, private actions: { interact: () => void; flask: () => void; quick: (i: number) => void; reorderQuick: (from: number, to: number) => void; settings: () => void }) {
+  constructor(parent: HTMLElement, private actions: { interact: () => void; flask: () => void; quick: (i: number) => void; reorderQuick: (from: number, to: number) => void; settings: () => void; map: () => void }) {
     this.recallWrap.append(this.recallBar);
     // Tappable on touch screens.
     this.prompt.addEventListener('click', () => this.actions.interact());
+    // The minimap opens the full map, like M. Acting on release, with the
+    // press's default suppressed, keeps the tap's follow-up mouse events
+    // from landing on the map it just opened (the same trick as the touch
+    // menu buttons).
+    this.minimap.title = 'Map [M]';
+    this.minimap.addEventListener('pointerdown', (e) => e.preventDefault());
+    this.minimap.addEventListener('pointerup', (e) => {
+      e.preventDefault();
+      this.actions.map();
+    });
     const gear = settingsGearButton(() => this.actions.settings(), 'Settings — sound, cloud saves');
     gear.classList.add('hud-gear');
     const bars = h(
@@ -112,11 +134,16 @@ export class Hud {
     this.sigilCastWrap.append(this.sigilCastBar);
     this.sigilWrap.append(this.sigilIcon, this.sigilDial, this.sigilText, this.sigilCastWrap);
     this.sigilWrap.hidden = true;
+    this.spellWrap.append(this.spellRow, this.spellPips);
+    this.spellWrap.hidden = true;
     this.wardGlow.hidden = true;
+    this.footGlow.hidden = true;
     this.root.append(
       this.wardGlow,
+      this.footGlow,
       this.floatsEl,
       this.sigilWrap,
+      this.spellWrap,
       this.status,
       this.compass,
       this.minimap,
@@ -249,6 +276,33 @@ export class Hud {
     if (casting) this.sigilCastBar.style.width = `${(1 - casting.t / Math.max(0.01, def.cast)) * 100}%`;
   }
 
+  /** Loaded spells, the selected one lit, and the conduit's charges. */
+  private updateSpells(world: World): void {
+    const conduit = world.derived.conduit;
+    const pool = world.run.conduit;
+    const spells = world.conduitSpells();
+    const selected = world.selectedSpell();
+    this.spellWrap.hidden = !conduit || !pool;
+    if (!conduit || !pool) return;
+    const key = `${spells.map((s) => s.id).join(',')}|${selected?.id}|${conduit.charges}`;
+    if (key !== this.spellKey) {
+      this.spellKey = key;
+      this.spellRow.replaceChildren(...(spells.length
+        ? spells.map((s) => h('div', { class: `spell-icon${s === selected ? ' on' : ''}`, title: `${s.name} — ${s.description}` }, artImg(s.icon, undefined, s === selected ? 40 : 26)))
+        : [h('span', { class: 'spell-none', text: 'No spells loaded' })]));
+      this.spellPips.replaceChildren(...Array.from({ length: conduit.charges }, () => h('i', {}, h('b'))));
+      this.spellWrap.title = `${spells.length > 1 ? 'V casts · B selects the next spell' : 'V casts'} · ${conduit.charges} charges, one back every ${conduit.regrow}s`;
+    }
+    const pips = [...this.spellPips.children] as HTMLElement[];
+    pips.forEach((pip, i) => {
+      const fill = i < pool.charges ? 1 : i === pool.charges ? clamp(pool.regrow / conduit.regrow, 0, 1) : 0;
+      (pip.firstChild as HTMLElement).style.width = `${fill * 100}%`;
+      pip.classList.toggle('full', fill >= 1);
+    });
+    this.spellWrap.classList.toggle('woven', !!world.anim.weave);
+    this.spellWrap.classList.toggle('casting', !!world.anim.attackSpell);
+  }
+
   update(world: World, renderer: DungeonRenderer, dt: number): void {
     this.time += dt;
     const p = world.player;
@@ -280,6 +334,9 @@ export class Hud {
     const ward = world.anim.ward ? Math.ceil(world.anim.ward.t) : 0;
     this.wardGlow.hidden = !ward;
     this.wardGlow.classList.toggle('fading', ward > 0 && ward <= 2);
+    const foot = world.underfoot();
+    this.footGlow.hidden = !foot;
+    this.footGlow.classList.toggle('lit', foot === 'fire');
     const snuffed = world.anim.snuffT > 0 ? Math.ceil(world.anim.snuffT) : 0;
     // The belt is three numbers, not one: in hand, on the floor, and flying
     // home. The call used to show only the stock, which is how it could promise
@@ -293,7 +350,7 @@ export class Hud {
     const stats = world.run.stats;
     const oathKey = runOaths(world.run).map((o) => `${o.id}:${o.status}:${o.marks}:${o.kills}:${o.prayers}`).join()
       + `|${stats.goldFound}|${stats.deepest}|${stats.bossKilled}|${sealCount}`;
-    const statusKey = `${world.run.depth}|${biome.id}|${world.run.gold}|${keyNames.join()}|${bless}|${curse}|${world.freeSlots}|${ward}|${snuffed}|${beltKey}|${oathKey}`;
+    const statusKey = `${world.run.depth}|${biome.id}|${world.run.gold}|${keyNames.join()}|${bless}|${curse}|${world.freeSlots}|${ward}|${foot}|${snuffed}|${beltKey}|${oathKey}`;
     if (statusKey !== this.statusKey) {
       this.statusKey = statusKey;
       const oathLine = oathStatus(world) + (sealCount ? `<div style="color:#c080ff">Sealed ×${sealCount}</div>` : '');
@@ -313,10 +370,12 @@ export class Hud {
         (curse ? `<div class="curse">${curse}</div>` : '') +
         oathLine +
         (ward ? `<div class="ward">Consecrated ground · ${ward}s</div>` : '') +
+        (foot ? `<div class="foot">${foot === 'fire' ? 'Burning ground · step off' : 'Pitch at your feet · it is about to catch'}</div>` : '') +
         (snuffed ? `<div class="ward">Snuffed · ${snuffed}s</div>` : '');
     }
 
     this.updateSigil(world);
+    this.updateSpells(world);
 
     drawMap(this.minimap, world.floor, p.x, p.y, p.facing, { cell: 6, cx: p.x, cy: p.y, radius: 12, visibleEnemies: world.visibleEnemies() }, this.time);
 
@@ -334,7 +393,7 @@ export class Hud {
       this.quickKey = qk;
       this.quickDrag = null;
       this.quick.classList.remove('dragging');
-      const max = 3 + Math.min(3, world.state.flask?.shards ?? 0);
+      const max = flaskMax(world.state.flask?.shards ?? 0, world.diff.flaskBonus);
       const dregs = Math.min(100, flask.dregs / Math.max(1, world.derived.maxHp * 0.5) * 100);
       // Charges left as one number, like every other stack on the bar: "3/3"
       // in the pixel font ran into the bottle and the dregs bar and read as
@@ -392,7 +451,7 @@ export class Hud {
     }
     this.target.hidden = !tgt;
     if (tgt) {
-      const def = enemyView(enemyDef(tgt.def), tgt.hp, tgt.maxHp, { elite: tgt.elite, marked: tgt.marked });
+      const def = enemyView(enemyDef(tgt.def), tgt.hp, tgt.maxHp, { elite: tgt.elite, marked: tgt.marked, calm: tgt.calm, chilled: (tgt.chillT ?? 0) > 0, hexed: (tgt.hexT ?? 0) > 0 });
       const weak = Object.entries(def.resist).filter(([, v]) => (v ?? 1) >= 1.4).map(([k]) => k);
       const res = Object.entries(def.resist).filter(([, v]) => (v ?? 1) <= 0.6).map(([k]) => k);
       // An elite's name carries its trait in the trait's colour, and hovering

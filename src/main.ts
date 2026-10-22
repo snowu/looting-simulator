@@ -6,10 +6,16 @@ import { SLOTS, Slot, clearSave, lastSlot, loadGame, renameSave, saveGame, isScr
 import { displaySaveName, fallenRecord, sanitizeSaveName, serializeSave } from './state/save-format';
 import { startRun, endRun, bankCarriedGold } from './systems/run';
 import { biomeForFloor } from './data/biomes';
+import { itemBase } from './data/items';
 import { quirkDef } from './data/quirks';
+import { findRite, type RiteDef } from './data/rites';
+import { recogniseRite, type RiteGrade, type TracePoint } from './systems/rite-draw';
 import { World, WorldEvent } from './world/world';
 import { DungeonRenderer } from './render/dungeon-renderer';
+import { RiteFire } from './render/rite-fire';
+import { createTitleDungeon } from './render/title-dungeon';
 import { artUrl, loadArtOverrides } from './render/art-cache';
+import { registerOfflineCache } from './pwa/register';
 import { Hud } from './ui/hud';
 import { DungeonOverlays } from './ui/dungeon-ui';
 import { Town } from './ui/town';
@@ -25,9 +31,10 @@ import { TouchControls, TouchMove, isTouchDevice } from './ui/touch';
 import { sideMove, touchPrefs } from './ui/touch-prefs';
 import { TiltStrafe, requestTilt, tiltNeedsPermission } from './ui/tilt';
 import { OrientationGate, landscapeNow } from './ui/orientation-gate';
+import { PointerLock } from './ui/pointer-lock';
 import { GamepadController, type PadContext } from './ui/gamepad';
 import { FULLSCREEN_HELP, fullscreenSupported, isFullscreen, isStandalone, lockLandscape, mountFullscreenButton, wasButtonExit } from './ui/fullscreen';
-import { APP_VERSION, BUILD_ID, newerBuild, reloadToLatest, shouldAttemptReload } from './ui/update';
+import { APP_VERSION, BUILD_ID, markResumeAfterUpdate, newerBuild, reloadToLatest, shouldAttemptReload, takeResumeAfterUpdate } from './ui/update';
 import { btn } from './ui/dom';
 import { audio } from './audio/sfx';
 import { closeSettings, isSettingsOpen, openSettings } from './ui/settings';
@@ -55,6 +62,14 @@ let signedIn = false;
 let cloudSlots = new Map<Slot, CloudFetch>();
 let world: World | null = null;
 let mode: Mode = 'title';
+let titleDungeon: World | null = null;
+let titleDrawAt = -Infinity;
+let titleTime = 0;
+let titleDirty = true;
+let visualCapture = false;
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+window.addEventListener('resize', () => { titleDirty = true; });
+reducedMotion.addEventListener('change', () => { titleDirty = true; });
 let saveTimer = 0;
 // Next cave drip in the Sunken Catacombs. Reckoned in real seconds so the
 // roof keeps dripping while a panel is open — ambience does not pause.
@@ -62,6 +77,7 @@ let dripTimer = 3;
 let ending: { outcome: 'dead' | 'extracted'; t: number } | null = null;
 
 // --- DOM -----------------------------------------------------------------------
+registerOfflineCache();
 const overrideCount = await loadArtOverrides();
 if (overrideCount) console.info(`Loaded ${overrideCount} hand-drawn art override(s).`);
 
@@ -71,6 +87,7 @@ document.documentElement.style.setProperty('--frame-gold', `url(${artUrl('ui_fra
 
 const canvas = h('canvas', { attrs: { id: 'view' } });
 app.append(canvas);
+const pointerLock = new PointerLock(canvas);
 const renderer = new DungeonRenderer(canvas);
 // A watched drop is heard when it lands, not while it is still falling.
 // Drops only ever fall in the catacombs (the pool clears on floor changes),
@@ -92,7 +109,7 @@ renderer.onLavaSound = ({ name, x, z }) => {
   const pan = (dx * Math.cos(world.anim.yaw) + dz * Math.sin(world.anim.yaw)) / Math.max(1, distance);
   audio.play(name, { volume: 0.75 / (1 + distance * 0.16), pan: pan * 0.8 });
 };
-const hud = new Hud(app, { interact: () => world?.interact(), flask: () => world?.sipFlask(), quick: (i) => world?.quickUse(i), reorderQuick: (from, to) => world?.moveQuick(from, to), settings: () => openDungeonSettings() });
+const hud = new Hud(app, { interact: () => world?.interact(), flask: () => world?.sipFlask(), quick: (i) => world?.quickUse(i), reorderQuick: (from, to) => world?.moveQuick(from, to), settings: () => openDungeonSettings(), map: () => world && overlays.toggle('map', world) });
 
 let touchMode = isTouchDevice();
 let touchAttack = false;
@@ -129,6 +146,8 @@ function clearTouchHolds(): void {
 const tilt = new TiltStrafe();
 /** The move tilt is holding right now, so it can be let go when the roll or the pause changes. */
 let tiltHeld: TouchMove | null = null;
+/** True until play (re)starts: the first live frame after takes the phone's grip as level. */
+let tiltIdle = true;
 const touch = new TouchControls(app, {
   move: (d) => {
     if (stickDir) touchHold(stickDir, false);
@@ -139,6 +158,13 @@ const touch = new TouchControls(app, {
   hurl: () => world?.hurl(),
   retrieve: (held) => world?.retrieve(held),
   sigil: () => world?.castSigil(),
+  spell: () => world?.castSpell(),
+  nextSpell: () => world?.nextSpell(),
+  rite: () => {
+    if (!world) return;
+    if (world.riteDraw) world.endRiteDraw();
+    else world.beginRiteDraw();
+  },
   tap: () => {
     if (!world) return;
     if (world.contextAction().kind === 'interact') world.interact();
@@ -189,6 +215,172 @@ window.addEventListener('touchstart', () => {
   touch.visible = mode === 'dungeon';
 }, { passive: true });
 const toastLayer = h('div', { class: 'layer', style: 'pointer-events:none' });
+// The drawing surface stays square on every screen; its coordinates also serve the stick.
+const riteSvg = h('div', { class: 'layer rite-layer' });
+const ritePanel = h('div', { class: 'rite-panel' });
+const riteTitle = h('strong', { class: 'rite-title' });
+const riteHint = h('div', { class: 'rite-hint' });
+const riteStatus = h('div', { class: 'rite-status' });
+riteStatus.setAttribute('role', 'status');
+const riteSurface = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+riteSurface.setAttribute('viewBox', '0 0 100 100');
+riteSurface.setAttribute('class', 'rite-svg');
+riteSurface.setAttribute('aria-label', 'Draw the rite mark');
+const riteGuide = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+riteGuide.setAttribute('class', 'rite-guide');
+// The stick's pen: where a controller trace is, or will start.
+const ritePen = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+ritePen.setAttribute('class', 'rite-pen');
+ritePen.setAttribute('r', '1.6');
+riteSurface.append(riteGuide, ritePen);
+// Every rite you know, as its mark: one tablet serves them all, so the drawing is the choice.
+const riteLegend = h('div', { class: 'rite-legend' });
+let riteLegendKey = '';
+let ritePenAt: TracePoint | null = null;
+let ritePointer: number | null = null;
+let riteGradedPoints: readonly TracePoint[] | null = null;
+let riteGradedTail: TracePoint | undefined;
+let riteRead: { def: RiteDef; grade: RiteGrade } | undefined;
+const retryRite = () => {
+  if (world?.riteDraw) world.riteDraw.points = [];
+};
+ritePanel.append(riteTitle, riteHint, riteLegend, riteSurface, riteStatus,
+  h('div', { class: 'rite-actions' },
+    btn('Retry', retryRite),
+    btn('Cast', () => world?.endRiteDraw()),
+    btn('Cancel', () => world?.cancelRiteDraw())));
+riteSvg.append(ritePanel);
+riteSvg.hidden = true;
+app.append(riteSvg);
+// Fire survives the tablet closing for the cast ring or ash fizzle, without taking input.
+const riteFire = new RiteFire();
+const riteFireLayer = h('div', { class: 'layer rite-fire-layer' });
+const riteFireCanvas = h('canvas', { class: 'rite-fire-canvas', attrs: { 'aria-hidden': 'true' } });
+riteFireCanvas.width = riteFireCanvas.height = riteFire.size;
+const riteFireContext = riteFireCanvas.getContext('2d')!;
+const riteFireImage = riteFireContext.createImageData(riteFire.size, riteFire.size);
+riteFireLayer.append(riteFireCanvas);
+riteFireLayer.hidden = true;
+app.append(riteFireLayer);
+function renderRiteFire(dt: number): void {
+  // Real time, clamped: a stalled or backgrounded tab must not fast-forward the fire.
+  riteFire.update(Math.min(dt, 0.1), ritePointer !== null);
+  riteFireLayer.hidden = !riteFire.visible;
+  if (!riteFire.visible) return;
+  riteFireImage.data.set(riteFire.pixels);
+  riteFireContext.putImageData(riteFireImage, 0, 0);
+}
+// Keep all ritual gestures away from the dungeon's touch and combat controls.
+riteSvg.addEventListener('pointerdown', (e) => e.stopPropagation());
+function sampleRitePointer(e: PointerEvent): void {
+  const r = riteSurface.getBoundingClientRect();
+  if (!r.width || !r.height) return;
+  world?.addRitePoint(
+    Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)),
+    Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)));
+}
+riteSurface.addEventListener('pointerdown', (e) => {
+  if (!world?.riteDraw || ritePointer !== null || e.button !== 0) return;
+  e.preventDefault();
+  retryRite();
+  ritePointer = e.pointerId;
+  // A pointer already gone (a lightning tap, a touch the browser cancelled)
+  // cannot be captured; the stroke still starts, it just is not held.
+  try { riteSurface.setPointerCapture(e.pointerId); } catch { /* not capturable */ }
+  sampleRitePointer(e);
+});
+riteSurface.addEventListener('pointermove', (e) => {
+  if (e.pointerId !== ritePointer) return;
+  for (const point of e.getCoalescedEvents?.() ?? [e]) sampleRitePointer(point);
+  sampleRitePointer(e);
+});
+riteSurface.addEventListener('pointerup', (e) => {
+  if (e.pointerId !== ritePointer) return;
+  sampleRitePointer(e);
+  ritePointer = null;
+});
+riteSurface.addEventListener('lostpointercapture', () => { ritePointer = null; });
+riteSurface.addEventListener('pointercancel', () => {
+  ritePointer = null;
+  retryRite();
+});
+/** Let go of the tablet pointer, if it holds one. */
+function releaseRitePointer(): void {
+  if (ritePointer !== null && riteSurface.hasPointerCapture(ritePointer)) riteSurface.releasePointerCapture(ritePointer);
+  ritePointer = null;
+}
+/** Drop an open trace unpaid and put the tablet and its fire away: menus, pauses, lost focus. */
+function closeRiteSurface(): void {
+  world?.cancelRiteDraw();
+  riteSvg.hidden = true;
+  riteFire.reset();
+  riteFireLayer.hidden = true;
+  releaseRitePointer();
+  riteFirePlaced = false;
+  ritePenAt = null;
+}
+/** Whether the fire canvas sits on the open tablet: measured once per opening, not every frame. */
+let riteFirePlaced = false;
+window.addEventListener('resize', () => { riteFirePlaced = false; });
+function markSvg(def: RiteDef): SVGSVGElement {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 100 100');
+  const line = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+  line.setAttribute('points', def.template.map(([x, y]) => `${x * 100},${y * 100}`).join(' '));
+  line.setAttribute('stroke', def.color);
+  svg.append(line);
+  return svg;
+}
+function drawRiteTrace(w: World): void {
+  const draw = w.riteDraw;
+  riteSvg.hidden = !draw;
+  if (!draw) {
+    if (!riteFire.finishing) riteFire.reset();
+    releaseRitePointer();
+    riteFirePlaced = false;
+    ritePenAt = null;
+    return;
+  }
+  const defs = w.riteCandidates();
+  if (!defs.length) return;
+  const key = defs.map((d) => d.id).join();
+  if (key !== riteLegendKey) {
+    riteLegendKey = key;
+    riteLegend.replaceChildren(...defs.map((d) => h('div', { class: 'rite-chip', attrs: { 'data-rite': d.id } }, markSvg(d), h('span', {}, d.short))));
+    riteRead = undefined;
+  }
+  riteLegend.hidden = defs.length < 2;
+  const tail = draw.points.at(-1);
+  if (draw.points !== riteGradedPoints || tail !== riteGradedTail) {
+    riteRead = draw.points.length >= 2 ? recogniseRite(draw.points, defs) : undefined;
+    riteGradedPoints = draw.points;
+    riteGradedTail = tail;
+  }
+  // The rite the stroke reads as: named, guided and burning in its colour as you draw.
+  const lead = riteRead && riteRead.grade !== 'botch' ? riteRead.def : defs.length === 1 ? defs[0] : undefined;
+  riteTitle.textContent = lead ? lead.name : 'Draw a rite you know';
+  riteTitle.style.color = lead?.color ?? '';
+  riteHint.textContent = defs.length > 1 ? 'Draw any mark below in one stroke. Release X or choose Cast.' : 'Draw the mark in one stroke. Release X or choose Cast.';
+  riteGuide.setAttribute('points', lead ? lead.template.map(([x, y]) => `${x * 100},${y * 100}`).join(' ') : '');
+  for (const chip of riteLegend.children) chip.classList.toggle('lead', (chip as HTMLElement).dataset.rite === lead?.id);
+  if (lead && riteFire.rite !== lead.id) riteFire.setRite(lead);
+  ritePen.style.display = ritePenAt ? '' : 'none';
+  if (ritePenAt) {
+    ritePen.setAttribute('cx', `${ritePenAt.x * 100}`);
+    ritePen.setAttribute('cy', `${ritePenAt.y * 100}`);
+  }
+  riteFire.trace(draw.points);
+  if (!riteFirePlaced) {
+    const r = riteSurface.getBoundingClientRect(), parent = app.getBoundingClientRect();
+    // Place the transparent canvas on the same square; it stays here when the panel closes.
+    Object.assign(riteFireCanvas.style, { left: `${r.left - parent.left + 1}px`, top: `${r.top - parent.top + 1}px`, width: `${r.width - 2}px`, height: `${r.height - 2}px` });
+    riteFirePlaced = r.width > 0;
+  }
+  const grade = riteRead?.grade ?? 'botch';
+  riteStatus.textContent = draw.points.length < 2 ? (defs.length > 1 ? 'Start anywhere · Cancel costs nothing' : 'Start at either tip of the mark · Cancel costs nothing') :
+    grade === 'full' ? 'The mark holds · Full power' : grade === 'weak' ? 'The mark flickers · Half power' : 'The mark is broken · Retry or risk the backlash';
+  riteStatus.dataset.grade = draw.points.length < 2 ? '' : grade;
+}
 const screen = h('div', { class: 'layer' });
 app.append(screen);
 const overlays = new DungeonOverlays(app, (t, c) => hud.message(t, c), { settings: () => openDungeonSettings() });
@@ -257,6 +449,13 @@ const padCtx: PadContext = {
   setRetrieve: (held) => world?.retrieve(held),
   setBlock: (on) => world?.setBlock(on),
   castSigil: () => world?.castSigil(),
+  castSpell: () => world?.castSpell(),
+  nextSpell: () => world?.nextSpell(),
+  riteAvailable: () => !!world?.riteAvailable(),
+  beginRite: () => !!world?.beginRiteDraw(),
+  aimRite: (x, y) => { ritePenAt = { x, y }; },
+  traceRite: (x, y) => { ritePenAt = { x, y }; world?.addRitePoint(x, y); },
+  endRite: () => world?.endRiteDraw(),
   sipFlask: () => world?.sipFlask(),
   press: (m) => world?.press(m),
   release: (m) => world?.release(m),
@@ -320,8 +519,10 @@ document.body.classList.toggle('has-fs', !!fsButton);
 // --- Updates (installed apps have no reload button) ----------------------------
 // A new build re-downloads everything: hashed JS/CSS change filenames, the
 // reload below busts the cached page URL, and unhashed art carries ?v=BUILD_ID.
-// Never interrupt a run to do it — the banner waits (and auto-reloads) once
-// the player is back in town, on the title, or past the run summary.
+// Out of a delve (town, title, run summary) the banner counts down and
+// reloads by itself. In a delve it never does: it shrinks to a pill under the
+// depth readout, and only a tap on it saves the delve, reloads, and opens the
+// same slot straight back into the dungeon.
 const AUTO_RELOAD_MS = 8000;
 let pendingUpdate: string | null = null;
 let autoUpdateTimer: number | null = null;
@@ -340,6 +541,8 @@ function cancelAutoUpdate(): void {
 function applyUpdate(id: string): void {
   if (!shouldAttemptReload(id)) return;
   commit();
+  // A scratch game (dev lab) is never saved, so there is nothing to resume.
+  if (mode === 'dungeon' && state.run?.outcome === 'active' && !isScratchMode()) markResumeAfterUpdate(slot);
   cancelAutoUpdate();
   void reloadToLatest(id);
 }
@@ -352,10 +555,18 @@ function scheduleAutoUpdate(): void {
 }
 
 function renderUpdateBanner(): void {
-  // Never interrupt a run; the banner waits for town or the title screen.
-  updateBanner.hidden = !pendingUpdate || mode === 'dungeon';
+  const inDelve = mode === 'dungeon';
+  updateBanner.hidden = !pendingUpdate;
+  updateBanner.classList.toggle('in-delve', inDelve);
   if (!pendingUpdate) return;
   const id = pendingUpdate;
+  if (inDelve) {
+    // Never reloads by itself mid-fight: the player picks the moment.
+    const b = btn('Update', () => applyUpdate(id), 'small primary');
+    b.title = 'Saves your delve, loads the new version and puts you straight back where you stood';
+    updateBanner.replaceChildren(h('span', { text: 'New version' }), b);
+    return;
+  }
   const secs = Math.ceil(AUTO_RELOAD_MS / 1000);
   updateBanner.replaceChildren(
     h('span', { text: `A new version is out — updating in ~${secs}s so you never play stale.` }),
@@ -404,6 +615,7 @@ const town = new Town(screen, {
   state: () => state,
   save: () => commit(),
   descend: () => enterDungeon(),
+  mainMenu: () => leaveToTitle(),
   // Deferred: the panel is created below, after the town it renders into.
   account: () => account.el,
   accountSummary: () => account.summary,
@@ -475,7 +687,26 @@ function openDungeonSettings(): void {
     onClose: () => undefined,
     showDifficulty: false,
     report: bugReport,
+    mainMenu: {
+      go: () => leaveToTitle(),
+      note: 'Your delve is saved as it stands. Resume delve on this slot picks it up where you left it.',
+    },
   });
+}
+
+/**
+ * Settings → Back to main menu, from town or mid-delve. Saves first; a delve
+ * in progress stays open in the save, the same as closing the app, and the
+ * slot's Resume delve drops you back on the tile you left.
+ */
+function leaveToTitle(): void {
+  commit();
+  flushSync();
+  world = null;
+  ending = null;
+  audio.stopAmbient();
+  audio.stopRag();
+  enterTitle();
 }
 
 /** Same restriction on the title screen: sound and saves, no difficulty. */
@@ -499,8 +730,19 @@ function show(m: Mode): void {
   touchAttack = false;
   chestPress = null;
   clearTouchHolds();
+  tiltIdle = true;
   pad.reset();
-  canvas.style.visibility = m === 'dungeon' ? 'visible' : 'hidden';
+  canvas.style.visibility = m === 'dungeon' || m === 'title' ? 'visible' : 'hidden';
+  canvas.classList.toggle('title-view', m === 'title');
+  // Menus need the cursor back and cannot carry a ritual surface with them.
+  if (m !== 'dungeon') {
+    pointerLock.release();
+    closeRiteSurface();
+  }
+  if (m === 'title') {
+    titleDirty = true;
+    renderer.deathFade = 0;
+  }
   town.visible = m === 'town';
   if (m !== 'dungeon') overlays.close();
   renderUpdateBanner();
@@ -711,10 +953,11 @@ async function openArtSheet(): Promise<void> {
 function enterTitle(): void {
   closeSettings();
   show('title');
+  titleDungeon ??= createTitleDungeon();
   screen.replaceChildren(titleScreen(slotPicker(slotViews(), enterSlot, {
     onRename: (n, name) => void renameSlot(n, name),
     onDelete: (n) => void deleteSlot(n),
-  }), `v${APP_VERSION} (${BUILD_ID})`, account.el, devTitleTools(), () => openTitleSettings()));
+  }), `v${APP_VERSION} (${BUILD_ID})`, account.el, devTitleTools(), () => openTitleSettings(), biomeForFloor(titleDungeon.floor).name));
   askAboutSaves();
 }
 
@@ -983,6 +1226,9 @@ function handle(ev: WorldEvent): void {
     case 'shake':
       renderer.onShake(ev.amount);
       break;
+    case 'rite':
+      if (mode === 'dungeon' && !overlays.isOpen && !isSettingsOpen() && !gate.blocked) riteFire.finish(ev.points, ev.grade, findRite(ev.rite));
+      break;
     case 'sigil':
       renderer.onSigil(ev.r, ev.g, ev.b, ev.strength);
       break;
@@ -1015,18 +1261,43 @@ function handle(ev: WorldEvent): void {
 // --- Loop ------------------------------------------------------------------------
 let last = performance.now();
 function frame(now: number): void {
-  const dt = Math.min(0.1, (now - last) / 1000);
+  if (import.meta.env.DEV && visualCapture) {
+    const captureWorld = mode === 'title' ? titleDungeon : world;
+    if (captureWorld) renderer.render(captureWorld, 0, mode !== 'title');
+    requestAnimationFrame(frame);
+    return;
+  }
+  const elapsed = Math.max(0, (now - last) / 1000);
+  const dt = Math.min(0.1, elapsed);
   last = now;
   // Gamepad polls every frame, in every mode: dungeon holds live, while town,
   // title, summary and open overlays navigate focus instead.
   padCtx.paused = mode !== 'dungeon' || overlays.isOpen || isSettingsOpen() || !!ending;
   padCtx.overlayOpen = overlays.isOpen;
   pad.update(dt);
+  if (mode === 'title' && !document.hidden && !gate.blocked) {
+    // Reuse the game's low-resolution renderer, capped at 30fps. No AI, input,
+    // audio or persistence belongs to this separate, unsimulated world.
+    if (titleDirty || (!reducedMotion.matches && now - titleDrawAt >= 1000 / 30)) {
+      titleDungeon ??= createTitleDungeon();
+      const elapsed = titleDirty ? 0 : Math.min(0.1, (now - titleDrawAt) / 1000);
+      titleTime += elapsed;
+      titleDungeon.anim.yaw = Math.PI / 5 + (reducedMotion.matches ? 0 : Math.sin(titleTime * 0.09) * 0.16);
+      renderer.render(titleDungeon, reducedMotion.matches ? 0 : elapsed, false);
+      titleDrawAt = now;
+      titleDirty = false;
+    }
+  }
   if (mode === 'dungeon' && world) {
     // Settings pauses like any other overlay: the dungeon keeps rendering
     // behind it, but nothing moves and nothing can hurt you while it is open.
     const paused = overlays.isOpen || isSettingsOpen() || gate.blocked;
     if (paused) world.retrieve(false);
+    // An open overlay needs the cursor back; a touch device never took it.
+    if (paused || touchMode || world.riteDraw) pointerLock.release();
+    // A trace open into a menu is dropped unpaid, never cast.
+    if (paused) closeRiteSurface();
+    drawRiteTrace(world);
     touch.visible = touchMode && !paused && !ending;
     if (touchMode) {
       touch.setAction(world.contextAction());
@@ -1041,11 +1312,22 @@ function frame(now: number): void {
           || (world.anim.attackThrow && world.anim.attack === 'windup')),
         calling: !!world.anim.retrieving,
         sigil: !!world.run.sigil && world.run.sigil.cd <= 0,
+        spell: world.selectedSpell()?.icon ?? null,
+        spellReady: world.spellReady(),
+        spells: world.conduitSpells().length,
+        parryOnly: world.derived.conduitHand === 'offhand',
+        guardIcon: world.derived.conduitHand === 'offhand' && world.state.equipment.offhand
+          ? itemBase(world.state.equipment.offhand.ref).icon
+          : null,
+        rite: !!world.riteDraw || world.riteAvailable(),
       });
     }
     // Tilt is polled rather than pushed: a roll held through a pause must not
     // walk you off the moment the menu closes, so it only counts while live.
-    const tiltWant = touchMode && !paused && !ending && tilt.dir ? sideMove(tilt.dir, 'extra', touchPrefs.get().padSwipe) : null;
+    const tiltLive = touchMode && !paused && !ending;
+    if (tiltIdle && tiltLive) tilt.recenter();
+    tiltIdle = !tiltLive;
+    const tiltWant = tiltLive && tilt.dir ? sideMove(tilt.dir, 'extra', touchPrefs.get().padSwipe) : null;
     if (tiltWant !== tiltHeld) {
       if (tiltHeld) touchHold(tiltHeld, false);
       tiltHeld = tiltWant;
@@ -1060,6 +1342,7 @@ function frame(now: number): void {
     if (touchAttack && !paused) world.attack();
     if (!paused) world.update(dt);
     for (const ev of world.drainEvents()) handle(ev);
+    renderRiteFire(elapsed);
     if (ending) {
       ending.t += dt;
       if (ending.outcome === 'dead') renderer.deathFade = Math.min(1, ending.t / 1.8);
@@ -1169,7 +1452,18 @@ window.addEventListener('keydown', (e) => {
     case 'c':
       if (!e.repeat) world.castSigil();
       break;
+    case 'v':
+      if (!e.repeat) world.castSpell();
+      break;
+    case 'x':
+      // Hold to trace a rite: the world slows and the pointer draws.
+      if (!e.repeat && !overlays.isOpen && world.beginRiteDraw()) pointerLock.release();
+      break;
+    case 'b':
+      if (!e.repeat) world.nextSpell();
+      break;
     case 'escape':
+      if (world.riteDraw) { world.cancelRiteDraw(); break; }
     case 'h':
       overlays.toggle('help', world);
       break;
@@ -1188,14 +1482,17 @@ window.addEventListener('keyup', (e) => {
   if (!world) return;
   const k = e.key.toLowerCase();
   if (MOVES[k]) world.release(MOVES[k]);
+  if (k === 'x') world.endRiteDraw();
   if (k === 'shift') world.setBlock(false);
   if (k === 'r') world.retrieve(false);
 });
 
 // Mouse: LMB attack, RMB block. (Touch goes through the drag zone in TouchControls.)
+// The same click pins the cursor to the view while the delve is live.
 canvas.addEventListener('pointerdown', (e) => {
   audio.unlock();
-  if (!world || overlays.isOpen || isSettingsOpen() || e.pointerType !== 'mouse') return;
+  if (!world || world.riteDraw || overlays.isOpen || isSettingsOpen() || e.pointerType !== 'mouse') return;
+  if (mode === 'dungeon' && !touchMode) pointerLock.request();
   if (e.button === 0) world.attack();
   if (e.button === 2) world.setBlock(true);
 });
@@ -1205,7 +1502,9 @@ window.addEventListener('mouseup', (e) => {
 });
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 window.addEventListener('blur', () => {
+  closeRiteSurface();
   clearTouchHolds();
+  pointerLock.release();
   world?.held.clear();
   world?.retrieve(false);
   world?.setBlock(false);
@@ -1219,6 +1518,7 @@ window.addEventListener('beforeunload', () => commit());
 function goBackground(): void {
   commit();
   audio.suspend();
+  pointerLock.release();
   world?.held.clear();
   world?.setBlock(false);
   world?.retrieve(false);
@@ -1336,6 +1636,7 @@ async function enterLabArena(): Promise<void> {
 async function toggleLabConsole(): Promise<void> {
   if (!import.meta.env.DEV) return;
   const { toggleLabPanel } = await import('./dev/lab-panel');
+  pointerLock.release();
   toggleLabPanel(app, () => world, (t, c) => hud.message(t, c));
 }
 
@@ -1379,13 +1680,40 @@ if (import.meta.env.DEV && params.has('repro')) {
     if (where === 'dungeon') enterDungeon();
   }
 } else {
-  enterTitle();
+  // Updated mid-delve: straight back into the same slot, and so the dungeon.
+  const resume = takeResumeAfterUpdate();
+  if (resume === 1 || resume === 2 || resume === 3) enterSlot(resume);
+  else enterTitle();
 }
 requestAnimationFrame(frame);
 
 // Handy for debugging and headless playtests.
 if (import.meta.env.DEV) {
   (window as unknown as Record<string, unknown>).__game = {
+    /** Static scratch scenes for screenshots; never update or save this world. */
+    async captureVisual(scene: 'title' | 'dark' | 'bright', legacy = false) {
+      visualCapture = true;
+      setScratchMode(true);
+      closeSettings();
+      const { visualWorld } = await import('./dev/visual-scene');
+      const captureWorld = visualWorld(scene);
+      brightness.set(1);
+      renderer.prepareVisualCapture(legacy);
+      if (scene === 'title') {
+        titleDungeon = captureWorld;
+        enterTitle();
+      } else {
+        world = captureWorld;
+        state = captureWorld.state;
+        show('dungeon');
+        screen.replaceChildren();
+        hud.clearLog();
+        hud.update(captureWorld, renderer, 0);
+      }
+      renderer.render(captureWorld, 0, scene !== 'title');
+      if (scene !== 'title') hud.update(captureWorld, renderer, 0);
+      return { biome: biomeForFloor(captureWorld.floor).id, seed: captureWorld.run.seed };
+    },
     get state() { return state; },
     get world() { return world; },
     get mode() { return mode; },

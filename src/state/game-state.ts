@@ -16,6 +16,7 @@ import { starterRecipeRanks } from '../data/recipes';
 import { SAVE_REVISION } from './migrations';
 import { newId } from '../core/id';
 import { BASE_BACKPACK } from '../systems/meta';
+import { STARTER_CONDUIT_SPELLS } from '../data/conduit-spells';
 
 export const SAVE_VERSION = 2;
 
@@ -56,6 +57,8 @@ export interface RunState {
   road?: string;
   /** Whether this delve has already put your Shade on its floor. */
   shadePlaced?: boolean;
+  /** The rite carving this delve has laid, if any: one per delve (`src/data/rites.ts`). */
+  riteCarved?: string;
   /** The Ashen Seals this delve is under. Absent means none. */
   seals?: string[];
   seed: number;
@@ -96,6 +99,17 @@ export interface RunState {
   /** Attuned sigil and remaining cooldown, snapshotted for this delve. */
   sigil: { id: string; cd: number } | null;
   /**
+   * The conduit's shared charge pool, seconds into regrowing the next charge,
+   * and which loaded spell is selected. Kept on the run, not the item, so
+   * swapping conduits never refills it. Absent until a conduit is first worn.
+   */
+  conduit?: { charges: number; regrow: number; sel: number };
+  /**
+   * Legacy: the last cast depth, from when a rite answered once per floor.
+   * Nothing writes or reads it now; it stays optional so older saves load.
+   */
+  riteCastDepth?: number | null;
+  /**
    * Player-chosen order of the delve quick bar (consumable refs, first = slot 1).
    * New consumable types append at the end; missing ones are ignored on read.
    * Absent on older saves, which used backpack order.
@@ -127,6 +141,8 @@ export interface RunSummary {
   oath?: { id: OathId; kept: boolean; renown: number };
   /** On a death: the depth where your Shade now holds what you lost. */
   graveDepth?: number;
+  /** A Normal death: the pack came home, and only a tithe of the coin was lost. */
+  keptPack?: boolean;
   /** The Ashen Seals the delve was under, and whether it set a new record. */
   seals?: { count: number; record: boolean };
 }
@@ -211,6 +227,12 @@ export interface GameState {
   /** Permanently inscribed sigils and the one selected for the next delve. */
   spells: string[];
   attuned: string | null;
+  /** Battle spells learned for good. See `src/data/conduit-spells.ts`. */
+  spellbook: string[];
+  /** Spells loaded into whatever conduit you wear, in order; it reads as many as it has slots. */
+  loadedSpells: string[];
+  /** Rites learned for good by studying their carvings. See `src/data/rites.ts`. */
+  ritesKnown: string[];
   /** Build properties learned, ready to inscribe at the forge. See `src/data/properties.ts`. */
   properties: string[];
   /** The oaths sworn for the next delve. See `src/data/oaths.ts`. */
@@ -262,6 +284,9 @@ export function newGame(rng: Rng): GameState {
     flask: { shards: 0, potency: 0, infusion: null },
     spells: [],
     attuned: null,
+    spellbook: [...STARTER_CONDUIT_SPELLS],
+    loadedSpells: [...STARTER_CONDUIT_SPELLS],
+    ritesKnown: [],
     properties: [],
     loadout: createContainer(BASE_BACKPACK),
     run: null,

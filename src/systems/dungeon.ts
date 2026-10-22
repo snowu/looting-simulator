@@ -1,13 +1,13 @@
-import { ELEMENTAL_VARIANT_IDS } from '../data/elemental-variants';
 import { iciclesFor } from './ceiling-decor';
 import { Rng, createRng, hashString } from '../core/rng';
 import { Dir, DIRS, DX, DY, turnAround, turnLeft, turnRight } from '../core/dir';
 import { BIOMES, biomeForDepth, FINAL_DEPTH } from '../data/biomes';
-import { BOSS_ID, ENEMIES, enemyDef } from '../data/enemies';
+import { BOSS_ID, enemyDef, spawnPool } from '../data/enemies';
 import { DifficultyId, DifficultyDef, DIFFICULTIES, difficultyOf } from '../data/difficulty';
 import { DamageType, EnemyDef, Item } from '../types';
 import { ELITE_HP_MULT, EliteTrait, IRONHIDE_HP_MULT, eliteFor } from '../data/elites';
 import { STALKER_BURIED, droppersFor } from '../data/ambush';
+import type { Surface } from '../data/surfaces';
 import { gravecallerChance } from '../data/necromancy';
 import { Crack, SHORTCUT_MIN_SAVING, cracksFor } from '../data/walls';
 import type { FloorMods } from '../data/seals';
@@ -88,7 +88,7 @@ export interface Torch {
   side: Dir;
 }
 
-export type PropKind = 'icicle' | 'root_cache' | 'chest' | 'urn' | 'barrel' | 'bones' | 'shrine' | 'fungus' | 'portal' | 'town_portal';
+export type PropKind = 'icicle' | 'root_cache' | 'chest' | 'urn' | 'barrel' | 'bones' | 'shrine' | 'fungus' | 'portal' | 'town_portal' | 'carving';
 
 export interface Prop {
   id: string;
@@ -119,6 +119,10 @@ export interface Prop {
   shattered?: number;
   /** An emptied chest broken apart; it no longer blocks. Absent means intact. */
   smashed?: boolean;
+  /** A barrel of lamp oil (`src/data/surfaces.ts`): spills when broken, bursts in fire. Absent means an ordinary vessel. */
+  oil?: boolean;
+  /** Which rite a carving teaches (`src/data/rites.ts`). Only meaningful on `kind: 'carving'`. */
+  rite?: string;
 }
 
 /**
@@ -222,6 +226,14 @@ export interface EnemyState {
   power: number;
   /** Seconds left of the opening a parry tore in its guard. */
   vuln?: number;
+  /** Rime Lance: seconds of chill left. Held while a chilled wind-up runs. Absent means none. */
+  chillT?: number;
+  /** Hex: seconds left as a penguin. Absent means itself. */
+  hexT?: number;
+  /** Frozen into freezing water: seconds left held fast. Absent means free. */
+  frozenT?: number;
+  /** Ember Bolt: burn seconds left, damage still to deal, and the fraction banked. Absent means not burning. */
+  burn?: { t: number; left: number; acc: number };
   /** Consecutive blows turned on a carried shield. Resets when one gets through or the guard drops. */
   blocks?: number;
   /** Seconds until the block count goes stale. */
@@ -283,7 +295,7 @@ export interface EnemyState {
    * purpose — you walk under it, bolts pass it, `enemyAt` never returns it —
    * until it drops or surfaces. See `src/data/ambush.ts`.
    */
-  lurk?: 'ceiling' | 'buried';
+  lurk?: 'ceiling' | 'buried' | 'shadow';
   /** Counting down to the drop or the surfacing, once it has been set off. Absent while it waits. */
   lurkT?: number;
   /** A ceiling lurker you have seen. Buried ones are always visible as their mound. */
@@ -315,6 +327,8 @@ export interface EnemyState {
   stirT?: number;
   /** Your Shade: the damage type of the weapon you fell with. */
   shadeType?: DamageType;
+  /** A King who keeps his first rhythm and never shields (`DifficultyDef.kingEscalates` off). Set at spawn. */
+  calm?: boolean;
   /** A floor lieutenant (`src/data/lieutenants.ts`). Absent for everything else. */
   lieutenant?: 'quartermaster' | 'hoarder';
   /** The Hoarder's sack: loot it has carried off, and coin. */
@@ -362,6 +376,12 @@ export interface Floor {
    * never by `generateFloor` — see `src/data/quirks.ts` for why.
    */
   quirk?: string;
+  /**
+   * Oil, water, ice and fire on the floor's tiles (`src/data/surfaces.ts`).
+   * **Absent on floors generated before surfaces existed**, which therefore
+   * have none; laid after generation by `placeSurfaces`, never by `generateFloor`.
+   */
+  surfaces?: Surface[];
 }
 
 // ---------------------------------------------------------------------------
@@ -510,11 +530,14 @@ export function createEnemy(def: EnemyDef, x: number, y: number, facing: Dir, id
   // read `power` back through attackPower/defensePower, and those stay on the
   // old curve so Hard is untouched and Normal's softening is explicit per
   // system (damage in the world, armour via enemyDefense, drops in items.ts).
-  const hp = Math.round(def.hp * power * difficultyOf(difficulty).enemyHp);
-  return {
+  const diff = difficultyOf(difficulty);
+  const hp = Math.round(def.hp * power * diff.enemyHp);
+  const e: EnemyState = {
     id, def: def.id, x, y, fromX: x, fromY: y, moveT: 1, facing, hp, maxHp: hp, ai: 'idle', timer: 0, alert: 0,
     lastSeenX: -1, lastSeenY: -1, homeX: x, homeY: y, hurtT: 0, deadT: 0, attackCd: 0, power,
   };
+  if (def.behavior === 'boss' && !diff.kingEscalates) e.calm = true;
+  return e;
 }
 
 /**
@@ -1176,10 +1199,7 @@ function tryGenerate(
     occupied.add(idx(x, y));
     enemies.push(createEnemy(def, x, y, rng.pick(DIRS), `e${enemyN++}`, depth, diff.id));
   };
-  const pool = ENEMIES.filter((e) => e.weight > 0 && e.minDepth <= depth && depth <= e.maxDepth
-    && (!e.onlyIn || e.onlyIn.includes(biome.id))
-    && (!ELEMENTAL_VARIANT_IDS.has(e.id) || e.element === biome.element)
-    && !(biome.element && e.element && e.element !== biome.element));
+  const pool = spawnPool(biome, depth);
   const roomTiles = (r: Room) => {
     const out: [number, number][] = [];
     for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
@@ -1189,10 +1209,9 @@ function tryGenerate(
   };
   if (throne) {
     const bx = cx(throne), by = throne.y + 2;
+    // The King stands alone: a fight with him is a fight with him, not with
+    // whoever else is in reach while he winds up.
     spawnEnemy(enemyDef(BOSS_ID), bx, by);
-    const guard = enemyDef('hollow_knight');
-    if (free(bx - 2, by + 3)) spawnEnemy(guard, bx - 2, by + 3);
-    if (free(bx + 2, by + 3)) spawnEnemy(guard, bx + 2, by + 3);
   }
   // Fights last three to seven swings now instead of one, so the same count
   // would turn a floor into a queue. Fewer and deadlier is the trade.
@@ -1203,7 +1222,7 @@ function tryGenerate(
   const authored = enemies.length;
   const wanted = Math.max(1, Math.round((3 + Math.round(depth * 1.6) + Math.floor(rooms.length / 3)) * diff.enemyCount * (mods?.enemyCount ?? 1)));
   const hostRooms = rooms.filter((r) => r.role !== 'start' && r.role !== 'secret' && r.role !== 'throne');
-  for (let guard = 0; enemies.length < wanted + (throne ? 3 : 0) && guard < 200; guard++) {
+  for (let guard = 0; enemies.length < wanted + (throne ? 1 : 0) && guard < 200; guard++) {
     const def = rng.weighted(pool.map((e) => [e,
       e.weight
       * (biome.favoredEnemies?.includes(e.id) ? FAVORED_ENEMY_WEIGHT : 1)
@@ -1226,10 +1245,10 @@ function tryGenerate(
   }
   // Elites are decided after the fact, on their own stream, so the draws above
   // — and therefore every wall, chest and monster — are exactly what they were.
-  // The throne's King and his guards are spawned before the loop and are never
+  // The throne's King is spawned before the loop and is never
   // promoted: that fight is authored.
   for (const e of enemies.slice(authored)) {
-    const trait = eliteFor(seed, e.id, depth, enemyDef(e.def), mods?.eliteBonus ?? 0);
+    const trait = eliteFor(seed, e.id, depth, enemyDef(e.def), mods?.eliteBonus ?? 0, diff.eliteChance);
     if (trait) promoteElite(e, trait);
   }
   // Ambushers, on their own stream for the same reason: ceiling droppers over

@@ -25,6 +25,6 @@ export interface HelpEntry {
 export const HELP: Record<HelpId, HelpEntry> = {
   oaths: {
     title: 'The Oath Stone',
-    body: `Today's oaths: two hard, three medium, and they change with the days. Swear as many as you dare, or none. Each kept oath pays inscriptions you have not learned (one for medium, two for hard), keep every one of two or more and you learn one more, and a broken oath loses only its own reward.`,
+    body: `Today's oaths: two hard, three medium, and they change with the days. Swear as many as you dare, or none. Each kept oath pays lessons you have not learned, inscriptions or battle spells (one for medium, two for hard), keep every one of two or more and you learn one more, and a broken oath loses only its own reward.`,
   },
 };

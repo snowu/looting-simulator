@@ -12,15 +12,23 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:visual": "playwright test && node scripts/visual-review.mjs",
+    "test:visual:check": "VISUAL_ASSERT=1 playwright test",
+    "test:visual:update": "VISUAL_ASSERT=1 playwright test --update-snapshots",
     "playtest": "vitest run --config vitest.playtest.config.ts scripts/balance.bench.ts",
+    "playtest:normal": "vitest run --config vitest.playtest.config.ts scripts/normal.bench.ts",
+    "playtest:battlemage": "vitest run --config vitest.playtest.config.ts scripts/battlemage.bench.ts",
+    "playtest:belts": "vitest run --config vitest.playtest.config.ts scripts/belts.bench.ts",
+    "playtest:career": "vitest run --config vitest.playtest.config.ts scripts/career.bench.ts",
     "tables": "vitest run --config vitest.playtest.config.ts scripts/tables.bench.ts",
     "upgrades": "vitest run --config vitest.playtest.config.ts scripts/upgrades.bench.ts",
     "find": "vitest run --config vitest.playtest.config.ts scripts/find.bench.ts",
     "patches": "node scripts/check-patches.mjs",
-    "art:export": "node scripts/export-art.mjs",
     "art:sheet": "node scripts/art-sheet.mjs",
     "art:sync": "node scripts/sync-public-art.mjs",
-    "art:check": "node scripts/sync-public-art.mjs --check"
+    "art:check": "node scripts/sync-public-art.mjs --check",
+    "art:status": "node scripts/art-status.mjs",
+    "art:alpha": "node scripts/art-alpha.mjs"
   },
   "keywords": [],
   "author": "",
@@ -31,7 +39,9 @@
     "three": "^0.185.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.0",
     "@types/three": "^0.185.0",
+    "pngjs": "^7.0.0",
     "typescript": "^6.0.3",
     "vite": "^8.1.0",
     "vitest": "^4.1.9"

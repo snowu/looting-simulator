@@ -10,6 +10,7 @@ import { itemValue, makeMaterial } from '../systems/items';
 import { draught } from '../systems/infusion';
 import { flaskMax } from '../systems/healing';
 import { findSigil } from '../data/spells';
+import { STARTER_CONDUIT_SPELLS } from '../data/conduit-spells';
 
 /**
  * Additive save migrations.
@@ -26,7 +27,7 @@ import { findSigil } from '../data/spells';
  */
 
 /** Bump this (and push a migration) whenever a field is added to the save. */
-export const SAVE_REVISION = 29;
+export const SAVE_REVISION = 31;
 
 type AnyState = GameState & Record<string, unknown>;
 
@@ -261,6 +262,17 @@ const MIGRATIONS: ((s: AnyState) => void)[] = [
       delete s.run.oath;
     }
     if (s.oathReward && s.oathReward.oath && !s.oathReward.oaths) s.oathReward.oaths = [s.oathReward.oath];
+  },
+  // 29 → 30: the battlemage. Ember Bolt is known and loaded, and the Wand is a
+  // starter recipe, so an existing character can take one up straight away.
+  (s) => {
+    s.spellbook ??= [...STARTER_CONDUIT_SPELLS];
+    s.loadedSpells ??= [...STARTER_CONDUIT_SPELLS];
+    if (s.recipeRanks) s.recipeRanks.r_wand ??= 1;
+  },
+  // 30 → 31: rites. Nobody knows one yet — they are learned at carvings.
+  (s) => {
+    s.ritesKnown ??= [];
   },
 ];
 

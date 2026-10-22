@@ -3,6 +3,7 @@ import { tileHash } from '../core/tile-hash';
 import { emberWallTexture } from './ember-wall';
 import { EMBER_FLOOR_IDS, EMBER_CEILING_IDS } from '../art/ember-floor';
 import { Dir, DIRS, DX, DY, turnRight } from '../core/dir';
+import { timberSetAt } from './timber';
 import { biomeForFloor } from '../data/biomes';
 import { Door, Floor, FLOOR, PILLAR, Secret, WALL, isBossDoor, stairsAt, tileAt } from '../systems/dungeon';
 import type { Crack } from '../data/walls';
@@ -117,6 +118,10 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
         ? biome.wallVariants[hash3(x, y, d) % biome.wallVariants.length]
         : hash3(x, y, d) < 12 ? biome.wallAlt : biome.wall;
   const ceiling = ceilingTexture ?? biome.ceiling;
+  // Timber sets, where the biome has them and the roof is its own.
+  const sets = ceiling === biome.ceiling ? biome.timberSets : undefined;
+  const setAt = (x: number, y: number) =>
+    sets ? timberSetAt((tx, ty) => tileAt(floor, tx, ty) !== WALL, x, y, sets.every) : null;
   const builders = new Map<string, Builder>();
   const B = (tex: string) => {
     let b = builders.get(tex);
@@ -161,7 +166,9 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
       }
 
       B(floorTexAt(x, y)).quad([x0, 0, z0], [x1, 0, z0], [x1, 0, z1], [x0, 0, z1], [0, 1, 0]);
-      B(ceilingTexAt(x, y)).quad([x0, WALL_H, z0], [x1, WALL_H, z0], [x1, WALL_H, z1], [x0, WALL_H, z1], [0, -1, 0]);
+      const set = setAt(x, y);
+      const roof = set ? (set === 'x' ? sets!.capX : sets!.capZ) : ceilingTexAt(x, y);
+      B(roof).quad([x0, WALL_H, z0], [x1, WALL_H, z0], [x1, WALL_H, z1], [x0, WALL_H, z1], [0, -1, 0]);
       if (biome.flooded) {
         B('water_catacombs').quad(
           [x0, 0.018, z0], [x1, 0.018, z0], [x1, 0.018, z1], [x0, 0.018, z1], [0, 1, 0],
@@ -195,7 +202,10 @@ export function buildLevel(floor: Floor, shared: Shared, ceilingTexture?: string
       for (const d of DIRS) {
         const nx = x + DX[d], ny = y + DY[d];
         if (tileAt(floor, nx, ny) !== WALL || secretAtTile(nx, ny) || crackAtTile(nx, ny)) continue;
-        wallQuad(wallTexAt(nx, ny, d), cx, cz, d, 0, WALL_H);
+        // Under each end of a timber set's cap, a post up the wall.
+        const set = setAt(x, y);
+        const post = set === 'x' ? d === Dir.E || d === Dir.W : set === 'z' ? d === Dir.N || d === Dir.S : false;
+        wallQuad(post ? sets!.post : wallTexAt(nx, ny, d), cx, cz, d, 0, WALL_H);
       }
     }
   }

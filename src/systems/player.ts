@@ -1,5 +1,6 @@
-import { DamageType, DEFAULT_CRIT_MULT, EquipSlot, EQUIP_SLOTS, Item, Stats, SwingProfile, ThrownProfile, WeaponClass, addStats, emptyStats, slotOf } from '../types';
+import { ConduitProfile, DamageType, DEFAULT_CRIT_MULT, ELEMENTS, EquipSlot, EQUIP_SLOTS, Item, Stats, SwingProfile, ThrownProfile, WeaponClass, addStats, emptyStats, slotOf } from '../types';
 import { findProperty } from '../data/properties';
+import type { ConduitSpellDef } from '../data/conduit-spells';
 import { FIST_ATTACK, FIST_SWING, itemBase } from '../data/items';
 import { DifficultyId, difficultyOf } from '../data/difficulty';
 import { isTwoHanded, itemStats, thrownCapacity, thrownProfile, uniqueOf } from './items';
@@ -63,6 +64,13 @@ export interface UniqueTraits {
   bulwark: boolean;
   retrieval: boolean;
   lastFlask: boolean;
+  countercharm: boolean;
+  requiem: boolean;
+  /**
+   * Dr. Mantis Toboggan's Rod: the share of max health a missing charge
+   * costs instead, when a cast finds the conduit short. 0 means no relic.
+   */
+  bloodCast: number;
 }
 
 export function emptyTraits(): UniqueTraits {
@@ -86,6 +94,9 @@ export function emptyTraits(): UniqueTraits {
     bulwark: false,
     retrieval: false,
     lastFlask: false,
+    countercharm: false,
+    requiem: false,
+    bloodCast: 0,
   };
 }
 
@@ -104,6 +115,8 @@ function applyProperty(t: UniqueTraits, item: Item | null | undefined, slot: Equ
     case 'bulwark': t.bulwark = true; break;
     case 'retrieval': t.retrieval = true; break;
     case 'last_flask': t.lastFlask = true; break;
+    case 'countercharm': t.countercharm = true; break;
+    case 'requiem': t.requiem = true; break;
   }
 }
 
@@ -158,6 +171,9 @@ function traitsOf(eq: Equipment, twoHanded = false): UniqueTraits {
       case 'haste':
         t.haste *= u.power;
         break;
+      case 'blood_cast':
+        t.bloodCast = Math.max(t.bloodCast, u.power);
+        break;
       // never_dulls is a property of the item, handled in maxDurability.
       case 'never_dulls':
         break;
@@ -191,6 +207,15 @@ export interface PlayerDerived {
   thrownAttack: number;
   /** The shafts' own damage type, which need not match the weapon's. */
   thrownDamageType: DamageType;
+  /** The conduit you hold: in your offhand, or the Stave in both hands. */
+  conduit: ConduitProfile | null;
+  /** Which hand holds it. A Stave is the weapon; a Wand or Rod is the offhand. */
+  conduitHand: 'offhand' | 'weapon' | null;
+  /**
+   * What a spell is scored on before its own multiplier: the conduit's Attack,
+   * read off it alone like a belt's. It never reaches your melee Attack.
+   */
+  conduitPower: number;
   find: number;
   traits: UniqueTraits;
 }
@@ -220,6 +245,26 @@ export function thrownView(d: PlayerDerived): PlayerDerived {
   return { ...d, attack: d.thrownAttack, damageType: d.thrownDamageType };
 }
 
+/**
+ * You, as a spell scores you. The conduit's Power goes in as the spell's
+ * own element, and only your matching elemental stat rides along: fire gear
+ * makes an Ember Bolt hit harder and a Rime Lance not at all. With no
+ * physical Attack the whole hit is elemental, which `playerHitsEnemy`
+ * already mitigates at half armour. Crits use the plain multiplier — a
+ * dagger in the other hand does not make the spell a dagger. Shared with the
+ * balance tables for the same reason as `thrownView`.
+ */
+export function spellView(d: PlayerDerived, spell: ConduitSpellDef): PlayerDerived {
+  const stats = { ...d.stats };
+  for (const el of ELEMENTS) if (el !== spell.element) stats[el] = 0;
+  stats[spell.element] = (stats[spell.element] ?? 0) + d.conduitPower * spell.power;
+  return {
+    ...d, stats, attack: 0, damageType: spell.element,
+    traits: { ...d.traits },
+    swing: { ...d.swing, critMult: undefined },
+  };
+}
+
 export function derivePlayer(eq: Equipment, meta: MetaLevels, difficulty?: DifficultyId): PlayerDerived {
   // A two-hander keeps the offhand empty. `equipFrom` enforces that on the way
   // in, but it is not the only way an Equipment record gets built — the balance
@@ -237,7 +282,12 @@ export function derivePlayer(eq: Equipment, meta: MetaLevels, difficulty?: Diffi
     // three knives it never has to throw.
     if (slot === 'thrown') continue;
     const it = eq[slot];
-    if (it) addStats(stats, itemStats(it));
+    if (!it) continue;
+    const s = itemStats(it);
+    // A conduit's Attack is its spell Power, scored separately below, for the
+    // same reason a belt's is: in `stats` it would make every wand a sword.
+    if (slot === 'offhand' && itemBase(it.ref).conduit) addStats(stats, { ...s, attack: 0 });
+    else addStats(stats, s);
   }
   const weapon = eq.weapon ? itemBase(eq.weapon.ref) : null;
   const traits = traitsOf(eq, twoHanded);
@@ -246,10 +296,19 @@ export function derivePlayer(eq: Equipment, meta: MetaLevels, difficulty?: Diffi
   // everything that reads it — the sim, the harness, the tooltip — agrees.
   const speedFactor = Math.max(0.5, (1 + stats.speed / 100) / traits.haste);
   const baseSwing = weapon?.swing ?? FIST_SWING;
-  const hasShield = !twoHanded && !!eq.offhand;
+  const offhandConduit = !twoHanded && eq.offhand && itemBase(eq.offhand.ref).conduit ? eq.offhand : null;
+  // A Stave is a weapon and a conduit at once. Its Attack stays a melee
+  // Attack in `stats`; the spells see `conduit.power` of it on top.
+  const conduitItem = offhandConduit ?? (eq.weapon && weapon?.conduit ? eq.weapon : null);
+  const conduit = conduitItem ? itemBase(conduitItem.ref).conduit ?? null : null;
+  // An offhand conduit is no guard at all: it absorbs nothing, so its bearer
+  // parries on a tighter window or takes the blow whole. (The Stave keeps its
+  // two-hander's 20%: it is a weapon first.)
+  const hasShield = !twoHanded && !!eq.offhand && !offhandConduit;
   // Difficulty pads the health bar on Normal; Hard multiplies by exactly 1, so
   // the old number survives the round trip unchanged.
-  const maxHp = Math.max(10, Math.round((BASE_HP + stats.health + 12 * metaLevel(meta, 'toughness')) * difficultyOf(difficulty).playerHp));
+  const diff = difficultyOf(difficulty);
+  const maxHp = Math.max(10, Math.round((BASE_HP + stats.health + 12 * metaLevel(meta, 'toughness')) * diff.playerHp));
   return {
     stats,
     maxHp,
@@ -270,13 +329,19 @@ export function derivePlayer(eq: Equipment, meta: MetaLevels, difficulty?: Diffi
     // Parrying with a weapon still takes the edge off; shields do the real work.
     // Clamped at zero: a relic that spends Block can drive the stat negative,
     // and a negative absorption would turn raising your guard into taking more.
-    block: hasShield ? clamp(stats.block / 100, 0, 0.9) : twoHanded ? 0.2 : weapon ? 0.3 : 0.12,
+    // Normal adds its bonus before the shield cap, so it can never lift a guard past 90%.
+    // An offhand conduit guards nothing at all — parry only — so it reads 0
+    // even on Normal: the display and the sim agree there is no guard to break.
+    block: offhandConduit ? 0 : clamp((hasShield ? stats.block / 100 : twoHanded ? 0.2 : weapon ? 0.3 : 0.12) + diff.blockBonus, 0, 0.9),
     hasShield,
     twoHanded,
     thrown: thrownProfile(eq.thrown),
     thrownCapacity: thrownCapacity(eq.thrown),
     thrownAttack: eq.thrown ? Math.max(1, itemStats(eq.thrown).attack) : 0,
     thrownDamageType: (eq.thrown ? itemBase(eq.thrown.ref).damageType : undefined) ?? 'pierce',
+    conduit,
+    conduitHand: offhandConduit ? 'offhand' : conduitItem ? 'weapon' : null,
+    conduitPower: conduitItem ? Math.max(1, Math.round(itemStats(conduitItem).attack * (conduit?.power ?? 1))) : 0,
     find: stats.find + FIND_PER_TREASURE_SENSE * metaLevel(meta, 'treasure_sense'),
     traits,
   };

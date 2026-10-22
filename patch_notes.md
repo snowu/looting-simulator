@@ -2,11 +2,103 @@
 
 *Save revision 29, unchanged: nothing about a save moves.*
 
-**The title screen counts what you've missed.** If the game has been updated since you last opened it and you haven't read the patch notes yet, the button says how many: **Patch notes · 3 new**. Opening the notes marks the new patches with a **New** tag and a gold edge, so you can see what changed since you last played. Once you've opened them, the button goes back to plain **Patch notes**.
+**The title screen counts what you've missed.** If the game has been updated since you last opened it and you haven't read the patch notes yet, the patch-notes button gets a gold badge with the number of patches you haven't read. Opening the notes marks the new patches with a **New** tag and a gold edge, so you can see what changed since you last played. Once you've opened them, the badge goes away.
 
 **A first visit starts caught up.** A browser that has never opened the game isn't shown the whole history. The count only appears for patches that come out after that.
 
-Validation: all tests pass, including new tests for which patches count as new, storage that is blocked or holds a bad value, and a first visit. In the browser on the dev build: with the last-seen patch set to 1, the title button read "80 new", the overlay highlighted 80 entries and said so, and opening the notes cleared the count.
+Validation: all tests pass, including new tests for which patches count as new, storage that is blocked or holds a bad value, and a first visit. In the browser on the dev build: with the last-seen patch set to 1, the title button showed 80 and the overlay highlighted 80 entries, and opening the notes cleared the count.
+
+---
+
+# The name fits on one line
+
+*Save revision 29, unchanged: nothing about a save moves.*
+
+**Looting Simulator, side by side.** On a desktop-sized window the title screen now writes the name on one line instead of stacking it. Phones and tablets keep the two-line name, where it fits better.
+
+Validation: title screen checked at 1280×800 (one line), 390×844 and 844×390 (two lines).
+
+---
+
+# Hand-painted icons take their whole material
+
+*Save revision 29, unchanged: nothing about a save moves.*
+
+**No more half-grey hides.** Some of the new hand-painted icons only took part of their material's colour: a Dragon Scale was red in the middle and grey round the edge, and Leather, Wyrm Leather and Troll Hide were mostly grey. The icons use more shades than the old ones did, and the game only coloured the old shades. Now every shade of the material takes its colour, so a dragon scale is red all over and leather is brown.
+
+**Gear too.** The same goes for the hauberk, the cane and any other icon painted with extra shades, in your pack, at the forge and in your Shade's hands.
+
+Validation: all tests pass. In the dev art sheet, every material icon was compared before and after: scales and hides now take their colour all over, while outlines and glints stay as painted.
+
+---
+
+# Every icon, painted by hand
+
+*Save revision 29, unchanged: nothing about a save moves.*
+
+**New icons, drawn by an artist.** Every item icon in the game has been repainted by hand: weapons, shields, armour, rings and amulets, materials, potions, scrolls, food, sigils, keys and gold. They're the same size and shape as before, so nothing moves around in your pack, just sharper and with more detail.
+
+**Gear still wears its material.** A silver sword is still silver and a gold one gold; the new icons take on the colour of what they're made from, as before.
+
+**Your Shade holds what you hold.** The Shade waiting by your grave now carries the same new icon of your weapon and shield that your pack shows, not the old drawing.
+
+Validation: all tests pass. In the dev art sheet every icon shows the new painting, recoloured for each material.
+
+---
+
+# Play with no connection
+
+*Save revision 29, unchanged: nothing about a save moves.*
+
+**The game downloads itself.** The first time you open it online, the game quietly fetches all of itself in the background: the code, every piece of art and the fonts. From then on it starts and plays with no connection, in the browser or installed to your home screen.
+
+**No more blank page on a bad connection.** If the network is slow or gone, the game stops waiting after a few seconds and opens from what it already has.
+
+**Updates work as before.** Online, the game still notices a new version and moves you onto it, and the new version downloads itself the same way. Cloud saves still need a connection; offline, your save stays on the device and syncs when you're back.
+
+Validation: all tests pass. In a browser, the game was opened once, the connection cut, and the page reloaded: the title screen came up with its art and fonts, and a save could be continued.
+
+---
+
+# Art round four: a clearer Seraph, sharper tells, busier floors
+
+*Save revision 29, unchanged: nothing about a save moves.*
+
+**The Bog Seraph looks like what it is.** It used to be a frog lost in a spatter of red dots. Now it's a frog seen from below, spread-eagled like an icon: a pale belly, arms thrown up and out, long legs bent out to webbed feet. It hangs inside a bone-gold halo, and feathers fan out through the ring, each with an eye near its tip. When it attacks, the halo flares white, every eye opens red and its throat swells.
+
+**Your Shade looks like you, gone dark.** It used to borrow the Hollow Knight, washed pale blue, so it read as one more knight. Now it's a figure of its own: a faceless shape with two cold eyes, smoke coming off its edges, and its legs fading to nothing below the knee. It holds the weapon and shield you have equipped, in their materials. They are the only clear things about it, and no torch lights up the rest.
+
+**Watch the chests.** Chests have two dark iron straps down the lid. A mimic still shows its two pale nails in the lid seam, and now the very tip of a tongue beside the lock. And it breathes: every few seconds its lid lifts a hair and the seam goes dark, then it settles. You'll only see it if you stop and look. Once one wakes, it's all mouth: the lid and the rim are jaws lined with uneven fangs (one of them gold), round a throat that glows dull red, and a fat tongue lolls over the front. It scuttles on rows of little legs, like a centipede. When it lunges, its jaws gape wider and its tongue lashes down to the floor.
+
+**Delver moles and Spore hunters warn you.** A mole has a proper pink snout with buck teeth and three big claws on each hand, and its mouth opens under the snout when it lunges. A Spore hunter keeps its tongue tucked in until it strikes. Then its gills flare and glowing spores puff out on either side.
+
+**Materials look like what they are.** In your pack, copper and iron ore are now chunks of rock with the metal showing through, and a gold nugget is a lump of raw gold. They used to look like smelted bars. Ingots are heavy bars with a maker's stamp. Planks come bundled and tied with cord, and cloth is a folded length with its loose end hanging down. Bones are knobbed at both ends, and a dragon scale is one big pointed scale.
+
+**No two materials look alike.** Nine materials were all the same pale lavender, including four of the five bones. Each now has its own colour: Deep Yew is mahogany, Starwood silver-blue, Wool madder red, Astral Silk a starry blue, and the bones run from grey to ochre to ice. Among the gems, Jade is a soft teal and Wardstone a deep violet. Jade and Moonstone are now polished stones, and Emerald has an emerald cut, so their shapes differ too. The Crystal Shard is rose quartz beside the blue Frost Shard. Gear crafted from these materials takes the new colours. Ingots now come as a small stack of bars, and bones are thicker, with a double knob at each end.
+
+**You can tell your potions and scrolls apart.** Every potion shared one flask and every scroll shared one scroll, so only the colour told them apart. Now each has its own. The Healing Draught is a round flask, Greater Healing a bigger flask with a gold band, the Stamina Tonic a tall slim vial, and Fight Milk a milk bottle. Each scroll carries a mark for what it does: an eye for Identify, a sun for Flash, a turning-back arrow for Backstep, a house for Recall. The Flash Scroll is sun-gold now instead of white.
+
+**The mines are shored up.** Every few tiles along a straight tunnel in the Deep Mines, a timber set now stands: a post up each wall and a beam across the roof. It's only in tunnels and only every fourth tile, never a beam at every step.
+
+**Floors with something on them.** In the Ossuary, about one tile in eight is now a grave lid with a cross cut into it, or an iron drain grate. In the Deep Mines, you'll see spoil with copper in it about as often, and now and then a pick somebody dropped.
+
+Validation: all tests pass, and the shipped PNGs are regenerated from the art code (`npm run art:check` is clean). The Seraph, the Spore hunter, the rat and your Shade were checked in the 3D lab from three tiles away, and so were the new floors. The floors' first draft vanished into the dark there, so their contrast was raised.
+
+---
+
+# Art round three: rats, doors, the Big Toe
+
+*Save revision 29, unchanged: nothing about a save moves.*
+
+**Giant rats look like rats.** They used to be a wide face with nothing behind it. A rat now crouches with its back humped up behind a low head. It has round pink ears, big red eyes, whiskers, clawed paws and a bare tail curling out to one side. When it bites, its jaws open across the whole snout. The Hoarder carries its sack on that humped back.
+
+**Iron doors look like doors.** They were six grey panels you could mistake for a wall. An iron door now has a frame, riveted straps that end in hinges, a barred spy-hole, a pull ring and some rust. This changes every iron door, including the locked ones and the Ashen Throne's fog gate.
+
+**The Big Toe has a nail and a handle.** The toe was a lilac blob that floated above your fist. Now it is a squat, fat toe with a nail and knuckle creases, and its stump is wrapped in cloth that runs down into your hand. It still takes on the colour of what it's made from.
+
+**Smaller things.** A smashed urn leaves its bottom half standing, with a jagged rim and shards on the floor. In the Sporegrove, the puddled floor is now broken up by patches of bare earth and, here and there, moss with small glowing sprouts.
+
+Validation: all tests pass, and the shipped PNGs are regenerated from the art code (`npm run art:check` is clean). The Big Toe was checked in its troll-hide colouring, and the rat against the old sprite side by side. Not checked in the 3D view this round.
 
 ---
 

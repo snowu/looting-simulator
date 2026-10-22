@@ -80,7 +80,7 @@ describe('elite chance and eligibility', () => {
     expect(hits).toBeLessThan(75);
   });
 
-  it('shows up on generated floors from depth 3, never shallower, never on the throne guard', () => {
+  it('shows up on generated floors from depth 3, never shallower, never on the King', () => {
     let deep = 0;
     for (let seed = 0; seed < 60; seed++) {
       for (let depth = 1; depth <= 6; depth++) {
@@ -90,8 +90,6 @@ describe('elite chance and eligibility', () => {
         else deep += elites.length;
         if (depth === 6) {
           expect(f.enemies.find((e) => e.def === BOSS_ID)!.elite).toBeUndefined();
-          // The King and his guards are the first three spawned.
-          for (const e of f.enemies.slice(0, 3)) expect(e.elite).toBeUndefined();
         }
       }
     }

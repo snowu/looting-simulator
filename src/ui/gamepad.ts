@@ -6,12 +6,14 @@
  * covers both. Touch controls stay as-is; this is additive.
  *
  * Standard mapping (Xbox-style labels, PlayStation in brackets):
- * - Left stick Y / D-pad Up-Down: step forward / back
+ * - Left stick Y: step forward / back; D-pad Up: step forward
+ * - D-pad Down: tap to cast the selected battle spell, hold to select the next
  * - Left stick X: strafe left / right
  * - Right stick X / D-pad Left-Right: turn
  * - A (Cross) / RT: context action — interact when facing something useful,
  *   otherwise attack. Holding keeps swinging.
- * - X (Square): interact explicitly
+ * - X (Square): tap to interact explicitly, hold to trace a rite (right stick draws,
+ *   left stick places the pen before the stroke starts)
  * - Y (Triangle): cast attuned sigil
  * - LB (L1): throw one shaft
  * - RB (R1, hold): call shafts back, release to stop
@@ -25,6 +27,12 @@ export type PadMove = 'forward' | 'back' | 'left' | 'right' | 'turnLeft' | 'turn
 export const PAD_DEADZONE = 0.28;
 export const PAD_TURN_DEADZONE = 0.35;
 export const PAD_TRIGGER_HELD = 0.35;
+/** Holding D-pad Down this long selects the next spell instead of casting. */
+export const SPELL_HOLD = 0.4;
+/** Where the stick's pen starts: the top-left tip, where the V and the Z begin. */
+export const RITE_PEN_START: Readonly<{ x: number; y: number }> = { x: 0.18, y: 0.16 };
+/** Holding X this long opens a rite trace instead of interacting. */
+export const RITE_HOLD = 0.4;
 
 export const PAD_BUTTONS = {
   a: 0,
@@ -111,7 +119,8 @@ export function snapshotPad(pad: RawPad | null, prevButtons: Set<number>): PadSn
   const turn = stickXToTurn(ax(2));
   if (turn) moves.add(turn);
   if (btn(pad, PAD_BUTTONS.dUp)) moves.add('forward');
-  if (btn(pad, PAD_BUTTONS.dDown)) moves.add('back');
+  // D-pad Down is the cast button in the dungeon (see SPELL_HOLD), so it no
+  // longer steps back; the left stick does that, as it always did.
   if (btn(pad, PAD_BUTTONS.dLeft)) moves.add('turnLeft');
   if (btn(pad, PAD_BUTTONS.dRight)) moves.add('turnRight');
   // Bumpers stay combat-bound (LB throw, RB retrieve) so they never turn.
@@ -147,6 +156,17 @@ export interface PadContext {
   setRetrieve: (held: boolean) => void;
   setBlock: (on: boolean) => void;
   castSigil: () => void;
+  /** Cast the selected battle spell, and select the next loaded one. */
+  castSpell: () => void;
+  nextSpell: () => void;
+  /** Whether a rite trace may open (for holds deciding what they mean). */
+  riteAvailable: () => boolean;
+  /** Open a rite trace, trace one stick step, close and cast it. */
+  beginRite: () => boolean;
+  /** Move the pen without drawing: where the stroke will start. */
+  aimRite: (x: number, y: number) => void;
+  traceRite: (x: number, y: number) => void;
+  endRite: () => void;
   sipFlask: () => void;
   press: (m: PadMove) => void;
   release: (m: PadMove) => void;
@@ -174,6 +194,16 @@ export class GamepadController {
   private navRepeat = 0;
   private navDir: 'next' | 'prev' | null = null;
   private quickIdx = 0;
+  /** Seconds D-pad Down has been held, or null when it is up; and whether the hold already cycled. */
+  private spellHeld: number | null = null;
+  private spellCycled = false;
+  /** Seconds X has been held, or null when it is up; and whether the hold opened a trace. */
+  private riteHeld: number | null = null;
+  private riteTracing = false;
+  /** The stick-drawn cursor, in 0..1 across the view; reset on every trace. */
+  private riteCursor = { ...RITE_PEN_START };
+  /** Whether the right stick has started drawing: until then the left stick moves the pen. */
+  private riteStroke = false;
   private seenPad = false;
   lastUsedAt = 0;
   getPoll: () => (RawPad | null) | null = () => {
@@ -200,6 +230,7 @@ export class GamepadController {
     this.prevRetrieve = false;
     this.prevButtons.clear();
     this.navDir = null;
+    this.spellHeld = null;
   }
 
   constructor(private ctx: PadContext | null = null) {}
@@ -250,6 +281,17 @@ export class GamepadController {
     const P = PAD_BUTTONS;
     const edge = (i: number) => snap.pressed.has(i);
 
+    // A trace owns the right stick: it draws, it never turns. X owns it for
+    // the whole hold, not just past the threshold, so a trace never starts
+    // with a turning step already underway.
+    if (this.riteTracing || btn(raw, P.x)) {
+      snap.moves.delete('turnLeft');
+      snap.moves.delete('turnRight');
+    }
+    // And the left stick places the pen, so it never walks you either — nor
+    // in the hold that may become a trace, or the pen would start on a step.
+    if (this.riteTracing || (btn(raw, P.x) && this.riteHeld !== -1 && ctx.riteAvailable())) snap.moves.clear();
+
     // --- Overlays / paused: release dungeon holds, navigate focus instead.
     if (ctx.paused || ctx.overlayOpen) {
       if (this.prevMoves.size) {
@@ -264,6 +306,11 @@ export class GamepadController {
         ctx.setRetrieve(false);
         this.prevRetrieve = false;
       }
+      // A cast held into a menu is dropped, not fired when the menu closes.
+      // A trace held into one is dropped unpaid the same way.
+      this.spellHeld = null;
+      this.riteHeld = null;
+      this.riteTracing = false;
       this.menuRepeat(dt, snap, raw);
       if (edge(P.b)) ctx.closeOverlay();
       if (edge(P.a) || edge(P.x)) {
@@ -300,18 +347,101 @@ export class GamepadController {
     }
 
     // --- Live dungeon input.
-    if (edge(P.x)) ctx.interact();
+    // X is tap-to-interact, hold-to-trace: until the button comes up there
+    // is no telling which was meant (the D-pad spell button's rule).
+    this.riteButton(dt, raw, ctx);
     if (edge(P.a) && ctx.contextKind() === 'interact') ctx.interact();
     // Holding A or RT keeps swinging (world.attack no-ops mid-swing).
     if (snap.attackHeld && ctx.contextKind() === 'attack') ctx.attack();
     if (edge(P.lb)) ctx.hurl();
     if (edge(P.y)) ctx.castSigil();
+    this.spellButton(dt, raw, ctx);
     // B is Close inside overlays (handled above); in the dungeon it sips.
     if (edge(P.b)) ctx.sipFlask();
     if (edge(P.select)) ctx.toggleInventory();
     if (edge(P.start)) ctx.toggleHelp();
     if (edge(P.l3)) ctx.toggleMap();
     if (edge(P.r3)) ctx.quickUseNext();
+  }
+
+  /**
+   * X: with no rite to cast it interacts at once, on the press, as it always
+   * has. With one ready, a tap interacts on release and a hold past RITE_HOLD
+   * opens a rite trace instead, drawn with the right stick until the button
+   * comes up; a hold that cannot become a trace still interacts on release.
+   * While tracing the stick draws rather than turns. (riteHeld -1: this
+   * press already interacted, wait for the release.)
+   */
+  private riteButton(dt: number, raw: RawPad, ctx: PadContext): void {
+    const down = btn(raw, PAD_BUTTONS.x);
+    if (down) {
+      if (this.riteHeld === null) {
+        this.riteTracing = false;
+        if (ctx.riteAvailable()) this.riteHeld = 0;
+        else {
+          ctx.interact();
+          this.riteHeld = -1;
+        }
+      } else if (this.riteHeld >= 0) {
+        this.riteHeld += dt;
+      }
+      if (!this.riteTracing && this.riteHeld >= RITE_HOLD && ctx.riteAvailable()) {
+        this.riteTracing = true;
+        this.riteStroke = false;
+        this.riteCursor = { ...RITE_PEN_START };
+        ctx.beginRite();
+        ctx.aimRite(this.riteCursor.x, this.riteCursor.y);
+      }
+      if (this.riteTracing) {
+        const ax = (i: number) => raw.axes[i] ?? 0;
+        const mx = Math.abs(ax(2)) > PAD_TURN_DEADZONE ? ax(2) : 0;
+        const my = Math.abs(ax(3)) > PAD_TURN_DEADZONE ? ax(3) : 0;
+        const lx = Math.abs(ax(0)) > PAD_TURN_DEADZONE ? ax(0) : 0;
+        const ly = Math.abs(ax(1)) > PAD_TURN_DEADZONE ? ax(1) : 0;
+        if (!this.riteStroke && !mx && !my && (lx || ly)) {
+          // Pen up: one stroke has to start where its mark starts.
+          this.riteCursor.x = Math.min(1, Math.max(0, this.riteCursor.x + lx * dt * 1.2));
+          this.riteCursor.y = Math.min(1, Math.max(0, this.riteCursor.y + ly * dt * 1.2));
+          ctx.aimRite(this.riteCursor.x, this.riteCursor.y);
+        }
+        if (mx || my) {
+          this.riteStroke = true;
+          ctx.traceRite(this.riteCursor.x, this.riteCursor.y);
+          this.riteCursor.x = Math.min(1, Math.max(0, this.riteCursor.x + mx * dt * 1.2));
+          this.riteCursor.y = Math.min(1, Math.max(0, this.riteCursor.y + my * dt * 1.2));
+          ctx.traceRite(this.riteCursor.x, this.riteCursor.y);
+        }
+      }
+    } else if (this.riteHeld !== null) {
+      if (this.riteTracing) ctx.endRite();
+      else if (this.riteHeld >= 0) ctx.interact();
+      this.riteHeld = null;
+      this.riteTracing = false;
+    }
+  }
+
+  /**
+   * D-pad Down: a tap casts on release, and a hold past SPELL_HOLD cycles to
+   * the next spell instead. Cast on release rather than press, because until
+   * the button comes up there is no telling which of the two was meant.
+   */
+  private spellButton(dt: number, raw: RawPad, ctx: PadContext): void {
+    const down = btn(raw, PAD_BUTTONS.dDown);
+    if (down) {
+      if (this.spellHeld === null) {
+        this.spellHeld = 0;
+        this.spellCycled = false;
+      } else {
+        this.spellHeld += dt;
+      }
+      if (!this.spellCycled && this.spellHeld >= SPELL_HOLD) {
+        this.spellCycled = true;
+        ctx.nextSpell();
+      }
+    } else if (this.spellHeld !== null) {
+      if (!this.spellCycled) ctx.castSpell();
+      this.spellHeld = null;
+    }
   }
 
   /** D-pad / stick navigation with initial + repeat, for menus and overlays. */
@@ -353,15 +483,16 @@ export class GamepadController {
 }
 
 export const GAMEPAD_HELP_ROWS: [string, string][] = [
-  ['Left stick / D-pad ↑ ↓', 'Step forward / back'],
+  ['Left stick ↑ ↓ / D-pad ↑', 'Step forward / back'],
   ['Left stick ← →', 'Strafe'],
   ['Right stick ← → / D-pad ← →', 'Turn'],
   ['A / RT', 'Swing — or Loot / Open when facing something'],
-  ['X', 'Interact'],
+  ['X', 'Interact — hold to trace a rite: left stick places the pen, right stick draws'],
   ['LT (hold)', 'Block — raise it as they strike to parry'],
   ['LB', 'Throw one shaft from your belt'],
   ['RB (hold)', 'Call shafts back — release to stop'],
   ['Y', 'Cast your attuned sigil'],
+  ['D-pad ↓', 'Cast your selected spell — hold to select the next'],
   ['Select', 'Pack & gear'],
   ['L3', 'Map'],
   ['Start', 'Pause / help'],

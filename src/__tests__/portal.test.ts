@@ -189,7 +189,18 @@ describe('packing for a delve', () => {
     const state = newGame(createRng(3));
     const before = syncLoadout(state).capacity;
     state.meta.pack_mule = 2;
-    expect(syncLoadout(state).capacity).toBe(before + 8);
+    expect(syncLoadout(state).capacity).toBe(before + 4);
+  });
+
+  it('sends what a smaller pack cannot hold back to the stash', () => {
+    const state = newGame(createRng(3));
+    state.meta.pack_mule = 3;
+    const pack = syncLoadout(state);
+    // Packed under the old Pack Mule: 28 slots, which is 6 more than it gives now.
+    for (let i = 0; i < 28; i++) pack.items.push(makeEquipment({ baseId: 'dagger', materialId: 'copper', rarity: Rarity.Common, ilvl: 1, quality: 1 }));
+    const stashed = state.stash.items.length;
+    expect(syncLoadout(state).items).toHaveLength(22);
+    expect(state.stash.items.length).toBe(stashed + 6);
   });
 
   it('does not inject a removed Supply Crate potion into a full pack', () => {

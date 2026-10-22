@@ -15,6 +15,7 @@ import { ICONS } from '../art/icons';
 import { MORSEL_ART, MORSEL_HEAL } from '../systems/healing';
 import { MATERIALS } from '../data/materials';
 import { CONSUMABLES, ITEM_BASES, viewmodelFor } from '../data/items';
+import { CONDUIT_SPELLS } from '../data/conduit-spells';
 import { MaterialDef } from '../types';
 import { Ramp } from '../art/raster';
 import { PROPS } from '../art/props';
@@ -59,6 +60,21 @@ export interface SheetCell {
   creature?: Creature;
   /** The material ramp the game would draw this cell through, if any. */
   ramp?: Ramp;
+  /** Set when the cell can be played through a conduit's cast: rest, rise, flare, release. */
+  cast?: SpellCast;
+}
+
+/** A conduit casting one spell, as the dungeon times it. */
+export interface SpellCast {
+  /** The conduit at rest, and its lit model for the back half of the cast. */
+  idle: string;
+  lit: string;
+  /** The bolt that leaves it, or a hitscan spell's mark where it lands. */
+  bolt: string;
+  /** No bolt flies: the mark appears out in front at the release. */
+  hitscan?: boolean;
+  windup: number;
+  recovery: number;
 }
 
 /**
@@ -248,7 +264,7 @@ const biomeGroups: SheetGroup[] = BIOMES.map((b) => ({
       : [{ id: b.wallAlt, label: 'wall alt' }]),
     { id: b.wallSecret, label: 'secret' },
     { id: b.floor, label: 'floor' },
-    ...(b.floorVariants ?? []).filter((id) => id !== b.floor).map((id) => ({ id, label: b.id === 'emberworks' ? 'lava crust' : 'ice floor' })),
+    ...(b.floorVariants ?? []).filter((id) => id !== b.floor).map((id) => ({ id, label: b.id === 'emberworks' ? 'lava crust' : b.id === 'frostvault' ? 'ice floor' : id.replace(/^floor_[a-z]+_/, '') })),
     ...(b.id === 'frostvault' ? ['icicle_stub', 'icicle_spike', 'icicle_fang'].map((id) => ({ id, label: id })) : []),
     ...(b.id === 'burrows' ? ['root_cache', 'root_cache_broken'].map((id) => ({ id, label: id })) : []),
     ...(b.id === 'catacombs' ? [{ id: 'water_catacombs', label: 'water' }] : []),
@@ -281,6 +297,7 @@ function viewmodelCells(tier: number, materialId?: string): SheetCell[] {
       const labels: Record<string, string> = {
         vm_fist: 'Bare fist', vm_hand: 'Retrieval hand',
         vm_sigil: 'Sigil stone', vm_sigil_lit: 'Sigil stone · casting',
+        vm_wand_lit: 'Wand · casting', vm_rod_lit: 'Rod · casting',
       };
       return { id: vm.id, label: labels[vm.id] ?? vm.id };
     }
@@ -346,11 +363,34 @@ function propGroups(): SheetGroup[] {
     // Worn rather than stood on the floor: the Silent Picture billboards these
     // above every creature, so they live with the herd art but belong here.
     { title: 'Worn on a strange floor', cells: plain(['prop_tophat', 'prop_monocle']) },
+    // Laid flat on the tile in play; fire is the scorch with the flames
+    // standing up out of it, two frames flickered.
+    { title: 'Surfaces', cells: [
+      { id: 'surf_oil', label: 'Oil' },
+      { id: 'surf_water', label: 'Water' },
+      { id: 'surf_ice', label: 'Ice' },
+      { id: 'surf_scorch', label: 'Burning oil · the scorch' },
+      { id: 'fx_flame_0', label: 'Flames' },
+      { id: 'fx_flame_1', label: 'Flames · second frame' },
+      { id: 'surf_vent', label: 'Vent · Emberworks' },
+      { id: 'surf_spores', label: 'Spores · Sporegrove' },
+      { id: 'fx_spores', label: 'Spore cloud' },
+      { id: 'fx_spores_b', label: 'Spore cloud · second frame' },
+      { id: 'fx_blast', label: 'A burst of fire' },
+      { id: 'fx_blast_b', label: 'A burst · second frame' },
+    ] },
   ];
 }
 
 export function sheets(tier: number = DEFAULT_TIER, materialId?: string): ArtSheet[] {
   return [
+  {
+    id: 'spells',
+    title: 'Spells',
+    note: 'Each conduit casting each spell at its own wind-up and recovery: the hand rises, the stone flares for the back half, the bolt leaves. Hold still to compare the frames.',
+    cols: 4,
+    groups: spellGroups(tier, materialId),
+  },
   {
     id: 'melee',
     title: 'Melee',
@@ -384,6 +424,39 @@ export function sheets(tier: number = DEFAULT_TIER, materialId?: string): ArtShe
   { id: 'props', title: 'Props', note: 'Everything the dungeon stands on the floor, food included. Thrown weapons have no viewmodel — the shaft in flight and the shaft on the ground is their art.', cols: 6, groups: propGroups() },
   { id: 'icons', title: 'Icons', note: 'Every icon as something that exists: each piece of gear in a material its base actually allows, each material and potion in its own colours.', cols: 6, groups: iconGroups(tier, materialId) },
   { id: 'viewmodels', title: 'Viewmodels', note: 'The weapon in your own hands, in the material of a weapon that uses it. An empty hand has no material.', cols: 4, groups: [{ title: heldTitle(tier, materialId), cells: viewmodelCells(tier, materialId) }] },
+  ];
+}
+
+/** Every conduit with every battle spell, playable as the cast the dungeon draws. */
+function spellGroups(tier: number, materialId?: string): SheetGroup[] {
+  const conduits = ITEM_BASES.filter((b) => b.conduit);
+  const casts: SheetCell[] = conduits.flatMap((b) => {
+    const m = materialFor(b.primary, tier, materialId);
+    return CONDUIT_SPELLS.map((sp) => ({
+      id: viewmodelFor(b),
+      label: `${b.name} · ${sp.name}`,
+      ramp: m?.ramp,
+      cast: { idle: viewmodelFor(b), lit: b.conduit!.castViewmodel, bolt: sp.sprite, hitscan: sp.hitscan, windup: sp.windup, recovery: sp.recovery },
+    }));
+  });
+  return [
+    { title: heldTitle(tier, materialId), cells: casts },
+    // Two frames each: the renderer alternates them while the bolt flies.
+    { title: 'Bolts in flight', cells: CONDUIT_SPELLS.filter((sp) => !sp.hitscan).flatMap((sp) => [
+      { id: sp.sprite, label: `${sp.name} · ${sp.element}` },
+      { id: `${sp.sprite}_b`, label: `${sp.name} · second frame` },
+    ]) },
+    // Hitscan spells fly nowhere: their mark appears on what they strike.
+    { title: 'Marks where they land', cells: CONDUIT_SPELLS.filter((sp) => sp.hitscan).flatMap((sp) => [
+      { id: sp.sprite, label: `${sp.name} · ${sp.element}` },
+      { id: `${sp.sprite}_b`, label: `${sp.name} · second frame` },
+    ]) },
+    // What Hex leaves standing there for fifteen seconds.
+    { title: 'Hexed', cells: [
+      { id: 'penguin_0', label: 'Penguin · standing' },
+      { id: 'penguin_1', label: 'Penguin · mid-waddle' },
+    ] },
+    { title: 'Spell icons', cells: CONDUIT_SPELLS.map((sp) => ({ id: sp.icon, label: sp.name })) },
   ];
 }
 

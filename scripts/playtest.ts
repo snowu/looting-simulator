@@ -13,13 +13,20 @@
 import { createRng, Rng } from '../src/core/rng';
 import { DIRS, DX, DY, Dir } from '../src/core/dir';
 import { newGame } from '../src/state/game-state';
+import { DifficultyId } from '../src/data/difficulty';
 import { GameState } from '../src/state/game-state';
 import { startRun, endRun, syncLoadout } from '../src/systems/run';
 import { addItem, removeItem } from '../src/state/inventory';
 import { World, WorldEvent } from '../src/world/world';
-import { Floor, EnemyState, blocksMove, propAt, doorAt, tileAt, inBounds, FLOOR } from '../src/systems/dungeon';
+import { Floor, EnemyState, blocksMove, blocksSight, enemyAt, propAt, doorAt, tileAt, inBounds, FLOOR } from '../src/systems/dungeon';
+import { ConduitSpellDef } from '../src/data/conduit-spells';
+import { burningAt, oilBarrelAt, surfaceAt, surfaceKindAt } from '../src/systems/surfaces';
+import { VENT_TELL } from '../src/data/surfaces';
+import { biomeForFloor } from '../src/data/biomes';
 import { enemyDef, BOSS_ID } from '../src/data/enemies';
+import { bestiaryEntry } from '../src/systems/bestiary';
 import { FINAL_DEPTH } from '../src/data/biomes';
+import { dropIntoThroneRoom } from '../src/dev/boss-arena';
 import { itemValue } from '../src/systems/items';
 import { Item, Rarity, RARITY_ORDER } from '../src/types';
 import { derivePlayer, Equipment } from '../src/systems/player';
@@ -43,6 +50,38 @@ export interface Policy {
   lootUrns: boolean;
   /** Seek the Ashen King on depth six before leaving. */
   fightBoss?: boolean;
+  /**
+   * Probability of sidestepping off the line when a ranged attacker (or the
+   * King's volley) winds up in line at range, decided once per wind-up. Off
+   * by default, so every profile that predates it keeps measuring what it did.
+   */
+  dodgeSkill?: number;
+  /**
+   * Swing only into an opening: an adjacent enemy recovering or reeling,
+   * guard up otherwise. A swing still recovering when the next blow lands
+   * cannot become a parry, so a bot that swings whenever it can never gets
+   * to use its parry skill against anything with a short gap between blows.
+   */
+  patient?: boolean;
+  /**
+   * Use the conduit when one is worn and spells are loaded. Off by default, so
+   * every profile that predates the battlemage keeps measuring what it did.
+   */
+  cast?: boolean;
+  /**
+   * Throw from the belt when one is worn: at anything coming down a line from
+   * two tiles or more, and call the shafts back (hold R) once nothing is
+   * hunting it. Off by default, so every profile that predates it keeps
+   * measuring what it did.
+   */
+  throw?: boolean;
+  /**
+   * Once a mimic has bitten this save, the chance of reading the tell on the
+   * next one and striking it awake instead of opening it, decided once per
+   * chest. A person learns the chest from the first bite; a bot without this
+   * opens every mimic it meets and dies to the second. Off by default.
+   */
+  wary?: number;
   /** Collects a line per decision. Debugging only — it is very noisy. */
   trace?: string[];
 }
@@ -80,11 +119,24 @@ export interface RunReport {
   /** What the pack was carrying when it was dropped. Only a death loses anything. */
   itemsLost: number;
   valueLost: number;
+  /** Casts released, by spell id; casts that struck nothing; hexes that took. */
+  casts: Record<string, number>;
+  /** Shafts thrown, and seconds spent with the call-back running. */
+  throws: number;
+  calling: number;
+  spellMisses: number;
+  hexes: number;
+  /** Surfaces at work, whoever set them off: oil lit, monsters frozen, monsters slipping, monsters burned to death. */
+  hazards: { lit: number; frozen: number; slips: number; burned: number };
   /** Most backpack slots occupied at any point, against the pack's capacity. */
   peakSlots: number;
+  /** What those slots held at the peak, by item kind. */
+  peakMix: Record<string, number>;
   capacity: number;
   brokenAtEnd: number;
   perFloor: FloorReport[];
+  /** On a death in the throne room: the King's health left, and whether the bot was already trying to leave. */
+  throneDeath?: { kingHp: number; leaving: boolean };
 }
 
 export interface FloorReport {
@@ -117,7 +169,14 @@ function passable(f: Floor, x: number, y: number, keys: string[]): boolean {
   if (d && !d.open && d.locked && !(d.keyId && keys.includes(d.keyId))) return false;
   const p = propAt(f, x, y);
   // Urns and barrels are smashed through; chests and shrines are walked around.
-  if (p && p.blocking && p.kind !== 'urn' && p.kind !== 'barrel' && p.kind !== 'root_cache') return false;
+  // An oil barrel is never smashed through: it would leave the bot in a pool.
+  if (p && p.blocking && (p.oil || (p.kind !== 'urn' && p.kind !== 'barrel' && p.kind !== 'root_cache'))) return false;
+  // Burning oil is walked around, and a vent while it glows or burns, like a
+  // player would. A quiet vent is walked over: walling them off for good
+  // shut the bot out of rooms whose only way in ran across one.
+  if (burningAt(f, x, y)) return false;
+  const vent = surfaceAt(f, x, y);
+  if (vent?.kind === 'vent' && ((vent.t ?? 0) <= VENT_TELL + 0.6 || (vent.burst ?? 0) > 0)) return false;
   return true;
 }
 
@@ -169,10 +228,15 @@ class Bot {
   private lastHp: number;
   private blockedUntil = 0;
   private parryFor: string | null = null;
+  /** The wind-up the last dodge decision was for, and whether it said to dodge. */
+  private dodgeFor: string | null = null;
+  private dodging = false;
   private stuck = 0;
   private leaving = false;
   /** Piles the pack had no room for. Walked past, never edited. */
   private skipped = new Set<string>();
+  /** Chests already judged under `wary`: whether the tell was read. */
+  private doubted = new Map<string, boolean>();
   private killsAtFloorStart = 0;
   private lastPos = '';
   report: RunReport;
@@ -185,8 +249,8 @@ class Bot {
     this.report = {
       seed, outcome: 'timeout', depth: 1, deepest: 1, bossKilled: false, kills: 0, time: 0, gold: 0, renown: 0,
       itemsKept: 0, valueKept: 0, damageTaken: {}, sips: 0, morselsEaten: 0, morselsRotted: 0, parries: 0, hitsTaken: 0,
-      blockedHits: 0, trapsSprung: 0, itemsLost: 0, valueLost: 0,
-      peakSlots: 0, capacity: w.run.backpack.capacity, brokenAtEnd: 0, perFloor: [],
+      blockedHits: 0, trapsSprung: 0, itemsLost: 0, valueLost: 0, casts: {}, throws: 0, calling: 0, spellMisses: 0, hexes: 0, hazards: { lit: 0, frozen: 0, slips: 0, burned: 0 },
+      peakSlots: 0, peakMix: {}, capacity: w.run.backpack.capacity, brokenAtEnd: 0, perFloor: [],
     };
     this.beginFloor();
   }
@@ -233,6 +297,7 @@ class Bot {
     // Attribution applies only to the following hurt in this event batch.
     let pendingPlayerTrap = false;
     for (const e of events) {
+      if (this.policy.trace && (e.type === 'msg' || e.type === 'hurt')) this.trace(e.type === 'msg' ? `log: ${e.text}` : `hurt ${e.amount}`);
       switch (e.type) {
         case 'hurt':
           this.report.damageTaken[pendingPlayerTrap ? 'trap' : 'monster'] =
@@ -247,6 +312,15 @@ class Bot {
           break;
         case 'float':
           if (e.text === 'Parry!') r.parries++;
+          else if (e.text === 'frozen') r.hazards.frozen++;
+          else if (e.text === 'slips') r.hazards.slips++;
+          break;
+        case 'msg':
+          if (e.text === 'The oil catches!' || e.text === 'The oil barrel bursts into flame!') r.hazards.lit++;
+          else if (/^The .* burns\.$/.test(e.text)) r.hazards.burned++;
+          // The world says what a spell did in words, and only in words.
+          if (e.text.endsWith('finds nothing to strike.')) r.spellMisses++;
+          else if (e.text.endsWith(' is a penguin.')) r.hexes++;
           break;
       }
     }
@@ -289,13 +363,18 @@ class Bot {
       this.report.hitsTaken++;
     }
     this.lastHp = p.hp;
+    if (w.anim.retrieving) this.report.calling += DT;
 
     // The bot restates its whole intent every decision, so nothing may be left
     // held from the last one. A held key repeats on its own between decisions,
     // which is how a human plays and exactly not how a scripted policy should:
     // one decision has to mean one step, or the bot walks until it hits a wall.
     w.held.clear();
-    if (w.run.backpack.items.length > this.report.peakSlots) this.report.peakSlots = w.run.backpack.items.length;
+    if (w.run.backpack.items.length > this.report.peakSlots) {
+      this.report.peakSlots = w.run.backpack.items.length;
+      this.report.peakMix = {};
+      for (const it of w.run.backpack.items) this.report.peakMix[it.kind] = (this.report.peakMix[it.kind] ?? 0) + 1;
+    }
     if (w.busy || w.moving) return true;
 
     const hpFrac = p.hp / d.maxHp;
@@ -313,11 +392,23 @@ class Bot {
       }
     }
 
-    // 2. Fight what is next to us.
     const threats = this.threats();
+
+    // 1b. Step off the line of a volley being wound up.
+    if (this.policy.dodgeSkill && this.dodge(threats)) return true;
+
+    // 2. Spells, for a bot that carries a conduit and means to use it.
+    if (this.policy.cast && this.cast(threats)) return true;
+    if (this.policy.throw && this.throwBelt(threats)) return true;
+
+    // 3. Fight what is next to us.
     const adjacent = threats.filter((e) => Math.abs(e.x - p.x) + Math.abs(e.y - p.y) === 1);
     if (adjacent.length) {
-      const e = adjacent[0];
+      // A patient fighter turns to the blow that lands first, not the nearest body.
+      const soonest = this.policy.patient
+        ? adjacent.filter((a) => a.ai === 'windup').sort((a, b) => a.timer - b.timer)[0]
+        : undefined;
+      const e = soonest ?? adjacent[0];
       const facing = dirTo(p.x, p.y, e.x, e.y);
       if (facing !== null && facing !== p.facing) {
         this.turnTo(facing);
@@ -332,10 +423,21 @@ class Bot {
           if (this.blockedUntil === -1) w.setBlock(false);
           else w.setBlock(true);
         }
-        if (this.blockedUntil === -1 && e.timer <= 0.10) w.setBlock(true);
+        // Held intent is cleared every decision, so the guard has to be
+        // restated every tick too: a plain block held for one frame was never
+        // up long enough to absorb anything, and every report read "blocked 0".
+        if (this.blockedUntil === -1) { if (e.timer <= 0.10) w.setBlock(true); }
+        else w.setBlock(true);
         return true;
       }
       this.parryFor = null;
+      // An opening is a creature recovering with its guard down, or one left
+      // reeling by a parry, which no guard turns.
+      const opening = (e.vuln ?? 0) > 0 || (e.ai === 'recover' && (e.guard ?? 'down') === 'down');
+      if (this.policy.patient && !opening) {
+        w.setBlock(true);
+        return true;
+      }
       w.setBlock(false);
       if (p.stamina >= d.swing.staminaCost) w.attack();
       return true;
@@ -358,7 +460,6 @@ class Bot {
       return this.navigate(food.x, food.y);
     }
 
-    // 3. Ranged attackers: close on them.
     // 4. Objectives.
     const target = this.pickTarget(hpFrac);
     this.trace(target ? `goal ${target[0]},${target[1]}` : 'goal none');
@@ -367,6 +468,180 @@ class Bot {
       return this.transition(hpFrac);
     }
     return this.navigate(target[0], target[1]);
+  }
+
+  /**
+   * A person's answer to a telegraphed volley: step out of its line. Only a
+   * ranged attacker or the King, winding up in line with us from two or more
+   * tiles; the decision is made once per wind-up at `dodgeSkill`, and the
+   * step goes to a free tile that no other wind-up is aimed down.
+   */
+  private dodge(threats: EnemyState[]): boolean {
+    const w = this.w;
+    const p = w.player;
+    // Standing in fire, or in pitch about to catch: the floor comes first.
+    const doomed = (x: number, y: number) => burningAt(w.floor, x, y) || w.pitchFuses.some((fz) => fz.x === x && fz.y === y);
+    if (doomed(p.x, p.y) && this.rng.chance(this.policy.dodgeSkill ?? 0)) {
+      for (const d of DIRS) {
+        const x = p.x + DX[d], y = p.y + DY[d];
+        if (blocksMove(w.floor, x, y) || enemyAt(w.floor, x, y) || doomed(x, y)) continue;
+        const relative = (d - p.facing + 4) % 4;
+        w.press(relative === 0 ? 'forward' : relative === 2 ? 'back' : relative === 1 ? 'right' : 'left');
+        return true;
+      }
+    }
+    const aimed = threats.filter((e) => {
+      const b = enemyDef(e.def).behavior;
+      const dist = Math.abs(e.x - p.x) + Math.abs(e.y - p.y);
+      return e.ai === 'windup' && (b === 'ranged' || b === 'boss') && dist >= 2 && (e.x === p.x || e.y === p.y);
+    });
+    if (!aimed.length) { this.dodgeFor = null; return false; }
+    const e = aimed[0];
+    if (this.dodgeFor !== e.id) {
+      this.dodgeFor = e.id;
+      this.dodging = this.rng.chance(this.policy.dodgeSkill ?? 0);
+    }
+    if (!this.dodging) return false;
+    const inLine = (x: number, y: number) => aimed.some((a) => a.x === x || a.y === y);
+    for (const d of DIRS) {
+      const x = p.x + DX[d], y = p.y + DY[d];
+      if (blocksMove(w.floor, x, y) || enemyAt(w.floor, x, y) || inLine(x, y)) continue;
+      const relative = (d - p.facing + 4) % 4;
+      w.press(relative === 0 ? 'forward' : relative === 2 ? 'back' : relative === 1 ? 'right' : 'left');
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * The battlemage's turn. Looks down each of the four lines for the first
+   * monster in it, since that is what a bolt or a hitscan spell would strike,
+   * picks the spell this bot would want for it, turns, readies it and casts.
+   * One decision per tick, like everything else: turning, cycling the spell
+   * and casting are three ticks.
+   *
+   * The policy, kept simple so the numbers stay readable:
+   * - **Hex** an elite, or anything while two or more are closing, but never
+   *   one already a penguin, nor the King or a lieutenant (they refuse it).
+   * - **Smite** the undead, whom holy hurts double.
+   * - **Ember Bolt**, else **Rime Lance**, else Smite, at anything else
+   *   still on its way in. Next to it, the bot swings instead.
+   * - Never on a penguin, and never below a swing's worth of stamina after
+   *   the cast, so a cast does not leave it unable to fight.
+   */
+  private cast(threats: EnemyState[]): boolean {
+    const w = this.w;
+    const p = w.player;
+    const pool = w.run.conduit;
+    const spells = w.conduitSpells();
+    if (!w.derived.conduit || !pool || !spells.length || !threats.length) return false;
+    const closing = threats.filter((e) => Math.abs(e.x - p.x) + Math.abs(e.y - p.y) <= 4).length;
+    // Something already at arm's length decides the fight: turning away from
+    // it to cast down another line is how a bot gets hit in the back, and
+    // starting a cast into its wind-up is how it gets hit in the face.
+    const engaged = threats.some((e) => Math.abs(e.x - p.x) + Math.abs(e.y - p.y) === 1);
+    let best: { e: EnemyState; dir: Dir; dist: number; spell: ConduitSpellDef } | null = null;
+    // Never set fire to oil it is standing in or beside.
+    const hot = this.fuel(p.x, p.y) || DIRS.some((d) => this.fuel(p.x + DX[d], p.y + DY[d]));
+    for (const dir of DIRS) {
+      // Fuel along the line or round the target: a bolt of fire would set it off.
+      let fuel = false;
+      for (let dist = 1; dist <= 5; dist++) {
+        const x = p.x + DX[dir] * dist, y = p.y + DY[dir] * dist;
+        if (blocksSight(w.floor, x, y)) break;
+        if (this.fuel(x, y)) fuel = true;
+        const e = enemyAt(w.floor, x, y);
+        if (!e) continue;
+        if (engaged && (dist > 1 || e.ai === 'windup')) break;
+        if (DIRS.some((d) => this.fuel(x + DX[d], y + DY[d]))) fuel = true;
+        const spell = this.spellFor(e, dist, closing, spells, pool.charges, fuel && !hot);
+        if (spell && (!best || dist < best.dist || (dist === best.dist && dir === p.facing))) best = { e, dir, dist, spell };
+        break;
+      }
+    }
+    if (!best) return false;
+    const spell = best.spell;
+    if (best.dir !== p.facing) { this.turnTo(best.dir); return true; }
+    if (w.selectedSpell()?.id !== spell.id) { w.nextSpell(); return true; }
+    if (!w.castSpell()) return false;
+    this.report.casts[spell.id] = (this.report.casts[spell.id] ?? 0) + 1;
+    this.trace(`cast ${spell.id} at ${best.e.def} (${best.dist})`);
+    return true;
+  }
+
+  /**
+   * The belt's turn. The first monster down each line, from two tiles to the
+   * belt's range, is a target; the nearest wins and the bot turns, then
+   * throws. Never while something is already at arm's length (that fight is
+   * the sword's), and never below a swing's worth of stamina after the throw.
+   * With nothing hunting it and shafts out, it holds R until they are home;
+   * the call does not stop it walking, so it carries on with its errand.
+   */
+  private throwBelt(threats: EnemyState[]): boolean {
+    const w = this.w;
+    const p = w.player;
+    const t = w.derived.thrown;
+    const base = w.state.equipment.thrown?.ref;
+    if (!t || !base) return false;
+    const held = w.run.thrown?.held?.[base] ?? 0;
+    if (!threats.some((e) => e.alert > 0)) {
+      if (!w.anim.retrieving && (w.floor.thrown ?? []).some((m) => m.base === base && m.n > 0) && w.retrieve()) this.trace('call the belt back');
+      return false;
+    }
+    if (held <= 0 || p.stamina - t.staminaCost < w.derived.swing.staminaCost) return false;
+    if (threats.some((e) => Math.abs(e.x - p.x) + Math.abs(e.y - p.y) === 1)) return false;
+    let best: { dir: Dir; dist: number } | null = null;
+    for (const dir of DIRS) {
+      for (let dist = 1; dist <= t.range; dist++) {
+        const x = p.x + DX[dir] * dist, y = p.y + DY[dir] * dist;
+        if (blocksSight(this.w.floor, x, y)) break;
+        const e = enemyAt(w.floor, x, y);
+        if (!e) continue;
+        if (dist >= 2 && (!best || dist < best.dist || (dist === best.dist && dir === p.facing))) best = { dir, dist };
+        break;
+      }
+    }
+    if (!best) return false;
+    if (best.dir !== p.facing) { this.turnTo(best.dir); return true; }
+    if (!w.hurl()) return false;
+    this.report.throws++;
+    this.trace(`throw at ${best.dist}`);
+    return true;
+  }
+
+  /** Oil, spores or an oil barrel on this tile: something fire would set off. */
+  private fuel(x: number, y: number): boolean {
+    const k = surfaceKindAt(this.w.floor, x, y);
+    return k === 'oil' || k === 'spores' || !!oilBarrelAt(this.w.floor, x, y);
+  }
+
+  /**
+   * The spell this bot wants for this monster, at this distance, or none.
+   * Surfaces come first: fire at anything with fuel near it, frost at
+   * anything standing in water (anywhere at all in the flooded Catacombs).
+   */
+  private spellFor(e: EnemyState, dist: number, closing: number, spells: ConduitSpellDef[], charges: number, fuel = false): ConduitSpellDef | null {
+    if ((e.hexT ?? 0) > 0) return null;
+    const p = this.w.player;
+    const swing = this.w.derived.swing.staminaCost;
+    const usable = (id: string) => spells.find((s) => s.id === id && s.charges <= charges && p.stamina - s.stamina >= swing && s.range >= dist);
+    const hexable = e.def !== BOSS_ID && !e.lieutenant;
+    if (hexable && (e.elite || closing >= 2)) {
+      const hex = usable('hex');
+      if (hex) return hex;
+    }
+    if (dist < 2) return null;
+    if (fuel) {
+      const ember = usable('ember_bolt');
+      if (ember) return ember;
+    }
+    const wet = surfaceKindAt(this.w.floor, e.x, e.y) === 'water' || (biomeForFloor(this.w.floor).law === 'flood' && !surfaceKindAt(this.w.floor, e.x, e.y));
+    if (wet) {
+      const rime = usable('rime_lance');
+      if (rime) return rime;
+    }
+    if (enemyDef(e.def).undead) return usable('smite') ?? usable('ember_bolt') ?? usable('rime_lance') ?? null;
+    return usable('ember_bolt') ?? usable('rime_lance') ?? usable('smite') ?? null;
   }
 
   /** Where the bot wants to be standing next. */
@@ -533,6 +808,14 @@ class Bot {
       // by the adjacent-enemy branch; arriving here is always about loot.
       const front = propAt(w.floor, p.x + DX[p.facing], p.y + DY[p.facing]);
       if (front && !front.used && front.tier !== 'none') {
+        if (front.mimic && this.policy.wary && bestiaryEntry(w.state.bestiary, 'mimic').worstHit > 0) {
+          if (!this.doubted.has(front.id)) this.doubted.set(front.id, this.rng.chance(this.policy.wary));
+          if (this.doubted.get(front.id)) {
+            if (p.stamina >= w.derived.swing.staminaCost) w.attack();
+            this.trace('strike the chest awake');
+            return true;
+          }
+        }
         const act = w.contextAction();
         if (act.kind === 'attack') {
           if (p.stamina >= w.derived.swing.staminaCost) w.attack();
@@ -646,6 +929,12 @@ class Bot {
     r.kills = w.run.stats.kills;
     r.time = w.run.stats.time;
     r.killedBy = w.run.killedBy;
+    const throne = w.floor.rooms.find((room) => room.role === 'throne');
+    const p = w.player;
+    if (w.run.outcome === 'dead' && throne && p.x >= throne.x && p.x < throne.x + throne.w && p.y >= throne.y && p.y < throne.y + throne.h) {
+      const king = w.floor.enemies.find((e) => e.def === BOSS_ID);
+      r.throneDeath = { kingHp: king ? Math.max(0, king.hp) / king.maxHp : 0, leaving: this.leaving };
+    }
     const died = w.run.outcome === 'dead';
     r.outcome = died ? 'dead' : 'extracted';
     for (const slot of ['weapon', 'offhand', 'body', 'head', 'hands'] as const) {
@@ -668,6 +957,8 @@ export interface PlaytestOpts {
   seed?: number;
   /** Called with the fresh GameState before the run starts. */
   prepare?: (s: GameState, run: number) => void;
+  /** The save's difficulty. Hard when absent, like every save before difficulty levels. */
+  difficulty?: DifficultyId;
 }
 
 /**
@@ -686,13 +977,23 @@ export function geared(equipment: () => Equipment, meta: MetaLevels = {}): (s: G
 export const MID_META: MetaLevels = { toughness: 3, endurance: 2, pack_mule: 1, lantern: 1 };
 export const DEEP_META: MetaLevels = { toughness: 5, endurance: 3, pack_mule: 3, lantern: 3, treasure_sense: 2 };
 
-export function playOneRun(seed: number, policy: Policy, prepare?: (s: GameState) => void): RunReport {
+export function playOneRun(seed: number, policy: Policy, prepare?: (s: GameState) => void, difficulty: DifficultyId = 'hard'): RunReport {
   const state = newGame(createRng(seed));
+  state.difficulty = difficulty;
   // newGame draws a random save id, and the day's roads at the fork are seeded
   // from it. Fix it, or two runs of the harness take different roads and stop
   // being comparable.
   state.saveId = `bot-${seed}`;
   prepare?.(state);
+  return playDelve(state, seed, policy);
+}
+
+/**
+ * One delve on a save that already exists: pack the consumables, go down,
+ * and settle through endRun. A timeout is left unsettled (`state.run` stays
+ * open), so a caller chaining delves has to decide what one means.
+ */
+export function playDelve(state: GameState, seed: number, policy: Policy): RunReport {
   packLoadout(state);
   startRun(state, seed);
   const w = new World(state);
@@ -707,6 +1008,57 @@ export function playOneRun(seed: number, policy: Policy, prepare?: (s: GameState
   if (w.run.outcome === 'active') bot.collect('timeout');
   else bot.collect();
   return bot.report;
+}
+
+export interface ThroneReport {
+  seed: number;
+  won: boolean;
+  died: boolean;
+  /** The King's health left when the fight ended, 0..1. */
+  kingHp: number;
+  /** Sim seconds from standing in the throne room to the fight's end. */
+  time: number;
+  sips: number;
+  parries: number;
+  hitsTaken: number;
+  killedBy?: string;
+}
+
+/**
+ * The King alone, without the six floors above him: the run starts in the
+ * throne room (the dev arena's spot, `?autostart=boss`) and ends when he or
+ * the bot falls, or after `limit` sim seconds. The bot fights what is next to
+ * it, parries at `parrySkill`, steps off a volley's line at `dodgeSkill`, and
+ * never leaves a melee telegraph or reflects a bolt, so a win rate here is a
+ * floor on what a player manages.
+ */
+export function playThrone(seed: number, policy: Partial<Policy>, prepare: (s: GameState) => void, difficulty: DifficultyId = 'hard', limit = 300): ThroneReport {
+  const state = newGame(createRng(seed));
+  state.difficulty = difficulty;
+  state.saveId = `bot-${seed}`;
+  prepare(state);
+  packLoadout(state);
+  startRun(state, seed);
+  const w = new World(state);
+  dropIntoThroneRoom(w);
+  const full = { ...DEFAULT_POLICY, ...policy, fightBoss: true, floorBudget: limit * 2 };
+  const bot = new Bot(w, full, seed, createRng(seed ^ 0xa5a5a5));
+  const start = w.run.stats.time;
+  const king = () => w.floor.enemies.find((e) => e.def === BOSS_ID);
+  for (let ticks = 0; ticks < limit * 60; ticks++) {
+    if (w.run.outcome !== 'active' || w.run.stats.bossKilled) break;
+    if (!bot.step()) break;
+    w.update(DT);
+    bot.observe(w.drainEvents());
+  }
+  const k = king();
+  const r = bot.report;
+  return {
+    seed, won: w.run.stats.bossKilled, died: w.run.outcome === 'dead' || w.player.hp <= 0,
+    kingHp: k && k.ai !== 'dead' ? Math.max(0, k.hp) / k.maxHp : 0,
+    time: w.run.stats.time - start, sips: r.sips, parries: r.parries, hitsTaken: r.hitsTaken,
+    killedBy: w.run.killedBy,
+  };
 }
 
 /**
@@ -730,7 +1082,7 @@ export function playtest(opts: PlaytestOpts): RunReport[] {
   const out: RunReport[] = [];
   for (let i = 0; i < opts.runs; i++) {
     const seed = (opts.seed ?? 1000) + i * 7919;
-    out.push(playOneRun(seed, policy, opts.prepare ? (s) => opts.prepare!(s, i) : undefined));
+    out.push(playOneRun(seed, policy, opts.prepare ? (s) => opts.prepare!(s, i) : undefined, opts.difficulty));
   }
   return out;
 }
@@ -758,7 +1110,10 @@ export function summarise(reports: RunReport[], label: string): string {
     [1, 2, 3, 4, 5, 6].map((d) => `D${d}:${pct(reports.filter((r) => r.deepest >= d).length, n)}`).join(' '));
   const deathDepth = [1, 2, 3, 4, 5, 6].map((d) => `D${d}:${deaths.filter((r) => r.deepest === d).length}`).join(' ');
   L.push(`deaths by depth: ${deathDepth}`);
-  L.push(`Ashen King slain: ${reports.filter((r) => r.bossKilled).length}/${n}`);
+  const throneDeaths = reports.filter((r) => r.throneDeath);
+  L.push(`Ashen King slain: ${reports.filter((r) => r.bossKilled).length}/${n}` + (throneDeaths.length
+    ? `   died in the throne room: ${throneDeaths.length} (King left at avg ${(avg(throneDeaths.map((r) => r.throneDeath!.kingHp)) * 100).toFixed(0)}%, ${throneDeaths.filter((r) => r.throneDeath!.leaving).length} while trying to leave; ${throneDeaths.map((r) => r.killedBy).join(', ')})`
+    : ''));
   const killers = new Map<string, number>();
   for (const r of deaths) killers.set(r.killedBy ?? '?', (killers.get(r.killedBy ?? '?') ?? 0) + 1);
   L.push(`killed by: ${[...killers].sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} x${v}`).join(', ') || '—'}`);
@@ -772,7 +1127,18 @@ export function summarise(reports: RunReport[], label: string): string {
   L.push(`renown: ${renown.toFixed(1)}/run, ${hours > 0 ? (renown / hours).toFixed(0) : '—'}/sim-hour (whole tree costs ${META_TREE_COST})   broken gear at end: ${avg(reports.map((r) => r.brokenAtEnd)).toFixed(2)}`);
   // Gold *out* is not modelled: the bot never visits town, so it never pays a
   // smith, an appraiser or a merchant. Banked is income, not profit.
-  L.push(`pack: peaked at ${avg(reports.map((r) => r.peakSlots)).toFixed(1)} of ${avg(reports.map((r) => r.capacity)).toFixed(0)} slots; ${pct(reports.filter((r) => r.peakSlots >= r.capacity).length, n)} of runs filled it`);
+  L.push(`hazards: oil lit ${avg(reports.map((r) => r.hazards.lit)).toFixed(1)}, monsters frozen ${avg(reports.map((r) => r.hazards.frozen)).toFixed(1)}, slipped ${avg(reports.map((r) => r.hazards.slips)).toFixed(1)}, burned to death ${avg(reports.map((r) => r.hazards.burned)).toFixed(1)}`);
+  const cast = reports.flatMap((r) => Object.keys(r.casts));
+  if (cast.length) {
+    const ids = [...new Set(cast)].sort();
+    L.push(`casts: ${ids.map((id) => `${id} ${avg(reports.map((r) => r.casts[id] ?? 0)).toFixed(1)}`).join(', ')}  struck nothing ${avg(reports.map((r) => r.spellMisses)).toFixed(1)}  hexes taken ${avg(reports.map((r) => r.hexes)).toFixed(1)}`);
+  }
+  if (reports.some((r) => r.throws)) {
+    L.push(`belt: ${avg(reports.map((r) => r.throws)).toFixed(1)} shafts thrown, ${avg(reports.map((r) => r.calling)).toFixed(0)}s calling them back`);
+  }
+  const kinds = [...new Set(reports.flatMap((r) => Object.keys(r.peakMix)))].sort();
+  L.push(`pack: peaked at ${avg(reports.map((r) => r.peakSlots)).toFixed(1)} of ${avg(reports.map((r) => r.capacity)).toFixed(0)} slots; ${pct(reports.filter((r) => r.peakSlots >= r.capacity).length, n)} of runs filled it` +
+    (kinds.length ? ` (at the peak: ${kinds.map((k) => `${k} ${avg(reports.map((r) => r.peakMix[k] ?? 0)).toFixed(1)}`).join(', ')})` : ''));
   L.push('note: income only — the bot never goes to town, so repairs, identification and restocking are unpriced.');
   L.push('per floor:');
   for (let d = 1; d <= 6; d++) {

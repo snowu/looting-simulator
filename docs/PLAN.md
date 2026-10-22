@@ -10,7 +10,7 @@ where the real game is what you do with the loot: trade it, craft with it, fill 
 | Movement   | Grid steps, smoothly animated (step ≈ 0.22s, turn ≈ 0.18s), strafing allowed |
 | Combat     | Real-time, King's Field / Morrowind simple: swing in front, stamina scales damage, block with shield, dodge telegraphed attacks by stepping away |
 | Core loop  | Market + crafting are the core: dungeon feeds materials/items, town turns them into gold, gear and contract rewards |
-| Art        | Hand-drawn pixel art. Authored as palette-indexed grids in `src/art/`; any PNG in `public/art/<id>.png` overrides the built-in art at load |
+| Art        | Hand-drawn pixel art. Authored as palette-indexed grids in `src/art/`; the game ships `public/art/<folder>/<id>.png` (placeholders rasterized from the grids until the artist paints them), listed in `public/art/manifest.json` |
 
 ## Core loop
 

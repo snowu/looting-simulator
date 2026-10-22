@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { ALL_ART, getArt } from '../art/registry';
-import { Ramp, rasterize } from '../art/raster';
+import { Ramp, Raster, rasterize } from '../art/raster';
 import { recolorIcon } from './recolor-icon';
 import { BUILD_ID, versionedAssetUrl } from '../ui/update';
 import { decodeArtPack, isArtPack } from './art-pack';
@@ -8,9 +8,10 @@ import { decodeArtPack, isArtPack } from './art-pack';
 /**
  * Browser-side cache turning art defs into canvases, textures and CSS URLs.
  *
- * Hand-drawn PNG overrides: list art ids in `public/art/manifest.json`
- * (e.g. ["wall_crypt", "rat_0"]) and drop `public/art/<id>.png` next to it.
- * An override replaces the built-in grid. Icon PNGs retain material ramp recolouring.
+ * The shipped PNGs: `public/art/<folder>/<id>.png`, listed by path in
+ * `public/art/manifest.json` (e.g. ["textures/wall_crypt.png", "enemies/rat_0.png"]),
+ * which `npm run art:sync` writes. A PNG replaces the built-in grid, which stays
+ * the fallback. Icon PNGs retain material ramp recolouring.
  */
 
 const canvases = new Map<string, HTMLCanvasElement>();
@@ -45,19 +46,20 @@ export async function loadArtOverrides({ pack = import.meta.env.PROD } = {}): Pr
   const manifestUrl = versionedAssetUrl(`${base}art/manifest.json`, BUILD_ID);
   const res = await fetch(manifestUrl, { cache: 'no-store' });
   if (!res.ok) throw new Error(`Failed to load art manifest ${manifestUrl}: HTTP ${res.status}`);
-  const ids = checkIds(await res.json(), manifestUrl);
+  const files = await res.json();
+  const ids = checkIds(Array.isArray(files) ? files.map(artIdOf) : files, manifestUrl);
 
   await Promise.all(
     ids.map(
-      (id) =>
+      (id, i) =>
         new Promise<void>((resolve, reject) => {
           const img = new Image();
           img.onload = () => {
             overrides.set(id, { source: img, w: img.naturalWidth, h: img.naturalHeight });
             resolve();
           };
-          img.onerror = () => reject(new Error(`Failed to load art asset ${base}art/${id}.png`));
-          img.src = versionedAssetUrl(`${base}art/${id}.png`, BUILD_ID);
+          img.onerror = () => reject(new Error(`Failed to load art asset ${base}art/${files[i]}`));
+          img.src = versionedAssetUrl(`${base}art/${files[i]}`, BUILD_ID);
         }),
     ),
   );
@@ -88,6 +90,9 @@ async function loadArtPack(base: string): Promise<boolean> {
   for (const [id, bitmap] of decoded) overrides.set(id, { source: bitmap, w: bitmap.width, h: bitmap.height });
   return true;
 }
+
+/** The art id a manifest path names: 'enemies/rat_0.png' -> 'rat_0'. Anything that is not such a path is passed on for checkIds to reject. */
+export const artIdOf = (file: unknown): unknown => (typeof file === 'string' && /^[\w-]+\/[\w-]+\.png$/.test(file) ? file.slice(file.indexOf('/') + 1, -4) : file);
 
 /** Every art id exactly once, and nothing else: an override set with gaps must not boot. */
 function checkIds(ids: unknown, from: string): string[] {
@@ -155,6 +160,28 @@ export function artTexture(id: string, ramp?: Ramp): THREE.Texture {
   return tex;
 }
 
+/**
+ * A texture for pixels built at runtime rather than drawn as an art id, such
+ * as your Shade holding your kit (`shade.ts`). Built once per key.
+ */
+export function rasterTexture(key: string, build: () => Raster): THREE.Texture {
+  const hit = textures.get(key);
+  if (hit) return hit;
+  const r = build();
+  const canvas = document.createElement('canvas');
+  canvas.width = r.w;
+  canvas.height = r.h;
+  canvas.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(r.data), r.w, r.h), 0, 0);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.magFilter = THREE.NearestFilter;
+  tex.minFilter = THREE.NearestFilter;
+  tex.generateMipmaps = false;
+  tex.colorSpace = THREE.NoColorSpace;
+  tex.premultiplyAlpha = false;
+  textures.set(key, tex);
+  return tex;
+}
+
 export function artUrl(id: string, ramp?: Ramp): string {
   const key = keyOf(id, ramp);
   const hit = urls.get(key);
@@ -162,6 +189,14 @@ export function artUrl(id: string, ramp?: Ramp): string {
   const url = artCanvas(id, ramp).toDataURL();
   urls.set(key, url);
   return url;
+}
+
+/** An art's final pixels, shipped PNG and material included, for compositing on the CPU. */
+export function artRaster(id: string, ramp?: Ramp): Raster | undefined {
+  if (!overrides.has(id) && !getArt(id)) return undefined;
+  const c = artCanvas(id, ramp);
+  const { data } = c.getContext('2d')!.getImageData(0, 0, c.width, c.height);
+  return { w: c.width, h: c.height, data };
 }
 
 const SIZES = new WeakMap<HTMLCanvasElement, { readonly w: number; readonly h: number }>();

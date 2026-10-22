@@ -27,6 +27,11 @@ export interface TouchHandlers {
   retrieve(held: boolean): void;
   /** Cast the attuned sigil. */
   sigil(): void;
+  /** Cast the selected battle spell, and select the next loaded one. */
+  spell(): void;
+  nextSpell(): void;
+  /** Open or close a rite trace: tap to begin, tap again to cast. */
+  rite(): void;
   open(mode: 'inventory' | 'map' | 'help'): void;
 }
 
@@ -40,6 +45,18 @@ export interface TouchTools {
   calling: boolean;
   /** A sigil is attuned and off cooldown. */
   sigil: boolean;
+  /** The selected spell's orb, or null when no conduit with a loaded spell is worn. */
+  spell: string | null;
+  /** The conduit has the charges for it. A spent conduit's button stays, dimmed. */
+  spellReady: boolean;
+  /** How many spells are loaded; the swap chip only shows for two or more. */
+  spells: number;
+  /** A rite trace may open now (or one is open): the Rite button shows. */
+  rite: boolean;
+  /** A Wand or Rod is worn: the guard never stays up, a tap only parries. */
+  parryOnly: boolean;
+  /** Item icon to show on the guard button while parry-only, if any. */
+  guardIcon: string | null;
 }
 
 export function isTouchDevice(): boolean {
@@ -229,6 +246,14 @@ export class TouchControls {
   private throwBtn: HTMLButtonElement;
   private callBtn: HTMLButtonElement;
   private sigilBtn: HTMLButtonElement;
+  private spellBtn: HTMLButtonElement;
+  private spellIcon = h('span', { class: 'tspell-icon' });
+  private swapBtn: HTMLButtonElement;
+  private riteBtn: HTMLButtonElement;
+  private spellArt = '';
+  private blockBtn: HTMLButtonElement;
+  private blockIcon = h('span', { class: 'tblock-icon' });
+  private blockArt = 'ic_buckler';
   private toolsKey = '';
   private edgeL: HTMLButtonElement;
   private edgeR: HTMLButtonElement;
@@ -274,7 +299,10 @@ export class TouchControls {
     this.main = hold('atk', () => hd.action(true), () => hd.action(false));
     this.main.append(this.mainImg, this.mainLabel);
     const block = hold('blk', () => this.guard('button', true), () => this.guard('button', false));
-    block.append(artImg('ic_buckler', undefined, 36));
+    this.blockBtn = block;
+    this.blockIcon.append(artImg('ic_buckler', undefined, 36));
+    block.append(this.blockIcon);
+    block.title = 'Block';
     const actions = h('div', { class: 'actions' }, block, this.main);
 
     const tap = (label: string, fn: () => void) => {
@@ -293,8 +321,15 @@ export class TouchControls {
     this.callBtn = hold('small', () => hd.retrieve(true), () => hd.retrieve(false));
     this.callBtn.textContent = 'Hold Call';
     this.sigilBtn = tap('Sigil', () => hd.sigil());
-    const tools = h('div', { class: 'ttools' }, this.throwBtn, this.callBtn, this.sigilBtn);
-    for (const b of [this.throwBtn, this.callBtn, this.sigilBtn]) b.hidden = true;
+    this.spellBtn = tap('Cast', () => hd.spell());
+    this.spellBtn.prepend(this.spellIcon);
+    this.swapBtn = tap('↻', () => hd.nextSpell());
+    this.swapBtn.classList.add('tswap');
+    this.swapBtn.title = 'Next spell';
+    this.riteBtn = tap('Rite', () => hd.rite());
+    this.riteBtn.title = 'Trace a rite';
+    const tools = h('div', { class: 'ttools' }, this.throwBtn, this.callBtn, this.sigilBtn, this.swapBtn, this.spellBtn, this.riteBtn);
+    for (const b of [this.throwBtn, this.callBtn, this.sigilBtn, this.spellBtn, this.swapBtn, this.riteBtn]) b.hidden = true;
 
     // Shoulder buttons on the screen edges, where the thumbs rest when gripping
     // the phone. Hold to sidestep (or turn, when the pad strafes) until released.
@@ -387,7 +422,7 @@ export class TouchControls {
 
   /** Show only the situational buttons that would do something. */
   setTools(t: TouchTools): void {
-    const key = `${t.thrown}${t.landed}${t.calling}${t.sigil}`;
+    const key = `${t.thrown}${t.landed}${t.calling}${t.sigil}${t.spell}${t.spellReady}${t.spells}${t.parryOnly}${t.guardIcon}${t.rite}`;
     if (key === this.toolsKey) return;
     this.toolsKey = key;
     this.throwBtn.hidden = !t.thrown;
@@ -395,6 +430,23 @@ export class TouchControls {
     this.callBtn.hidden = !t.thrown || (!t.landed && !t.calling);
 
     this.sigilBtn.hidden = !t.sigil;
+    this.spellBtn.hidden = !t.spell;
+    this.spellBtn.classList.toggle('spent', !t.spellReady);
+    this.swapBtn.hidden = !t.spell || t.spells < 2;
+    if (t.spell && t.spell !== this.spellArt) {
+      this.spellArt = t.spell;
+      this.spellIcon.replaceChildren(artImg(t.spell, undefined, 18));
+    }
+    // A Wand or Rod guards nothing, so the guard button stops promising a
+    // shield: it shows the conduit and reads as a parry tap instead.
+    const wantArt = t.parryOnly && t.guardIcon ? t.guardIcon : 'ic_buckler';
+    if (wantArt !== this.blockArt) {
+      this.blockArt = wantArt;
+      this.blockIcon.replaceChildren(artImg(wantArt, undefined, 36));
+    }
+    this.blockBtn.classList.toggle('parry', t.parryOnly);
+    this.blockBtn.title = t.parryOnly ? 'Parry (tap)' : 'Block';
+    this.riteBtn.hidden = !t.rite;
   }
 
   /** Show a sword when the main button will swing, or a word when it will interact. */

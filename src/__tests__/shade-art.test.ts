@@ -1,0 +1,64 @@
+import { describe, expect, it } from 'vitest';
+import { getArt } from '../art/registry';
+import { rasterize } from '../art/raster';
+import { enemyDef } from '../data/enemies';
+import { findMaterial } from '../data/materials';
+import { SHADE_ID } from '../systems/grave';
+import { SHADE_HANDS, composeShade, shadeKey } from '../render/shade';
+
+const opaque = (d: Uint8ClampedArray) => d.filter((_, i) => i % 4 === 3 && d[i] > 0).length;
+
+describe('your Shade', () => {
+  it('has a body of its own, not the Hollow Knight', () => {
+    expect(enemyDef(SHADE_ID).sprite).toBe('shade');
+    expect(getArt('shade_0')).toBeDefined();
+    expect(getArt('shade_atk')).toBeDefined();
+  });
+
+  it('with nothing equipped is just the dark figure', () => {
+    expect(composeShade('0').data).toEqual(rasterize(getArt('shade_0')!).data);
+  });
+
+  it('holds your weapon at its hand and your shield on its arm, in their materials', () => {
+    const bare = composeShade('0');
+    const sword = { icon: 'ic_long_sword', ramp: findMaterial('iron')!.ramp };
+    const buckler = { icon: 'ic_buckler', ramp: findMaterial('timber')!.ramp };
+    const kitted = composeShade('0', sword, buckler);
+    expect(opaque(kitted.data)).toBeGreaterThan(opaque(bare.data) + 40);
+    // The material shows: the iron ramp's light end is on the blade.
+    const light = findMaterial('iron')!.ramp[3].slice(1);
+    const hex = (i: number) => [0, 1, 2].map((k) => kitted.data[i + k].toString(16).padStart(2, '0')).join('');
+    let found = false;
+    for (let i = 0; i < kitted.data.length; i += 4) if (hex(i) === light) found = true;
+    expect(found).toBe(true);
+    // The fist closes over the grip.
+    const [hx, hy] = SHADE_HANDS['0'].weapon;
+    expect(kitted.data[(hy * kitted.w + hx) * 4 + 3]).toBeGreaterThan(0);
+    expect(kitted.data[(hy * kitted.w + hx) * 4]).toBe(0x0c);
+  });
+
+  it('holds the icon it is given, so the shipped PNG shows rather than the code art', () => {
+    const painted = { w: 16, h: 16, data: new Uint8ClampedArray(16 * 16 * 4) };
+    for (let y = 2; y < 14; y++) { const i = (y * 16 + 8) * 4; painted.data.set([0xab, 0xcd, 0xef, 255], i); }
+    const asked: string[] = [];
+    const body = rasterize(getArt('shade_0')!);
+    const kitted = composeShade('0', { icon: 'ic_long_sword' }, undefined, undefined, (id) => (asked.push(id), id === 'shade_0' ? body : painted));
+    expect(asked).toEqual(['shade_0', 'ic_long_sword']);
+    let found = false;
+    for (let i = 0; i < kitted.data.length; i += 4) if (kitted.data[i] === 0xab && kitted.data[i + 1] === 0xcd) found = true;
+    expect(found).toBe(true);
+  });
+
+  it('takes its body from the same source, so a repainted Shade PNG shows too', () => {
+    const repainted = { w: 32, h: 32, data: new Uint8ClampedArray(32 * 32 * 4).fill(0x42) };
+    const bare = composeShade('0', undefined, undefined, undefined, (id) => (id === 'shade_0' ? repainted : undefined));
+    expect(bare.data).toEqual(repainted.data);
+  });
+
+  it('keys its textures by frame and by kit', () => {
+    const a = shadeKey('0', { icon: 'ic_mace', ramp: findMaterial('iron')!.ramp });
+    const b = shadeKey('0', { icon: 'ic_mace', ramp: findMaterial('gold')!.ramp });
+    expect(a).not.toBe(b);
+    expect(shadeKey('atk')).not.toBe(shadeKey('0'));
+  });
+});

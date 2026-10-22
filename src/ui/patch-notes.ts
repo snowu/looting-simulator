@@ -2,14 +2,17 @@ import { PATCHES } from '../data/patches';
 import { btn, closeOverlays, h, mountOverlay } from './dom';
 import { markPatchesSeen, newSinceLastVisit, unreadPatchCount } from './patch-seen';
 
+/** Pixel scroll, matching the 16px gear/fullscreen icons without an emoji-font dependency. */
+const SCROLL_ICON = '<svg viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M4 1h9v1h1v1h1v3h-3v7h-1v1H9v1H2v-1H1v-4h3V1zm2 2v7h3v3h1V3H6zm6 0v1h1V3h-1zM3 12v1h4v-1H3z"/><path fill="currentColor" d="M7 5h2v1H7zM7 7h2v1H7z"/></svg>';
+
 /**
- * Scroll icon button for the home (title) page. Opens the patch-notes overlay.
- * While the player has patches they haven't opened yet, it says how many.
+ * Scroll icon button for the title's corner toolbar. While the player has
+ * patches they haven't opened yet, a gold badge shows how many.
  */
 export function patchNotesButton(): HTMLElement {
   const button = h('button', {
-    class: 'btn patch-open',
-    title: 'Patch notes — every change, newest first',
+    class: 'corner-btn patch-open',
+    attrs: { 'aria-label': 'Patch notes' },
     onclick: () => openPatchNotes(),
   });
   paintPatchButton(button);
@@ -24,10 +27,11 @@ function refreshPatchButtons(): void {
 function paintPatchButton(button: HTMLElement): void {
   const unread = unreadPatchCount();
   button.classList.toggle('patch-unread', unread > 0);
-  button.replaceChildren(
-    h('span', { class: 'patch-scroll', text: '📜' }),
-    unread > 0 ? ` Patch notes · ${unread} new` : ' Patch notes',
-  );
+  button.title = unread > 0
+    ? `Patch notes — ${unread} you haven't read yet`
+    : 'Patch notes — every change, newest first';
+  button.innerHTML = SCROLL_ICON;
+  if (unread > 0) button.append(h('span', { class: 'patch-badge', text: String(unread) }));
 }
 
 /**

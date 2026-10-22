@@ -3,7 +3,7 @@ import { SEALS, SEAL_FIND, SEAL_IDS, SEAL_RENOWN, validSeals } from '../data/sea
 import { sealsUnlocked, toggleSeal } from '../systems/seals';
 import { ROADS, roadsForDay } from '../data/routes';
 import { OATHS, OATH_PICKS, STACK_BONUS, STACK_BONUS_AT, findOath } from '../data/oaths';
-import { claimOathRewards, oathRewardPicks, pendingOaths, todaysOaths, toggleOath } from '../systems/oaths';
+import { claimOathRewards, oathRewardPicks, pendingOaths, rewardChoice, todaysOaths, toggleOath } from '../systems/oaths';
 import { INSCRIBE_COST, PropertyDef, findProperty } from '../data/properties';
 import { inscribe, inscribeTargets } from '../systems/properties';
 import { EQUIP_SLOTS, Item, MaterialCategory, Rarity, RARITY_COLORS, RARITY_ORDER, STAT_KEYS, STAT_LABELS, Stats } from '../types';
@@ -35,11 +35,13 @@ import { durability, identify, identifyCost, itemIcon, itemName, itemStats, item
 import { Container, addItem, canFit, countOf, findItem, freeSlots, removeItem, removeOf, roomFor, sortContainer, takeQty } from '../state/inventory';
 import { syncLoadout } from '../systems/run';
 import { attuneSigil, inscribeSigil } from '../systems/spells';
+import { learnTome, loadoutLocked, toggleLoaded } from '../systems/conduits';
+import { conduitSpell, findConduitSpell } from '../data/conduit-spells';
 import { findSigil, sigil } from '../data/spells';
 import { derivePlayer } from '../systems/player';
 import { defaultSlot, equipFrom, unequipTo, wornFor } from '../systems/equip';
 import { createRng, hashString, randomSeed } from '../core/rng';
-import { artImg, bothRegisters, btn, gold, h, helpBlock, helpButton, hideTooltip, isTouchMode, itemSlot, itemTooltip, rarityColor, sparkline, statLines, toggleDetailed } from './dom';
+import { artImg, bothRegisters, btn, gold, h, helpBlock, helpButton, hideTooltip, showCondition, isTouchMode, itemSlot, itemTooltip, rarityColor, sparkline, statLines, toggleDetailed } from './dom';
 import { esc } from '../core/escape';
 import { artUrl } from '../render/art-cache';
 import { paperDoll, statSheet } from './dungeon-ui';
@@ -57,6 +59,8 @@ export interface TownCtx {
   state: () => GameState;
   save: () => void;
   descend: () => void;
+  /** Settings → Back to main menu. */
+  mainMenu: () => void;
   newGame: () => void;
   toast: (text: string, color?: string, href?: string) => void;
   /**
@@ -140,7 +144,7 @@ export class Town {
    * that something is broken or that a stone is waiting, without the pane
    * itself taking the room.
    */
-  private forgeSide: 'recipes' | 'repairs' | 'sigils' | 'inscribe' | 'infusions' = 'recipes';
+  private forgeSide: 'recipes' | 'repairs' | 'sigils' | 'spells' | 'inscribe' | 'infusions' = 'recipes';
   /** Whether the Descend panel (oath and Seals) is open. */
   private descendOpen = false;
   /** Inscriptions picked in the oath reward pane, learned together on confirm. */
@@ -182,6 +186,7 @@ export class Town {
 
   render(): void {
     hideTooltip();
+    showCondition(difficultyOf(this.difficultyId).gearWears);
     if (this.beastTimer !== null) {
       clearInterval(this.beastTimer);
       this.beastTimer = null;
@@ -316,6 +321,7 @@ export class Town {
       onClose: () => this.render(),
       showDifficulty: true,
       report: this.ctx.report,
+      mainMenu: { go: () => this.ctx.mainMenu(), note: 'Saved first. Pick any slot from there.' },
     });
   }
 
@@ -895,6 +901,7 @@ export class Town {
       return it && repairCost(it) > 0;
     }).length + s.stash.items.filter((it) => it.kind === 'equipment' && repairCost(it) > 0).length;
     const stones = s.stash.items.filter((it) => it.kind === 'sigil' && findSigil(it.ref) && !(s.spells ?? []).includes(it.ref)).length;
+    const tomes = s.stash.items.filter((it) => it.kind === 'tome' && findConduitSpell(it.ref) && !(s.spellbook ?? []).includes(it.ref)).length;
     const blueprints = new Map<string, number>();
     for (const item of s.stash.items) {
       if (item.kind === 'blueprint') blueprints.set(item.ref, (blueprints.get(item.ref) ?? 0) + item.qty);
@@ -904,10 +911,14 @@ export class Town {
       return rank < MAX_RECIPE_RANK && owned >= blueprintCostForNextRank(rank);
     }).length;
 
+    // No repair bench where nothing wears.
+    const wears = difficultyOf(this.difficultyId).gearWears;
+    if (!wears && this.forgeSide === 'repairs') this.forgeSide = 'recipes';
     const benches: [typeof this.forgeSide, string, number][] = [
       ['recipes', 'Recipes', readyBlueprints],
-      ['repairs', 'Repairs', wornCount],
+      ...(wears ? [['repairs', 'Repairs', wornCount] as [typeof this.forgeSide, string, number]] : []),
       ['sigils', 'Sigils', stones],
+      ['spells', 'Spells', tomes],
       ['inscribe', 'Inscribe', 0],
       ['infusions', 'Flask', 0],
     ];
@@ -925,6 +936,8 @@ export class Town {
       ? this.repairs()
       : this.forgeSide === 'sigils'
         ? this.sigils()
+        : this.forgeSide === 'spells'
+        ? this.spellBench()
         : this.forgeSide === 'inscribe'
         ? this.inscribeBench()
         : this.forgeSide === 'infusions'
@@ -1041,6 +1054,76 @@ export class Town {
 
 
   /**
+   * The spell bench: reading a tome into the spellbook, which is permanent,
+   * and loading spells into the conduit, which is the decision. Load order is
+   * cast order — the cast input cycles through them as listed — and a conduit
+   * reads as many from the top as it has slots, so a Rod's third spell simply
+   * waits while a Wand is worn.
+   */
+  private spellBench(): HTMLElement {
+    const s = this.s;
+    const known = s.spellbook ?? [];
+    const loaded = (s.loadedSpells ?? []).filter((id) => known.includes(id) && findConduitSpell(id));
+    const tomes = s.stash.items.filter((it) => it.kind === 'tome' && findConduitSpell(it.ref));
+    const locked = loadoutLocked(s);
+    // A Wand or Rod in the offhand, or a Stave in both hands.
+    const weapon = s.equipment.weapon ? itemBase(s.equipment.weapon.ref) : null;
+    const holder = weapon?.conduit ? s.equipment.weapon
+      : !weapon?.twoHanded && s.equipment.offhand && itemBase(s.equipment.offhand.ref).conduit ? s.equipment.offhand : null;
+    const worn = holder ? itemBase(holder.ref).conduit : undefined;
+    const slots = worn?.slots ?? 0;
+
+    const tomeRows = tomes.map((it) => {
+      const def = conduitSpell(it.ref);
+      const already = known.includes(it.ref);
+      return h(
+        'div',
+        { class: 'row repair-row' },
+        itemSlot(it, { size: 34, tip: () => itemTooltip(it) }),
+        h('div', { class: 'grow' },
+          h('div', { style: `color:${def.color}`, text: `Tome of ${def.name}` }),
+          h('div', { class: 'dim small', text: already ? 'already learned — worth selling' : def.description }),
+        ),
+        btn('Read', () => {
+          if (!learnTome(s, s.stash, it.uid)) return;
+          this.ctx.toast(`${def.name} learned. It is yours for good.`, def.color);
+          this.commit('study');
+        }, 'small', already),
+      );
+    });
+
+    const rows = known.filter((id) => findConduitSpell(id)).map((id) => {
+      const def = conduitSpell(id);
+      const at = loaded.indexOf(id);
+      const live = at >= 0 && at < slots;
+      return h(
+        'div',
+        { class: `row repair-row${live ? ' gold' : ''}` },
+        artImg(def.icon, undefined, 34),
+        h('div', { class: 'grow' },
+          h('div', { style: `color:${def.color}`, text: `${at >= 0 ? `${at + 1}. ` : ''}${def.name}${at >= slots && at >= 0 ? ' (no slot)' : ''}` }),
+          h('div', { class: 'dim small', text: `${def.description} · ${def.stamina} stamina · ${def.charges} charge${def.charges === 1 ? '' : 's'} · ${def.hitscan ? 'lands at once, ' : ''}range ${def.range}` }),
+        ),
+        btn(at >= 0 ? 'Unload' : 'Load', () => {
+          if (!toggleLoaded(s, id)) return this.ctx.toast('Not while you are down there. Step back through a portal first.', '#9ab0d8');
+          this.commit('study');
+        }, `small${at >= 0 ? ' primary' : ''}`, locked),
+      );
+    });
+
+    return h(
+      'div',
+      { class: 'pane frame' },
+      h('h3', { text: 'Spells' }),
+      tomeRows.length ? h('div', { class: 'col' }, ...tomeRows) : null,
+      h('div', { class: 'col' }, ...rows),
+      h('p', { class: 'dim small', text: worn
+        ? `Your ${itemBase(holder!.ref).name.toLowerCase()} holds ${slots} spell${slots === 1 ? '' : 's'} and ${worn.charges} charges, one back every ${worn.regrow}s. Load order is the order B cycles through. ${locked ? 'The loadout is fixed until you are back in town or a portal is open.' : ''}`
+        : 'Wear a conduit to cast these, with V: a Wand or a Rod in your offhand, or a Stave in both hands. The Wand is on the Recipes bench. Tomes turn up in chests, more often in vaults and secret rooms.' }),
+    );
+  }
+
+  /**
    * The sigil bench. Two separate things that both belong here: cutting a
    * recovered stone into the book, which is permanent and one-way, and
    * choosing which one you carry down, which is the actual decision.
@@ -1086,7 +1169,7 @@ export class Town {
         artImg(def.icon, undefined, 34),
         h('div', { class: 'grow' },
           h('div', { style: `color:${on ? '#e0c060' : '#b89ad8'}`, text: def.name }),
-          h('div', { class: 'dim small', text: `${def.description} · ${def.cast.toFixed(2)}s cast · ${def.stamina} stamina · ${def.cooldown}s` }),
+          h('div', { class: 'dim small', text: `${def.description}${id === 'temper' && !difficultyOf(this.difficultyId).gearWears ? ' Nothing wears on Normal, so it has nothing to do.' : ''} · ${def.cast.toFixed(2)}s cast · ${def.stamina} stamina · ${def.cooldown}s` }),
         ),
         btn(on ? 'Attuned' : 'Attune', () => {
           if (!attuneSigil(s, id)) return this.ctx.toast('Not while you are down there. Step back through a portal first.', '#9ab0d8');
@@ -1123,10 +1206,14 @@ export class Town {
       const picks = oathRewardPicks(s);
       this.oathPicks = this.oathPicks.filter((id) => reward.choices.includes(id));
       const learn = (ids: string[]) => {
-        const names = ids.map((id) => findProperty(id)?.name).filter(Boolean);
+        const chosen = ids.map(rewardChoice).filter((c) => !!c);
         if (!claimOathRewards(s, ids)) return;
         this.oathPicks = [];
-        this.ctx.toast(`${names.join(' and ')} learned. Cut ${ids.length > 1 ? 'them' : 'it'} into your gear at the forge.`, findProperty(ids[0])?.color);
+        const spells = chosen.filter((c) => c.where === 'spell').length;
+        const where = spells === chosen.length
+          ? `Load ${chosen.length > 1 ? 'them' : 'it'} at the forge's Spells bench.`
+          : spells ? 'Inscribe and load them at the forge.' : `Cut ${chosen.length > 1 ? 'them' : 'it'} into your gear at the forge.`;
+        this.ctx.toast(`${chosen.map((c) => c.name).join(' and ')} learned. ${where}`, chosen[0]?.color);
         this.commit('study');
       };
       const kept = (reward.oaths ?? (reward.oath ? [reward.oath] : [])).map((id) => findOath(id)?.name).filter(Boolean);
@@ -1134,16 +1221,16 @@ export class Town {
         'div',
         { class: 'pane frame gold' },
         h('h3', { text: `Oath${kept.length === 1 ? '' : 's'} kept: ${kept.join(', ')}` }),
-        h('p', { class: 'dim', text: `The old wardens paid a kept oath in knowledge. Choose ${picks > 1 ? `${picks} inscriptions` : 'one inscription'} to learn; they can be cut into your gear at the forge.` }),
+        h('p', { class: 'dim', text: `The old wardens paid a kept oath in knowledge. Choose ${picks > 1 ? `${picks} lessons` : 'one lesson'} to learn: an inscription is cut into your gear at the forge, a spell goes into your spellbook.` }),
         h('div', { class: 'col' }, ...reward.choices.map((id) => {
-          const def = findProperty(id);
+          const def = rewardChoice(id);
           if (!def) return null;
           const chosen = this.oathPicks.includes(id);
           return h(
             'div',
             { class: 'row repair-row' },
             h('div', { class: 'grow' },
-              h('div', { style: `color:${def.color}`, text: `${chosen ? '✓ ' : ''}${def.name} · ${def.slots.join(', ')}` }),
+              h('div', { style: `color:${def.color}`, text: `${chosen ? '✓ ' : ''}${def.name} · ${def.where}` }),
               bothRegisters(def.rule, def.detail, 'dim small'),
             ),
             picks === 1
@@ -1222,13 +1309,13 @@ export class Town {
             h('div', { class: 'small', text: def.objective }),
           ),
           btn(on ? 'Unswear' : 'Swear', () => {
-            if (!toggleOath(s, id)) return this.ctx.toast('Choose your inscriptions from the last oaths first.', '#e8c060');
+            if (!toggleOath(s, id)) return this.ctx.toast('Choose what to learn from the last oaths first.', '#e8c060');
             this.ctx.toast(on ? `${def.name} unsworn.` : `You swear ${def.name}. It takes hold when you descend.`, def.color);
             this.commit('ui');
           }, `small${on ? '' : ' primary'}`),
         );
       })),
-      sworn.length ? h('p', { class: 'small', style: 'color:#e0c060', text: `${sworn.length} sworn: keep them all and learn ${picks} inscription${picks === 1 ? '' : 's'}.` }) : null,
+      sworn.length ? h('p', { class: 'small', style: 'color:#e0c060', text: `${sworn.length} sworn: keep them all and learn ${picks} lesson${picks === 1 ? '' : 's'}.` }) : null,
     );
   }
 
