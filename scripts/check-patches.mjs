@@ -277,6 +277,7 @@ const SKIP = {
   '0d7932b': 'dev materials helper behind DEV, not in the game',
   '86b47ff': 'lab mimic/honest chest buttons behind DEV, not in the game',
   '91926de': 'propAt skips wreckage; only reachable by stacking props with the dev lab',
+  'cba57be': 'merge of master into the Patch 115 branch; the entry is curated, not the merge',
 };
 
 // Commits touching only these files maintain the notes themselves and never
