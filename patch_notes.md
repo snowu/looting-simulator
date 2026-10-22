@@ -1,3 +1,15 @@
+# Patch notes remember where you left off
+
+*Save revision 29, unchanged: nothing about a save moves.*
+
+**The title screen counts what you've missed.** If the game has been updated since you last opened it and you haven't read the patch notes yet, the patch-notes button gets a gold badge with the number of patches you haven't read. Opening the notes marks the new patches with a **New** tag and a gold edge, so you can see what changed since you last played. Once you've opened them, the badge goes away.
+
+**A first visit starts caught up.** A browser that has never opened the game isn't shown the whole history. The count only appears for patches that come out after that.
+
+Validation: all tests pass, including new tests for which patches count as new, storage that is blocked or holds a bad value, and a first visit. In the browser on the dev build: with the last-seen patch set to 1, the title button showed 80 and the overlay highlighted 80 entries, and opening the notes cleared the count.
+
+---
+
 # The name fits on one line
 
 *Save revision 29, unchanged: nothing about a save moves.*

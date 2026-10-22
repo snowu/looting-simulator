@@ -957,6 +957,11 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
 
 /* --- Patch notes --------------------------------------------------------- */
 .patch-wrap { z-index: 80; }
+.patch-open.patch-unread { position: relative; border-color: var(--gold); }
+.patch-badge { position: absolute; top: -5px; right: -5px; min-width: 16px; height: 16px; padding: 0 4px; background: var(--gold); color: #17131b; font-size: 12px; line-height: 16px; text-align: center; pointer-events: none; }
+.patch-since { color: var(--gold); font-size: 18px; }
+.patch-new { border-color: var(--gold); box-shadow: inset 3px 0 0 var(--gold); background: #211a14; }
+.patch-new-tag { color: #17131b; background: var(--gold); font-size: 14px; padding: 0 5px; white-space: nowrap; }
 .patch-modal { min-width: min(94vw, 640px); display: flex; flex-direction: column; gap: 8px; }
 .patch-top { position: sticky; top: 0; }
 .patch-list { display: flex; flex-direction: column; gap: 8px; overflow: auto; padding-bottom: 8px; }
