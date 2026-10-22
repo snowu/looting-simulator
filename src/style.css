@@ -855,6 +855,10 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
 
 /* --- Patch notes --------------------------------------------------------- */
 .patch-open .patch-scroll { margin-right: 6px; }
+.patch-open.patch-unread { border-color: var(--gold); color: var(--gold); }
+.patch-since { color: var(--gold); font-size: 18px; }
+.patch-new { border-color: var(--gold); box-shadow: inset 3px 0 0 var(--gold); background: #211a14; }
+.patch-new-tag { color: #17131b; background: var(--gold); font-size: 14px; padding: 0 5px; white-space: nowrap; }
 .patch-wrap { z-index: 80; }
 .patch-modal { min-width: min(94vw, 640px); display: flex; flex-direction: column; gap: 8px; }
 .patch-top { position: sticky; top: 0; }
