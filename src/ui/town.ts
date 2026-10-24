@@ -1118,8 +1118,8 @@ export class Town {
       tomeRows.length ? h('div', { class: 'col' }, ...tomeRows) : null,
       h('div', { class: 'col' }, ...rows),
       h('p', { class: 'dim small', text: worn
-        ? `Your ${itemBase(holder!.ref).name.toLowerCase()} holds ${slots} spell${slots === 1 ? '' : 's'} and ${worn.charges} charges, one back every ${worn.regrow}s. Load order is the order B cycles through. ${locked ? 'The loadout is fixed until you are back in town or a portal is open.' : ''}`
-        : 'Wear a conduit to cast these, with V: a Wand or a Rod in your offhand, or a Stave in both hands. The Wand is on the Recipes bench. Tomes turn up in chests, more often in vaults and secret rooms.' }),
+        ? `Your ${itemBase(holder!.ref).name.toLowerCase()} holds ${slots} spell${slots === 1 ? '' : 's'} and ${worn.charges} charges, one back every ${worn.regrow}s. Load order is the order Z and the wheel cycle through. ${locked ? 'The loadout is fixed until you are back in town or a portal is open.' : ''}`
+        : 'Wear a conduit to cast these, with C: a Wand or a Rod in your offhand, or a Stave in both hands. The Wand is on the Recipes bench. Tomes turn up in chests, more often in vaults and secret rooms.' }),
     );
   }
 

@@ -60,8 +60,8 @@ Pick **Normal** or **Hard** in Bleakmere. Progress saves locally in three named 
 | F | Interact: open, search, loot, pray, push marked walls |
 | T | Throw one shaft from your belt |
 | R (hold) | Call thrown shafts back; release to stop |
-| G / C | Cast your attuned sigil |
-| V / B | Cast your selected spell from a worn conduit / select the next |
+| G | Cast your attuned sigil |
+| C / Z or wheel | Cast your selected spell from a worn conduit / select the next |
 | 1–4 | Use the quick bar: flask, scrolls and other consumables (drag to reorder) |
 | I / Tab | Pack and gear |
 | M | Map (or click the minimap) |

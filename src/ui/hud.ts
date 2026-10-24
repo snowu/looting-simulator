@@ -291,7 +291,7 @@ export class Hud {
         ? spells.map((s) => h('div', { class: `spell-icon${s === selected ? ' on' : ''}`, title: `${s.name} — ${s.description}` }, artImg(s.icon, undefined, s === selected ? 40 : 26)))
         : [h('span', { class: 'spell-none', text: 'No spells loaded' })]));
       this.spellPips.replaceChildren(...Array.from({ length: conduit.charges }, () => h('i', {}, h('b'))));
-      this.spellWrap.title = `${spells.length > 1 ? 'V casts · B selects the next spell' : 'V casts'} · ${conduit.charges} charges, one back every ${conduit.regrow}s`;
+      this.spellWrap.title = `${spells.length > 1 ? 'C casts · Z or the wheel selects the next spell' : 'C casts'} · ${conduit.charges} charges, one back every ${conduit.regrow}s`;
     }
     const pips = [...this.spellPips.children] as HTMLElement[];
     pips.forEach((pip, i) => {
