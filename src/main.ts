@@ -1449,17 +1449,16 @@ window.addEventListener('keydown', (e) => {
       if (!e.repeat) world.retrieve();
       break;
     case 'g':
-    case 'c':
       if (!e.repeat) world.castSigil();
       break;
-    case 'v':
+    case 'c':
       if (!e.repeat) world.castSpell();
       break;
     case 'x':
       // Hold to trace a rite: the world slows and the pointer draws.
       if (!e.repeat && !overlays.isOpen && world.beginRiteDraw()) pointerLock.release();
       break;
-    case 'b':
+    case 'z':
       if (!e.repeat) world.nextSpell();
       break;
     case 'escape':
@@ -1501,6 +1500,17 @@ window.addEventListener('mouseup', (e) => {
   if (world && e.button === 2) world.setBlock(false);
 });
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+// The wheel picks the next spell. A trackpad fires a stream of small deltas
+// per flick, so one notch per WHEEL_GAP_MS at most.
+const WHEEL_GAP_MS = 150;
+let lastWheel = 0;
+canvas.addEventListener('wheel', (e) => {
+  if (mode !== 'dungeon' || !world || ending || world.riteDraw || overlays.isOpen || isSettingsOpen()) return;
+  e.preventDefault();
+  if (e.timeStamp - lastWheel < WHEEL_GAP_MS) return;
+  lastWheel = e.timeStamp;
+  world.nextSpell();
+}, { passive: false });
 window.addEventListener('blur', () => {
   closeRiteSurface();
   clearTouchHolds();
