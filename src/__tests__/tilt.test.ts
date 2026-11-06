@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TILT_THRESHOLDS, resolveScreenAngle, tiltDir, tiltRoll } from '../ui/tilt';
-import { sideMove } from '../ui/touch-prefs';
+import { lateralSwipe, sideMove } from '../ui/touch-prefs';
 
 const { on: TILT_ON_DEG, off: TILT_OFF_DEG } = TILT_THRESHOLDS.medium;
 
@@ -83,5 +83,27 @@ describe('which way the screen is turned', () => {
     const fixed = tiltRoll(0, -60, resolveScreenAngle(0, undefined, true));
     expect(Math.abs(misread)).toBeGreaterThan(TILT_THRESHOLDS.low.on);
     expect(fixed).toBeCloseTo(0, 6);
+  });
+});
+
+describe('second-finger lateral swipe', () => {
+  it('stays put within tap distance, so taps still parry and swing', () => {
+    expect(lateralSwipe(5, 2, null)).toBeNull();
+    expect(lateralSwipe(-13, 0, null)).toBeNull();
+  });
+
+  it('strafes the way a mostly sideways drag goes', () => {
+    expect(lateralSwipe(40, 10, null)).toBe('right');
+    expect(lateralSwipe(-40, -10, null)).toBe('left');
+  });
+
+  it('a mostly vertical drag does not start a strafe', () => {
+    expect(lateralSwipe(20, 60, null)).toBeNull();
+  });
+
+  it('once strafing, follows the finger across and lets go back near the start', () => {
+    expect(lateralSwipe(20, 60, 'right')).toBe('right');
+    expect(lateralSwipe(-30, 0, 'right')).toBe('left');
+    expect(lateralSwipe(4, 0, 'left')).toBeNull();
   });
 });

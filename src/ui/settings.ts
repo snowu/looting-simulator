@@ -345,7 +345,7 @@ export function openSettings(ctx: SettingsCtx): void {
       row,
       h('p', {
         class: 'dim small',
-        text: 'Left half of the view: tap to parry, hold to block, drag to walk. Right half: tap to swing. Whatever a sideways swipe does, the edge buttons and tilt do the other. Stored on this device.',
+        text: 'Left half of the view: tap to parry, hold to block, drag to walk. Right half: tap to swing. While walking, swipe sideways with your other thumb to strafe. Whatever a sideways swipe does, the edge buttons and tilt do the other. Stored on this device.',
       }),
     );
   }

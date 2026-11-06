@@ -1,6 +1,6 @@
 import { artImg, h } from './dom';
 import { clamp } from '../core/math';
-import { PadSwipe, TouchPrefs, sideMove, touchPrefs } from './touch-prefs';
+import { PadSwipe, TouchPrefs, lateralSwipe, sideMove, touchPrefs } from './touch-prefs';
 
 export type TouchMove = 'forward' | 'back' | 'left' | 'right' | 'turnLeft' | 'turnRight';
 
@@ -63,7 +63,6 @@ export function isTouchDevice(): boolean {
   return matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
 }
 
-
 /** Which half of the view a finger landed on. */
 export type TouchSide = 'left' | 'right';
 
@@ -77,6 +76,10 @@ interface Finger {
   y: number;
   downAt: number;
   travelled: number;
+  /** Landed while the stick was already out: a sideways drag strafes. */
+  lateral: boolean;
+  /** The strafe this finger is holding, if any. */
+  strafe: 'left' | 'right' | null;
 }
 
 /** What the finger on the left half is doing to the guard. */
@@ -93,6 +96,11 @@ export type GuardTouch = 'down' | 'drag' | 'up';
  * swings. Every finger is tracked, so one thumb can walk while the other
  * blocks or swings; only the first finger down drives the stick, and only the
  * first finger on the left half drives the guard.
+ *
+ * With the stick already out, another finger that drags sideways strafes
+ * that way for as long as it stays out (whatever the pad's own sideways swipe
+ * does), so one thumb can walk and turn while the other sidesteps. Taps and
+ * holds from that finger still parry, block and swing as usual.
  */
 class DragPad {
   readonly zone = h('div', { class: 'stick-zone' });
@@ -112,6 +120,7 @@ class DragPad {
     private onDir: (d: TouchMove | null) => void,
     private onTap: () => void,
     private onGuard: (t: GuardTouch, downAt: number) => void,
+    private onStrafe: (side: 'left' | 'right', on: boolean) => void,
   ) {
     this.base.append(this.knob);
     this.zone.append(this.base);
@@ -142,7 +151,7 @@ class DragPad {
     const r = this.zone.getBoundingClientRect();
     const x = e.clientX - r.left;
     const y = e.clientY - r.top;
-    const f: Finger = { side: x < r.width / 2 ? 'left' : 'right', x, y, downAt: performance.now(), travelled: 0 };
+    const f: Finger = { side: x < r.width / 2 ? 'left' : 'right', x, y, downAt: performance.now(), travelled: 0, lateral: this.id !== null, strafe: null };
     this.fingers.set(e.pointerId, f);
     if (f.side === 'left' && this.guardId === null) {
       this.guardId = e.pointerId;
@@ -169,6 +178,7 @@ class DragPad {
     // Past tap distance a left-side finger is walking, not guarding, even
     // when it isn't the stick.
     if (f.travelled >= TAP_TRAVEL) this.endGuard(e.pointerId, 'drag');
+    if (f.lateral) this.setStrafe(f, lateralSwipe(fx - f.x, fy - f.y, f.strafe, TAP_TRAVEL));
     if (e.pointerId !== this.id) return;
     let dx = fx - this.cx;
     let dy = fy - this.cy;
@@ -195,9 +205,17 @@ class DragPad {
     const tapped = !(stick && this.everMoved) && f.travelled < TAP_TRAVEL && performance.now() - f.downAt < TAP_MS;
     // A cancelled touch (the OS took it) never confirms a guard.
     this.endGuard(e.pointerId, e.type === 'pointerup' ? 'up' : 'drag');
+    this.setStrafe(f, null);
     this.fingers.delete(e.pointerId);
     if (stick) this.releaseStick();
     if (tapped && e.type === 'pointerup' && f.side === 'right') this.onTap();
+  }
+
+  private setStrafe(f: Finger, s: 'left' | 'right' | null): void {
+    if (s === f.strafe) return;
+    if (f.strafe) this.onStrafe(f.strafe, false);
+    f.strafe = s;
+    if (s) this.onStrafe(s, true);
   }
 
   private releaseStick(): void {
@@ -212,6 +230,7 @@ class DragPad {
 
   reset(): void {
     if (this.guardId !== null) this.endGuard(this.guardId, 'drag');
+    for (const f of this.fingers.values()) this.setStrafe(f, null);
     this.fingers.clear();
     this.releaseStick();
   }
@@ -293,6 +312,7 @@ export class TouchControls {
       (d) => hd.move(d === 'turnLeft' || d === 'turnRight' ? sideMove(d === 'turnLeft' ? 'left' : 'right', 'pad', this.swipe) : d),
       () => hd.tap(),
       (t, downAt) => this.viewGuard(t, downAt),
+      (side, on) => hd.side(side, on),
     );
 
     this.mainImg = artImg('ic_long_sword', undefined, 56);
