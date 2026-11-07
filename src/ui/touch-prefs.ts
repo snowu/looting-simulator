@@ -87,3 +87,15 @@ export function sideMove(side: 'left' | 'right', source: 'pad' | 'extra', swipe:
   if (strafe) return side;
   return side === 'left' ? 'turnLeft' : 'turnRight';
 }
+
+/**
+ * Which way a second finger's drag strafes, from how far it has come (dx, dy)
+ * since it landed. It has to go mostly sideways past `dead` (tap distance) to start;
+ * once strafing it follows the side of its landing point it is on, and lets
+ * go only when it comes back within it.
+ */
+export function lateralSwipe(dx: number, dy: number, current: 'left' | 'right' | null, dead = 14): 'left' | 'right' | null {
+  if (Math.abs(dx) < dead) return null;
+  if (!current && Math.abs(dx) < Math.abs(dy)) return null;
+  return dx > 0 ? 'right' : 'left';
+}
