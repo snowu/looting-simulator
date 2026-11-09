@@ -212,8 +212,8 @@ export function openSettings(ctx: SettingsCtx): void {
         value: String(brightnessToPercent(brightness.get())),
       },
     }) as HTMLInputElement;
-    slider.title = 'Brightness';
-    slider.setAttribute('aria-label', 'Brightness');
+    slider.title = 'Brightness (gamma): lifts the shadows without greying the black';
+    slider.setAttribute('aria-label', 'Brightness (gamma)');
     const resetBtn = btn('Reset', () => {
       brightness.reset();
       syncDisplay();
@@ -247,12 +247,19 @@ export function openSettings(ctx: SettingsCtx): void {
     return h(
       'div',
       {},
-      h('h3', { style: 'margin-top:10px', text: 'Display' }),
+      // Called "Display" until #45: a tester in a bright room went looking for
+      // gamma and never guessed this was it. Say what it is, when to reach
+      // for it, and how to set it, in that order.
+      h('h3', { style: 'margin-top:10px', text: 'Brightness (gamma)' }),
+      h('p', {
+        class: 'dim small',
+        text: "Can't make out the dark corners, or playing in a bright room? Turn it up. If the darkness looks washed-out grey, turn it down.",
+      }),
       h('div', { class: 'audio-row' }, resetBtn, slider, pct),
       strip,
       h('p', {
         class: 'dim small',
-        text: 'Drag until the left square is barely visible. Display only — no extra light radius, no easier fights. Stored on this device.',
+        text: 'To set it: drag until the left square is only just visible and the middle one is clear. It changes the picture only: you see no further, and fights play the same. Saved on this device.',
       }),
     );
   }

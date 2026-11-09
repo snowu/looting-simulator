@@ -64,8 +64,28 @@ describe('art overrides', () => {
     expect(data[2 * 4]).toBeGreaterThan(data[2 * 4 + 2]); // ...warm, like the leather
     expect(out(3)).not.toBe('#d6d6d9'); // a painted highlight takes it too
     expect(out(4)).toBe('#0e0a08'); // the outline does not
-    expect(out(5)).toBe('#ececee'); // nor a glint
-    expect(out(6)).toBe('#ffffff');
+    // A glint keeps its brightness but takes a little of the leather's hue
+    // (#100: a white glint read as a hole in a purple gem).
+    for (const i of [5, 6]) {
+      expect(out(i)).not.toBe(i === 5 ? '#ececee' : '#ffffff');
+      expect(data[i * 4]).toBeGreaterThan(data[i * 4 + 2]); // warm
+      expect(Math.min(data[i * 4], data[i * 4 + 1], data[i * 4 + 2])).toBeGreaterThan(180); // still bright
+    }
+  });
+
+  it('tints glints by the material, leaves iron alone, and never tints glass', () => {
+    const px = (hex: string) => [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16), 255];
+    const hex = (d: Uint8ClampedArray) => '#' + [0, 1, 2].map((k) => d[k].toString(16).padStart(2, '0')).join('');
+    const glintOn = (id: string, ramp: [string, string, string, string]) => {
+      const data = new Uint8ClampedArray(px('#ededed'));
+      recolorIcon(data, getArt(id)!, ramp);
+      return data;
+    };
+    const purple = glintOn('ic_gem', ['#1a0a2e', '#3e1a6a', '#7040b0', '#c8a0f0']);
+    expect(purple[2]).toBeGreaterThan(purple[1]); // lavender, not white
+    const iron = glintOn('ic_gem', ['#2a2a30', '#55555e', '#8a8a94', '#c8c8d0']);
+    for (const k of [0, 1, 2]) expect(Math.abs(iron[k] - 0xed)).toBeLessThanOrEqual(4); // iron's grey barely moves it
+    expect(hex(glintOn('ic_potion', ['#3a0808', '#7a1414', '#c02828', '#f06060']))).toBe('#ededed');
   });
 
   it('ships a valid, correctly sized PNG for every art ID', () => {

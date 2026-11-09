@@ -13,7 +13,7 @@ const PAL: Record<string, string> = {
 // Glass neck, its shadow, and a gold highlight for the potion bottles.
 const GLASS = { m: '#8898b0', n: '#fff0a0' };
 
-const icon = (id: string, r: string[], extra: Record<string, string> = {}): ArtDef => ({ id, palette: { ...PAL, ...extra }, rows: r });
+const icon = (id: string, r: string[], extra: Record<string, string> = {}): ArtDef => ({ id, palette: { ...PAL, ...extra }, rows: r, ...(extra === GLASS ? { glass: true } : {}) });
 
 const SIGIL_TOKEN = sym(rows(`
   ........

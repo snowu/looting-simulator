@@ -18,6 +18,12 @@ export interface ArtDef {
   rows: string[];
   /** Another art id rasterised first; these rows are painted over it ('.' keeps the base, alpha blends). */
   base?: string;
+  /**
+   * Its near-white highlights are reflections on glass, not light on the
+   * material, so recolouring leaves them white (a potion's bottle). On every
+   * other icon they take a little of the material's hue (`recolorIcon`).
+   */
+  glass?: boolean;
 }
 
 export type ArtResolver = (id: string) => ArtDef | undefined;
