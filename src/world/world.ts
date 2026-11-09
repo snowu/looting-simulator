@@ -125,6 +125,7 @@ import * as Loot from './loot';
 import * as Shrines from './shrines';
 import * as Traps from './traps';
 import * as Vitals from './vitals';
+import * as Inventory from './inventory';
 
 // ---------------------------------------------------------------------------
 // Events the world emits for the renderer / UI / audio to react to.
@@ -549,7 +550,7 @@ export class World {
   projN = 0;
   pathCache = new Map<string, { t: number; next: [number, number] | null }>();
   private turnReadyAt = 0;
-  private trail: { x: number; y: number; facing: Dir; time: number }[] = [];
+  trail: { x: number; y: number; facing: Dir; time: number }[] = [];
   /** A flask sip pressed mid-step, waiting for the step to land. */
   private sipBuffered = 0;
   time = 0;
@@ -1972,22 +1973,12 @@ export class World {
       this.emit({ type: 'loot', pickupId: pk.id });
       return;
     }
-    this.eatMorsel();
+    Inventory.eatMorsel(this);
   }
 
-  /**
-   * Start chewing the morsel underfoot or faced. [F] is always deliberate, so
-   * unlike the one-button tap it eats even with something hunting you; the
-   * 1.2s chew and the dropped morsel on a hit are the price, not a refusal.
-   */
+  /** See `eatMorsel` in src/world/inventory.ts. */
   eatMorsel(): boolean {
-    if (this.busy || this.moving || this.anim.attack !== 'idle' || this.anim.cast) return false;
-    const morsel = this.morselNear();
-    if (!morsel) return false;
-    this.anim.chew = { id: morsel.id, left: CHEW_SECONDS, delivered: 0, total: Math.round(this.derived.maxHp * morsel.remaining) };
-    this.held.clear();
-    this.msg(`You eat the ${morsel.kind}.`, '#d8c098');
-    return true;
+    return Inventory.eatMorsel(this);
   }
 
   /** What an offering stone asks for at this depth. */
@@ -1997,260 +1988,44 @@ export class World {
     return Math.round((30 + 25 * this.run.depth) * Math.pow(COFFER_PRICE_GROWTH, Math.max(0, offeringsMade)));
   }
 
-  /** Move items from a pickup into the backpack. Returns how many stacks moved. */
+  /** See `take` in src/world/inventory.ts. */
   take(pickupId: string, uid?: string): number {
-    const pk = this.floor.pickups.find((p) => p.id === pickupId);
-    if (!pk) return 0;
-    let moved = 0;
-    if (pk.flaskShard && (this.state.flask?.shards ?? 0) < 3) {
-      this.state.flask.shards++;
-      this.run.flask.charges = Math.min(flaskMax(this.state.flask.shards, this.diff.flaskBonus), this.run.flask.charges + 1);
-      pk.flaskShard = false;
-      if (this.state.flask.shards >= 3) {
-        for (const fl of this.run.floors ?? []) for (const other of fl?.pickups ?? []) other.flaskShard = false;
-        Loot.prunePickups(this);
-      }
-      moved++;
-      this.msg('The Flask Shard dissolves into the vessel. Its capacity grows.', '#9fe0cf');
-    }
-    for (const it of [...pk.items]) {
-      if (uid && it.uid !== uid) continue;
-      // Field notes are read where they lie. They never reach the pack, so a
-      // bad run can't cost you the page, and a full pack can't block it.
-      if (it.kind === 'lore') {
-        const fresh = unlockEntry(this.state.bestiary, it.ref);
-        pk.items = pk.items.filter((i) => i !== it);
-        this.msg(fresh ? `${loreName(it.ref)} — added to the codex.` : 'You already know these notes.', '#c8b8ff');
-        this.sfx('study');
-        moved++;
-        continue;
-      }
-      const before = it.qty;
-      const left = addItem(this.run.backpack, it);
-      if (left < before) {
-        moved++;
-        Loot.recordUnique(this, it);
-      }
-      if (left === 0) pk.items = pk.items.filter((i) => i !== it);
-      else it.qty = left;
-    }
-    if (moved) {
-      this.run.stats.itemsFound += moved;
-      this.sfx('pickup');
-    } else if (pk.items.length) {
-      this.msg('Your pack is full.', '#ff9070');
-    }
-    Loot.prunePickups(this);
-    return moved;
+    return Inventory.take(this, pickupId, uid);
   }
 
+  /** See `canTake` in src/world/inventory.ts. */
   canTake(item: Item): boolean {
-    return canFit(this.run.backpack, item) || roomFor(this.run.backpack, item) > 0;
+    return Inventory.canTake(this, item);
   }
 
+  /** See `drop` in src/world/inventory.ts. */
   drop(uid: string, pickupId?: string): void {
-    const it = removeItem(this.run.backpack, uid);
-    if (!it) return;
-    if (pickupId) {
-      // Dropping while a loot pile is open puts it straight back on that
-      // pile, so a full pack can be swapped one for one without closing the
-      // panel. The pile may sit in front of you rather than underfoot.
-      const pk = this.floor.pickups.find((p) => p.id === pickupId);
-      if (pk) {
-        pk.items.push(it);
-        this.sfx('ui');
-        return;
-      }
-    }
-    Loot.dropLoot(this, this.player.x, this.player.y, [it], 0);
-    this.sfx('ui');
+    return Inventory.drop(this, uid, pickupId);
   }
 
-  /** Equipment in the pack still waiting to be identified. */
+  /** See `unidentifiedItems` in src/world/inventory.ts. */
   unidentifiedItems(): Item[] {
-    return this.run.backpack.items.filter((i) => i.kind === 'equipment' && i.identified === false);
+    return Inventory.unidentifiedItems(this);
   }
 
+  /** See `use` in src/world/inventory.ts. */
   use(uid: string, targetUid?: string): void {
-    if (this.run.outcome !== 'active') return;
-    const it = findItem(this.run.backpack, uid);
-    if (!it) return;
-    if (it.kind === 'blueprint') {
-      this.msg('Study it back in town at the forge.', '#9ab0d8');
-      return;
-    }
-    if (it.kind !== 'consumable') return;
-    const def = consumable(it.ref);
-    const e = def.effect;
-    switch (e.type) {
-      case 'heal':
-        if (this.player.hp >= this.derived.maxHp) {
-          this.msg('You are already at full health.', '#888');
-          return;
-        }
-        Vitals.heal(this, Math.round(this.derived.maxHp * e.fraction));
-        this.sfx('drink');
-        break;
-      case 'stamina':
-        this.player.stamina = this.derived.maxStamina;
-        this.sfx('drink');
-        break;
-      case 'tonic': {
-        const tonic = TONICS[e.tonicId];
-        if (!tonic) return;
-        // Fight Milk stopped being drunk when the flask took over healing. A
-        // bottle the flask can take is a forge infusion now; drinking it would
-        // bypass the potency trade the infusion charges for. Legacy delves that
-        // already drank keep their run.tonics effect until that run ends.
-        if (draught(it.ref)) {
-          this.msg('Too precious to drink raw. The forge can infuse the flask with it.', '#e8b84a');
-          return;
-        }
-        const tonics = (this.run.tonics ??= []);
-        // Two of the same draught is two of the same draught. It is already in
-        // you; drinking another would only cost you the bottle.
-        if (tonics.includes(e.tonicId)) {
-          this.msg(`You already reek of ${tonic.name}.`, '#888');
-          return;
-        }
-        tonics.push(e.tonicId);
-        this.refreshDerived();
-        this.sfx('drink');
-        this.msg(`${tonic.name}, for the rest of the delve. ${tonic.text}`, '#e8b84a');
-        break;
-      }
-      case 'identify': {
-        const unids = this.unidentifiedItems();
-        if (!unids.length) {
-          this.msg('Nothing in your pack needs identifying.', '#888');
-          return;
-        }
-        // A caller may name which item the scroll is read over; without a
-        // choice the UI asks, and headless callers (quick-slots, tests) fall
-        // back to the first. The scroll is only spent when something is
-        // actually identified.
-        let target = targetUid ? unids.find((i) => i.uid === targetUid) : undefined;
-        if (targetUid && !target) {
-          this.msg('That doesn\'t need identifying.', '#888');
-          return;
-        }
-        target ??= unids[0];
-        identify(target!);
-        Loot.recordUnique(this, target!);
-        this.msg(`It is: ${itemName(target!)}.`, '#c8b8ff');
-        this.sfx('magic');
-        break;
-      }
-      case 'recall':
-        if (this.anim.recall !== null) return;
-        if (Boss.playerInThrone(this) && Boss.bossAlive(this)) {
-          this.msg('The fog smothers the scroll. No way out but through him.', '#c0a0ff');
-          this.sfx('locked');
-          return;
-        }
-        this.anim.recall = e.seconds;
-        this.msg(
-          this.run.portal ? 'You read the scroll. The old portal will collapse...' : 'You read the scroll. Stand still...',
-          '#9ac0ff',
-        );
-        this.sfx('magic');
-        break;
-      case 'flash': {
-        // Blinding true light, and it burns whether it lands or not. Whiff it
-        // into empty air and you have one fewer scroll — that is the lesson.
-        let target: EnemyState | undefined;
-        for (let d = 1; d <= 3; d++) {
-          const t = this.frontTile(d);
-          const foe = enemyAt(this.floor, t.x, t.y);
-          if (foe) {
-            const toward = dirOf(Math.sign(this.player.x - foe.x), Math.sign(this.player.y - foe.y));
-            if (foe.alert > 0 && toward === foe.facing) target = foe;
-            break;
-          }
-          if (blocksSight(this.floor, t.x, t.y)) break;
-        }
-        this.anim.recall = null; this.anim.sip = null; this.anim.chew = null;
-        // True light, seen: a white-hot wash over the whole view, stronger
-        // than any sigil landing. Reuses the sigil flash path in the
-        // renderer, so headless callers and saves see nothing new.
-        this.emit({ type: 'sigil', r: 1.0, g: 0.97, b: 0.88, strength: 0.85 });
-        if (!target) {
-          this.msg('Light bursts over nothing. There is nothing looking at you.', '#888');
-          this.sfx('magic', this.player.x, this.player.y);
-          break;
-        }
-        if (enemyDef(target.def).behavior === 'boss') {
-          // No blind, no cancelled wind-up, no lost trail: a blind that ran
-          // through the ordinary AI reset his wind-up and could drop his aggro.
-          this.msg('The King does not blink.', '#c0a0ff');
-          this.sfx('magic', target.x, target.y);
-          break;
-        }
-        const save = target.ai === 'windup';
-        target.blind = save ? 3 : 2;
-        if (save) { target.ai = 'recover'; target.timer = target.blind; }
-        target.guard = 'down'; target.guardT = target.blind;
-        this.msg(save ? 'Caught it in the light!' : `${enemyDef(target.def).name} reels from the flash.`, '#fff2a0');
-        this.sfx('magic', target.x, target.y);
-        break;
-      }
-      case 'backstep': {
-        const now = this.run.stats.time;
-        const candidates = this.trail.filter((p) => now - p.time <= 2 && (p.x !== this.player.x || p.y !== this.player.y)).slice(-4);
-        const dest = candidates.find((p) => !blocksMove(this.floor, p.x, p.y) && !enemyAt(this.floor, p.x, p.y));
-        this.anim.recall = null; this.anim.sip = null; this.anim.chew = null;
-        if (!dest) {
-          this.msg('The scroll comes to nothing. You have been nowhere.', '#888');
-          break;
-        }
-        this.placePlayer(dest.x, dest.y, dest.facing);
-        Traps.reveal(this);
-        this.sfx('recall'); this.emit({ type: 'shake', amount: 0.22 });
-        this.msg('The scroll snaps you back along your path.', '#9ac0ff');
-        break;
-      }
-    }
-    it.qty -= 1;
-    if (it.qty <= 0) removeItem(this.run.backpack, uid);
+    return Inventory.use(this, uid, targetUid);
   }
 
-  /**
-   * Distinct consumable refs in the pack, in the player's chosen quick-bar
-   * order. Saved order wins for refs still carried; anything new appends in
-   * backpack order, and anything gone is ignored — so the bar never points at
-   * something you no longer have.
-   */
+  /** See `quickRefs` in src/world/inventory.ts. */
   quickRefs(): string[] {
-    const present: string[] = [];
-    for (const it of this.run.backpack.items) {
-      if (it.kind !== 'consumable' || present.includes(it.ref)) continue;
-      // An infusion ingredient (Fight Milk) rides in the pack, not as a drink.
-      // It is spent at the forge bench, so it never takes a quick-bar slot.
-      if (draught(it.ref)) continue;
-      present.push(it.ref);
-    }
-    const saved = this.run.quickOrder ?? [];
-    const ordered = saved.filter((r) => present.includes(r));
-    for (const r of present) if (!ordered.includes(r)) ordered.push(r);
-    return ordered;
+    return Inventory.quickRefs(this);
   }
 
-  /** Move a quick-bar entry from one position to another (drag reorder). */
+  /** See `moveQuick` in src/world/inventory.ts. */
   moveQuick(from: number, to: number): void {
-    const refs = this.quickRefs();
-    if (from < 0 || from >= refs.length || to < 0 || to >= refs.length || from === to) return;
-    const [moved] = refs.splice(from, 1);
-    refs.splice(to, 0, moved);
-    this.run.quickOrder = refs;
+    return Inventory.moveQuick(this, from, to);
   }
 
-  /** Quick-slot use: nth distinct consumable in the player's bar order. */
+  /** See `quickUse` in src/world/inventory.ts. */
   quickUse(slot: number): void {
-    const refs = this.quickRefs();
-    const ref = refs[slot];
-    if (!ref) return;
-    const it = this.run.backpack.items.find((i) => i.kind === 'consumable' && i.ref === ref);
-    if (it) this.use(it.uid);
+    return Inventory.quickUse(this, slot);
   }
 
   // -------------------------------------------------------------------------
