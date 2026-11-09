@@ -15,6 +15,9 @@ import { Floor, Prop, blocksMove } from '../systems/dungeon';
 import { makeEquipment } from '../systems/items';
 import { Rarity } from '../types';
 import { World } from '../world/world';
+import * as Combat from '../world/combat';
+import * as EnemyAi from '../world/enemy-ai';
+import * as Loot from '../world/loot';
 
 /** A cleared 15×15 room around the player, facing north, with nothing on the floor. */
 function room(seed = 501): World {
@@ -199,7 +202,7 @@ describe('surfaces in play', () => {
     lay(w, 'water', [[10, 8]]);
     const e = dummy(w, 10, 7);
     e.burn = { t: 3, left: 40, acc: 0 };
-    (w as unknown as { stepEnemy(e: unknown, x: number, y: number): void }).stepEnemy(e, 10, 8);
+    EnemyAi.stepEnemy(w, e, 10, 8);
     expect(e.burn).toBeUndefined();
   });
 
@@ -207,7 +210,7 @@ describe('surfaces in play', () => {
     const w = room();
     lay(w, 'oil', [[10, 8]]);
     const wraith = dummy(w, 10, 7, 'flame_wraith');
-    (w as unknown as { stepEnemy(e: unknown, x: number, y: number): void }).stepEnemy(wraith, 10, 8);
+    EnemyAi.stepEnemy(w, wraith, 10, 8);
     expect(burningAt(w.floor, 10, 8)).toBe(true);
   });
 
@@ -243,7 +246,7 @@ describe('oil barrels', () => {
     const w = room();
     const p = barrel(w, 10, 8);
     const piles = w.floor.pickups.length;
-    priv(w).breakProp(p);
+    Loot.breakProp(w, p);
     expect(p.used).toBe(true);
     expect(oilBarrelAt(w.floor, 10, 8)).toBeUndefined();
     expect(surfaceKindAt(w.floor, 10, 8)).toBe('oil');
@@ -336,7 +339,7 @@ describe('the biome laws', () => {
     run(w, 0.6);
     expect(e.ai).toBe('recover');
     expect(e.vuln).toBeGreaterThan(0);
-    (w as unknown as { damagePlayer(a: number, t: string, x: number, y: number, s: string): void }).damagePlayer(10, 'blunt', 10, 9, 'test');
+    Combat.damagePlayer(w, 10, 'blunt', 10, 9, 'test');
     expect(w.anim.stunT).toBeGreaterThan(0);
   });
 
@@ -359,7 +362,7 @@ describe('the biome laws', () => {
     lay(w, 'spores', [[10, 7], [12, 7]]);
     const walker = dummy(w, 10, 6);
     const near = dummy(w, 11, 7);
-    priv(w).stepEnemy(walker, 10, 7);
+    EnemyAi.stepEnemy(w, walker, 10, 7);
     expect(walker.blind).toBe(SPORE_BLIND);
     expect(near.blind).toBe(SPORE_BLIND);
     expect(surfaceKindAt(w.floor, 10, 7)).toBeUndefined();

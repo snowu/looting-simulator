@@ -3,7 +3,7 @@ import { DX, DY } from '../core/dir';
 import { createRng } from '../core/rng';
 import { newGame } from '../state/game-state';
 import { migrateSave } from '../state/migrations';
-import { FLOOR, EnemyState, createEnemy } from '../systems/dungeon';
+import { EnemyState, createEnemy } from '../systems/dungeon';
 import { enemyDef } from '../data/enemies';
 import {
   BULWARK_WINDOW, INSCRIBE_COST, LAST_FLASK_MULT, PROPERTY_IDS, RIPOSTE_WINDOW,
@@ -11,10 +11,13 @@ import {
 import { canCarry, inscribe, inscribeTargets, learnProperty, unlearnedProperties } from '../systems/properties';
 import { derivePlayer } from '../systems/player';
 import { makeEquipment, makeUnique } from '../systems/items';
-import { startRun } from '../systems/run';
 import { Item, Rarity } from '../types';
 import { findUnique } from '../data/uniques';
 import { World } from '../world/world';
+import { room } from './harness';
+import * as Thrown from '../world/thrown';
+import * as Combat from '../world/combat';
+import * as Vitals from '../world/vitals';
 
 interface Private {
   refreshDerived(): void;
@@ -29,27 +32,7 @@ const priv = (w: World) => w as unknown as Private;
 const gear = (baseId: string, materialId = 'iron'): Item =>
   makeEquipment({ baseId, materialId, rarity: Rarity.Common, ilvl: 2, identified: true });
 
-function arena(seed = 211): World {
-  for (let s = seed; s < seed + 40; s++) {
-    const state = newGame(createRng(s));
-    startRun(state, s);
-    const w = new World(state);
-    const f = w.floor;
-    f.enemies = [];
-    f.traps = [];
-    f.props = f.props.filter((p) => !p.blocking);
-    const open = (x: number, y: number) => f.tiles[y * f.width + x] === FLOOR && !f.doors.some((d) => d.x === x && d.y === y);
-    for (let y = 3; y < f.height - 3; y++) for (let x = 3; x < f.width - 3; x++) {
-      let ok = true;
-      for (let dy = -2; dy <= 2 && ok; dy++) for (let dx = -2; dx <= 2 && ok; dx++) ok = open(x + dx, y + dy);
-      if (!ok) continue;
-      Object.assign(w.player, { x, y, facing: 0 });
-      Object.assign(w.anim, { fromX: x, fromY: y, yaw: 0, yawTo: 0 });
-      return w;
-    }
-  }
-  throw new Error('no arena');
-}
+const arena = (seed = 211): World => room({ seed });
 
 /** Wear `item` with `property` inscribed, and rebuild the derived stats. */
 function wear(w: World, slot: 'weapon' | 'offhand' | 'thrown' | 'body', item: Item, property: string): void {
@@ -131,7 +114,7 @@ describe('the effects', () => {
   it('Riposte: a parry makes the next swing free', () => {
     const w = arena();
     wear(w, 'weapon', gear('long_sword'), 'riposte');
-    priv(w).parryFlourish(w.player.x, w.player.y - 1);
+    Combat.parryFlourish(w, w.player.x, w.player.y - 1);
     expect(w.anim.riposteT).toBe(RIPOSTE_WINDOW);
     const stamina = w.player.stamina;
     w.attack();
@@ -144,7 +127,7 @@ describe('the effects', () => {
     wear(w, 'offhand', gear('kite_shield'), 'bulwark');
     const e = foe(w, 'skeleton', DX[0], DY[0]);
     w.anim.blockRaise = 1;
-    priv(w).damagePlayer(Math.round(w.derived.maxHp * 0.6), 'slash', e.x, e.y, 'Skeleton', 'skeleton', e);
+    Combat.damagePlayer(w, Math.round(w.derived.maxHp * 0.6), 'slash', e.x, e.y, 'Skeleton', 'skeleton', e);
     expect(w.anim.bulwarkT).toBe(BULWARK_WINDOW);
   });
 
@@ -155,7 +138,7 @@ describe('the effects', () => {
       w.run.sigil = { id: 'wardcry', cd: 60 };
       const e = foe(w, 'skeleton', 0, -1);
       e.vuln = 1;
-      priv(w).killEnemy(e);
+      Combat.killEnemy(w, e);
       return 60 - w.run.sigil.cd;
     };
     expect(refund(true)).toBeCloseTo(refund(false) * 2, 5);
@@ -169,7 +152,7 @@ describe('the effects', () => {
     const beside = foe(w, 'skeleton', 1, -1);
     target.hp = Math.round(target.maxHp * 0.3);
     w.anim.attackPower = 1;
-    priv(w).hitEnemy(target);
+    Combat.hitEnemy(w, target);
     expect(beside.hp).toBeLessThan(beside.maxHp);
   });
 
@@ -178,13 +161,13 @@ describe('the effects', () => {
     wear(w, 'body', gear('plate'), 'last_flask');
     w.player.hp = 10;
     w.run.flask!.charges = 1;
-    const plain = priv(w).heal(20, 'food');
+    const plain = Vitals.heal(w, 20, 'food');
     w.player.hp = 10;
     w.run.flask!.charges = 0;
-    const dry = priv(w).heal(20, 'food');
+    const dry = Vitals.heal(w, 20, 'food');
     expect(dry).toBe(Math.round(plain * LAST_FLASK_MULT));
     w.player.hp = 10;
-    expect(priv(w).heal(20)).toBe(plain);
+    expect(Vitals.heal(w, 20)).toBe(plain);
   });
 
   it('Retrieval: a returning shaft cuts each monster in its path once', () => {
@@ -192,7 +175,7 @@ describe('the effects', () => {
     const belt = makeEquipment({ baseId: 'throwing_knives', materialId: 'iron', rarity: Rarity.Common, ilvl: 2, identified: true });
     wear(w, 'thrown', belt, 'retrieval');
     const e = foe(w, 'skeleton', 0, -2);
-    (w as unknown as { launchReturn(base: string, x: number, y: number): void }).launchReturn(belt.ref, w.player.x, w.player.y - 4);
+    Thrown.launchReturn(w, belt.ref, w.player.x, w.player.y - 4);
     for (let i = 0; i < 120; i++) w.update(1 / 60);
     expect(e.hp).toBeLessThan(e.maxHp);
   });
@@ -203,7 +186,7 @@ describe('the effects', () => {
     const belt = makeEquipment({ baseId: 'throwing_knives', materialId: 'iron', rarity: Rarity.Common, ilvl: 2, identified: true });
     belt.affixes = [{ id: 'blazing', value: 6 }];
     wear(w, 'thrown', belt, 'retrieval');
-    (w as unknown as { launchReturn(base: string, x: number, y: number): void }).launchReturn(belt.ref, w.player.x, w.player.y - 4);
+    Thrown.launchReturn(w, belt.ref, w.player.x, w.player.y - 4);
     const shaft = (w as unknown as { projectiles: { returning?: boolean; type: string; player?: { attack: number; damageType: string; stats: { fire: number } } }[] }).projectiles.find((p) => p.returning)!;
     expect(w.derived.attack).not.toBe(w.derived.thrownAttack);
     expect(shaft.player!.attack).toBe(w.derived.thrownAttack);

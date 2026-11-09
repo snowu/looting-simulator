@@ -10,6 +10,7 @@ import { endRun, startRun } from '../systems/run';
 import { makeEquipment, makeMaterial } from '../systems/items';
 import { Rarity } from '../types';
 import { World } from '../world/world';
+import * as Combat from '../world/combat';
 
 interface Private {
   changeFloor(dir: 'down' | 'up'): void;
@@ -105,7 +106,7 @@ describe('the Shade', () => {
     startRun(state, 613);
     const w = new World(state);
     const shade = w.floor.enemies.find((e) => e.def === SHADE_ID)!;
-    priv(w).killEnemy(shade);
+    Combat.killEnemy(w, shade);
     expect(state.grave).toBeNull();
     const pile = w.floor.pickups.find((p) => p.x === shade.x && p.y === shade.y)!;
     expect(pile.items.some((i) => i.ref === 'iron' && i.qty === 7)).toBe(true);

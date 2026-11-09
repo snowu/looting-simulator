@@ -1,10 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createRng } from '../core/rng';
-import { DIRS, DX, DY, turnAround } from '../core/dir';
-import { newGame } from '../state/game-state';
-import { startRun } from '../systems/run';
 import { World } from '../world/world';
-import { EnemyState, FLOOR, createEnemy, generateFloor } from '../systems/dungeon';
+import { generateFloor } from '../systems/dungeon';
 import { enemyDef } from '../data/enemies';
 import { itemBase } from '../data/items';
 import { GEAR_UNIQUES, ROLLABLE_UNIQUES, findUnique, uniqueForQuirk } from '../data/uniques';
@@ -14,46 +11,15 @@ import { playerHitsEnemy } from '../systems/combat';
 import { applyQuirk, rollQuirk } from '../systems/quirks';
 import { QUIRK_IDS, QUIRK_MAX_DEPTH, QUIRK_MIN_DEPTH } from '../data/quirks';
 import { Item } from '../types';
+import { room, tick, spawn } from './harness';
 
 function relic(id: string, depth = 5): Item {
   return makeUnique(findUnique(id)!, createRng(1), depth, true);
 }
 
-function tick(w: World, seconds: number): void {
-  for (let t = 0; t < seconds; t += 1 / 60) w.update(1 / 60);
-}
 
-function arena(seed = 1): World {
-  const state = newGame(createRng(seed));
-  state.difficulty = 'hard';
-  startRun(state, seed);
-  const w = new World(state);
-  const f = w.floor;
-  f.enemies = [];
-  f.traps = [];
-  f.props = f.props.filter((p) => !p.blocking);
-  const free = (x: number, y: number) =>
-    f.tiles[y * f.width + x] === FLOOR && !f.doors.some((d) => d.x === x && d.y === y) && !f.stairs.some((s) => s.x === x && s.y === y);
-  for (let y = 2; y < f.height - 6; y++) for (let x = 2; x < f.width - 6; x++) {
-    for (const d of DIRS) {
-      let ok = free(x, y) && free(x - DX[d], y - DY[d]);
-      for (let k = 1; k <= 5 && ok; k++) ok = free(x + DX[d] * k, y + DY[d] * k);
-      if (ok) {
-        Object.assign(w.player, { x, y, facing: d });
-        Object.assign(w.anim, { fromX: x, fromY: y, yaw: (d * Math.PI) / 2, yawTo: (d * Math.PI) / 2 });
-        return w;
-      }
-    }
-  }
-  throw new Error('no arena');
-}
+const arena = (seed = 1): World => room({ seed, difficulty: 'hard' });
 
-function spawn(w: World, id: string, dist: number): EnemyState {
-  const t = w.frontTile(dist);
-  const e = createEnemy(enemyDef(id), t.x, t.y, turnAround(w.player.facing), `e${id}${dist}`, 1);
-  w.floor.enemies.push(e);
-  return e;
-}
 
 describe('The Big Toe', () => {
   it('is a real weapon with a real niche, not a joke with no numbers', () => {

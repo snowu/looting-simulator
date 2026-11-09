@@ -11,7 +11,6 @@ import { ENEMIES } from '../src/data/enemies';
 import { material } from '../src/data/materials';
 import { DamageType } from '../src/types';
 
-const PHYS: DamageType[] = ['slash', 'pierce', 'blunt'];
 const ORDER: DamageType[] = ['blunt', 'slash', 'pierce', 'fire', 'frost', 'holy', 'shadow'];
 
 function resists(e: (typeof ENEMIES)[number]): string {

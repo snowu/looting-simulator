@@ -79,6 +79,10 @@ npm run art:check   # fail if public/art drifted from the code-drawn sprites
 
 `npm run typecheck` runs `tsc --noEmit` on its own.
 
+### Writing a world test
+
+Use `src/__tests__/harness.ts` rather than building a world by hand. `room()` gives you a walled, empty room with the player in the middle, so the test doesn't depend on what the floor generator lays out for a seed. `spawn()` / `spawnAt()` add monsters and `tick()` runs the clock at 60 fps. Options cover the seed, difficulty and a `prepare` hook for gear or the flask. Only reach for a generated floor when the test is about generation itself, and say so in the test.
+
 ### Balance harnesses
 
 Headless, seeded runs driven by a scripted bot (`scripts/playtest.ts`). They're slower than unit tests and live under a separate vitest config:
@@ -103,7 +107,9 @@ src/
                    recipes, relics (uniques), sigils (spells), difficulty, patch notes
   systems/         rules: combat, dungeon generation, items, crafting, market,
                    contracts, healing, meta (Warden upgrades), relics, run lifecycle
-  world/world.ts   the live dungeon simulation: player, enemies, projectiles, events
+  world/           the live dungeon simulation. world.ts is the public face and the
+                   tick; combat, enemy-ai, boss, spells, loot and the rest are
+                   plain functions of the world (map in world.ts's header)
   state/           GameState, inventory, save format, additive migrations, persistence
   render/          three.js PS1-style renderer, enemy poses, brightness, art cache
   art/             every sprite drawn in code, plus the registry that names them

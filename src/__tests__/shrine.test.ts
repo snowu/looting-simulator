@@ -4,8 +4,10 @@ import { DIRS, DX, DY } from '../core/dir';
 import { newGame } from '../state/game-state';
 import { startRun } from '../systems/run';
 import { BLESSINGS, CURSES, World } from '../world/world';
-import { FLOOR, Floor, Prop, ShrineKind, generateFloor, shrineKindFor, shrinePityFor } from '../systems/dungeon';
+import { FLOOR, Floor, Prop, ShrineKind, generateFloor, shrineKindFor, shrinePityFor, EnemyState } from '../systems/dungeon';
 import { durability } from '../systems/items';
+import * as Combat from '../world/combat';
+import * as Vitals from '../world/vitals';
 
 /** The player facing a shrine of the given flavour, one tile away. */
 function atShrine(kind: ShrineKind, seed = 1): { w: World; shrine: Prop } {
@@ -279,7 +281,7 @@ describe('the shrine of strife', () => {
     w.interact();
     // The prize drops at your feet, and feet pickups auto-collect.
     const purse = w.run.gold;
-    const kill = (w as unknown as { killEnemy(e: unknown): void }).killEnemy.bind(w);
+    const kill = (e: EnemyState) => Combat.killEnemy(w, e);
     for (const id of [...w.run.trial!.ids]) {
       const e = w.floor.enemies.find((x) => x.id === id)!;
       kill(e);
@@ -329,11 +331,11 @@ describe('curses', () => {
 
     w.run.curse = null;
     const clean = durability(weapon).cur;
-    (w as unknown as { wear: (s: string, n?: number) => void }).wear('weapon', 1);
+    Vitals.wear(w, 'weapon', 1);
     const afterClean = durability(weapon).cur;
     weapon.dur = clean;
     w.run.curse = 'brittle';
-    (w as unknown as { wear: (s: string, n?: number) => void }).wear('weapon', 1);
+    Vitals.wear(w, 'weapon', 1);
     const afterBrittle = durability(weapon).cur;
     expect(clean - afterBrittle).toBe((clean - afterClean) + 1);
   });

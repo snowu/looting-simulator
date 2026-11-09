@@ -2,19 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { DIRS, DX, DY, dirOf } from '../core/dir';
 import { createRng } from '../core/rng';
 import { newGame } from '../state/game-state';
-import { EnemyState, FLOOR, blocksMove, createEnemy } from '../systems/dungeon';
+import { EnemyState, FLOOR, Prop, blocksMove, createEnemy } from '../systems/dungeon';
 import { enemyDef } from '../data/enemies';
 import { BURROWS_NOISE_MULT, OSSUARY_RISE_HP, OSSUARY_STIR, OSSUARY_STIR_AFTER } from '../data/laws';
 import { CRACK_BLOWS, CRACK_NOISE, Crack } from '../data/walls';
 import { startRun } from '../systems/run';
 import { World } from '../world/world';
-
-interface Private {
-  resolvePlayerAttack(): void;
-  killEnemy(e: EnemyState): void;
-  breakProp(p: unknown): void;
-}
-const priv = (w: World) => w as unknown as Private;
+import * as Combat from '../world/combat';
+import * as Loot from '../world/loot';
 
 function run(w: World, seconds: number): void {
   for (let t = 0; t < seconds; t += 1 / 60) w.update(1 / 60);
@@ -67,7 +62,7 @@ describe('the Ossuary: the dead do not stay down', () => {
     expect(e.ai).not.toBe('dead');
     expect(e.risen).toBe(true);
     expect(e.hp).toBe(Math.round(e.maxHp * OSSUARY_RISE_HP));
-    priv(w).killEnemy(e);
+    Combat.killEnemy(w, e);
     e.deadT = 0;
     run(w, OSSUARY_STIR_AFTER + OSSUARY_STIR + 1);
     expect(e.ai).toBe('dead');
@@ -102,7 +97,7 @@ describe('the Deep Mines: braced walls come down hard', () => {
       const e = createEnemy(enemyDef('skeleton'), beside.x, beside.y, 0, 'victim', 1);
       e.maxHp = e.hp = 500;
       w.floor.enemies.push(e);
-      for (let i = 0; i < CRACK_BLOWS; i++) priv(w).resolvePlayerAttack();
+      for (let i = 0; i < CRACK_BLOWS; i++) Combat.resolvePlayerAttack(w);
       expect(c.broken).toBe(true);
       if (biome === 'mines') {
         expect(e.hp, biome).toBeLessThan(500);
@@ -128,7 +123,7 @@ describe('the Vermin Burrows: noise carries', () => {
       }
       const e = createEnemy(enemyDef('rat'), spot!.x, spot!.y, 0, 'ear', 1);
       w.floor.enemies.push(e);
-      priv(w).resolvePlayerAttack();
+      Combat.resolvePlayerAttack(w);
       expect(e.alert > 0, biome).toBe(biome === 'burrows');
     }
   });
@@ -136,10 +131,10 @@ describe('the Vermin Burrows: noise carries', () => {
   it('a broken root cache draws monsters to the cache', () => {
     const w = world(506, 'burrows');
     const p = w.player;
-    const cache = { id: 'rc', kind: 'root_cache', x: p.x + 2, y: p.y, used: false, tier: 'none', blocking: true, mimic: false };
+    const cache: Prop = { id: 'rc', kind: 'root_cache', x: p.x + 2, y: p.y, used: false, tier: 'none', blocking: true, mimic: false };
     const e = createEnemy(enemyDef('rat'), p.x + 6, p.y, 0, 'lured', 1);
     w.floor.enemies.push(e);
-    priv(w).breakProp(cache);
+    Loot.breakProp(w, cache);
     expect(e.alert).toBeGreaterThan(0);
     expect([e.lastSeenX, e.lastSeenY]).toEqual([cache.x, cache.y]);
   });

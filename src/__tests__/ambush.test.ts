@@ -1,40 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { DIRS, DX, DY, turnAround } from '../core/dir';
-import { createRng } from '../core/rng';
-import { newGame } from '../state/game-state';
-import { FLOOR, EnemyState, createEnemy, enemyAt, generateFloor, lurkerAt } from '../systems/dungeon';
+import { DX, DY, turnAround } from '../core/dir';
+import { EnemyState, createEnemy, enemyAt, generateFloor, lurkerAt } from '../systems/dungeon';
 import { enemyDef } from '../data/enemies';
 import { AMBUSH_BEAT, BURROW_MAX, DROP_SECONDS, EARTH_BIOMES, KNOCKOUT_STUN, SURFACE_SECONDS, droppersFor } from '../data/ambush';
-import { startRun } from '../systems/run';
 import { World } from '../world/world';
+import { room } from './harness';
+import * as Combat from '../world/combat';
+import * as Shrines from '../world/shrines';
+import * as Traps from '../world/traps';
 
-interface Private {
-  resolvePlayerAttack(): void;
-  threatNear(): boolean;
-  spotTraps(): void;
-}
-const priv = (w: World) => w as unknown as Private;
-
-/** A cleared floor-1 world with the player in a straight run of open floor, facing along it. */
-function arena(seed = 131): World {
-  const state = newGame(createRng(seed));
-  startRun(state, seed);
-  const w = new World(state);
-  const f = w.floor;
-  f.enemies = [];
-  f.traps = [];
-  f.props = f.props.filter((p) => !p.blocking);
-  const free = (x: number, y: number) =>
-    f.tiles[y * f.width + x] === FLOOR && !f.doors.some((d) => d.x === x && d.y === y) && !f.stairs.some((s) => s.x === x && s.y === y);
-  for (let y = 3; y < f.height - 3; y++) for (let x = 3; x < f.width - 3; x++) for (const d of DIRS) {
-    const line = [-1, 0, 1, 2, 3].map((k) => [x + DX[d] * k, y + DY[d] * k]);
-    if (!line.every(([a, b]) => free(a, b))) continue;
-    Object.assign(w.player, { x, y, facing: d });
-    Object.assign(w.anim, { fromX: x, fromY: y, yaw: d * Math.PI / 2, yawTo: d * Math.PI / 2 });
-    return w;
-  }
-  throw new Error('no arena');
-}
+const arena = (seed = 131): World => room({ seed });
 
 function run(w: World, seconds: number): void {
   for (let t = 0; t < seconds; t += 1 / 60) w.update(1 / 60);
@@ -86,7 +61,7 @@ describe('a lurker is not on its tile', () => {
     const e = lurker(w, 'ceiling_crawler', 'ceiling', 2);
     expect(enemyAt(w.floor, e.x, e.y)).toBeUndefined();
     expect(lurkerAt(w.floor, e.x, e.y)).toBe(e);
-    expect(priv(w).threatNear()).toBe(false);
+    expect(Shrines.threatNear(w)).toBe(false);
     expect(w.visibleEnemies().has(e.id)).toBe(false);
   });
 
@@ -94,7 +69,7 @@ describe('a lurker is not on its tile', () => {
     const w = arena(132);
     const e = lurker(w, 'ceiling_crawler', 'ceiling', 2);
     expect(e.spotted).toBeFalsy();
-    priv(w).spotTraps();
+    Traps.spotTraps(w);
     expect(e.spotted).toBe(true);
   });
 });
@@ -133,7 +108,7 @@ describe('the drop', () => {
     const w = arena(135);
     const e = lurker(w, 'ceiling_crawler', 'ceiling', 1);
     e.spotted = true;
-    priv(w).resolvePlayerAttack();
+    Combat.resolvePlayerAttack(w);
     expect(e.lurk).toBeUndefined();
     expect(e.ai).toBe('recover');
     expect(e.vuln).toBe(KNOCKOUT_STUN);
@@ -142,7 +117,7 @@ describe('the drop', () => {
   it('an unspotted one cannot be struck: the swing goes into the air', () => {
     const w = arena(136);
     const e = lurker(w, 'ceiling_crawler', 'ceiling', 1);
-    priv(w).resolvePlayerAttack();
+    Combat.resolvePlayerAttack(w);
     // Still up there (it may have been set off by standing next to it, but not knocked out).
     expect(e.vuln ?? 0).toBe(0);
   });
@@ -162,7 +137,7 @@ describe('burrowers', () => {
   it('a mound can be struck to drag it out early', () => {
     const w = arena(138);
     const e = lurker(w, 'tunnel_stalker', 'buried', 1);
-    priv(w).resolvePlayerAttack();
+    Combat.resolvePlayerAttack(w);
     expect(e.lurk).toBeUndefined();
     expect(e.vuln).toBe(KNOCKOUT_STUN);
   });

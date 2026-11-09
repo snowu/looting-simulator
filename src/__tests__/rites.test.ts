@@ -2,13 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { createRng } from '../core/rng';
 import { DX, DY } from '../core/dir';
 import { Rarity } from '../types';
-import { RITES, RITE_CARVING_DEPTH, findRite, rite, riteFloorChance } from '../data/rites';
+import { RITES, findRite, rite, riteFloorChance } from '../data/rites';
 import { RITE_WEAK_SCORE, gradeRite, matchRite, recogniseRite, TracePoint } from '../systems/rite-draw';
 import { SAVE_VERSION, newGame } from '../state/game-state';
 import { parseSave } from '../state/save-format';
 import { SAVE_REVISION } from '../state/migrations';
 import { makeEquipment } from '../systems/items';
-import { derivePlayer } from '../systems/player';
 import { startRun } from '../systems/run';
 import { createEnemy, doorAt, FLOOR, inRoom, stairsFront } from '../systems/dungeon';
 import { reachable, splitsNothing } from '../systems/surfaces';
@@ -16,6 +15,8 @@ import { enemyDef } from '../data/enemies';
 import { GLACIAL_TOMB_SECONDS, GLACIAL_TOMB_SIGHT_SECONDS, judgementEnds, RITE_BOTCH_FREEZE, RITE_CHARGE_COST, World } from '../world/world';
 import { HEX_SECONDS } from '../data/conduit-spells';
 import { beginLabRite, spawnLabCarving } from '../dev/lab-room';
+import * as Combat from '../world/combat';
+import * as Features from '../world/features';
 
 const TEMPLATE = RITES[0].template;
 
@@ -742,11 +743,11 @@ describe('when carvings appear', () => {
     const w = ritualist();
     w.run.road = 'frostvault';
     w.run.depth = 3;
-    expect((w as any).nextRite(createRng(1))).toBe('glacial_tomb');
+    expect(Features.nextRite(w, createRng(1))).toBe('glacial_tomb');
     w.state.ritesKnown.push('glacial_tomb');
-    expect(['judgement', 'penguining']).toContain((w as any).nextRite(createRng(1)));
+    expect(['judgement', 'penguining']).toContain(Features.nextRite(w, createRng(1)));
     w.run.riteCarved = 'judgement';
-    expect((w as any).nextRite(createRng(1))).toBeNull();
+    expect(Features.nextRite(w, createRng(1))).toBeNull();
   });
 
   it('your first King kill leaves a carving by the portal', () => {
@@ -754,7 +755,7 @@ describe('when carvings appear', () => {
     w.state.ritesKnown = ['meteor', 'judgement'];
     const king = roomTarget(w, w.player.x + 3, w.player.y, 'ashen_king');
     king.hp = 0;
-    (w as any).killEnemy(king);
+    Combat.killEnemy(w, king);
     const slab = w.floor.props.find((p) => p.kind === 'carving');
     expect(slab).toBeTruthy();
     expect(['glacial_tomb', 'penguining']).toContain(slab!.rite);
@@ -764,7 +765,7 @@ describe('when carvings appear', () => {
     done.state.ritesKnown = ['meteor', 'judgement', 'penguining'];
     const k2 = roomTarget(done, done.player.x + 3, done.player.y, 'ashen_king');
     k2.hp = 0;
-    (done as any).killEnemy(k2);
+    Combat.killEnemy(done, k2);
     expect(done.floor.props.some((p) => p.kind === 'carving')).toBe(false);
   });
 });

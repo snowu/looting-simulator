@@ -7,6 +7,8 @@ import { LIEUTENANT_MIN_DISTANCE, QUARTERMASTER_MIN_GOBLINS, RALLY_DAMAGE, isGob
 import { makeMaterial } from '../systems/items';
 import { startRun } from '../systems/run';
 import { World } from '../world/world';
+import * as Combat from '../world/combat';
+import * as EnemyAi from '../world/enemy-ai';
 
 interface Private {
   changeFloor(dir: 'down' | 'up'): void;
@@ -61,12 +63,12 @@ describe('the Goblin Quartermaster', () => {
     const gob = createEnemy(enemyDef('goblin_shield'), p.x + 2, p.y, 0, 'g1', 2);
     const rat = createEnemy(enemyDef('rat'), p.x + 2, p.y + 1, 0, 'r1', 2);
     w.floor.enemies.push(qm, gob, rat);
-    expect(priv(w).rally(gob)).toBe(RALLY_DAMAGE);
-    expect(priv(w).rally(rat)).toBe(1);
-    expect(priv(w).rally(qm)).toBe(1);
+    expect(EnemyAi.rally(w, gob)).toBe(RALLY_DAMAGE);
+    expect(EnemyAi.rally(w, rat)).toBe(1);
+    expect(EnemyAi.rally(w, qm)).toBe(1);
     const pilesBefore = w.floor.pickups.length;
-    priv(w).killEnemy(qm);
-    expect(priv(w).rally(gob)).toBe(1);
+    Combat.killEnemy(w, qm);
+    expect(EnemyAi.rally(w, gob)).toBe(1);
     expect(gob.ai).toBe('flee');
     expect(w.floor.pickups.length).toBeGreaterThan(pilesBefore);
   });
@@ -100,7 +102,7 @@ describe('the Hoarder', () => {
     expect(w.floor.pickups.includes(pile)).toBe(false);
     expect(e.hoard?.some((i) => i.ref === 'iron')).toBe(true);
     expect(e.hoardGold).toBe(12);
-    priv(w).killEnemy(e);
+    Combat.killEnemy(w, e);
     const drop = w.floor.pickups.find((k) => k.x === e.x && k.y === e.y)!;
     expect(drop.items.some((i) => i.ref === 'iron' && i.qty === 5)).toBe(true);
     expect(drop.gold).toBeGreaterThanOrEqual(12);

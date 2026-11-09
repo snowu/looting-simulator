@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createRng } from '../core/rng';
 import { GameState, newGame } from '../state/game-state';
 import { migrateSave } from '../state/migrations';
-import { EnemyState, createEnemy } from '../systems/dungeon';
+import { EnemyState, Prop, createEnemy } from '../systems/dungeon';
 import { enemyDef } from '../data/enemies';
 import {
   BLOOD_PRICE_GOLD, DRY_THROAT_DEPTH, DUELIST_KILLS, HUNTER_DEPTHS, HUNTER_MARKS, HUNTER_SIGHT, KINGSBANE_DAMAGE, OATHS,
@@ -15,6 +15,11 @@ import { endRun, startRun } from '../systems/run';
 import { durability, makeEquipment } from '../systems/items';
 import { Rarity } from '../types';
 import { World } from '../world/world';
+import * as Sigils from '../world/sigils';
+import * as Combat from '../world/combat';
+import * as EnemyAi from '../world/enemy-ai';
+import * as Shrines from '../world/shrines';
+import * as Vitals from '../world/vitals';
 
 interface Private {
   changeFloor(dir: 'down' | 'up'): void;
@@ -97,7 +102,7 @@ describe('each oath', () => {
   it('Blood Price: cursed, a font will not lift it, 250 found gold', () => {
     const { state, w } = sworn(['blood_price']);
     expect(state.run!.curse).toBe('frailty');
-    priv(w).pray({ shrine: 'font' });
+    Shrines.pray(w, { shrine: 'font' } as Prop);
     expect(state.run!.curse).toBe('frailty');
     const o = runOath(state.run!, 'blood_price')!;
     expect(oathKept(state.run!, o, 'extracted')).toBe(false);
@@ -111,9 +116,9 @@ describe('each oath', () => {
     const sword = makeEquipment({ baseId: 'long_sword', materialId: 'iron', rarity: Rarity.Common, ilvl: 2, identified: true });
     state.equipment.weapon = sword;
     const before = durability(sword).cur;
-    priv(w).wear('weapon', 2);
+    Vitals.wear(w, 'weapon', 2);
     expect(before - durability(sword).cur).toBe(4);
-    priv(w).wear('weapon', 9999);
+    Vitals.wear(w, 'weapon', 9999);
     expect(runOath(state.run!, 'unbroken')!.status).toBe('broken');
 
     const b = sworn(['unbroken'], 304);
@@ -128,7 +133,7 @@ describe('each oath', () => {
     for (let d = 1; d < Math.max(...HUNTER_DEPTHS); d++) priv(w).changeFloor('down');
     const marked = state.run!.floors.flatMap((f) => f?.enemies.filter((e) => e.marked) ?? []);
     expect(marked).toHaveLength(HUNTER_DEPTHS.length);
-    for (const e of marked) priv(w).killEnemy(e);
+    for (const e of marked) Combat.killEnemy(w, e);
     expect(runOath(state.run!, 'hunter')!.marks).toBe(HUNTER_MARKS);
   });
 
@@ -151,7 +156,7 @@ describe('each oath', () => {
       Object.assign(p, { facing: 0 });
       w.anim.blockRaise = 1;
       const hp = p.hp;
-      priv(w).damagePlayer(30, 'slash', e.x, e.y, 'Skeleton', 'skeleton', e);
+      Combat.damagePlayer(w, 30, 'slash', e.x, e.y, 'Skeleton', 'skeleton', e);
       return hp - p.hp;
     };
     expect(block(['duelist'])).toBeGreaterThan(block([]));
@@ -159,7 +164,7 @@ describe('each oath', () => {
     for (let i = 0; i < DUELIST_KILLS; i++) {
       const e = createEnemy(enemyDef('rat'), 1, 1, 0, `r${i}`, 1);
       w.floor.enemies.push(e);
-      priv(w).killEnemy(e);
+      Combat.killEnemy(w, e);
     }
     expect(runOath(state.run!, 'duelist')!.kills).toBe(DUELIST_KILLS);
     expect(oathKept(state.run!, runOath(state.run!, 'duelist')!, 'extracted')).toBe(true);
@@ -179,11 +184,11 @@ describe('each oath', () => {
     const plain = sworn([], 324);
     const { state, w } = sworn(['silence'], 324);
     expect(priv(plain.w).sightPenalty - priv(w).sightPenalty).toBe(SILENCE_SIGHT);
-    expect(priv(w).noise(6)).toBe(priv(plain.w).noise(6) * SILENCE_NOISE);
+    expect(EnemyAi.noise(w, 6)).toBe(EnemyAi.noise(plain.w, 6) * SILENCE_NOISE);
     const o = runOath(state.run!, 'silence')!;
     state.run!.stats.deepest = SILENCE_DEPTH;
     expect(oathKept(state.run!, o, 'extracted')).toBe(true);
-    priv(w).castWardcry();
+    Sigils.castWardcry(w);
     expect(o.status).toBe('broken');
     expect(oathKept(state.run!, o, 'extracted')).toBe(false);
   });

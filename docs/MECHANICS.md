@@ -75,7 +75,7 @@ A volley can lose up to two closely stacked bolts to one timed parry; the follow
 
 *Files: `src/world/world.ts` — `PARRY_WINDOW`, `CONDUIT_PARRY_WINDOW`, `PARRY_COOLDOWN`, `PARRY_GRACE`, `MELEE_PARRY_*`, `PARRY_STUN`, `PARRY_VULN_MULT`; `src/data/difficulty.ts` — `parryGrace`*
 
-**Life leech:** heals `damage × leech%` on every hit that lands, including a blow a raised shield chips. Every leech heal passes through `World.heal`, so Eulogy Plate's half, Last Flask and the difficulty's `playerHealing` apply.
+**Life leech:** heals `damage × leech%` on every hit that lands, including a blow a raised shield chips. Every leech heal passes through `heal` (`src/world/vitals.ts`), so Eulogy Plate's half, Last Flask and the difficulty's `playerHealing` apply.
 
 ---
 
@@ -1350,7 +1350,7 @@ At most 2 prefixes and 2 suffixes, never two affixes on the same stat.
 
 Healing is a refillable flask and dungeon food, with two panic scrolls beside them. Potions are gone (see the legacy rows above).
 
-- **Flask:** 3 charges, refilled to full at the start of every delve. **1** sips: a 0.5s commitment with the guard down — a blow mid-sip lands unblocked, and the heal still lands at the end. Pressed mid-step, the sip waits for the step to land (holding the next step, even with a walk key held) rather than dropping the input. Each sip restores 30% of max health. Refused at full health. All flask healing passes through `World.heal`, so Eulogy Plate's half and the difficulty's `playerHealing` apply.
+- **Flask:** 3 charges, refilled to full at the start of every delve. **1** sips: a 0.5s commitment with the guard down — a blow mid-sip lands unblocked, and the heal still lands at the end. Pressed mid-step, the sip waits for the step to land (holding the next step, even with a walk key held) rather than dropping the input. Each sip restores 30% of max health. Refused at full health. All flask healing passes through `heal` (`src/world/vitals.ts`), so Eulogy Plate's half and the difficulty's `playerHealing` apply.
 - **Charges:** +1 per Flask Shard, up to 6 (3 shards). Shards come from reaching depth 3, reaching depth 5, and the first Ashen King kill — each waits as a pickup where you earned it — then rarely (~4%) from vault and secret chests. A shard applies on pickup, never sits in the pack, and is stored on the playthrough, not the run.
 - **Potency:** bought at the merchant that used to sell potions: 30% → 35% → 40% → 45% → 50% per sip for 250 / 700 / 1600 / 3200 gold.
 - **Refills mid-delve:** a Font of Mending and a satisfied Hollow Idol mend 60% and add +1 charge (never above max). The Offering Stone never adds a charge.

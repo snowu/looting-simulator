@@ -1,6 +1,6 @@
 import { ArtDef } from './raster';
 import { RITES } from '../data/rites';
-import { markRows, rows, stamp, sym, traceRows } from './helpers';
+import { markRows, rows, stamp, sym } from './helpers';
 
 // Emissive colours end in 'fa' (see textures.ts).
 

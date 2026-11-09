@@ -1,47 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { DIRS, DX, DY } from '../core/dir';
-import { createRng } from '../core/rng';
-import { newGame } from '../state/game-state';
 import { FLOOR, EnemyState, createEnemy, generateFloor } from '../systems/dungeon';
 import { enemyDef } from '../data/enemies';
 import { GRAVE_BIOMES, RAISE_CHANNEL, RAISE_HP, RAISE_LIMIT, SHATTER_OVERKILL } from '../data/necromancy';
-import { startRun } from '../systems/run';
 import { World } from '../world/world';
+import { room } from './harness';
+import * as Combat from '../world/combat';
+import * as EnemyAi from '../world/enemy-ai';
 
-interface Private {
-  killEnemy(e: EnemyState): void;
-  markRemains(e: EnemyState): void;
-}
-const priv = (w: World) => w as unknown as Private;
-
-/** A cleared floor-1 world, player in a room-sized open patch (trying later seeds until one has room). */
-function arena(seed = 171): World {
-  for (let s = seed; s < seed + 50; s++) {
-    const w = tryArena(s);
-    if (w) return w;
-  }
-  throw new Error('no arena');
-}
-
-function tryArena(seed: number): World | null {
-  const state = newGame(createRng(seed));
-  startRun(state, seed);
-  const w = new World(state);
-  const f = w.floor;
-  f.enemies = [];
-  f.traps = [];
-  f.props = f.props.filter((p) => !p.blocking);
-  const open = (x: number, y: number) => f.tiles[y * f.width + x] === FLOOR && !f.doors.some((d) => d.x === x && d.y === y);
-  for (let y = 4; y < f.height - 4; y++) for (let x = 4; x < f.width - 4; x++) {
-    let ok = true;
-    for (let dy = -2; dy <= 2 && ok; dy++) for (let dx = -2; dx <= 2 && ok; dx++) ok = open(x + dx, y + dy);
-    if (!ok) continue;
-    Object.assign(w.player, { x, y, facing: 0 });
-    Object.assign(w.anim, { fromX: x, fromY: y, yaw: 0, yawTo: 0 });
-    return w;
-  }
-  return null;
-}
+const arena = (seed = 171): World => room({ seed });
 
 function run(w: World, seconds: number): void {
   for (let t = 0; t < seconds; t += 1 / 60) w.update(1 / 60);
@@ -134,30 +101,30 @@ describe('remains', () => {
 
     set({ damageType: 'blunt' });
     sk.hp = -1;
-    priv(w).markRemains(sk);
+    EnemyAi.markRemains(w, sk);
     expect(sk.remains).toBe('shattered');
 
     delete sk.remains;
     set({ damageType: 'slash' });
     sk.hp = -Math.ceil(sk.maxHp * SHATTER_OVERKILL);
-    priv(w).markRemains(sk);
+    EnemyAi.markRemains(w, sk);
     expect(sk.remains).toBe('shattered');
 
     delete sk.remains;
     sk.hp = -1;
     w.derived.stats.holy = 3;
-    priv(w).markRemains(sk);
+    EnemyAi.markRemains(w, sk);
     expect(sk.remains).toBe('sanctified');
 
     delete sk.remains;
     w.derived.stats.holy = 0;
-    priv(w).markRemains(sk);
+    EnemyAi.markRemains(w, sk);
     expect(sk.remains).toBeUndefined();
 
     const gob = createEnemy(enemyDef('goblin'), 0, 0, 0, 'b', 2);
     set({ damageType: 'blunt' });
     gob.hp = -1;
-    priv(w).markRemains(gob);
+    EnemyAi.markRemains(w, gob);
     expect(gob.remains).toBeUndefined();
   });
 
@@ -166,7 +133,7 @@ describe('remains', () => {
     run(w, RAISE_CHANNEL + 0.2);
     expect(corpse.risen).toBe(true);
     const kills = w.run.stats.kills;
-    priv(w).killEnemy(corpse);
+    Combat.killEnemy(w, corpse);
     expect(w.run.stats.kills).toBe(kills);
   });
 });

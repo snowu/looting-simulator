@@ -3,7 +3,7 @@ import { mendAllGear } from '../systems/run';
 import { DIFFICULTIES, DIFFICULTY_IDS, difficultyOf } from '../data/difficulty';
 import { audio } from '../audio/sfx';
 import { BRIGHTNESS_MAX, BRIGHTNESS_MIN, applyBrightnessGain, brightness, brightnessToPercent, percentToBrightness } from '../render/brightness';
-import { artImg, btn, closeOverlays, h, isTouchMode, mountOverlay } from './dom';
+import { btn, closeOverlays, h, isTouchMode, mountOverlay } from './dom';
 import { TouchPrefs, touchPrefs } from './touch-prefs';
 import { TILT_THRESHOLDS, requestTilt, tiltReading } from './tilt';
 import { BugReportCtx, bugReportPanel } from './bug-report';

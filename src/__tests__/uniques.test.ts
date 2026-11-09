@@ -1,11 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { createRng } from '../core/rng';
-import { DIRS, DX, DY, turnAround } from '../core/dir';
 import { newGame } from '../state/game-state';
 import { migrateSave, SAVE_REVISION } from '../state/migrations';
 import { startRun } from '../systems/run';
 import { World, STAMINA_REGEN } from '../world/world';
-import { EnemyState, FLOOR, createEnemy } from '../systems/dungeon';
+import { EnemyState } from '../systems/dungeon';
 import { enemyDef, BOSS_ID } from '../data/enemies';
 import { itemBase } from '../data/items';
 import { consumable } from '../data/items';
@@ -29,41 +28,11 @@ import { Item, Rarity } from '../types';
 import { BASE_LIGHT_RADIUS } from '../systems/meta';
 import { addItem } from '../state/inventory';
 import { makeConsumable } from '../systems/items';
+import { room, tick, spawn } from './harness';
 
-function tick(w: World, seconds: number): void {
-  for (let t = 0; t < seconds; t += 1 / 60) w.update(1 / 60);
-}
 
-function arena(seed = 1): World {
-  const state = newGame(createRng(seed));
-  startRun(state, seed);
-  const w = new World(state);
-  const f = w.floor;
-  f.enemies = [];
-  f.traps = [];
-  f.props = f.props.filter((p) => !p.blocking);
-  const free = (x: number, y: number) =>
-    f.tiles[y * f.width + x] === FLOOR && !f.doors.some((d) => d.x === x && d.y === y) && !f.stairs.some((s) => s.x === x && s.y === y);
-  for (let y = 2; y < f.height - 6; y++) for (let x = 2; x < f.width - 6; x++) {
-    for (const d of DIRS) {
-      let ok = free(x, y) && free(x - DX[d], y - DY[d]);
-      for (let k = 1; k <= 5 && ok; k++) ok = free(x + DX[d] * k, y + DY[d] * k);
-      if (ok) {
-        Object.assign(w.player, { x, y, facing: d });
-        Object.assign(w.anim, { fromX: x, fromY: y, yaw: (d * Math.PI) / 2, yawTo: (d * Math.PI) / 2 });
-        return w;
-      }
-    }
-  }
-  throw new Error('no arena');
-}
+const arena = (seed = 1): World => room({ seed });
 
-function spawn(w: World, id: string, dist: number): EnemyState {
-  const t = w.frontTile(dist);
-  const e = createEnemy(enemyDef(id), t.x, t.y, turnAround(w.player.facing), `e${id}${dist}`, 1);
-  w.floor.enemies.push(e);
-  return e;
-}
 
 function windUp(w: World, e: EnemyState): void {
   e.ai = 'windup';

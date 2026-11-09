@@ -3,7 +3,7 @@ import { createRng } from '../core/rng';
 import { DIRS, DX, DY, turnAround } from '../core/dir';
 import { newGame } from '../state/game-state';
 import { startRun } from '../systems/run';
-import { PITCH_FUSE, SHADOW_STEP_SECONDS, World } from '../world/world';
+import { PITCH_FUSE, Projectile, SHADOW_STEP_SECONDS, World } from '../world/world';
 import { EnemyState, FLOOR, Room, blocksMove, blocksSight, createEnemy, enemyAt, generateFloor, isBossDoor } from '../systems/dungeon';
 import { surfaceKindAt } from '../systems/surfaces';
 import { BOSS_ID, KING_PHASES, enemyDef, enemyView, kingPhase, phaseForHp } from '../data/enemies';
@@ -11,35 +11,12 @@ import { makeConsumable } from '../systems/items';
 import { addItem } from '../state/inventory';
 import { Dir, dirOf } from '../core/dir';
 import { uniqueOf } from '../systems/items';
+import { room, tick } from './harness';
+import * as Projectiles from '../world/projectiles';
+import * as Combat from '../world/combat';
 
-function tick(w: World, seconds: number): void {
-  for (let t = 0; t < seconds; t += 1 / 60) w.update(1 / 60);
-}
 
-/** An empty stretch of floor with the player standing on it. */
-function arena(seed = 1): World {
-  const state = newGame(createRng(seed));
-  startRun(state, seed);
-  const w = new World(state);
-  const f = w.floor;
-  f.enemies = [];
-  f.traps = [];
-  f.props = f.props.filter((p) => !p.blocking);
-  const free = (x: number, y: number) =>
-    f.tiles[y * f.width + x] === FLOOR && !f.doors.some((d) => d.x === x && d.y === y) && !f.stairs.some((s) => s.x === x && s.y === y);
-  for (let y = 2; y < f.height - 6; y++) for (let x = 2; x < f.width - 6; x++) {
-    for (const d of DIRS) {
-      let ok = free(x, y) && free(x - DX[d], y - DY[d]);
-      for (let k = 1; k <= 5 && ok; k++) ok = free(x + DX[d] * k, y + DY[d] * k);
-      if (ok) {
-        Object.assign(w.player, { x, y, facing: d });
-        Object.assign(w.anim, { fromX: x, fromY: y, yaw: (d * Math.PI) / 2, yawTo: (d * Math.PI) / 2 });
-        return w;
-      }
-    }
-  }
-  throw new Error('no arena');
-}
+const arena = (seed = 1): World => room({ seed });
 
 /** The King one tile ahead, holding still unless something makes him act. */
 function king(w: World, hpFrac = 1): EnemyState {
@@ -130,7 +107,7 @@ describe('the King comes apart in three stages', () => {
     const e = king(w, 0.4);
     tick(w, 0.1);
     expect(e.phase).toBe(2);
-    (w as unknown as { killEnemy(x: EnemyState): void }).killEnemy(e);
+    Combat.killEnemy(w, e);
     tick(w, 0.5);
     expect(e.ai).toBe('dead');
     expect(e.phase, 'he died in the dark, he never reached the last stand').toBe(2);
@@ -326,16 +303,12 @@ describe('the fog gate', () => {
     Object.assign(boss, { x: inside.x, y: inside.y, fromX: inside.x, fromY: inside.y, moveT: 1 });
     const hp = boss.hp;
     expect(w.los(gate.x, gate.y, boss.x, boss.y)).toBe(false);
-    const combat = w as unknown as {
-      hitEnemy(e: EnemyState): void;
-      reflectedHit(pr: { damage: number; type: string }, e: EnemyState): void;
-    };
     const dx = inside.x - gate.x, dy = inside.y - gate.y;
     w.projectiles.push({ id: 999, x: gate.x + 0.5, y: gate.y + 0.5,
       tileX: gate.x, tileY: gate.y, dx, dy, speed: 6, damage: 9999,
       type: 'fire', sprite: 'bolt_fire', source: 'your own parry', reflected: true });
-    combat.hitEnemy(boss);
-    combat.reflectedHit({ damage: 9999, type: 'fire' }, boss);
+    Combat.hitEnemy(w, boss);
+    Projectiles.reflectedHit(w, { damage: 9999, type: 'fire' } as Projectile, boss);
     tick(w, 2);
     expect(boss.hp).toBe(hp);
     expect(w.projectiles).toHaveLength(0);
@@ -369,7 +342,7 @@ describe('the fog gate', () => {
     // No cheese through the crack: a shut gate blocks sight, which is what
     // stops bolts (updateProjectiles) and pathing (blocksMove) both ways.
     expect(blocksSight(w.floor, gates[0].x, gates[0].y)).toBe(true);
-    (w as unknown as { killEnemy(x: EnemyState): void }).killEnemy(boss);
+    Combat.killEnemy(w, boss);
     expect(gates[0].locked).toBe(false);
     expect(gates[0].open).toBe(true);
   });

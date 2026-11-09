@@ -1,37 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { createRng } from '../core/rng';
-import { DIRS, DX, DY, turnAround, turnRight } from '../core/dir';
-import { newGame } from '../state/game-state';
-import { startRun } from '../systems/run';
+import { DX, DY, turnAround, turnRight } from '../core/dir';
 import { World } from '../world/world';
-import { FLOOR, createEnemy } from '../systems/dungeon';
+import { createEnemy } from '../systems/dungeon';
 import { enemyDef } from '../data/enemies';
 import { makeMaterial } from '../systems/items';
+import { room } from './harness';
 
-/** The one-button touch control: what a tap on the view would do right now. */
-function arena(seed = 1): World {
-  const state = newGame(createRng(seed));
-  startRun(state, seed);
-  const w = new World(state);
-  const f = w.floor;
-  f.enemies = [];
-  f.traps = [];
-  f.props = f.props.filter((p) => !p.blocking);
-  const free = (x: number, y: number) =>
-    f.tiles[y * f.width + x] === FLOOR && !f.doors.some((d) => d.x === x && d.y === y) && !f.stairs.some((s) => s.x === x && s.y === y);
-  for (let y = 3; y < f.height - 6; y++) for (let x = 3; x < f.width - 6; x++) {
-    for (const d of DIRS) {
-      let ok = free(x, y) && free(x + DX[turnRight(d)], y + DY[turnRight(d)]);
-      for (let k = 1; k <= 4 && ok; k++) ok = free(x + DX[d] * k, y + DY[d] * k);
-      if (ok) {
-        Object.assign(w.player, { x, y, facing: d });
-        Object.assign(w.anim, { fromX: x, fromY: y, yaw: (d * Math.PI) / 2, yawTo: (d * Math.PI) / 2 });
-        return w;
-      }
-    }
-  }
-  throw new Error('no arena');
-}
+const arena = (seed = 1): World => room({ seed });
 
 function dropUnderfoot(w: World): void {
   w.floor.pickups.push({ id: 'drop', x: w.player.x, y: w.player.y, items: [makeMaterial('iron', 2)], gold: 0 });
