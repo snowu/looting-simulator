@@ -115,6 +115,7 @@ import * as Projectiles from './projectiles';
 import * as Hazards from './hazards';
 import * as Boss from './boss';
 import { SHADOW_STEP_EVERY } from './boss';
+import * as Spells from './spells';
 
 // ---------------------------------------------------------------------------
 // Events the world emits for the renderer / UI / audio to react to.
@@ -192,26 +193,6 @@ export interface SpellFx {
   weak?: boolean;
 }
 
-/** How long each mark lasts, in seconds. */
-export const SPELL_FX_SECONDS: Record<SpellFx['kind'], number> = { smite: 0.55, poof: 0.7, spores: 0.9, blast: 0.6, meteor: 1.4, frost: 0.8 };
-export const METEOR_FALL_SECONDS = 0.45;
-export const METEOR_POWER_PER_CHARGE = 1.5;
-/** Judgement's holy fire on the living, per charge: below Meteor, since the undead are its point. */
-export const JUDGEMENT_POWER_PER_CHARGE = 1;
-/** Seconds Glacial Tomb holds what it catches; a sloppy trace holds half as long. */
-export const GLACIAL_TOMB_SECONDS = 5;
-/** Seconds it holds what is only in sight, outside your room: the room is the tomb. */
-export const GLACIAL_TOMB_SIGHT_SECONDS = 2.5;
-/**
- * Judgement ends the undead outright only below this base health. The Hollow
- * Knight and the Barrow Champion stand under it, as do elites and lieutenants,
- * and take its holy fire at the undead's double instead.
- */
-export const JUDGEMENT_SPARE_HP = 100;
-/** How far Glacial Tomb reaches beyond your room, down a clear line of sight. */
-export const RITE_SIGHT = 8;
-/** A botched Glacial Tomb holds you this long. */
-export const RITE_BOTCH_FREEZE = 2;
 
 type Move = 'forward' | 'back' | 'left' | 'right';
 type Action = Move | 'turnLeft' | 'turnRight';
@@ -367,7 +348,7 @@ const MELEE_PARRY_SPLASH_STUN = 0.5;
 /** How long a parried melee attacker is left open, and how much harder it takes hits. */
 const PARRY_STUN = 1;
 
-const PARRY_VULN_MULT = 2;
+export const PARRY_VULN_MULT = 2;
 
 /**
  * How long a turned blow counts toward a shield-bash: keep swinging into the
@@ -446,11 +427,6 @@ function summarizeLost(lost: string[]): string {
   return parts.join(', ');
 }
 
-/** Whether a clean Judgement ends this undead outright, or only burns it. */
-export function judgementEnds(e: EnemyState): boolean {
-  const def = enemyDef(e.def);
-  return !!def.undead && def.behavior !== 'boss' && !e.elite && !e.lieutenant && def.hp < JUDGEMENT_SPARE_HP;
-}
 
 export function shortLabel(hint: string): string {
   if (hint === 'Search') return 'Loot';
@@ -631,7 +607,7 @@ export class World {
   /** A blow settled a pending touch into a guard; a drag afterwards still takes it back down. */
   private guardFromTouch = false;
   private queued: Action | null = null;
-  private projN = 0;
+  projN = 0;
   private pathCache = new Map<string, { t: number; next: [number, number] | null }>();
   private turnReadyAt = 0;
   private trail: { x: number; y: number; facing: Dir; time: number }[] = [];
@@ -725,19 +701,7 @@ export class World {
     this.player.hp = Math.min(this.player.hp, this.derived.maxHp);
     this.player.stamina = Math.min(this.player.stamina, this.derived.maxStamina);
     this.ensureThrownStock();
-    this.ensureConduit();
-  }
-
-  /**
-   * The charge pool lives on the run, not the item: it is filled the first
-   * time a conduit is worn on a delve and never again, so taking a wand off
-   * and putting it back on refills nothing. A smaller conduit just caps it.
-   */
-  private ensureConduit(): void {
-    const c = this.derived.conduit;
-    if (!c) return;
-    this.run.conduit ??= { charges: c.charges, regrow: 0, sel: 0 };
-    this.run.conduit.charges = Math.min(this.run.conduit.charges, c.charges);
+    Spells.ensureConduit(this);
   }
 
   /** The spells your conduit can cast right now, in cycling order. */
@@ -762,15 +726,8 @@ export class World {
     const spell = this.selectedSpell();
     const pool = this.run.conduit;
     if (!spell || !pool) return false;
-    const blood = this.bloodPrice(spell.charges - pool.charges);
+    const blood = Spells.bloodPrice(this, spell.charges - pool.charges);
     return blood === 0 || (blood > 0 && blood < this.player.hp);
-  }
-
-  /** Health a cast short by `short` charges costs: 0 when not short, -1 when nothing will pay it. */
-  private bloodPrice(short: number): number {
-    if (short <= 0) return 0;
-    const rate = this.derived.traits.bloodCast;
-    return rate > 0 ? Math.max(1, Math.round(short * rate * this.derived.maxHp)) : -1;
   }
 
   /** Cycle to the next loaded spell. Free, and allowed mid-anything but death. */
@@ -804,7 +761,7 @@ export class World {
    * suit of armour halve all of it at once. Returns what was actually restored.
    * Difficulty mends faster on Normal; Hard multiplies by exactly 1.
    */
-  private heal(amount: number, source?: 'food' | 'leech'): number {
+  heal(amount: number, source?: 'food' | 'leech'): number {
     // Last Flask: with the flask dry, food and leech carry you.
     const lastFlask = source && this.derived.traits.lastFlask && (this.run.flask?.charges ?? 1) <= 0 ? LAST_FLASK_MULT : 1;
     const scaled = Math.round(amount * lastFlask * this.derived.traits.healing * this.diff.playerHealing);
@@ -1312,7 +1269,7 @@ export class World {
     }
 
     Boss.checkBossSeal(this);
-    this.updateConduit(dt);
+    Spells.updateConduit(this, dt);
     Hazards.updateAfflictions(this, dt);
     Boss.updatePitch(this, dt);
     Hazards.updateSurfaces(this, dt);
@@ -1715,7 +1672,7 @@ export class World {
   /** Shared feedback for any parry: it should feel like a moment. */
   parryFlourish(x: number, y: number): void {
     if (this.derived.traits.riposte) this.anim.riposteT = RIPOSTE_WINDOW;
-    if (this.derived.traits.countercharm) this.refundCharges(COUNTERCHARM_CHARGES);
+    if (this.derived.traits.countercharm) Spells.refundCharges(this, COUNTERCHARM_CHARGES);
     this.anim.blockT = Infinity;
     this.anim.parryArmed = false;
     this.sfx('parry', x, y);
@@ -1787,7 +1744,7 @@ export class World {
     a.attackDur = profile.windup;
     a.blockRaise = 0;
     this.rockAndStone();
-    this.breakChannels();
+    Spells.breakChannels(this);
   }
 
   /**
@@ -1839,7 +1796,7 @@ export class World {
     a.attackRecovery = thrown.recovery;
     a.attackDur = thrown.windup;
     a.blockRaise = 0;
-    this.breakChannels();
+    Spells.breakChannels(this);
     return true;
   }
 
@@ -1866,7 +1823,7 @@ export class World {
     }
     // Dr. Mantis Toboggan's Rod casts on credit: what the pool lacks is
     // taken in health, but never the last point.
-    const blood = this.bloodPrice(spell.charges - pool.charges);
+    const blood = Spells.bloodPrice(this, spell.charges - pool.charges);
     if (blood < 0 || blood >= this.player.hp) {
       if (blood > 0) this.msg('The rod wants more of you than you have left.', '#c04050');
       else {
@@ -1902,7 +1859,7 @@ export class World {
     a.attackDur = spell.windup;
     a.blockRaise = 0;
     this.sfx('magic');
-    this.breakChannels();
+    Spells.breakChannels(this);
     return true;
   }
 
@@ -1966,7 +1923,7 @@ export class World {
     this.riteDraw = { rite: id ?? null, points: [] };
     this.held.clear();
     this.setBlock(false);
-    this.breakChannels();
+    Spells.breakChannels(this);
     this.sfx('sigil');
     return true;
   }
@@ -2025,486 +1982,19 @@ export class World {
     this.events.push({ type: 'rite', rite: def.id, grade, points: draw.points.map(p => ({ ...p })) });
     if (grade === 'botch') {
       this.msg(`The ${def.name} turns in your hands!`, '#ff6a50');
-      this.botchedRite(def);
+      Spells.botchedRite(this, def);
       return true;
     }
-    if (def.id === 'glacial_tomb') this.castGlacialTomb(def, grade);
-    else if (def.id === 'judgement') this.castJudgement(def, grade, charges);
-    else if (def.id === 'penguining') this.castPenguining(def, grade);
-    else this.castMeteor(def, grade, charges);
+    if (def.id === 'glacial_tomb') Spells.castGlacialTomb(this, def, grade);
+    else if (def.id === 'judgement') Spells.castJudgement(this, def, grade, charges);
+    else if (def.id === 'penguining') Spells.castPenguining(this, def, grade);
+    else Spells.castMeteor(this, def, grade, charges);
     return true;
-  }
-
-  /** The monsters a rite falls on: your room, or what is close when the stone has no walls. */
-  private riteTargets(): EnemyState[] {
-    // A King mid Shadow Step is nowhere to be struck.
-    const live = this.floor.enemies.filter((e) => e.ai !== 'dead' && e.lurk !== 'shadow');
-    const room = this.floor.rooms.find((r) => inRoom(r, this.player.x, this.player.y));
-    if (room) return live.filter((e) => inRoom(room, e.x, e.y));
-    return live.filter((e) => manhattan(e.x, e.y, this.player.x, this.player.y) <= 4 && this.los(this.player.x, this.player.y, e.x, e.y));
-  }
-
-  /** Glacial Tomb's reach: the room, and anything else you can see down a corridor. */
-  private riteSightTargets(): EnemyState[] {
-    const room = this.riteTargets();
-    const seen = this.floor.enemies.filter((e) => e.ai !== 'dead' && !room.includes(e)
-      && manhattan(e.x, e.y, this.player.x, this.player.y) <= RITE_SIGHT && this.los(this.player.x, this.player.y, e.x, e.y));
-    return [...room, ...seen];
-  }
-
-  /** Where a rite that found nothing still shows itself: two tiles ahead, else one, else here. */
-  private riteEmptyTile(): { x: number; y: number } {
-    let tile = this.frontTile(2);
-    if (blocksMove(this.floor, tile.x, tile.y) || Boss.crossesBossBoundary(this, this.player.x, this.player.y, tile.x, tile.y)) tile = this.frontTile();
-    if (blocksMove(this.floor, tile.x, tile.y) || Boss.crossesBossBoundary(this, this.player.x, this.player.y, tile.x, tile.y)) tile = this.player;
-    return tile;
-  }
-
-  /** Each spent charge contributes to the skyfall; damage lands with the impact. */
-  private castMeteor(def: RiteDef, grade: RiteGrade, charges: number): void {
-    const meteor = { ...conduitSpell('ember_bolt'), power: METEOR_POWER_PER_CHARGE * charges * (grade === 'weak' ? 0.5 : 1) };
-    const view = spellView(this.derived, meteor);
-    const targets = this.riteTargets().filter(e => !Boss.protectedByFog(this, e));
-    for (const e of targets) {
-      const enemy = this.view(e);
-      const hit = playerHitsEnemy(this.rng, view, 1, enemy, defensePower(e.power) * this.diff.enemyDefense);
-      this.spellFx.push({ id: this.projN++, kind: 'meteor', x: e.x, y: e.y, t: 0,
-        weak: grade === 'weak', meteor: { target: e, damage: hit.damage, crit: hit.crit } });
-    }
-    if (!targets.length) {
-      // Empty-room tests still show the skyfall; no creature means no damage.
-      const tile = this.riteEmptyTile();
-      this.spellFx.push({ id: this.projN++, kind: 'meteor', x: tile.x, y: tile.y, t: 0, weak: grade === 'weak' });
-      this.msg(`${def.name} falls on empty stone.`, '#888');
-    }
-    this.weaveFrom(meteor);
-    this.sfx('magic');
-    this.emit({ type: 'float', x: this.player.x, y: this.player.y, text: grade === 'weak' ? 'Meteor, thinly!' : 'Meteor!', color: def.color });
-    this.msg(grade === 'weak' ? 'The trace wavers: a thin meteor answers.' : `The sky answers: ${charges} charges fall as fire.`, def.color);
-  }
-
-  /**
-   * Glacial Tomb: everything in sight is held in ice. The frost reaches each
-   * tile as a Rime Lance's would — water freezes, fire goes out — and the
-   * King, who breaks free of ice at once, is only slowed.
-   */
-  private castGlacialTomb(def: RiteDef, grade: RiteGrade): void {
-    const scale = grade === 'weak' ? 0.5 : 1;
-    const room = this.riteTargets();
-    const targets = this.riteSightTargets().filter(e => !Boss.protectedByFog(this, e));
-    let held = 0;
-    for (const e of targets) {
-      const seconds = (room.includes(e) ? GLACIAL_TOMB_SECONDS : GLACIAL_TOMB_SIGHT_SECONDS) * scale;
-      this.addSpellFx('frost', e.x, e.y);
-      Hazards.elementReaches(this, e.x, e.y, 'frost');
-      if (e.ai === 'dead') continue;
-      if (enemyDef(e.def).behavior === 'boss') {
-        e.chillT = Math.max(e.chillT ?? 0, CHILL_SECONDS);
-        this.emit({ type: 'float', x: e.x, y: e.y, text: 'chilled', color: def.color });
-        this.msg('The ice cannot hold the King, but it slows him.', def.color);
-        continue;
-      }
-      // A penguin is harmless already: the ice leaves it waddling.
-      if ((e.hexT ?? 0) > 0) continue;
-      Hazards.freeze(this, e, seconds, true);
-      e.alert = Math.max(e.alert, 8);
-      held++;
-    }
-    if (!targets.length) {
-      const tile = this.riteEmptyTile();
-      this.addSpellFx('frost', tile.x, tile.y);
-      Hazards.elementReaches(this, tile.x, tile.y, 'frost');
-      this.msg(`${def.name} closes on empty air.`, '#888');
-    } else if (held) {
-      this.msg(grade === 'weak'
-        ? `The trace wavers: thin ice holds ${held === 1 ? 'it' : `all ${held}`} for a moment.`
-        : `Ice closes over ${held === 1 ? 'it' : `all ${held} of them`}. Nothing moves.`, def.color);
-    }
-    this.weaveFrom(conduitSpell('rime_lance'));
-    this.sfx('block');
-    this.emit({ type: 'float', x: this.player.x, y: this.player.y, text: grade === 'weak' ? 'Thin ice!' : 'Glacial Tomb!', color: def.color });
-  }
-
-  /**
-   * Judgement: a pillar of light on everything in the room. A clean trace
-   * ends the ordinary undead outright, and what it ends stays down; the great
-   * ones (see `judgementEnds`) and a sloppy trace's undead are struck twice as
-   * hard as the living instead. The living take holy fire, which no raised
-   * shield turns. The King is struck, never ended.
-   */
-  private castJudgement(def: RiteDef, grade: RiteGrade, charges: number): void {
-    const light = { ...conduitSpell('smite'), power: JUDGEMENT_POWER_PER_CHARGE * charges * (grade === 'weak' ? 0.5 : 1) };
-    const view = spellView(this.derived, light);
-    const targets = this.riteTargets().filter(e => !Boss.protectedByFog(this, e));
-    let ended = 0, stood = 0;
-    for (const e of targets) {
-      const stat = enemyDef(e.def);
-      this.addSpellFx('smite', e.x, e.y);
-      if ((e.eating ?? 0) > 0) e.eating = undefined;
-      e.alert = 8;
-      e.lastSeenX = this.player.x;
-      e.lastSeenY = this.player.y;
-      if (grade === 'full' && judgementEnds(e)) {
-        const dealt = Math.max(1, e.hp);
-        this.hurt(e, dealt, 'Judged', def.color);
-        recordDamageDealt(this.state.bestiary, this.view(e).id, dealt);
-        this.markRemains(e, 'sanctified');
-        this.killEnemy(e);
-        ended++;
-        continue;
-      }
-      const hit = playerHitsEnemy(this.rng, view, 1, this.view(e), defensePower(e.power) * this.diff.enemyDefense);
-      if (stat.undead) hit.damage *= 2;
-      this.hurt(e, hit.damage, hit.crit ? `${hit.damage}!` : `${hit.damage}`, hit.crit ? '#ffe040' : def.color);
-      recordDamageDealt(this.state.bestiary, this.view(e).id, hit.damage);
-      if (e.hp <= 0) {
-        this.markRemains(e, 'sanctified');
-        this.killEnemy(e);
-        if (stat.undead) ended++;
-      } else if (stat.undead && grade === 'full' && stat.behavior !== 'boss') stood++;
-    }
-    if (!targets.length) {
-      const tile = this.riteEmptyTile();
-      this.addSpellFx('smite', tile.x, tile.y);
-      this.msg(`${def.name} finds no one to judge.`, '#888');
-    } else if (ended) {
-      this.msg(`The light ends ${ended === 1 ? 'the dead thing' : `${ended} dead things`}. They will stay down.`, def.color);
-      if (stood) this.msg(stood === 1 ? 'One stands under it, burning.' : `${stood} stand under it, burning.`, def.color);
-    } else if (stood) {
-      this.msg(stood === 1 ? 'The dead thing stands under the light, burning.' : `${stood} dead things stand under the light, burning.`, def.color);
-    } else {
-      this.msg(grade === 'weak' ? 'The trace wavers: the light comes down thin.' : 'Light comes down on the room.', def.color);
-    }
-    this.weaveFrom(light);
-    this.sfx('magic');
-    this.emit({ type: 'float', x: this.player.x, y: this.player.y, text: grade === 'weak' ? 'Judgement, thinly!' : 'Judgement!', color: def.color });
-  }
-
-  /**
-   * The Great Penguining: Hex, on the whole room at once. Those who refuse a
-   * hex refuse this; a sloppy trace wears off in half the time.
-   */
-  private castPenguining(def: RiteDef, grade: RiteGrade): void {
-    const seconds = grade === 'weak' ? HEX_SECONDS / 2 : HEX_SECONDS;
-    const targets = this.riteTargets().filter(e => !Boss.protectedByFog(this, e));
-    let birds = 0;
-    for (const e of targets) {
-      if (this.polymorph(e, seconds, def.color, true) !== 'refused') birds++;
-    }
-    if (!targets.length) {
-      const tile = this.riteEmptyTile();
-      this.addSpellFx('poof', tile.x, tile.y, true);
-      this.msg(`${def.name} finds no one to make a penguin of.`, '#888');
-    } else if (birds) {
-      this.msg(birds === 1 ? 'It is a penguin.' : `${birds} monsters are penguins. The room waddles.`, def.color);
-    }
-    this.weaveFrom(conduitSpell('hex'));
-    this.sfx('magic');
-    this.emit({ type: 'float', x: this.player.x, y: this.player.y, text: grade === 'weak' ? 'Penguins, briefly!' : 'Penguins!', color: def.color });
-  }
-
-  private landMeteor(fx: SpellFx): void {
-    const pending = fx.meteor;
-    delete fx.meteor;
-    // Nothing lands across the living throne boundary, not even the fire on
-    // the tile: the one guard for target and tile alike.
-    if (pending && Boss.protectedByFog(this, pending.target)) return;
-    // Impacts use the same elemental reaction path as bolts and burning feet.
-    Hazards.elementReaches(this, fx.x, fx.y, 'fire');
-    if (!pending || pending.target.ai === 'dead') return;
-    const { target: e, damage, crit } = pending;
-    this.hurt(e, damage, crit ? `${damage}!` : `${damage}`, crit ? '#ffe040' : '#ff9a50');
-    e.alert = 8;
-    e.lastSeenX = this.player.x;
-    e.lastSeenY = this.player.y;
-    recordDamageDealt(this.state.bestiary, this.view(e).id, damage);
-    if (damage > 0) e.burn = { t: BURN_SECONDS, left: (e.burn?.left ?? 0) + Math.max(1, Math.round(damage * BURN_SHARE)), acc: e.burn?.acc ?? 0 };
-    if (e.hp <= 0) this.killEnemy(e);
-    else Hazards.slip(this, e);
-  }
-
-  /**
-   * A botched trace turns on you, in the element of the mark it came
-   * closest to: fire falls on your own tile, frost holds you fast, the light
-   * judges you, and shadow drinks what the conduit had left.
-   */
-  private botchedRite(def: RiteDef = rite('meteor')): void {
-    const full = 20 + this.run.depth * 2;
-    const dmg = def.element === 'fire' || def.element === 'holy' ? full : Math.round(full / 2);
-    this.sfx('hurt');
-    this.emit({ type: 'shake', amount: 0.6 });
-    this.emit({ type: 'float', x: this.player.x, y: this.player.y, text: `-${dmg}`, color: '#ff6a50' });
-    this.player.hp = Math.max(1, this.player.hp - dmg);
-    if (def.element === 'frost') {
-      this.anim.stunT = Math.max(this.anim.stunT, RITE_BOTCH_FREEZE);
-      this.addSpellFx('frost', this.player.x, this.player.y);
-      this.msg('The ice closes over you instead.', def.color);
-    } else if (def.element === 'shadow') {
-      const pool = this.run.conduit;
-      if (pool) {
-        pool.charges = 0;
-        pool.regrow = 0;
-      }
-      this.addSpellFx('poof', this.player.x, this.player.y);
-      this.msg('The shadow drinks your conduit dry.', def.color);
-    } else if (def.element === 'holy') {
-      this.addSpellFx('smite', this.player.x, this.player.y);
-      this.msg('The light comes down on you. You are found wanting.', def.color);
-    }
-  }
-
-  private launchSpell(id: string): void {
-    const spell = findConduitSpell(id);
-    const snapshot = this.anim.attackSnapshot;
-    if (!spell || !snapshot) return;
-    if (spell.hitscan) {
-      this.castHitscan(spell, snapshot);
-      return;
-    }
-    this.projectiles.push({
-      id: this.projN++, x: this.player.x + 0.5, y: this.player.y + 0.5,
-      dx: DX[this.player.facing], dy: DY[this.player.facing], speed: spell.speed,
-      damage: this.anim.attackPower, type: spell.element, sprite: spell.sprite, light: spell.light,
-      tileX: this.player.x, tileY: this.player.y, source: 'your spell',
-      thrownRange: spell.range, traveled: 0, player: snapshot, weaponUid: this.anim.attackWeaponUid ?? undefined,
-      spell: spell.id,
-    });
-    this.sfx('shoot');
-  }
-
-  /**
-   * Smite and Hex: no bolt. The spell lands the moment the cast releases, on
-   * the first monster down your line within its range. A wall or the King's
-   * threshold stops the line as it stops a bolt. With nothing there, the mark
-   * flickers out at the end of the line so a miss is still something you saw.
-   */
-  private castHitscan(spell: ConduitSpellDef, snapshot: PlayerDerived): void {
-    let prev = { x: this.player.x, y: this.player.y };
-    for (let d = 1; d <= spell.range; d++) {
-      const t = this.frontTile(d);
-      if (blocksSight(this.floor, t.x, t.y) || Boss.crossesBossBoundary(this, prev.x, prev.y, t.x, t.y)) break;
-      const foe = enemyAt(this.floor, t.x, t.y);
-      if (foe) {
-        this.spellLands(spell, foe, snapshot, this.anim.attackPower);
-        return;
-      }
-      prev = t;
-    }
-    if (prev.x !== this.player.x || prev.y !== this.player.y) this.addSpellFx(spell.id === 'hex' ? 'poof' : 'smite', prev.x, prev.y, true);
-    this.msg(`${spell.name} finds nothing to strike.`, '#888');
-    this.sfx('break', prev.x, prev.y);
-  }
-
-  addSpellFx(kind: SpellFx['kind'], x: number, y: number, miss = false): void {
-    this.spellFx.push({ id: this.projN++, kind, x, y, t: 0, ...(miss ? { miss } : {}) });
-  }
-
-  /** A battle bolt arriving. */
-  spellHit(pr: Projectile, e: EnemyState): void {
-    const spell = findConduitSpell(pr.spell);
-    if (spell) this.spellLands(spell, e, pr.player ?? this.derived, pr.damage);
-  }
-
-  /** A battle spell landing: the hit, its rider, and the weave it leaves on your blade. */
-  private spellLands(spell: ConduitSpellDef, e: EnemyState, player: PlayerDerived, power: number): void {
-    if (Boss.protectedByFog(this, e)) return;
-    const def = this.view(e);
-    if ((e.eating ?? 0) > 0) e.eating = undefined;
-    if (spell.id === 'hex') {
-      if (this.hexLands(spell, e)) this.weaveFrom(spell);
-      return;
-    }
-    // A raised shield takes a spell the way it takes a shaft: on the guard.
-    // Smite comes down from above, where no shield is held.
-    const reaction = spell.id === 'smite' ? null : this.guardReaction(e, def);
-    if (reaction) {
-      this.shieldChip(e, def, 1, power, player);
-      return;
-    }
-    if (spell.id === 'smite') this.addSpellFx('smite', e.x, e.y);
-    const hit = playerHitsEnemy(this.rng, player, power, def, defensePower(e.power) * this.diff.enemyDefense);
-    const exposed = !!e.vuln && e.vuln > 0;
-    if (exposed) hit.damage = Math.round(hit.damage * PARRY_VULN_MULT);
-    this.hurt(e, hit.damage, hit.crit || exposed ? `${hit.damage}!` : `${hit.damage}`, hit.crit ? '#ffe040' : hit.effective === 'resist' ? '#9a9aa8' : spell.color);
-    e.alert = 8;
-    e.lastSeenX = this.player.x;
-    e.lastSeenY = this.player.y;
-    recordDamageDealt(this.state.bestiary, def.id, hit.damage);
-    this.sfx(hit.crit ? 'crit' : 'hit', e.x, e.y);
-    if (player.stats.leech > 0) this.heal(Math.max(1, Math.round(hit.damage * player.stats.leech / 100)), 'leech');
-    if (spell.id === 'ember_bolt' && hit.damage > 0) {
-      const total = Math.max(1, Math.round(hit.damage * BURN_SHARE));
-      e.burn = { t: BURN_SECONDS, left: (e.burn?.left ?? 0) + total, acc: e.burn?.acc ?? 0 };
-    }
-    if (spell.id === 'rime_lance' && def.behavior !== 'boss') e.chillT = CHILL_SECONDS;
-    this.weaveFrom(spell);
-    if (e.hp <= 0) {
-      // Holy light from above: what Smite kills stays down.
-      if (spell.id === 'smite') this.markRemains(e, 'sanctified');
-      if (this.derived.traits.requiem) this.refundCharges(spell.charges);
-      this.killEnemy(e);
-    } else Hazards.slip(this, e);
-  }
-
-  /** Put charges back in the worn conduit's pool, never past full. */
-  private refundCharges(n: number): void {
-    const pool = this.run.conduit, c = this.derived.conduit;
-    if (pool && c) pool.charges = Math.min(c.charges, pool.charges + n);
-  }
-
-  /** Weave: a landed spell's element now rides on your next blow. */
-  private weaveFrom(spell: ConduitSpellDef): void {
-    this.anim.weave = { t: WEAVE_SECONDS, element: spell.element, amount: Math.round(this.derived.conduitPower * WEAVE_SHARE) };
-  }
-
-  /**
-   * Hex: the monster is a penguin for `HEX_SECONDS`. Whatever it was in the
-   * middle of stops — a wind-up, a flurry, a chant over a corpse, a mimic's
-   * grip on you — and it waddles until the spell runs out (`updateHexed`).
-   * Damage does not break it. The King and the floor lieutenants refuse it,
-   * and a refusal gives the charges back: you could not have known until it
-   * landed, and the stamina is price enough.
-   */
-  private hexLands(spell: ConduitSpellDef, e: EnemyState): boolean {
-    if (this.polymorph(e, HEX_SECONDS, spell.color) !== 'refused') return true;
-    this.refundCharges(spell.charges);
-    return false;
-  }
-
-  /** The penguin itself, for Hex and the Great Penguining alike. `quiet` leaves the telling to the rite. */
-  private polymorph(e: EnemyState, seconds: number, color: string, quiet = false): 'refused' | 'fresh' | 'again' {
-    const def = enemyDef(e.def);
-    const refused = def.behavior === 'boss' || !!e.lieutenant;
-    this.addSpellFx('poof', e.x, e.y, refused);
-    if (refused) {
-      this.msg(def.behavior === 'boss' ? 'The King will not be made a fool of. The hex slides off him.' : `The ${def.name} shrugs the hex off.`, '#c8a0ff');
-      this.sfx('break', e.x, e.y);
-      return 'refused';
-    }
-    const fresh = !(e.hexT && e.hexT > 0);
-    e.hexT = Math.max(e.hexT ?? 0, seconds);
-    if (e.ai === 'windup' || e.ai === 'recover' || e.ai === 'flee') e.ai = 'wander';
-    delete e.move;
-    delete e.feintT;
-    delete e.feinted;
-    delete e.comboLeft;
-    delete e.comboT;
-    delete e.channel;
-    if ((e.frozenT ?? 0) > 0) delete e.frozenT;
-    if ((e.grabT ?? 0) > 0) {
-      delete e.grabT;
-      this.msg('It lets go. Penguins cannot hold on to anything.', '#c8a0ff');
-    }
-    e.guard = 'down';
-    e.alert = Math.max(e.alert, 6);
-    if (!quiet) {
-      if (fresh) this.msg(`The ${def.name} is a penguin.`, color);
-      else this.msg(`The penguin stays a penguin a while longer.`, color);
-    }
-    this.sfx('magic', e.x, e.y);
-    return fresh ? 'fresh' : 'again';
-  }
-
-  /** The hex runs out: a puff of smoke, and it is itself, awake and close. */
-  unhex(e: EnemyState): void {
-    delete e.hexT;
-    this.addSpellFx('poof', e.x, e.y);
-    this.msg(`The ${enemyDef(e.def).name} is itself again.`, '#c8a0ff');
-    this.sfx('magic', e.x, e.y);
-    e.ai = manhattan(e.x, e.y, this.player.x, this.player.y) <= 6 ? 'chase' : 'idle';
-    e.alert = Math.max(e.alert, 6);
-    e.attackCd = Math.max(e.attackCd, 0.8);
-  }
-
-  /**
-   * A penguin's turn: no attack, no guard, no chant, no theft, no flight.
-   * It waddles about a step at a time, near enough at random, and when the
-   * hex runs out it is itself again, wide awake and close to you.
-   */
-  private updateHexed(e: EnemyState, dt: number): void {
-    e.guard = 'down';
-    e.ai = 'wander';
-    if (this.rng.chance(dt / 0.8)) {
-      const steps = DIRS.map((d) => [e.x + DX[d], e.y + DY[d]] as [number, number]).filter(([x, y]) => this.canStep(e, x, y));
-      if (steps.length) {
-        const [x, y] = this.rng.pick(steps);
-        this.stepEnemy(e, x, y);
-      }
-    }
   }
 
   /** Seconds banked toward fire's next bite, and since the last word about it. */
   fireTick = 0;
   surfaceMsgCd = 0;
-
-  /** A charge grows back while the conduit is worn, and kills hurry it along. */
-  private updateConduit(dt: number): void {
-    const a = this.anim;
-    if (this.spellFx.length) {
-      let landed = false;
-      for (const fx of this.spellFx) {
-        const before = fx.t;
-        fx.t += dt;
-        if (fx.kind !== 'meteor') continue;
-        if (fx.meteor && fx.meteor.target.ai !== 'dead') { fx.x = fx.meteor.target.x; fx.y = fx.meteor.target.y; }
-        if (before < METEOR_FALL_SECONDS && fx.t >= METEOR_FALL_SECONDS) {
-          this.landMeteor(fx);
-          landed = true;
-        }
-      }
-      if (landed) {
-        this.sfx('meteor');
-        this.emit({ type: 'shake', amount: 0.8 });
-        this.emit({ type: 'sigil', r: 1, g: 0.3, b: 0.06, strength: 0.35 });
-      }
-      this.spellFx = this.spellFx.filter((fx) => fx.t < SPELL_FX_SECONDS[fx.kind]);
-    }
-    if (a.weave) {
-      a.weave.t -= dt;
-      if (a.weave.t <= 0) a.weave = null;
-    }
-    const c = this.derived.conduit;
-    const pool = this.run.conduit;
-    if (!c || !pool) return;
-    this.growConduit(c.charges, c.regrow, dt);
-  }
-
-  private growConduit(max: number, per: number, seconds: number): void {
-    const pool = this.run.conduit;
-    if (!pool) return;
-    if (pool.charges >= max) {
-      pool.regrow = 0;
-      return;
-    }
-    pool.regrow += seconds;
-    while (pool.regrow >= per && pool.charges < max) {
-      pool.regrow -= per;
-      pool.charges++;
-    }
-    if (pool.charges >= max) pool.regrow = 0;
-  }
-
-  /** Kills shave the regrow, under the same fifth-of-a-cycle cap as a sigil. */
-  private refundConduit(def: EnemyDef): void {
-    const c = this.derived.conduit;
-    if (!c) return;
-    const base = 1 + 4 * Math.min(1, def.hp / 140);
-    const multiplier = 1 + 0.25 * metaLevel(this.state.meta, 'attunement') + this.derived.stats.focus / 100;
-    this.growConduit(c.charges, c.regrow, Math.min(base * multiplier, c.regrow * 0.2));
-  }
-
-  /** Everything that a deliberate action of your own cancels. */
-  private breakChannels(): void {
-    const a = this.anim;
-    if (a.recall !== null) {
-      a.recall = null;
-      this.msg('The recall fizzles.', '#888');
-    }
-    if (a.retrieving) {
-      a.retrieving = null;
-      this.msg('You stop calling them back.', '#888');
-    }
-  }
 
   /**
    * Begin charging returns for the equipped base across the run.
@@ -2859,7 +2349,7 @@ export class World {
   private resolvePlayerAttack(): void {
     const f = this.floor;
     if (this.anim.attackSpell) {
-      this.launchSpell(this.anim.attackSpell);
+      Spells.launchSpell(this, this.anim.attackSpell);
       return;
     }
     if (this.anim.attackThrow) {
@@ -2979,11 +2469,11 @@ export class World {
    * guard rhythm, the sprite picker, the wind-up and the volley all keep
    * reading the fields they always read.
    */
-  private view(e: EnemyState): EnemyDef {
+  view(e: EnemyState): EnemyDef {
     return enemyView(enemyDef(e.def), e.hp, e.maxHp, { elite: e.elite, carrying: !!e.stolen?.length, marked: e.marked, shadeType: e.shadeType, calm: e.calm, chilled: (e.chillT ?? 0) > 0, hexed: (e.hexT ?? 0) > 0 });
   }
 
-  private guardReaction(e: EnemyState, def: EnemyDef): 'bash' | 'chip' | null {
+  guardReaction(e: EnemyState, def: EnemyDef): 'bash' | 'chip' | null {
     if (!def.shield) return null;
     if ((e.vuln ?? 0) > 0) return null;
     if (e.ai === 'windup' || e.ai === 'recover' || e.ai === 'flee') return null;
@@ -3044,7 +2534,7 @@ export class World {
    * holds. Lean on it three chips running and the arm sags, dropping the
    * guard wide open. Flank it, meet its swing, or time the drop instead.
    */
-  private shieldChip(e: EnemyState, def: EnemyDef, chips = 1, power = this.anim.attackPower, player = this.derived): void {
+  shieldChip(e: EnemyState, def: EnemyDef, chips = 1, power = this.anim.attackPower, player = this.derived): void {
     if (Boss.protectedByFog(this, e)) return;
     const sh = def.shield!;
     // Difficulty thins the armour on Normal; Hard multiplies by exactly 1.
@@ -3136,7 +2626,7 @@ export class World {
       this.emit({ type: 'float', x: e.x, y: e.y - 0.3, text: 'woven', color: '#c8b8ff' });
     }
     // And the other half: a blow that lands feeds the conduit.
-    if (powerMult === 1 && this.derived.conduit) this.growConduit(this.derived.conduit.charges, this.derived.conduit.regrow, WEAVE_REGROW);
+    if (powerMult === 1 && this.derived.conduit) Spells.growConduit(this, this.derived.conduit.charges, this.derived.conduit.regrow, WEAVE_REGROW);
     // Everything you land while the parry opening lasts hits twice as hard.
     const exposed = !!e.vuln && e.vuln > 0;
     if (exposed) hit.damage = Math.round(hit.damage * PARRY_VULN_MULT);
@@ -3552,7 +3042,7 @@ export class World {
    * killing blow carrying holy damage, or struck from consecrated ground,
    * sanctifies them. Either way nothing raises it.
    */
-  private markRemains(e: EnemyState, how?: 'sanctified'): void {
+  markRemains(e: EnemyState, how?: 'sanctified'): void {
     if (!enemyDef(e.def).undead) return;
     const overkill = -e.hp >= e.maxHp * SHATTER_OVERKILL;
     const ward = this.anim.ward;
@@ -3576,7 +3066,7 @@ export class World {
     // It dies as itself: the remains are what the Gravecaller and the codex read.
     if (e.hexT !== undefined) {
       delete e.hexT;
-      this.addSpellFx('poof', e.x, e.y);
+      Spells.addSpellFx(this, 'poof', e.x, e.y);
     }
     this.sfx('enemyDie', e.x, e.y);
     // A Vengeful elite's fuse lights as it falls; `updateEnemies` sets it off.
@@ -3613,7 +3103,7 @@ export class World {
         : `Marked quarry slain: ${oath.marks} of ${HUNTER_MARKS}.`, OATHS.hunter.color);
     }
     this.refundSigil(def, this.derived.traits.execution && (e.vuln ?? 0) > 0 ? EXECUTION_REFUND_MULT : 1);
-    this.refundConduit(def);
+    Spells.refundConduit(this, def);
     this.run.stats.kills++;
     recordKill(this.state.contracts, def.id);
     recordBestiaryKill(this.state.bestiary, def.id);
@@ -4925,7 +4415,7 @@ export class World {
       // Standing in fire, anything not mid-swing gets out of it first.
       if (burningAt(f, e.x, e.y) && e.ai !== 'windup' && e.ai !== 'recover' && Hazards.escapeFire(this, e)) continue;
       if ((e.hexT ?? 0) > 0) {
-        this.updateHexed(e, dt);
+        Spells.updateHexed(this, e, dt);
         continue;
       }
       if ((e.blind ?? 0) > 0) {
@@ -5592,7 +5082,7 @@ export class World {
     e.lastSeenX = p.x;
     e.lastSeenY = p.y;
     if (was === 'shadow') {
-      this.addSpellFx('poof', e.x, e.y);
+      Spells.addSpellFx(this, 'poof', e.x, e.y);
       this.sfx('kingturn', e.x, e.y);
       this.msg('The King steps out of the dark!', '#c080ff');
       return;
@@ -5940,3 +5430,5 @@ export class World {
 }
 
 export { PITCH_EVERY, PITCH_FUSE, SHADOW_STEP_EVERY, SHADOW_STEP_SECONDS } from './boss';
+
+export { GLACIAL_TOMB_SECONDS, GLACIAL_TOMB_SIGHT_SECONDS, JUDGEMENT_POWER_PER_CHARGE, JUDGEMENT_SPARE_HP, METEOR_FALL_SECONDS, METEOR_POWER_PER_CHARGE, RITE_BOTCH_FREEZE, RITE_SIGHT, SPELL_FX_SECONDS, judgementEnds } from './spells';

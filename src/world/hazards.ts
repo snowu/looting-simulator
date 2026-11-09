@@ -17,6 +17,7 @@ import { burningAt, chill, freezeFlood, ignite, oilBarrelAt, spillOil, surfaceAt
 import { DamageType } from '../types';
 import type { World } from './world';
 import * as Boss from './boss';
+import * as Spells from './spells';
 
 /** Burns tick down and chills wear off. Run every frame over the floor. */
 export function updateAfflictions(w: World, dt: number): void {
@@ -32,7 +33,7 @@ export function updateAfflictions(w: World, dt: number): void {
     // through every step it waddles, which the AI tick skips.
     if (e.hexT !== undefined) {
       e.hexT -= dt;
-      if (e.hexT <= 0) w.unhex(e);
+      if (e.hexT <= 0) Spells.unhex(w, e);
     }
     if (e.frozenT !== undefined) {
       e.frozenT -= dt;
@@ -126,7 +127,7 @@ export function scorch(w: World, x: number, y: number, ticks: number, source: st
 
 /** A burst of fire over a tile and the four beside it: a barrel, or spores catching. */
 export function blast(w: World, x: number, y: number, ticks: number, source: string): void {
-  w.addSpellFx('blast', x, y);
+  Spells.addSpellFx(w, 'blast', x, y);
   w.sfx('lava_burst', x, y);
   w.emit({ type: 'shake', amount: 0.3 });
   for (const [dx, dy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) {
@@ -246,7 +247,7 @@ export function sporePuff(w: World, x: number, y: number): void {
   const s = surfaceAt(f, x, y);
   if (!s || s.kind !== 'spores') return;
   f.surfaces = f.surfaces!.filter((o) => o !== s);
-  w.addSpellFx('spores', x, y);
+  Spells.addSpellFx(w, 'spores', x, y);
   w.sfx('snuff', x, y);
   let blinded = 0;
   for (const e of f.enemies) {

@@ -10,6 +10,7 @@ import { blocksMove, doorAt, enemyAt, EnemyState, inRoom, isBossDoor, Room } fro
 import { burningAt, surfaceAt, surfaceKindAt } from '../systems/surfaces';
 import * as Hazards from './hazards';
 import type { World } from './world';
+import * as Spells from './spells';
 
 /**
  * How long the King reels when a phase breaks. Long enough to read the turn and
@@ -134,8 +135,8 @@ export function shadowStep(w: World, e: EnemyState): boolean {
   if (!spots.length) return false;
   const flanks = spots.filter((t) => t.d !== p.facing);
   const to = w.rng.pick(flanks.length ? flanks : spots);
-  w.addSpellFx('poof', e.x, e.y);
-  w.addSpellFx('poof', to.x, to.y);
+  Spells.addSpellFx(w, 'poof', e.x, e.y);
+  Spells.addSpellFx(w, 'poof', to.x, to.y);
   e.x = e.fromX = to.x;
   e.y = e.fromY = to.y;
   e.moveT = 1;

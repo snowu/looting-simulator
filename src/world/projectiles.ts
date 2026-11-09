@@ -11,6 +11,7 @@ import type { World } from './world';
 import { PARRY_GRACE, Projectile } from './world';
 import * as Hazards from './hazards';
 import * as Boss from './boss';
+import * as Spells from './spells';
 
 export function updateProjectiles(w: World, dt: number): void {
   const f = w.floor;
@@ -66,7 +67,7 @@ export function updateProjectiles(w: World, dt: number): void {
       const enemy = enemyAt(f, tx, ty);
       if (enemy) {
         pr.speed = 0;
-        w.spellHit(pr, enemy);
+        Spells.spellHit(w, pr, enemy);
       } else if ((pr.traveled ?? 0) >= (pr.thrownRange ?? 0)) {
         pr.speed = 0;
         w.sfx('break', tx, ty);
