@@ -2948,15 +2948,18 @@ export class World {
       x: fromX + 0.5, y: fromY + 0.5,
       dx: dx / len, dy: dy / len,
       speed: RETURN_SPEED,
-      // Retrieval: a shaft on its way home cuts what it passes through.
+      // Retrieval: a shaft on its way home cuts what it passes through, for
+      // half a throw — scored as a throw, off the belt, like the one that
+      // sent it out. It used to carry the plain player, so a knife flying home
+      // hit with your greatsword's Attack and damage type.
       damage: this.derived.traits.retrieval && thrown ? thrown.power * RETRIEVAL_MULT : 0,
-      type: this.derived.damageType,
+      type: this.derived.thrownDamageType,
       sprite: thrown?.sprite ?? 'proj_knife',
       tileX: fromX, tileY: fromY,
       source: 'your hand',
       returning: true,
       thrownBase: base,
-      player: this.derived.traits.retrieval ? this.derived : undefined,
+      player: this.derived.traits.retrieval ? thrownView(this.derived) : undefined,
       hitIds: [],
     });
   }
