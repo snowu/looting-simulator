@@ -10,6 +10,7 @@ import { World } from '../world/world';
 import { migrateSave } from '../state/migrations';
 import { draught } from '../systems/infusion';
 import { room, tick } from './harness';
+import * as Combat from '../world/combat';
 
 
 const arena = (seed = 1): World => room({ seed });
@@ -138,7 +139,7 @@ describe('healing rework', () => {
     expect(w.anim.draught?.kind).toBe('iron');
     const hp = w.player.hp;
     const t = w.frontTile(1);
-    (w as unknown as { damagePlayer: (a: number, t: string, x: number, y: number, s: string) => void }).damagePlayer(10, 'slash', t.x, t.y, 'Test');
+    Combat.damagePlayer(w, 10, 'slash', t.x, t.y, 'Test');
     expect(w.player.hp).toBe(hp);
     expect(w.anim.draught).toBeNull();
   });
@@ -156,7 +157,7 @@ describe('healing rework', () => {
       e.ai = 'windup'; e.timer = 1;
       w.floor.enemies.push(e);
       (w as unknown as { rng: unknown }).rng = createRng(7);
-      (w as unknown as { hitEnemy: (e: unknown) => void }).hitEnemy(e);
+      Combat.hitEnemy(w, e);
       return { dealt: 9999 - e.hp, ai: e.ai, left: w.anim.draught };
     };
     const plain = strike(null);
@@ -205,7 +206,7 @@ describe('healing rework', () => {
       w.player.hp = w.derived.maxHp;
       (w as unknown as { rng: unknown }).rng = createRng(7);
       const t = w.frontTile(1);
-      (w as unknown as { damagePlayer: (a: number, t: string, x: number, y: number, s: string) => void }).damagePlayer(60, 'slash', t.x, t.y, 'Test');
+      Combat.damagePlayer(w, 60, 'slash', t.x, t.y, 'Test');
       return { taken: w.derived.maxHp - w.player.hp, max: w.derived.maxHp };
     };
     const plain = blow(null);
@@ -234,7 +235,7 @@ describe('healing rework', () => {
     e.hp = e.maxHp = 99999;
     e.ai = 'windup'; e.timer = 1;
     w.floor.enemies.push(e);
-    (w as unknown as { hitEnemy: (e: unknown) => void }).hitEnemy(e);
+    Combat.hitEnemy(w, e);
     expect(e.hp).toBeLessThan(99999);
     expect(e.ai).toBe('windup');
     expect(w.anim.draught).toBeNull();

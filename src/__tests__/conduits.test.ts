@@ -16,6 +16,7 @@ import { derivePlayer } from '../systems/player';
 import { startRun } from '../systems/run';
 import { createEnemy, FLOOR, WALL } from '../systems/dungeon';
 import { World, tomeChance } from '../world/world';
+import * as Combat from '../world/combat';
 
 const conduit = (baseId: 'wand' | 'rod', materialId = baseId === 'wand' ? 'ironwood' : 'iron') =>
   makeEquipment({ baseId, materialId, rarity: Rarity.Common, ilvl: 4, quality: 1, identified: true });
@@ -54,8 +55,6 @@ function run(w: World, seconds: number): void {
 }
 
 describe('conduits', () => {
-  type Guard = { damagePlayer(attack: number, type: 'slash', fromX: number, fromY: number, source: string, sourceId?: string, attacker?: unknown): void };
-  const guard = (w: World) => w as unknown as Guard;
 
   it('keep their Power out of your melee Attack and guard nothing at all', () => {
     const state = newGame(createRng(90));
@@ -78,7 +77,7 @@ describe('conduits', () => {
       const e = target(w, 1);
       if (raise) Object.assign(w.anim, { parryArmed: true, blockT: 1, blockRaise: 1 });
       const hp = w.player.hp;
-      guard(w).damagePlayer(20, 'slash', e.x, e.y, 'Ghoul', 'ghoul', e);
+      Combat.damagePlayer(w, 20, 'slash', e.x, e.y, 'Ghoul', 'ghoul', e);
       return hp - w.player.hp;
     };
     const raised = dealt(true);
@@ -94,7 +93,7 @@ describe('conduits', () => {
       const e = target(w, 1);
       Object.assign(w.anim, { parryArmed: true, blockT, blockRaise: 1 });
       const hp = w.player.hp;
-      guard(w).damagePlayer(20, 'slash', e.x, e.y, 'Ghoul', 'ghoul', e);
+      Combat.damagePlayer(w, 20, 'slash', e.x, e.y, 'Ghoul', 'ghoul', e);
       return { lost: hp - w.player.hp, vuln: e.vuln ?? 0 };
     };
     const inside = met(0.05);
@@ -149,7 +148,7 @@ describe('conduits', () => {
     run(early, 0.05);
     expect(early.anim.blockRaise).toBeGreaterThan(0);
     const hp = early.player.hp;
-    guard(early).damagePlayer(20, 'slash', e1.x, e1.y, 'Ghoul', 'ghoul', e1);
+    Combat.damagePlayer(early, 20, 'slash', e1.x, e1.y, 'Ghoul', 'ghoul', e1);
     expect(early.player.hp).toBe(hp);
     expect(e1.vuln ?? 0).toBeGreaterThan(0);
 
@@ -159,7 +158,7 @@ describe('conduits', () => {
     run(late, 0.6);
     expect(late.anim.blockRaise).toBe(0);
     const hp2 = late.player.hp;
-    guard(late).damagePlayer(20, 'slash', e2.x, e2.y, 'Ghoul', 'ghoul', e2);
+    Combat.damagePlayer(late, 20, 'slash', e2.x, e2.y, 'Ghoul', 'ghoul', e2);
     expect(late.player.hp).toBeLessThan(hp2);
     expect(e2.vuln ?? 0).toBe(0);
   });
@@ -480,10 +479,10 @@ describe('battlemage payoffs', () => {
     w.state.equipment.offhand!.property = 'countercharm';
     w.refreshDerived();
     w.run.conduit!.charges = 1;
-    priv(w).parryFlourish(w.player.x, w.player.y - 1);
+    Combat.parryFlourish(w, w.player.x, w.player.y - 1);
     expect(w.run.conduit!.charges).toBe(1 + COUNTERCHARM_CHARGES);
     w.run.conduit!.charges = w.derived.conduit!.charges;
-    priv(w).parryFlourish(w.player.x, w.player.y - 1);
+    Combat.parryFlourish(w, w.player.x, w.player.y - 1);
     expect(w.run.conduit!.charges).toBe(w.derived.conduit!.charges);
   });
 

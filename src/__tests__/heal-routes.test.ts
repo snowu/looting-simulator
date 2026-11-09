@@ -6,6 +6,7 @@ import { World } from '../world/world';
 import { createEnemy } from '../systems/dungeon';
 import { enemyDef } from '../data/enemies';
 import { room, tick } from './harness';
+import * as Combat from '../world/combat';
 
 /**
  * Every heal answers to the same rules — half_healing (the Eulogy Plate's
@@ -27,8 +28,7 @@ function chipLeech(difficulty: DifficultyId, healing: number): number {
   w.derived.traits.healing = healing;
   w.player.hp = 1;
   w.rng = createRng(5);
-  const world = w as unknown as { shieldChip(e: unknown, def: unknown): void; view(e: unknown): unknown };
-  world.shieldChip(e, world.view(e));
+  Combat.shieldChip(w, e, Combat.view(w, e));
   return w.player.hp - 1;
 }
 

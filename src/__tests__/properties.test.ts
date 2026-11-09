@@ -16,6 +16,7 @@ import { findUnique } from '../data/uniques';
 import { World } from '../world/world';
 import { room } from './harness';
 import * as Thrown from '../world/thrown';
+import * as Combat from '../world/combat';
 
 interface Private {
   refreshDerived(): void;
@@ -112,7 +113,7 @@ describe('the effects', () => {
   it('Riposte: a parry makes the next swing free', () => {
     const w = arena();
     wear(w, 'weapon', gear('long_sword'), 'riposte');
-    priv(w).parryFlourish(w.player.x, w.player.y - 1);
+    Combat.parryFlourish(w, w.player.x, w.player.y - 1);
     expect(w.anim.riposteT).toBe(RIPOSTE_WINDOW);
     const stamina = w.player.stamina;
     w.attack();
@@ -125,7 +126,7 @@ describe('the effects', () => {
     wear(w, 'offhand', gear('kite_shield'), 'bulwark');
     const e = foe(w, 'skeleton', DX[0], DY[0]);
     w.anim.blockRaise = 1;
-    priv(w).damagePlayer(Math.round(w.derived.maxHp * 0.6), 'slash', e.x, e.y, 'Skeleton', 'skeleton', e);
+    Combat.damagePlayer(w, Math.round(w.derived.maxHp * 0.6), 'slash', e.x, e.y, 'Skeleton', 'skeleton', e);
     expect(w.anim.bulwarkT).toBe(BULWARK_WINDOW);
   });
 
@@ -136,7 +137,7 @@ describe('the effects', () => {
       w.run.sigil = { id: 'wardcry', cd: 60 };
       const e = foe(w, 'skeleton', 0, -1);
       e.vuln = 1;
-      priv(w).killEnemy(e);
+      Combat.killEnemy(w, e);
       return 60 - w.run.sigil.cd;
     };
     expect(refund(true)).toBeCloseTo(refund(false) * 2, 5);
@@ -150,7 +151,7 @@ describe('the effects', () => {
     const beside = foe(w, 'skeleton', 1, -1);
     target.hp = Math.round(target.maxHp * 0.3);
     w.anim.attackPower = 1;
-    priv(w).hitEnemy(target);
+    Combat.hitEnemy(w, target);
     expect(beside.hp).toBeLessThan(beside.maxHp);
   });
 

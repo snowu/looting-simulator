@@ -12,6 +12,7 @@ import { createEnemy, FLOOR } from '../systems/dungeon';
 import { enemyDef } from '../data/enemies';
 import { durability } from '../systems/items';
 import * as Sigils from '../world/sigils';
+import * as Combat from '../world/combat';
 
 function worldWith(id: string): World {
   const state = newGame(createRng(83));
@@ -172,7 +173,7 @@ describe('sigil state', () => {
     w.run.sigil!.cd = 0;
     expect(w.castSigil()).toBe(true);
     const stamina = w.player.stamina;
-    (w as any).damagePlayer(20, 'blunt', 10, 11, 'test');
+    Combat.damagePlayer(w, 20, 'blunt', 10, 11, 'test');
     expect(w.anim.cast).toBeNull();
     expect(w.run.sigil!.cd).toBe(0);
     expect(w.player.stamina).toBe(stamina);

@@ -11,9 +11,9 @@ import { durability, makeEquipment } from '../systems/items';
 import { Rarity } from '../types';
 import { startRun } from '../systems/run';
 import { World } from '../world/world';
+import * as Combat from '../world/combat';
 
-interface Private { resolvePlayerAttack(): void }
-const swing = (w: World) => (w as unknown as Private).resolvePlayerAttack();
+const swing = (w: World) => Combat.resolvePlayerAttack(w);
 
 /** Steps between two floor tiles, walking floor only. */
 function walk(f: Floor, ax: number, ay: number, bx: number, by: number): number {

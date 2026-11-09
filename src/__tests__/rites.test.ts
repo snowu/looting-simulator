@@ -16,6 +16,7 @@ import { enemyDef } from '../data/enemies';
 import { GLACIAL_TOMB_SECONDS, GLACIAL_TOMB_SIGHT_SECONDS, judgementEnds, RITE_BOTCH_FREEZE, RITE_CHARGE_COST, World } from '../world/world';
 import { HEX_SECONDS } from '../data/conduit-spells';
 import { beginLabRite, spawnLabCarving } from '../dev/lab-room';
+import * as Combat from '../world/combat';
 
 const TEMPLATE = RITES[0].template;
 
@@ -754,7 +755,7 @@ describe('when carvings appear', () => {
     w.state.ritesKnown = ['meteor', 'judgement'];
     const king = roomTarget(w, w.player.x + 3, w.player.y, 'ashen_king');
     king.hp = 0;
-    (w as any).killEnemy(king);
+    Combat.killEnemy(w, king);
     const slab = w.floor.props.find((p) => p.kind === 'carving');
     expect(slab).toBeTruthy();
     expect(['glacial_tomb', 'penguining']).toContain(slab!.rite);
@@ -764,7 +765,7 @@ describe('when carvings appear', () => {
     done.state.ritesKnown = ['meteor', 'judgement', 'penguining'];
     const k2 = roomTarget(done, done.player.x + 3, done.player.y, 'ashen_king');
     k2.hp = 0;
-    (done as any).killEnemy(k2);
+    Combat.killEnemy(done, k2);
     expect(done.floor.props.some((p) => p.kind === 'carving')).toBe(false);
   });
 });

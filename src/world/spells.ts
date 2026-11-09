@@ -21,6 +21,7 @@ import * as Hazards from './hazards';
 import * as Boss from './boss';
 import type { World } from './world';
 import { PARRY_VULN_MULT, Projectile, SpellFx } from './world';
+import * as Combat from './combat';
 
 /** How long each mark lasts, in seconds. */
 export const SPELL_FX_SECONDS: Record<SpellFx['kind'], number> = { smite: 0.55, poof: 0.7, spores: 0.9, blast: 0.6, meteor: 1.4, frost: 0.8 };
@@ -107,7 +108,7 @@ export function castMeteor(w: World, def: RiteDef, grade: RiteGrade, charges: nu
   const view = spellView(w.derived, meteor);
   const targets = riteTargets(w).filter(e => !Boss.protectedByFog(w, e));
   for (const e of targets) {
-    const enemy = w.view(e);
+    const enemy = Combat.view(w, e);
     const hit = playerHitsEnemy(w.rng, view, 1, enemy, defensePower(e.power) * w.diff.enemyDefense);
     w.spellFx.push({ id: w.projN++, kind: 'meteor', x: e.x, y: e.y, t: 0,
       weak: grade === 'weak', meteor: { target: e, damage: hit.damage, crit: hit.crit } });
@@ -188,19 +189,19 @@ export function castJudgement(w: World, def: RiteDef, grade: RiteGrade, charges:
     if (grade === 'full' && judgementEnds(e)) {
       const dealt = Math.max(1, e.hp);
       w.hurt(e, dealt, 'Judged', def.color);
-      recordDamageDealt(w.state.bestiary, w.view(e).id, dealt);
+      recordDamageDealt(w.state.bestiary, Combat.view(w, e).id, dealt);
       w.markRemains(e, 'sanctified');
-      w.killEnemy(e);
+      Combat.killEnemy(w, e);
       ended++;
       continue;
     }
-    const hit = playerHitsEnemy(w.rng, view, 1, w.view(e), defensePower(e.power) * w.diff.enemyDefense);
+    const hit = playerHitsEnemy(w.rng, view, 1, Combat.view(w, e), defensePower(e.power) * w.diff.enemyDefense);
     if (stat.undead) hit.damage *= 2;
     w.hurt(e, hit.damage, hit.crit ? `${hit.damage}!` : `${hit.damage}`, hit.crit ? '#ffe040' : def.color);
-    recordDamageDealt(w.state.bestiary, w.view(e).id, hit.damage);
+    recordDamageDealt(w.state.bestiary, Combat.view(w, e).id, hit.damage);
     if (e.hp <= 0) {
       w.markRemains(e, 'sanctified');
-      w.killEnemy(e);
+      Combat.killEnemy(w, e);
       if (stat.undead) ended++;
     } else if (stat.undead && grade === 'full' && stat.behavior !== 'boss') stood++;
   }
@@ -258,9 +259,9 @@ export function landMeteor(w: World, fx: SpellFx): void {
   e.alert = 8;
   e.lastSeenX = w.player.x;
   e.lastSeenY = w.player.y;
-  recordDamageDealt(w.state.bestiary, w.view(e).id, damage);
+  recordDamageDealt(w.state.bestiary, Combat.view(w, e).id, damage);
   if (damage > 0) e.burn = { t: BURN_SECONDS, left: (e.burn?.left ?? 0) + Math.max(1, Math.round(damage * BURN_SHARE)), acc: e.burn?.acc ?? 0 };
-  if (e.hp <= 0) w.killEnemy(e);
+  if (e.hp <= 0) Combat.killEnemy(w, e);
   else Hazards.slip(w, e);
 }
 
@@ -349,7 +350,7 @@ export function spellHit(w: World, pr: Projectile, e: EnemyState): void {
 /** A battle spell landing: the hit, its rider, and the weave it leaves on your blade. */
 export function spellLands(w: World, spell: ConduitSpellDef, e: EnemyState, player: PlayerDerived, power: number): void {
   if (Boss.protectedByFog(w, e)) return;
-  const def = w.view(e);
+  const def = Combat.view(w, e);
   if ((e.eating ?? 0) > 0) e.eating = undefined;
   if (spell.id === 'hex') {
     if (hexLands(w, spell, e)) weaveFrom(w, spell);
@@ -357,9 +358,9 @@ export function spellLands(w: World, spell: ConduitSpellDef, e: EnemyState, play
   }
   // A raised shield takes a spell the way it takes a shaft: on the guard.
   // Smite comes down from above, where no shield is held.
-  const reaction = spell.id === 'smite' ? null : w.guardReaction(e, def);
+  const reaction = spell.id === 'smite' ? null : Combat.guardReaction(w, e, def);
   if (reaction) {
-    w.shieldChip(e, def, 1, power, player);
+    Combat.shieldChip(w, e, def, 1, power, player);
     return;
   }
   if (spell.id === 'smite') addSpellFx(w, 'smite', e.x, e.y);
@@ -383,7 +384,7 @@ export function spellLands(w: World, spell: ConduitSpellDef, e: EnemyState, play
     // Holy light from above: what Smite kills stays down.
     if (spell.id === 'smite') w.markRemains(e, 'sanctified');
     if (w.derived.traits.requiem) refundCharges(w, spell.charges);
-    w.killEnemy(e);
+    Combat.killEnemy(w, e);
   } else Hazards.slip(w, e);
 }
 

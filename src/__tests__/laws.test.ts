@@ -8,6 +8,7 @@ import { BURROWS_NOISE_MULT, OSSUARY_RISE_HP, OSSUARY_STIR, OSSUARY_STIR_AFTER }
 import { CRACK_BLOWS, CRACK_NOISE, Crack } from '../data/walls';
 import { startRun } from '../systems/run';
 import { World } from '../world/world';
+import * as Combat from '../world/combat';
 
 interface Private {
   resolvePlayerAttack(): void;
@@ -67,7 +68,7 @@ describe('the Ossuary: the dead do not stay down', () => {
     expect(e.ai).not.toBe('dead');
     expect(e.risen).toBe(true);
     expect(e.hp).toBe(Math.round(e.maxHp * OSSUARY_RISE_HP));
-    priv(w).killEnemy(e);
+    Combat.killEnemy(w, e);
     e.deadT = 0;
     run(w, OSSUARY_STIR_AFTER + OSSUARY_STIR + 1);
     expect(e.ai).toBe('dead');
@@ -102,7 +103,7 @@ describe('the Deep Mines: braced walls come down hard', () => {
       const e = createEnemy(enemyDef('skeleton'), beside.x, beside.y, 0, 'victim', 1);
       e.maxHp = e.hp = 500;
       w.floor.enemies.push(e);
-      for (let i = 0; i < CRACK_BLOWS; i++) priv(w).resolvePlayerAttack();
+      for (let i = 0; i < CRACK_BLOWS; i++) Combat.resolvePlayerAttack(w);
       expect(c.broken).toBe(true);
       if (biome === 'mines') {
         expect(e.hp, biome).toBeLessThan(500);
@@ -128,7 +129,7 @@ describe('the Vermin Burrows: noise carries', () => {
       }
       const e = createEnemy(enemyDef('rat'), spot!.x, spot!.y, 0, 'ear', 1);
       w.floor.enemies.push(e);
-      priv(w).resolvePlayerAttack();
+      Combat.resolvePlayerAttack(w);
       expect(e.alert > 0, biome).toBe(biome === 'burrows');
     }
   });

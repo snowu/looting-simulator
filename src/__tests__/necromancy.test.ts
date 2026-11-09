@@ -5,6 +5,7 @@ import { enemyDef } from '../data/enemies';
 import { GRAVE_BIOMES, RAISE_CHANNEL, RAISE_HP, RAISE_LIMIT, SHATTER_OVERKILL } from '../data/necromancy';
 import { World } from '../world/world';
 import { room } from './harness';
+import * as Combat from '../world/combat';
 
 interface Private {
   killEnemy(e: EnemyState): void;
@@ -138,7 +139,7 @@ describe('remains', () => {
     run(w, RAISE_CHANNEL + 0.2);
     expect(corpse.risen).toBe(true);
     const kills = w.run.stats.kills;
-    priv(w).killEnemy(corpse);
+    Combat.killEnemy(w, corpse);
     expect(w.run.stats.kills).toBe(kills);
   });
 });

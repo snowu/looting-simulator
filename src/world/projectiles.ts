@@ -13,6 +13,7 @@ import * as Hazards from './hazards';
 import * as Boss from './boss';
 import * as Spells from './spells';
 import * as Thrown from './thrown';
+import * as Combat from './combat';
 
 export function updateProjectiles(w: World, dt: number): void {
   const f = w.floor;
@@ -105,12 +106,12 @@ export function updateProjectiles(w: World, dt: number): void {
       continue;
     }
     if (tx === p.x && ty === p.y) {
-      if (w.parriesProjectile(tx - pr.dx, ty - pr.dy)) {
+      if (Combat.parriesProjectile(w, tx - pr.dx, ty - pr.dy)) {
         reflect(w, pr);
         continue;
       }
       pr.speed = 0;
-      w.damagePlayer(pr.damage, pr.type, tx - pr.dx, ty - pr.dy, pr.source, pr.reflected ? undefined : pr.sourceId);
+      Combat.damagePlayer(w, pr.damage, pr.type, tx - pr.dx, ty - pr.dy, pr.source, pr.reflected ? undefined : pr.sourceId);
     }
   }
   if (w.projectiles.some((pr) => pr.speed <= 0)) {
@@ -130,7 +131,7 @@ export function updateProjectiles(w: World, dt: number): void {
 /** Send a bolt back the way it came, now hostile to whatever shot it. */
 export function reflect(w: World, pr: Projectile): void {
   const followUp = !w.anim.parryArmed;
-  w.parryFlourish(w.player.x, w.player.y);
+  Combat.parryFlourish(w, w.player.x, w.player.y);
   w.anim.rangedParryT = followUp ? 0 : PARRY_GRACE * w.diff.parryGrace;
   pr.dx = -pr.dx;
   pr.dy = -pr.dy;
@@ -156,7 +157,7 @@ export function reflectOntoAttacker(w: World, e: EnemyState, attack: number, typ
   recordDamageDealt(w.state.bestiary, def.id, damage);
   w.sfx('hit', e.x, e.y);
   w.msg(`The shield answers for you.`, '#ffe8a0');
-  if (e.hp <= 0) w.killEnemy(e);
+  if (e.hp <= 0) Combat.killEnemy(w, e);
 }
 
 /** A reflected bolt landing on a monster: its own damage, its own element. */
@@ -171,5 +172,5 @@ export function reflectedHit(w: World, pr: Projectile, e: EnemyState): void {
   e.lastSeenY = w.player.y;
   w.sfx('hit', e.x, e.y);
   if (mult >= 1.4) w.msg(`Its own ${pr.type} burns it.`, '#ff9a40');
-  if (e.hp <= 0) w.killEnemy(e);
+  if (e.hp <= 0) Combat.killEnemy(w, e);
 }

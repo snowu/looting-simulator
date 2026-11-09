@@ -13,6 +13,7 @@ import { Dir, dirOf } from '../core/dir';
 import { uniqueOf } from '../systems/items';
 import { room, tick } from './harness';
 import * as Projectiles from '../world/projectiles';
+import * as Combat from '../world/combat';
 
 
 const arena = (seed = 1): World => room({ seed });
@@ -106,7 +107,7 @@ describe('the King comes apart in three stages', () => {
     const e = king(w, 0.4);
     tick(w, 0.1);
     expect(e.phase).toBe(2);
-    (w as unknown as { killEnemy(x: EnemyState): void }).killEnemy(e);
+    Combat.killEnemy(w, e);
     tick(w, 0.5);
     expect(e.ai).toBe('dead');
     expect(e.phase, 'he died in the dark, he never reached the last stand').toBe(2);
@@ -302,12 +303,11 @@ describe('the fog gate', () => {
     Object.assign(boss, { x: inside.x, y: inside.y, fromX: inside.x, fromY: inside.y, moveT: 1 });
     const hp = boss.hp;
     expect(w.los(gate.x, gate.y, boss.x, boss.y)).toBe(false);
-    const combat = w as unknown as { hitEnemy(e: EnemyState): void };
     const dx = inside.x - gate.x, dy = inside.y - gate.y;
     w.projectiles.push({ id: 999, x: gate.x + 0.5, y: gate.y + 0.5,
       tileX: gate.x, tileY: gate.y, dx, dy, speed: 6, damage: 9999,
       type: 'fire', sprite: 'bolt_fire', source: 'your own parry', reflected: true });
-    combat.hitEnemy(boss);
+    Combat.hitEnemy(w, boss);
     Projectiles.reflectedHit(w, { damage: 9999, type: 'fire' } as Projectile, boss);
     tick(w, 2);
     expect(boss.hp).toBe(hp);
@@ -342,7 +342,7 @@ describe('the fog gate', () => {
     // No cheese through the crack: a shut gate blocks sight, which is what
     // stops bolts (updateProjectiles) and pathing (blocksMove) both ways.
     expect(blocksSight(w.floor, gates[0].x, gates[0].y)).toBe(true);
-    (w as unknown as { killEnemy(x: EnemyState): void }).killEnemy(boss);
+    Combat.killEnemy(w, boss);
     expect(gates[0].locked).toBe(false);
     expect(gates[0].open).toBe(true);
   });

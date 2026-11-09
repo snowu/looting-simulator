@@ -12,6 +12,7 @@ import { makeMaterial, rollEnemyLoot } from '../systems/items';
 import { World } from '../world/world';
 import type { DamageType } from '../types';
 import { room } from './harness';
+import * as Combat from '../world/combat';
 
 interface Private {
   killEnemy(e: EnemyState): void;
@@ -136,7 +137,7 @@ describe('the thieving Cutpurse', () => {
     w.run.backpack.items = [];
     addItem(w.run.backpack, makeMaterial('iron', 10));
     const e = facing(w, 'goblin');
-    priv(w).damagePlayer(8, 'slash', e.x, e.y, 'Goblin Cutpurse', 'goblin', e);
+    Combat.damagePlayer(w, 8, 'slash', e.x, e.y, 'Goblin Cutpurse', 'goblin', e);
     expect(e.stolen?.[0].qty).toBe(5);
     expect(w.run.backpack.items[0].qty).toBe(5);
     expect(e.ai).toBe('flee');
@@ -148,10 +149,10 @@ describe('the thieving Cutpurse', () => {
     addItem(w.run.backpack, makeMaterial('iron', 10));
     const e = facing(w, 'goblin');
     w.anim.blockRaise = 1;
-    priv(w).damagePlayer(8, 'slash', e.x, e.y, 'Goblin Cutpurse', 'goblin', e);
+    Combat.damagePlayer(w, 8, 'slash', e.x, e.y, 'Goblin Cutpurse', 'goblin', e);
     expect(e.stolen).toBeUndefined();
     Object.assign(w.anim, { blockRaise: 0, parryArmed: true, blockT: 0 });
-    priv(w).damagePlayer(8, 'slash', e.x, e.y, 'Goblin Cutpurse', 'goblin', e);
+    Combat.damagePlayer(w, 8, 'slash', e.x, e.y, 'Goblin Cutpurse', 'goblin', e);
     expect(e.stolen).toBeUndefined();
     expect(w.run.backpack.items[0].qty).toBe(10);
   });
@@ -160,10 +161,10 @@ describe('the thieving Cutpurse', () => {
     const w = arena(93);
     addItem(w.run.backpack, makeMaterial('iron', 10));
     const e = facing(w, 'skeleton');
-    priv(w).damagePlayer(8, 'slash', e.x, e.y, 'Skeleton', 'skeleton', e);
+    Combat.damagePlayer(w, 8, 'slash', e.x, e.y, 'Skeleton', 'skeleton', e);
     expect(e.stolen).toBeUndefined();
     e.elite = 'thieving';
-    priv(w).damagePlayer(8, 'slash', e.x, e.y, 'Skeleton', 'skeleton', e);
+    Combat.damagePlayer(w, 8, 'slash', e.x, e.y, 'Skeleton', 'skeleton', e);
     expect(e.stolen?.length).toBe(1);
   });
 
@@ -172,8 +173,8 @@ describe('the thieving Cutpurse', () => {
     w.run.backpack.items = [];
     addItem(w.run.backpack, makeMaterial('iron', 4));
     const e = facing(w, 'goblin');
-    priv(w).damagePlayer(8, 'slash', e.x, e.y, 'Goblin Cutpurse', 'goblin', e);
-    priv(w).killEnemy(e);
+    Combat.damagePlayer(w, 8, 'slash', e.x, e.y, 'Goblin Cutpurse', 'goblin', e);
+    Combat.killEnemy(w, e);
     const pile = w.floor.pickups.find((p) => p.x === e.x && p.y === e.y)!;
     expect(pile.items.some((i) => i.ref === 'iron' && i.qty === 2)).toBe(true);
     expect(e.stolen).toBeUndefined();
@@ -244,7 +245,7 @@ describe('the Vengeful burst', () => {
     const w = arena(96);
     const e = facing(w, 'skeleton');
     e.elite = 'vengeful';
-    priv(w).killEnemy(e);
+    Combat.killEnemy(w, e);
     expect(e.burstT).toBe(VENGEFUL_FUSE);
     const hp = w.player.hp;
     run(w, VENGEFUL_FUSE * 0.5);
@@ -262,7 +263,7 @@ describe('the Vengeful burst', () => {
     const d = w.player.facing;
     const rat = createEnemy(enemyDef('rat'), e.x + DX[d], e.y + DY[d], 0, 'rat', 1);
     w.floor.enemies.push(rat);
-    priv(w).killEnemy(e);
+    Combat.killEnemy(w, e);
     // Back off two tiles.
     w.player.x -= DX[d] * 2;
     w.player.y -= DY[d] * 2;

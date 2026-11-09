@@ -15,6 +15,7 @@ import { Floor, Prop, blocksMove } from '../systems/dungeon';
 import { makeEquipment } from '../systems/items';
 import { Rarity } from '../types';
 import { World } from '../world/world';
+import * as Combat from '../world/combat';
 
 /** A cleared 15×15 room around the player, facing north, with nothing on the floor. */
 function room(seed = 501): World {
@@ -336,7 +337,7 @@ describe('the biome laws', () => {
     run(w, 0.6);
     expect(e.ai).toBe('recover');
     expect(e.vuln).toBeGreaterThan(0);
-    (w as unknown as { damagePlayer(a: number, t: string, x: number, y: number, s: string): void }).damagePlayer(10, 'blunt', 10, 9, 'test');
+    Combat.damagePlayer(w, 10, 'blunt', 10, 9, 'test');
     expect(w.anim.stunT).toBeGreaterThan(0);
   });
 

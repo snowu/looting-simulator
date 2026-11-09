@@ -5,6 +5,7 @@ import { World } from '../world/world';
 import { createEnemy } from '../systems/dungeon';
 import { enemyDef } from '../data/enemies';
 import { room } from './harness';
+import * as Combat from '../world/combat';
 
 /**
  * The world runs on whatever dt the display gives it. A rule that rolls once
@@ -62,7 +63,7 @@ describe('the gameplay stream', () => {
     const said: string[] = [];
     for (let i = 0; i < 60; i++) {
       const before = w.rng.state;
-      (w as unknown as { hitEnemy(e: unknown): void }).hitEnemy(e);
+      Combat.hitEnemy(w, e);
       draws.add(drawsBetween(before, w.rng.state));
       for (const ev of w.drainEvents()) if (ev.type === 'msg') said.push(ev.text);
     }

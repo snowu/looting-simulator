@@ -18,6 +18,7 @@ import { DamageType } from '../types';
 import type { World } from './world';
 import * as Boss from './boss';
 import * as Spells from './spells';
+import * as Combat from './combat';
 
 /** Burns tick down and chills wear off. Run every frame over the floor. */
 export function updateAfflictions(w: World, dt: number): void {
@@ -61,7 +62,7 @@ export function updateAfflictions(w: World, dt: number): void {
       recordDamageDealt(w.state.bestiary, enemyDef(e.def).id, whole);
     }
     if (burn.t <= 0 || burn.left <= 0) delete e.burn;
-    if (e.hp <= 0) w.killEnemy(e);
+    if (e.hp <= 0) Combat.killEnemy(w, e);
   }
 }
 
@@ -107,7 +108,7 @@ export function scorch(w: World, x: number, y: number, ticks: number, source: st
   const depth = w.run.depth;
   if (p.x === x && p.y === y) {
     const bite = Math.max(1, Math.round((FIRE_PLAYER_BASE + FIRE_PLAYER_PER_DEPTH * depth) * ticks * w.diff.trapDamage));
-    w.damagePlayer(bite, 'fire', x, y, source, undefined, undefined, true);
+    Combat.damagePlayer(w, bite, 'fire', x, y, source, undefined, undefined, true);
     if (w.run.outcome !== 'active') return;
   }
   for (const e of f.enemies) {
@@ -120,7 +121,7 @@ export function scorch(w: World, x: number, y: number, ticks: number, source: st
     e.burn = { t: BURN_SECONDS, left: Math.max(e.burn?.left ?? 0, Math.round(dealt * 2 / ticks)), acc: e.burn?.acc ?? 0 };
     if (e.hp <= 0) {
       w.msg(`The ${def.name} burns.`, '#ff8040');
-      w.killEnemy(e);
+      Combat.killEnemy(w, e);
     }
   }
 }

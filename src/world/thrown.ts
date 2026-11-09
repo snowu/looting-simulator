@@ -16,6 +16,7 @@ import * as Hazards from './hazards';
 import * as Boss from './boss';
 import type { World } from './world';
 import { Projectile, RETRIEVE_PER_SHAFT } from './world';
+import * as Combat from './combat';
 
 /** Tiles per second a called shaft travels on its way back to your hand. */
 export const RETURN_SPEED = 11;
@@ -180,10 +181,10 @@ export function throwWeapon(w: World): void {
 export function thrownHit(w: World, pr: Projectile, e: EnemyState): void {
   if (Boss.protectedByFog(w, e)) return;
   const player = pr.player ?? w.derived;
-  const def = w.view(e);
-  const reaction = w.guardReaction(e, def);
+  const def = Combat.view(w, e);
+  const reaction = Combat.guardReaction(w, e, def);
   if (reaction) {
-    w.shieldChip(e, def, 1, pr.damage, player);
+    Combat.shieldChip(w, e, def, 1, pr.damage, player);
     wearThrown(w, pr.weaponUid);
     return;
   }
@@ -196,7 +197,7 @@ export function thrownHit(w: World, pr: Projectile, e: EnemyState): void {
   w.sfx(hit.crit ? 'crit' : 'hit', e.x, e.y);
   if (player.stats.leech > 0) w.heal(Math.max(1, Math.round(hit.damage * player.stats.leech / 100)), 'leech');
   wearThrown(w, pr.weaponUid);
-  if (e.hp <= 0) w.killEnemy(e);
+  if (e.hp <= 0) Combat.killEnemy(w, e);
   else Hazards.slip(w, e);
 }
 

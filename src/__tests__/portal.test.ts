@@ -10,6 +10,7 @@ import { addItem } from '../state/inventory';
 import { makeConsumable, makeEquipment, makeMaterial } from '../systems/items';
 import { Rarity } from '../types';
 import { room, tick } from './harness';
+import * as Combat from '../world/combat';
 
 
 const arena = (seed = 1): World => room({ seed });
@@ -20,7 +21,7 @@ describe('the boss hoard', () => {
     const t = w.frontTile(1);
     const boss = createEnemy(enemyDef(BOSS_ID), t.x, t.y, turnAround(w.player.facing), 'king', 6);
     w.floor.enemies.push(boss);
-    (w as unknown as { killEnemy(e: typeof boss): void }).killEnemy(boss);
+    Combat.killEnemy(w, boss);
 
     const portal = w.floor.props.find((p) => p.kind === 'portal')!;
     expect(portal).toBeTruthy();
@@ -35,7 +36,7 @@ describe('the boss hoard', () => {
       const t = w.frontTile(1);
       const boss = createEnemy(enemyDef(BOSS_ID), t.x, t.y, turnAround(w.player.facing), 'king', 6);
       w.floor.enemies.push(boss);
-      (w as unknown as { killEnemy(e: typeof boss): void }).killEnemy(boss);
+      Combat.killEnemy(w, boss);
       for (const pile of w.floor.pickups.filter((p) => p.items.length)) {
         expect(w.floor.tiles[pile.y * w.floor.width + pile.x]).toBe(FLOOR);
       }

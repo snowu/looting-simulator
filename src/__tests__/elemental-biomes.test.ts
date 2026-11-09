@@ -14,6 +14,7 @@ import { startRun } from '../systems/run';
 import { World } from '../world/world';
 import { createShared, ps1Material } from '../render/ps1';
 import { Texture } from 'three';
+import * as Combat from '../world/combat';
 
 const seeded = (value: unknown) => JSON.stringify(value, (key, v) => key === 'uid' ? undefined : v);
 
@@ -75,7 +76,7 @@ describe('elemental relatives', () => {
       e.guard = 'up'; e.guardT = 20; e.ai = 'chase'; e.hp = 1000;
       w.floor.enemies.push(e);
       // Resolve the exact same blow without allowing AI to turn between samples.
-      (w as unknown as { hitEnemy(enemy: typeof e): void }).hitEnemy(e);
+      Combat.hitEnemy(w, e);
       return 1000 - e.hp;
     };
     expect(damage(true)).toBeLessThan(damage(false));

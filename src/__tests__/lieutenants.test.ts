@@ -7,6 +7,7 @@ import { LIEUTENANT_MIN_DISTANCE, QUARTERMASTER_MIN_GOBLINS, RALLY_DAMAGE, isGob
 import { makeMaterial } from '../systems/items';
 import { startRun } from '../systems/run';
 import { World } from '../world/world';
+import * as Combat from '../world/combat';
 
 interface Private {
   changeFloor(dir: 'down' | 'up'): void;
@@ -65,7 +66,7 @@ describe('the Goblin Quartermaster', () => {
     expect(priv(w).rally(rat)).toBe(1);
     expect(priv(w).rally(qm)).toBe(1);
     const pilesBefore = w.floor.pickups.length;
-    priv(w).killEnemy(qm);
+    Combat.killEnemy(w, qm);
     expect(priv(w).rally(gob)).toBe(1);
     expect(gob.ai).toBe('flee');
     expect(w.floor.pickups.length).toBeGreaterThan(pilesBefore);
@@ -100,7 +101,7 @@ describe('the Hoarder', () => {
     expect(w.floor.pickups.includes(pile)).toBe(false);
     expect(e.hoard?.some((i) => i.ref === 'iron')).toBe(true);
     expect(e.hoardGold).toBe(12);
-    priv(w).killEnemy(e);
+    Combat.killEnemy(w, e);
     const drop = w.floor.pickups.find((k) => k.x === e.x && k.y === e.y)!;
     expect(drop.items.some((i) => i.ref === 'iron' && i.qty === 5)).toBe(true);
     expect(drop.gold).toBeGreaterThanOrEqual(12);

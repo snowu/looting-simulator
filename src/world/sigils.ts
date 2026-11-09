@@ -12,6 +12,7 @@ import { metaLevel } from '../systems/meta';
 import { EnemyDef, EQUIP_SLOTS, EquipSlot, Item } from '../types';
 import type { World } from './world';
 import { GUARD_DOWN, TRAPS } from './world';
+import * as Combat from './combat';
 
 /**
  * Each sigil's own colour for the wash that plays when it lands.
@@ -58,7 +59,7 @@ export function castWardcry(w: World): void {
   const front = w.frontTile();
   const e = enemyAt(w.floor, front.x, front.y);
   if (!e) return;
-  const enemy = w.view(e);
+  const enemy = Combat.view(w, e);
   if (enemy.behavior === 'boss') {
     e.attackCd = Math.max(e.attackCd, 0.5);
     return;
@@ -84,7 +85,7 @@ export function castWardcry(w: World): void {
   const damage = Math.min(25, Math.round(e.maxHp * 0.1));
   e.hp -= Math.round(damage * (enemy.resist.blunt ?? 1));
   e.hurtT = 0.3;
-  if (e.hp <= 0) w.killEnemy(e);
+  if (e.hp <= 0) Combat.killEnemy(w, e);
 }
 
 export function castSnuff(w: World): void {

@@ -5,6 +5,7 @@ import { enemyDef } from '../data/enemies';
 import { AMBUSH_BEAT, BURROW_MAX, DROP_SECONDS, EARTH_BIOMES, KNOCKOUT_STUN, SURFACE_SECONDS, droppersFor } from '../data/ambush';
 import { World } from '../world/world';
 import { room } from './harness';
+import * as Combat from '../world/combat';
 
 interface Private {
   resolvePlayerAttack(): void;
@@ -112,7 +113,7 @@ describe('the drop', () => {
     const w = arena(135);
     const e = lurker(w, 'ceiling_crawler', 'ceiling', 1);
     e.spotted = true;
-    priv(w).resolvePlayerAttack();
+    Combat.resolvePlayerAttack(w);
     expect(e.lurk).toBeUndefined();
     expect(e.ai).toBe('recover');
     expect(e.vuln).toBe(KNOCKOUT_STUN);
@@ -121,7 +122,7 @@ describe('the drop', () => {
   it('an unspotted one cannot be struck: the swing goes into the air', () => {
     const w = arena(136);
     const e = lurker(w, 'ceiling_crawler', 'ceiling', 1);
-    priv(w).resolvePlayerAttack();
+    Combat.resolvePlayerAttack(w);
     // Still up there (it may have been set off by standing next to it, but not knocked out).
     expect(e.vuln ?? 0).toBe(0);
   });
@@ -141,7 +142,7 @@ describe('burrowers', () => {
   it('a mound can be struck to drag it out early', () => {
     const w = arena(138);
     const e = lurker(w, 'tunnel_stalker', 'buried', 1);
-    priv(w).resolvePlayerAttack();
+    Combat.resolvePlayerAttack(w);
     expect(e.lurk).toBeUndefined();
     expect(e.vuln).toBe(KNOCKOUT_STUN);
   });

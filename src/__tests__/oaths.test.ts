@@ -16,6 +16,7 @@ import { durability, makeEquipment } from '../systems/items';
 import { Rarity } from '../types';
 import { World } from '../world/world';
 import * as Sigils from '../world/sigils';
+import * as Combat from '../world/combat';
 
 interface Private {
   changeFloor(dir: 'down' | 'up'): void;
@@ -129,7 +130,7 @@ describe('each oath', () => {
     for (let d = 1; d < Math.max(...HUNTER_DEPTHS); d++) priv(w).changeFloor('down');
     const marked = state.run!.floors.flatMap((f) => f?.enemies.filter((e) => e.marked) ?? []);
     expect(marked).toHaveLength(HUNTER_DEPTHS.length);
-    for (const e of marked) priv(w).killEnemy(e);
+    for (const e of marked) Combat.killEnemy(w, e);
     expect(runOath(state.run!, 'hunter')!.marks).toBe(HUNTER_MARKS);
   });
 
@@ -152,7 +153,7 @@ describe('each oath', () => {
       Object.assign(p, { facing: 0 });
       w.anim.blockRaise = 1;
       const hp = p.hp;
-      priv(w).damagePlayer(30, 'slash', e.x, e.y, 'Skeleton', 'skeleton', e);
+      Combat.damagePlayer(w, 30, 'slash', e.x, e.y, 'Skeleton', 'skeleton', e);
       return hp - p.hp;
     };
     expect(block(['duelist'])).toBeGreaterThan(block([]));
@@ -160,7 +161,7 @@ describe('each oath', () => {
     for (let i = 0; i < DUELIST_KILLS; i++) {
       const e = createEnemy(enemyDef('rat'), 1, 1, 0, `r${i}`, 1);
       w.floor.enemies.push(e);
-      priv(w).killEnemy(e);
+      Combat.killEnemy(w, e);
     }
     expect(runOath(state.run!, 'duelist')!.kills).toBe(DUELIST_KILLS);
     expect(oathKept(state.run!, runOath(state.run!, 'duelist')!, 'extracted')).toBe(true);

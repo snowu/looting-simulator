@@ -6,6 +6,7 @@ import { durability } from '../systems/items';
 import { World } from '../world/world';
 import { spawnLabChest } from '../dev/lab-room';
 import { room } from './harness';
+import * as Combat from '../world/combat';
 
 const arena = (seed = 71): World => room({ seed });
 
@@ -48,7 +49,7 @@ describe('mimics', () => {
     w.interact();
     const mimic = w.floor.enemies[0];
 
-    (w as unknown as { killEnemy(e: typeof mimic): void }).killEnemy(mimic);
+    Combat.killEnemy(w, mimic);
 
     expect(w.run.stats.kills).toBe(1);
     const loot = w.floor.pickups.find((p) => p.x === t.x && p.y === t.y);
@@ -112,7 +113,7 @@ describe('mimics', () => {
     const t = w.frontTile();
     w.floor.props.push({ id: 'lurker', kind: 'chest', x: t.x, y: t.y, used: false, tier: 'chest', blocking: true, mimic: true });
 
-    (w as unknown as { resolvePlayerAttack(): void }).resolvePlayerAttack();
+    Combat.resolvePlayerAttack(w);
 
     expect(w.floor.props.some((p) => p.id === 'lurker')).toBe(false);
     const mimic = w.floor.enemies[0];
@@ -128,7 +129,7 @@ describe('mimics', () => {
     w.floor.props.push({ id: 'honest', kind: 'chest', x: t.x, y: t.y, used: false, tier: 'chest', blocking: true, mimic: false });
     const pickups = w.floor.pickups.length;
 
-    (w as unknown as { resolvePlayerAttack(): void }).resolvePlayerAttack();
+    Combat.resolvePlayerAttack(w);
 
     const chest = w.floor.props.find((p) => p.id === 'honest')!;
     expect(chest.used).toBe(false);
@@ -148,7 +149,7 @@ describe('mimics', () => {
   });
 
   it('every blow on an honest chest breaks something, fragile pieces first, and untouched keeps it all', () => {
-    const strike = (w: World) => (w as unknown as { resolvePlayerAttack(): void }).resolvePlayerAttack();
+    const strike = (w: World) => Combat.resolvePlayerAttack(w);
     const isFragile = (i: { kind: string; ref: string }) => i.kind === 'consumable' || i.kind === 'blueprint'
       || (i.kind === 'material' && ['gem', 'valuable'].includes(findMaterial(i.ref)?.category ?? ''));
     const units = (items: { kind: string; ref: string; qty: number }[], f: (i: { kind: string; ref: string }) => boolean) =>
@@ -192,7 +193,7 @@ describe('mimics', () => {
     const wholeGold = clean.run.gold - before;
 
     // Far more blows than the chest has pieces: everything goes, then the coin bleeds.
-    for (let i = 0; i < 40; i++) (w as unknown as { resolvePlayerAttack(): void }).resolvePlayerAttack();
+    for (let i = 0; i < 40; i++) Combat.resolvePlayerAttack(w);
     const g = w.run.gold;
     w.interact();
     const left = w.floor.pickups.find((pk) => pk.x === t.x && pk.y === t.y)?.items ?? [];
@@ -209,7 +210,7 @@ describe('mimics', () => {
     const far = { ...createEnemyAt(w, 20) };
     w.floor.enemies = [near, far];
 
-    (w as unknown as { resolvePlayerAttack(): void }).resolvePlayerAttack();
+    Combat.resolvePlayerAttack(w);
 
     expect(near.alert).toBeGreaterThan(0);
     expect([near.lastSeenX, near.lastSeenY]).toEqual([w.player.x, w.player.y]);
@@ -220,7 +221,7 @@ describe('mimics', () => {
     const w = arena(78);
     const t = w.frontTile();
     w.floor.props.push({ id: 'done', kind: 'chest', x: t.x, y: t.y, used: false, tier: 'chest', blocking: true, mimic: false });
-    const strike = () => (w as unknown as { resolvePlayerAttack(): void }).resolvePlayerAttack();
+    const strike = () => Combat.resolvePlayerAttack(w);
 
     strike();
     const box = w.floor.props.find((p) => p.id === 'done')!;

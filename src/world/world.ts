@@ -118,6 +118,7 @@ import { SHADOW_STEP_EVERY } from './boss';
 import * as Spells from './spells';
 import * as Sigils from './sigils';
 import * as Thrown from './thrown';
+import * as Combat from './combat';
 
 // ---------------------------------------------------------------------------
 // Events the world emits for the renderer / UI / audio to react to.
@@ -290,7 +291,7 @@ const STAMINA_DELAY = 0.9;
  * block key from being a permanent parry — at best you get one attempt per
  * PARRY_COOLDOWN, so it has to be timed against the wind-up you can see.
  */
-const PARRY_WINDOW = 0.22;
+export const PARRY_WINDOW = 0.22;
 const PARRY_COOLDOWN = 0.75;
 /**
  * An offhand conduit parries on a tighter window: it absorbs nothing, so the
@@ -319,8 +320,6 @@ export const RITE_CHARGE_COST = 2;
 const MIMIC_GRAB = 1.1;
 const MIMIC_BITE = 2.5;
 const MIMIC_SPAT = 0.45;
-/** How long a mimic takes to rise after being struck awake. */
-const MIMIC_RISE = 0.9;
 /**
  * Striking a chest is a test, and it is never free. Every blow on an honest
  * chest breaks one thing inside (see chestLoot for the order), and a blunt or
@@ -345,31 +344,12 @@ const CROWD_WAIT = 0.35;
 /** Normal's mending: seconds unhurt before it starts, and share of max health per second. */
 const REST_DELAY = 5;
 const REST_RATE = 0.02;
-/** Crowd control after turning aside a melee blow. */
-const MELEE_PARRY_SPLASH_STUN = 0.5;
-/** How long a parried melee attacker is left open, and how much harder it takes hits. */
-const PARRY_STUN = 1;
 
 export const PARRY_VULN_MULT = 2;
 
-/**
- * How long a turned blow counts toward a shield-bash: keep swinging into the
- * wall for this long and the second consecutive block bashes you. Back off,
- * circle behind, or let the bearer start a swing, and the count goes stale.
- */
-const BLOCK_EXPIRY = 2.5;
 
-/**
- * The guard rhythm. The shield sweeps center fast, holds long enough to chip
- * two swings, then drops long enough to punish. Hitting the raise is the
- * parry the bearer lands on *you*; chipping three in a row sags the arm and
- * opens them up. Everything is read off the sprite, never off a counter.
- */
-const GUARD_RAISE = 0.25;
-const GUARD_UP = 1.4;
 export const GUARD_DOWN = 1.6;
 const GUARD_RANGE = 4;
-const GUARD_BREAK_AT = 3;
 
 /**
  * Seconds between one shaft leaving the floor and the next.
@@ -396,7 +376,6 @@ export const RETRIEVE_PER_SHAFT = 0.75;
  */
 /** A badly hurt skittish monster's chance to bolt, per 60 fps tick it stands deciding. */
 const SKITTISH_FLEE_PER_TICK = 0.02;
-const STAGGER_HP = 55;
 
 
 /** Compact button label for an interaction hint. */
@@ -661,7 +640,7 @@ export class World {
   private sealedDiff: { base: DifficultyDef; def: DifficultyDef } | null = null;
 
   /** Loot find for every roll: your gear's, plus the Ashen Seals' bonus. */
-  private get lootFind(): number {
+  get lootFind(): number {
     return this.derived.find + SEAL_FIND * (this.run.seals?.length ?? 0);
   }
 
@@ -842,7 +821,7 @@ export class World {
   private restLastHp = Infinity;
 
   /** Armour wears where you were actually hit: one worn piece takes the scuff. */
-  private wearArmour(): void {
+  wearArmour(): void {
     const worn = (['body', 'head', 'hands'] as EquipSlot[]).filter((s) => {
       const it = this.state.equipment[s];
       return it && !durability(it).broken;
@@ -852,7 +831,7 @@ export class World {
   }
 
   /** A swing that hit nothing still dulls the edge, slowly: 1 wear per 3 whiffs. */
-  private wearWhiff(): void {
+  wearWhiff(): void {
     this.whiffs += 1;
     if (this.whiffs >= 3) {
       this.whiffs = 0;
@@ -948,7 +927,7 @@ export class World {
   }
 
   /** Turn a pending touch into the guard it was, raised when the finger landed. */
-  private confirmGuard(): void {
+  confirmGuard(): void {
     if (this.guardPendingAt === null) return;
     const since = this.time - this.guardPendingAt;
     this.guardPendingAt = null;
@@ -960,7 +939,7 @@ export class World {
     const a = this.anim;
     // The same conditions the update loop checks before raising a guard;
     // if any fails, the held block rises later by the usual path.
-    if (a.blockT !== Infinity || a.attack !== 'idle' || a.cast || a.stunT > 0 || a.sip !== null || this.brokenGuardGear()) return;
+    if (a.blockT !== Infinity || a.attack !== 'idle' || a.cast || a.stunT > 0 || a.sip !== null || Combat.brokenGuardGear(this)) return;
     a.blockT = since;
     a.parryArmed = this.guardPendingCd <= 0;
     if (a.parryArmed) a.parryCd = Math.max(0, (a.ward ? PARRY_COOLDOWN * 0.6 : PARRY_COOLDOWN) - since);
@@ -1126,7 +1105,7 @@ export class World {
     // A sip is a commitment: the guard stays down for the whole 0.5s, so a
     // blow mid-sip lands unblocked (see damagePlayer) and the heal still lands.
     const wantGuard = this.held.has('block') && a.attack === 'idle' && !a.cast && a.stunT <= 0 && a.sip === null;
-    const brokenGuard = wantGuard ? this.brokenGuardGear() : null;
+    const brokenGuard = wantGuard ? Combat.brokenGuardGear(this) : null;
     const wantBlock = wantGuard && !brokenGuard;
     // A Wand or Rod guards nothing, so it only flicks up for the parry: it
     // rises while the window is open, then lowers even while held. A tap
@@ -1172,7 +1151,7 @@ export class World {
     if (a.attack !== 'idle') {
       a.attackT += dt;
       if (a.attack === 'windup' && a.attackT >= a.attackDur) {
-        this.resolvePlayerAttack();
+        Combat.resolvePlayerAttack(this);
         a.attack = 'recover';
         a.attackT = 0;
         a.attackDur = a.attackRecovery;
@@ -1490,7 +1469,7 @@ export class World {
     this.changeFloor(dir);
   }
 
-  private finish(outcome: 'dead' | 'extracted'): void {
+  finish(outcome: 'dead' | 'extracted'): void {
     if (this.run.outcome !== 'active') return;
     this.riteDraw = null; // an open trace ends with the run, unpaid
     this.run.outcome = outcome;
@@ -1582,12 +1561,12 @@ export class World {
       const vdef = enemyDef(victim.def);
       if (victim.hp <= 0) {
         this.msg(`The ${vdef.name} blunders into ${def.source}.`, '#e0c060');
-        this.killEnemy(victim);
+        Combat.killEnemy(this, victim);
       }
       return;
     }
     this.msg(def.hit, '#ff7070');
-    this.damagePlayer(Math.max(1, Math.round(damage * this.diff.trapDamage)), def.damageType, trap.x, trap.y, def.source);
+    Combat.damagePlayer(this, Math.max(1, Math.round(damage * this.diff.trapDamage)), def.damageType, trap.x, trap.y, def.source);
   }
 
   /** Mark tiles near and in view as explored (automap fog). */
@@ -1611,62 +1590,6 @@ export class World {
       if (blocksSight(f, t.x, t.y)) break;
     }
     this.spotTraps();
-  }
-
-  /**
-   * Is an attack arriving from (x, y) inside the parry window? The guard has to
-   * have gone up in the last PARRY_WINDOW seconds and be facing the attack —
-   * the same facing rule blocking uses, since a parry is a sharper block.
-   * An offhand conduit answers on a tighter window (CONDUIT_PARRY_WINDOW).
-   */
-  private parries(fromX: number, fromY: number): boolean {
-    // A touch still deciding between block and walk counts from when it
-    // landed: a tap timed to the wind-up parries like a key press would.
-    this.confirmGuard();
-    const a = this.anim;
-    const base = PARRY_WINDOW * this.diff.parryWindow * (this.derived.conduitHand === 'offhand' ? CONDUIT_PARRY_WINDOW : 1);
-    const window = a.ward ? base * 2 : base;
-    if (!a.parryArmed || a.blockT > window) return false;
-    return this.facingSource(fromX, fromY);
-  }
-
-  /** A projectile parry may spend the one follow-up granted by a prior reflection. */
-  parriesProjectile(fromX: number, fromY: number): boolean {
-    return this.parries(fromX, fromY) || (this.anim.rangedParryT > 0 && this.facingSource(fromX, fromY));
-  }
-
-  /** Whether an attack from (x, y) comes at you from the tile you are facing. */
-  private facingSource(fromX: number, fromY: number): boolean {
-    const p = this.player;
-    const front = this.frontTile();
-    return (
-      (fromX === front.x && fromY === front.y) ||
-      (Math.sign(fromX - p.x) === DX[p.facing] && Math.sign(fromY - p.y) === DY[p.facing] && (fromX === p.x || fromY === p.y))
-    );
-  }
-
-  /**
-   * The gear your guard is raised with — the shield if you carry one, else
-   * the weapon — when it is broken and guards nothing. At 15% stats a
-   * cracked guard would barely turn a blow anyway, and a guard that
-   * sometimes works teaches you to trust it right up until it doesn't.
-   * Fists cannot break, so an unarmed guard always holds.
-   */
-  private brokenGuardGear(): Item | null {
-    const eq = this.state.equipment;
-    const g = this.derived.hasShield ? eq.offhand : eq.weapon;
-    return g && durability(g).broken ? g : null;
-  }
-
-  /** Shared feedback for any parry: it should feel like a moment. */
-  parryFlourish(x: number, y: number): void {
-    if (this.derived.traits.riposte) this.anim.riposteT = RIPOSTE_WINDOW;
-    if (this.derived.traits.countercharm) Spells.refundCharges(this, COUNTERCHARM_CHARGES);
-    this.anim.blockT = Infinity;
-    this.anim.parryArmed = false;
-    this.sfx('parry', x, y);
-    this.emit({ type: 'float', x, y, text: 'Parry!', color: '#ffe8a0' });
-    this.emit({ type: 'shake', amount: 0.35 });
   }
 
   /** Grid line of sight (Bresenham). `inclusive` lets the target itself be opaque. */
@@ -2078,350 +2001,6 @@ export class World {
     return true;
   }
 
-  private resolvePlayerAttack(): void {
-    const f = this.floor;
-    if (this.anim.attackSpell) {
-      Spells.launchSpell(this, this.anim.attackSpell);
-      return;
-    }
-    if (this.anim.attackThrow) {
-      Thrown.throwWeapon(this);
-      return;
-    }
-    this.sfx('swing');
-    for (let d = 1; d <= this.derived.swing.reach; d++) {
-      const t = this.frontTile(d);
-      // A spotted dropper overhead, or any mound, can be struck where it
-      // hides: it comes out early, reeling and open.
-      const hidden = d === 1 ? lurkerAt(f, t.x, t.y) : undefined;
-      if (hidden && (hidden.lurk === 'buried' || hidden.spotted)) {
-        this.knockOut(hidden);
-        this.wear('weapon', 2);
-        return;
-      }
-      const e = enemyAt(f, t.x, t.y);
-      if (e) {
-        this.hitEnemy(e);
-        // 2 per landed blow, 3 on a cleave (was 1/2): ~55 hits to break a
-        // weapon, roughly a floor and a half of fighting, not four floors.
-        this.wear('weapon', this.cleave(t.x, t.y) ? 3 : 2);
-        return;
-      }
-      const p = propAt(f, t.x, t.y);
-      if (p && d === 1 && isVessel(p) && !p.used) {
-        this.breakProp(p);
-        return;
-      }
-      const crack = d === 1 ? crackAt(f, t.x, t.y) : undefined;
-      if (crack) {
-        this.strikeCrack(crack);
-        return;
-      }
-      // An emptied chest is only boards now: one blow and it is splinters.
-      if (p && p.kind === 'chest' && p.used && !p.smashed) {
-        p.smashed = true;
-        this.sfx('break', p.x, p.y);
-        this.emit({ type: 'shake', amount: 0.15 });
-        return;
-      }
-      // Dark Souls rules: an honest chest shrugs off a blow like a wall does,
-      // and a mimic takes it and wakes up. Hitting first is the test.
-      if (p && p.kind === 'chest' && !p.used) {
-        this.wear('weapon', 1);
-        this.chestClang(p);
-        // The blow only wakes it: it rises at full health, as in Dark Souls.
-        if (p.mimic) {
-          this.wakeMimic(p, MIMIC_RISE);
-          this.sfx('alert', p.x, p.y);
-          this.emit({ type: 'shake', amount: 0.4 });
-          this.msg('The chest rises up and reveals itself. Prepare to fight!', '#e8c080');
-          return;
-        }
-        this.sfx('block', p.x, p.y);
-        this.emit({ type: 'shake', amount: 0.15 });
-        this.shatterInChest(p);
-        this.msg('Your blow glances off the chest. Something inside breaks.', '#d0a070');
-        return;
-      }
-      if (blocksSight(f, t.x, t.y)) break;
-    }
-    this.wearWhiff();
-    this.sfx('miss');
-  }
-
-  /**
-   * Spill a two-hander's blow into everything touching the thing it landed on.
-   *
-   * The cleave is centred on the *target*, not on you, which is the whole
-   * difference between it and a shield: a guard covers the tile you face, and
-   * this covers the rank behind that tile. With a halberd's reach the centre is
-   * two tiles out, so the cleave lands entirely among the things you cannot
-   * touch with anything else in the game.
-   *
-   * Your own tile is excluded — you are standing on it, and a swing that
-   * wrapped all the way back around would be free damage on anything that had
-   * already closed, which is exactly the position a two-hander is supposed to
-   * be bad in. The main target is excluded because it already took the blow in
-   * full.
-   *
-   * Returns whether anything was caught, which is all the caller wants: a
-   * cleave that bit costs the weapon a second point of wear.
-   */
-  private cleave(cx: number, cy: number): boolean {
-    const mult = this.derived.swing.cleave;
-    if (!mult) return false;
-    // A broken edge spills nothing: the blow still lands single-target at
-    // 15%, but there is no splash into its neighbours.
-    const weapon = this.state.equipment.weapon;
-    if (weapon && durability(weapon).broken) return false;
-    const caught: EnemyState[] = [];
-    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-      if (!dx && !dy) continue;
-      const x = cx + dx, y = cy + dy;
-      if (x === this.player.x && y === this.player.y) continue;
-      const e = enemyAt(this.floor, x, y);
-      if (e) caught.push(e);
-    }
-    // Every cleaved blow is a glancing one: one guard chip, never the two a
-    // two-hander's full swing is worth, and never the bash that opens a shield.
-    for (const e of caught) this.hitEnemy(e, true, 1, mult);
-    return caught.length > 0;
-  }
-
-  /**
-   * What the bearer's shield does about this blow. Frontal only, and only
-   * while the guard is up in some form: committed to a swing, reeling from
-   * your parry, running, or guard down, and the shield might as well be
-   * firewood. A blow into the *raise* is the parry the bearer lands on you;
-   * a blow into the hold just chips.
-   */
-  /**
-   * This creature as it is right now. Identical to its stat block for
-   * everything in the game except the King, who answers from his phase — so the
-   * guard rhythm, the sprite picker, the wind-up and the volley all keep
-   * reading the fields they always read.
-   */
-  view(e: EnemyState): EnemyDef {
-    return enemyView(enemyDef(e.def), e.hp, e.maxHp, { elite: e.elite, carrying: !!e.stolen?.length, marked: e.marked, shadeType: e.shadeType, calm: e.calm, chilled: (e.chillT ?? 0) > 0, hexed: (e.hexT ?? 0) > 0 });
-  }
-
-  guardReaction(e: EnemyState, def: EnemyDef): 'bash' | 'chip' | null {
-    if (!def.shield) return null;
-    if ((e.vuln ?? 0) > 0) return null;
-    if (e.ai === 'windup' || e.ai === 'recover' || e.ai === 'flee') return null;
-    if ((e.guard ?? 'down') === 'down') return null;
-    const d = dirOf(Math.sign(this.player.x - e.x), Math.sign(this.player.y - e.y));
-    if (d === null || d !== e.facing) return null;
-    return e.guard === 'raising' ? 'bash' : 'chip';
-  }
-
-  /**
-   * The guard rhythm runs on its own while you are close: raise, hold, drop.
-   * The sprite is the whole telegraph — shield sweeping center means back
-   * off, held means circle, dropped means strike.
-   */
-  private updateGuard(e: EnemyState, def: EnemyDef, dt: number, threat: boolean): void {
-    if (!def.shield) return;
-    if (e.ai === 'windup' || e.ai === 'recover' || e.ai === 'flee' || e.ai === 'dead') return;
-    if (!threat) {
-      e.guard = 'down';
-      e.blocks = 0;
-      e.guardT = Math.max(e.guardT ?? 0, 0.5);
-      return;
-    }
-    const left = (e.guardT ?? 0) - dt;
-    switch (e.guard ?? 'down') {
-      case 'down':
-        if (left <= 0) {
-          e.guard = 'raising';
-          e.guardT = GUARD_RAISE;
-          const d = dirOf(Math.sign(this.player.x - e.x), Math.sign(this.player.y - e.y));
-          if (d !== null) e.facing = d;
-        } else {
-          e.guardT = left;
-        }
-        break;
-      case 'raising':
-        if (left <= 0) {
-          e.guard = 'up';
-          e.guardT = GUARD_UP;
-        } else {
-          e.guardT = left;
-        }
-        break;
-      case 'up':
-        if (left <= 0) {
-          e.guard = 'down';
-          e.guardT = GUARD_DOWN;
-          e.blocks = 0;
-        } else {
-          e.guardT = left;
-        }
-        break;
-    }
-  }
-
-  /**
-   * A blow into the held guard: most of it absorbed, no stagger — the guard
-   * holds. Lean on it three chips running and the arm sags, dropping the
-   * guard wide open. Flank it, meet its swing, or time the drop instead.
-   */
-  shieldChip(e: EnemyState, def: EnemyDef, chips = 1, power = this.anim.attackPower, player = this.derived): void {
-    if (Boss.protectedByFog(this, e)) return;
-    const sh = def.shield!;
-    // Difficulty thins the armour on Normal; Hard multiplies by exactly 1.
-    const hit = playerHitsEnemy(this.rng, player, power, def, defensePower(e.power) * this.diff.enemyDefense);
-    const dmg = Math.max(0, Math.round(hit.damage * (1 - sh.block)));
-    e.hp -= dmg;
-    e.blocks = (e.blocks ?? 0) + chips;
-    e.blockT = BLOCK_EXPIRY;
-    e.hurtT = 0.3;
-    e.alert = 8;
-    e.lastSeenX = this.player.x;
-    e.lastSeenY = this.player.y;
-    const life = this.state.lifetime;
-    if (dmg > (life.bestHit ?? 0)) life.bestHit = dmg;
-    recordDamageDealt(this.state.bestiary, def.id, dmg);
-    this.emit({ type: 'float', x: e.x, y: e.y, text: `${dmg}`, color: '#9a9aa8' });
-    this.sfx('block', e.x, e.y);
-    // Leech off a shield is still leech: it heals through heal(), like the
-    // other three, so half_healing, Normal's healing and Last Flask apply.
-    if (player.stats.leech > 0 && dmg > 0) this.heal(Math.max(1, Math.round((dmg * player.stats.leech) / 100)), 'leech');
-    if (e.hp <= 0) {
-      this.killEnemy(e);
-      return;
-    }
-    if ((e.blocks ?? 0) >= GUARD_BREAK_AT) {
-      e.blocks = 0;
-      e.guard = 'down';
-      e.guardT = GUARD_DOWN;
-      this.sfx('break', e.x, e.y);
-      this.msg(`The ${def.name}'s guard sags!`, '#ffe8a0');
-    }
-  }
-
-  private shieldBash(e: EnemyState, def: EnemyDef): void {
-    const a = this.anim;
-    a.attack = 'idle';
-    a.attackThrow = false;
-    a.attackT = 0;
-    a.blockRaise = 0;
-    a.blockT = Infinity;
-    a.parryArmed = false;
-    a.stunT = def.shield!.stun;
-    e.alert = 8;
-    e.blocks = 0;
-    e.guard = 'down';
-    e.guardT = GUARD_DOWN;
-    e.lastSeenX = this.player.x;
-    e.lastSeenY = this.player.y;
-    this.emit({ type: 'shake', amount: 0.6 });
-    this.sfx('block', e.x, e.y);
-    this.msg(`The ${def.name} turns your blow aside and bashes you!`, '#ff9070');
-    // The sure hit: it starts its swing now, while you can't move or guard.
-    this.beginWindup(e, def, this.player.x, this.player.y);
-  }
-
-  private hitEnemy(e: EnemyState, neverBash = false, chips = this.derived.swing.chips ?? 1, powerMult = 1): void {
-    if (Boss.protectedByFog(this, e)) return;
-    const def = this.view(e);
-    if ((e.eating ?? 0) > 0) e.eating = undefined;
-    const reaction = this.guardReaction(e, def);
-    if (reaction === 'bash' && !neverBash) {
-      this.shieldBash(e, def);
-      return;
-    }
-    if (reaction === 'chip' || (reaction === 'bash' && neverBash)) {
-      this.shieldChip(e, def, chips, this.anim.attackPower * powerMult);
-      return;
-    }
-    e.blocks = 0;
-    // The Horn's charge is Attack, not damage: it goes into the swing before
-    // armour takes its cut, so "+4 Attack" means what it says and a target
-    // immune to the blow is immune to the charge behind it. Counted before
-    // this blow is added, so the first hit of a fight lands at plain strength.
-    // Clamped to what you are *currently* holding, so a charge cannot be parked
-    // by swapping the Horn off and restored by swapping it back on.
-    const chargeMax = this.derived.traits.chargeMax;
-    this.anim.chargeStacks = Math.min(this.anim.chargeStacks, chargeMax);
-    const charged = this.anim.chargeStacks * this.derived.traits.charge;
-    // Weave: a spell that landed in the last few seconds rides on this blow as
-    // its element, and is spent by it. Only the blow itself — a cleave's spill
-    // is the same swing and does not get a second helping.
-    const weave = powerMult === 1 ? this.anim.weave : null;
-    const striker = weave
-      ? { ...this.derived, stats: { ...this.derived.stats, [weave.element]: (this.derived.stats[weave.element] ?? 0) + weave.amount } }
-      : this.derived;
-    const hit = playerHitsEnemy(this.rng, striker, this.anim.attackPower * powerMult, def, defensePower(e.power) * this.diff.enemyDefense, charged);
-    if (weave) {
-      this.anim.weave = null;
-      this.emit({ type: 'float', x: e.x, y: e.y - 0.3, text: 'woven', color: '#c8b8ff' });
-    }
-    // And the other half: a blow that lands feeds the conduit.
-    if (powerMult === 1 && this.derived.conduit) Spells.growConduit(this, this.derived.conduit.charges, this.derived.conduit.regrow, WEAVE_REGROW);
-    // Everything you land while the parry opening lasts hits twice as hard.
-    const exposed = !!e.vuln && e.vuln > 0;
-    if (exposed) hit.damage = Math.round(hit.damage * PARRY_VULN_MULT);
-    // Banked parries ride on the next blows and only the next blows.
-    const fed = this.anim.parryStacks * this.derived.traits.parryFeed;
-    if (fed > 0) hit.damage = Math.round(hit.damage * (1 + fed));
-    // A Marrow Draught rides on the first blow that lands, and only that one.
-    const marrow = this.anim.draught?.kind === 'marrow' ? draught(this.state.flask?.infusion)?.marrowMult ?? 1 : 1;
-    if (marrow > 1) {
-      hit.damage = Math.round(hit.damage * marrow);
-      this.anim.draught = null;
-      if (def.behavior !== 'boss') {
-        e.ai = 'recover';
-        e.timer = Math.max(e.timer, 0.8);
-        e.attackCd = Math.max(e.attackCd, 1);
-      }
-      this.emit({ type: 'shake', amount: 0.4 });
-    }
-    // Riposte rides on the whole swing after a parry; Bulwark on the next blow that lands.
-    if (this.anim.riposteSwing) hit.damage = Math.round(hit.damage * RIPOSTE_MULT);
-    if (this.anim.bulwarkT > 0 && this.derived.traits.bulwark) {
-      hit.damage = Math.round(hit.damage * BULWARK_MULT);
-      this.anim.bulwarkT = 0;
-    }
-    e.hp -= hit.damage;
-    // The charge builds on the blow that just landed, so the *next* one is the
-    // one that carries it. Counted here rather than on the swing, because a
-    // swing that hit nothing is not a charge.
-    if (chargeMax > 0 && this.anim.chargeStacks < chargeMax) {
-      this.anim.chargeStacks++;
-      if (this.anim.chargeStacks === chargeMax) this.msg('The horn is up to speed.', '#f0e0ac');
-    }
-    if (this.derived.traits.kindling) this.kindle(e);
-    // A blow carrying fire or frost acts on the tile it lands on, like a bolt.
-    if ((striker.stats.fire ?? 0) > 0) Hazards.elementReaches(this, e.x, e.y, 'fire');
-    if ((striker.stats.frost ?? 0) > 0) Hazards.elementReaches(this, e.x, e.y, 'frost');
-    const life = this.state.lifetime;
-    if (hit.damage > (life.bestHit ?? 0)) life.bestHit = hit.damage;
-    recordDamageDealt(this.state.bestiary, def.id, hit.damage);
-    e.hurtT = 0.3;
-    e.alert = 8;
-    e.lastSeenX = this.player.x;
-    e.lastSeenY = this.player.y;
-    const color = exposed ? '#ffe8a0' : hit.crit ? '#ffe040' : hit.effective === 'weak' ? '#ff9a40' : hit.effective === 'resist' ? '#9a9aa8' : '#ffffff';
-    this.emit({ type: 'float', x: e.x, y: e.y, text: hit.crit || exposed ? `${hit.damage}!` : `${hit.damage}`, color });
-    this.sfx(hit.crit ? 'crit' : 'hit', e.x, e.y);
-    if (hit.effective === 'resist' && this.flavorRng.chance(0.3)) this.msg(`The ${def.name} shrugs off your ${this.derived.damageType} blows.`, '#9a9aa8');
-    if (hit.effective === 'weak' && this.flavorRng.chance(0.3)) this.msg(`The ${def.name} reels!`, '#ff9a40');
-    if (this.derived.stats.leech > 0) {
-      this.heal(Math.max(1, Math.round((hit.damage * this.derived.stats.leech) / 100)), 'leech');
-    }
-    // Lighter foes are staggered out of their wind-up.
-    if (this.derived.swing.stagger) e.attackCd += this.derived.swing.stagger;
-    if (!this.derived.swing.stagger && e.ai === 'windup' && def.hp < STAGGER_HP && def.behavior !== 'boss') {
-      e.ai = 'recover';
-      e.timer = 0.5;
-    }
-    if (e.hp <= 0) {
-      this.markRemains(e);
-      this.killEnemy(e);
-    } else Hazards.slip(this, e);
-  }
-
   /**
    * A freshly generated floor from depth 2 may get a lieutenant, on its own
    * stream: a Goblin Quartermaster where there are goblins to command, or the
@@ -2509,7 +2088,7 @@ export class World {
   }
 
   /** A lieutenant dies: its floor changes, and it pays in kind. */
-  private lieutenantFalls(e: EnemyState): void {
+  lieutenantFalls(e: EnemyState): void {
     if (e.lieutenant === 'quartermaster') {
       let routed = 0;
       for (const g of this.floor.enemies) {
@@ -2579,7 +2158,7 @@ export class World {
    * Your first King kill promises a rite, as it promises a flask shard: a
    * carving rises beside the portal, unless this delve already laid one.
    */
-  private placeKingCarving(x: number, y: number): void {
+  placeKingCarving(x: number, y: number): void {
     const f = this.floor;
     if ((this.state.ritesKnown ?? []).length >= RITE_KING_KNOWN) return;
     if (f.props.some((p) => p.kind === 'carving' && !p.used)) return;
@@ -2744,7 +2323,7 @@ export class World {
         e.attackCd = Math.max(e.attackCd, COLLAPSE_STUN + 0.2);
       }
       dealtTo.push(def.name);
-      if (e.hp <= 0) this.killEnemy(e);
+      if (e.hp <= 0) Combat.killEnemy(this, e);
     }
     this.emit({ type: 'shake', amount: 0.5 });
     this.msg(dealtTo.length ? `The timbers give and the roof comes down on the ${dealtTo.join(' and the ')}!` : 'The timbers give. Rock rains down where the wall stood.', LAWS.collapse.color);
@@ -2754,7 +2333,7 @@ export class World {
    * Kindling: a blow with fire in it, landing on a monster below `KINDLING_AT`
    * of its health, also burns one monster beside it for the fire share.
    */
-  private kindle(e: EnemyState): void {
+  kindle(e: EnemyState): void {
     const fire = this.derived.stats.fire ?? 0;
     if (fire <= 0 || e.hp >= e.maxHp * KINDLING_AT) return;
     const near = this.floor.enemies.filter((o) => o !== e && o.ai !== 'dead' && !o.lurk && manhattan(o.x, o.y, e.x, e.y) === 1);
@@ -2765,7 +2344,7 @@ export class World {
     if (dealt <= 0) return;
     this.hurt(o, dealt, `${dealt}`, '#ff9a50');
     o.alert = Math.max(o.alert, 8);
-    if (o.hp <= 0) this.killEnemy(o);
+    if (o.hp <= 0) Combat.killEnemy(this, o);
   }
 
   /**
@@ -2787,125 +2366,11 @@ export class World {
     if (caller) this.msg(e.remains === 'shattered' ? 'The bones shatter. Nothing will call these back.' : 'The remains are sanctified. They will stay down.', '#e8e0c0');
   }
 
-  killEnemy(e: EnemyState): void {
-    // Deliberately the stat block and not the phase view: what dies here has to
-    // be the creature itself, because its id is what the codex, the field notes
-    // and the one guaranteed relic in the game are all keyed off.
-    const def = enemyDef(e.def);
-    e.hp = 0;
-    e.ai = 'dead';
-    e.deadT = 0;
-    // It dies as itself: the remains are what the Gravecaller and the codex read.
-    if (e.hexT !== undefined) {
-      delete e.hexT;
-      Spells.addSpellFx(this, 'poof', e.x, e.y);
-    }
-    this.sfx('enemyDie', e.x, e.y);
-    // A Vengeful elite's fuse lights as it falls; `updateEnemies` sets it off.
-    if (e.elite === 'vengeful') {
-      e.burstT = VENGEFUL_FUSE;
-      this.msg('The corpse swells with violet light. Get clear!', '#c070ff');
-    }
-    // Something the King stood back up pays out once, not twice. It already
-    // gave you its hoard, its tally and its contract credit the first time it
-    // fell; without this the throne room would be the best place in the game to
-    // farm a Hollow Knight's moonsilver.
-    if (e.risen) {
-      this.msg(`${def.name} falls still again.`, '#c8c0b0');
-      return;
-    }
-    if (e.lieutenant) this.lieutenantFalls(e);
-    if (e.def === SHADE_ID && this.state.grave) {
-      const grave = this.state.grave;
-      this.state.grave = null;
-      this.dropLoot(e.x, e.y, grave.items, grave.gold);
-      this.msg('Your Shade comes apart. What you lost is yours again.', '#9ab8ff');
-    }
-    const duelist = runOath(this.run, 'duelist');
-    if (duelist && !e.risen) {
-      duelist.kills = (duelist.kills ?? 0) + 1;
-      if (duelist.kills === DUELIST_KILLS) this.msg(`${DUELIST_KILLS} kills with no guard but the parry. The Duelist's oath is met: now bring it home.`, OATHS.duelist.color);
-    }
-    const hunter = runOath(this.run, 'hunter');
-    if (e.marked && hunter) {
-      const oath = hunter;
-      oath.marks = (oath.marks ?? 0) + 1;
-      this.msg(oath.marks >= HUNTER_MARKS
-        ? `The last marked quarry falls. The hunt is done: now bring it home.`
-        : `Marked quarry slain: ${oath.marks} of ${HUNTER_MARKS}.`, OATHS.hunter.color);
-    }
-    Sigils.refundSigil(this, def, this.derived.traits.execution && (e.vuln ?? 0) > 0 ? EXECUTION_REFUND_MULT : 1);
-    Spells.refundConduit(this, def);
-    this.run.stats.kills++;
-    recordKill(this.state.contracts, def.id);
-    recordBestiaryKill(this.state.bestiary, def.id);
-    const loot = e.mimicTier && e.mimicPropId
-      ? this.containerLoot(createRng(hashString(`${this.floor.seed}:${e.mimicPropId}`)), e.mimicTier)
-      : rollEnemyLoot(this.rng, def, this.run.depth, this.lootFind, this.identifyBelow, this.state.recipeRanks, this.state.bestiary, this.seenUniques, this.difficultyId, !!e.elite);
-    const sigilDrop = def.behavior === 'boss'
-      ? this.rollSigil(`boss:${e.id}`, 1)
-      : e.mimicTier && e.mimicPropId
-        ? this.rollSigil(`chest:${e.mimicPropId}`, e.mimicTier === 'vault' || e.mimicTier === 'secret' ? 0.22 : 0.03 * clamp((this.run.depth - 1) / 4, 0, 1))
-        : null;
-    if (sigilDrop) loot.items.push(sigilDrop);
-    const tomeDrop = e.mimicTier && e.mimicPropId ? this.rollTome(`chest:${e.mimicPropId}`, tomeChance(e.mimicTier, this.run.depth)) : null;
-    if (tomeDrop) loot.items.push(tomeDrop);
-    if (def.behavior === 'boss') {
-      // The portal opens where the king fell, so his hoard goes beside it —
-      // dropped on the same tile it would be unreachable behind the portal.
-      const spot = this.freeTileNear(e.x, e.y);
-      this.dropLoot(spot.x, spot.y, loot.items, loot.gold);
-      this.run.stats.bossKilled = true;
-      if ((this.state.flask?.shards ?? 0) < 3) {
-        const shard = this.floor.pickups.find((p) => p.x === spot.x && p.y === spot.y) ?? { id: 'shard_king', x: spot.x, y: spot.y, items: [], gold: 0 };
-        shard.flaskShard = true;
-        if (!this.floor.pickups.includes(shard)) this.floor.pickups.push(shard);
-      }
-      this.msg('The Ashen King crumbles to cinders. A portal tears open.', '#c080ff');
-      Boss.unsealBossDoors(this);
-      this.floor.props.push({ id: `portal${this.time}`, kind: 'portal', x: e.x, y: e.y, used: false, tier: 'none', blocking: false, mimic: false });
-      this.placeKingCarving(e.x, e.y);
-    } else {
-      if (def.morsel) {
-        const foodRng = createRng(hashString(`morsel:${this.floor.seed}:${e.id}`));
-        if (foodRng.chance(morselChance(this.run.depth))) {
-          (this.floor.morsels ??= []).push({
-            id: `morsel_${e.id}`, kind: def.morsel, x: e.x, y: e.y,
-            remaining: MORSEL_HEAL[def.morsel], droppedAt: this.run.stats.time,
-          });
-        }
-        // The Big Toe: a second cut, on its own roll and its own stream, so
-        // carrying the toe cannot shift whether the *first* one dropped.
-        const butcher = this.derived.traits.butcher;
-        if (butcher > 0) {
-          const toeRng = createRng(hashString(`butcher:${this.floor.seed}:${e.id}`));
-          if (toeRng.chance(butcher)) {
-            const spot = this.freeTileNear(e.x, e.y);
-            (this.floor.morsels ??= []).push({
-              id: `morsel_toe_${e.id}`, kind: def.morsel, x: spot.x, y: spot.y,
-              remaining: MORSEL_HEAL[def.morsel], droppedAt: this.run.stats.time,
-            });
-            this.msg('The toe finds a second cut.', '#d8a88c');
-          }
-        }
-      }
-      this.dropLoot(e.x, e.y, loot.items, loot.gold);
-      this.msg(`${this.view(e).name} slain.`, e.elite ? '#e8d8a0' : '#c8c0b0');
-      if (e.stolen?.length) {
-        this.dropLoot(e.x, e.y, e.stolen, 0);
-        this.msg(`It drops your ${e.stolen.map(itemName).join(', ')}.`, '#e8c060');
-        delete e.stolen;
-        delete e.stolenT;
-      }
-    }
-    this.trialKill(e.id);
-  }
-
   /**
    * A walkable tile next to (x, y) — never the tile itself, since something is
    * about to be put there that would cover a loot pile. Falls back to (x, y).
    */
-  private freeTileNear(x: number, y: number): { x: number; y: number } {
+  freeTileNear(x: number, y: number): { x: number; y: number } {
     const f = this.floor;
     const ok = (tx: number, ty: number) =>
       !blocksMove(f, tx, ty) && !portalAt(f, tx, ty);
@@ -2917,17 +2382,17 @@ export class World {
   }
 
   /** Bespoke legendaries this playthrough has turned up, oldest first. */
-  private get seenUniques(): string[] {
+  get seenUniques(): string[] {
     return (this.state.lifetime.uniquesSeen ??= []);
   }
 
   /** Gear below this rarity drops identified: the Appraiser's second rank. */
-  private get identifyBelow(): Rarity | undefined {
+  get identifyBelow(): Rarity | undefined {
     return metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
   }
 
   /** A container's loot, rolled with this run's depth, find and unlocks. */
-  private containerLoot(rng: Rng, tier: ContainerTier): LootRoll {
+  containerLoot(rng: Rng, tier: ContainerTier): LootRoll {
     return rollContainerLoot(rng, this.run.depth, this.lootFind, tier, this.identifyBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId);
   }
 
@@ -2941,7 +2406,7 @@ export class World {
    * so adding tomes moved no chest's existing contents. Never one you know or
    * are already carrying anywhere, the same rule as a stone.
    */
-  private rollTome(stream: string, chance: number): Item | null {
+  rollTome(stream: string, chance: number): Item | null {
     const carried = [
       ...this.state.stash.items,
       ...this.state.loadout.items,
@@ -2954,7 +2419,7 @@ export class World {
     return rng.chance(chance) ? makeTome(rng.pick(unknown)) : null;
   }
 
-  private rollSigil(stream: string, chance: number): Item | null {
+  rollSigil(stream: string, chance: number): Item | null {
     const carried = [
       ...this.state.stash.items,
       ...this.state.loadout.items,
@@ -2987,7 +2452,7 @@ export class World {
     }
   }
 
-  private dropLoot(x: number, y: number, items: Item[], gold: number): Pickup | null {
+  dropLoot(x: number, y: number, items: Item[], gold: number): Pickup | null {
     if (!items.length && gold <= 0) return null;
     const f = this.floor;
     let pk = f.pickups.find((p) => p.x === x && p.y === y);
@@ -3046,14 +2511,14 @@ export class World {
   }
 
   /** Record what one blow on an honest chest breaks inside it: always one thing, sometimes two. */
-  private shatterInChest(p: Prop): void {
+  shatterInChest(p: Prop): void {
     const heavy = this.derived.twoHanded || this.derived.damageType === 'blunt';
     const struck = createRng(hashString(`chest-strike:${this.floor.seed}:${p.id}:${this.chestBlows++}`));
     p.shattered = (p.shattered ?? 0) + (heavy && struck.chance(CHEST_SHATTER_HEAVY_EXTRA) ? 2 : 1);
   }
 
   /** Iron on iron carries: anything near enough comes to see what it was. */
-  private chestClang(p: Prop): void {
+  chestClang(p: Prop): void {
     let woken = 0;
     for (const e of this.floor.enemies) {
       if (e.ai === 'dead' || Boss.protectedByFog(this, e)) continue;
@@ -3067,7 +2532,7 @@ export class World {
   }
 
   /** Swap a disguised chest for the mimic inside it, holding the chest's reward. */
-  private wakeMimic(p: Prop, rise: number): EnemyState {
+  wakeMimic(p: Prop, rise: number): EnemyState {
     const f = this.floor;
     f.props = f.props.filter((q) => q !== p);
     const mimic = createEnemy(enemyDef('mimic'), p.x, p.y, turnAround(this.player.facing), `mimic:${p.id}`, this.run.depth, this.difficultyId);
@@ -3091,12 +2556,12 @@ export class World {
    * "Ever" is the codex's worst hit from a mimic, so it needs no save field.
    */
   private mimicBite(e: EnemyState): void {
-    const def = this.view(e);
+    const def = Combat.view(this, e);
     this.sfx('swing', e.x, e.y);
     e.strikeT = 0;
     const was = bestiaryEntry(this.state.bestiary, def.id);
     const first = was.worstHit === 0 && was.deaths === 0;
-    this.damagePlayer(
+    Combat.damagePlayer(this, 
       Math.max(1, Math.round(def.attack * MIMIC_BITE * attackPower(e.power) * this.diff.enemyDamage * this.diff.mimicBite)),
       def.damageType, e.x, e.y, def.name, def.id, e, true, this.diff.mimicMercy || first,
     );
@@ -3110,7 +2575,7 @@ export class World {
     return this.floor.enemies.some((e) => (e.grabT ?? 0) > 0 && e.ai !== 'dead');
   }
 
-  private breakProp(p: Prop): void {
+  breakProp(p: Prop): void {
     if (p.oil) {
       Hazards.spillBarrel(this, p);
       return;
@@ -3670,7 +3135,7 @@ export class World {
   }
 
   /** A trial-marked kill: strike it from the roll, and pay the prize when the roll is empty. */
-  private trialKill(id: string): void {
+  trialKill(id: string): void {
     const trial = this.run.trial;
     if (!trial) return;
     trial.ids = trial.ids.filter((t) => t !== id);
@@ -4093,7 +3558,7 @@ export class World {
         this.updateLurker(e, dt);
         continue;
       }
-      const def = this.view(e);
+      const def = Combat.view(this, e);
       if (def.behavior === 'boss') Boss.checkBossPhase(this, e);
       e.hurtT = Math.max(0, e.hurtT - dt);
       if (!e.scavenged && /^(rat|bat)(_|$)/.test(e.def) && (e.ai === 'idle' || e.ai === 'wander')) {
@@ -4176,7 +3641,7 @@ export class World {
       }
 
       // The guard rhythm ticks while the bearer is free to hold it.
-      this.updateGuard(e, def, dt, e.alert > 0 && dist <= GUARD_RANGE);
+      Combat.updateGuard(this, e, def, dt, e.alert > 0 && dist <= GUARD_RANGE);
 
       // A Gravecaller chanting over a corpse stands still until it finishes or is broken.
       if (def.raises && this.updateRaiser(e, def, edt)) continue;
@@ -4296,7 +3761,7 @@ export class World {
   /** Monsters winding up or mid-flurry this frame, for `DifficultyDef.maxAttackers`. */
   private committed = 0;
 
-  private beginWindup(e: EnemyState, def: EnemyDef, tx: number, ty: number, minReach = 1): void {
+  beginWindup(e: EnemyState, def: EnemyDef, tx: number, ty: number, minReach = 1): void {
     this.committed++;
     const d = dirOf(Math.sign(tx - e.x), Math.sign(ty - e.y));
     if (d !== null) e.facing = d;
@@ -4460,164 +3925,7 @@ export class World {
       return;
     }
     const raw = def.attack * move.power * attackPower(e.power) * (e.scavengerAttack ?? 1) * this.rally(e) * this.diff.enemyDamage;
-    this.damagePlayer(Math.max(1, Math.round(raw)), def.damageType, srcX, srcY, def.name, def.id, e);
-  }
-
-  damagePlayer(
-    attack: number,
-    type: DamageType,
-    fromX: number,
-    fromY: number,
-    source: string,
-    sourceId?: string,
-    attacker?: EnemyState,
-    unavoidable = false,
-    /** Leave the player on at least 1 health, however hard this lands. */
-    spare = false,
-  ): void {
-    const p = this.player;
-    // A parry denies the hit outright and leaves the attacker open.
-    if (!unavoidable && this.parries(fromX, fromY)) {
-      this.parryFlourish(fromX, fromY);
-      const traits = this.derived.traits;
-      if (traits.parryFeedMax > 0 && this.anim.parryStacks < traits.parryFeedMax) {
-        this.anim.parryStacks++;
-        this.msg(`The blade drinks it in. ${this.anim.parryStacks} of ${traits.parryFeedMax}.`, '#ffe8a0');
-      }
-      if (attacker) {
-        const def = enemyDef(attacker.def);
-        this.anim.parryInvulnT = PARRY_GRACE * this.diff.parryGrace;
-        attacker.ai = 'recover';
-        // Never shorter than the recovery it would have had anyway.
-        attacker.timer = Math.max(attacker.timer, PARRY_STUN);
-        attacker.attackCd = Math.max(attacker.attackCd, PARRY_STUN + 0.2);
-        attacker.vuln = PARRY_STUN;
-        for (const other of this.floor.enemies) {
-          if (other === attacker || other.ai === 'dead' || other.lurk) continue;
-          if (manhattan(other.x, other.y, p.x, p.y) !== 1) continue;
-          other.ai = 'recover';
-          other.timer = Math.max(other.timer, MELEE_PARRY_SPLASH_STUN);
-          other.attackCd = Math.max(other.attackCd, MELEE_PARRY_SPLASH_STUN);
-        }
-        this.msg(`You turn the ${def.name.replace(/^The /, '')}'s blow aside. It reels — strike now!`, '#ffe8a0');
-        // A shield that answers: the blow it threw, thrown back.
-        if (traits.parryReflect > 0) Projectiles.reflectOntoAttacker(this, attacker, Math.round(attack * traits.parryReflect), type);
-      } else {
-        this.msg('You turn the blow aside.', '#ffe8a0');
-      }
-      return;
-    }
-    if (!unavoidable && this.anim.parryInvulnT > 0) return;
-    let dmg = enemyHitsPlayer(this.rng, attack, type, this.derived);
-    // What actually arrived, before the shield takes its share. `dmg` is
-    // reduced in place below, so anything that wants to know "were you hit"
-    // rather than "how much got through" has to read this.
-    const landed = dmg;
-    const facesSource = this.facingSource(fromX, fromY);
-    let blocked = false;
-    // Mid-sip the guard is down by design: the blow lands unblocked, and the
-    // heal still lands when the 0.5s commitment completes. Drinking in melee
-    // range is supposed to get you hit.
-    // Duelist: the guard is sworn away. A parry (above) still works.
-    // An offhand conduit is parry-only: it absorbs nothing, so a mistimed
-    // guard meets the blow whole instead of falling back to a block.
-    if (!unavoidable && this.anim.sip === null && this.anim.blockRaise > 0.6 && facesSource && !runOath(this.run, 'duelist') && this.derived.conduitHand !== 'offhand') {
-      const absorbed = dmg * this.derived.block;
-      const cost = absorbed * 1.3 * this.diff.blockStamina;
-      if (p.stamina >= cost) {
-        p.stamina -= cost;
-        dmg = Math.round(dmg - absorbed);
-        blocked = true;
-        // Bulwark: a heavy blow taken on the shield charges the next strike.
-        if (this.derived.traits.bulwark && absorbed >= this.derived.maxHp * BULWARK_SOAK) {
-          if (this.anim.bulwarkT <= 0) this.msg('The shield takes it. Your next blow is charged.', '#a8bccc');
-          this.anim.bulwarkT = BULWARK_WINDOW;
-        }
-        // Blocking grinds the shield down (2 per block, was 1); a parry
-        // costs it nothing, which is one more reason to meet the swing
-        // instead of hiding behind it.
-        if (this.derived.hasShield) this.wear('offhand', 2);
-      } else {
-        const frac = p.stamina / cost;
-        p.stamina = 0;
-        dmg = Math.round(dmg - absorbed * frac);
-        this.anim.blockRaise = 0;
-        this.msg('Your guard breaks!', '#ff9070');
-      }
-      this.anim.sinceStamina = 0;
-      this.sfx('block');
-    }
-    if (this.anim.recall !== null) {
-      this.anim.recall = null;
-      this.msg('The recall is broken by the blow.', '#888');
-    }
-    if (this.anim.retrieving) {
-      this.anim.retrieving = null;
-      this.msg('The blow scatters your aim; they stop coming.', '#888');
-    }
-    if (this.anim.chew) {
-      const chew = this.anim.chew;
-      const morsel = (this.floor.morsels ?? []).find((m) => m.id === chew.id);
-      if (morsel) morsel.remaining = Math.max(0, (chew.total - chew.delivered) / this.derived.maxHp);
-      this.anim.chew = null;
-      this.msg('The blow knocks the morsel from your hands.', '#c8a060');
-    }
-    // The Frost Vault: struck on its ice, you go down too.
-    if (dmg > 0 && !blocked && surfaceKindAt(this.floor, p.x, p.y) === 'ice' && biomeForFloor(this.floor).law === 'treacherous') {
-      this.anim.stunT = Math.max(this.anim.stunT, PLAYER_SLIP_SECONDS);
-      this.msg('You go down on the ice!', '#c8e8ff');
-    }
-    if (dmg > 0 && !blocked) this.wearArmour();
-    // An unblocked hit empties whatever the blade had banked. Blocking keeps it:
-    // the point of the thing is that you have to keep meeting the swing.
-    if (dmg > 0 && !blocked && this.anim.parryStacks > 0) {
-      this.anim.parryStacks = 0;
-      if (this.derived.traits.parryFeedMax > 0) this.msg('The blade goes cold.', '#9a9aa8');
-    }
-    // The Horn is harsher than the blade: a blow you *blocked* still stops the
-    // charge. It is a charge, and you stopped. Read off the blow that arrived
-    // rather than off `dmg`, which is already net of the shield — against a
-    // 90% guard anything under five rounds to nothing, and the charge would
-    // have survived hits the relic says break it.
-    if (landed > 0 && this.anim.chargeStacks > 0) {
-      this.anim.chargeStacks = 0;
-      if (this.derived.traits.chargeMax > 0) this.msg('The charge breaks.', '#9a9aa8');
-    }
-    // An Iron Draught blunts the next blow that gets through, then is spent.
-    if (dmg > 0 && this.anim.draught?.kind === 'iron') {
-      const cap = Math.round(this.derived.maxHp * (draught(this.state.flask?.infusion)?.wardFrac ?? 0));
-      const soaked = Math.min(dmg, cap);
-      dmg -= soaked;
-      this.anim.draught = null;
-      if (soaked > 0) {
-        this.emit({ type: 'float', x: p.x, y: p.y, text: `-${soaked}`, color: '#a8c0e0' });
-        this.msg(dmg > 0 ? 'The iron takes the worst of it.' : 'The iron takes the blow.', '#a8c0e0');
-      }
-    }
-    if (spare) dmg = Math.max(0, Math.min(dmg, Math.ceil(p.hp) - 1));
-    p.hp -= dmg;
-    // A thief's blow that gets through takes something with it.
-    if (attacker && dmg > 0 && !blocked && p.hp > 0 && !attacker.stolen?.length && this.view(attacker).thief) {
-      this.pickPocket(attacker);
-    }
-    if (this.anim.cast) {
-      this.anim.cast = null;
-      this.msg('The sigil cast is broken by the blow.', '#888');
-    }
-    if (dmg > (this.state.lifetime.worstHit ?? 0)) this.state.lifetime.worstHit = dmg;
-    if (sourceId) recordDamageTaken(this.state.bestiary, sourceId, dmg);
-    this.emit({ type: 'hurt', amount: dmg, blocked });
-    this.emit({ type: 'shake', amount: blocked ? 0.3 : Math.min(1, dmg / 20) });
-    if (dmg > 0 && !blocked) this.sfx('hurt');
-    if (p.hp <= 0) {
-      p.hp = 0;
-      this.run.killedBy = source;
-      // Traps have no codex entry, so they file nothing.
-      if (sourceId) recordBestiaryDeath(this.state.bestiary, sourceId);
-      this.sfx('death');
-      this.msg(`You were slain by ${source.startsWith('The ') ? source : 'a ' + source}.`, '#ff5050');
-      this.finish('dead');
-    }
+    Combat.damagePlayer(this, Math.max(1, Math.round(raw)), def.damageType, srcX, srcY, def.name, def.id, e);
   }
 
   /**
@@ -4732,7 +4040,7 @@ export class World {
    * loud: everything within `CRACK_NOISE` tiles comes to look, through walls.
    * At `CRACK_BLOWS` the wall goes, for good, and a seam or cache spills.
    */
-  private strikeCrack(c: Crack): void {
+  strikeCrack(c: Crack): void {
     const f = this.floor;
     // A small secret, not a rule: the Mining Pick knows where stone gives, and
     // brings any cracked wall down in one. Every other weapon takes CRACK_BLOWS.
@@ -4846,7 +4154,7 @@ export class World {
   }
 
   /** Struck where it hides: dragged out early, reeling, open to double damage. */
-  private knockOut(e: EnemyState): void {
+  knockOut(e: EnemyState): void {
     const def = enemyDef(e.def);
     const was = e.lurk;
     delete e.lurk;
@@ -4885,7 +4193,7 @@ export class World {
    * stack. Equipped gear is never at risk — only what you are carrying home,
    * which is the thing this whole game is about.
    */
-  private pickPocket(e: EnemyState): void {
+  pickPocket(e: EnemyState): void {
     const pack = this.run.backpack.items.filter((it) => it.kind !== 'lore');
     if (!pack.length) return;
     const target = this.rng.pick(pack);
@@ -4899,7 +4207,7 @@ export class World {
     e.alert = Math.max(e.alert, 6);
     this.emit({ type: 'float', x: this.player.x, y: this.player.y, text: 'Stolen!', color: '#e8c060' });
     this.sfx('gold', e.x, e.y);
-    this.msg(`The ${this.view(e).name} snatches your ${itemName(taken)} and runs!`, '#e8c060');
+    this.msg(`The ${Combat.view(this, e).name} snatches your ${itemName(taken)} and runs!`, '#e8c060');
   }
 
   /**
@@ -4987,12 +4295,12 @@ export class World {
       const odef = enemyDef(other.def);
       const dealt = Math.max(1, Math.round(def.attack * attackPower(e.power) * VENGEFUL_DAMAGE_MULT * (odef.resist[def.damageType] ?? 1)));
       this.hurt(other, dealt, `${dealt}`, '#c070ff');
-      if (other.hp <= 0) this.killEnemy(other);
+      if (other.hp <= 0) Combat.killEnemy(this, other);
     }
     if (inBlast(this.player.x, this.player.y)) {
       this.msg(`The Vengeful ${def.name}'s corpse bursts!`, '#c070ff');
       this.emit({ type: 'shake', amount: 0.5 });
-      this.damagePlayer(attack, def.damageType, e.x, e.y, `Vengeful ${def.name}`, def.id);
+      Combat.damagePlayer(this, attack, def.damageType, e.x, e.y, `Vengeful ${def.name}`, def.id);
     } else {
       this.msg('The corpse bursts harmlessly behind you.', '#9a80b0');
     }
