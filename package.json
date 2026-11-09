@@ -23,6 +23,7 @@
     "tables": "vitest run --config vitest.playtest.config.ts scripts/tables.bench.ts",
     "upgrades": "vitest run --config vitest.playtest.config.ts scripts/upgrades.bench.ts",
     "find": "vitest run --config vitest.playtest.config.ts scripts/find.bench.ts",
+    "mechanics": "vitest run --config vitest.playtest.config.ts scripts/mechanics.bench.ts",
     "patches": "node scripts/check-patches.mjs",
     "art:sheet": "node scripts/art-sheet.mjs",
     "art:sync": "node scripts/sync-public-art.mjs",

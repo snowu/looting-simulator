@@ -77,6 +77,8 @@ npm run patches     # validate the in-game patch notes against git history
 npm run art:check   # fail if public/art drifted from the code-drawn sprites
 ```
 
+**MECHANICS.md stays true by test.** Its monster stat and drop tables are generated from `src/data/enemies.ts`: after changing the roster, run `npm run mechanics` to rewrite them in place. `mechanics-doc.test.ts` fails when those tables are stale, when the doc points at a file that doesn't exist, or when a `*Files:*` line names a constant or function that isn't in the file it names.
+
 `npm run typecheck` runs `tsc --noEmit` on its own.
 
 ### Writing a world test
