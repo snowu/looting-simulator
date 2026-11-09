@@ -7,7 +7,6 @@
 import { dirOf } from '../core/dir';
 import { enemyDef } from '../data/enemies';
 import { consumable } from '../data/items';
-import { sigil } from '../data/spells';
 import { addItem, canFit, findItem, removeItem, roomFor } from '../state/inventory';
 import { loreName, unlockEntry } from '../systems/bestiary';
 import { blocksMove, blocksSight, enemyAt, EnemyState } from '../systems/dungeon';

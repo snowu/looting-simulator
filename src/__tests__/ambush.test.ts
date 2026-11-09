@@ -9,13 +9,6 @@ import * as Combat from '../world/combat';
 import * as Shrines from '../world/shrines';
 import * as Traps from '../world/traps';
 
-interface Private {
-  resolvePlayerAttack(): void;
-  threatNear(): boolean;
-  spotTraps(): void;
-}
-const priv = (w: World) => w as unknown as Private;
-
 const arena = (seed = 131): World => room({ seed });
 
 function run(w: World, seconds: number): void {

@@ -107,7 +107,9 @@ src/
                    recipes, relics (uniques), sigils (spells), difficulty, patch notes
   systems/         rules: combat, dungeon generation, items, crafting, market,
                    contracts, healing, meta (Warden upgrades), relics, run lifecycle
-  world/world.ts   the live dungeon simulation: player, enemies, projectiles, events
+  world/           the live dungeon simulation. world.ts is the public face and the
+                   tick; combat, enemy-ai, boss, spells, loot and the rest are
+                   plain functions of the world (map in world.ts's header)
   state/           GameState, inventory, save format, additive migrations, persistence
   render/          three.js PS1-style renderer, enemy poses, brightness, art cache
   art/             every sprite drawn in code, plus the registry that names them

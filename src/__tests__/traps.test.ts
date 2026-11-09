@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { turnAround } from '../core/dir';
 import { World, TRAPS } from '../world/world';
-import { EnemyState, FLOOR, Trap, TrapKind, createEnemy, generateFloor, trapAt } from '../systems/dungeon';
+import { FLOOR, Trap, TrapKind, createEnemy, generateFloor, trapAt } from '../systems/dungeon';
 import { enemyDef } from '../data/enemies';
 import { BASE_LIGHT_RADIUS, lightIntensity, lightRadius } from '../systems/meta';
 import { room, tick } from './harness';

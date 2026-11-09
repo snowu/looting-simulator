@@ -9,7 +9,6 @@ import { manhattan } from '../core/math';
 import { BURN_SECONDS, BURN_SHARE, CHILL_SECONDS, conduitSpell, ConduitSpellDef, findConduitSpell, HEX_SECONDS, WEAVE_SECONDS, WEAVE_SHARE } from '../data/conduit-spells';
 import { enemyDef } from '../data/enemies';
 import { rite, RiteDef } from '../data/rites';
-import { sigil } from '../data/spells';
 import { recordDamageDealt } from '../systems/bestiary';
 import { playerHitsEnemy } from '../systems/combat';
 import { blocksMove, blocksSight, defensePower, enemyAt, EnemyState, inRoom } from '../systems/dungeon';

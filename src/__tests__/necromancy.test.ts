@@ -8,14 +8,7 @@ import { room } from './harness';
 import * as Combat from '../world/combat';
 import * as EnemyAi from '../world/enemy-ai';
 
-interface Private {
-  killEnemy(e: EnemyState): void;
-  markRemains(e: EnemyState): void;
-}
-const priv = (w: World) => w as unknown as Private;
-
 const arena = (seed = 171): World => room({ seed });
-
 
 function run(w: World, seconds: number): void {
   for (let t = 0; t < seconds; t += 1 / 60) w.update(1 / 60);

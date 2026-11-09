@@ -1,72 +1,73 @@
+/**
+ * The live dungeon: one delve's player, monsters, projectiles and events.
+ *
+ * `World` is the public face (what main.ts, the UI, the bot and the tests
+ * call) and the orchestration: the tick (`update`), movement and floor
+ * changes, input, and the few services everything uses (`emit`, `msg`,
+ * `sfx`, `hurt`). The rules live beside it as plain functions that take the
+ * world first:
+ *
+ *   combat.ts       your blows, monster guards and shields, parries, damage
+ *                   you take, a monster falling
+ *   enemy-ai.ts     monster behaviour, pathing, the wind-up cycle, lurkers,
+ *                   raisers, thieves, noise
+ *   boss.ts         the Ashen King, his throne, seals, pitch, the Shadow Step
+ *   projectiles.ts  bolts in flight and reflected blows
+ *   spells.ts       conduit spells, rites, hexes
+ *   sigils.ts       what each sigil does when it lands
+ *   thrown.ts       thrown belts and Retrieval
+ *   hazards.ts      oil, water, ice, spores, vents, burn and chill
+ *   traps.ts        spotting, springing and disarming traps
+ *   shrines.ts      shrines, trials, the town portal
+ *   loot.ts         drops, chests, mimics, props
+ *   inventory.ts    taking, dropping, using items, quick slots
+ *   vitals.ts       healing and wear
+ *   features.ts     a floor's lieutenant, rite carving and hunter mark
+ *
+ * Members of World without `private` are reachable from those modules. Treat
+ * any the UI does not already use as internal to src/world/. A rule belongs
+ * in its module, not on World; World keeps a one-line delegate only where
+ * outside code calls it.
+ */
 import { Rng, createRng, hashString } from '../core/rng';
 import { gold } from '../core/format';
-import { Dir, DIR_NAMES, DIRS, DX, DY, dirOf, turnAround, turnLeft, turnRight } from '../core/dir';
-import { DamageType, ELEMENTS, Element, EnemyDef, EquipSlot, EQUIP_SLOTS, Item, SwingProfile } from '../types';
+import { Dir, DIR_NAMES, DX, DY, turnAround, turnLeft, turnRight } from '../core/dir';
+import { DamageType, Element, Item, SwingProfile } from '../types';
 import { GameState, RunState } from '../state/game-state';
-import { addItem, canFit, findItem, freeSlots, removeItem, roomFor, takeQty } from '../state/inventory';
-import {
-  THIEF_BOLT, THIEF_CREEP, THIEF_ESCAPE, THIEF_FUMBLE, THIEF_FUMBLE_CHANCE, THIEF_TRAIL_EVERY, THIEF_TRAIL_MAX,
-  VENGEFUL_DAMAGE_MULT, VENGEFUL_FUSE,
-} from '../data/elites';
-import { CACHE_MIN_GOLD, CRACK_BLOWS, CRACK_NOISE, CRACK_WEAR, Crack, SEAM_ORE } from '../data/walls';
-import {
-  BULWARK_MULT, BULWARK_SOAK, BULWARK_WINDOW, EXECUTION_REFUND_MULT, KINDLING_AT, KINDLING_SPREAD, LAST_FLASK_MULT,
-  COUNTERCHARM_CHARGES, RETRIEVAL_MULT, RIPOSTE_MULT, RIPOSTE_WINDOW,
-} from '../data/properties';
-import { AttackMove, COMBO_BEAT, FEINT_AT, FEINT_HOLD, chooseMove, meleeReach, moveById } from '../data/attacks';
+import { freeSlots } from '../state/inventory';
 import { quirkDef, quirkTimeScale } from '../data/quirks';
 import { applyQuirk } from '../systems/quirks';
-import { burningAt, chill, freezeFlood, ignite, oilBarrelAt, placeSurfaces, reachable, spillOil, splitsNothing, surfaceAt, surfaceKindAt, tickSurfaces } from '../systems/surfaces';
-import {
-  BURST_TICKS, FIRE_MONSTER_BASE, FIRE_MONSTER_PER_DEPTH, FIRE_PLAYER_BASE, FIRE_PLAYER_PER_DEPTH, FIRE_TICK, FLOOD_REACH,
-  FREEZE_SECONDS, PLAYER_FREEZE_SECONDS, PLAYER_SLIP_SECONDS, SLIP_SECONDS, SPORE_BLIND, SPORE_BURST_TICKS, Surface,
-  VENT_FLAMES, VENT_PERIOD_MAX, VENT_PERIOD_MIN, VENT_TICKS,
-} from '../data/surfaces';
+import { burningAt, placeSurfaces, surfaceKindAt } from '../systems/surfaces';
 import { FORK_DEPTH, ROADS, ROAD_DEPTHS } from '../data/routes';
-import { SHADE_ID, placeShade } from '../systems/grave';
+import { placeShade } from '../systems/grave';
 import { LIGHTLESS_LIGHT, SEAL_FIND, sealDifficulty, sealFloorMods } from '../data/seals';
 import {
-  HOARDER_REACH, HOARDER_SHY, LIEUTENANTS, LIEUTENANT_MIN_DISTANCE, LieutenantId, QUARTERMASTER_MIN_GOBLINS, RALLY_DAMAGE,
-  ROUT_SECONDS, isGoblin, lieutenantChance,
-} from '../data/lieutenants';
-import {
-  BURROWS_NOISE_MULT, COLLAPSE_BASE, COLLAPSE_PER_DEPTH, COLLAPSE_STUN, LAWS, OSSUARY_RISE_HP, OSSUARY_STIR, OSSUARY_STIR_AFTER,
-  ROOT_CACHE_LURE, lawFor,
+  lawFor,
 } from '../data/laws';
 import {
-  DUELIST_KILLS, HUNTER_DEPTHS, HUNTER_MARKS, HUNTER_SIGHT, KINGSBANE_DAMAGE, OATHS, PILGRIM_IDOL_CURSE, PILGRIM_PRAYERS,
-  SILENCE_NOISE, SILENCE_SIGHT, UNBROKEN_DEPTH, UNBROKEN_WEAR,
+  HUNTER_SIGHT,
+  KINGSBANE_DAMAGE,
+  OATHS,
+  PILGRIM_PRAYERS,
+  SILENCE_SIGHT,
+  UNBROKEN_DEPTH,
 } from '../data/oaths';
 import { runOath } from '../systems/oaths';
-import { eligibleTraits } from '../data/elites';
-import { RAISE_BEAT, RAISE_CHANNEL, RAISE_COOLDOWN, RAISE_HP, RAISE_LIMIT, RAISE_REACH, SHATTER_OVERKILL } from '../data/necromancy';
-import {
-  AMBUSH_BEAT, AMBUSH_TRIGGER, BURROW_MAX, BURROW_MIN, DIVE_AT, DROP_SECONDS, KNOCKOUT_STUN, MOUND_STEP, SURFACE_SECONDS,
-} from '../data/ambush';
 import {
   EnemyState,
   Floor,
   FLOOR,
   Pickup,
-  Prop,
-  Room,
   ShrineKind,
-  attackPower,
   blocksMove,
   blocksSight,
-  createEnemy,
-  defensePower,
   doorAt,
   enemyAt,
   lurkerAt,
-  promoteElite,
   crackAt,
   generateFloor,
-  inBounds,
-  inRoom,
   isBossDoor,
   isVessel,
-  portalAt,
   shrineKind,
   VESSELS,
   propAt,
@@ -74,47 +75,32 @@ import {
   shrinePityFor,
   stairsAt,
   stairsFront,
-  tileAt,
   Trap,
   TrapKind,
   trapAt,
 } from '../systems/dungeon';
-import { BOSS_ID, ENEMIES, enemyDef, enemyView, kingPhase, phaseForHp } from '../data/enemies';
-import { consumable, findConsumable, itemBase, viewmodelFor } from '../data/items';
+import { findConsumable, itemBase, viewmodelFor } from '../data/items';
 import { biomeForFloor, FINAL_DEPTH } from '../data/biomes';
 import { PlayerDerived, derivePlayer, spellView, thrownView } from '../systems/player';
 import { DifficultyId, DifficultyDef, difficultyOf } from '../data/difficulty';
-import { enemyHitsPlayer, playerHitsEnemy, staminaPower } from '../systems/combat';
-import { ContainerTier, LootRoll, durability, identify, isIdentified, itemName, makeMaterial, materialForDepth, rollContainerLoot, rollEnemyLoot, uniqueOf, wearItem } from '../systems/items';
-import { nameRelic } from '../systems/relics';
-import { recordDepth, recordKill } from '../systems/contracts';
-import {
-  bestiaryEntry,
-  loreName,
-  recordDamageDealt,
-  recordDamageTaken,
-  recordDeath as recordBestiaryDeath,
-  recordKill as recordBestiaryKill,
-  unlockEntry,
-} from '../systems/bestiary';
+import { staminaPower } from '../systems/combat';
+import { itemName } from '../systems/items';
+import { recordDepth } from '../systems/contracts';
 import { lightRadius, metaLevel } from '../systems/meta';
 import { Rarity } from '../types';
 import type { SfxName } from '../audio/sfx';
 import { SigilId, findSigil, sigil } from '../data/spells';
-import { makeSigil, unknownSigils } from '../systems/spells';
-import { BURN_SECONDS, BURN_SHARE, CHILL_SECONDS, ConduitSpellDef, HEX_SECONDS, WEAVE_REGROW, WEAVE_SECONDS, WEAVE_SHARE, conduitSpell, findConduitSpell } from '../data/conduit-spells';
-import { RITES, RITE_CARVING_DEPTH, RITE_KING_KNOWN, RITE_MILESTONES, ROAD_RITES, RiteDef, RiteId, findRite, rite, riteFloorChance } from '../data/rites';
+import { ConduitSpellDef, conduitSpell } from '../data/conduit-spells';
+import { RITES, RiteDef, findRite } from '../data/rites';
 import { RiteGrade, TracePoint, recogniseRite } from '../systems/rite-draw';
-import { loadedSpells, makeTome, unknownConduitSpells } from '../systems/conduits';
-import { CHEW_SECONDS, DREGS_FRACTION, FLASK_POTENCY, MORSEL_HEAL, MORSEL_ROT_SECONDS, SIP_BUFFER_SECONDS, SIP_SECONDS, flaskMax, morselChance } from '../systems/healing';
-import { findMaterial } from '../data/materials';
-import { Draught, KINDLE_SECONDS, MARROW_SECONDS, WARD_SECONDS, draught } from '../systems/infusion';
+import { loadedSpells } from '../systems/conduits';
+import { CHEW_SECONDS, FLASK_POTENCY, MORSEL_ROT_SECONDS, SIP_BUFFER_SECONDS, SIP_SECONDS, flaskMax } from '../systems/healing';
+import { draught } from '../systems/infusion';
 import { addStats } from '../types';
 import { clamp, manhattan } from '../core/math';
 import * as Projectiles from './projectiles';
 import * as Hazards from './hazards';
 import * as Boss from './boss';
-import { SHADOW_STEP_EVERY } from './boss';
 import * as Spells from './spells';
 import * as Sigils from './sigils';
 import * as Thrown from './thrown';

@@ -11,13 +11,6 @@ import { World } from '../world/world';
 import * as Combat from '../world/combat';
 import * as Loot from '../world/loot';
 
-interface Private {
-  resolvePlayerAttack(): void;
-  killEnemy(e: EnemyState): void;
-  breakProp(p: unknown): void;
-}
-const priv = (w: World) => w as unknown as Private;
-
 function run(w: World, seconds: number): void {
   for (let t = 0; t < seconds; t += 1 / 60) w.update(1 / 60);
 }

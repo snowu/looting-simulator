@@ -471,8 +471,6 @@ describe('the Stave', () => {
 });
 
 describe('battlemage payoffs', () => {
-  type Priv = { parryFlourish(x: number, y: number): void; hurt(e: unknown, dealt: number, text: string, color: string): void };
-  const priv = (w: World) => w as unknown as Priv;
 
   it('Countercharm: a parry puts a charge back, never past full', () => {
     const w = battlemage('rod');

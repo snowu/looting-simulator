@@ -5,7 +5,6 @@
  * attack on World starts a swing; World.update resolves it.
  */
 import { dirOf, DX, DY } from '../core/dir';
-import { gold } from '../core/format';
 import { clamp, manhattan } from '../core/math';
 import { createRng, hashString } from '../core/rng';
 import { biomeForFloor } from '../data/biomes';
@@ -14,7 +13,6 @@ import { VENGEFUL_FUSE } from '../data/elites';
 import { enemyDef, enemyView } from '../data/enemies';
 import { DUELIST_KILLS, HUNTER_MARKS, OATHS } from '../data/oaths';
 import { BULWARK_MULT, BULWARK_SOAK, BULWARK_WINDOW, COUNTERCHARM_CHARGES, EXECUTION_REFUND_MULT, RIPOSTE_MULT, RIPOSTE_WINDOW } from '../data/properties';
-import { sigil } from '../data/spells';
 import { PLAYER_SLIP_SECONDS } from '../data/surfaces';
 import { recordDamageDealt, recordDamageTaken, recordDeath as recordBestiaryDeath, recordKill as recordBestiaryKill } from '../systems/bestiary';
 import { enemyHitsPlayer, playerHitsEnemy } from '../systems/combat';

@@ -6,7 +6,6 @@
  * World.update calls updateEnemies.
  */
 import { dirOf, DIRS, DX, DY, turnAround } from '../core/dir';
-import { gold } from '../core/format';
 import { manhattan } from '../core/math';
 import { createRng, hashString } from '../core/rng';
 import { AMBUSH_BEAT, AMBUSH_TRIGGER, BURROW_MAX, BURROW_MIN, DIVE_AT, DROP_SECONDS, KNOCKOUT_STUN, MOUND_STEP, SURFACE_SECONDS } from '../data/ambush';

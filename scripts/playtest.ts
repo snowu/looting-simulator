@@ -28,8 +28,7 @@ import { bestiaryEntry } from '../src/systems/bestiary';
 import { FINAL_DEPTH } from '../src/data/biomes';
 import { dropIntoThroneRoom } from '../src/dev/boss-arena';
 import { itemValue } from '../src/systems/items';
-import { Item, Rarity, RARITY_ORDER } from '../src/types';
-import { derivePlayer, Equipment } from '../src/systems/player';
+import { Equipment } from '../src/systems/player';
 import { MetaLevels, META_UPGRADES } from '../src/systems/meta';
 import { durability } from '../src/systems/items';
 

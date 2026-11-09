@@ -10,17 +10,9 @@ import {
 } from '../data/elites';
 import { makeMaterial, rollEnemyLoot } from '../systems/items';
 import { World } from '../world/world';
-import type { DamageType } from '../types';
 import { room } from './harness';
 import * as Combat from '../world/combat';
 import * as EnemyAi from '../world/enemy-ai';
-
-interface Private {
-  killEnemy(e: EnemyState): void;
-  damagePlayer(attack: number, type: DamageType, fromX: number, fromY: number, source: string, sourceId?: string, attacker?: EnemyState): void;
-  runWithLoot(e: EnemyState, def: ReturnType<typeof enemyDef>, dist: number, sees: boolean, dt: number): boolean;
-}
-const priv = (w: World) => w as unknown as Private;
 
 const arena = (seed = 91): World => room({ seed });
 
