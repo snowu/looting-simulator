@@ -111,6 +111,7 @@ import { findMaterial } from '../data/materials';
 import { Draught, KINDLE_SECONDS, MARROW_SECONDS, WARD_SECONDS, draught } from '../systems/infusion';
 import { addStats } from '../types';
 import { clamp, manhattan } from '../core/math';
+import * as Projectiles from './projectiles';
 
 // ---------------------------------------------------------------------------
 // Events the world emits for the renderer / UI / audio to react to.
@@ -349,7 +350,7 @@ const CHEST_DENT = 0.4;
 const CHEST_SPILL = 0.25;
 const CHEST_CLANG_RADIUS = 7;
 /** Base grace after a parry; Normal extends it through difficulty tuning. */
-const PARRY_GRACE = 0.75;
+export const PARRY_GRACE = 0.75;
 /**
  * How long a monster held back by Normal's attacker cap waits before it asks
  * again. On the monsters' clock, so Normal's slower tempo stretches it too.
@@ -946,17 +947,17 @@ export class World {
    * Deciding whether that killed it stays with the caller, because what gets
    * said first — and when `killEnemy` rolls its loot — differs by source.
    */
-  private hurt(e: EnemyState, dealt: number, text: string, color: string): void {
+  hurt(e: EnemyState, dealt: number, text: string, color: string): void {
     e.hp -= dealt;
     e.hurtT = 0.3;
     this.emit({ type: 'float', x: e.x, y: e.y, text, color });
   }
 
-  private msg(text: string, color?: string): void {
+  msg(text: string, color?: string): void {
     this.emit({ type: 'msg', text, color });
   }
 
-  private sfx(name: SfxName, x?: number, y?: number): void {
+  sfx(name: SfxName, x?: number, y?: number): void {
     this.emit({ type: 'sfx', name, x, y });
   }
 
@@ -1336,7 +1337,7 @@ export class World {
     this.updateSurfaces(dt);
     this.updateRetrieve(dt);
     this.updateEnemies(dt);
-    this.updateProjectiles(dt);
+    Projectiles.updateProjectiles(this, dt);
     this.run.rngState = this.rng.state;
   }
 
@@ -1703,7 +1704,7 @@ export class World {
   }
 
   /** A projectile parry may spend the one follow-up granted by a prior reflection. */
-  private parriesProjectile(fromX: number, fromY: number): boolean {
+  parriesProjectile(fromX: number, fromY: number): boolean {
     return this.parries(fromX, fromY) || (this.anim.rangedParryT > 0 && this.facingSource(fromX, fromY));
   }
 
@@ -1731,7 +1732,7 @@ export class World {
   }
 
   /** Shared feedback for any parry: it should feel like a moment. */
-  private parryFlourish(x: number, y: number): void {
+  parryFlourish(x: number, y: number): void {
     if (this.derived.traits.riposte) this.anim.riposteT = RIPOSTE_WINDOW;
     if (this.derived.traits.countercharm) this.refundCharges(COUNTERCHARM_CHARGES);
     this.anim.blockT = Infinity;
@@ -2318,7 +2319,7 @@ export class World {
   }
 
   /** A battle bolt arriving. */
-  private spellHit(pr: Projectile, e: EnemyState): void {
+  spellHit(pr: Projectile, e: EnemyState): void {
     const spell = findConduitSpell(pr.spell);
     if (spell) this.spellLands(spell, e, pr.player ?? this.derived, pr.damage);
   }
@@ -2602,7 +2603,7 @@ export class World {
    * Water freezing around a monster holds it fast; around you, briefly. Fire
    * reaching an oil barrel bursts it.
    */
-  private elementReaches(x: number, y: number, element: DamageType): void {
+  elementReaches(x: number, y: number, element: DamageType): void {
     const f = this.floor;
     if (element === 'fire') {
       const barrel = oilBarrelAt(f, x, y);
@@ -2644,7 +2645,7 @@ export class World {
    * moonsilver axe would otherwise freeze everything it touched. Your own
    * bolt never holds you; theirs does.
    */
-  private frostLands(x: number, y: number, mine: boolean): void {
+  frostLands(x: number, y: number, mine: boolean): void {
     if (biomeForFloor(this.floor).law !== 'flood') return;
     const froze = freezeFlood(this.floor, x, y, FLOOD_REACH);
     if (!froze.length) return;
@@ -2945,7 +2946,7 @@ export class World {
    * or in your stock, and nothing can lose one in between. Stopping the call
    * still lets whatever is already airborne land.
    */
-  private collectReturn(base: string): void {
+  collectReturn(base: string): void {
     this.run.thrown ??= { held: {}, retrieveCd: 0 };
     this.run.thrown.held[base] = (this.run.thrown.held[base] ?? 0) + 1;
     this.wear('thrown');
@@ -3879,7 +3880,7 @@ export class World {
     if (caller) this.msg(e.remains === 'shattered' ? 'The bones shatter. Nothing will call these back.' : 'The remains are sanctified. They will stay down.', '#e8e0c0');
   }
 
-  private killEnemy(e: EnemyState): void {
+  killEnemy(e: EnemyState): void {
     // Deliberately the stat block and not the phase view: what dies here has to
     // be the creature itself, because its id is what the codex, the field notes
     // and the one guaranteed relic in the game are all keyed off.
@@ -5304,14 +5305,14 @@ export class World {
   }
 
   /** The living throne is a combat boundary even while its entrance is open. */
-  private crossesBossBoundary(x0: number, y0: number, x1: number, y1: number): boolean {
+  crossesBossBoundary(x0: number, y0: number, x1: number, y1: number): boolean {
     const room = this.throneRoom();
     // Boundary first: it is two comparisons, and the King check scans every
     // enemy — this runs for each monster, every tick, on the throne floor.
     return !!room && inRoom(room, x0, y0) !== inRoom(room, x1, y1) && this.bossAlive();
   }
 
-  private protectedByFog(e: EnemyState): boolean {
+  protectedByFog(e: EnemyState): boolean {
     return this.crossesBossBoundary(this.player.x, this.player.y, e.x, e.y);
   }
 
@@ -5809,7 +5810,7 @@ export class World {
     this.damagePlayer(Math.max(1, Math.round(raw)), def.damageType, srcX, srcY, def.name, def.id, e);
   }
 
-  private damagePlayer(
+  damagePlayer(
     attack: number,
     type: DamageType,
     fromX: number,
@@ -5847,7 +5848,7 @@ export class World {
         }
         this.msg(`You turn the ${def.name.replace(/^The /, '')}'s blow aside. It reels — strike now!`, '#ffe8a0');
         // A shield that answers: the blow it threw, thrown back.
-        if (traits.parryReflect > 0) this.reflectOntoAttacker(attacker, Math.round(attack * traits.parryReflect), type);
+        if (traits.parryReflect > 0) Projectiles.reflectOntoAttacker(this, attacker, Math.round(attack * traits.parryReflect), type);
       } else {
         this.msg('You turn the blow aside.', '#ffe8a0');
       }
@@ -5966,119 +5967,6 @@ export class World {
     }
   }
 
-  private updateProjectiles(dt: number): void {
-    const f = this.floor;
-    const p = this.player;
-    for (const pr of this.projectiles) {
-      pr.x += pr.dx * pr.speed * dt;
-      pr.y += pr.dy * pr.speed * dt;
-      // A shaft on its way back to your hand hits nothing and is stopped by
-      // nothing: it steers at you every frame, so it still arrives if you walk
-      // while it flies, and it is collected the moment it is close enough.
-      // Checked before the tile-crossing early-out, because over a short
-      // distance it can arrive without ever leaving the tile it started in.
-      if (pr.returning) {
-        const ddx = p.x + 0.5 - pr.x, ddy = p.y + 0.5 - pr.y;
-        const dist = Math.hypot(ddx, ddy);
-        if (dist <= 0.45) {
-          pr.speed = 0;
-          if (pr.thrownBase) this.collectReturn(pr.thrownBase);
-          continue;
-        }
-        pr.dx = ddx / dist;
-        pr.dy = ddy / dist;
-        const rx = Math.floor(pr.x), ry = Math.floor(pr.y);
-        if (pr.damage > 0 && (rx !== pr.tileX || ry !== pr.tileY)) {
-          const cut = enemyAt(f, rx, ry);
-          if (cut && !pr.hitIds?.includes(cut.id)) {
-            (pr.hitIds ??= []).push(cut.id);
-            this.thrownHit(pr, cut);
-          }
-        }
-        pr.tileX = rx;
-        pr.tileY = ry;
-        continue;
-      }
-      const tx = Math.floor(pr.x), ty = Math.floor(pr.y);
-      if (tx === pr.tileX && ty === pr.tileY) continue;
-      const previous = { x: pr.tileX, y: pr.tileY };
-      pr.tileX = tx;
-      pr.tileY = ty;
-      if (pr.thrownBase || pr.spell) pr.traveled = (pr.traveled ?? 0) + 1;
-      if (blocksSight(f, tx, ty) || this.crossesBossBoundary(previous.x, previous.y, tx, ty)) {
-        pr.speed = 0;
-        if (pr.thrownBase) this.landThrown(pr.thrownBase, previous.x, previous.y);
-        else this.sfx('break', tx, ty);
-        continue;
-      }
-      // Fire and frost act on every tile they fly over, whoever loosed them:
-      // an Ember Bolt lights the oil it crosses, a frost bolt freezes water.
-      this.elementReaches(tx, ty, pr.type);
-      // A spell is spent where it strikes, and gutters out at the end of its
-      // range: nothing lands, so there is nothing to go and fetch.
-      if (pr.spell) {
-        const enemy = enemyAt(f, tx, ty);
-        if (enemy) {
-          pr.speed = 0;
-          this.spellHit(pr, enemy);
-        } else if ((pr.traveled ?? 0) >= (pr.thrownRange ?? 0)) {
-          pr.speed = 0;
-          this.sfx('break', tx, ty);
-        }
-        continue;
-      }
-      if (pr.thrownBase) {
-        const enemy = enemyAt(f, tx, ty);
-        if (enemy) {
-          pr.speed = 0;
-          this.thrownHit(pr, enemy);
-          // The shaft drops where it struck, not on the tile behind. Landing it
-          // behind meant a point blank throw fell at your own feet and was
-          // collected the same frame, so throwing into something adjacent cost
-          // no ammunition at all — the one range at which a thrown weapon is
-          // supposed to be a bad idea was the one where it was free.
-          this.landThrown(pr.thrownBase, tx, ty);
-          continue;
-        }
-        if ((pr.traveled ?? 0) >= (pr.thrownRange ?? 0)) {
-          pr.speed = 0;
-          this.landThrown(pr.thrownBase, tx, ty);
-        }
-        continue;
-      }
-      // Incoming bolts fly past their own kind; a parried one is yours, and
-      // buries itself in the first thing it meets.
-      if (pr.reflected) {
-        const hit = enemyAt(f, tx, ty);
-        if (hit) {
-          pr.speed = 0;
-          this.reflectedHit(pr, hit);
-        }
-        continue;
-      }
-      if (tx === p.x && ty === p.y) {
-        if (this.parriesProjectile(tx - pr.dx, ty - pr.dy)) {
-          this.reflect(pr);
-          continue;
-        }
-        pr.speed = 0;
-        this.damagePlayer(pr.damage, pr.type, tx - pr.dx, ty - pr.dy, pr.source, pr.reflected ? undefined : pr.sourceId);
-      }
-    }
-    if (this.projectiles.some((pr) => pr.speed <= 0)) {
-      // Frost lands where a bolt stops: the Catacombs' flood freezes there.
-      for (const pr of this.projectiles) {
-        if (pr.speed <= 0 && pr.type === 'frost' && !pr.thrownBase) this.frostLands(pr.tileX, pr.tileY, !!pr.spell || !!pr.reflected);
-      }
-      this.projectiles = this.projectiles.filter((pr) => pr.speed > 0);
-    }
-    const receiving = this.anim.retrieving;
-    if (receiving && receiving.left <= 0
-      && !this.projectiles.some(pr => pr.returning && pr.thrownBase === receiving.base)) {
-      this.anim.retrieving = null;
-    }
-  }
-
   private throwWeapon(): void {
     const base = this.anim.attackBase;
     const snapshot = this.anim.attackSnapshot;
@@ -6095,7 +5983,7 @@ export class World {
     this.sfx('shoot');
   }
 
-  private thrownHit(pr: Projectile, e: EnemyState): void {
+  thrownHit(pr: Projectile, e: EnemyState): void {
     if (this.protectedByFog(e)) return;
     const player = pr.player ?? this.derived;
     const def = this.view(e);
@@ -6118,7 +6006,7 @@ export class World {
     else this.slip(e);
   }
 
-  private landThrown(base: string, x: number, y: number): void {
+  landThrown(base: string, x: number, y: number): void {
     const markers = (this.floor.thrown ??= []);
     const marker = markers.find((m) => m.x === x && m.y === y && m.base === base);
     if (marker) marker.n++;
@@ -6168,25 +6056,6 @@ export class World {
       this.sfx('pickup');
     }
     return found;
-  }
-
-  /** Send a bolt back the way it came, now hostile to whatever shot it. */
-  private reflect(pr: Projectile): void {
-    const followUp = !this.anim.parryArmed;
-    this.parryFlourish(this.player.x, this.player.y);
-    this.anim.rangedParryT = followUp ? 0 : PARRY_GRACE * this.diff.parryGrace;
-    pr.dx = -pr.dx;
-    pr.dy = -pr.dy;
-    pr.reflected = true;
-    pr.source = 'your own parry';
-    // Restart it on your own tile, not the next one along: nudging it forward
-    // would mark the adjacent tile as already visited and skip whoever is
-    // standing there — which is exactly where the archer's escort tends to be.
-    pr.x = this.player.x + 0.5;
-    pr.y = this.player.y + 0.5;
-    pr.tileX = this.player.x;
-    pr.tileY = this.player.y;
-    this.msg('You knock the bolt back the way it came.', '#ffe8a0');
   }
 
   /**
@@ -6565,34 +6434,6 @@ export class World {
     } else {
       this.msg('The corpse bursts harmlessly behind you.', '#9a80b0');
     }
-  }
-
-  private reflectOntoAttacker(e: EnemyState, attack: number, type: DamageType): void {
-    if (this.protectedByFog(e)) return;
-    const def = enemyDef(e.def);
-    const mult = def.resist[type] ?? 1;
-    const damage = Math.max(mult > 0 ? 1 : 0, Math.round(attack * mult));
-    if (damage <= 0) return;
-    this.hurt(e, damage, `${damage}!`, '#ffe8a0');
-    recordDamageDealt(this.state.bestiary, def.id, damage);
-    this.sfx('hit', e.x, e.y);
-    this.msg(`The shield answers for you.`, '#ffe8a0');
-    if (e.hp <= 0) this.killEnemy(e);
-  }
-
-  /** A reflected bolt landing on a monster: its own damage, its own element. */
-  private reflectedHit(pr: Projectile, e: EnemyState): void {
-    if (this.protectedByFog(e)) return;
-    const def = enemyDef(e.def);
-    const mult = def.resist[pr.type] ?? 1;
-    const damage = Math.max(mult > 0 ? 1 : 0, Math.round(pr.damage * mult));
-    this.hurt(e, damage, `${damage}`, mult >= 1.4 ? '#ff9a40' : mult <= 0.7 ? '#9a9aa8' : '#ffe8a0');
-    e.alert = Math.max(e.alert, 8);
-    e.lastSeenX = this.player.x;
-    e.lastSeenY = this.player.y;
-    this.sfx('hit', e.x, e.y);
-    if (mult >= 1.4) this.msg(`Its own ${pr.type} burns it.`, '#ff9a40');
-    if (e.hp <= 0) this.killEnemy(e);
   }
 
   /** True while a raised guard can still turn a blow aside — the renderer's tell. */

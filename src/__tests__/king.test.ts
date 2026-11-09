@@ -3,7 +3,7 @@ import { createRng } from '../core/rng';
 import { DIRS, DX, DY, turnAround } from '../core/dir';
 import { newGame } from '../state/game-state';
 import { startRun } from '../systems/run';
-import { PITCH_FUSE, SHADOW_STEP_SECONDS, World } from '../world/world';
+import { PITCH_FUSE, Projectile, SHADOW_STEP_SECONDS, World } from '../world/world';
 import { EnemyState, FLOOR, Room, blocksMove, blocksSight, createEnemy, enemyAt, generateFloor, isBossDoor } from '../systems/dungeon';
 import { surfaceKindAt } from '../systems/surfaces';
 import { BOSS_ID, KING_PHASES, enemyDef, enemyView, kingPhase, phaseForHp } from '../data/enemies';
@@ -12,6 +12,7 @@ import { addItem } from '../state/inventory';
 import { Dir, dirOf } from '../core/dir';
 import { uniqueOf } from '../systems/items';
 import { room, tick } from './harness';
+import * as Projectiles from '../world/projectiles';
 
 
 const arena = (seed = 1): World => room({ seed });
@@ -301,16 +302,13 @@ describe('the fog gate', () => {
     Object.assign(boss, { x: inside.x, y: inside.y, fromX: inside.x, fromY: inside.y, moveT: 1 });
     const hp = boss.hp;
     expect(w.los(gate.x, gate.y, boss.x, boss.y)).toBe(false);
-    const combat = w as unknown as {
-      hitEnemy(e: EnemyState): void;
-      reflectedHit(pr: { damage: number; type: string }, e: EnemyState): void;
-    };
+    const combat = w as unknown as { hitEnemy(e: EnemyState): void };
     const dx = inside.x - gate.x, dy = inside.y - gate.y;
     w.projectiles.push({ id: 999, x: gate.x + 0.5, y: gate.y + 0.5,
       tileX: gate.x, tileY: gate.y, dx, dy, speed: 6, damage: 9999,
       type: 'fire', sprite: 'bolt_fire', source: 'your own parry', reflected: true });
     combat.hitEnemy(boss);
-    combat.reflectedHit({ damage: 9999, type: 'fire' }, boss);
+    Projectiles.reflectedHit(w, { damage: 9999, type: 'fire' } as Projectile, boss);
     tick(w, 2);
     expect(boss.hp).toBe(hp);
     expect(w.projectiles).toHaveLength(0);
