@@ -412,6 +412,8 @@ const RETURN_LOCAL_TILES = 2;
  * and 55 keeps exactly the same creatures on the light side of the line now
  * that every stat block is larger.
  */
+/** A badly hurt skittish monster's chance to bolt, per 60 fps tick it stands deciding. */
+const SKITTISH_FLEE_PER_TICK = 0.02;
 const STAGGER_HP = 55;
 
 /**
@@ -892,11 +894,23 @@ export class World {
     const cap = Math.round(this.derived.maxHp * this.diff.restHeal);
     const hunted = this.floor.enemies.some((e) => e.ai !== 'dead' && !e.lurk && e.alert > 0);
     if (!hunted && this.restWait >= REST_DELAY && p.hp > 0 && p.hp < cap) {
-      p.hp = Math.min(cap, p.hp + this.derived.maxHp * REST_RATE * dt);
+      // Health stays whole: the mend builds up here and lands a point at a
+      // time. It answers to half_healing like every other heal, but not to
+      // Normal's playerHealing, since this rate is already Normal's own knob.
+      this.restMend += this.derived.maxHp * REST_RATE * dt * this.derived.traits.healing;
+      const whole = Math.floor(this.restMend);
+      if (whole > 0) {
+        this.restMend -= whole;
+        p.hp = Math.min(cap, p.hp + whole);
+      }
+    } else {
+      this.restMend = 0;
     }
     this.restLastHp = p.hp;
   }
   private restWait = 0;
+  /** Rest mending not yet a whole point of health. */
+  private restMend = 0;
   private restLastHp = Infinity;
 
   /** Armour wears where you were actually hit: one worn piece takes the scuff. */
@@ -3362,10 +3376,9 @@ export class World {
     recordDamageDealt(this.state.bestiary, def.id, dmg);
     this.emit({ type: 'float', x: e.x, y: e.y, text: `${dmg}`, color: '#9a9aa8' });
     this.sfx('block', e.x, e.y);
-    if (player.stats.leech > 0 && dmg > 0) {
-      const heal = Math.max(1, Math.round((dmg * player.stats.leech) / 100));
-      this.player.hp = Math.min(this.derived.maxHp, this.player.hp + heal);
-    }
+    // Leech off a shield is still leech: it heals through heal(), like the
+    // other three, so half_healing, Normal's healing and Last Flask apply.
+    if (player.stats.leech > 0 && dmg > 0) this.heal(Math.max(1, Math.round((dmg * player.stats.leech) / 100)), 'leech');
     if (e.hp <= 0) {
       this.killEnemy(e);
       return;
@@ -3484,8 +3497,8 @@ export class World {
     const color = exposed ? '#ffe8a0' : hit.crit ? '#ffe040' : hit.effective === 'weak' ? '#ff9a40' : hit.effective === 'resist' ? '#9a9aa8' : '#ffffff';
     this.emit({ type: 'float', x: e.x, y: e.y, text: hit.crit || exposed ? `${hit.damage}!` : `${hit.damage}`, color });
     this.sfx(hit.crit ? 'crit' : 'hit', e.x, e.y);
-    if (hit.effective === 'resist' && this.rng.chance(0.3)) this.msg(`The ${def.name} shrugs off your ${this.derived.damageType} blows.`, '#9a9aa8');
-    if (hit.effective === 'weak' && this.rng.chance(0.3)) this.msg(`The ${def.name} reels!`, '#ff9a40');
+    if (hit.effective === 'resist' && this.flavorRng.chance(0.3)) this.msg(`The ${def.name} shrugs off your ${this.derived.damageType} blows.`, '#9a9aa8');
+    if (hit.effective === 'weak' && this.flavorRng.chance(0.3)) this.msg(`The ${def.name} reels!`, '#ff9a40');
     if (this.derived.stats.leech > 0) {
       this.heal(Math.max(1, Math.round((hit.damage * this.derived.stats.leech) / 100)), 'leech');
     }
@@ -5550,7 +5563,10 @@ export class World {
         continue;
       }
       if (e.lieutenant === 'hoarder' && this.updateHoarder(e, def, dist, sees)) continue;
-      if (def.behavior === 'skittish' && e.hp < e.maxHp * 0.35 && sees && this.rally(e) === 1 && this.rng.chance(0.02)) {
+      // A monster standing still decides every tick, so the chance is per
+      // second, not per tick: 2% a tick at 60 fps, the rate it was tuned at,
+      // whatever the display runs at.
+      if (def.behavior === 'skittish' && e.hp < e.maxHp * 0.35 && sees && this.rally(e) === 1 && this.rng.chance(1 - Math.pow(1 - SKITTISH_FLEE_PER_TICK, dt * 60))) {
         e.ai = 'flee';
         this.msg(`The ${def.name} tries to flee!`, '#c8c0b0');
         continue;
