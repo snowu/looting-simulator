@@ -23,7 +23,7 @@ import {
   quoteSell,
   sellCommodity,
   SHOP_CONSUMABLES,
-  trendPercent,
+  commodityTrend,
 } from '../systems/market';
 import { MAX_ACCEPTED, contractTitle, gearCandidates, isComplete } from '../systems/contracts';
 import { BESTIARY_ORDER, bestiaryEntry, bestiaryProgress, isKnown, isSeen } from '../systems/bestiary';
@@ -377,7 +377,7 @@ export class Town {
         const owned = countOf(s.stash, 'material', mat.id);
         const sell = commoditySellPrice(m, mat.id, this.hag);
         const buy = commodityBuyPrice(m, mat.id, this.hag);
-        const trend = trendPercent(c.history);
+        const trend = commodityTrend(m, mat.id);
         const ev = eventMultiplier(m, { materialId: mat.id });
         const trendEl = h('span', { class: trend > 2 ? 'up' : trend < -2 ? 'down' : 'dim', text: trend > 2 ? '▲' : trend < -2 ? '▼' : '–' });
         const trendCell = h('td', { class: 'col-trend' }, h('div', { class: 'row', style: 'gap:4px' }, trendEl, insider ? h('span', { class: 'small', text: `${trend > 0 ? '+' : ''}${trend}%` }) : null, insider ? sparkline(c.history, 70, 18, ev > 1 ? '#e8b84a' : ev < 1 ? '#d0443a' : '#8a7f6e') : null));

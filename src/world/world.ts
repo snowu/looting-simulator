@@ -1831,9 +1831,12 @@ export class World {
     a.attackThrow = true;
     a.attackBase = base;
     a.attackWeaponUid = this.state.equipment.thrown?.uid ?? null;
+    const throwing = thrownView(this.derived);
     a.attackSnapshot = {
-      ...thrownView(this.derived),
-      stats: { ...this.derived.stats },
+      ...throwing,
+      // thrownView's stats, not the player's: they carry the belt's own
+      // elements and leech, which belong to this throw.
+      stats: { ...throwing.stats },
       traits: { ...this.derived.traits },
       swing: { ...this.derived.swing },
     };

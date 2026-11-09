@@ -207,6 +207,13 @@ export interface PlayerDerived {
   thrownAttack: number;
   /** The shafts' own damage type, which need not match the weapon's. */
   thrownDamageType: DamageType;
+  /**
+   * The belt's own elemental damage and Life Leech, from its affixes and its
+   * metal. Like its Attack it rides the throw alone: a Blazing belt sets
+   * javelins alight and leaves your sword as it was. Optional so that a
+   * hand-built PlayerDerived (tests, the harness) needs no belt.
+   */
+  thrownBonus?: Partial<Stats>;
   /** The conduit you hold: in your offhand, or the Stave in both hands. */
   conduit: ConduitProfile | null;
   /** Which hand holds it. A Stave is the weapon; a Wand or Rod is the offhand. */
@@ -231,18 +238,30 @@ export const BASE_STAMINA = 100;
  */
 const FIND_PER_TREASURE_SENSE = 20;
 
+/** The stats a belt lends its own throws, besides Attack. */
+const BELT_STATS = [...ELEMENTS, 'leech'] as const;
+
+function beltBonus(s: Stats): Partial<Stats> | undefined {
+  const out: Partial<Stats> = {};
+  for (const k of BELT_STATS) if (s[k]) out[k] = s[k];
+  return Object.keys(out).length ? out : undefined;
+}
+
 /**
  * You, as a thrown shaft scores you.
  *
  * Attack and damage type come off the belt; everything else — Crit, leech,
  * elemental damage — is still the player, because those are things about you
- * rather than about the weapon. One helper rather than two copies: the world
+ * rather than about the weapon. The belt's own elements and leech (its affixes
+ * and its metal) are added on top, for this throw only. One helper rather than two copies: the world
  * snapshots this at throw time and the balance harness reads it directly, and a
  * throw measured differently from the throw that happens is worse than not
  * measuring it.
  */
 export function thrownView(d: PlayerDerived): PlayerDerived {
-  return { ...d, attack: d.thrownAttack, damageType: d.thrownDamageType };
+  const stats = { ...d.stats };
+  for (const [k, v] of Object.entries(d.thrownBonus ?? {}) as [keyof Stats, number][]) stats[k] += v;
+  return { ...d, stats, attack: d.thrownAttack, damageType: d.thrownDamageType };
 }
 
 /**
@@ -338,6 +357,7 @@ export function derivePlayer(eq: Equipment, meta: MetaLevels, difficulty?: Diffi
     thrown: thrownProfile(eq.thrown),
     thrownCapacity: thrownCapacity(eq.thrown),
     thrownAttack: eq.thrown ? Math.max(1, itemStats(eq.thrown).attack) : 0,
+    thrownBonus: eq.thrown ? beltBonus(itemStats(eq.thrown)) : undefined,
     thrownDamageType: (eq.thrown ? itemBase(eq.thrown.ref).damageType : undefined) ?? 'pierce',
     conduit,
     conduitHand: offhandConduit ? 'offhand' : conduitItem ? 'weapon' : null,
