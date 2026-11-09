@@ -19,6 +19,10 @@ Dying ends the day too, but you lose the backpack.
 
 **A delve that never went below depth 1 does not count.** No renown, and **the day does not turn** — you come back to the same prices and the same board. You start standing on floor 1's up-stairs, so without that rule an about-turn and one step was both a free 4 renown and a free button for rerolling the market. Your haul still banks; it just was not a delve.
 
+**Time in the dungeon.** The world advances in fixed steps of **1/60 s**, however fast the display draws, so the same seed and inputs play out the same on a phone at 30 fps and a monitor at 144 Hz. The picture is drawn between the last two steps, so a fast display still moves smoothly. A frame counts at most **0.1 s** of real time: a hitch costs that much and no more, and the game only slows down below 10 fps (it used to below 20). Every "per second" number in this document is per 60 steps.
+
+*Files: `src/core/fixed-clock.ts`, `src/render/interp.ts`*
+
 *Files: `src/systems/run.ts`, `src/main.ts`*
 
 ---
@@ -468,7 +472,7 @@ Eligible monsters independently roll a morsel at `0.28 − 0.024 × (depth − 1
 - **Staggering:** hitting a monster with under 40 base HP during its windup interrupts it (0.5s recovery). Bosses never stagger.
 - **Shields** (Shieldbearer, Shieldguard): while you are close the guard runs a rhythm you can read off the sprite — the shield sweeps center (**raise**, 0.25s), holds (**up**, 1.4s), drops (**down**, 1.6s). A frontal blow into the raise is answered with a shield-bash: your guard drops, you are **stunned for 1 second**, and the bearer starts a swing you cannot dodge. A frontal blow into the hold is **absorbed for 75%** with no stagger; three chips running sag the guard and drop it early. Blows from behind, mid-swing, while reeling, or into the dropped guard land full — and break the chip count. Flank them, meet their swing, or time the drop.
 - **Ranged:** only fire along a row or column with clear sight. They back away if you close to melee and sidestep to line up a shot. Bolts travel tile by tile, so strafing out of the line dodges them.
-- **Skittish** (goblins): flee below 35% health. The chance is **2% per tick at 60 fps** while it stands deciding, compounded per second so every frame rate sees the same rate (`SKITTISH_FLEE_PER_TICK`); mid-step it decides once per step.
+- **Skittish** (goblins): flee below 35% health. The chance is **2% per step** while it stands deciding (`SKITTISH_FLEE_PER_TICK`); mid-step it decides once per step.
 - **Thieves** (the Goblin Cutpurse, and any *Thieving* elite): a melee blow that gets through (not parried, not blocked, and you survive it) takes one thing from your backpack: a piece of gear whole, or half a stack rounded up. Equipped gear is never at risk. The thief then flees at once, glowing gold so you can chase it in the dark, and the target bar says what it is carrying. It is a chase you can win, but have to work for. It runs at its normal pace (`THIEF_LADEN` is 1: you already outpace a goblin). After a step in your sight it has a **5%** chance to fumble its prize and stand still for **0.7s**. It runs in a panic, not cleverly: any step that isn't towards you, preferring to keep going straight, so it will bolt into a dead end. When it loses you it keeps sprinting for **2s** (`THIEF_BOLT`), then goes to ground, creeping one tile every **1s** (`THIEF_CREEP`) and still glowing. Every 4 steps, up to 3 times, 1–3 coins spill from its purse, leaving a short trail. Kill it and it drops what it took. If it spends **25 seconds** (`THIEF_ESCAPE`) out of your sight, it gets away and the item is gone. Cornered, it fights. It steals once; a thief that is already carrying does not steal again.
 - **Boss:** melee when adjacent, otherwise a three-bolt shadow volley when aligned.
 

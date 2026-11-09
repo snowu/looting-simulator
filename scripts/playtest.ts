@@ -31,8 +31,10 @@ import { itemValue } from '../src/systems/items';
 import { Equipment } from '../src/systems/player';
 import { MetaLevels, META_UPGRADES } from '../src/systems/meta';
 import { durability } from '../src/systems/items';
+import { SIM_STEP } from '../src/core/fixed-clock';
 
-const DT = 1 / 60;
+/** The bot steps the world exactly as the game does. */
+const DT = SIM_STEP;
 
 export interface Policy {
   /** Probability of timing a real parry when an adjacent enemy winds up. */

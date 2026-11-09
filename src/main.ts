@@ -43,6 +43,8 @@ import { snapshotScreen } from './ui/snapshot';
 import { canSendReports, sendBugReport } from './cloud/bug-report';
 import { cloudConfigured } from './cloud/supabase';
 import { brightness, brightnessToPercent } from './render/brightness';
+import { FixedClock, SIM_STEP, advance } from './core/fixed-clock';
+import { RenderInterp } from './render/interp';
 
 type Mode = 'title' | 'town' | 'dungeon' | 'summary';
 
@@ -1260,6 +1262,10 @@ function handle(ev: WorldEvent): void {
 
 // --- Loop ------------------------------------------------------------------------
 let last = performance.now();
+/** The dungeon's fixed-step clock, the world it is stepping, and the blend the renderer draws through. */
+const simClock = new FixedClock();
+let simWorld: World | null = null;
+const interp = new RenderInterp();
 function frame(now: number): void {
   if (import.meta.env.DEV && visualCapture) {
     const captureWorld = mode === 'title' ? titleDungeon : world;
@@ -1340,8 +1346,24 @@ function frame(now: number): void {
     }
     // Holding the touch attack button keeps swinging.
     if (touchAttack && !paused) world.attack();
-    if (!paused) world.update(dt);
-    for (const ev of world.drainEvents()) handle(ev);
+    // The world advances in fixed steps, however fast this display draws:
+    // the same seed and the same inputs play out the same at 30 fps and at
+    // 144 (src/core/fixed-clock.ts). Events are handled after every step, and
+    // one that opens a menu stops the stepping there, as a frame used to.
+    if (simWorld !== world) {
+      simWorld = world;
+      simClock.reset();
+      interp.reset();
+    }
+    const stepping = world;
+    if (paused) simClock.reset();
+    else advance(simClock, elapsed, () => {
+      interp.capture(stepping);
+      stepping.update(SIM_STEP);
+      for (const ev of stepping.drainEvents()) handle(ev);
+      return world === stepping && !overlays.isOpen && !isSettingsOpen() && !gate.blocked;
+    });
+    for (const ev of world?.drainEvents() ?? []) handle(ev);
     renderRiteFire(elapsed);
     if (ending) {
       ending.t += dt;
@@ -1355,7 +1377,9 @@ function frame(now: number): void {
       }
     }
     if (world) {
-      renderer.render(world, paused ? 0 : dt);
+      const drawn = world;
+      // Drawn between the last two steps, so a fast display still moves smoothly.
+      interp.draw(drawn, paused ? 1 : simClock.alpha, () => renderer.render(drawn, paused ? 0 : dt));
       hud.update(world, renderer, dt);
       saveTimer += dt;
       if (saveTimer > 15) {
