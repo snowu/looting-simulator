@@ -21,11 +21,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        # check-patches.mjs resolves every cited hash, so it needs full history.
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
       - run: npm ci
+      # Nothing ships unless the suite and the patch notes pass.
+      - run: npm test
+      - run: npm run patches
       - run: npm run build
         env:
           # Public values: they ship in the bundle and authorize nothing on

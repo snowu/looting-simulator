@@ -1,0 +1,22 @@
+# The checks CONTRIBUTING.md asks for before a push, on every pull request:
+# the vitest suite, typecheck + production build, the patch-note checker and
+# the art sync check. deploy.yml runs the same gate before it ships.
+name: CI
+on:
+  pull_request:
+  workflow_dispatch:
+permissions: { contents: read }
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        # check-patches.mjs resolves every cited hash, so it needs full history.
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: npm run patches
+      - run: npm run art:check
