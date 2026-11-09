@@ -112,6 +112,7 @@ import { Draught, KINDLE_SECONDS, MARROW_SECONDS, WARD_SECONDS, draught } from '
 import { addStats } from '../types';
 import { clamp, manhattan } from '../core/math';
 import * as Projectiles from './projectiles';
+import * as Hazards from './hazards';
 
 // ---------------------------------------------------------------------------
 // Events the world emits for the renderer / UI / audio to react to.
@@ -938,7 +939,7 @@ export class World {
     return (this.run.curse === 'hunted' ? 3 : 0) + (runOath(this.run, 'hunter') ? HUNTER_SIGHT : 0) - (runOath(this.run, 'silence') ? SILENCE_SIGHT : 0) - this.derived.traits.unseen - (this.anim?.unseenT > 0 ? 99 : 0);
   }
 
-  private emit(e: WorldEvent): void {
+  emit(e: WorldEvent): void {
     this.events.push(e);
   }
 
@@ -1332,9 +1333,9 @@ export class World {
 
     this.checkBossSeal();
     this.updateConduit(dt);
-    this.updateAfflictions(dt);
+    Hazards.updateAfflictions(this, dt);
     this.updatePitch(dt);
-    this.updateSurfaces(dt);
+    Hazards.updateSurfaces(this, dt);
     this.updateRetrieve(dt);
     this.updateEnemies(dt);
     Projectiles.updateProjectiles(this, dt);
@@ -1398,7 +1399,7 @@ export class World {
       this.springTrap(trap, null);
       if (this.run.outcome !== 'active') return;
     }
-    if (surfaceKindAt(f, p.x, p.y) === 'spores') this.sporePuff(p.x, p.y);
+    if (surfaceKindAt(f, p.x, p.y) === 'spores') Hazards.sporePuff(this, p.x, p.y);
     const s = stairsAt(f, p.x, p.y);
     this.sfx(biomeForFloor(f).flooded && !s ? 'splash' : 'step');
     if (s) {
@@ -2115,7 +2116,7 @@ export class World {
     for (const e of targets) {
       const seconds = (room.includes(e) ? GLACIAL_TOMB_SECONDS : GLACIAL_TOMB_SIGHT_SECONDS) * scale;
       this.addSpellFx('frost', e.x, e.y);
-      this.elementReaches(e.x, e.y, 'frost');
+      Hazards.elementReaches(this, e.x, e.y, 'frost');
       if (e.ai === 'dead') continue;
       if (enemyDef(e.def).behavior === 'boss') {
         e.chillT = Math.max(e.chillT ?? 0, CHILL_SECONDS);
@@ -2125,14 +2126,14 @@ export class World {
       }
       // A penguin is harmless already: the ice leaves it waddling.
       if ((e.hexT ?? 0) > 0) continue;
-      this.freeze(e, seconds, true);
+      Hazards.freeze(this, e, seconds, true);
       e.alert = Math.max(e.alert, 8);
       held++;
     }
     if (!targets.length) {
       const tile = this.riteEmptyTile();
       this.addSpellFx('frost', tile.x, tile.y);
-      this.elementReaches(tile.x, tile.y, 'frost');
+      Hazards.elementReaches(this, tile.x, tile.y, 'frost');
       this.msg(`${def.name} closes on empty air.`, '#888');
     } else if (held) {
       this.msg(grade === 'weak'
@@ -2229,7 +2230,7 @@ export class World {
     // the tile: the one guard for target and tile alike.
     if (pending && this.protectedByFog(pending.target)) return;
     // Impacts use the same elemental reaction path as bolts and burning feet.
-    this.elementReaches(fx.x, fx.y, 'fire');
+    Hazards.elementReaches(this, fx.x, fx.y, 'fire');
     if (!pending || pending.target.ai === 'dead') return;
     const { target: e, damage, crit } = pending;
     this.hurt(e, damage, crit ? `${damage}!` : `${damage}`, crit ? '#ffe040' : '#ff9a50');
@@ -2239,7 +2240,7 @@ export class World {
     recordDamageDealt(this.state.bestiary, this.view(e).id, damage);
     if (damage > 0) e.burn = { t: BURN_SECONDS, left: (e.burn?.left ?? 0) + Math.max(1, Math.round(damage * BURN_SHARE)), acc: e.burn?.acc ?? 0 };
     if (e.hp <= 0) this.killEnemy(e);
-    else this.slip(e);
+    else Hazards.slip(this, e);
   }
 
   /**
@@ -2314,7 +2315,7 @@ export class World {
     this.sfx('break', prev.x, prev.y);
   }
 
-  private addSpellFx(kind: SpellFx['kind'], x: number, y: number, miss = false): void {
+  addSpellFx(kind: SpellFx['kind'], x: number, y: number, miss = false): void {
     this.spellFx.push({ id: this.projN++, kind, x, y, t: 0, ...(miss ? { miss } : {}) });
   }
 
@@ -2362,7 +2363,7 @@ export class World {
       if (spell.id === 'smite') this.markRemains(e, 'sanctified');
       if (this.derived.traits.requiem) this.refundCharges(spell.charges);
       this.killEnemy(e);
-    } else this.slip(e);
+    } else Hazards.slip(this, e);
   }
 
   /** Put charges back in the worn conduit's pool, never past full. */
@@ -2425,7 +2426,7 @@ export class World {
   }
 
   /** The hex runs out: a puff of smoke, and it is itself, awake and close. */
-  private unhex(e: EnemyState): void {
+  unhex(e: EnemyState): void {
     delete e.hexT;
     this.addSpellFx('poof', e.x, e.y);
     this.msg(`The ${enemyDef(e.def).name} is itself again.`, '#c8a0ff');
@@ -2452,305 +2453,9 @@ export class World {
     }
   }
 
-  /** Burns tick down and chills wear off. Run every frame over the floor. */
-  private updateAfflictions(dt: number): void {
-    for (const e of this.floor.enemies) {
-      if (e.ai === 'dead') {
-        if (e.burn) delete e.burn;
-        if (e.chillT !== undefined) delete e.chillT;
-        if (e.hexT !== undefined) delete e.hexT;
-        if (e.frozenT !== undefined) delete e.frozenT;
-        continue;
-      }
-      // The hex runs on the world's clock, not the penguin's: it counts down
-      // through every step it waddles, which the AI tick skips.
-      if (e.hexT !== undefined) {
-        e.hexT -= dt;
-        if (e.hexT <= 0) this.unhex(e);
-      }
-      if (e.frozenT !== undefined) {
-        e.frozenT -= dt;
-        if (e.frozenT <= 0) delete e.frozenT;
-      }
-      if (e.chillT !== undefined) {
-        e.chillT -= dt;
-        // A wind-up begun chilled runs to its end chilled, or its tell would
-        // jump forward the instant the frost wore off.
-        if (e.chillT <= 0) {
-          if (e.ai === 'windup') e.chillT = 0.01;
-          else delete e.chillT;
-        }
-      }
-      const burn = e.burn;
-      if (!burn) continue;
-      const step = Math.min(burn.left, (burn.left / Math.max(dt, burn.t)) * dt);
-      burn.t -= dt;
-      burn.left -= step;
-      burn.acc += step;
-      const whole = Math.floor(burn.acc);
-      if (whole >= 1 && !this.protectedByFog(e)) {
-        burn.acc -= whole;
-        this.hurt(e, whole, `${whole}`, '#ff9a50');
-        recordDamageDealt(this.state.bestiary, enemyDef(e.def).id, whole);
-      }
-      if (burn.t <= 0 || burn.left <= 0) delete e.burn;
-      if (e.hp <= 0) this.killEnemy(e);
-    }
-  }
-
   /** Seconds banked toward fire's next bite, and since the last word about it. */
-  private fireTick = 0;
-  private surfaceMsgCd = 0;
-
-  /**
-   * The floor's surfaces on the world clock (`tickSurfaces`), and fire biting
-   * whatever stands in it every `FIRE_TICK`: you through your armour, like a
-   * trap, and a monster raw, × its fire resistance.
-   */
-  private updateSurfaces(dt: number): void {
-    const f = this.floor;
-    this.surfaceMsgCd = Math.max(0, this.surfaceMsgCd - dt);
-    if (!f.surfaces?.length) return;
-    const tick = tickSurfaces(f, dt);
-    if (tick.caught.length) this.sfx('lava_burst', tick.caught[0].x, tick.caught[0].y);
-    for (const s of tick.burst) this.sporesBurst(s.x, s.y);
-    for (const v of tick.vents) this.ventBurst(v);
-    if (this.run.outcome !== 'active') return;
-    this.fireTick += dt;
-    if (this.fireTick < FIRE_TICK) return;
-    this.fireTick -= FIRE_TICK;
-    const fires = f.surfaces.filter((s) => s.kind === 'fire');
-    if (!fires.length) return;
-    const p = this.player;
-    if (burningAt(f, p.x, p.y) && this.surfaceMsgCd <= 0) {
-      this.msg('You are standing in fire!', '#ff8040');
-      this.surfaceMsgCd = 2;
-    }
-    for (const s of fires) {
-      this.scorch(s.x, s.y, 1, 'burning oil');
-      if (this.run.outcome !== 'active') return;
-    }
-  }
-
-  /**
-   * Fire's bite on one tile, `ticks` times over: you through your armour,
-   * unavoidable like a trap; a monster raw, × its fire resistance, and set
-   * burning so it carries the fire out with it (into more oil, or into water,
-   * which puts it out).
-   */
-  private scorch(x: number, y: number, ticks: number, source: string): void {
-    const f = this.floor;
-    const p = this.player;
-    const depth = this.run.depth;
-    if (p.x === x && p.y === y) {
-      const bite = Math.max(1, Math.round((FIRE_PLAYER_BASE + FIRE_PLAYER_PER_DEPTH * depth) * ticks * this.diff.trapDamage));
-      this.damagePlayer(bite, 'fire', x, y, source, undefined, undefined, true);
-      if (this.run.outcome !== 'active') return;
-    }
-    for (const e of f.enemies) {
-      if (e.ai === 'dead' || e.lurk || e.x !== x || e.y !== y || this.protectedByFog(e)) continue;
-      const def = enemyDef(e.def);
-      const dealt = Math.max(1, Math.round((FIRE_MONSTER_BASE + FIRE_MONSTER_PER_DEPTH * depth) * ticks * (def.resist.fire ?? 1)));
-      if (dealt <= 0) continue;
-      this.hurt(e, dealt, `${dealt}`, '#ff8040');
-      recordDamageDealt(this.state.bestiary, def.id, dealt);
-      e.burn = { t: BURN_SECONDS, left: Math.max(e.burn?.left ?? 0, Math.round(dealt * 2 / ticks)), acc: e.burn?.acc ?? 0 };
-      if (e.hp <= 0) {
-        this.msg(`The ${def.name} burns.`, '#ff8040');
-        this.killEnemy(e);
-      }
-    }
-  }
-
-  /** A burst of fire over a tile and the four beside it: a barrel, or spores catching. */
-  private blast(x: number, y: number, ticks: number, source: string): void {
-    this.addSpellFx('blast', x, y);
-    this.sfx('lava_burst', x, y);
-    this.emit({ type: 'shake', amount: 0.3 });
-    for (const [dx, dy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      // The blast lights what it touches, then burns what stands there.
-      this.elementReaches(x + dx, y + dy, 'fire');
-      this.scorch(x + dx, y + dy, ticks, source);
-      if (this.run.outcome !== 'active') return;
-    }
-  }
-
-  /** Spores catching fire: they go up all at once. */
-  private sporesBurst(x: number, y: number): void {
-    if (this.surfaceMsgCd <= 0) {
-      this.msg('The spores go up in a gout of flame!', LAWS.spores.color);
-      this.surfaceMsgCd = 2;
-    }
-    this.blast(x, y, SPORE_BURST_TICKS, 'burning spores');
-  }
-
-  /**
-   * An Emberworks vent breathes out: whatever stands on it is scorched, the
-   * oil beside it catches, and it waits a while before the next. Its glow
-   * in the last `VENT_TELL` seconds is the warning.
-   */
-  private ventBurst(v: Surface): void {
-    v.t = VENT_PERIOD_MIN + this.rng.float(0, VENT_PERIOD_MAX - VENT_PERIOD_MIN);
-    v.burst = VENT_FLAMES;
-    this.sfx('lava_burst', v.x, v.y);
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) this.elementReaches(v.x + dx, v.y + dy, 'fire');
-    this.scorch(v.x, v.y, VENT_TICKS, 'a fire vent');
-  }
-
-  /**
-   * Fire or frost arriving on a tile, from anything: a bolt crossing it, a
-   * blow landing on it, a burning creature's feet. Any other element passes.
-   * Water freezing around a monster holds it fast; around you, briefly. Fire
-   * reaching an oil barrel bursts it.
-   */
-  elementReaches(x: number, y: number, element: DamageType): void {
-    const f = this.floor;
-    if (element === 'fire') {
-      const barrel = oilBarrelAt(f, x, y);
-      if (barrel) {
-        this.burstBarrel(barrel);
-        return;
-      }
-      const change = ignite(f, x, y);
-      if (change === 'lit') {
-        this.sfx('lava_burst', x, y);
-        if (this.surfaceMsgCd <= 0) {
-          this.msg('The oil catches!', '#ff9a50');
-          this.surfaceMsgCd = 2;
-        }
-      } else if (change === 'burst') this.sporesBurst(x, y);
-      else if (change === 'melted') this.sfx('splash', x, y);
-      return;
-    }
-    if (element !== 'frost' || chill(f, x, y) !== 'froze') return;
-    this.sfx('block', x, y);
-    this.frozeAt(x, y);
-  }
-
-  /** Water just froze on this tile: whoever stands in it is caught, except you by your own frost. */
-  private frozeAt(x: number, y: number, mine = false): void {
-    const e = enemyAt(this.floor, x, y);
-    if (e) this.freeze(e);
-    const p = this.player;
-    if (!mine && p.x === x && p.y === y) {
-      this.anim.stunT = Math.max(this.anim.stunT, PLAYER_FREEZE_SECONDS);
-      this.msg('The water freezes around your feet!', '#9ad0ff');
-    }
-  }
-
-  /**
-   * Frost has landed somewhere: where a bolt struck or ran out. In the
-   * Catacombs that is on the flood, which freezes around it. A frost blade's
-   * blows do not count — they land on the creature, not the water, and a
-   * moonsilver axe would otherwise freeze everything it touched. Your own
-   * bolt never holds you; theirs does.
-   */
-  frostLands(x: number, y: number, mine: boolean): void {
-    if (biomeForFloor(this.floor).law !== 'flood') return;
-    const froze = freezeFlood(this.floor, x, y, FLOOD_REACH);
-    if (!froze.length) return;
-    this.sfx('block', x, y);
-    for (const s of froze) this.frozeAt(s.x, s.y, mine);
-  }
-
-  /** An oil barrel broken open: the oil goes everywhere, and nothing else is in it. */
-  private spillBarrel(p: Prop): Surface[] {
-    p.used = true;
-    this.sfx('break', p.x, p.y);
-    this.sfx('splash', p.x, p.y);
-    const oil = spillOil(this.floor, p.x, p.y, this.rng);
-    if (this.surfaceMsgCd <= 0) {
-      this.msg('Lamp oil spreads across the floor.', '#c8b8a0');
-      this.surfaceMsgCd = 2;
-    }
-    return oil;
-  }
-
-  /** Fire reaches an oil barrel: it bursts, its spill goes up at once, and what stands beside it is caught. */
-  private burstBarrel(p: Prop): void {
-    this.spillBarrel(p);
-    this.msg('The oil barrel bursts into flame!', '#ff9a50');
-    this.surfaceMsgCd = 2;
-    this.blast(p.x, p.y, BURST_TICKS, 'a burning oil barrel');
-  }
-
-  /**
-   * Something treads on a spore patch: it puffs, and every monster within a
-   * tile is blinded for `SPORE_BLIND` (bosses only wave it away). If you are
-   * in it too, your lamp dims for as long.
-   */
-  private sporePuff(x: number, y: number): void {
-    const f = this.floor;
-    const s = surfaceAt(f, x, y);
-    if (!s || s.kind !== 'spores') return;
-    f.surfaces = f.surfaces!.filter((o) => o !== s);
-    this.addSpellFx('spores', x, y);
-    this.sfx('snuff', x, y);
-    let blinded = 0;
-    for (const e of f.enemies) {
-      if (e.ai === 'dead' || e.lurk || manhattan(e.x, e.y, x, y) > 1) continue;
-      if (enemyDef(e.def).behavior === 'boss') continue;
-      e.blind = Math.max(e.blind ?? 0, SPORE_BLIND);
-      if (e.ai === 'windup') e.ai = 'recover';
-      blinded++;
-    }
-    const p = this.player;
-    const you = manhattan(p.x, p.y, x, y) <= 1;
-    if (you) this.anim.snuffT = Math.max(this.anim.snuffT, SPORE_BLIND);
-    if (this.surfaceMsgCd <= 0) {
-      this.msg(blinded ? `A cloud of spores bursts up. ${blinded === 1 ? 'Something' : 'They'} cannot see!` : you ? 'A cloud of spores bursts up around you.' : 'A puffball bursts.', LAWS.spores.color);
-      this.surfaceMsgCd = 2;
-    }
-  }
-
-  /** Held fast in ice: it stops whatever it was doing. The King breaks free at once. */
-  private freeze(e: EnemyState, seconds = FREEZE_SECONDS, quiet = false): void {
-    const def = enemyDef(e.def);
-    if (def.behavior === 'boss' || e.ai === 'dead') return;
-    e.frozenT = Math.max(e.frozenT ?? 0, seconds);
-    e.ai = 'recover';
-    e.timer = Math.max(e.timer, seconds);
-    e.attackCd = Math.max(e.attackCd, seconds + 0.2);
-    delete e.move;
-    delete e.feintT;
-    delete e.feinted;
-    delete e.comboLeft;
-    delete e.comboT;
-    delete e.channel;
-    this.emit({ type: 'float', x: e.x, y: e.y, text: 'frozen', color: '#9ad0ff' });
-    if (!quiet) this.msg(`The water freezes around the ${def.name}!`, '#9ad0ff');
-  }
-
-  /** Struck on ice: it goes down, and whatever it was winding up is lost. */
-  private slip(e: EnemyState): void {
-    if (e.ai === 'dead' || (e.frozenT ?? 0) > 0 || surfaceKindAt(this.floor, e.x, e.y) !== 'ice') return;
-    const def = enemyDef(e.def);
-    if (def.behavior === 'boss') return;
-    e.ai = 'recover';
-    e.timer = Math.max(e.timer, SLIP_SECONDS);
-    e.attackCd = Math.max(e.attackCd, SLIP_SECONDS + 0.2);
-    // The Frost Vault: it goes down hard, open like a parried thing.
-    if (biomeForFloor(this.floor).law === 'treacherous') e.vuln = Math.max(e.vuln ?? 0, SLIP_SECONDS);
-    delete e.move;
-    delete e.comboLeft;
-    delete e.comboT;
-    this.emit({ type: 'float', x: e.x, y: e.y - 0.3, text: 'slips', color: '#c8e8ff' });
-    if (this.surfaceMsgCd <= 0) {
-      this.msg(`The ${def.name} slips on the ice!`, '#c8e8ff');
-      this.surfaceMsgCd = 2;
-    }
-  }
-
-  /** One step out of the fire, to any tile that is not burning. False when there is none. */
-  private escapeFire(e: EnemyState): boolean {
-    const steps = DIRS.map((d) => [e.x + DX[d], e.y + DY[d]] as [number, number]).filter(([x, y]) => this.canStep(e, x, y));
-    if (!steps.length) return false;
-    const p = this.player;
-    // Out towards you if it was coming for you, else anywhere.
-    steps.sort((a, b) => manhattan(a[0], a[1], p.x, p.y) - manhattan(b[0], b[1], p.x, p.y));
-    this.stepEnemy(e, steps[0][0], steps[0][1]);
-    return true;
-  }
+  fireTick = 0;
+  surfaceMsgCd = 0;
 
   /** A charge grows back while the conduit is worn, and kills hurry it along. */
   private updateConduit(dt: number): void {
@@ -3486,8 +3191,8 @@ export class World {
     }
     if (this.derived.traits.kindling) this.kindle(e);
     // A blow carrying fire or frost acts on the tile it lands on, like a bolt.
-    if ((striker.stats.fire ?? 0) > 0) this.elementReaches(e.x, e.y, 'fire');
-    if ((striker.stats.frost ?? 0) > 0) this.elementReaches(e.x, e.y, 'frost');
+    if ((striker.stats.fire ?? 0) > 0) Hazards.elementReaches(this, e.x, e.y, 'fire');
+    if ((striker.stats.frost ?? 0) > 0) Hazards.elementReaches(this, e.x, e.y, 'frost');
     const life = this.state.lifetime;
     if (hit.damage > (life.bestHit ?? 0)) life.bestHit = hit.damage;
     recordDamageDealt(this.state.bestiary, def.id, hit.damage);
@@ -3512,7 +3217,7 @@ export class World {
     if (e.hp <= 0) {
       this.markRemains(e);
       this.killEnemy(e);
-    } else this.slip(e);
+    } else Hazards.slip(this, e);
   }
 
   /**
@@ -4214,7 +3919,7 @@ export class World {
 
   private breakProp(p: Prop): void {
     if (p.oil) {
-      this.spillBarrel(p);
+      Hazards.spillBarrel(this, p);
       return;
     }
     p.used = true;
@@ -5051,11 +4756,11 @@ export class World {
   }
 
   /** Monsters do not walk into fire on purpose: burning oil is a wall to them until it burns out. */
-  private canStep(e: EnemyState, x: number, y: number): boolean {
+  canStep(e: EnemyState, x: number, y: number): boolean {
     return !blocksMove(this.floor, x, y) && !this.occupied(x, y, e) && !stairsAt(this.floor, x, y) && !burningAt(this.floor, x, y);
   }
 
-  private stepEnemy(e: EnemyState, x: number, y: number): void {
+  stepEnemy(e: EnemyState, x: number, y: number): void {
     const d = dirOf(x - e.x, y - e.y);
     if (d !== null) e.facing = d;
     e.fromX = e.x;
@@ -5079,8 +4784,8 @@ export class World {
     const kind = surfaceKindAt(this.floor, e.x, e.y);
     if (!kind) return;
     const fiery = !!e.burn || enemyDef(e.def).element === 'fire';
-    if (fiery && (kind === 'oil' || kind === 'ice' || kind === 'spores')) this.elementReaches(e.x, e.y, 'fire');
-    else if (kind === 'spores') this.sporePuff(e.x, e.y);
+    if (fiery && (kind === 'oil' || kind === 'ice' || kind === 'spores')) Hazards.elementReaches(this, e.x, e.y, 'fire');
+    else if (kind === 'spores') Hazards.sporePuff(this, e.x, e.y);
     else if (kind === 'water' && e.burn) {
       delete e.burn;
       this.sfx('snuff', e.x, e.y);
@@ -5296,7 +5001,7 @@ export class World {
     for (const fz of this.pitchFuses) fz.t -= dt;
     const lit = this.pitchFuses.filter((fz) => fz.t <= 0);
     this.pitchFuses = this.pitchFuses.filter((fz) => fz.t > 0);
-    for (const fz of lit) if (surfaceKindAt(this.floor, fz.x, fz.y) === 'oil') this.elementReaches(fz.x, fz.y, 'fire');
+    for (const fz of lit) if (surfaceKindAt(this.floor, fz.x, fz.y) === 'oil') Hazards.elementReaches(this, fz.x, fz.y, 'fire');
   }
 
   /** The tiles of the room the King is standing his last in. */
@@ -5483,7 +5188,7 @@ export class World {
       }
       const dist = manhattan(e.x, e.y, p.x, p.y);
       // Standing in fire, anything not mid-swing gets out of it first.
-      if (burningAt(f, e.x, e.y) && e.ai !== 'windup' && e.ai !== 'recover' && this.escapeFire(e)) continue;
+      if (burningAt(f, e.x, e.y) && e.ai !== 'windup' && e.ai !== 'recover' && Hazards.escapeFire(this, e)) continue;
       if ((e.hexT ?? 0) > 0) {
         this.updateHexed(e, dt);
         continue;
@@ -6003,7 +5708,7 @@ export class World {
     if (player.stats.leech > 0) this.heal(Math.max(1, Math.round(hit.damage * player.stats.leech / 100)), 'leech');
     this.wearThrown(pr.weaponUid);
     if (e.hp <= 0) this.killEnemy(e);
-    else this.slip(e);
+    else Hazards.slip(this, e);
   }
 
   landThrown(base: string, x: number, y: number): void {

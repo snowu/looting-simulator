@@ -9,6 +9,7 @@ import { blocksSight, enemyAt, EnemyState } from '../systems/dungeon';
 import { DamageType } from '../types';
 import type { World } from './world';
 import { PARRY_GRACE, Projectile } from './world';
+import * as Hazards from './hazards';
 
 export function updateProjectiles(w: World, dt: number): void {
   const f = w.floor;
@@ -57,7 +58,7 @@ export function updateProjectiles(w: World, dt: number): void {
     }
     // Fire and frost act on every tile they fly over, whoever loosed them:
     // an Ember Bolt lights the oil it crosses, a frost bolt freezes water.
-    w.elementReaches(tx, ty, pr.type);
+    Hazards.elementReaches(w, tx, ty, pr.type);
     // A spell is spent where it strikes, and gutters out at the end of its
     // range: nothing lands, so there is nothing to go and fetch.
     if (pr.spell) {
@@ -112,7 +113,7 @@ export function updateProjectiles(w: World, dt: number): void {
   if (w.projectiles.some((pr) => pr.speed <= 0)) {
     // Frost lands where a bolt stops: the Catacombs' flood freezes there.
     for (const pr of w.projectiles) {
-      if (pr.speed <= 0 && pr.type === 'frost' && !pr.thrownBase) w.frostLands(pr.tileX, pr.tileY, !!pr.spell || !!pr.reflected);
+      if (pr.speed <= 0 && pr.type === 'frost' && !pr.thrownBase) Hazards.frostLands(w, pr.tileX, pr.tileY, !!pr.spell || !!pr.reflected);
     }
     w.projectiles = w.projectiles.filter((pr) => pr.speed > 0);
   }
