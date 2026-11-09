@@ -45,9 +45,13 @@ function arena(seed: number): World {
  * where it decides every tick; mid-step it decides once per step.
  */
 function fleeRate(dt: number, trials: number, window = 0.5): number {
+  // One floor for every trial: generating 300 of them is what made this slow.
+  // You never move or get hit (the monster's swing is 5s away), so each trial
+  // only needs a fresh monster and a fresh stream.
+  const w = arena(1);
   let fled = 0;
   for (let i = 0; i < trials; i++) {
-    const w = arena(1);
+    w.floor.enemies = [];
     w.rng = createRng(9000 + i);
     const t = w.frontTile(1);
     const e = createEnemy(enemyDef('spore_hunter'), t.x, t.y, turnAround(w.player.facing), `fr${i}`, 3);
