@@ -196,6 +196,21 @@ describe('the effects', () => {
     for (let i = 0; i < 120; i++) w.update(1 / 60);
     expect(e.hp).toBeLessThan(e.maxHp);
   });
+
+  it('Retrieval: a returning shaft is scored off the belt, not the weapon in your hands', () => {
+    const w = arena(217);
+    w.state.equipment.weapon = makeEquipment({ baseId: 'war_axe', materialId: 'iron', rarity: Rarity.Common, ilvl: 8, identified: true });
+    const belt = makeEquipment({ baseId: 'throwing_knives', materialId: 'iron', rarity: Rarity.Common, ilvl: 2, identified: true });
+    belt.affixes = [{ id: 'blazing', value: 6 }];
+    wear(w, 'thrown', belt, 'retrieval');
+    (w as unknown as { launchReturn(base: string, x: number, y: number): void }).launchReturn(belt.ref, w.player.x, w.player.y - 4);
+    const shaft = (w as unknown as { projectiles: { returning?: boolean; type: string; player?: { attack: number; damageType: string; stats: { fire: number } } }[] }).projectiles.find((p) => p.returning)!;
+    expect(w.derived.attack).not.toBe(w.derived.thrownAttack);
+    expect(shaft.player!.attack).toBe(w.derived.thrownAttack);
+    expect(shaft.player!.damageType).toBe('pierce');
+    expect(shaft.type).toBe('pierce');
+    expect(shaft.player!.stats.fire).toBe(6);
+  });
 });
 
 it('every property fits at least one kind of gear', () => {

@@ -1203,7 +1203,7 @@ A property is an effect that changes how a combat verb plays. Properties are **l
 | Execution | weapon | Killing a monster that is reeling (`vuln`: parried or knocked out) refunds **×2** the usual sigil cooldown, within the usual 20% cap |
 | Kindling | weapon | A blow with Fire damage on a monster below **50%** health also burns one adjacent monster for its fire share (× that monster's fire resistance) |
 | Bulwark | shield | A block that soaks at least **10%** of your max health makes your next landed strike within **3s** deal **×1.5** |
-| Retrieval | thrown belt | Called-back shafts hit each monster they pass through once, for **50%** of a throw |
+| Retrieval | thrown belt | Called-back shafts hit each monster they pass through once, for **50%** of a throw, scored like one (`thrownView`: the belt's Attack, damage type, elements and leech). Until 2026-11-09 they were scored off your melee weapon instead |
 | Last Flask | head, body, hands | While the flask has no charges, morsels and life leech heal **×1.5** |
 | Countercharm | weapon, offhand | Each parry returns **1** charge to your conduit's pool, up to full. Nothing without a conduit |
 | Requiem | hands | When a battle spell's hit kills, the charges it cost come back. A burn that finishes the job later doesn't count |
