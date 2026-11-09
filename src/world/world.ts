@@ -122,6 +122,7 @@ import * as Combat from './combat';
 import * as EnemyAi from './enemy-ai';
 import * as Features from './features';
 import * as Loot from './loot';
+import * as Shrines from './shrines';
 
 // ---------------------------------------------------------------------------
 // Events the world emits for the renderer / UI / audio to react to.
@@ -496,7 +497,6 @@ export const TONICS: Record<string, { name: string; text: string; apply: (d: Pla
  */
 export const COFFER_MAX_OFFERINGS = 3;
 export const COFFER_PRICE_GROWTH = 1.75;
-export const COFFER_FIZZLE = 0.25;
 
 /** What [F] says at each shrine, so you know what you are touching. */
 export const SHRINE_PROMPT: Record<ShrineKind, (cost: number) => string> = {
@@ -1196,7 +1196,7 @@ export class World {
       a.recall -= dt;
       if (a.recall <= 0) {
         a.recall = null;
-        this.openTownPortal();
+        Shrines.openTownPortal(this);
       }
     }
 
@@ -1995,9 +1995,9 @@ export class World {
     }
     // A pile sharing the portal's tile wins the prompt, so loot that ended up
     // under a portal (as boss drops used to) can still be picked up.
-    const portal = this.portalHere();
+    const portal = Shrines.portalHere(this);
     if (portal) return this.pickupNear() ? 'Search' : 'Step through the portal';
-    if (this.townPortalHere()) return this.pickupNear() ? 'Search' : 'Step through to Bleakmere';
+    if (Shrines.townPortalHere(this)) return this.pickupNear() ? 'Search' : 'Step through to Bleakmere';
     const s = stairsAt(f, t.x, t.y);
     if (s) return s.down ? `Descend to depth ${this.run.depth + 1}` : this.run.depth === 1 ? 'Leave the dungeon' : `Climb to depth ${this.run.depth - 1}`;
     if (this.pickupNear()) return 'Search';
@@ -2027,47 +2027,8 @@ export class World {
     // monsters drops loot on your tile, and on touch that turned every tap
     // into the loot window instead of a hit on the second one. Doors, stairs
     // and portals still win, since running is a legitimate answer to a fight.
-    if ((hint === 'Search' || hint.startsWith('Eat the ')) && this.threatNear()) return { kind: 'attack', label: '' };
+    if ((hint === 'Search' || hint.startsWith('Eat the ')) && Shrines.threatNear(this)) return { kind: 'attack', label: '' };
     return { kind: 'interact', label: shortLabel(hint) };
-  }
-
-  /** Something alive and interested, close enough that you are still in a fight. */
-  private threatNear(): boolean {
-    const p = this.player;
-    for (const e of this.floor.enemies) {
-      // A lurker is not in the fight until it drops: counting it would give it away.
-      if (e.ai === 'dead' || e.lurk) continue;
-      const dist = manhattan(e.x, e.y, p.x, p.y);
-      if (dist <= 2) return true;
-      if (dist <= 4 && e.alert > 0 && this.los(p.x, p.y, e.x, e.y)) return true;
-    }
-    return false;
-  }
-
-  /**
-   * Tear open a town portal on a free tile next to you (or under you if there
-   * is nowhere else). Only one is ever open: reading a second scroll moves it.
-   */
-  private openTownPortal(): void {
-    // In front of you where there is room, so you can see what you opened.
-    const front = this.frontTile();
-    const clear = (t: { x: number; y: number }) => !blocksMove(this.floor, t.x, t.y) && !propAt(this.floor, t.x, t.y);
-    const spot = clear(front) ? front : Loot.freeTileNear(this, this.player.x, this.player.y);
-    this.closeTownPortal();
-    this.floor.props.push({
-      id: `town_portal_${Math.round(this.time * 1000)}`,
-      kind: 'town_portal',
-      x: spot.x,
-      y: spot.y,
-      used: false,
-      tier: 'none',
-      blocking: false,
-      mimic: false,
-    });
-    this.run.portal = { depth: this.run.depth, x: spot.x, y: spot.y };
-    this.sfx('recall');
-    this.msg('A portal tears open. It holds until you step back through.', '#9ac0ff');
-    this.emit({ type: 'shake', amount: 0.25 });
   }
 
   /** Collapse the open portal wherever it is. Safe to call with none open. */
@@ -2077,21 +2038,6 @@ export class World {
     const floor = this.run.floors[open.depth - 1];
     if (floor) floor.props = floor.props.filter((p) => p.kind !== 'town_portal');
     this.run.portal = null;
-  }
-
-  /** The town portal, if you are standing on it or facing it. */
-  private townPortalHere(): Prop | undefined {
-    return this.portalNear('town_portal');
-  }
-
-  /** The boss's exit portal, if you are standing on it or facing it. */
-  private portalHere(): Prop | undefined {
-    return this.portalNear('portal');
-  }
-
-  private portalNear(kind: 'portal' | 'town_portal'): Prop | undefined {
-    const t = this.frontTile();
-    return portalAt(this.floor, t.x, t.y, kind) ?? portalAt(this.floor, this.player.x, this.player.y, kind);
   }
 
   pickupNear(): Pickup | undefined {
@@ -2214,7 +2160,7 @@ export class World {
       }
       if (p.kind === 'shrine') {
         p.used = true;
-        this.pray(p);
+        Shrines.pray(this, p);
         // A refused prayer (too poor, too hurt) puts the shrine back unused.
         const pilgrim = runOath(this.run, 'pilgrim');
         if (p.used && pilgrim) {
@@ -2229,8 +2175,8 @@ export class World {
       }
     }
 
-    const portal = this.portalHere();
-    const town = this.townPortalHere();
+    const portal = Shrines.portalHere(this);
+    const town = Shrines.townPortalHere(this);
     if (portal || town) {
       // No slipping out of the throne fight through a town portal: the fog
       // holds you until the King falls. His own exit portal only exists
@@ -2310,205 +2256,6 @@ export class World {
     // Every paid offering raises the next by 75%: the stone is a sink that
     // gets thirstier. D1 runs 55 → 96 → 168; D6 runs 180 → 315 → 551.
     return Math.round((30 + 25 * this.run.depth) * Math.pow(COFFER_PRICE_GROWTH, Math.max(0, offeringsMade)));
-  }
-
-  /**
-   * What a shrine gives back. Not a full heal any more: a font that refills the
-   * bar is a save point, and a save point on every other floor is the end of
-   * attrition as a mechanic. It is a large, welcome, *partial* mend.
-   */
-  private restore(refillFlask = false): void {
-    this.heal(Math.round(this.derived.maxHp * 0.6));
-    this.player.stamina = this.derived.maxStamina;
-    if (refillFlask) {
-      const flask = this.run.flask;
-      flask.charges = Math.min(flaskMax(this.state.flask?.shards ?? 0, this.diff.flaskBonus), flask.charges + 1);
-    }
-  }
-
-  private grantBlessing(): boolean {
-    if (this.run.blessing) return false;
-    const id = this.rng.pick(Object.keys(BLESSINGS));
-    const before = this.derived.maxHp;
-    this.run.blessing = id;
-    this.refreshDerived();
-    // Vitality raises the ceiling: heal the gained amount on pickup, so the
-    // blessing feels like a gift rather than a larger empty bar.
-    if (id === 'vitality') this.player.hp = Math.min(this.derived.maxHp, this.player.hp + Math.max(0, this.derived.maxHp - before));
-    this.msg(`Blessing of ${BLESSINGS[id].name}: ${BLESSINGS[id].text}`, '#a0c8ff');
-    return true;
-  }
-
-  private pray(p: Prop): void {
-    this.sfx('magic');
-    switch (shrineKind(p)) {
-      // The safe one. A large mend and it washes off a curse — which is what
-      // makes a font worth crossing a floor for once an idol has marked you.
-      case 'font': {
-        // Blood Price's Frailty is sworn, not suffered: the water leaves it.
-        const sworn = !!runOath(this.run, 'blood_price') && this.run.curse === 'frailty';
-        const lifted = sworn ? null : this.run.curse;
-        if (!sworn) this.run.curse = null;
-        if (sworn) this.msg('The water will not touch a sworn price. Frailty stays.', OATHS.blood_price.color);
-        this.refreshDerived();
-        this.restore(true);
-        if (lifted) this.msg(`The water runs black and clears. ${CURSES[lifted].name} is washed away.`, '#a0c8ff');
-        else this.msg('Cold clean water. Most of the hurt goes out of you.', '#a0c8ff');
-        return;
-      }
-
-      // The gamble. Thirteen times in twenty it gives; the rest of the time
-      // it takes, and what it takes lasts the rest of the run. Slightly
-      // kinder than before (was 60/40) to compensate stronger curses.
-      case 'idol': {
-        // A Pilgrim's idol is crueller: it curses far more often than it gives.
-        if (this.rng.chance(runOath(this.run, 'pilgrim') ? 1 - PILGRIM_IDOL_CURSE : 0.65)) {
-          this.restore(true);
-          if (!this.grantBlessing()) this.msg('The idol is satisfied. Much of the hurt leaves you.', '#a0c8ff');
-          return;
-        }
-        const id = this.rng.pick(Object.keys(CURSES));
-        this.run.curse = id;
-        this.refreshDerived();
-        this.msg(`The idol drinks something out of you. ${CURSES[id].name}: ${CURSES[id].text}`, '#c080ff');
-        this.emit({ type: 'shake', amount: 0.4 });
-        this.sfx('hurt');
-        return;
-      }
-
-      // The thirsty one: up to three paid offerings, each 75% dearer than
-      // the last, and one time in four the stone takes the coin and answers
-      // with silence — no mend, no blessing. A fizzled offering still counts:
-      // three payments is three payments.
-      case 'coffer': {
-        const made = p.offerings ?? 0;
-        if (made >= COFFER_MAX_OFFERINGS) return;
-        const cost = this.offeringCost(made);
-        if (this.run.gold < cost) {
-          // Not consumed — come back with the coin.
-          p.used = false;
-          this.msg(`The bowl is empty and stays empty. It wants ${cost} gold.`, '#c8a060');
-          this.sfx('locked', p.x, p.y);
-          return;
-        }
-        this.run.gold -= cost;
-        p.offerings = made + 1;
-        if (p.offerings >= COFFER_MAX_OFFERINGS) {
-          // interact() already marked it used; staying used means quiet.
-          this.msg('The stone drinks deep and goes dark. It will take no more.', '#c8a060');
-        } else {
-          // Keep it touchable for the next, dearer offering.
-          p.used = false;
-        }
-        if (this.rng.chance(COFFER_FIZZLE)) {
-          this.msg('The coin vanishes into the stone. Nothing answers.', '#8888a0');
-          this.sfx('gold');
-          return;
-        }
-        this.restore();
-        if (!this.grantBlessing()) this.msg('The coin vanishes. Much of the hurt leaves you.', '#e8c060');
-        this.sfx('gold');
-        return;
-      }
-
-      // The red one. Half your current health, rounded down, for gold that
-      // scales with depth and with what you paid. It cannot kill you: at 1 HP
-      // it refuses. Single use — HP is a currency now, and the font
-      // and the draughts are where you buy it back.
-      case 'blood': {
-        if (this.player.hp <= 1) {
-          p.used = false;
-          this.msg('You have nothing left to give.', '#c8a060');
-          return;
-        }
-        const pay = Math.floor(this.player.hp / 2);
-        const prize = 40 + 30 * this.run.depth + pay;
-        this.player.hp -= pay;
-        this.run.gold += prize;
-        this.run.stats.goldFound += prize;
-        this.emit({ type: 'float', x: p.x, y: p.y, text: `+${gold(prize)}`, color: '#ffd24a' });
-        this.msg(`Your blood runs into the brass bowl. +${prize} gold.`, '#ff8090');
-        this.sfx('hurt');
-        return;
-      }
-
-      // The trial. Free to invoke, paid in nerve: depth-appropriate enemies
-      // rise around the shrine, already looking at you. They drop their
-      // ordinary loot, and the last trial-marked kill pays the prize.
-      // One trial at a time — a second challenge waits its turn.
-      case 'combat': {
-        if (this.run.trial && this.run.trial.ids.length > 0) {
-          p.used = false;
-          this.msg('The yard is already bloodied. Finish the trial first.', '#c8a060');
-          return;
-        }
-        const ids = this.raiseTrial(p);
-        if (!ids.length) {
-          p.used = false;
-          this.msg('The embers stir, then settle. No room to bleed here.', '#8888a0');
-          return;
-        }
-        this.run.trial = { propId: p.id, ids };
-        this.msg(`The ember shrine catches. ${ids.length} rise for the trial!`, '#ff9a50');
-        this.emit({ type: 'shake', amount: 0.5 });
-        this.sfx('alert');
-        return;
-      }
-    }
-  }
-
-  /**
-   * Raise a strife trial around a shrine: 2 + ceil(depth/2) enemies from the
-   * same pool the floor itself draws on (never the boss), on free tiles near
-   * the stone, already alerted. Returns the marked ids (empty when the room
-   * is too cramped to bleed in).
-   */
-  private raiseTrial(p: Prop): string[] {
-    const f = this.floor;
-    const biome = biomeForFloor(f);
-    const depth = this.run.depth;
-    const pool = ENEMIES.filter((e) =>
-      e.weight > 0 && e.behavior !== 'boss' && e.minDepth <= depth && depth <= e.maxDepth &&
-      !(biome.element && e.element && e.element !== biome.element));
-    if (!pool.length) return [];
-    const want = 2 + Math.ceil(depth / 2);
-    const ids: string[] = [];
-    let n = 0;
-    outer: for (let r = 1; r <= 4 && ids.length < want; r++) {
-      for (let dy = -r; dy <= r && ids.length < want; dy++) {
-        for (let dx = -r; dx <= r && ids.length < want; dx++) {
-          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
-          const x = p.x + dx, y = p.y + dy;
-          if (!inBounds(f, x, y) || blocksMove(f, x, y)) continue;
-          if (x === this.player.x && y === this.player.y) continue;
-          if (enemyAt(f, x, y)) continue;
-          if (f.props.some((q) => q.blocking && q.x === x && q.y === y)) continue;
-          const def = this.rng.weighted(pool.map((e) => [e, e.weight] as const));
-          const id = `trial_${p.id}_${n++}`;
-          const e = createEnemy(def, x, y, this.rng.pick(DIRS), id, depth, this.difficultyId);
-          e.alert = 8;
-          e.lastSeenX = this.player.x;
-          e.lastSeenY = this.player.y;
-          f.enemies.push(e);
-          ids.push(id);
-        }
-      }
-    }
-    return ids;
-  }
-
-  /** A trial-marked kill: strike it from the roll, and pay the prize when the roll is empty. */
-  trialKill(id: string): void {
-    const trial = this.run.trial;
-    if (!trial) return;
-    trial.ids = trial.ids.filter((t) => t !== id);
-    if (trial.ids.length > 0) return;
-    this.run.trial = null;
-    const prize = 60 + 40 * this.run.depth;
-    Loot.dropLoot(this, this.player.x, this.player.y, [], prize);
-    this.emit({ type: 'float', x: this.player.x, y: this.player.y, text: `+${gold(prize)}`, color: '#ffd24a' });
-    this.msg('The trial is survived. The shrine pays its prize.', '#ffb050');
-    this.sfx('gold');
   }
 
   /** Move items from a pickup into the backpack. Returns how many stacks moved. */
@@ -2853,3 +2600,5 @@ export class World {
 export { PITCH_EVERY, PITCH_FUSE, SHADOW_STEP_EVERY, SHADOW_STEP_SECONDS } from './boss';
 
 export { GLACIAL_TOMB_SECONDS, GLACIAL_TOMB_SIGHT_SECONDS, JUDGEMENT_POWER_PER_CHARGE, JUDGEMENT_SPARE_HP, METEOR_FALL_SECONDS, METEOR_POWER_PER_CHARGE, RITE_BOTCH_FREEZE, RITE_SIGHT, SPELL_FX_SECONDS, judgementEnds } from './spells';
+
+export { COFFER_FIZZLE } from './shrines';

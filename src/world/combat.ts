@@ -38,6 +38,7 @@ import { CONDUIT_PARRY_WINDOW, GUARD_DOWN, PARRY_GRACE, PARRY_VULN_MULT, PARRY_W
 import * as EnemyAi from './enemy-ai';
 import * as Features from './features';
 import * as Loot from './loot';
+import * as Shrines from './shrines';
 
 /** How long a mimic takes to rise after being struck awake. */
 export const MIMIC_RISE = 0.9;
@@ -738,5 +739,5 @@ export function killEnemy(w: World, e: EnemyState): void {
       delete e.stolenT;
     }
   }
-  w.trialKill(e.id);
+  Shrines.trialKill(w, e.id);
 }

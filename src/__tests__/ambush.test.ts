@@ -6,6 +6,7 @@ import { AMBUSH_BEAT, BURROW_MAX, DROP_SECONDS, EARTH_BIOMES, KNOCKOUT_STUN, SUR
 import { World } from '../world/world';
 import { room } from './harness';
 import * as Combat from '../world/combat';
+import * as Shrines from '../world/shrines';
 
 interface Private {
   resolvePlayerAttack(): void;
@@ -66,7 +67,7 @@ describe('a lurker is not on its tile', () => {
     const e = lurker(w, 'ceiling_crawler', 'ceiling', 2);
     expect(enemyAt(w.floor, e.x, e.y)).toBeUndefined();
     expect(lurkerAt(w.floor, e.x, e.y)).toBe(e);
-    expect(priv(w).threatNear()).toBe(false);
+    expect(Shrines.threatNear(w)).toBe(false);
     expect(w.visibleEnemies().has(e.id)).toBe(false);
   });
 

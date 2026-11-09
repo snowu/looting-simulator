@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createRng } from '../core/rng';
 import { GameState, newGame } from '../state/game-state';
 import { migrateSave } from '../state/migrations';
-import { EnemyState, createEnemy } from '../systems/dungeon';
+import { EnemyState, Prop, createEnemy } from '../systems/dungeon';
 import { enemyDef } from '../data/enemies';
 import {
   BLOOD_PRICE_GOLD, DRY_THROAT_DEPTH, DUELIST_KILLS, HUNTER_DEPTHS, HUNTER_MARKS, HUNTER_SIGHT, KINGSBANE_DAMAGE, OATHS,
@@ -18,6 +18,7 @@ import { World } from '../world/world';
 import * as Sigils from '../world/sigils';
 import * as Combat from '../world/combat';
 import * as EnemyAi from '../world/enemy-ai';
+import * as Shrines from '../world/shrines';
 
 interface Private {
   changeFloor(dir: 'down' | 'up'): void;
@@ -100,7 +101,7 @@ describe('each oath', () => {
   it('Blood Price: cursed, a font will not lift it, 250 found gold', () => {
     const { state, w } = sworn(['blood_price']);
     expect(state.run!.curse).toBe('frailty');
-    priv(w).pray({ shrine: 'font' });
+    Shrines.pray(w, { shrine: 'font' } as Prop);
     expect(state.run!.curse).toBe('frailty');
     const o = runOath(state.run!, 'blood_price')!;
     expect(oathKept(state.run!, o, 'extracted')).toBe(false);
