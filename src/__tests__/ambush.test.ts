@@ -7,6 +7,7 @@ import { World } from '../world/world';
 import { room } from './harness';
 import * as Combat from '../world/combat';
 import * as Shrines from '../world/shrines';
+import * as Traps from '../world/traps';
 
 interface Private {
   resolvePlayerAttack(): void;
@@ -75,7 +76,7 @@ describe('a lurker is not on its tile', () => {
     const w = arena(132);
     const e = lurker(w, 'ceiling_crawler', 'ceiling', 2);
     expect(e.spotted).toBeFalsy();
-    priv(w).spotTraps();
+    Traps.spotTraps(w);
     expect(e.spotted).toBe(true);
   });
 });

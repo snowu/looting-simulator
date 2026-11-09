@@ -35,6 +35,7 @@ import * as Combat from './combat';
 import type { World } from './world';
 import { GUARD_DOWN } from './world';
 import * as Loot from './loot';
+import * as Traps from './traps';
 
 /**
  * How long a monster held back by Normal's attacker cap waits before it asks
@@ -476,7 +477,7 @@ export function stepEnemy(w: World, e: EnemyState, x: number, y: number): void {
   // Monsters blunder into traps too, which is what makes retreating over one
   // you already found worth doing.
   const trap = trapAt(w.floor, x, y);
-  if (trap && trap.armed) w.springTrap(trap, e);
+  if (trap && trap.armed) Traps.springTrap(w, trap, e);
   stepOnto(w, e);
 }
 
@@ -680,7 +681,7 @@ export function strikeCrack(w: World, c: Crack): void {
   f.tiles[c.y * f.width + c.x] = FLOOR;
   if (pick) w.msg('The pick finds the fault line. The wall comes down in one.', '#e8d8a0');
   if (biomeForFloor(f).law === 'collapse') collapse(w, c.x, c.y);
-  w.reveal();
+  Traps.reveal(w);
   const rng = createRng(hashString(`crack:${f.seed}:${c.id}`));
   if (c.kind === 'seam') {
     const ore = materialForDepth(rng, w.run.depth, ['metal']);

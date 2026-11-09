@@ -123,6 +123,7 @@ import * as EnemyAi from './enemy-ai';
 import * as Features from './features';
 import * as Loot from './loot';
 import * as Shrines from './shrines';
+import * as Traps from './traps';
 
 // ---------------------------------------------------------------------------
 // Events the world emits for the renderer / UI / audio to react to.
@@ -573,7 +574,7 @@ export class World {
       sip: null, chew: null, draught: null,
     };
     this.trail.push({ x: this.player.x, y: this.player.y, facing: this.player.facing, time: this.run.stats.time });
-    this.reveal();
+    Traps.reveal(this);
   }
 
   get floor(): Floor {
@@ -1227,7 +1228,7 @@ export class World {
       this.anim.yawFrom = this.anim.yaw;
       this.anim.yawTo = this.anim.yaw + (act === 'turnLeft' ? -Math.PI / 2 : Math.PI / 2);
       this.anim.turnT = 0;
-      this.reveal();
+      Traps.reveal(this);
       return;
     }
     const dir: Dir =
@@ -1259,13 +1260,13 @@ export class World {
     this.trail = this.trail.filter((p) => this.run.stats.time - p.time <= 2.1).slice(-5);
     const p = this.player;
     this.anim.steps++;
-    this.reveal();
+    Traps.reveal(this);
     Boss.checkBossSeal(this);
     const f = this.floor;
     Thrown.collectThrownHere(this);
     const trap = trapAt(f, p.x, p.y);
     if (trap && trap.armed) {
-      this.springTrap(trap, null);
+      Traps.springTrap(this, trap, null);
       if (this.run.outcome !== 'active') return;
     }
     if (surfaceKindAt(f, p.x, p.y) === 'spores') Hazards.sporePuff(this, p.x, p.y);
@@ -1366,7 +1367,7 @@ export class World {
         this.msg('A Flask Shard waits at the stair.', '#9fe0cf');
       }
     }
-    this.reveal();
+    Traps.reveal(this);
     const quirk = quirkDef(f.quirk);
     const biome = biomeForFloor(f);
     // A strange floor announces itself instead of its biome. The biome is still
@@ -1422,115 +1423,8 @@ export class World {
    * more tile of warning — one extra step to stop in, which at a walk is the
    * difference between reading the floor and finding it the hard way.
    */
-  private get lookAhead(): number {
+  get lookAhead(): number {
     return 2 + (metaLevel(this.state.meta, 'lantern') > 0 ? 1 : 0) + this.derived.traits.trapSense;
-  }
-
-  /**
-   * Notice the seam in the flagstones on the tile in front of you. Only the
-   * tile you are about to step onto and the ones beside you, so a corridor
-   * taken at a run is a corridor taken blind.
-   */
-  private spotTraps(): void {
-    const f = this.floor;
-    const p = this.player;
-    const look: { x: number; y: number }[] = [];
-    for (let d = 1; d <= this.lookAhead; d++) look.push(this.frontTile(d));
-    for (const d of DIRS) look.push({ x: p.x + DX[d], y: p.y + DY[d] });
-    // The same look reads the ceiling: whatever clings up there is found by
-    // the same glance that finds a seam in the flagstones.
-    for (const t of look) {
-      const up = lurkerAt(f, t.x, t.y);
-      if (!up || up.lurk !== 'ceiling' || up.spotted) continue;
-      if (!this.los(p.x, p.y, t.x, t.y)) continue;
-      up.spotted = true;
-      this.msg('Something clings to the ceiling ahead.', '#d0b080');
-      this.sfx('ui');
-    }
-    if (!f.traps?.length) return;
-    for (const t of look) {
-      const trap = trapAt(f, t.x, t.y);
-      if (!trap || trap.found || !trap.armed) continue;
-      if (!this.los(p.x, p.y, t.x, t.y)) continue;
-      // The far tile is only readable if you are facing straight down it.
-      if (manhattan(t.x, t.y, p.x, p.y) > 1 && blocksSight(f, t.x, t.y)) continue;
-      trap.found = true;
-      this.msg(TRAPS[trap.kind].spotted, '#e0c060');
-      this.sfx('ui');
-    }
-  }
-
-  /**
-   * Set a trap off. `victim` is the monster that stood on it, or null for you —
-   * monsters blunder into them too, which is the whole reason to back through
-   * one you have already found.
-   */
-  springTrap(trap: Trap, victim: EnemyState | null): void {
-    const def = TRAPS[trap.kind];
-    trap.armed = false;
-    trap.found = true;
-    const depth = this.run.depth;
-    this.emit({ type: 'trap', id: trap.id, x: trap.x, y: trap.y, kind: trap.kind });
-    this.sfx(def.sfx, trap.x, trap.y);
-
-    if (trap.kind === 'alarm') {
-      // No damage — it just tells the floor exactly where you are.
-      let woken = 0;
-      for (const e of this.floor.enemies) {
-        if (e.ai === 'dead') continue;
-        if (manhattan(e.x, e.y, trap.x, trap.y) > EnemyAi.noise(this, 12)) continue;
-        e.alert = Math.max(e.alert, 10);
-        e.lastSeenX = trap.x;
-        e.lastSeenY = trap.y;
-        woken++;
-      }
-      if (!victim) {
-        EnemyAi.breakSilence(this, 'The ward shrieks');
-        this.msg(woken ? 'A ward shrieks. Something heard that.' : 'A ward shrieks into an empty floor.', '#ff9070');
-        this.emit({ type: 'shake', amount: 0.2 });
-      }
-      return;
-    }
-
-    const damage = Math.round(def.base + def.perDepth * depth);
-    if (victim) {
-      // Monsters take the hit raw; they have no armour model for hazards.
-      // Deliberately unscaled by difficulty: a softer trap that still thins
-      // the pack for you is help enough on Normal.
-      const dealt = Math.max(1, Math.round(damage * 0.8));
-      this.hurt(victim, dealt, `${dealt}`, '#ffb060');
-      const vdef = enemyDef(victim.def);
-      if (victim.hp <= 0) {
-        this.msg(`The ${vdef.name} blunders into ${def.source}.`, '#e0c060');
-        Combat.killEnemy(this, victim);
-      }
-      return;
-    }
-    this.msg(def.hit, '#ff7070');
-    Combat.damagePlayer(this, Math.max(1, Math.round(damage * this.diff.trapDamage)), def.damageType, trap.x, trap.y, def.source);
-  }
-
-  /** Mark tiles near and in view as explored (automap fog). */
-  reveal(): void {
-    const f = this.floor;
-    const { x, y } = this.player;
-    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
-      const tx = x + dx, ty = y + dy;
-      if (tx < 0 || ty < 0 || tx >= f.width || ty >= f.height) continue;
-      if (Math.abs(dx) + Math.abs(dy) <= 3 && this.los(x, y, tx, ty, true)) f.explored[ty * f.width + tx] = 1;
-    }
-    // Straight ahead down the corridor.
-    for (let d = 1; d <= 8; d++) {
-      const t = this.frontTile(d);
-      if (t.x < 0 || t.y < 0 || t.x >= f.width || t.y >= f.height) break;
-      f.explored[t.y * f.width + t.x] = 1;
-      for (const side of [turnLeft(this.player.facing), turnRight(this.player.facing)]) {
-        const sx = t.x + DX[side], sy = t.y + DY[side];
-        if (sx >= 0 && sy >= 0 && sx < f.width && sy < f.height) f.explored[sy * f.width + sx] = 1;
-      }
-      if (blocksSight(f, t.x, t.y)) break;
-    }
-    this.spotTraps();
   }
 
   /** Grid line of sight (Bresenham). `inclusive` lets the target itself be opaque. */
@@ -2088,13 +1982,13 @@ export class World {
       }
       door.open = true;
       this.sfx('door', t.x, t.y);
-      this.reveal();
+      Traps.reveal(this);
       return;
     }
 
     const trap = trapAt(f, t.x, t.y);
     if (trap && trap.armed && trap.found) {
-      this.disarm(trap);
+      Traps.disarm(this, trap);
       return;
     }
 
@@ -2105,7 +1999,7 @@ export class World {
       this.sfx('secret', t.x, t.y);
       this.msg('The marked stones grind aside. A hidden room!', '#e8d8a0');
       this.emit({ type: 'secret', x: t.x, y: t.y });
-      this.reveal();
+      Traps.reveal(this);
       return;
     }
 
@@ -2231,24 +2125,6 @@ export class World {
     this.held.clear();
     this.msg(`You eat the ${morsel.kind}.`, '#d8c098');
     return true;
-  }
-
-  /**
-   * Disarming always works — the skill was noticing it, not fiddling with it.
-   * The salvage is what makes clearing one worth the detour instead of just
-   * stepping around it.
-   */
-  private disarm(trap: Trap): void {
-    trap.armed = false;
-    const def = TRAPS[trap.kind];
-    this.sfx('craft', trap.x, trap.y);
-    this.msg(def.disarmed, '#a8d8a0');
-    const salvage = trap.kind === 'alarm' ? 0.25 : 0.6;
-    if (this.rng.chance(salvage)) {
-      const pool = trap.kind === 'dart' ? ['iron', 'timber'] : trap.kind === 'spikes' ? ['iron', 'copper'] : ['bone', 'linen'];
-      const id = this.rng.pick(pool);
-      Loot.dropLoot(this, trap.x, trap.y, [makeMaterial(id, 1)], 0);
-    }
   }
 
   /** What an offering stone asks for at this depth. */
@@ -2465,7 +2341,7 @@ export class World {
           break;
         }
         this.placePlayer(dest.x, dest.y, dest.facing);
-        this.reveal();
+        Traps.reveal(this);
         this.sfx('recall'); this.emit({ type: 'shake', amount: 0.22 });
         this.msg('The scroll snaps you back along your path.', '#9ac0ff');
         break;
