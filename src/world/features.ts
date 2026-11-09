@@ -16,6 +16,7 @@ import { blocksMove, createEnemy, doorAt, enemyAt, EnemyState, Floor, FLOOR, inR
 import { runOath } from '../systems/oaths';
 import { reachable, splitsNothing, surfaceAt } from '../systems/surfaces';
 import type { World } from './world';
+import * as Loot from './loot';
 
 /**
  * A freshly generated floor from depth 2 may get a lieutenant, on its own
@@ -67,12 +68,12 @@ export function lieutenantFalls(w: World, e: EnemyState): void {
       routed++;
     }
     const rng = createRng(hashString(`strongbox:${w.floor.seed}:${e.id}`));
-    const box = w.containerLoot(rng, 'vault');
-    w.dropLoot(e.x, e.y, box.items, box.gold);
+    const box = Loot.containerLoot(w, rng, 'vault');
+    Loot.dropLoot(w, e.x, e.y, box.items, box.gold);
     w.msg(routed ? 'The banner falls. The goblins break and run! The strongbox key is yours.' : 'The banner falls. The strongbox key is yours.', LIEUTENANTS.quartermaster.color);
   } else if (e.lieutenant === 'hoarder') {
     const n = e.hoard?.length ?? 0;
-    w.dropLoot(e.x, e.y, e.hoard ?? [], e.hoardGold ?? 0);
+    Loot.dropLoot(w, e.x, e.y, e.hoard ?? [], e.hoardGold ?? 0);
     delete e.hoard;
     delete e.hoardGold;
     w.msg(n ? 'The sack splits. Everything the Hoarder gathered spills across the floor.' : 'The sack splits, heavy with coin.', LIEUTENANTS.hoarder.color);

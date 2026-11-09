@@ -121,6 +121,7 @@ import * as Thrown from './thrown';
 import * as Combat from './combat';
 import * as EnemyAi from './enemy-ai';
 import * as Features from './features';
+import * as Loot from './loot';
 
 // ---------------------------------------------------------------------------
 // Events the world emits for the renderer / UI / audio to react to.
@@ -320,22 +321,7 @@ export const RITE_CHARGE_COST = 2;
  * by hitting it first.
  */
 const MIMIC_GRAB = 1.1;
-const MIMIC_BITE = 2.5;
 const MIMIC_SPAT = 0.45;
-/**
- * Striking a chest is a test, and it is never free. Every blow on an honest
- * chest breaks one thing inside (see chestLoot for the order), and a blunt or
- * two-handed weapon has CHEST_SHATTER_HEAVY_EXTRA odds of breaking a second.
- * The clang carries too, waking anything within CHEST_CLANG_RADIUS tiles. A
- * player who reads the lid tell and just opens it keeps everything and stays
- * quiet.
- */
-const CHEST_SHATTER_HEAVY_EXTRA = 0.55;
-/** Share of a gear piece's max durability one blow knocks off, once nothing smaller is left to break. */
-const CHEST_DENT = 0.4;
-/** Share of the remaining coin one blow spills, once there is nothing else. */
-const CHEST_SPILL = 0.25;
-const CHEST_CLANG_RADIUS = 7;
 /** Base grace after a parry; Normal extends it through difficulty tuning. */
 export const PARRY_GRACE = 0.75;
 /** Normal's mending: seconds unhurt before it starts, and share of max health per second. */
@@ -364,14 +350,6 @@ export const RETRIEVE_PER_SHAFT = 0.75;
 
 
 
-/** Compact button label for an interaction hint. */
-/** What a blow on a chest breaks first: gems, valuables, and anything in a flask or on a page. */
-function fragileLoot(it: Item): boolean {
-  if (it.kind === 'consumable' || it.kind === 'blueprint') return true;
-  if (it.kind !== 'material') return false;
-  const cat = findMaterial(it.ref)?.category;
-  return cat === 'gem' || cat === 'valuable';
-}
 
 /** "2× Jade, Silver Chalice, Iron Mace dented 2×, 14 gold": repeats counted, coin summed last. */
 function summarizeLost(lost: string[]): string {
@@ -739,7 +717,7 @@ export class World {
   /** Swings into empty air since the last scuff: every third one wears the edge. */
   private whiffs = 0;
   /** Blows landed on chests this session, so each one rolls its own shatter chance. */
-  private chestBlows = 0;
+  chestBlows = 0;
   /** Throttles the broken-guard refusal so holding block can't spam it. */
   private guardWarnCd = 0;
 
@@ -1311,32 +1289,9 @@ export class World {
     // Auto-collect coin and keys; mention anything else lying here.
     const pk = f.pickups.find((q) => q.x === p.x && q.y === p.y);
     if (pk) {
-      this.collectLoose(pk);
+      Loot.collectLoose(this, pk);
       if (pk.items.length) this.msg(`Something lies here. [F] to search.`, '#c8b890');
     }
-  }
-
-  private collectLoose(pk: Pickup): void {
-    if (pk.gold > 0) {
-      this.run.gold += pk.gold;
-      this.run.stats.goldFound += pk.gold;
-      this.emit({ type: 'float', x: pk.x, y: pk.y, text: `+${gold(pk.gold)}`, color: '#ffd24a' });
-      this.msg(`Picked up ${pk.gold} gold.`, '#ffd24a');
-      this.sfx('gold');
-      pk.gold = 0;
-    }
-    if (pk.keyId) {
-      const key = this.floor.keys.find((k) => k.id === pk.keyId);
-      this.run.keys.push(pk.keyId);
-      this.msg(`Found the ${key?.name ?? 'key'}.`, '#ffe08a');
-      this.sfx('unlock');
-      pk.keyId = undefined;
-    }
-    this.prunePickups();
-  }
-
-  private prunePickups(): void {
-    this.floor.pickups = this.floor.pickups.filter((q) => q.items.length > 0 || q.gold > 0 || q.keyId || q.flaskShard);
   }
 
   // -------------------------------------------------------------------------
@@ -1987,21 +1942,6 @@ export class World {
     return true;
   }
 
-  /**
-   * A walkable tile next to (x, y) — never the tile itself, since something is
-   * about to be put there that would cover a loot pile. Falls back to (x, y).
-   */
-  freeTileNear(x: number, y: number): { x: number; y: number } {
-    const f = this.floor;
-    const ok = (tx: number, ty: number) =>
-      !blocksMove(f, tx, ty) && !portalAt(f, tx, ty);
-    for (const d of DIRS) {
-      const tx = x + DX[d], ty = y + DY[d];
-      if (ok(tx, ty)) return { x: tx, y: ty };
-    }
-    return { x, y };
-  }
-
   /** Bespoke legendaries this playthrough has turned up, oldest first. */
   get seenUniques(): string[] {
     return (this.state.lifetime.uniquesSeen ??= []);
@@ -2012,212 +1952,14 @@ export class World {
     return metaLevel(this.state.meta, 'appraiser') >= 2 ? Rarity.Epic : undefined;
   }
 
-  /** A container's loot, rolled with this run's depth, find and unlocks. */
-  containerLoot(rng: Rng, tier: ContainerTier): LootRoll {
-    return rollContainerLoot(rng, this.run.depth, this.lootFind, tier, this.identifyBelow, this.state.recipeRanks, this.seenUniques, this.difficultyId);
-  }
-
   /** Relics this playthrough has identified, which is what opens a codex entry. */
-  private get knownUniques(): string[] {
+  get knownUniques(): string[] {
     return (this.state.lifetime.uniquesKnown ??= []);
-  }
-
-  /**
-   * A spell tome, rolled where sigil stones roll but on its own `tome:` stream,
-   * so adding tomes moved no chest's existing contents. Never one you know or
-   * are already carrying anywhere, the same rule as a stone.
-   */
-  rollTome(stream: string, chance: number): Item | null {
-    const carried = [
-      ...this.state.stash.items,
-      ...this.state.loadout.items,
-      ...this.run.backpack.items,
-      ...this.run.floors.flatMap((f) => f?.pickups.flatMap((p) => p.items) ?? []),
-    ].filter((i) => i.kind === 'tome').map((i) => i.ref);
-    const unknown = unknownConduitSpells(this.state.spellbook ?? [], carried);
-    if (!unknown.length) return null;
-    const rng = createRng(hashString(`tome:${this.run.seed}:${this.run.depth}:${stream}`));
-    return rng.chance(chance) ? makeTome(rng.pick(unknown)) : null;
-  }
-
-  rollSigil(stream: string, chance: number): Item | null {
-    const carried = [
-      ...this.state.stash.items,
-      ...this.state.loadout.items,
-      ...this.run.backpack.items,
-      ...this.run.floors.flatMap((f) => f?.pickups.flatMap((p) => p.items) ?? []),
-    ].filter((i) => i.kind === 'sigil').map((i) => i.ref);
-    // Temper mends worn gear, and on Normal nothing wears: it never drops there.
-    const unknown = unknownSigils(this.state.spells ?? [], carried).filter((id) => this.diff.gearWears || id !== 'temper');
-    if (!unknown.length) return null;
-    const rng = createRng(hashString(`sigil:${this.run.seed}:${this.run.depth}:${stream}`));
-    return rng.chance(chance) ? makeSigil(rng.pick(unknown)) : null;
-  }
-
-  /**
-   * Note a relic that has just come into your hands. Recorded on pickup rather
-   * than on drop: leaving it on the floor or dying on the way out means you
-   * never held it, and the King's promise reads this list.
-   *
-   * Naming it is a second step that waits for identification, so the codex
-   * never tells you what the unappraised lump in your pack is.
-   */
-  private recordUnique(item: Item): void {
-    const u = uniqueOf(item);
-    if (!u) return;
-    const seen = this.seenUniques;
-    if (!seen.includes(u.id)) seen.push(u.id);
-    if (!isIdentified(item)) return;
-    if (nameRelic(this.knownUniques, u.id)) {
-      this.msg(`${u.name}. The codex has a page for it now.`, '#e8b84a');
-    }
-  }
-
-  dropLoot(x: number, y: number, items: Item[], gold: number): Pickup | null {
-    if (!items.length && gold <= 0) return null;
-    const f = this.floor;
-    let pk = f.pickups.find((p) => p.x === x && p.y === y);
-    if (!pk) {
-      pk = { id: `d${Math.floor(this.time * 1000)}_${x}_${y}`, x, y, items: [], gold: 0 };
-      f.pickups.push(pk);
-    }
-    pk.items.push(...items);
-    pk.gold += gold;
-    // Standing on it already? Grab the coin.
-    if (x === this.player.x && y === this.player.y) this.collectLoose(pk);
-    return pk;
-  }
-
-  private propRng(p: Prop): Rng {
-    return createRng(hashString(`${this.floor.seed}:${p.id}`));
-  }
-
-  /**
-   * What a chest holds, less whatever blows have already broken inside it.
-   * Each recorded blow takes one thing, worst first: a fragile piece (gem,
-   * valuable, consumable, blueprint), then a unit of material, then a dent in
-   * the gear, and once nothing else is left, a quarter of the coin.
-   */
-  private chestLoot(p: Prop, tier: ContainerTier): { items: Item[]; gold: number; lost: string[] } {
-    const loot = this.containerLoot(this.propRng(p), tier);
-    // Its own stream, so which piece broke never moves the loot roll itself.
-    const pick = createRng(hashString(`chest-shatter:${this.floor.seed}:${p.id}`));
-    const lost: string[] = [];
-    const takeOne = (it: Item) => {
-      lost.push(itemName(it));
-      it.qty -= 1;
-      if (it.qty <= 0) loot.items.splice(loot.items.indexOf(it), 1);
-    };
-    for (let n = p.shattered ?? 0; n > 0; n--) {
-      const fragile = loot.items.filter(fragileLoot);
-      if (fragile.length) { takeOne(pick.pick(fragile)); continue; }
-      const mats = loot.items.filter((it) => it.kind === 'material');
-      if (mats.length) { takeOne(pick.pick(mats)); continue; }
-      // Where nothing wears, a blow dents nothing either: it spills coin instead.
-      const gear = this.diff.gearWears ? loot.items.filter((it) => it.kind === 'equipment' && durability(it).wears && durability(it).cur > 0) : [];
-      if (gear.length) {
-        const it = pick.pick(gear);
-        const d = durability(it);
-        it.dur = Math.max(0, d.cur - Math.ceil(d.max * CHEST_DENT));
-        lost.push(`dent:${itemName(it)}`);
-        continue;
-      }
-      if (loot.gold > 0) {
-        const spilt = Math.max(1, Math.round(loot.gold * CHEST_SPILL));
-        loot.gold -= spilt;
-        lost.push(`${spilt} gold`);
-      }
-    }
-    return { ...loot, lost };
-  }
-
-  /** Record what one blow on an honest chest breaks inside it: always one thing, sometimes two. */
-  shatterInChest(p: Prop): void {
-    const heavy = this.derived.twoHanded || this.derived.damageType === 'blunt';
-    const struck = createRng(hashString(`chest-strike:${this.floor.seed}:${p.id}:${this.chestBlows++}`));
-    p.shattered = (p.shattered ?? 0) + (heavy && struck.chance(CHEST_SHATTER_HEAVY_EXTRA) ? 2 : 1);
-  }
-
-  /** Iron on iron carries: anything near enough comes to see what it was. */
-  chestClang(p: Prop): void {
-    let woken = 0;
-    for (const e of this.floor.enemies) {
-      if (e.ai === 'dead' || Boss.protectedByFog(this, e)) continue;
-      if (manhattan(e.x, e.y, p.x, p.y) > EnemyAi.noise(this, CHEST_CLANG_RADIUS)) continue;
-      if (e.alert <= 0) woken++;
-      e.alert = Math.max(e.alert, 6);
-      e.lastSeenX = this.player.x;
-      e.lastSeenY = this.player.y;
-    }
-    if (woken) this.msg('The clang echoes down the halls. Something heard it.', '#ff9070');
-  }
-
-  /** Swap a disguised chest for the mimic inside it, holding the chest's reward. */
-  wakeMimic(p: Prop, rise: number): EnemyState {
-    const f = this.floor;
-    f.props = f.props.filter((q) => q !== p);
-    const mimic = createEnemy(enemyDef('mimic'), p.x, p.y, turnAround(this.player.facing), `mimic:${p.id}`, this.run.depth, this.difficultyId);
-    mimic.ai = 'recover';
-    mimic.timer = rise;
-    mimic.alert = 6;
-    mimic.lastSeenX = this.player.x;
-    mimic.lastSeenY = this.player.y;
-    mimic.mimicTier = p.tier === 'none' ? 'chest' : p.tier;
-    mimic.mimicPropId = p.id;
-    f.enemies.push(mimic);
-    return mimic;
-  }
-
-  /**
-   * The held bite of a mimic you opened: nothing refuses it but armour.
-   *
-   * The first bite a save ever takes never kills, on any difficulty. Nothing
-   * can be answered once the lid is up, so a death there teaches nothing; a
-   * bite that leaves you on 1 health and names the tells teaches the chest.
-   * "Ever" is the codex's worst hit from a mimic, so it needs no save field.
-   */
-  mimicBite(e: EnemyState): void {
-    const def = Combat.view(this, e);
-    this.sfx('swing', e.x, e.y);
-    e.strikeT = 0;
-    const was = bestiaryEntry(this.state.bestiary, def.id);
-    const first = was.worstHit === 0 && was.deaths === 0;
-    Combat.damagePlayer(this, 
-      Math.max(1, Math.round(def.attack * MIMIC_BITE * attackPower(e.power) * this.diff.enemyDamage * this.diff.mimicBite)),
-      def.damageType, e.x, e.y, def.name, def.id, e, true, this.diff.mimicMercy || first,
-    );
-    if (this.run.outcome !== 'active') return;
-    this.msg('It chews, then spits you out. Get up!', '#ff9070');
-    if (first) this.msg('That was no chest. A mimic breathes when you watch it, and shows two pale points in its lid seam; strike a chest you doubt before you open it.', '#ffd080');
   }
 
   /** In a mimic's jaws: every other action waits for the bite. */
   private get grabbed(): boolean {
     return this.floor.enemies.some((e) => (e.grabT ?? 0) > 0 && e.ai !== 'dead');
-  }
-
-  breakProp(p: Prop): void {
-    if (p.oil) {
-      Hazards.spillBarrel(this, p);
-      return;
-    }
-    p.used = true;
-    this.sfx('break', p.x, p.y);
-    // Burrows: the crack of old roots is a lure. What hears it comes to the
-    // cache, not to you — so break it and be somewhere else.
-    if (p.kind === 'root_cache' && biomeForFloor(this.floor).law === 'noise') {
-      let drawn = 0;
-      for (const e of this.floor.enemies) {
-        if (e.ai === 'dead' || e.lurk || manhattan(e.x, e.y, p.x, p.y) > ROOT_CACHE_LURE) continue;
-        e.alert = Math.max(e.alert, 8);
-        e.lastSeenX = p.x;
-        e.lastSeenY = p.y;
-        drawn++;
-      }
-      this.msg(drawn ? 'The roots crack like a shot. Something skitters towards the sound.' : 'The roots crack like a shot. Nothing answers.', LAWS.noise.color);
-    }
-    const loot = this.containerLoot(this.propRng(p), 'urn');
-    this.dropLoot(p.x, p.y, loot.items, loot.gold);
   }
 
   /** What [F] would do right now, for the prompt. */
@@ -2310,7 +2052,7 @@ export class World {
     // In front of you where there is room, so you can see what you opened.
     const front = this.frontTile();
     const clear = (t: { x: number; y: number }) => !blocksMove(this.floor, t.x, t.y) && !propAt(this.floor, t.x, t.y);
-    const spot = clear(front) ? front : this.freeTileNear(this.player.x, this.player.y);
+    const spot = clear(front) ? front : Loot.freeTileNear(this, this.player.x, this.player.y);
     this.closeTownPortal();
     this.floor.props.push({
       id: `town_portal_${Math.round(this.time * 1000)}`,
@@ -2424,14 +2166,14 @@ export class World {
     const p = propAt(f, t.x, t.y);
     if (p && !p.used) {
       if (isVessel(p)) {
-        this.breakProp(p);
+        Loot.breakProp(this, p);
         return;
       }
       if (p.kind === 'chest') {
         const tier = p.tier === 'none' ? 'chest' : p.tier;
         if (p.mimic) {
           // Its recovery is frozen while it chews, so this is the beat after the bite.
-          const mimic = this.wakeMimic(p, 0.8);
+          const mimic = Loot.wakeMimic(this, p, 0.8);
           mimic.grabT = MIMIC_GRAB;
           const a = this.anim;
           a.stunT = Math.max(a.stunT, MIMIC_GRAB + MIMIC_SPAT);
@@ -2445,16 +2187,16 @@ export class World {
         }
         p.used = true;
         this.sfx('chest', p.x, p.y);
-        const loot = this.chestLoot(p, tier);
+        const loot = Loot.chestLoot(this, p, tier);
         if (loot.lost.length) this.msg(`Your blows cost you: ${summarizeLost(loot.lost)}.`, '#d0a070');
-        const sigilDrop = this.rollSigil(
+        const sigilDrop = Loot.rollSigil(this, 
           `chest:${p.id}`,
           tier === 'vault' || tier === 'secret' ? 0.22 : 0.03 * clamp((this.run.depth - 1) / 4, 0, 1),
         );
         if (sigilDrop) loot.items.push(sigilDrop);
-        const tomeDrop = this.rollTome(`chest:${p.id}`, tomeChance(tier, this.run.depth));
+        const tomeDrop = Loot.rollTome(this, `chest:${p.id}`, tomeChance(tier, this.run.depth));
         if (tomeDrop) loot.items.push(tomeDrop);
-        let pk = this.dropLoot(p.x, p.y, loot.items, 0);
+        let pk = Loot.dropLoot(this, p.x, p.y, loot.items, 0);
         if ((tier === 'vault' || tier === 'secret') && (this.state.flask?.shards ?? 0) < 3 && createRng(hashString(`flask-shard:${f.seed}:${p.id}`)).chance(0.04)) {
           pk ??= { id: `shard_${p.id}`, x: p.x, y: p.y, items: [], gold: 0 };
           pk.flaskShard = true;
@@ -2559,7 +2301,7 @@ export class World {
     if (this.rng.chance(salvage)) {
       const pool = trap.kind === 'dart' ? ['iron', 'timber'] : trap.kind === 'spikes' ? ['iron', 'copper'] : ['bone', 'linen'];
       const id = this.rng.pick(pool);
-      this.dropLoot(trap.x, trap.y, [makeMaterial(id, 1)], 0);
+      Loot.dropLoot(this, trap.x, trap.y, [makeMaterial(id, 1)], 0);
     }
   }
 
@@ -2763,7 +2505,7 @@ export class World {
     if (trial.ids.length > 0) return;
     this.run.trial = null;
     const prize = 60 + 40 * this.run.depth;
-    this.dropLoot(this.player.x, this.player.y, [], prize);
+    Loot.dropLoot(this, this.player.x, this.player.y, [], prize);
     this.emit({ type: 'float', x: this.player.x, y: this.player.y, text: `+${gold(prize)}`, color: '#ffd24a' });
     this.msg('The trial is survived. The shrine pays its prize.', '#ffb050');
     this.sfx('gold');
@@ -2780,7 +2522,7 @@ export class World {
       pk.flaskShard = false;
       if (this.state.flask.shards >= 3) {
         for (const fl of this.run.floors ?? []) for (const other of fl?.pickups ?? []) other.flaskShard = false;
-        this.prunePickups();
+        Loot.prunePickups(this);
       }
       moved++;
       this.msg('The Flask Shard dissolves into the vessel. Its capacity grows.', '#9fe0cf');
@@ -2801,7 +2543,7 @@ export class World {
       const left = addItem(this.run.backpack, it);
       if (left < before) {
         moved++;
-        this.recordUnique(it);
+        Loot.recordUnique(this, it);
       }
       if (left === 0) pk.items = pk.items.filter((i) => i !== it);
       else it.qty = left;
@@ -2812,7 +2554,7 @@ export class World {
     } else if (pk.items.length) {
       this.msg('Your pack is full.', '#ff9070');
     }
-    this.prunePickups();
+    Loot.prunePickups(this);
     return moved;
   }
 
@@ -2834,7 +2576,7 @@ export class World {
         return;
       }
     }
-    this.dropLoot(this.player.x, this.player.y, [it], 0);
+    Loot.dropLoot(this, this.player.x, this.player.y, [it], 0);
     this.sfx('ui');
   }
 
@@ -2908,7 +2650,7 @@ export class World {
         }
         target ??= unids[0];
         identify(target!);
-        this.recordUnique(target!);
+        Loot.recordUnique(this, target!);
         this.msg(`It is: ${itemName(target!)}.`, '#c8b8ff');
         this.sfx('magic');
         break;

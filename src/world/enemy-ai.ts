@@ -34,6 +34,7 @@ import * as Spells from './spells';
 import * as Combat from './combat';
 import type { World } from './world';
 import { GUARD_DOWN } from './world';
+import * as Loot from './loot';
 
 /**
  * How long a monster held back by Normal's attacker cap waits before it asks
@@ -116,7 +117,7 @@ export function updateEnemies(w: World, dt: number): void {
       e.grabT = e.grabT! - dt;
       if (e.grabT <= 0) {
         delete e.grabT;
-        w.mimicBite(e);
+        Loot.mimicBite(w, e);
       }
       continue;
     }
@@ -683,13 +684,13 @@ export function strikeCrack(w: World, c: Crack): void {
   const rng = createRng(hashString(`crack:${f.seed}:${c.id}`));
   if (c.kind === 'seam') {
     const ore = materialForDepth(rng, w.run.depth, ['metal']);
-    w.dropLoot(c.x, c.y, [makeMaterial(ore.id, rng.int(SEAM_ORE[0], SEAM_ORE[1]))], 0);
+    Loot.dropLoot(w, c.x, c.y, [makeMaterial(ore.id, rng.int(SEAM_ORE[0], SEAM_ORE[1]))], 0);
     w.msg(`The wall gives way. Ore spills from the seam: ${ore.name}.`, '#e8d8a0');
   } else if (c.kind === 'cache') {
     // Three loud blows and the wear on your blade: it pays like a chest,
     // and never nothing.
-    const loot = w.containerLoot(rng, 'chest');
-    w.dropLoot(c.x, c.y, loot.items, Math.max(loot.gold, CACHE_MIN_GOLD(w.run.depth)));
+    const loot = Loot.containerLoot(w, rng, 'chest');
+    Loot.dropLoot(w, c.x, c.y, loot.items, Math.max(loot.gold, CACHE_MIN_GOLD(w.run.depth)));
     w.msg('The wall gives way onto a sealed niche. Someone hid something here.', '#e8d8a0');
   } else {
     w.msg('The wall gives way. A way through!', '#e8d8a0');
@@ -892,7 +893,7 @@ export function runWithLoot(w: World, e: EnemyState, def: EnemyDef, dist: number
     e.trailN = (e.trailN ?? 0) + 1;
     if (e.trailN % THIEF_TRAIL_EVERY === 0 && (e.trailDrops ?? 0) < THIEF_TRAIL_MAX) {
       e.trailDrops = (e.trailDrops ?? 0) + 1;
-      w.dropLoot(fromTileX, fromTileY, [], w.rng.int(1, 3));
+      Loot.dropLoot(w, fromTileX, fromTileY, [], w.rng.int(1, 3));
       if (e.trailDrops === 1 && sees) w.msg(`Coins spill from the ${def.name}'s purse as it runs.`, '#e8c060');
     }
     if (sees && w.rng.chance(THIEF_FUMBLE_CHANCE)) {

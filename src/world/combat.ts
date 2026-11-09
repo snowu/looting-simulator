@@ -37,6 +37,7 @@ import type { World } from './world';
 import { CONDUIT_PARRY_WINDOW, GUARD_DOWN, PARRY_GRACE, PARRY_VULN_MULT, PARRY_WINDOW, tomeChance } from './world';
 import * as EnemyAi from './enemy-ai';
 import * as Features from './features';
+import * as Loot from './loot';
 
 /** How long a mimic takes to rise after being struck awake. */
 export const MIMIC_RISE = 0.9;
@@ -99,7 +100,7 @@ export function resolvePlayerAttack(w: World): void {
     }
     const p = propAt(f, t.x, t.y);
     if (p && d === 1 && isVessel(p) && !p.used) {
-      w.breakProp(p);
+      Loot.breakProp(w, p);
       return;
     }
     const crack = d === 1 ? crackAt(f, t.x, t.y) : undefined;
@@ -118,10 +119,10 @@ export function resolvePlayerAttack(w: World): void {
     // and a mimic takes it and wakes up. Hitting first is the test.
     if (p && p.kind === 'chest' && !p.used) {
       w.wear('weapon', 1);
-      w.chestClang(p);
+      Loot.chestClang(w, p);
       // The blow only wakes it: it rises at full health, as in Dark Souls.
       if (p.mimic) {
-        w.wakeMimic(p, MIMIC_RISE);
+        Loot.wakeMimic(w, p, MIMIC_RISE);
         w.sfx('alert', p.x, p.y);
         w.emit({ type: 'shake', amount: 0.4 });
         w.msg('The chest rises up and reveals itself. Prepare to fight!', '#e8c080');
@@ -129,7 +130,7 @@ export function resolvePlayerAttack(w: World): void {
       }
       w.sfx('block', p.x, p.y);
       w.emit({ type: 'shake', amount: 0.15 });
-      w.shatterInChest(p);
+      Loot.shatterInChest(w, p);
       w.msg('Your blow glances off the chest. Something inside breaks.', '#d0a070');
       return;
     }
@@ -657,7 +658,7 @@ export function killEnemy(w: World, e: EnemyState): void {
   if (e.def === SHADE_ID && w.state.grave) {
     const grave = w.state.grave;
     w.state.grave = null;
-    w.dropLoot(e.x, e.y, grave.items, grave.gold);
+    Loot.dropLoot(w, e.x, e.y, grave.items, grave.gold);
     w.msg('Your Shade comes apart. What you lost is yours again.', '#9ab8ff');
   }
   const duelist = runOath(w.run, 'duelist');
@@ -679,21 +680,21 @@ export function killEnemy(w: World, e: EnemyState): void {
   recordKill(w.state.contracts, def.id);
   recordBestiaryKill(w.state.bestiary, def.id);
   const loot = e.mimicTier && e.mimicPropId
-    ? w.containerLoot(createRng(hashString(`${w.floor.seed}:${e.mimicPropId}`)), e.mimicTier)
+    ? Loot.containerLoot(w, createRng(hashString(`${w.floor.seed}:${e.mimicPropId}`)), e.mimicTier)
     : rollEnemyLoot(w.rng, def, w.run.depth, w.lootFind, w.identifyBelow, w.state.recipeRanks, w.state.bestiary, w.seenUniques, w.difficultyId, !!e.elite);
   const sigilDrop = def.behavior === 'boss'
-    ? w.rollSigil(`boss:${e.id}`, 1)
+    ? Loot.rollSigil(w, `boss:${e.id}`, 1)
     : e.mimicTier && e.mimicPropId
-      ? w.rollSigil(`chest:${e.mimicPropId}`, e.mimicTier === 'vault' || e.mimicTier === 'secret' ? 0.22 : 0.03 * clamp((w.run.depth - 1) / 4, 0, 1))
+      ? Loot.rollSigil(w, `chest:${e.mimicPropId}`, e.mimicTier === 'vault' || e.mimicTier === 'secret' ? 0.22 : 0.03 * clamp((w.run.depth - 1) / 4, 0, 1))
       : null;
   if (sigilDrop) loot.items.push(sigilDrop);
-  const tomeDrop = e.mimicTier && e.mimicPropId ? w.rollTome(`chest:${e.mimicPropId}`, tomeChance(e.mimicTier, w.run.depth)) : null;
+  const tomeDrop = e.mimicTier && e.mimicPropId ? Loot.rollTome(w, `chest:${e.mimicPropId}`, tomeChance(e.mimicTier, w.run.depth)) : null;
   if (tomeDrop) loot.items.push(tomeDrop);
   if (def.behavior === 'boss') {
     // The portal opens where the king fell, so his hoard goes beside it —
     // dropped on the same tile it would be unreachable behind the portal.
-    const spot = w.freeTileNear(e.x, e.y);
-    w.dropLoot(spot.x, spot.y, loot.items, loot.gold);
+    const spot = Loot.freeTileNear(w, e.x, e.y);
+    Loot.dropLoot(w, spot.x, spot.y, loot.items, loot.gold);
     w.run.stats.bossKilled = true;
     if ((w.state.flask?.shards ?? 0) < 3) {
       const shard = w.floor.pickups.find((p) => p.x === spot.x && p.y === spot.y) ?? { id: 'shard_king', x: spot.x, y: spot.y, items: [], gold: 0 };
@@ -719,7 +720,7 @@ export function killEnemy(w: World, e: EnemyState): void {
       if (butcher > 0) {
         const toeRng = createRng(hashString(`butcher:${w.floor.seed}:${e.id}`));
         if (toeRng.chance(butcher)) {
-          const spot = w.freeTileNear(e.x, e.y);
+          const spot = Loot.freeTileNear(w, e.x, e.y);
           (w.floor.morsels ??= []).push({
             id: `morsel_toe_${e.id}`, kind: def.morsel, x: spot.x, y: spot.y,
             remaining: MORSEL_HEAL[def.morsel], droppedAt: w.run.stats.time,
@@ -728,10 +729,10 @@ export function killEnemy(w: World, e: EnemyState): void {
         }
       }
     }
-    w.dropLoot(e.x, e.y, loot.items, loot.gold);
+    Loot.dropLoot(w, e.x, e.y, loot.items, loot.gold);
     w.msg(`${view(w, e).name} slain.`, e.elite ? '#e8d8a0' : '#c8c0b0');
     if (e.stolen?.length) {
-      w.dropLoot(e.x, e.y, e.stolen, 0);
+      Loot.dropLoot(w, e.x, e.y, e.stolen, 0);
       w.msg(`It drops your ${e.stolen.map(itemName).join(', ')}.`, '#e8c060');
       delete e.stolen;
       delete e.stolenT;

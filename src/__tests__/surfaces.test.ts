@@ -17,6 +17,7 @@ import { Rarity } from '../types';
 import { World } from '../world/world';
 import * as Combat from '../world/combat';
 import * as EnemyAi from '../world/enemy-ai';
+import * as Loot from '../world/loot';
 
 /** A cleared 15×15 room around the player, facing north, with nothing on the floor. */
 function room(seed = 501): World {
@@ -245,7 +246,7 @@ describe('oil barrels', () => {
     const w = room();
     const p = barrel(w, 10, 8);
     const piles = w.floor.pickups.length;
-    priv(w).breakProp(p);
+    Loot.breakProp(w, p);
     expect(p.used).toBe(true);
     expect(oilBarrelAt(w.floor, 10, 8)).toBeUndefined();
     expect(surfaceKindAt(w.floor, 10, 8)).toBe('oil');
