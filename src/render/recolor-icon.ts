@@ -18,6 +18,20 @@ const NEAR = 6;
  * counts, because that is where the outlines are.
  */
 const PAST_LIGHT = 0.3;
+/**
+ * A glint is a near-white, near-grey pixel: brighter than this on every
+ * channel, and no further than `GLINT_CHROMA` between its channels.
+ */
+const GLINT_MIN = 200;
+const GLINT_CHROMA = 16;
+/**
+ * How much of the material's hue a glint takes. Light on a polished thing is
+ * the colour of the thing, a little: a purple gem's glint was pure white and
+ * read as a hole in it (#100). The glint keeps its brightness and only takes
+ * the lightest step's offset from grey, scaled by this, so iron's glints are
+ * left as they were and an amethyst's turn lavender.
+ */
+const GLINT_TINT = 0.6;
 
 /**
  * Replace the exported icon's material colours with an item's material.
@@ -25,7 +39,8 @@ const PAST_LIGHT = 0.3;
  * The four ramp colours map exactly to the material's four. Any other colour
  * lying close to the line through those four is a shade the artist painted
  * between or just past them: it maps to the same place on the material's ramp.
- * Colours the art names for itself (outline, glint) are never touched.
+ * Colours the art names for itself (outlines, cords) are never touched, except
+ * near-white glints, which take a little of the material's hue.
  */
 export function recolorIcon(data: Uint8ClampedArray, def: ArtDef, ramp: Ramp): void {
   const from: (readonly [number, number, number, number])[] = [];
@@ -48,6 +63,7 @@ export function recolorIcon(data: Uint8ClampedArray, def: ArtDef, ramp: Ramp): v
   }
   const shaded = from.length === 4;
   const seen = new Map<number, Rgb | null>();
+  const glint = shaded && !def.glass ? hueOffset(to[3]) : null;
 
   for (let i = 0; i < data.length; i += 4) {
     const a = data[i + 3];
@@ -64,7 +80,8 @@ export function recolorIcon(data: Uint8ClampedArray, def: ArtDef, ramp: Ramp): v
     const rgb = (data[i] << 16) | (data[i + 1] << 8) | data[i + 2];
     let out = seen.get(rgb);
     if (out === undefined) {
-      out = fixed.has(rgb) ? null : onRamp([data[i], data[i + 1], data[i + 2]], from, to);
+      const p: Rgb = [data[i], data[i + 1], data[i + 2]];
+      out = glint && isGlint(p) ? tintGlint(p, glint) : fixed.has(rgb) ? null : onRamp(p, from, to);
       seen.set(rgb, out);
     }
     if (out) {
@@ -73,6 +90,21 @@ export function recolorIcon(data: Uint8ClampedArray, def: ArtDef, ramp: Ramp): v
       data[i + 2] = out[2];
     }
   }
+}
+
+function isGlint(p: Rgb): boolean {
+  return Math.min(p[0], p[1], p[2]) >= GLINT_MIN && Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]) <= GLINT_CHROMA;
+}
+
+/** How far each channel of `c` sits from its own grey (Rec. 601 luma). */
+function hueOffset(c: Color): Rgb {
+  const luma = 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
+  return [c[0] - luma, c[1] - luma, c[2] - luma];
+}
+
+function tintGlint(p: Rgb, offset: Rgb): Rgb {
+  const at = (k: number) => Math.max(0, Math.min(255, Math.round(p[k] + offset[k] * GLINT_TINT)));
+  return [at(0), at(1), at(2)];
 }
 
 const pack = ([r, g, b, a]: readonly number[]) => ((r << 24) | (g << 16) | (b << 8) | a) >>> 0;
