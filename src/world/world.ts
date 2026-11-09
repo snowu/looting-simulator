@@ -412,6 +412,8 @@ const RETURN_LOCAL_TILES = 2;
  * and 55 keeps exactly the same creatures on the light side of the line now
  * that every stat block is larger.
  */
+/** A badly hurt skittish monster's chance to bolt, per 60 fps tick it stands deciding. */
+const SKITTISH_FLEE_PER_TICK = 0.02;
 const STAGGER_HP = 55;
 
 /**
@@ -5550,7 +5552,10 @@ export class World {
         continue;
       }
       if (e.lieutenant === 'hoarder' && this.updateHoarder(e, def, dist, sees)) continue;
-      if (def.behavior === 'skittish' && e.hp < e.maxHp * 0.35 && sees && this.rally(e) === 1 && this.rng.chance(0.02)) {
+      // A monster standing still decides every tick, so the chance is per
+      // second, not per tick: 2% a tick at 60 fps, the rate it was tuned at,
+      // whatever the display runs at.
+      if (def.behavior === 'skittish' && e.hp < e.maxHp * 0.35 && sees && this.rally(e) === 1 && this.rng.chance(1 - Math.pow(1 - SKITTISH_FLEE_PER_TICK, dt * 60))) {
         e.ai = 'flee';
         this.msg(`The ${def.name} tries to flee!`, '#c8c0b0');
         continue;
