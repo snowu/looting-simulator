@@ -11,6 +11,7 @@ import { World } from '../world/world';
 import { createEnemy, FLOOR } from '../systems/dungeon';
 import { enemyDef } from '../data/enemies';
 import { durability } from '../systems/items';
+import * as Sigils from '../world/sigils';
 
 function worldWith(id: string): World {
   const state = newGame(createRng(83));
@@ -76,18 +77,18 @@ describe('sigil state', () => {
     enemy.ai = 'windup';
     enemy.timer = 2;
     wardcry.floor.enemies.push(enemy);
-    (wardcry as any).resolveSigil('wardcry');
+    Sigils.resolveSigil(wardcry, 'wardcry');
     expect(enemy.ai).toBe('recover');
     expect(Math.abs(enemy.x - front.x) + Math.abs(enemy.y - front.y)).toBe(1);
     expect(wardcry.run.sigil!.cd).toBe(70);
-    (wardcry as any).refundSigil(enemyDef('hollow_knight'));
+    Sigils.refundSigil(wardcry, enemyDef('hollow_knight'));
     expect(wardcry.run.sigil!.cd).toBeLessThan(70);
 
     const snuff = worldWith('snuff');
     const hunter = createEnemy(enemyDef('skeleton'), 10, 14, 0, 'hunter', 1);
     hunter.ai = 'chase'; hunter.alert = 6;
     snuff.floor.enemies.push(hunter);
-    (snuff as any).resolveSigil('snuff');
+    Sigils.resolveSigil(snuff, 'snuff');
     expect(hunter.ai).toBe('idle');
     expect(snuff.anim).toMatchObject({ snuffT: 8, unseenT: 3 });
     expect(snuff.playerLightRadius).toBe(2.5);
@@ -95,19 +96,19 @@ describe('sigil state', () => {
     const sounding = worldWith('sounding');
     sounding.floor.explored.fill(0);
     sounding.floor.traps.push({ id: 'hidden', kind: 'spikes', x: 11, y: 10, armed: true, found: false, dir: 0 });
-    (sounding as any).resolveSigil('sounding');
+    Sigils.resolveSigil(sounding, 'sounding');
     expect(sounding.floor.explored[10 * sounding.floor.width + 11]).toBe(1);
     expect(sounding.floor.traps[0].found).toBe(true);
 
     const threshold = worldWith('threshold');
-    (threshold as any).resolveSigil('threshold');
+    Sigils.resolveSigil(threshold, 'threshold');
     expect(threshold.anim.ward).toMatchObject({ x: 10, y: 10, t: 8 });
 
     const temper = worldWith('temper');
     const worn = temper.state.equipment.weapon!;
     worn.dur = 1;
     const max = durability(worn).max;
-    (temper as any).resolveSigil('temper');
+    Sigils.resolveSigil(temper, 'temper');
     expect(worn.dur).toBe(1 + Math.round(max * 0.25));
   });
 

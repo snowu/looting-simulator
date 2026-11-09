@@ -15,6 +15,7 @@ import { endRun, startRun } from '../systems/run';
 import { durability, makeEquipment } from '../systems/items';
 import { Rarity } from '../types';
 import { World } from '../world/world';
+import * as Sigils from '../world/sigils';
 
 interface Private {
   changeFloor(dir: 'down' | 'up'): void;
@@ -183,7 +184,7 @@ describe('each oath', () => {
     const o = runOath(state.run!, 'silence')!;
     state.run!.stats.deepest = SILENCE_DEPTH;
     expect(oathKept(state.run!, o, 'extracted')).toBe(true);
-    priv(w).castWardcry();
+    Sigils.castWardcry(w);
     expect(o.status).toBe('broken');
     expect(oathKept(state.run!, o, 'extracted')).toBe(false);
   });

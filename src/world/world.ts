@@ -116,6 +116,7 @@ import * as Hazards from './hazards';
 import * as Boss from './boss';
 import { SHADOW_STEP_EVERY } from './boss';
 import * as Spells from './spells';
+import * as Sigils from './sigils';
 
 // ---------------------------------------------------------------------------
 // Events the world emits for the renderer / UI / audio to react to.
@@ -365,7 +366,7 @@ const BLOCK_EXPIRY = 2.5;
  */
 const GUARD_RAISE = 0.25;
 const GUARD_UP = 1.4;
-const GUARD_DOWN = 1.6;
+export const GUARD_DOWN = 1.6;
 const GUARD_RANGE = 4;
 const GUARD_BREAK_AT = 3;
 
@@ -579,7 +580,7 @@ export class World {
   readonly state: GameState;
   readonly run: RunState;
   rng: Rng;
-  private flavorRng: Rng;
+  flavorRng: Rng;
   derived!: PlayerDerived;
   projectiles: Projectile[] = [];
   /** Hitscan spell marks on screen right now. See `SpellFx`. */
@@ -1202,7 +1203,7 @@ export class World {
       if (a.cast.t <= 0) {
         const id = a.cast.id;
         a.cast = null;
-        this.resolveSigil(id);
+        Sigils.resolveSigil(this, id);
       }
     }
 
@@ -1743,7 +1744,7 @@ export class World {
     a.attackRecovery = profile.recovery;
     a.attackDur = profile.windup;
     a.blockRaise = 0;
-    this.rockAndStone();
+    Sigils.rockAndStone(this);
     Spells.breakChannels(this);
   }
 
@@ -2215,135 +2216,6 @@ export class World {
     this.msg(`You raise the ${def.name}...`, '#9a8fd8');
     this.sfx('sigil');
     return true;
-  }
-
-  /**
-   * Each sigil's own colour for the wash that plays when it lands.
-   *
-   * Casting had no moment: the stamina went, the cooldown started, and unless
-   * you happened to be looking at the one thing that got pushed there was
-   * nothing to tell you it had worked. Four of the five do something you cannot
-   * see from where you stand.
-   */
-  private static readonly SIGIL_FLASH: Record<SigilId, [number, number, number, number]> = {
-    wardcry: [0.95, 0.85, 0.55, 0.5],
-    snuff: [0.05, 0.04, 0.10, 0.6],
-    sounding: [0.55, 0.75, 1.0, 0.38],
-    threshold: [1.0, 0.82, 0.45, 0.42],
-    temper: [0.75, 0.95, 0.7, 0.36],
-  };
-
-  private resolveSigil(id: SigilId): void {
-    const def = sigil(id);
-    switch (id) {
-      case 'wardcry': this.castWardcry(); break;
-      case 'snuff': this.castSnuff(); break;
-      case 'sounding': this.castSounding(); break;
-      case 'threshold': this.anim.ward = { x: this.player.x, y: this.player.y, t: 8 }; break;
-      case 'temper': this.castTemper(); break;
-    }
-    if (this.run.sigil) this.run.sigil.cd = def.cooldown;
-    const [r, g, b, strength] = World.SIGIL_FLASH[id];
-    this.emit({ type: 'sigil', r, g, b, strength });
-    this.emit({ type: 'shake', amount: id === 'wardcry' ? 0.5 : 0.2 });
-    this.emit({ type: 'float', x: this.player.x, y: this.player.y, text: def.name.replace('Sigil of ', ''), color: '#c8b8ff' });
-    this.sfx('sigil_land');
-    this.msg(`${def.name} answers.`, '#c8b8ff');
-  }
-
-  private castWardcry(): void {
-    this.breakSilence('Your shout rings down the halls');
-    for (const e of this.floor.enemies) {
-      if (e.ai === 'dead' || manhattan(e.x, e.y, this.player.x, this.player.y) > this.noise(8)) continue;
-      e.alert = Math.max(e.alert, 8);
-      e.lastSeenX = this.player.x;
-      e.lastSeenY = this.player.y;
-    }
-    const front = this.frontTile();
-    const e = enemyAt(this.floor, front.x, front.y);
-    if (!e) return;
-    const enemy = this.view(e);
-    if (enemy.behavior === 'boss') {
-      e.attackCd = Math.max(e.attackCd, 0.5);
-      return;
-    }
-    e.ai = 'recover';
-    e.timer = Math.max(e.timer, 1.2);
-    e.attackCd = Math.max(e.attackCd, 1.4);
-    if (enemy.shield) { e.guard = 'down'; e.guardT = GUARD_DOWN; e.blocks = 0; }
-    const destination = this.frontTile(2);
-    const portal = portalAt(this.floor, destination.x, destination.y);
-    if (this.canStep(e, destination.x, destination.y) && !portal) {
-      this.stepEnemy(e, destination.x, destination.y);
-      return;
-    }
-    const other = enemyAt(this.floor, destination.x, destination.y);
-    if (other) {
-      other.ai = 'recover';
-      other.timer = Math.max(other.timer, 0.6);
-      other.attackCd = Math.max(other.attackCd, 0.6);
-      return;
-    }
-    e.timer = Math.max(e.timer, 1.8);
-    const damage = Math.min(25, Math.round(e.maxHp * 0.1));
-    e.hp -= Math.round(damage * (enemy.resist.blunt ?? 1));
-    e.hurtT = 0.3;
-    if (e.hp <= 0) this.killEnemy(e);
-  }
-
-  private castSnuff(): void {
-    for (const e of this.floor.enemies) {
-      if (e.ai === 'dead' || e.ai === 'windup' || manhattan(e.x, e.y, this.player.x, this.player.y) > 12) continue;
-      e.alert = 0;
-      if (e.ai === 'chase') e.ai = 'idle';
-    }
-    this.anim.snuffT = 8;
-    this.anim.unseenT = 3;
-    this.sfx('snuff');
-  }
-
-  private castSounding(): void {
-    const f = this.floor;
-    for (let y = this.player.y - 6; y <= this.player.y + 6; y++) for (let x = this.player.x - 6; x <= this.player.x + 6; x++) {
-      if (!inBounds(f, x, y) || manhattan(x, y, this.player.x, this.player.y) > 6) continue;
-      f.explored[y * f.width + x] = 1;
-      const trap = trapAt(f, x, y);
-      if (trap && !trap.found) {
-        trap.found = true;
-        this.msg(TRAPS[trap.kind].spotted, '#e0c060');
-      }
-    }
-    for (const e of f.enemies) {
-      if (e.lurk !== 'ceiling' || e.spotted || e.ai === 'dead') continue;
-      if (manhattan(e.x, e.y, this.player.x, this.player.y) > 6) continue;
-      e.spotted = true;
-      this.msg('Something clings to the ceiling nearby.', '#d0b080');
-    }
-    for (const secret of f.secrets) {
-      const dx = secret.x - this.player.x, dy = secret.y - this.player.y;
-      if (secret.found || Math.abs(dx) + Math.abs(dy) > 6) continue;
-      const bearing = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'east' : 'west') : (dy > 0 ? 'south' : 'north');
-      this.msg(`Stone rings hollow to the ${bearing}.`, '#e8d8a0');
-    }
-  }
-
-  private castTemper(): void {
-    const slots = this.derived.twoHanded ? EQUIP_SLOTS.filter((s) => s !== 'offhand') : EQUIP_SLOTS;
-    const worst = slots.map((slot) => ({ slot, item: this.state.equipment[slot] }))
-      .filter((v): v is { slot: EquipSlot; item: Item } => !!v.item && durability(v.item).max > 0)
-      .sort((a, b) => durability(a.item).frac - durability(b.item).frac)[0];
-    if (!worst) return;
-    const d = durability(worst.item);
-    worst.item.dur = Math.min(d.max, (worst.item.dur ?? d.max) + Math.round(d.max * 0.25));
-    this.refreshDerived();
-  }
-
-  /** A separate flavor stream must never move combat, loot or dungeon RNG. */
-  private rockAndStone(): void {
-    const weapon = this.state.equipment.weapon;
-    if (weapon && itemBase(weapon.ref).weaponClass === 'pick' && this.flavorRng.chance(0.01)) {
-      this.msg('Rock and Stone!', '#d8b878');
-    }
   }
 
   private resolvePlayerAttack(): void {
@@ -2955,14 +2827,14 @@ export class World {
   }
 
   /** Burrows: how far a noise of radius `r` actually carries on this floor. */
-  private noise(r: number): number {
+  noise(r: number): number {
     const burrows = biomeForFloor(this.floor).law === 'noise' ? BURROWS_NOISE_MULT : 1;
     const silence = runOath(this.run, 'silence') ? SILENCE_NOISE : 1;
     return Math.round(r * burrows * silence);
   }
 
   /** Silence is broken by the loud things: an alarm ward you spring, or Wardcry. */
-  private breakSilence(what: string): void {
+  breakSilence(what: string): void {
     const oath = runOath(this.run, 'silence');
     if (!oath || oath.status === 'broken') return;
     oath.status = 'broken';
@@ -3102,7 +2974,7 @@ export class World {
         ? `The last marked quarry falls. The hunt is done: now bring it home.`
         : `Marked quarry slain: ${oath.marks} of ${HUNTER_MARKS}.`, OATHS.hunter.color);
     }
-    this.refundSigil(def, this.derived.traits.execution && (e.vuln ?? 0) > 0 ? EXECUTION_REFUND_MULT : 1);
+    Sigils.refundSigil(this, def, this.derived.traits.execution && (e.vuln ?? 0) > 0 ? EXECUTION_REFUND_MULT : 1);
     Spells.refundConduit(this, def);
     this.run.stats.kills++;
     recordKill(this.state.contracts, def.id);
@@ -3202,15 +3074,6 @@ export class World {
   /** Relics this playthrough has identified, which is what opens a codex entry. */
   private get knownUniques(): string[] {
     return (this.state.lifetime.uniquesKnown ??= []);
-  }
-
-  private refundSigil(def: EnemyDef, mult = 1): void {
-    const active = this.run.sigil;
-    if (!active || active.cd <= 0) return;
-    const spell = sigil(active.id);
-    const base = (2 + 8 * Math.min(1, def.hp / 140)) * mult;
-    const multiplier = 1 + 0.25 * metaLevel(this.state.meta, 'attunement') + this.derived.stats.focus / 100;
-    active.cd = Math.max(0, active.cd - Math.min(base * multiplier, spell.cooldown * 0.2));
   }
 
   /**
