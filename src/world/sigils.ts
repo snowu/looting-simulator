@@ -13,6 +13,7 @@ import { EnemyDef, EQUIP_SLOTS, EquipSlot, Item } from '../types';
 import type { World } from './world';
 import { GUARD_DOWN, TRAPS } from './world';
 import * as Combat from './combat';
+import * as EnemyAi from './enemy-ai';
 
 /**
  * Each sigil's own colour for the wash that plays when it lands.
@@ -49,9 +50,9 @@ export function resolveSigil(w: World, id: SigilId): void {
 }
 
 export function castWardcry(w: World): void {
-  w.breakSilence('Your shout rings down the halls');
+  EnemyAi.breakSilence(w, 'Your shout rings down the halls');
   for (const e of w.floor.enemies) {
-    if (e.ai === 'dead' || manhattan(e.x, e.y, w.player.x, w.player.y) > w.noise(8)) continue;
+    if (e.ai === 'dead' || manhattan(e.x, e.y, w.player.x, w.player.y) > EnemyAi.noise(w, 8)) continue;
     e.alert = Math.max(e.alert, 8);
     e.lastSeenX = w.player.x;
     e.lastSeenY = w.player.y;
@@ -70,8 +71,8 @@ export function castWardcry(w: World): void {
   if (enemy.shield) { e.guard = 'down'; e.guardT = GUARD_DOWN; e.blocks = 0; }
   const destination = w.frontTile(2);
   const portal = portalAt(w.floor, destination.x, destination.y);
-  if (w.canStep(e, destination.x, destination.y) && !portal) {
-    w.stepEnemy(e, destination.x, destination.y);
+  if (EnemyAi.canStep(w, e, destination.x, destination.y) && !portal) {
+    EnemyAi.stepEnemy(w, e, destination.x, destination.y);
     return;
   }
   const other = enemyAt(w.floor, destination.x, destination.y);

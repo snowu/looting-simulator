@@ -119,6 +119,7 @@ import * as Spells from './spells';
 import * as Sigils from './sigils';
 import * as Thrown from './thrown';
 import * as Combat from './combat';
+import * as EnemyAi from './enemy-ai';
 
 // ---------------------------------------------------------------------------
 // Events the world emits for the renderer / UI / audio to react to.
@@ -336,11 +337,6 @@ const CHEST_SPILL = 0.25;
 const CHEST_CLANG_RADIUS = 7;
 /** Base grace after a parry; Normal extends it through difficulty tuning. */
 export const PARRY_GRACE = 0.75;
-/**
- * How long a monster held back by Normal's attacker cap waits before it asks
- * again. On the monsters' clock, so Normal's slower tempo stretches it too.
- */
-const CROWD_WAIT = 0.35;
 /** Normal's mending: seconds unhurt before it starts, and share of max health per second. */
 const REST_DELAY = 5;
 const REST_RATE = 0.02;
@@ -349,7 +345,6 @@ export const PARRY_VULN_MULT = 2;
 
 
 export const GUARD_DOWN = 1.6;
-const GUARD_RANGE = 4;
 
 /**
  * Seconds between one shaft leaving the floor and the next.
@@ -366,16 +361,6 @@ const GUARD_RANGE = 4;
  */
 export const RETRIEVE_PER_SHAFT = 0.75;
 
-/**
- * Anything lighter than this is knocked out of its wind-up when you land a
- * blow, which is what makes trading with a rat different from trading with a
- * ghoul. It is a raw health number and so it has to move whenever the health
- * scale does: it was 40 against a roster topping out at 30 for a shieldguard,
- * and 55 keeps exactly the same creatures on the light side of the line now
- * that every stat block is larger.
- */
-/** A badly hurt skittish monster's chance to bolt, per 60 fps tick it stands deciding. */
-const SKITTISH_FLEE_PER_TICK = 0.02;
 
 
 /** Compact button label for an interaction hint. */
@@ -584,7 +569,7 @@ export class World {
   private guardFromTouch = false;
   private queued: Action | null = null;
   projN = 0;
-  private pathCache = new Map<string, { t: number; next: [number, number] | null }>();
+  pathCache = new Map<string, { t: number; next: [number, number] | null }>();
   private turnReadyAt = 0;
   private trail: { x: number; y: number; facing: Dir; time: number }[] = [];
   /** A flask sip pressed mid-step, waiting for the step to land. */
@@ -840,7 +825,7 @@ export class World {
   }
 
   /** Extra tiles of sight the floor has on you, from the Hunted curse. */
-  private get sightPenalty(): number {
+  get sightPenalty(): number {
     return (this.run.curse === 'hunted' ? 3 : 0) + (runOath(this.run, 'hunter') ? HUNTER_SIGHT : 0) - (runOath(this.run, 'silence') ? SILENCE_SIGHT : 0) - this.derived.traits.unseen - (this.anim?.unseenT > 0 ? 99 : 0);
   }
 
@@ -1242,7 +1227,7 @@ export class World {
     Boss.updatePitch(this, dt);
     Hazards.updateSurfaces(this, dt);
     Thrown.updateRetrieve(this, dt);
-    this.updateEnemies(dt);
+    EnemyAi.updateEnemies(this, dt);
     Projectiles.updateProjectiles(this, dt);
     this.run.rngState = this.rng.state;
   }
@@ -1524,7 +1509,7 @@ export class World {
    * monsters blunder into them too, which is the whole reason to back through
    * one you have already found.
    */
-  private springTrap(trap: Trap, victim: EnemyState | null): void {
+  springTrap(trap: Trap, victim: EnemyState | null): void {
     const def = TRAPS[trap.kind];
     trap.armed = false;
     trap.found = true;
@@ -1537,14 +1522,14 @@ export class World {
       let woken = 0;
       for (const e of this.floor.enemies) {
         if (e.ai === 'dead') continue;
-        if (manhattan(e.x, e.y, trap.x, trap.y) > this.noise(12)) continue;
+        if (manhattan(e.x, e.y, trap.x, trap.y) > EnemyAi.noise(this, 12)) continue;
         e.alert = Math.max(e.alert, 10);
         e.lastSeenX = trap.x;
         e.lastSeenY = trap.y;
         woken++;
       }
       if (!victim) {
-        this.breakSilence('The ward shrieks');
+        EnemyAi.breakSilence(this, 'The ward shrieks');
         this.msg(woken ? 'A ward shrieks. Something heard that.' : 'A ward shrieks into an empty floor.', '#ff9070');
         this.emit({ type: 'shake', amount: 0.2 });
       }
@@ -1570,7 +1555,7 @@ export class World {
   }
 
   /** Mark tiles near and in view as explored (automap fog). */
-  private reveal(): void {
+  reveal(): void {
     const f = this.floor;
     const { x, y } = this.player;
     for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
@@ -2040,53 +2025,6 @@ export class World {
     this.msg(def.clue, def.color);
   }
 
-  /** Goblins under a living Quartermaster hit harder (and never flee): the damage multiplier. */
-  private rally(e: EnemyState): number {
-    if (!isGoblin(e.def)) return 1;
-    return this.floor.enemies.some((q) => q.lieutenant === 'quartermaster' && q.ai !== 'dead') ? RALLY_DAMAGE : 1;
-  }
-
-  /**
-   * The Hoarder's tick. Returns true when it has acted. It goes for the nearest
-   * loot pile on its floor (never a key or a flask shard), stuffs it into its
-   * sack, and keeps away from you; only cornered and in reach does it fight.
-   */
-  private updateHoarder(e: EnemyState, def: EnemyDef, dist: number, sees: boolean): boolean {
-    const f = this.floor;
-    const p = this.player;
-    const here = f.pickups.find((k) => k.x === e.x && k.y === e.y && !k.keyId && !k.flaskShard && (k.items.length || k.gold > 0));
-    if (here) {
-      (e.hoard ??= []).push(...here.items);
-      e.hoardGold = (e.hoardGold ?? 0) + here.gold;
-      f.pickups = f.pickups.filter((k) => k !== here);
-      if (sees) this.msg('The Hoarder stuffs the pile into its sack.', LIEUTENANTS.hoarder.color);
-      return true;
-    }
-    if (sees && dist <= HOARDER_SHY) {
-      const away = DIRS.map((d) => [e.x + DX[d], e.y + DY[d]] as [number, number])
-        .filter(([x, y]) => this.canStep(e, x, y) && manhattan(x, y, p.x, p.y) > dist)[0];
-      if (away) {
-        this.stepEnemy(e, away[0], away[1]);
-        return true;
-      }
-      // Cornered: in reach, it fights like anything else.
-      return dist > 1;
-    }
-    const target = f.pickups
-      .filter((k) => !k.keyId && !k.flaskShard && (k.items.length || k.gold > 0) && manhattan(k.x, k.y, e.x, e.y) <= HOARDER_REACH)
-      .sort((a, b) => manhattan(a.x, a.y, e.x, e.y) - manhattan(b.x, b.y, e.x, e.y))[0];
-    if (target) {
-      // pathStep stops short of its goal (it was written for closing on you),
-      // so the last step onto the pile is taken here.
-      const adjacent = manhattan(target.x, target.y, e.x, e.y) === 1;
-      const next = adjacent ? (this.canStep(e, target.x, target.y) ? [target.x, target.y] as [number, number] : null) : this.pathStep(e, target.x, target.y);
-      if (next) this.stepEnemy(e, next[0], next[1]);
-      return true;
-    }
-    // Nothing to take: it keeps its distance rather than hunting you.
-    return dist > 1;
-  }
-
   /** A lieutenant dies: its floor changes, and it pays in kind. */
   lieutenantFalls(e: EnemyState): void {
     if (e.lieutenant === 'quartermaster') {
@@ -2265,107 +2203,6 @@ export class World {
     (oath.placed ??= []).push(f.depth);
   }
 
-  /** Burrows: how far a noise of radius `r` actually carries on this floor. */
-  noise(r: number): number {
-    const burrows = biomeForFloor(this.floor).law === 'noise' ? BURROWS_NOISE_MULT : 1;
-    const silence = runOath(this.run, 'silence') ? SILENCE_NOISE : 1;
-    return Math.round(r * burrows * silence);
-  }
-
-  /** Silence is broken by the loud things: an alarm ward you spring, or Wardcry. */
-  breakSilence(what: string): void {
-    const oath = runOath(this.run, 'silence');
-    if (!oath || oath.status === 'broken') return;
-    oath.status = 'broken';
-    this.msg(`${what}. The oath of Silence is broken.`, OATHS.silence.color);
-  }
-
-  /**
-   * Ossuary: undead remains that were neither shattered nor sanctified stir
-   * `OSSUARY_STIR_AFTER` seconds after death, then stand `OSSUARY_STIR` later
-   * at `OSSUARY_RISE_HP`, risen, so they pay nothing twice and never rise
-   * again. Only on the crossing, so corpses left behind on a floor you walk
-   * back onto do not all stand at once.
-   */
-  private ossuaryStir(e: EnemyState, before: number, dt: number): void {
-    if (e.stirT !== undefined) {
-      e.stirT -= dt;
-      if (e.stirT > 0) return;
-      delete e.stirT;
-      if (e.remains) return;
-      this.raiseCorpse(e);
-      e.hp = Math.max(1, Math.round(e.maxHp * OSSUARY_RISE_HP));
-      return;
-    }
-    if (before >= OSSUARY_STIR_AFTER || e.deadT < OSSUARY_STIR_AFTER) return;
-    const def = enemyDef(e.def);
-    if (!def.undead || def.behavior === 'boss' || e.risen || e.remains || e.burstT !== undefined || e.mimicTier) return;
-    e.stirT = OSSUARY_STIR;
-    if (manhattan(e.x, e.y, this.player.x, this.player.y) <= 10) this.msg(`The ${def.name}'s bones stir.`, LAWS.restless.color);
-  }
-
-  /**
-   * Mines: a cracked wall brought down drops its rotten timbering on every
-   * monster beside it, for a crushing blow and a stagger. You are the one
-   * striking it, from beside it, so the roof never falls on you.
-   */
-  private collapse(x: number, y: number): void {
-    const dealtTo: string[] = [];
-    for (const e of this.floor.enemies) {
-      if (e.ai === 'dead' || e.lurk || manhattan(e.x, e.y, x, y) !== 1) continue;
-      const def = enemyDef(e.def);
-      const dealt = Math.max(1, Math.round((COLLAPSE_BASE + COLLAPSE_PER_DEPTH * this.run.depth) * (def.resist.blunt ?? 1)));
-      this.hurt(e, dealt, `${dealt}!`, LAWS.collapse.color);
-      e.alert = Math.max(e.alert, 8);
-      if (def.behavior !== 'boss') {
-        e.ai = 'recover';
-        e.timer = Math.max(e.timer, COLLAPSE_STUN);
-        e.attackCd = Math.max(e.attackCd, COLLAPSE_STUN + 0.2);
-      }
-      dealtTo.push(def.name);
-      if (e.hp <= 0) Combat.killEnemy(this, e);
-    }
-    this.emit({ type: 'shake', amount: 0.5 });
-    this.msg(dealtTo.length ? `The timbers give and the roof comes down on the ${dealtTo.join(' and the ')}!` : 'The timbers give. Rock rains down where the wall stood.', LAWS.collapse.color);
-  }
-
-  /**
-   * Kindling: a blow with fire in it, landing on a monster below `KINDLING_AT`
-   * of its health, also burns one monster beside it for the fire share.
-   */
-  kindle(e: EnemyState): void {
-    const fire = this.derived.stats.fire ?? 0;
-    if (fire <= 0 || e.hp >= e.maxHp * KINDLING_AT) return;
-    const near = this.floor.enemies.filter((o) => o !== e && o.ai !== 'dead' && !o.lurk && manhattan(o.x, o.y, e.x, e.y) === 1);
-    if (!near.length) return;
-    const o = this.rng.pick(near);
-    const mult = enemyDef(o.def).resist.fire ?? 1;
-    const dealt = Math.round(fire * KINDLING_SPREAD * this.anim.attackPower * mult);
-    if (dealt <= 0) return;
-    this.hurt(o, dealt, `${dealt}`, '#ff9a50');
-    o.alert = Math.max(o.alert, 8);
-    if (o.hp <= 0) Combat.killEnemy(this, o);
-  }
-
-  /**
-   * How an undead monster fell, for any Gravecaller nearby: a blunt killing
-   * blow, or one that overkills by `SHATTER_OVERKILL`, shatters the bones; a
-   * killing blow carrying holy damage, or struck from consecrated ground,
-   * sanctifies them. Either way nothing raises it.
-   */
-  markRemains(e: EnemyState, how?: 'sanctified'): void {
-    if (!enemyDef(e.def).undead) return;
-    const overkill = -e.hp >= e.maxHp * SHATTER_OVERKILL;
-    const ward = this.anim.ward;
-    const consecrated = !!ward && ward.x === this.player.x && ward.y === this.player.y;
-    if (how) e.remains = how;
-    else if (this.derived.damageType === 'blunt' || overkill) e.remains = 'shattered';
-    else if ((this.derived.stats.holy ?? 0) > 0 || consecrated) e.remains = 'sanctified';
-    else return;
-    const caller = this.floor.enemies.some((g) => g.ai !== 'dead' && enemyDef(g.def).raises && manhattan(g.x, g.y, e.x, e.y) <= 10);
-    if (caller) this.msg(e.remains === 'shattered' ? 'The bones shatter. Nothing will call these back.' : 'The remains are sanctified. They will stay down.', '#e8e0c0');
-  }
-
   /**
    * A walkable tile next to (x, y) — never the tile itself, since something is
    * about to be put there that would cover a loot pile. Falls back to (x, y).
@@ -2522,7 +2359,7 @@ export class World {
     let woken = 0;
     for (const e of this.floor.enemies) {
       if (e.ai === 'dead' || Boss.protectedByFog(this, e)) continue;
-      if (manhattan(e.x, e.y, p.x, p.y) > this.noise(CHEST_CLANG_RADIUS)) continue;
+      if (manhattan(e.x, e.y, p.x, p.y) > EnemyAi.noise(this, CHEST_CLANG_RADIUS)) continue;
       if (e.alert <= 0) woken++;
       e.alert = Math.max(e.alert, 6);
       e.lastSeenX = this.player.x;
@@ -2555,7 +2392,7 @@ export class World {
    * bite that leaves you on 1 health and names the tells teaches the chest.
    * "Ever" is the codex's worst hit from a mimic, so it needs no save field.
    */
-  private mimicBite(e: EnemyState): void {
+  mimicBite(e: EnemyState): void {
     const def = Combat.view(this, e);
     this.sfx('swing', e.x, e.y);
     e.strikeT = 0;
@@ -3408,92 +3245,6 @@ export class World {
   // Enemies
   // -------------------------------------------------------------------------
 
-  private occupied(x: number, y: number, self: EnemyState): boolean {
-    if (x === this.player.x && y === this.player.y) return true;
-    return this.floor.enemies.some((o) => o !== self && o.ai !== 'dead' && !o.lurk && o.x === x && o.y === y);
-  }
-
-  /** Monsters do not walk into fire on purpose: burning oil is a wall to them until it burns out. */
-  canStep(e: EnemyState, x: number, y: number): boolean {
-    return !blocksMove(this.floor, x, y) && !this.occupied(x, y, e) && !stairsAt(this.floor, x, y) && !burningAt(this.floor, x, y);
-  }
-
-  stepEnemy(e: EnemyState, x: number, y: number): void {
-    const d = dirOf(x - e.x, y - e.y);
-    if (d !== null) e.facing = d;
-    e.fromX = e.x;
-    e.fromY = e.y;
-    e.x = x;
-    e.y = y;
-    e.moveT = 0;
-    // Monsters blunder into traps too, which is what makes retreating over one
-    // you already found worth doing.
-    const trap = trapAt(this.floor, x, y);
-    if (trap && trap.armed) this.springTrap(trap, e);
-    this.stepOnto(e);
-  }
-
-  /**
-   * What a monster's feet do to the floor: a burning one, or one made of
-   * fire, lights oil and melts ice where it steps, and water puts a burning
-   * one out.
-   */
-  private stepOnto(e: EnemyState): void {
-    const kind = surfaceKindAt(this.floor, e.x, e.y);
-    if (!kind) return;
-    const fiery = !!e.burn || enemyDef(e.def).element === 'fire';
-    if (fiery && (kind === 'oil' || kind === 'ice' || kind === 'spores')) Hazards.elementReaches(this, e.x, e.y, 'fire');
-    else if (kind === 'spores') Hazards.sporePuff(this, e.x, e.y);
-    else if (kind === 'water' && e.burn) {
-      delete e.burn;
-      this.sfx('snuff', e.x, e.y);
-    }
-  }
-
-  /** BFS toward a target; returns the first step, cached briefly. */
-  private pathStep(e: EnemyState, tx: number, ty: number): [number, number] | null {
-    const key = e.id;
-    const hit = this.pathCache.get(key);
-    if (hit && this.time - hit.t < 0.35 && hit.next && this.canStep(e, hit.next[0], hit.next[1])) return hit.next;
-    const f = this.floor;
-    const W = f.width;
-    const prev = new Map<number, number>();
-    const start = e.y * W + e.x;
-    const goal = ty * W + tx;
-    // What `occupied` answers, gathered once: nobody moves during a search.
-    const busy = new Set<number>([this.player.y * W + this.player.x]);
-    for (const o of f.enemies) if (o !== e && o.ai !== 'dead' && !o.lurk) busy.add(o.y * W + o.x);
-    const q = [start];
-    prev.set(start, -1);
-    let found = false;
-    for (let h = 0; h < q.length && q.length < 1500; h++) {
-      const i = q[h];
-      if (i === goal) {
-        found = true;
-        break;
-      }
-      const x = i % W, y = (i / W) | 0;
-      for (const d of DIRS) {
-        const nx = x + DX[d], ny = y + DY[d];
-        const n = ny * W + nx;
-        if (prev.has(n)) continue;
-        if (n !== goal && (blocksMove(f, nx, ny) || busy.has(n) || burningAt(f, nx, ny))) continue;
-        if (manhattan(nx, ny, e.x, e.y) > 18) continue;
-        prev.set(n, i);
-        q.push(n);
-      }
-    }
-    let next: [number, number] | null = null;
-    if (found) {
-      let i = goal;
-      while (prev.get(i) !== start && prev.get(i) !== -1 && prev.get(i) !== undefined) i = prev.get(i)!;
-      if (i !== goal || prev.get(goal) === start) next = [i % W, (i / W) | 0];
-      if (next && next[0] === tx && next[1] === ty) next = null;
-    }
-    this.pathCache.set(key, { t: this.time, next });
-    return next;
-  }
-
   /**
    * What is under your feet that you cannot look down at: pitch about to
    * catch, or fire already biting. The HUD shows it the way it shows
@@ -3507,804 +3258,8 @@ export class World {
 
   fogWarned = false;
 
-  /**
-   * Where a corpse can stand up. Its own tile if nothing is on it — a knight
-   * that rises underneath you can never reach you, because a melee strike wants
-   * a distance of exactly one and it would sit at zero swinging forever.
-   */
-  private freeTileForRise(x: number, y: number): { x: number; y: number } {
-    const clear = (tx: number, ty: number) =>
-      !blocksMove(this.floor, tx, ty) &&
-      !(tx === this.player.x && ty === this.player.y) &&
-      !enemyAt(this.floor, tx, ty);
-    if (clear(x, y)) return { x, y };
-    for (const d of DIRS) {
-      const tx = x + DX[d], ty = y + DY[d];
-      if (clear(tx, ty)) return { x: tx, y: ty };
-    }
-    return { x, y };
-  }
-
-  private updateEnemies(dt: number): void {
-    const f = this.floor;
-    const p = this.player;
-    const restless = biomeForFloor(f).law === 'restless';
-    // The monsters' own clock. Normal runs it slower, so every tell lasts
-    // longer without changing shape; on Hard it is exactly `dt`.
-    const tempo = this.diff.enemyTempo;
-    const edt = dt / tempo;
-    // Who is already swinging at you, for the cap on how many may at once.
-    this.committed = this.diff.maxAttackers === Infinity ? 0 : f.enemies.filter((e) => e.ai === 'windup' || (e.comboLeft ?? 0) > 0).length;
-    for (const e of f.enemies) {
-      if (e.ai === 'dead') {
-        const before = e.deadT;
-        e.deadT += dt;
-        if (restless) this.ossuaryStir(e, before, dt);
-        if (e.burstT !== undefined) {
-          e.burstT -= dt;
-          if (e.burstT <= 0) {
-            delete e.burstT;
-            this.vengefulBurst(e);
-          }
-        }
-        continue;
-      }
-      if (Boss.protectedByFog(this, e)) continue;
-      if (e.lurk === 'shadow') {
-        Boss.updateShadowStep(this, e, dt / tempo);
-        continue;
-      }
-      if (e.lurk) {
-        this.updateLurker(e, dt);
-        continue;
-      }
-      const def = Combat.view(this, e);
-      if (def.behavior === 'boss') Boss.checkBossPhase(this, e);
-      e.hurtT = Math.max(0, e.hurtT - dt);
-      if (!e.scavenged && /^(rat|bat)(_|$)/.test(e.def) && (e.ai === 'idle' || e.ai === 'wander')) {
-        const morsel = (f.morsels ?? []).find((m) => m.x === e.x && m.y === e.y);
-        if (morsel) {
-          e.eating = (e.eating ?? 1) - dt;
-          if (e.eating <= 0) {
-            f.morsels = (f.morsels ?? []).filter((m) => m !== morsel);
-            e.scavenged = true; e.eating = 0;
-            e.maxHp = Math.round(e.maxHp * 1.25); e.hp = e.maxHp; e.scavengerAttack = 1.15;
-          }
-          continue;
-        }
-      }
-      e.attackCd -= edt;
-      if (def.behavior === 'boss') {
-        const cd = this.kingCd.get(e.id);
-        if (cd) {
-          cd.step = Math.max(-SHADOW_STEP_EVERY, cd.step - edt);
-          cd.pitch -= edt;
-        }
-      }
-      if (e.strikeT !== undefined) e.strikeT += dt;
-      if (e.vuln) e.vuln = Math.max(0, e.vuln - dt);
-      if ((e.grabT ?? 0) > 0) {
-        e.grabT = e.grabT! - dt;
-        if (e.grabT <= 0) {
-          delete e.grabT;
-          this.mimicBite(e);
-        }
-        continue;
-      }
-      if ((e.blockT ?? 0) > 0) {
-        e.blockT = Math.max(0, (e.blockT ?? 0) - dt);
-        if (e.blockT === 0) e.blocks = 0;
-      }
-      if (e.moveT < 1) {
-        e.moveT = Math.min(1, e.moveT + dt / (def.step * tempo));
-        if (e.moveT < 1) continue;
-      }
-      const dist = manhattan(e.x, e.y, p.x, p.y);
-      // Standing in fire, anything not mid-swing gets out of it first.
-      if (burningAt(f, e.x, e.y) && e.ai !== 'windup' && e.ai !== 'recover' && Hazards.escapeFire(this, e)) continue;
-      if ((e.hexT ?? 0) > 0) {
-        Spells.updateHexed(this, e, dt);
-        continue;
-      }
-      if ((e.blind ?? 0) > 0) {
-        e.blind = Math.max(0, (e.blind ?? 0) - dt);
-        e.guard = 'down';
-        if (this.rng.chance(dt / 0.6)) {
-          // A blind thing stumbles, never hunts: it may blunder sideways but
-          // never steps closer to you on purpose. Walled in with no sideways
-          // step, it stays put.
-          const steps = DIRS.map((d) => [e.x + DX[d], e.y + DY[d]] as [number, number])
-            .filter(([x, y]) => this.canStep(e, x, y))
-            .filter(([x, y]) => manhattan(x, y, p.x, p.y) >= dist);
-          if (steps.length) { const [x, y] = this.rng.pick(steps); this.stepEnemy(e, x, y); }
-        }
-        if (e.blind <= 0) {
-          if (dist > 2) { e.alert = 0; e.ai = 'idle'; }
-          else e.ai = 'chase';
-        }
-        continue;
-      }
-      const sees = (this.anim.unseenT > 0 && dist <= 2) || (dist <= def.sight + this.sightPenalty && this.los(e.x, e.y, p.x, p.y));
-      if (sees) {
-        if (e.alert <= 0 && (e.ai === 'idle' || e.ai === 'wander')) {
-          this.sfx('alert', e.x, e.y);
-          e.attackCd = Math.max(e.attackCd, 0.3);
-        }
-        e.alert = 6;
-        // A wind-up commits to the tile it aimed at — that's what makes it dodgeable.
-        if (e.ai !== 'windup') {
-          e.lastSeenX = p.x;
-          e.lastSeenY = p.y;
-        }
-      } else {
-        e.alert -= dt;
-      }
-
-      // The guard rhythm ticks while the bearer is free to hold it.
-      Combat.updateGuard(this, e, def, dt, e.alert > 0 && dist <= GUARD_RANGE);
-
-      // A Gravecaller chanting over a corpse stands still until it finishes or is broken.
-      if (def.raises && this.updateRaiser(e, def, edt)) continue;
-
-      // A thief with your things in its hands does nothing but run.
-      if (e.stolen?.length && e.ai !== 'windup' && e.ai !== 'recover') {
-        if (this.runWithLoot(e, def, dist, sees, dt)) continue;
-      }
-
-      // The rest of a flurry lands while the creature is already recovering.
-      this.updateCombo(e, def, edt);
-
-      switch (e.ai) {
-        case 'windup':
-          // A feint holds the lean once, then runs the rest of the wind-up.
-          if (!this.updateFeint(e, def, edt)) e.timer -= edt;
-          if (e.timer <= 0) this.enemyStrike(e, def);
-          continue;
-        case 'recover':
-          e.timer -= edt;
-          if (e.timer <= 0) e.ai = e.alert > 0 ? 'chase' : 'idle';
-          continue;
-        case 'flee': {
-          if (dist > 7 || !sees) {
-            e.ai = 'idle';
-            continue;
-          }
-          const away = DIRS.map((d) => [e.x + DX[d], e.y + DY[d]] as [number, number])
-            .filter(([x, y]) => this.canStep(e, x, y))
-            .sort((a, b) => manhattan(b[0], b[1], p.x, p.y) - manhattan(a[0], a[1], p.x, p.y))[0];
-          if (away) this.stepEnemy(e, away[0], away[1]);
-          continue;
-        }
-      }
-
-      if (def.burrows && !e.dived && e.hp < e.maxHp * DIVE_AT) {
-        this.dive(e, def);
-        continue;
-      }
-      if (e.lieutenant === 'hoarder' && this.updateHoarder(e, def, dist, sees)) continue;
-      // A monster standing still decides every tick, so the chance is per
-      // second, not per tick: 2% a tick at 60 fps, the rate it was tuned at,
-      // whatever the display runs at.
-      if (def.behavior === 'skittish' && e.hp < e.maxHp * 0.35 && sees && this.rally(e) === 1 && this.rng.chance(1 - Math.pow(1 - SKITTISH_FLEE_PER_TICK, dt * 60))) {
-        e.ai = 'flee';
-        this.msg(`The ${def.name} tries to flee!`, '#c8c0b0');
-        continue;
-      }
-
-      if (e.alert > 0) {
-        e.ai = 'chase';
-        if (def.behavior === 'boss' && Boss.kingTurn(this, e, dist)) continue;
-        const aligned = (e.x === p.x || e.y === p.y) && sees;
-        const ranged = !!def.projectile && (def.behavior === 'ranged' || def.behavior === 'boss');
-        // Normal's crowd rule: past the cap, a monster that could swing holds
-        // its place and waits a beat instead. The King never waits.
-        if (e.attackCd <= 0 && this.committed >= this.diff.maxAttackers && def.behavior !== 'boss' && dist <= (def.range ?? 4) + 2) {
-          e.attackCd = CROWD_WAIT;
-          if (dist <= 2) continue;
-        }
-        if (dist === 1 && e.attackCd <= 0 && (def.behavior !== 'ranged')) {
-          this.beginWindup(e, def, p.x, p.y);
-          continue;
-        }
-        // A creature with reach commits from a tile further out, down the line
-        // it is facing — but only with a move that actually reaches, so the
-        // threat it shows is the threat it throws.
-        if (dist === 2 && aligned && e.attackCd <= 0 && def.behavior !== 'ranged' && meleeReach(def) >= 2) {
-          this.beginWindup(e, def, p.x, p.y, 2);
-          continue;
-        }
-        if (ranged && aligned && dist >= 2 && dist <= (def.range ?? 4) + 2 && e.attackCd <= 0) {
-          this.beginWindup(e, def, p.x, p.y);
-          continue;
-        }
-        if (def.behavior === 'ranged' && dist <= 1) {
-          // Back off to shooting range.
-          const back = DIRS.map((d) => [e.x + DX[d], e.y + DY[d]] as [number, number]).find(
-            ([x, y]) => this.canStep(e, x, y) && manhattan(x, y, p.x, p.y) > dist,
-          );
-          if (back) this.stepEnemy(e, back[0], back[1]);
-          else if (e.attackCd <= 0) this.beginWindup(e, def, p.x, p.y);
-          continue;
-        }
-        if (def.behavior === 'ranged' && sees && dist <= (def.range ?? 4)) {
-          // Sidestep to line up a shot.
-          const line = DIRS.map((d) => [e.x + DX[d], e.y + DY[d]] as [number, number]).find(
-            ([x, y]) => this.canStep(e, x, y) && (x === p.x || y === p.y) && this.los(x, y, p.x, p.y),
-          );
-          if (line) this.stepEnemy(e, line[0], line[1]);
-          continue;
-        }
-        const tx = sees ? p.x : e.lastSeenX;
-        const ty = sees ? p.y : e.lastSeenY;
-        const next = this.pathStep(e, tx, ty);
-        if (next) this.stepEnemy(e, next[0], next[1]);
-        else if (!sees && e.x === e.lastSeenX && e.y === e.lastSeenY) e.alert = 0;
-        continue;
-      }
-
-      // Idle wandering near home.
-      e.ai = 'wander';
-      e.timer -= dt;
-      if (e.timer <= 0) {
-        e.timer = this.rng.float(1.2, 3.2);
-        const opts = DIRS.map((d) => [e.x + DX[d], e.y + DY[d]] as [number, number]).filter(
-          ([x, y]) => this.canStep(e, x, y) && manhattan(x, y, e.homeX, e.homeY) <= 3,
-        );
-        if (opts.length && this.rng.chance(0.6)) {
-          const [x, y] = this.rng.pick(opts);
-          this.stepEnemy(e, x, y);
-        }
-      }
-    }
-  }
-
   /** Monsters winding up or mid-flurry this frame, for `DifficultyDef.maxAttackers`. */
-  private committed = 0;
-
-  beginWindup(e: EnemyState, def: EnemyDef, tx: number, ty: number, minReach = 1): void {
-    this.committed++;
-    const d = dirOf(Math.sign(tx - e.x), Math.sign(ty - e.y));
-    if (d !== null) e.facing = d;
-    // Swinging means the shield is elsewhere: the guard drops tired.
-    if (def.shield) {
-      e.guard = 'down';
-      e.guardT = Math.max(e.guardT ?? 0, GUARD_DOWN);
-      e.blocks = 0;
-    }
-    // What it commits to is rolled here, not at spawn: a creature knocked out
-    // of a slam and coming back may well answer with something quicker.
-    let pool = minReach > 1 ? def.moves?.filter((m) => moveById(m.id).reach >= minReach) : def.moves;
-    // Normal: no feints. A set that was nothing but feints falls back to the basic blow.
-    if (this.diff.gentleMoves && pool) pool = pool.filter((m) => !moveById(m.id).feint);
-    const move = chooseMove(pool, (total) => this.rng.float(0, total));
-    e.move = move.id === 'basic' ? undefined : move.id;
-    delete e.feintT;
-    delete e.feinted;
-    delete e.comboLeft;
-    delete e.comboT;
-    e.ai = 'windup';
-    e.timer = def.windup * move.windup;
-    e.lastSeenX = tx;
-    e.lastSeenY = ty;
-  }
-
-  /**
-   * A feint's stall. Held once per wind-up, at the point an ordinary blow of
-   * the same creature would have landed — which is exactly what makes biting
-   * on it feel like being read rather than being cheated.
-   *
-   * Returns true while the lean is frozen, so the wind-up timer does not run.
-   */
-  private updateFeint(e: EnemyState, def: EnemyDef, dt: number): boolean {
-    const move = moveById(e.move);
-    if (!move.feint) return false;
-    if ((e.feintT ?? 0) > 0) {
-      e.feintT = Math.max(0, e.feintT! - dt);
-      return e.feintT > 0;
-    }
-    if (e.feinted) return false;
-    const full = def.windup * move.windup;
-    if (e.timer <= full * (1 - FEINT_AT)) {
-      e.feinted = true;
-      e.feintT = full * FEINT_HOLD;
-      this.sfx('miss', e.x, e.y);
-      return true;
-    }
-    return false;
-  }
-
-  /**
-   * The follow-ups of a combo, landing on {@link COMBO_BEAT} while the
-   * creature is already in recovery.
-   *
-   * They re-aim at where you are now, but the creature does not turn between
-   * them, so stepping out of the arc it committed to breaks the rest of the
-   * flurry while backing straight off does not. The first blow is the one you
-   * cannot dodge.
-   */
-  private updateCombo(e: EnemyState, def: EnemyDef, dt: number): void {
-    if (!e.comboLeft) return;
-    // Parried, knocked out or otherwise opened up: the rest of the flurry is
-    // the price. This is what makes meeting the *first* blow worth doing.
-    if ((e.vuln ?? 0) > 0) {
-      delete e.comboLeft;
-      delete e.comboT;
-      return;
-    }
-    e.comboT = (e.comboT ?? 0) - dt;
-    if (e.comboT! > 0) return;
-    e.comboLeft--;
-    if (e.comboLeft <= 0) {
-      delete e.comboLeft;
-      delete e.comboT;
-    } else {
-      e.comboT = COMBO_BEAT;
-    }
-    const p = this.player;
-    e.lastSeenX = p.x;
-    e.lastSeenY = p.y;
-    this.landBlow(e, def, moveById(e.move));
-  }
-
-  private enemyStrike(e: EnemyState, def: EnemyDef): void {
-    const move = moveById(e.move);
-    e.ai = 'recover';
-    e.timer = def.recovery * move.recovery;
-    e.attackCd = def.recovery * move.recovery + 0.2;
-    if (move.combo) {
-      e.comboLeft = this.diff.gentleMoves ? Math.min(1, move.combo) : move.combo;
-      e.comboT = COMBO_BEAT;
-    }
-    // Stamped by the blow itself, so the follow-through is drawn only when
-    // there was one. See `enemyPose`.
-    e.strikeT = 0;
-    const p = this.player;
-    const dist = manhattan(e.x, e.y, p.x, p.y);
-    const useRanged = !!def.projectile && (def.behavior === 'ranged' || (def.behavior === 'boss' && dist >= 2));
-    if (useRanged) {
-      const dx = Math.sign(e.lastSeenX - e.x), dy = Math.sign(e.lastSeenY - e.y);
-      if (dx !== 0 && dy !== 0) return;
-      const pr = def.projectile!;
-      const shots = def.volley ?? [0];
-      for (const off of shots) {
-        const ox = dy !== 0 ? off : 0, oy = dx !== 0 ? off : 0;
-        if (off !== 0 && blocksSight(this.floor, e.x + ox, e.y + oy)) continue;
-        this.projectiles.push({
-          id: this.projN++, x: e.x + ox + 0.5, y: e.y + oy + 0.5, dx, dy, speed: pr.speed,
-          damage: Math.round(def.attack * move.power * attackPower(e.power) * (e.scavengerAttack ?? 1) * this.rally(e) * this.diff.enemyDamage), type: pr.damageType, sprite: pr.sprite, light: pr.light,
-          tileX: e.x + ox, tileY: e.y + oy, source: def.name, sourceId: def.id,
-        });
-      }
-      this.sfx(pr.sprite.startsWith('proj_arrow') ? 'shoot' : 'magic', e.x, e.y);
-      return;
-    }
-    this.landBlow(e, def, move);
-  }
-
-  /**
-   * One melee blow of a move: where it lands, how wide, and how hard.
-   *
-   * A plain blow is the old rule exactly — the tile it aimed at, and only if
-   * you are still standing in it. `reach` extends the line it will accept,
-   * which is what stops a step backwards from being the universal answer, and
-   * `sweep` accepts the two tiles either side of that line, which is what
-   * stops circling from being the other one.
-   */
-  private landBlow(e: EnemyState, def: EnemyDef, move: AttackMove): void {
-    const p = this.player;
-    this.sfx('swing', e.x, e.y);
-    const dx = DX[e.facing], dy = DY[e.facing];
-    let hit = false;
-    // Where the blow comes at you *from*, which is what the guard and the parry
-    // are answered against. Usually the creature itself; for a flank caught by
-    // a sweep it is the tile the swing is travelling through, because a guard
-    // can only ever be raised at an orthogonal neighbour and a blow nobody can
-    // answer is not a wide swing, it is an unfair one.
-    let srcX = e.x, srcY = e.y;
-    for (let d = 1; d <= move.reach && !hit; d++) {
-      const x = e.x + dx * d, y = e.y + dy * d;
-      // Reach is a longer arm, not a spear through stone: anything solid on the
-      // way — a wall, a door, a pillar — stops the blow short of you.
-      if (d > 1 && blocksMove(this.floor, e.x + dx * (d - 1), e.y + dy * (d - 1))) break;
-      if (p.x === x && p.y === y) hit = true;
-      else if (move.sweep) {
-        // The flanks of the tile it is swinging through — a sidestep's landing.
-        const sx = dy, sy = dx;
-        if ((p.x === x + sx && p.y === y + sy) || (p.x === x - sx && p.y === y - sy)) {
-          hit = true;
-          srcX = x;
-          srcY = y;
-        }
-      }
-    }
-    // A plain blow keeps its old contract: the tile it *aimed* at, so a
-    // creature that turned after committing still misses.
-    if (move.reach === 1 && !move.sweep && !(p.x === e.lastSeenX && p.y === e.lastSeenY)) hit = false;
-    if (!hit) {
-      this.sfx('miss', e.x, e.y);
-      return;
-    }
-    const raw = def.attack * move.power * attackPower(e.power) * (e.scavengerAttack ?? 1) * this.rally(e) * this.diff.enemyDamage;
-    Combat.damagePlayer(this, Math.max(1, Math.round(raw)), def.damageType, srcX, srcY, def.name, def.id, e);
-  }
-
-  /**
-   * A parried melee blow dealt back to whoever threw it. Its own damage and its
-   * own damage type, so a creature that shrugs off fire still shrugs it off
-   * coming back — the shield returns the blow, it does not translate it.
-   */
-  /**
-   * One tick of a hidden monster. A ceiling dropper waits until you come
-   * within `AMBUSH_TRIGGER`, sifts dust for `DROP_SECONDS`, then lands. A
-   * buried one does the same with a rumble. A tunnelling burrower travels
-   * towards your back first. None of them strike on arrival (see `emerge`).
-   */
-  private updateLurker(e: EnemyState, dt: number): void {
-    const p = this.player;
-    const dist = manhattan(e.x, e.y, p.x, p.y);
-    if (e.tunnelling) {
-      e.lurkT = (e.lurkT ?? 0) - dt;
-      if (e.moveT < 1) {
-        e.moveT = Math.min(1, e.moveT + dt / MOUND_STEP);
-        return;
-      }
-      if (e.lurkT <= 0 || dist <= 1) {
-        this.emerge(e, true);
-        return;
-      }
-      // Head for the tile at your back. The floor is no obstacle to it, but
-      // walls and doors are; it goes greedily, which you can read and turn to.
-      const back = { x: p.x - DX[p.facing], y: p.y - DY[p.facing] };
-      const step = DIRS.map((d) => ({ x: e.x + DX[d], y: e.y + DY[d] }))
-        .filter((t) => !blocksMove(this.floor, t.x, t.y) && !(t.x === p.x && t.y === p.y))
-        .sort((a, b) => manhattan(a.x, a.y, back.x, back.y) - manhattan(b.x, b.y, back.x, back.y))[0];
-      if (step) {
-        e.fromX = e.x; e.fromY = e.y;
-        e.x = step.x; e.y = step.y;
-        e.moveT = 0;
-      }
-      return;
-    }
-    if (e.lurkT === undefined) {
-      if (dist > AMBUSH_TRIGGER) return;
-      if (e.lurk === 'ceiling') {
-        e.lurkT = DROP_SECONDS;
-        this.sfx('drip', e.x, e.y);
-        this.msg(e.spotted ? 'It lets go of the ceiling!' : 'Dust sifts down from above — something skitters!', '#d0b080');
-      } else {
-        e.lurkT = SURFACE_SECONDS;
-        this.sfx('break', e.x, e.y);
-        this.msg('The ground heaves!', '#c8a070');
-      }
-      return;
-    }
-    e.lurkT -= dt;
-    if (e.lurkT <= 0) this.emerge(e, false);
-  }
-
-  /**
-   * A lurker comes out onto the floor. Its own tile if that is free, otherwise
-   * a free tile beside you — behind you, for a burrower that went looking for
-   * your back. **It never strikes on arrival**: it lands in recovery, with a
-   * beat before it may start a wind-up, so an ambush costs position and never
-   * a free hit.
-   */
-  emerge(e: EnemyState, preferBack: boolean): void {
-    const p = this.player;
-    const def = enemyDef(e.def);
-    const open = (x: number, y: number) =>
-      !blocksMove(this.floor, x, y) && !(x === p.x && y === p.y) && !enemyAt(this.floor, x, y);
-    let spot = open(e.x, e.y) && !preferBack ? { x: e.x, y: e.y } : null;
-    if (!spot) {
-      const around = DIRS.map((d) => ({ x: p.x + DX[d], y: p.y + DY[d], d }))
-        .filter((t) => open(t.x, t.y))
-        .sort((a, b) => (preferBack ? (a.d === turnAround(p.facing) ? -1 : 0) - (b.d === turnAround(p.facing) ? -1 : 0) : 0));
-      spot = around[0] ?? (open(e.x, e.y) ? { x: e.x, y: e.y } : null);
-    }
-    if (!spot) {
-      // Nowhere to come out: it waits a little longer.
-      e.lurkT = 0.3;
-      return;
-    }
-    const was = e.lurk;
-    delete e.lurk;
-    delete e.lurkT;
-    delete e.tunnelling;
-    e.x = e.fromX = spot.x;
-    e.y = e.fromY = spot.y;
-    e.moveT = 1;
-    const d = dirOf(Math.sign(p.x - e.x), Math.sign(p.y - e.y));
-    if (d !== null) e.facing = d;
-    e.ai = 'recover';
-    e.timer = AMBUSH_BEAT;
-    e.attackCd = Math.max(e.attackCd, AMBUSH_BEAT + 0.2);
-    e.alert = 8;
-    e.lastSeenX = p.x;
-    e.lastSeenY = p.y;
-    if (was === 'shadow') {
-      Spells.addSpellFx(this, 'poof', e.x, e.y);
-      this.sfx('kingturn', e.x, e.y);
-      this.msg('The King steps out of the dark!', '#c080ff');
-      return;
-    }
-    this.sfx(was === 'ceiling' ? 'plop' : 'break', e.x, e.y);
-    this.emit({ type: 'shake', amount: 0.2 });
-    const behind = e.x === p.x - DX[p.facing] && e.y === p.y - DY[p.facing];
-    this.msg(was === 'ceiling'
-      ? `A ${def.name} drops down${behind ? ' behind you' : ''}!`
-      : `A ${def.name} bursts from the earth${behind ? ' behind you' : ''}!`, '#e0a070');
-  }
-
-  /**
-   * A blow on a cracked wall. It wears the weapon like a landed hit and it is
-   * loud: everything within `CRACK_NOISE` tiles comes to look, through walls.
-   * At `CRACK_BLOWS` the wall goes, for good, and a seam or cache spills.
-   */
-  strikeCrack(c: Crack): void {
-    const f = this.floor;
-    // A small secret, not a rule: the Mining Pick knows where stone gives, and
-    // brings any cracked wall down in one. Every other weapon takes CRACK_BLOWS.
-    const weapon = this.state.equipment.weapon;
-    const pick = !!weapon && itemBase(weapon.ref).weaponClass === 'pick' && !durability(weapon).broken;
-    c.hits = pick ? CRACK_BLOWS - 1 : c.hits;
-    c.hits++;
-    this.wear('weapon', CRACK_WEAR);
-    this.sfx('break', c.x, c.y);
-    this.emit({ type: 'shake', amount: 0.2 });
-    this.emit({ type: 'crack', id: c.id, hits: c.hits });
-    for (const e of f.enemies) {
-      if (e.ai === 'dead' || e.lurk || Boss.protectedByFog(this, e)) continue;
-      if (manhattan(e.x, e.y, c.x, c.y) > this.noise(CRACK_NOISE)) continue;
-      e.alert = Math.max(e.alert, 6);
-      e.lastSeenX = this.player.x;
-      e.lastSeenY = this.player.y;
-    }
-    if (c.hits < CRACK_BLOWS) {
-      this.msg(c.hits === 1 ? 'The cracked stone shifts. The sound carries.' : 'Dust pours from the crack.', '#c8b090');
-      return;
-    }
-    c.broken = true;
-    f.tiles[c.y * f.width + c.x] = FLOOR;
-    if (pick) this.msg('The pick finds the fault line. The wall comes down in one.', '#e8d8a0');
-    if (biomeForFloor(f).law === 'collapse') this.collapse(c.x, c.y);
-    this.reveal();
-    const rng = createRng(hashString(`crack:${f.seed}:${c.id}`));
-    if (c.kind === 'seam') {
-      const ore = materialForDepth(rng, this.run.depth, ['metal']);
-      this.dropLoot(c.x, c.y, [makeMaterial(ore.id, rng.int(SEAM_ORE[0], SEAM_ORE[1]))], 0);
-      this.msg(`The wall gives way. Ore spills from the seam: ${ore.name}.`, '#e8d8a0');
-    } else if (c.kind === 'cache') {
-      // Three loud blows and the wear on your blade: it pays like a chest,
-      // and never nothing.
-      const loot = this.containerLoot(rng, 'chest');
-      this.dropLoot(c.x, c.y, loot.items, Math.max(loot.gold, CACHE_MIN_GOLD(this.run.depth)));
-      this.msg('The wall gives way onto a sealed niche. Someone hid something here.', '#e8d8a0');
-    } else {
-      this.msg('The wall gives way. A way through!', '#e8d8a0');
-    }
-  }
-
-  /**
-   * One tick of a Gravecaller's necromancy. Returns true while it is chanting,
-   * which is all it does then. Any blow breaks the chant (`hurtT` is set by
-   * every hit), as does the corpse being shattered, sanctified or already up.
-   */
-  private updateRaiser(e: EnemyState, def: EnemyDef, dt: number): boolean {
-    const f = this.floor;
-    e.raiseCd = Math.max(0, (e.raiseCd ?? 0) - dt);
-    if (e.channel) {
-      const target = f.enemies.find((g) => g.id === e.channel!.target);
-      if (e.hurtT > 0 || e.ai === 'recover') {
-        delete e.channel;
-        e.raiseCd = 1.5;
-        this.msg('The chant breaks!', '#ffe8a0');
-        return false;
-      }
-      if (!target || target.ai !== 'dead' || target.remains) {
-        delete e.channel;
-        return false;
-      }
-      e.channel.t -= dt;
-      if (e.channel.t <= 0) {
-        delete e.channel;
-        e.raiseCd = RAISE_COOLDOWN;
-        e.raised = (e.raised ?? 0) + 1;
-        this.raiseCorpse(target);
-      }
-      return true;
-    }
-    if (e.alert <= 0 || e.raiseCd > 0 || (e.raised ?? 0) >= RAISE_LIMIT || e.ai === 'windup' || e.ai === 'recover') return false;
-    const taken = new Set(f.enemies.map((g) => g.channel?.target).filter(Boolean));
-    const corpse = f.enemies
-      .filter((g) => g.ai === 'dead' && g !== e && !g.remains && g.burstT === undefined && !taken.has(g.id)
-        && enemyDef(g.def).undead && enemyDef(g.def).behavior !== 'boss'
-        && manhattan(g.x, g.y, e.x, e.y) <= RAISE_REACH && this.los(e.x, e.y, g.x, g.y))
-      .sort((a, b) => manhattan(a.x, a.y, e.x, e.y) - manhattan(b.x, b.y, e.x, e.y))[0];
-    if (!corpse) return false;
-    e.channel = { target: corpse.id, t: RAISE_CHANNEL };
-    const d = dirOf(Math.sign(corpse.x - e.x), Math.sign(corpse.y - e.y));
-    if (d !== null) e.facing = d;
-    this.sfx('magic', e.x, e.y);
-    this.msg(`The ${def.name} begins to chant over the fallen ${enemyDef(corpse.def).name}.`, '#a0e0a0');
-    return true;
-  }
-
-  /** A corpse stands back up: risen, so it pays nothing twice, and not swinging yet. */
-  private raiseCorpse(g: EnemyState): void {
-    const spot = this.freeTileForRise(g.x, g.y);
-    g.hp = Math.max(1, Math.round(g.maxHp * RAISE_HP));
-    g.risen = true;
-    g.ai = 'recover';
-    g.timer = RAISE_BEAT;
-    g.attackCd = RAISE_BEAT + 0.2;
-    g.deadT = 0;
-    g.hurtT = 0;
-    g.alert = 8;
-    g.vuln = 0;
-    g.guard = 'down';
-    g.blocks = 0;
-    g.x = g.fromX = spot.x;
-    g.y = g.fromY = spot.y;
-    g.moveT = 1;
-    g.lastSeenX = this.player.x;
-    g.lastSeenY = this.player.y;
-    this.sfx('alert', g.x, g.y);
-    this.emit({ type: 'shake', amount: 0.2 });
-    this.msg(`The ${enemyDef(g.def).name} stands back up!`, '#a0e0a0');
-  }
-
-  /** Struck where it hides: dragged out early, reeling, open to double damage. */
-  knockOut(e: EnemyState): void {
-    const def = enemyDef(e.def);
-    const was = e.lurk;
-    delete e.lurk;
-    delete e.lurkT;
-    delete e.tunnelling;
-    e.moveT = 1;
-    e.fromX = e.x; e.fromY = e.y;
-    e.ai = 'recover';
-    e.timer = KNOCKOUT_STUN;
-    e.vuln = KNOCKOUT_STUN;
-    e.attackCd = Math.max(e.attackCd, KNOCKOUT_STUN + 0.2);
-    e.alert = 8;
-    e.hurtT = 0.3;
-    e.lastSeenX = this.player.x;
-    e.lastSeenY = this.player.y;
-    this.sfx('hit', e.x, e.y);
-    this.emit({ type: 'shake', amount: 0.25 });
-    this.msg(was === 'ceiling' ? `You knock the ${def.name} off the ceiling!` : `You drag the ${def.name} out of the earth!`, '#ffe8a0');
-  }
-
-  /** A burrower, badly hurt, goes under: a mound heading for your back. */
-  private dive(e: EnemyState, def: EnemyDef): void {
-    e.dived = true;
-    e.lurk = 'buried';
-    e.tunnelling = true;
-    e.lurkT = this.rng.float(BURROW_MIN, BURROW_MAX);
-    e.moveT = 1;
-    e.ai = 'idle';
-    e.guard = 'down';
-    this.sfx('break', e.x, e.y);
-    this.msg(`The ${def.name} dives into the earth!`, '#c8a070');
-  }
-
-  /**
-   * A thief lifts one thing from your pack: a piece of gear whole, or half a
-   * stack. Equipped gear is never at risk — only what you are carrying home,
-   * which is the thing this whole game is about.
-   */
-  pickPocket(e: EnemyState): void {
-    const pack = this.run.backpack.items.filter((it) => it.kind !== 'lore');
-    if (!pack.length) return;
-    const target = this.rng.pick(pack);
-    const taken = takeQty(this.run.backpack, target.uid, target.qty > 1 ? Math.ceil(target.qty / 2) : 1);
-    if (!taken) return;
-    e.stolen = [taken];
-    e.stolenT = 0;
-    e.trailN = 0;
-    e.trailDrops = 0;
-    e.ai = 'flee';
-    e.alert = Math.max(e.alert, 6);
-    this.emit({ type: 'float', x: this.player.x, y: this.player.y, text: 'Stolen!', color: '#e8c060' });
-    this.sfx('gold', e.x, e.y);
-    this.msg(`The ${Combat.view(this, e).name} snatches your ${itemName(taken)} and runs!`, '#e8c060');
-  }
-
-  /**
-   * One tick of a thief running with your things. Returns true when it has
-   * acted. It is meant to be a chase you can win, not a vanishing act:
-   *
-   * - **Clumsy**: after a step in your sight it sometimes stops to clutch the
-   *   loot (`THIEF_FUMBLE_CHANCE` for `THIEF_FUMBLE` seconds).
-   * - **Laden** only in principle: `THIEF_LADEN` is 1 now, since you already
-   *   outpace a goblin.
-   * - **Panicked, not clever**: it takes any step that is not closer to you,
-   *   preferring to keep running straight, so it bolts down dead ends.
-   * - **Goes to ground**: out of sight it keeps sprinting for `THIEF_BOLT`
-   *   seconds, then creeps a tile only every `THIEF_CREEP` seconds, still
-   *   glowing where it hides.
-   * - **Leaves a trail**: every few steps a coin or two spills from its purse.
-   *
-   * It gets clean away after `THIEF_ESCAPE` seconds out of your sight, taking
-   * what it stole. Cornered and in reach, it fights.
-   */
-  private runWithLoot(e: EnemyState, def: EnemyDef, dist: number, sees: boolean, dt: number): boolean {
-    const p = this.player;
-    e.stolenT = sees ? 0 : (e.stolenT ?? 0) + dt;
-    if (e.stolenT >= THIEF_ESCAPE) {
-      const lost = e.stolen!.map(itemName).join(', ');
-      e.ai = 'dead';
-      e.hp = 0;
-      e.deadT = 99;
-      delete e.stolen;
-      delete e.stolenT;
-      this.msg(`Somewhere in the dark, the ${def.name} gets away with your ${lost}.`, '#c89060');
-      return true;
-    }
-    e.ai = 'flee';
-    if ((e.pauseT ?? 0) > 0) {
-      e.pauseT = e.pauseT! - dt;
-      return true;
-    }
-    if (sees) { e.lastSeenX = p.x; e.lastSeenY = p.y; }
-    // Out of sight it bolts for a moment, then goes to ground and creeps.
-    if (!sees && e.stolenT >= THIEF_BOLT) e.pauseT = THIEF_CREEP;
-    const fromX = sees ? p.x : e.lastSeenX, fromY = sees ? p.y : e.lastSeenY;
-    const here = manhattan(e.x, e.y, fromX, fromY);
-    const options = DIRS.map((d) => ({ d, x: e.x + DX[d], y: e.y + DY[d] }))
-      .filter((t) => this.canStep(e, t.x, t.y) && manhattan(t.x, t.y, fromX, fromY) >= here);
-    if (options.length) {
-      // Keep running the way it was going, if it can; otherwise any way that
-      // is not towards you. No lookahead: a dead end is as good as a door.
-      const pick = options.find((t) => t.d === e.facing && this.rng.chance(0.75)) ?? this.rng.pick(options);
-      const fromTileX = e.x, fromTileY = e.y;
-      this.stepEnemy(e, pick.x, pick.y);
-      e.trailN = (e.trailN ?? 0) + 1;
-      if (e.trailN % THIEF_TRAIL_EVERY === 0 && (e.trailDrops ?? 0) < THIEF_TRAIL_MAX) {
-        e.trailDrops = (e.trailDrops ?? 0) + 1;
-        this.dropLoot(fromTileX, fromTileY, [], this.rng.int(1, 3));
-        if (e.trailDrops === 1 && sees) this.msg(`Coins spill from the ${def.name}'s purse as it runs.`, '#e8c060');
-      }
-      if (sees && this.rng.chance(THIEF_FUMBLE_CHANCE)) {
-        e.pauseT = THIEF_FUMBLE;
-        this.msg(`The ${def.name} fumbles its prize!`, '#e8c060');
-      }
-      return true;
-    }
-    if (dist === 1 && e.attackCd <= 0) {
-      this.beginWindup(e, def, p.x, p.y);
-      return true;
-    }
-    return true;
-  }
-
-  /**
-   * A Vengeful corpse goes off: its own tile and the four beside it. It is a
-   * blow like any other from that tile — facing it, you can block or parry it;
-   * standing on the body, you cannot. Monsters caught in it take it raw, the
-   * way they take a trap, which makes killing one beside its friends a tactic.
-   */
-  private vengefulBurst(e: EnemyState): void {
-    const def = enemyDef(e.def);
-    const attack = Math.max(1, Math.round(def.attack * attackPower(e.power) * VENGEFUL_DAMAGE_MULT * this.diff.enemyDamage));
-    const inBlast = (x: number, y: number) => manhattan(x, y, e.x, e.y) <= 1;
-    this.sfx('lava_burst', e.x, e.y);
-    this.emit({ type: 'float', x: e.x, y: e.y, text: 'Burst!', color: '#c070ff' });
-    for (const other of this.floor.enemies) {
-      if (other === e || other.ai === 'dead' || other.lurk || !inBlast(other.x, other.y)) continue;
-      const odef = enemyDef(other.def);
-      const dealt = Math.max(1, Math.round(def.attack * attackPower(e.power) * VENGEFUL_DAMAGE_MULT * (odef.resist[def.damageType] ?? 1)));
-      this.hurt(other, dealt, `${dealt}`, '#c070ff');
-      if (other.hp <= 0) Combat.killEnemy(this, other);
-    }
-    if (inBlast(this.player.x, this.player.y)) {
-      this.msg(`The Vengeful ${def.name}'s corpse bursts!`, '#c070ff');
-      this.emit({ type: 'shake', amount: 0.5 });
-      Combat.damagePlayer(this, attack, def.damageType, e.x, e.y, `Vengeful ${def.name}`, def.id);
-    } else {
-      this.msg('The corpse bursts harmlessly behind you.', '#9a80b0');
-    }
-  }
+  committed = 0;
 
   /** True while a raised guard can still turn a blow aside — the renderer's tell. */
   get parryWindow(): boolean {

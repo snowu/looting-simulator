@@ -22,6 +22,7 @@ import * as Boss from './boss';
 import type { World } from './world';
 import { PARRY_VULN_MULT, Projectile, SpellFx } from './world';
 import * as Combat from './combat';
+import * as EnemyAi from './enemy-ai';
 
 /** How long each mark lasts, in seconds. */
 export const SPELL_FX_SECONDS: Record<SpellFx['kind'], number> = { smite: 0.55, poof: 0.7, spores: 0.9, blast: 0.6, meteor: 1.4, frost: 0.8 };
@@ -190,7 +191,7 @@ export function castJudgement(w: World, def: RiteDef, grade: RiteGrade, charges:
       const dealt = Math.max(1, e.hp);
       w.hurt(e, dealt, 'Judged', def.color);
       recordDamageDealt(w.state.bestiary, Combat.view(w, e).id, dealt);
-      w.markRemains(e, 'sanctified');
+      EnemyAi.markRemains(w, e, 'sanctified');
       Combat.killEnemy(w, e);
       ended++;
       continue;
@@ -200,7 +201,7 @@ export function castJudgement(w: World, def: RiteDef, grade: RiteGrade, charges:
     w.hurt(e, hit.damage, hit.crit ? `${hit.damage}!` : `${hit.damage}`, hit.crit ? '#ffe040' : def.color);
     recordDamageDealt(w.state.bestiary, Combat.view(w, e).id, hit.damage);
     if (e.hp <= 0) {
-      w.markRemains(e, 'sanctified');
+      EnemyAi.markRemains(w, e, 'sanctified');
       Combat.killEnemy(w, e);
       if (stat.undead) ended++;
     } else if (stat.undead && grade === 'full' && stat.behavior !== 'boss') stood++;
@@ -382,7 +383,7 @@ export function spellLands(w: World, spell: ConduitSpellDef, e: EnemyState, play
   weaveFrom(w, spell);
   if (e.hp <= 0) {
     // Holy light from above: what Smite kills stays down.
-    if (spell.id === 'smite') w.markRemains(e, 'sanctified');
+    if (spell.id === 'smite') EnemyAi.markRemains(w, e, 'sanctified');
     if (w.derived.traits.requiem) refundCharges(w, spell.charges);
     Combat.killEnemy(w, e);
   } else Hazards.slip(w, e);
@@ -467,10 +468,10 @@ export function updateHexed(w: World, e: EnemyState, dt: number): void {
   e.guard = 'down';
   e.ai = 'wander';
   if (w.rng.chance(dt / 0.8)) {
-    const steps = DIRS.map((d) => [e.x + DX[d], e.y + DY[d]] as [number, number]).filter(([x, y]) => w.canStep(e, x, y));
+    const steps = DIRS.map((d) => [e.x + DX[d], e.y + DY[d]] as [number, number]).filter(([x, y]) => EnemyAi.canStep(w, e, x, y));
     if (steps.length) {
       const [x, y] = w.rng.pick(steps);
-      w.stepEnemy(e, x, y);
+      EnemyAi.stepEnemy(w, e, x, y);
     }
   }
 }

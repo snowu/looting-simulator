@@ -19,6 +19,7 @@ import type { World } from './world';
 import * as Boss from './boss';
 import * as Spells from './spells';
 import * as Combat from './combat';
+import * as EnemyAi from './enemy-ai';
 
 /** Burns tick down and chills wear off. Run every frame over the floor. */
 export function updateAfflictions(w: World, dt: number): void {
@@ -307,11 +308,11 @@ export function slip(w: World, e: EnemyState): void {
 
 /** One step out of the fire, to any tile that is not burning. False when there is none. */
 export function escapeFire(w: World, e: EnemyState): boolean {
-  const steps = DIRS.map((d) => [e.x + DX[d], e.y + DY[d]] as [number, number]).filter(([x, y]) => w.canStep(e, x, y));
+  const steps = DIRS.map((d) => [e.x + DX[d], e.y + DY[d]] as [number, number]).filter(([x, y]) => EnemyAi.canStep(w, e, x, y));
   if (!steps.length) return false;
   const p = w.player;
   // Out towards you if it was coming for you, else anywhere.
   steps.sort((a, b) => manhattan(a[0], a[1], p.x, p.y) - manhattan(b[0], b[1], p.x, p.y));
-  w.stepEnemy(e, steps[0][0], steps[0][1]);
+  EnemyAi.stepEnemy(w, e, steps[0][0], steps[0][1]);
   return true;
 }

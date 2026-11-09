@@ -5,6 +5,7 @@ import { EnemyState, createEnemy } from '../systems/dungeon';
 import { ENEMIES, enemyDef } from '../data/enemies';
 import { getArt } from '../art/registry';
 import { room, tick } from './harness';
+import * as EnemyAi from '../world/enemy-ai';
 
 
 const arena = (seed = 1): World => room({ seed });
@@ -174,8 +175,7 @@ describe('the guard rhythm', () => {
     e.lastSeenX = w.player.x;
     e.lastSeenY = w.player.y;
     // beginWindup is what a live swing goes through; take the same path.
-    (w as unknown as { beginWindup(e: EnemyState, def: unknown, x: number, y: number): void })
-      .beginWindup(e, enemyDef('goblin_shield'), w.player.x, w.player.y);
+    EnemyAi.beginWindup(w, e, enemyDef('goblin_shield'), w.player.x, w.player.y);
     expect(e.guard).toBe('down');
   });
 });

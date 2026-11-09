@@ -5,6 +5,7 @@ import { EnemyState, FLOOR, Trap, TrapKind, createEnemy, generateFloor, trapAt }
 import { enemyDef } from '../data/enemies';
 import { BASE_LIGHT_RADIUS, lightIntensity, lightRadius } from '../systems/meta';
 import { room, tick } from './harness';
+import * as EnemyAi from '../world/enemy-ai';
 
 
 const arena = (seed = 1): World => room({ seed });
@@ -104,7 +105,7 @@ describe('traps', () => {
     w.floor.enemies.push(e);
     e.x = trap.x + 1;
     e.y = trap.y;
-    (w as unknown as { stepEnemy(en: EnemyState, x: number, y: number): void }).stepEnemy(e, trap.x, trap.y);
+    EnemyAi.stepEnemy(w, e, trap.x, trap.y);
     expect(e.hp).toBeLessThan(hp);
     expect(trap.armed).toBe(false);
   });

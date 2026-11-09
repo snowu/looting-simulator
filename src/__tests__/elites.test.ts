@@ -13,6 +13,7 @@ import { World } from '../world/world';
 import type { DamageType } from '../types';
 import { room } from './harness';
 import * as Combat from '../world/combat';
+import * as EnemyAi from '../world/enemy-ai';
 
 interface Private {
   killEnemy(e: EnemyState): void;
@@ -185,11 +186,11 @@ describe('the thieving Cutpurse', () => {
     const e = facing(w, 'goblin');
     e.stolen = [makeMaterial('iron', 3)];
     e.stolenT = 0;
-    priv(w).runWithLoot(e, enemyDef('goblin'), 9, false, THIEF_ESCAPE - 1);
+    EnemyAi.runWithLoot(w, e, enemyDef('goblin'), 9, false, THIEF_ESCAPE - 1);
     expect(e.ai).not.toBe('dead');
-    priv(w).runWithLoot(e, enemyDef('goblin'), 9, true, 0.1);
+    EnemyAi.runWithLoot(w, e, enemyDef('goblin'), 9, true, 0.1);
     expect(e.stolenT).toBe(0);
-    priv(w).runWithLoot(e, enemyDef('goblin'), 9, false, THIEF_ESCAPE);
+    EnemyAi.runWithLoot(w, e, enemyDef('goblin'), 9, false, THIEF_ESCAPE);
     expect(e.ai).toBe('dead');
     expect(e.stolen).toBeUndefined();
     expect(w.floor.pickups.some((p) => p.items.some((i) => i.ref === 'iron' && i.qty === 3))).toBe(false);
@@ -210,16 +211,16 @@ describe('chasing a thief', () => {
     e.stolenT = 0;
     e.lastSeenX = w.player.x;
     e.lastSeenY = w.player.y;
-    priv(w).runWithLoot(e, enemyDef('goblin'), 1, false, 0.016);
+    EnemyAi.runWithLoot(w, e, enemyDef('goblin'), 1, false, 0.016);
     expect(e.pauseT ?? 0).toBe(0);
     e.stolenT = THIEF_BOLT;
     e.lastSeenX = w.player.x;
     e.lastSeenY = w.player.y;
-    priv(w).runWithLoot(e, enemyDef('goblin'), 1, false, 0.016);
+    EnemyAi.runWithLoot(w, e, enemyDef('goblin'), 1, false, 0.016);
     expect(e.pauseT).toBe(THIEF_CREEP);
     const at = [e.x, e.y];
     e.moveT = 1;
-    priv(w).runWithLoot(e, enemyDef('goblin'), 1, false, 0.5);
+    EnemyAi.runWithLoot(w, e, enemyDef('goblin'), 1, false, 0.5);
     expect([e.x, e.y]).toEqual(at);
   });
 
@@ -233,7 +234,7 @@ describe('chasing a thief', () => {
     for (let i = 0; i < THIEF_TRAIL_EVERY * 3; i++) {
       e.pauseT = 0;
       e.moveT = 1;
-      priv(w).runWithLoot(e, enemyDef('goblin'), 3, true, 0.016);
+      EnemyAi.runWithLoot(w, e, enemyDef('goblin'), 3, true, 0.016);
     }
     expect(e.trailDrops ?? 0).toBeGreaterThan(0);
     expect(gold()).toBeGreaterThan(before);

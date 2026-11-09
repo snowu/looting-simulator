@@ -11,6 +11,7 @@ import { burningAt, surfaceAt, surfaceKindAt } from '../systems/surfaces';
 import * as Hazards from './hazards';
 import type { World } from './world';
 import * as Spells from './spells';
+import * as EnemyAi from './enemy-ai';
 
 /**
  * How long the King reels when a phase breaks. Long enough to read the turn and
@@ -151,7 +152,7 @@ export function shadowStep(w: World, e: EnemyState): boolean {
 /** The Shadow Step runs out: he stands where the ash stirred, in recovery, never striking as he comes. */
 export function updateShadowStep(w: World, e: EnemyState, dt: number): void {
   e.lurkT = (e.lurkT ?? 0) - dt;
-  if (e.lurkT <= 0) w.emerge(e, false);
+  if (e.lurkT <= 0) EnemyAi.emerge(w, e, false);
 }
 
 /**

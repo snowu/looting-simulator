@@ -6,6 +6,7 @@ import { GRAVE_BIOMES, RAISE_CHANNEL, RAISE_HP, RAISE_LIMIT, SHATTER_OVERKILL } 
 import { World } from '../world/world';
 import { room } from './harness';
 import * as Combat from '../world/combat';
+import * as EnemyAi from '../world/enemy-ai';
 
 interface Private {
   killEnemy(e: EnemyState): void;
@@ -107,30 +108,30 @@ describe('remains', () => {
 
     set({ damageType: 'blunt' });
     sk.hp = -1;
-    priv(w).markRemains(sk);
+    EnemyAi.markRemains(w, sk);
     expect(sk.remains).toBe('shattered');
 
     delete sk.remains;
     set({ damageType: 'slash' });
     sk.hp = -Math.ceil(sk.maxHp * SHATTER_OVERKILL);
-    priv(w).markRemains(sk);
+    EnemyAi.markRemains(w, sk);
     expect(sk.remains).toBe('shattered');
 
     delete sk.remains;
     sk.hp = -1;
     w.derived.stats.holy = 3;
-    priv(w).markRemains(sk);
+    EnemyAi.markRemains(w, sk);
     expect(sk.remains).toBe('sanctified');
 
     delete sk.remains;
     w.derived.stats.holy = 0;
-    priv(w).markRemains(sk);
+    EnemyAi.markRemains(w, sk);
     expect(sk.remains).toBeUndefined();
 
     const gob = createEnemy(enemyDef('goblin'), 0, 0, 0, 'b', 2);
     set({ damageType: 'blunt' });
     gob.hp = -1;
-    priv(w).markRemains(gob);
+    EnemyAi.markRemains(w, gob);
     expect(gob.remains).toBeUndefined();
   });
 

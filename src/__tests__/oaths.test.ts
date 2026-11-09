@@ -17,6 +17,7 @@ import { Rarity } from '../types';
 import { World } from '../world/world';
 import * as Sigils from '../world/sigils';
 import * as Combat from '../world/combat';
+import * as EnemyAi from '../world/enemy-ai';
 
 interface Private {
   changeFloor(dir: 'down' | 'up'): void;
@@ -181,7 +182,7 @@ describe('each oath', () => {
     const plain = sworn([], 324);
     const { state, w } = sworn(['silence'], 324);
     expect(priv(plain.w).sightPenalty - priv(w).sightPenalty).toBe(SILENCE_SIGHT);
-    expect(priv(w).noise(6)).toBe(priv(plain.w).noise(6) * SILENCE_NOISE);
+    expect(EnemyAi.noise(w, 6)).toBe(EnemyAi.noise(plain.w, 6) * SILENCE_NOISE);
     const o = runOath(state.run!, 'silence')!;
     state.run!.stats.deepest = SILENCE_DEPTH;
     expect(oathKept(state.run!, o, 'extracted')).toBe(true);

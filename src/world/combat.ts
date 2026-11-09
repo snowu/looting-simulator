@@ -35,6 +35,7 @@ import * as Sigils from './sigils';
 import * as Thrown from './thrown';
 import type { World } from './world';
 import { CONDUIT_PARRY_WINDOW, GUARD_DOWN, PARRY_GRACE, PARRY_VULN_MULT, PARRY_WINDOW, tomeChance } from './world';
+import * as EnemyAi from './enemy-ai';
 
 /** How long a mimic takes to rise after being struck awake. */
 export const MIMIC_RISE = 0.9;
@@ -83,7 +84,7 @@ export function resolvePlayerAttack(w: World): void {
     // hides: it comes out early, reeling and open.
     const hidden = d === 1 ? lurkerAt(f, t.x, t.y) : undefined;
     if (hidden && (hidden.lurk === 'buried' || hidden.spotted)) {
-      w.knockOut(hidden);
+      EnemyAi.knockOut(w, hidden);
       w.wear('weapon', 2);
       return;
     }
@@ -102,7 +103,7 @@ export function resolvePlayerAttack(w: World): void {
     }
     const crack = d === 1 ? crackAt(f, t.x, t.y) : undefined;
     if (crack) {
-      w.strikeCrack(crack);
+      EnemyAi.strikeCrack(w, crack);
       return;
     }
     // An emptied chest is only boards now: one blow and it is splinters.
@@ -307,7 +308,7 @@ export function shieldBash(w: World, e: EnemyState, def: EnemyDef): void {
   w.sfx('block', e.x, e.y);
   w.msg(`The ${def.name} turns your blow aside and bashes you!`, '#ff9070');
   // The sure hit: it starts its swing now, while you can't move or guard.
-  w.beginWindup(e, def, w.player.x, w.player.y);
+  EnemyAi.beginWindup(w, e, def, w.player.x, w.player.y);
 }
 
 export function hitEnemy(w: World, e: EnemyState, neverBash = false, chips = w.derived.swing.chips ?? 1, powerMult = 1): void {
@@ -379,7 +380,7 @@ export function hitEnemy(w: World, e: EnemyState, neverBash = false, chips = w.d
     w.anim.chargeStacks++;
     if (w.anim.chargeStacks === chargeMax) w.msg('The horn is up to speed.', '#f0e0ac');
   }
-  if (w.derived.traits.kindling) w.kindle(e);
+  if (w.derived.traits.kindling) EnemyAi.kindle(w, e);
   // A blow carrying fire or frost acts on the tile it lands on, like a bolt.
   if ((striker.stats.fire ?? 0) > 0) Hazards.elementReaches(w, e.x, e.y, 'fire');
   if ((striker.stats.frost ?? 0) > 0) Hazards.elementReaches(w, e.x, e.y, 'frost');
@@ -405,7 +406,7 @@ export function hitEnemy(w: World, e: EnemyState, neverBash = false, chips = w.d
     e.timer = 0.5;
   }
   if (e.hp <= 0) {
-    w.markRemains(e);
+    EnemyAi.markRemains(w, e);
     killEnemy(w, e);
   } else Hazards.slip(w, e);
 }
@@ -602,7 +603,7 @@ w: World,
   p.hp -= dmg;
   // A thief's blow that gets through takes something with it.
   if (attacker && dmg > 0 && !blocked && p.hp > 0 && !attacker.stolen?.length && view(w, attacker).thief) {
-    w.pickPocket(attacker);
+    EnemyAi.pickPocket(w, attacker);
   }
   if (w.anim.cast) {
     w.anim.cast = null;
