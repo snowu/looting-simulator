@@ -10,6 +10,7 @@ import { DamageType } from '../types';
 import type { World } from './world';
 import { PARRY_GRACE, Projectile } from './world';
 import * as Hazards from './hazards';
+import * as Boss from './boss';
 
 export function updateProjectiles(w: World, dt: number): void {
   const f = w.floor;
@@ -50,7 +51,7 @@ export function updateProjectiles(w: World, dt: number): void {
     pr.tileX = tx;
     pr.tileY = ty;
     if (pr.thrownBase || pr.spell) pr.traveled = (pr.traveled ?? 0) + 1;
-    if (blocksSight(f, tx, ty) || w.crossesBossBoundary(previous.x, previous.y, tx, ty)) {
+    if (blocksSight(f, tx, ty) || Boss.crossesBossBoundary(w, previous.x, previous.y, tx, ty)) {
       pr.speed = 0;
       if (pr.thrownBase) w.landThrown(pr.thrownBase, previous.x, previous.y);
       else w.sfx('break', tx, ty);
@@ -144,7 +145,7 @@ export function reflect(w: World, pr: Projectile): void {
 }
 
 export function reflectOntoAttacker(w: World, e: EnemyState, attack: number, type: DamageType): void {
-  if (w.protectedByFog(e)) return;
+  if (Boss.protectedByFog(w, e)) return;
   const def = enemyDef(e.def);
   const mult = def.resist[type] ?? 1;
   const damage = Math.max(mult > 0 ? 1 : 0, Math.round(attack * mult));
@@ -158,7 +159,7 @@ export function reflectOntoAttacker(w: World, e: EnemyState, attack: number, typ
 
 /** A reflected bolt landing on a monster: its own damage, its own element. */
 export function reflectedHit(w: World, pr: Projectile, e: EnemyState): void {
-  if (w.protectedByFog(e)) return;
+  if (Boss.protectedByFog(w, e)) return;
   const def = enemyDef(e.def);
   const mult = def.resist[pr.type] ?? 1;
   const damage = Math.max(mult > 0 ? 1 : 0, Math.round(pr.damage * mult));

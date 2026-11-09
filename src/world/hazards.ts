@@ -16,6 +16,7 @@ import { enemyAt, EnemyState, Prop } from '../systems/dungeon';
 import { burningAt, chill, freezeFlood, ignite, oilBarrelAt, spillOil, surfaceAt, surfaceKindAt, tickSurfaces } from '../systems/surfaces';
 import { DamageType } from '../types';
 import type { World } from './world';
+import * as Boss from './boss';
 
 /** Burns tick down and chills wear off. Run every frame over the floor. */
 export function updateAfflictions(w: World, dt: number): void {
@@ -53,7 +54,7 @@ export function updateAfflictions(w: World, dt: number): void {
     burn.left -= step;
     burn.acc += step;
     const whole = Math.floor(burn.acc);
-    if (whole >= 1 && !w.protectedByFog(e)) {
+    if (whole >= 1 && !Boss.protectedByFog(w, e)) {
       burn.acc -= whole;
       w.hurt(e, whole, `${whole}`, '#ff9a50');
       recordDamageDealt(w.state.bestiary, enemyDef(e.def).id, whole);
@@ -109,7 +110,7 @@ export function scorch(w: World, x: number, y: number, ticks: number, source: st
     if (w.run.outcome !== 'active') return;
   }
   for (const e of f.enemies) {
-    if (e.ai === 'dead' || e.lurk || e.x !== x || e.y !== y || w.protectedByFog(e)) continue;
+    if (e.ai === 'dead' || e.lurk || e.x !== x || e.y !== y || Boss.protectedByFog(w, e)) continue;
     const def = enemyDef(e.def);
     const dealt = Math.max(1, Math.round((FIRE_MONSTER_BASE + FIRE_MONSTER_PER_DEPTH * depth) * ticks * (def.resist.fire ?? 1)));
     if (dealt <= 0) continue;

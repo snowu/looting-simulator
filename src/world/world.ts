@@ -113,6 +113,8 @@ import { addStats } from '../types';
 import { clamp, manhattan } from '../core/math';
 import * as Projectiles from './projectiles';
 import * as Hazards from './hazards';
+import * as Boss from './boss';
+import { SHADOW_STEP_EVERY } from './boss';
 
 // ---------------------------------------------------------------------------
 // Events the world emits for the renderer / UI / audio to react to.
@@ -418,28 +420,6 @@ const RETURN_LOCAL_TILES = 2;
 const SKITTISH_FLEE_PER_TICK = 0.02;
 const STAGGER_HP = 55;
 
-/**
- * How long the King reels when a phase breaks. Long enough to read the turn and
- * take a free swing at it, short enough that it is a moment rather than a
- * cutscene.
- */
-const BOSS_PHASE_BEAT = 1.2;
-/**
- * The Dark's Shadow Step: how long the King is gone, and how often he goes.
- * Gone means gone (a `lurk`): nothing strikes him and nothing is struck. A
- * violet puff marks where he will come back for the whole of it, and he
- * re-forms in the ambusher's recovery, so a step costs you your facing and
- * never a free blow.
- */
-export const SHADOW_STEP_SECONDS = 0.8;
-export const SHADOW_STEP_EVERY = 6;
-/** The Last Stand's burning pitch: how often, and how long it lies before it catches. */
-export const PITCH_EVERY = 7;
-export const PITCH_FUSE = 1.2;
-/** He stoops to fling it, and the beat after is yours. */
-const PITCH_STOOP = 0.6;
-/** Neighbouring tiles the pitch reaches besides your own. Two of the four always stay clean. */
-const PITCH_SPREAD = 2;
 
 /** Compact button label for an interaction hint. */
 /** What a blow on a chest breaks first: gems, valuables, and anything in a flask or on a page. */
@@ -635,7 +615,7 @@ export class World {
    */
   riteDraw: { rite: string | null; points: TracePoint[] } | null = null;
   /** The King's own actions on cooldown, by enemy id. Never saved: a reload finds them ready. */
-  private kingCd = new Map<string, { step: number; pitch: number }>();
+  kingCd = new Map<string, { step: number; pitch: number }>();
   /** Burning pitch waiting to catch. Never saved: a reload finds it lying unlit. */
   pitchFuses: { x: number; y: number; t: number }[] = [];
   events: WorldEvent[] = [];
@@ -1331,10 +1311,10 @@ export class World {
       }
     }
 
-    this.checkBossSeal();
+    Boss.checkBossSeal(this);
     this.updateConduit(dt);
     Hazards.updateAfflictions(this, dt);
-    this.updatePitch(dt);
+    Boss.updatePitch(this, dt);
     Hazards.updateSurfaces(this, dt);
     this.updateRetrieve(dt);
     this.updateEnemies(dt);
@@ -1391,7 +1371,7 @@ export class World {
     const p = this.player;
     this.anim.steps++;
     this.reveal();
-    this.checkBossSeal();
+    Boss.checkBossSeal(this);
     const f = this.floor;
     this.collectThrownHere();
     const trap = trapAt(f, p.x, p.y);
@@ -1746,7 +1726,7 @@ export class World {
   /** Grid line of sight (Bresenham). `inclusive` lets the target itself be opaque. */
   los(x0: number, y0: number, x1: number, y1: number, inclusive = false): boolean {
     const f = this.floor;
-    if (this.crossesBossBoundary(x0, y0, x1, y1)) return false;
+    if (Boss.crossesBossBoundary(this, x0, y0, x1, y1)) return false;
     let dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0);
     const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
     let err = dx + dy;
@@ -2075,8 +2055,8 @@ export class World {
   /** Where a rite that found nothing still shows itself: two tiles ahead, else one, else here. */
   private riteEmptyTile(): { x: number; y: number } {
     let tile = this.frontTile(2);
-    if (blocksMove(this.floor, tile.x, tile.y) || this.crossesBossBoundary(this.player.x, this.player.y, tile.x, tile.y)) tile = this.frontTile();
-    if (blocksMove(this.floor, tile.x, tile.y) || this.crossesBossBoundary(this.player.x, this.player.y, tile.x, tile.y)) tile = this.player;
+    if (blocksMove(this.floor, tile.x, tile.y) || Boss.crossesBossBoundary(this, this.player.x, this.player.y, tile.x, tile.y)) tile = this.frontTile();
+    if (blocksMove(this.floor, tile.x, tile.y) || Boss.crossesBossBoundary(this, this.player.x, this.player.y, tile.x, tile.y)) tile = this.player;
     return tile;
   }
 
@@ -2084,7 +2064,7 @@ export class World {
   private castMeteor(def: RiteDef, grade: RiteGrade, charges: number): void {
     const meteor = { ...conduitSpell('ember_bolt'), power: METEOR_POWER_PER_CHARGE * charges * (grade === 'weak' ? 0.5 : 1) };
     const view = spellView(this.derived, meteor);
-    const targets = this.riteTargets().filter(e => !this.protectedByFog(e));
+    const targets = this.riteTargets().filter(e => !Boss.protectedByFog(this, e));
     for (const e of targets) {
       const enemy = this.view(e);
       const hit = playerHitsEnemy(this.rng, view, 1, enemy, defensePower(e.power) * this.diff.enemyDefense);
@@ -2111,7 +2091,7 @@ export class World {
   private castGlacialTomb(def: RiteDef, grade: RiteGrade): void {
     const scale = grade === 'weak' ? 0.5 : 1;
     const room = this.riteTargets();
-    const targets = this.riteSightTargets().filter(e => !this.protectedByFog(e));
+    const targets = this.riteSightTargets().filter(e => !Boss.protectedByFog(this, e));
     let held = 0;
     for (const e of targets) {
       const seconds = (room.includes(e) ? GLACIAL_TOMB_SECONDS : GLACIAL_TOMB_SIGHT_SECONDS) * scale;
@@ -2155,7 +2135,7 @@ export class World {
   private castJudgement(def: RiteDef, grade: RiteGrade, charges: number): void {
     const light = { ...conduitSpell('smite'), power: JUDGEMENT_POWER_PER_CHARGE * charges * (grade === 'weak' ? 0.5 : 1) };
     const view = spellView(this.derived, light);
-    const targets = this.riteTargets().filter(e => !this.protectedByFog(e));
+    const targets = this.riteTargets().filter(e => !Boss.protectedByFog(this, e));
     let ended = 0, stood = 0;
     for (const e of targets) {
       const stat = enemyDef(e.def);
@@ -2206,7 +2186,7 @@ export class World {
    */
   private castPenguining(def: RiteDef, grade: RiteGrade): void {
     const seconds = grade === 'weak' ? HEX_SECONDS / 2 : HEX_SECONDS;
-    const targets = this.riteTargets().filter(e => !this.protectedByFog(e));
+    const targets = this.riteTargets().filter(e => !Boss.protectedByFog(this, e));
     let birds = 0;
     for (const e of targets) {
       if (this.polymorph(e, seconds, def.color, true) !== 'refused') birds++;
@@ -2228,7 +2208,7 @@ export class World {
     delete fx.meteor;
     // Nothing lands across the living throne boundary, not even the fire on
     // the tile: the one guard for target and tile alike.
-    if (pending && this.protectedByFog(pending.target)) return;
+    if (pending && Boss.protectedByFog(this, pending.target)) return;
     // Impacts use the same elemental reaction path as bolts and burning feet.
     Hazards.elementReaches(this, fx.x, fx.y, 'fire');
     if (!pending || pending.target.ai === 'dead') return;
@@ -2302,7 +2282,7 @@ export class World {
     let prev = { x: this.player.x, y: this.player.y };
     for (let d = 1; d <= spell.range; d++) {
       const t = this.frontTile(d);
-      if (blocksSight(this.floor, t.x, t.y) || this.crossesBossBoundary(prev.x, prev.y, t.x, t.y)) break;
+      if (blocksSight(this.floor, t.x, t.y) || Boss.crossesBossBoundary(this, prev.x, prev.y, t.x, t.y)) break;
       const foe = enemyAt(this.floor, t.x, t.y);
       if (foe) {
         this.spellLands(spell, foe, snapshot, this.anim.attackPower);
@@ -2327,7 +2307,7 @@ export class World {
 
   /** A battle spell landing: the hit, its rider, and the weave it leaves on your blade. */
   private spellLands(spell: ConduitSpellDef, e: EnemyState, player: PlayerDerived, power: number): void {
-    if (this.protectedByFog(e)) return;
+    if (Boss.protectedByFog(this, e)) return;
     const def = this.view(e);
     if ((e.eating ?? 0) > 0) e.eating = undefined;
     if (spell.id === 'hex') {
@@ -3065,7 +3045,7 @@ export class World {
    * guard wide open. Flank it, meet its swing, or time the drop instead.
    */
   private shieldChip(e: EnemyState, def: EnemyDef, chips = 1, power = this.anim.attackPower, player = this.derived): void {
-    if (this.protectedByFog(e)) return;
+    if (Boss.protectedByFog(this, e)) return;
     const sh = def.shield!;
     // Difficulty thins the armour on Normal; Hard multiplies by exactly 1.
     const hit = playerHitsEnemy(this.rng, player, power, def, defensePower(e.power) * this.diff.enemyDefense);
@@ -3121,7 +3101,7 @@ export class World {
   }
 
   private hitEnemy(e: EnemyState, neverBash = false, chips = this.derived.swing.chips ?? 1, powerMult = 1): void {
-    if (this.protectedByFog(e)) return;
+    if (Boss.protectedByFog(this, e)) return;
     const def = this.view(e);
     if ((e.eating ?? 0) > 0) e.eating = undefined;
     const reaction = this.guardReaction(e, def);
@@ -3660,7 +3640,7 @@ export class World {
         if (!this.floor.pickups.includes(shard)) this.floor.pickups.push(shard);
       }
       this.msg('The Ashen King crumbles to cinders. A portal tears open.', '#c080ff');
-      this.unsealBossDoors();
+      Boss.unsealBossDoors(this);
       this.floor.props.push({ id: `portal${this.time}`, kind: 'portal', x: e.x, y: e.y, used: false, tier: 'none', blocking: false, mimic: false });
       this.placeKingCarving(e.x, e.y);
     } else {
@@ -3863,7 +3843,7 @@ export class World {
   private chestClang(p: Prop): void {
     let woken = 0;
     for (const e of this.floor.enemies) {
-      if (e.ai === 'dead' || this.protectedByFog(e)) continue;
+      if (e.ai === 'dead' || Boss.protectedByFog(this, e)) continue;
       if (manhattan(e.x, e.y, p.x, p.y) > this.noise(CHEST_CLANG_RADIUS)) continue;
       if (e.alert <= 0) woken++;
       e.alert = Math.max(e.alert, 6);
@@ -3948,7 +3928,7 @@ export class World {
     const t = this.frontTile();
     const door = doorAt(f, t.x, t.y);
     if (door) {
-      if (isBossDoor(f, door) && door.locked && this.bossAlive()) return 'Sealed by fog';
+      if (isBossDoor(f, door) && door.locked && Boss.bossAlive(this)) return 'Sealed by fog';
       if (isBossDoor(f, door) && !door.open && !door.locked) return 'Part the fog';
       if (door.open) return enemyAt(f, t.x, t.y) ? null : 'Close door';
       if (door.locked) return this.run.keys.includes(door.keyId!) ? 'Unlock door' : 'Locked';
@@ -4096,7 +4076,7 @@ export class World {
 
     const door = doorAt(f, t.x, t.y);
     if (door) {
-      if (isBossDoor(f, door) && door.locked && this.bossAlive()) {
+      if (isBossDoor(f, door) && door.locked && Boss.bossAlive(this)) {
         this.msg('Sealed by fog. The King must fall.', '#c0a0ff');
         this.sfx('locked', t.x, t.y);
         return;
@@ -4214,7 +4194,7 @@ export class World {
       // No slipping out of the throne fight through a town portal: the fog
       // holds you until the King falls. His own exit portal only exists
       // after that, so it is never blocked.
-      if (town && this.playerInThrone() && this.bossAlive()) {
+      if (town && Boss.playerInThrone(this) && Boss.bossAlive(this)) {
         this.msg('The fog smothers the portal. No way out but through him.', '#c0a0ff');
         this.sfx('locked');
         return;
@@ -4636,7 +4616,7 @@ export class World {
       }
       case 'recall':
         if (this.anim.recall !== null) return;
-        if (this.playerInThrone() && this.bossAlive()) {
+        if (Boss.playerInThrone(this) && Boss.bossAlive(this)) {
           this.msg('The fog smothers the scroll. No way out but through him.', '#c0a0ff');
           this.sfx('locked');
           return;
@@ -4837,154 +4817,6 @@ export class World {
   }
 
   /**
-   * Has the King crossed into a new phase?
-   *
-   * Checked every tick rather than on the swing that did it, because enemy
-   * health falls in five different places — a sprung trap, a chip off a guard,
-   * a landed blow and two parry reflections — and a threshold crossed by any of
-   * the other four would otherwise go unannounced. The phase he is *in* comes
-   * from his health; `e.phase` only remembers how far the fight has been
-   * announced, so each turn lands exactly once.
-   */
-  private checkBossPhase(e: EnemyState): void {
-    if (e.ai === 'dead' || e.hp <= 0) return;
-    const now = phaseForHp(e.hp / Math.max(1, e.maxHp));
-    const announced = e.phase ?? 1;
-    if (now <= announced) return;
-    // Step through every phase that was crossed, not just the one he landed in.
-    // A crit inside a parry window can take two thirds of the bar off in a
-    // single blow, and jumping straight to the last phase would mean the room
-    // never goes dark and the guard never gets up — the middle of the fight
-    // would simply not happen on the runs that hit hardest.
-    for (let p = announced + 1; p <= now; p++) this.enterBossPhase(e, p, p === now);
-  }
-
-  private enterBossPhase(e: EnemyState, phase: number, announce: boolean): void {
-    e.phase = phase;
-    const profile = kingPhase(phase);
-
-    // He reels. The beat is the reward for breaking a phase: he cannot act while
-    // the room changes around you, which is the same grace the mimic gets when
-    // it unfolds and is what keeps a transition from being a free hit on the
-    // player. Deliberately NOT a `vuln` window — that belongs to the parry, and
-    // handing it out for nothing would cheapen the one thing the last phase is
-    // built to teach.
-    e.ai = 'recover';
-    e.timer = BOSS_PHASE_BEAT;
-    e.attackCd = BOSS_PHASE_BEAT + 0.2;
-    e.hurtT = 0.3;
-    e.guard = 'down';
-    e.guardT = BOSS_PHASE_BEAT;
-    e.blocks = 0;
-
-    if (phase === 2) {
-      // Losing the light and three unseen bolts in the same instant is the one
-      // combination here that would be genuinely unfair, so the room holds its
-      // breath: whatever he already had in the air goes out with the torches.
-      this.projectiles = this.projectiles.filter((pr) => pr.sourceId !== e.def);
-      this.snuffThrone();
-    }
-
-    if (!announce) return;
-    this.sfx('kingturn', e.x, e.y);
-    this.emit({ type: 'shake', amount: 0.6 });
-    if (profile.entry) this.msg(profile.entry, '#c080ff');
-  }
-
-  /**
-   * The King's own turn, beyond the blow and the volley: the Dark's Shadow
-   * Step and the Last Stand's burning pitch. Only from a free stance and off
-   * cooldown; true when he spent the turn on one.
-   */
-  private kingTurn(e: EnemyState, dist: number): boolean {
-    let cd = this.kingCd.get(e.id);
-    if (!cd) this.kingCd.set(e.id, (cd = { step: 0, pitch: 0 }));
-    if (e.attackCd > 0) return false;
-    const phase = e.phase ?? 1;
-    if (phase >= 3 && this.diff.kingEscalates && cd.pitch <= 0 && dist <= 3 && this.spillPitch(e)) {
-      cd.pitch = PITCH_EVERY;
-      return true;
-    }
-    // Backed away from him, he comes for you at once; toe to toe, he waits out
-    // half a cooldown more, so the Dark is a fight and not a teleporter.
-    const ready = dist >= 2 ? cd.step <= 0 : cd.step <= -SHADOW_STEP_EVERY / 2;
-    if (phase >= 2 && ready && this.shadowStep(e)) {
-      cd.step = SHADOW_STEP_EVERY;
-      return true;
-    }
-    return false;
-  }
-
-  /**
-   * He melts into the dark and re-forms beside you: never behind you, and on
-   * a flank rather than in front whenever one is open, because the point is
-   * to make you turn. The puff where he will stand lasts the whole step.
-   */
-  private shadowStep(e: EnemyState): boolean {
-    const p = this.player;
-    const room = this.throneRoom();
-    const behind = turnAround(p.facing);
-    const spots = DIRS.filter((d) => d !== behind)
-      .map((d) => ({ x: p.x + DX[d], y: p.y + DY[d], d }))
-      .filter((t) => !blocksMove(this.floor, t.x, t.y) && !enemyAt(this.floor, t.x, t.y)
-        && !(t.x === e.x && t.y === e.y) && (!room || inRoom(room, t.x, t.y)));
-    if (!spots.length) return false;
-    const flanks = spots.filter((t) => t.d !== p.facing);
-    const to = this.rng.pick(flanks.length ? flanks : spots);
-    this.addSpellFx('poof', e.x, e.y);
-    this.addSpellFx('poof', to.x, to.y);
-    e.x = e.fromX = to.x;
-    e.y = e.fromY = to.y;
-    e.moveT = 1;
-    e.lurk = 'shadow';
-    e.lurkT = SHADOW_STEP_SECONDS;
-    e.ai = 'recover';
-    this.sfx('magic', to.x, to.y);
-    this.msg('The King melts into the dark. Ash stirs beside you.', '#c080ff');
-    return true;
-  }
-
-  /** The Shadow Step runs out: he stands where the ash stirred, in recovery, never striking as he comes. */
-  private updateShadowStep(e: EnemyState, dt: number): void {
-    e.lurkT = (e.lurkT ?? 0) - dt;
-    if (e.lurkT <= 0) this.emerge(e, false);
-  }
-
-  /**
-   * Burning pitch at your feet: your tile and up to two beside it, never
-   * leaving fewer than two of the four clean. It lies as oil, drawn like any
-   * oil, and catches after `PITCH_FUSE`. He stoops to fling it, which is an
-   * opening: step out, or punish him and pay for it.
-   */
-  private spillPitch(e: EnemyState): boolean {
-    const p = this.player;
-    const f = this.floor;
-    const room = this.throneRoom();
-    const walkable = (x: number, y: number) => !blocksMove(f, x, y) && !enemyAt(f, x, y) && (!room || inRoom(room, x, y));
-    const takes = (x: number, y: number) => walkable(x, y) && !doorAt(f, x, y) && (!surfaceAt(f, x, y) || surfaceKindAt(f, x, y) === 'water');
-    if (!takes(p.x, p.y)) return false;
-    const around = DIRS.map((d) => ({ x: p.x + DX[d], y: p.y + DY[d] }));
-    // A way out is a tile you can step to that is not already oil or fire.
-    const clean = (x: number, y: number) => walkable(x, y) && surfaceKindAt(f, x, y) !== 'oil' && !burningAt(f, x, y);
-    const open = around.filter((t) => clean(t.x, t.y)).length;
-    const spread = this.rng.shuffle(around.filter((t) => clean(t.x, t.y) && takes(t.x, t.y))).slice(0, Math.max(0, Math.min(PITCH_SPREAD, open - 2)));
-    for (const t of [{ x: p.x, y: p.y }, ...spread]) {
-      const s = surfaceAt(f, t.x, t.y);
-      if (s) {
-        s.kind = 'oil';
-        delete s.t;
-      } else (f.surfaces ??= []).push({ x: t.x, y: t.y, kind: 'oil' });
-      this.pitchFuses.push({ x: t.x, y: t.y, t: PITCH_FUSE });
-    }
-    e.ai = 'recover';
-    e.timer = PITCH_STOOP;
-    e.attackCd = PITCH_STOOP + 0.2;
-    this.sfx('splash', p.x, p.y);
-    this.msg('The King flings burning pitch at your feet!', '#ff9a50');
-    return true;
-  }
-
-  /**
    * What is under your feet that you cannot look down at: pitch about to
    * catch, or fire already biting. The HUD shows it the way it shows
    * Threshold's ground, as light coming up off the bottom of the frame.
@@ -4995,104 +4827,7 @@ export class World {
     return this.pitchFuses.some((fz) => fz.x === p.x && fz.y === p.y) ? 'pitch' : null;
   }
 
-  /** Pitch that has lain its fuse out catches, like any oil a flame reaches. */
-  private updatePitch(dt: number): void {
-    if (!this.pitchFuses.length) return;
-    for (const fz of this.pitchFuses) fz.t -= dt;
-    const lit = this.pitchFuses.filter((fz) => fz.t <= 0);
-    this.pitchFuses = this.pitchFuses.filter((fz) => fz.t > 0);
-    for (const fz of lit) if (surfaceKindAt(this.floor, fz.x, fz.y) === 'oil') Hazards.elementReaches(this, fz.x, fz.y, 'fire');
-  }
-
-  /** The tiles of the room the King is standing his last in. */
-  private throneRoom(): Room | undefined {
-    return this.floor.rooms.find((r) => r.role === 'throne');
-  }
-
-  /** The living throne is a combat boundary even while its entrance is open. */
-  crossesBossBoundary(x0: number, y0: number, x1: number, y1: number): boolean {
-    const room = this.throneRoom();
-    // Boundary first: it is two comparisons, and the King check scans every
-    // enemy — this runs for each monster, every tick, on the throne floor.
-    return !!room && inRoom(room, x0, y0) !== inRoom(room, x1, y1) && this.bossAlive();
-  }
-
-  protectedByFog(e: EnemyState): boolean {
-    return this.crossesBossBoundary(this.player.x, this.player.y, e.x, e.y);
-  }
-
-  /** The King, if he still stands on this floor. */
-  private bossAlive(): boolean {
-    return this.floor.enemies.some((e) => e.def === BOSS_ID && e.ai !== 'dead');
-  }
-
-  /** Fog-gate doors on this floor (usually exactly one, at the throne). */
-  private bossDoors() {
-    return this.floor.doors.filter((d) => isBossDoor(this.floor, d));
-  }
-
-  private playerInThrone(): boolean {
-    const r = this.throneRoom();
-    return !!r && inRoom(r, this.player.x, this.player.y);
-  }
-
-  /**
-   * The fog wall. The moment you step into the throne room with the King
-   * alive, every gate slams and seals — no ducking back out to bleed him
-   * through the doorway, no bolts through the crack either, since a shut
-   * door blocks sight both ways.
-   */
-  private checkBossSeal(): void {
-    if (!this.bossAlive() || !this.playerInThrone()) return;
-    if (this.diff.throneRetreat) {
-      // Normal: the fog gathers but does not close. Said once per delve.
-      if (!this.fogWarned) {
-        this.fogWarned = true;
-        this.msg('The fog gathers at your back, but lets you pass. Step out to catch your breath.', '#c0a0ff');
-      }
-      return;
-    }
-    const open = this.bossDoors().filter((d) => !d.locked);
-    if (!open.length) return;
-    for (const g of open) {
-      g.open = false;
-      g.locked = true;
-    }
-    this.msg('The fog closes behind you. The King must fall.', '#c0a0ff');
-    this.sfx('door');
-    this.emit({ type: 'shake', amount: 0.4 });
-  }
-
-  private fogWarned = false;
-
-  /** His death thins the fog: the way out stands open. */
-  private unsealBossDoors(): void {
-    const shut = this.bossDoors().filter((d) => d.locked || !d.open);
-    if (!shut.length) return;
-    for (const g of shut) {
-      g.locked = false;
-      g.open = true;
-    }
-    this.msg('The fog thins. The way out stands open.', '#c0a0ff');
-    this.sfx('door');
-  }
-
-  /**
-   * He puts the room out.
-   *
-   * Only the throne room's own sconces: the corridor you came down stays lit,
-   * so the way back is still readable and the darkness is somewhere you chose
-   * to stand. The renderer rebuilds its lights from `floor.torches` every frame,
-   * so dropping them here is the whole effect, and it persists — they do not
-   * come back.
-   */
-  private snuffThrone(): void {
-    const room = this.throneRoom();
-    if (!room) return;
-    const before = this.floor.torches.length;
-    this.floor.torches = this.floor.torches.filter((t) => !inRoom(room, t.x, t.y));
-    if (this.floor.torches.length !== before) this.sfx('snuff');
-  }
+  fogWarned = false;
 
   /**
    * Where a corpse can stand up. Its own tile if nothing is on it — a knight
@@ -5136,9 +4871,9 @@ export class World {
         }
         continue;
       }
-      if (this.protectedByFog(e)) continue;
+      if (Boss.protectedByFog(this, e)) continue;
       if (e.lurk === 'shadow') {
-        this.updateShadowStep(e, dt / tempo);
+        Boss.updateShadowStep(this, e, dt / tempo);
         continue;
       }
       if (e.lurk) {
@@ -5146,7 +4881,7 @@ export class World {
         continue;
       }
       const def = this.view(e);
-      if (def.behavior === 'boss') this.checkBossPhase(e);
+      if (def.behavior === 'boss') Boss.checkBossPhase(this, e);
       e.hurtT = Math.max(0, e.hurtT - dt);
       if (!e.scavenged && /^(rat|bat)(_|$)/.test(e.def) && (e.ai === 'idle' || e.ai === 'wander')) {
         const morsel = (f.morsels ?? []).find((m) => m.x === e.x && m.y === e.y);
@@ -5280,7 +5015,7 @@ export class World {
 
       if (e.alert > 0) {
         e.ai = 'chase';
-        if (def.behavior === 'boss' && this.kingTurn(e, dist)) continue;
+        if (def.behavior === 'boss' && Boss.kingTurn(this, e, dist)) continue;
         const aligned = (e.x === p.x || e.y === p.y) && sees;
         const ranged = !!def.projectile && (def.behavior === 'ranged' || def.behavior === 'boss');
         // Normal's crowd rule: past the cap, a monster that could swing holds
@@ -5689,7 +5424,7 @@ export class World {
   }
 
   thrownHit(pr: Projectile, e: EnemyState): void {
-    if (this.protectedByFog(e)) return;
+    if (Boss.protectedByFog(this, e)) return;
     const player = pr.player ?? this.derived;
     const def = this.view(e);
     const reaction = this.guardReaction(e, def);
@@ -5824,7 +5559,7 @@ export class World {
    * beat before it may start a wind-up, so an ambush costs position and never
    * a free hit.
    */
-  private emerge(e: EnemyState, preferBack: boolean): void {
+  emerge(e: EnemyState, preferBack: boolean): void {
     const p = this.player;
     const def = enemyDef(e.def);
     const open = (x: number, y: number) =>
@@ -5888,7 +5623,7 @@ export class World {
     this.emit({ type: 'shake', amount: 0.2 });
     this.emit({ type: 'crack', id: c.id, hits: c.hits });
     for (const e of f.enemies) {
-      if (e.ai === 'dead' || e.lurk || this.protectedByFog(e)) continue;
+      if (e.ai === 'dead' || e.lurk || Boss.protectedByFog(this, e)) continue;
       if (manhattan(e.x, e.y, c.x, c.y) > this.noise(CRACK_NOISE)) continue;
       e.alert = Math.max(e.alert, 6);
       e.lastSeenX = this.player.x;
@@ -6203,3 +5938,5 @@ export class World {
     return { id: viewmodelFor(itemBase(w.ref)), materialId: w.materialId };
   }
 }
+
+export { PITCH_EVERY, PITCH_FUSE, SHADOW_STEP_EVERY, SHADOW_STEP_SECONDS } from './boss';
