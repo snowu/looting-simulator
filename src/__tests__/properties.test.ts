@@ -15,6 +15,7 @@ import { Item, Rarity } from '../types';
 import { findUnique } from '../data/uniques';
 import { World } from '../world/world';
 import { room } from './harness';
+import * as Thrown from '../world/thrown';
 
 interface Private {
   refreshDerived(): void;
@@ -172,7 +173,7 @@ describe('the effects', () => {
     const belt = makeEquipment({ baseId: 'throwing_knives', materialId: 'iron', rarity: Rarity.Common, ilvl: 2, identified: true });
     wear(w, 'thrown', belt, 'retrieval');
     const e = foe(w, 'skeleton', 0, -2);
-    (w as unknown as { launchReturn(base: string, x: number, y: number): void }).launchReturn(belt.ref, w.player.x, w.player.y - 4);
+    Thrown.launchReturn(w, belt.ref, w.player.x, w.player.y - 4);
     for (let i = 0; i < 120; i++) w.update(1 / 60);
     expect(e.hp).toBeLessThan(e.maxHp);
   });
@@ -183,7 +184,7 @@ describe('the effects', () => {
     const belt = makeEquipment({ baseId: 'throwing_knives', materialId: 'iron', rarity: Rarity.Common, ilvl: 2, identified: true });
     belt.affixes = [{ id: 'blazing', value: 6 }];
     wear(w, 'thrown', belt, 'retrieval');
-    (w as unknown as { launchReturn(base: string, x: number, y: number): void }).launchReturn(belt.ref, w.player.x, w.player.y - 4);
+    Thrown.launchReturn(w, belt.ref, w.player.x, w.player.y - 4);
     const shaft = (w as unknown as { projectiles: { returning?: boolean; type: string; player?: { attack: number; damageType: string; stats: { fire: number } } }[] }).projectiles.find((p) => p.returning)!;
     expect(w.derived.attack).not.toBe(w.derived.thrownAttack);
     expect(shaft.player!.attack).toBe(w.derived.thrownAttack);

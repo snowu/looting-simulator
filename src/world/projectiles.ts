@@ -12,6 +12,7 @@ import { PARRY_GRACE, Projectile } from './world';
 import * as Hazards from './hazards';
 import * as Boss from './boss';
 import * as Spells from './spells';
+import * as Thrown from './thrown';
 
 export function updateProjectiles(w: World, dt: number): void {
   const f = w.floor;
@@ -29,7 +30,7 @@ export function updateProjectiles(w: World, dt: number): void {
       const dist = Math.hypot(ddx, ddy);
       if (dist <= 0.45) {
         pr.speed = 0;
-        if (pr.thrownBase) w.collectReturn(pr.thrownBase);
+        if (pr.thrownBase) Thrown.collectReturn(w, pr.thrownBase);
         continue;
       }
       pr.dx = ddx / dist;
@@ -39,7 +40,7 @@ export function updateProjectiles(w: World, dt: number): void {
         const cut = enemyAt(f, rx, ry);
         if (cut && !pr.hitIds?.includes(cut.id)) {
           (pr.hitIds ??= []).push(cut.id);
-          w.thrownHit(pr, cut);
+          Thrown.thrownHit(w, pr, cut);
         }
       }
       pr.tileX = rx;
@@ -54,7 +55,7 @@ export function updateProjectiles(w: World, dt: number): void {
     if (pr.thrownBase || pr.spell) pr.traveled = (pr.traveled ?? 0) + 1;
     if (blocksSight(f, tx, ty) || Boss.crossesBossBoundary(w, previous.x, previous.y, tx, ty)) {
       pr.speed = 0;
-      if (pr.thrownBase) w.landThrown(pr.thrownBase, previous.x, previous.y);
+      if (pr.thrownBase) Thrown.landThrown(w, pr.thrownBase, previous.x, previous.y);
       else w.sfx('break', tx, ty);
       continue;
     }
@@ -78,18 +79,18 @@ export function updateProjectiles(w: World, dt: number): void {
       const enemy = enemyAt(f, tx, ty);
       if (enemy) {
         pr.speed = 0;
-        w.thrownHit(pr, enemy);
+        Thrown.thrownHit(w, pr, enemy);
         // The shaft drops where it struck, not on the tile behind. Landing it
         // behind meant a point blank throw fell at your own feet and was
         // collected the same frame, so throwing into something adjacent cost
         // no ammunition at all — the one range at which a thrown weapon is
         // supposed to be a bad idea was the one where it was free.
-        w.landThrown(pr.thrownBase, tx, ty);
+        Thrown.landThrown(w, pr.thrownBase, tx, ty);
         continue;
       }
       if ((pr.traveled ?? 0) >= (pr.thrownRange ?? 0)) {
         pr.speed = 0;
-        w.landThrown(pr.thrownBase, tx, ty);
+        Thrown.landThrown(w, pr.thrownBase, tx, ty);
       }
       continue;
     }

@@ -117,6 +117,7 @@ import * as Boss from './boss';
 import { SHADOW_STEP_EVERY } from './boss';
 import * as Spells from './spells';
 import * as Sigils from './sigils';
+import * as Thrown from './thrown';
 
 // ---------------------------------------------------------------------------
 // Events the world emits for the renderer / UI / audio to react to.
@@ -370,8 +371,6 @@ export const GUARD_DOWN = 1.6;
 const GUARD_RANGE = 4;
 const GUARD_BREAK_AT = 3;
 
-/** Tiles per second a called shaft travels on its way back to your hand. */
-const RETURN_SPEED = 11;
 /**
  * Seconds between one shaft leaving the floor and the next.
  *
@@ -385,10 +384,7 @@ const RETURN_SPEED = 11;
  * which made the one thing you do *after* a fight compete with the bar you need
  * *during* one, and paid for nothing: the tension is already the standing still.
  */
-const RETRIEVE_PER_SHAFT = 0.75;
-// Fog fully hides the dungeon at 18 world units (nine two-unit tiles).
-const RETURN_VISIBLE_TILES = 9;
-const RETURN_LOCAL_TILES = 2;
+export const RETRIEVE_PER_SHAFT = 0.75;
 
 /**
  * Anything lighter than this is knocked out of its wind-up when you land a
@@ -701,7 +697,7 @@ export class World {
     }
     this.player.hp = Math.min(this.player.hp, this.derived.maxHp);
     this.player.stamina = Math.min(this.player.stamina, this.derived.maxStamina);
-    this.ensureThrownStock();
+    Thrown.ensureThrownStock(this);
     Spells.ensureConduit(this);
   }
 
@@ -749,14 +745,6 @@ export class World {
     return true;
   }
 
-  private ensureThrownStock(): void {
-    const base = this.state.equipment.thrown?.ref;
-    if (!base || !this.derived.thrown) return;
-    this.run.thrown ??= { held: {}, retrieveCd: 0 };
-    this.run.thrown.held ??= {};
-    if (this.run.thrown.held[base] === undefined) this.run.thrown.held[base] = this.derived.thrownCapacity;
-  }
-
   /**
    * Every drop of healing in the game goes through here, which is what lets one
    * suit of armour halve all of it at once. Returns what was actually restored.
@@ -798,7 +786,7 @@ export class World {
    * The Brittle curse adds +1 to every wear event, which is what makes
    * finding a font urgent rather than theoretical.
    */
-  private wear(slot: EquipSlot, amount = 1): void {
+  wear(slot: EquipSlot, amount = 1): void {
     // Normal: gear does not wear at all.
     if (!this.diff.gearWears) return;
     const it = this.state.equipment[slot];
@@ -1274,7 +1262,7 @@ export class World {
     Hazards.updateAfflictions(this, dt);
     Boss.updatePitch(this, dt);
     Hazards.updateSurfaces(this, dt);
-    this.updateRetrieve(dt);
+    Thrown.updateRetrieve(this, dt);
     this.updateEnemies(dt);
     Projectiles.updateProjectiles(this, dt);
     this.run.rngState = this.rng.state;
@@ -1331,7 +1319,7 @@ export class World {
     this.reveal();
     Boss.checkBossSeal(this);
     const f = this.floor;
-    this.collectThrownHere();
+    Thrown.collectThrownHere(this);
     const trap = trapAt(f, p.x, p.y);
     if (trap && trap.armed) {
       this.springTrap(trap, null);
@@ -1400,8 +1388,8 @@ export class World {
       if (!pr.thrownBase) continue;
       // One already flying home is yours: it goes into the stock rather than
       // being dropped on the floor you are walking off, which would lose it.
-      if (pr.returning) this.collectReturn(pr.thrownBase);
-      else this.landThrown(pr.thrownBase, pr.tileX, pr.tileY);
+      if (pr.returning) Thrown.collectReturn(this, pr.thrownBase);
+      else Thrown.landThrown(this, pr.thrownBase, pr.tileX, pr.tileY);
     }
     this.retrieve(false);
     run.depth += dir === 'down' ? 1 : -1;
@@ -2017,7 +2005,7 @@ export class World {
       return false;
     }
     if (this.busy || (a.attack !== 'idle' && !a.attackThrow) || a.stunT > 0 || a.cast) return false;
-    const count = this.retrievableCount(base);
+    const count = Thrown.retrievableCount(this, base);
     if (!count) {
       this.msg(`No ${itemBase(base).name.toLowerCase()} left to retrieve.`, '#888');
       return false;
@@ -2025,134 +2013,6 @@ export class World {
     a.retrieving = { base, left: count, t: RETRIEVE_PER_SHAFT };
     this.msg(`You raise your hand. ${count} ${itemBase(base).name.toLowerCase()} to retrieve.`, '#c8b890');
     return true;
-  }
-
-  /** Current floor first; remote stock never needs a cross-floor projectile. */
-  private retrievalStock(base: string) {
-    const floors = [this.floor, ...this.run.floors.filter(f => f && f !== this.floor)];
-    return floors.flatMap(floor => (floor?.thrown ?? [])
-      .filter(marker => marker.base === base && marker.n > 0)
-      .map(marker => ({ floor: floor!, marker })));
-  }
-
-  /** Shafts of this kind lying on any floor. Allocation-free: the HUD asks every frame. */
-  private thrownOnFloors(base: string): number {
-    let n = 0;
-    for (const floor of this.run.floors) {
-      if (!floor || floor === this.floor) continue;
-      for (const marker of floor.thrown ?? []) if (marker.base === base && marker.n > 0) n += marker.n;
-    }
-    for (const marker of this.floor.thrown ?? []) if (marker.base === base && marker.n > 0) n += marker.n;
-    return n;
-  }
-
-  private outgoingThrows(base: string): Projectile[] {
-    return this.projectiles.filter(pr => pr.thrownBase === base && !pr.returning && pr.speed > 0);
-  }
-
-  private retrievableCount(base: string): number {
-    const windingUp = this.anim.attackThrow && this.anim.attack === 'windup' && this.anim.attackBase === base ? 1 : 0;
-    return this.thrownOnFloors(base) + this.outgoingThrows(base).length + windingUp;
-  }
-
-  /** One tick of the retrieval channel. */
-  private updateRetrieve(dt: number): void {
-    const a = this.anim;
-    const r = a.retrieving;
-    if (!r) return;
-    // Swinging, casting and being stunned all end it; walking does not, because
-    // the shafts are coming to you rather than you to them.
-    const thrown = this.derived.thrown;
-    if (!thrown || this.state.equipment.thrown?.ref !== r.base || (a.attack !== 'idle' && !a.attackThrow) || a.stunT > 0 || a.cast) {
-      a.retrieving = null;
-      return;
-    }
-    // The final charge is complete: keep the receiving pose until arrival.
-    // Release/attack still cancels the pose without cancelling airborne shafts.
-    if (r.left <= 0) return;
-    r.t -= dt;
-    if (r.t > 1e-9) return;
-    const stock = this.retrievalStock(r.base)[0];
-    const outgoing = this.outgoingThrows(r.base)[0];
-    if (!stock && !outgoing) {
-      // The floor ran dry without a launch spending the last of `left` — that
-      // happens when shafts are picked up by walking mid-call. Walking is the
-      // other cost, already paid in steps, so the call just ends: no cooldown
-      // for recovering the rest on foot.
-      a.retrieving = null;
-      return;
-    }
-    // The shaft leaves the floor now and flies home; it is added to the stock
-    // when it arrives, not here. Nothing is ever in limbo: it is either a
-    // marker on the floor, a projectile in the air, or in your stock, and
-    // stopping the call mid-flight still lets the one already airborne land.
-    let fromX: number, fromY: number, otherFloor = false;
-    if (stock) {
-      const { marker, floor } = stock;
-      marker.n--;
-      floor.thrown = (floor.thrown ?? []).filter(m => m.n > 0);
-      fromX = marker.x;
-      fromY = marker.y;
-      otherFloor = floor !== this.floor;
-    } else {
-      // Transfer the outgoing shaft to its return only once charging finishes.
-      fromX = outgoing.x - 0.5;
-      fromY = outgoing.y - 0.5;
-      this.projectiles = this.projectiles.filter(pr => pr !== outgoing);
-    }
-    const remote = otherFloor || Math.hypot(fromX - this.player.x, fromY - this.player.y) > RETURN_VISIBLE_TILES;
-    this.launchReturn(r.base,
-      remote ? this.player.x + DX[this.player.facing] * RETURN_LOCAL_TILES : fromX,
-      remote ? this.player.y + DY[this.player.facing] * RETURN_LOCAL_TILES : fromY);
-    this.sfx('retrieve');
-    r.left = this.retrievableCount(r.base);
-    if (r.left <= 0) {
-      r.t = 0;
-      this.msg(`${itemBase(r.base).name} coming back to your hand.`, '#c8b890');
-      return;
-    }
-    r.t += RETRIEVE_PER_SHAFT;
-  }
-
-  /**
-   * A called shaft has reached your hand.
-   *
-   * The stock is credited here rather than when it left the floor, so it is
-   * never in limbo — a shaft is a marker on the floor, a projectile in the air,
-   * or in your stock, and nothing can lose one in between. Stopping the call
-   * still lets whatever is already airborne land.
-   */
-  collectReturn(base: string): void {
-    this.run.thrown ??= { held: {}, retrieveCd: 0 };
-    this.run.thrown.held[base] = (this.run.thrown.held[base] ?? 0) + 1;
-    this.wear('thrown');
-    this.emit({ type: 'float', x: this.player.x, y: this.player.y, text: `+1`, color: '#c8b890' });
-  }
-
-  /** Send one recovered shaft flying from where it lay back to your hand. */
-  private launchReturn(base: string, fromX: number, fromY: number): void {
-    const thrown = this.derived.thrown;
-    const dx = this.player.x - fromX, dy = this.player.y - fromY;
-    const len = Math.hypot(dx, dy) || 1;
-    this.projectiles.push({
-      id: this.projN++,
-      x: fromX + 0.5, y: fromY + 0.5,
-      dx: dx / len, dy: dy / len,
-      speed: RETURN_SPEED,
-      // Retrieval: a shaft on its way home cuts what it passes through, for
-      // half a throw — scored as a throw, off the belt, like the one that
-      // sent it out. It used to carry the plain player, so a knife flying home
-      // hit with your greatsword's Attack and damage type.
-      damage: this.derived.traits.retrieval && thrown ? thrown.power * RETRIEVAL_MULT : 0,
-      type: this.derived.thrownDamageType,
-      sprite: thrown?.sprite ?? 'proj_knife',
-      tileX: fromX, tileY: fromY,
-      source: 'your hand',
-      returning: true,
-      thrownBase: base,
-      player: this.derived.traits.retrieval ? thrownView(this.derived) : undefined,
-      hitIds: [],
-    });
   }
 
   /**
@@ -2166,7 +2026,7 @@ export class World {
     const base = this.state.equipment.thrown?.ref;
     const thrown = this.derived.thrown;
     if (!base || !thrown) return null;
-    const floor = this.thrownOnFloors(base);
+    const floor = Thrown.thrownOnFloors(this, base);
     let flying = 0;
     for (const pr of this.projectiles) if (pr.returning && pr.thrownBase === base) flying++;
     return {
@@ -2225,7 +2085,7 @@ export class World {
       return;
     }
     if (this.anim.attackThrow) {
-      this.throwWeapon();
+      Thrown.throwWeapon(this);
       return;
     }
     this.sfx('swing');
@@ -4758,97 +4618,6 @@ export class World {
       this.msg(`You were slain by ${source.startsWith('The ') ? source : 'a ' + source}.`, '#ff5050');
       this.finish('dead');
     }
-  }
-
-  private throwWeapon(): void {
-    const base = this.anim.attackBase;
-    const snapshot = this.anim.attackSnapshot;
-    const thrown = snapshot?.thrown;
-    if (!base || !thrown || (this.run.thrown.held[base] ?? 0) <= 0) return;
-    this.run.thrown.held[base]--;
-    this.projectiles.push({
-      id: this.projN++, x: this.player.x + 0.5, y: this.player.y + 0.5,
-      dx: DX[this.player.facing], dy: DY[this.player.facing], speed: thrown.speed,
-      damage: this.anim.attackPower * thrown.power, type: snapshot.damageType, sprite: thrown.sprite,
-      tileX: this.player.x, tileY: this.player.y, source: 'your throw',
-      thrownBase: base, thrownRange: thrown.range, traveled: 0, player: snapshot, weaponUid: this.anim.attackWeaponUid ?? undefined,
-    });
-    this.sfx('shoot');
-  }
-
-  thrownHit(pr: Projectile, e: EnemyState): void {
-    if (Boss.protectedByFog(this, e)) return;
-    const player = pr.player ?? this.derived;
-    const def = this.view(e);
-    const reaction = this.guardReaction(e, def);
-    if (reaction) {
-      this.shieldChip(e, def, 1, pr.damage, player);
-      this.wearThrown(pr.weaponUid);
-      return;
-    }
-    const hit = playerHitsEnemy(this.rng, player, pr.damage, def, defensePower(e.power) * this.diff.enemyDefense);
-    this.hurt(e, hit.damage, hit.crit ? `${hit.damage}!` : `${hit.damage}`, hit.crit ? '#ffe040' : hit.effective === 'weak' ? '#ff9a40' : hit.effective === 'resist' ? '#9a9aa8' : '#ffffff');
-    e.alert = 8;
-    e.lastSeenX = this.player.x;
-    e.lastSeenY = this.player.y;
-    recordDamageDealt(this.state.bestiary, def.id, hit.damage);
-    this.sfx(hit.crit ? 'crit' : 'hit', e.x, e.y);
-    if (player.stats.leech > 0) this.heal(Math.max(1, Math.round(hit.damage * player.stats.leech / 100)), 'leech');
-    this.wearThrown(pr.weaponUid);
-    if (e.hp <= 0) this.killEnemy(e);
-    else Hazards.slip(this, e);
-  }
-
-  landThrown(base: string, x: number, y: number): void {
-    const markers = (this.floor.thrown ??= []);
-    const marker = markers.find((m) => m.x === x && m.y === y && m.base === base);
-    if (marker) marker.n++;
-    else markers.push({ x, y, base, n: 1 });
-    if (x === this.player.x && y === this.player.y) this.collectThrownHere();
-  }
-
-  private wearThrown(uid: string | undefined): void {
-    if (!uid) return;
-    const equipped = this.state.equipment.thrown;
-    if (equipped?.uid === uid) {
-      this.wear('thrown');
-      return;
-    }
-    const item = this.run.backpack.items.find((it) => it.uid === uid);
-    if (item && this.diff.gearWears) wearItem(item);
-  }
-
-  private collectThrownHere(): number {
-    const base = this.state.equipment.thrown?.ref;
-    if (!base || !this.derived.thrown) return 0;
-    const markers = (this.floor.thrown ??= []);
-    let found = 0;
-    this.floor.thrown = markers.filter((m) => {
-      if (m.base !== base || m.x !== this.player.x || m.y !== this.player.y) return true;
-      found += m.n;
-      return false;
-    });
-    if (found) {
-      this.run.thrown.held[base] = (this.run.thrown.held[base] ?? 0) + found;
-      // A call in progress counted these before you walked over them. Re-anchor
-      // its remainder to what is actually still out there rather than
-      // decrementing a snapshot: a snapshot goes stale the moment the floor
-      // holds shafts the call never counted, and the counter it shows must
-      // stay honest. Nothing is left for it to send home, the call just ends —
-      // with no cooldown, since the steps were the price.
-      const r = this.anim.retrieving;
-      if (r && r.base === base) {
-        const remaining = this.retrievableCount(base);
-        r.left = remaining;
-        if (remaining <= 0) {
-          r.t = 0;
-          if (!this.projectiles.some(pr => pr.returning && pr.thrownBase === base)) this.anim.retrieving = null;
-        }
-      }
-      this.msg(`You pick up ${found} ${itemBase(base).name.toLowerCase()}.`, '#c8b890');
-      this.sfx('pickup');
-    }
-    return found;
   }
 
   /**
