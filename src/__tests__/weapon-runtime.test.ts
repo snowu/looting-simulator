@@ -1,45 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { createRng } from '../core/rng';
-import { DIRS, DX, DY, turnAround, turnLeft, turnRight } from '../core/dir';
+import { DX, DY, turnAround, turnLeft, turnRight } from '../core/dir';
 import { enemyDef } from '../data/enemies';
-import { newGame } from '../state/game-state';
 import { parseSave, serializeSave } from '../state/save-format';
-import { createEnemy, EnemyState, FLOOR } from '../systems/dungeon';
+import { createEnemy, EnemyState } from '../systems/dungeon';
 import { durability, makeEquipment, wearItem } from '../systems/items';
 import { derivePlayer, emptyEquipment } from '../systems/player';
-import { startRun } from '../systems/run';
 import { Rarity } from '../types';
 import { World } from '../world/world';
+import { room, tick } from './harness';
 
 function weapon(baseId: string) {
   return makeEquipment({ baseId, materialId: 'iron', rarity: Rarity.Common, ilvl: 4, quality: 1 });
 }
 
-function tick(w: World, seconds: number): void {
-  for (let t = 0; t < seconds; t += 1 / 60) w.update(1 / 60);
-}
 
-function arena(baseId: string, seed = 701): World {
-  const state = newGame(createRng(seed));
-  state.equipment.weapon = weapon(baseId);
-  state.equipment.offhand = null;
-  startRun(state, seed);
-  const w = new World(state);
-  const f = w.floor;
-  f.enemies = [];
-  f.traps = [];
-  f.props = f.props.filter((p) => !p.blocking);
-  const x = 10, y = 10, d = DIRS[0];
-  const clear = [{ x, y }];
-  for (const side of [d, turnLeft(d), turnRight(d)]) clear.push({ x: x + DX[side], y: y + DY[side] });
-  for (let n = 1; n <= 7; n++) clear.push({ x: x + DX[d] * n, y: y + DY[d] * n });
-  for (const tile of clear) f.tiles[tile.y * f.width + tile.x] = FLOOR;
-  f.doors = f.doors.filter((door) => !clear.some((tile) => tile.x === door.x && tile.y === door.y));
-  f.stairs = f.stairs.filter((stairs) => !clear.some((tile) => tile.x === stairs.x && tile.y === stairs.y));
-  Object.assign(w.player, { x, y, facing: d });
-  Object.assign(w.anim, { fromX: x, fromY: y, moveT: 1, turnT: 1, yaw: d * Math.PI / 2, yawTo: d * Math.PI / 2 });
-  return w;
-}
+const arena = (baseId: string, seed = 701): World =>
+  room({ seed, prepare: (s) => { s.equipment.weapon = weapon(baseId); s.equipment.offhand = null; } });
 
 /**
  * Enough health to survive anything the player can swing.

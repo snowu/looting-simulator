@@ -1,47 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { createRng } from '../core/rng';
-import { DIRS, DX, DY, turnAround } from '../core/dir';
-import { newGame } from '../state/game-state';
-import { startRun } from '../systems/run';
+import { DX, DY } from '../core/dir';
 import { World } from '../world/world';
-import { EnemyState, FLOOR, createEnemy } from '../systems/dungeon';
+import { EnemyState, createEnemy } from '../systems/dungeon';
 import { enemyDef } from '../data/enemies';
+import { room, tick, spawn } from './harness';
 
-function tick(w: World, seconds: number): void {
-  for (let t = 0; t < seconds; t += 1 / 60) w.update(1 / 60);
-}
 
-function arena(seed = 1, difficulty: 'normal' | 'hard' = 'hard'): World {
-  const state = newGame(createRng(seed));
-  state.difficulty = difficulty;
-  startRun(state, seed);
-  const w = new World(state);
-  const f = w.floor;
-  f.enemies = [];
-  f.traps = [];
-  f.props = f.props.filter((p) => !p.blocking);
-  const free = (x: number, y: number) =>
-    f.tiles[y * f.width + x] === FLOOR && !f.doors.some((d) => d.x === x && d.y === y) && !f.stairs.some((s) => s.x === x && s.y === y);
-  for (let y = 2; y < f.height - 6; y++) for (let x = 2; x < f.width - 6; x++) {
-    for (const d of DIRS) {
-      let ok = free(x, y) && free(x - DX[d], y - DY[d]);
-      for (let k = 1; k <= 5 && ok; k++) ok = free(x + DX[d] * k, y + DY[d] * k);
-      if (ok) {
-        Object.assign(w.player, { x, y, facing: d });
-        Object.assign(w.anim, { fromX: x, fromY: y, yaw: (d * Math.PI) / 2, yawTo: (d * Math.PI) / 2 });
-        return w;
-      }
-    }
-  }
-  throw new Error('no arena');
-}
+const arena = (seed = 1, difficulty: 'normal' | 'hard' = 'hard'): World => room({ seed, difficulty });
 
-function spawn(w: World, id: string, dist: number): EnemyState {
-  const t = w.frontTile(dist);
-  const e = createEnemy(enemyDef(id), t.x, t.y, turnAround(w.player.facing), `e${id}${dist}`, 1);
-  w.floor.enemies.push(e);
-  return e;
-}
 
 /** Put an adjacent melee enemy into its wind-up, aimed at where you stand. */
 function windUp(w: World, e: EnemyState): void {

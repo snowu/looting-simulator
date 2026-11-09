@@ -1,12 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { createRng } from '../core/rng';
-import { DIRS, DX, DY, turnAround } from '../core/dir';
+import { turnAround } from '../core/dir';
 import { DifficultyId } from '../data/difficulty';
-import { newGame } from '../state/game-state';
-import { startRun } from '../systems/run';
 import { World } from '../world/world';
-import { FLOOR, createEnemy } from '../systems/dungeon';
+import { createEnemy } from '../systems/dungeon';
 import { enemyDef } from '../data/enemies';
+import { room, tick } from './harness';
 
 /**
  * Every heal answers to the same rules — half_healing (the Eulogy Plate's
@@ -14,35 +13,8 @@ import { enemyDef } from '../data/enemies';
  * goes through World.heal(). These pin the routes that used to go around it.
  */
 
-function arena(difficulty: DifficultyId, seed = 1): World {
-  const state = newGame(createRng(seed));
-  state.difficulty = difficulty;
-  startRun(state, seed);
-  const w = new World(state);
-  const f = w.floor;
-  f.enemies = [];
-  f.traps = [];
-  f.props = f.props.filter((p) => !p.blocking);
-  const free = (x: number, y: number) =>
-    f.tiles[y * f.width + x] === FLOOR && !f.doors.some((d) => d.x === x && d.y === y) && !f.stairs.some((s) => s.x === x && s.y === y);
-  for (let y = 2; y < f.height - 4; y++) for (let x = 2; x < f.width - 4; x++) {
-    for (const d of DIRS) {
-      if (!free(x, y) || !free(x + DX[d], y + DY[d])) continue;
-      Object.assign(w.player, { x, y, facing: d });
-      Object.assign(w.anim, { fromX: x, fromY: y, yaw: (d * Math.PI) / 2, yawTo: (d * Math.PI) / 2 });
-      return w;
-    }
-  }
-  throw new Error('no arena');
-}
+const arena = (difficulty: DifficultyId, seed = 1): World => room({ seed, difficulty });
 
-function tick(w: World, seconds: number, each?: () => void): void {
-  for (let t = 0; t < seconds; t += 1 / 60) {
-    w.update(1 / 60);
-    w.drainEvents();
-    each?.();
-  }
-}
 
 /** Health one shield chip leeches back, from 1 hp, with the given healing multiplier. */
 function chipLeech(difficulty: DifficultyId, healing: number): number {

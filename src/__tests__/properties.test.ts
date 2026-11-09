@@ -3,7 +3,7 @@ import { DX, DY } from '../core/dir';
 import { createRng } from '../core/rng';
 import { newGame } from '../state/game-state';
 import { migrateSave } from '../state/migrations';
-import { FLOOR, EnemyState, createEnemy } from '../systems/dungeon';
+import { EnemyState, createEnemy } from '../systems/dungeon';
 import { enemyDef } from '../data/enemies';
 import {
   BULWARK_WINDOW, INSCRIBE_COST, LAST_FLASK_MULT, PROPERTY_IDS, RIPOSTE_WINDOW,
@@ -11,10 +11,10 @@ import {
 import { canCarry, inscribe, inscribeTargets, learnProperty, unlearnedProperties } from '../systems/properties';
 import { derivePlayer } from '../systems/player';
 import { makeEquipment, makeUnique } from '../systems/items';
-import { startRun } from '../systems/run';
 import { Item, Rarity } from '../types';
 import { findUnique } from '../data/uniques';
 import { World } from '../world/world';
+import { room } from './harness';
 
 interface Private {
   refreshDerived(): void;
@@ -29,27 +29,7 @@ const priv = (w: World) => w as unknown as Private;
 const gear = (baseId: string, materialId = 'iron'): Item =>
   makeEquipment({ baseId, materialId, rarity: Rarity.Common, ilvl: 2, identified: true });
 
-function arena(seed = 211): World {
-  for (let s = seed; s < seed + 40; s++) {
-    const state = newGame(createRng(s));
-    startRun(state, s);
-    const w = new World(state);
-    const f = w.floor;
-    f.enemies = [];
-    f.traps = [];
-    f.props = f.props.filter((p) => !p.blocking);
-    const open = (x: number, y: number) => f.tiles[y * f.width + x] === FLOOR && !f.doors.some((d) => d.x === x && d.y === y);
-    for (let y = 3; y < f.height - 3; y++) for (let x = 3; x < f.width - 3; x++) {
-      let ok = true;
-      for (let dy = -2; dy <= 2 && ok; dy++) for (let dx = -2; dx <= 2 && ok; dx++) ok = open(x + dx, y + dy);
-      if (!ok) continue;
-      Object.assign(w.player, { x, y, facing: 0 });
-      Object.assign(w.anim, { fromX: x, fromY: y, yaw: 0, yawTo: 0 });
-      return w;
-    }
-  }
-  throw new Error('no arena');
-}
+const arena = (seed = 211): World => room({ seed });
 
 /** Wear `item` with `property` inscribed, and rebuild the derived stats. */
 function wear(w: World, slot: 'weapon' | 'offhand' | 'thrown' | 'body', item: Item, property: string): void {

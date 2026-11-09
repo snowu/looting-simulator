@@ -1,32 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { DIRS, DX, DY } from '../core/dir';
-import { createRng } from '../core/rng';
-import { newGame } from '../state/game-state';
-import { FLOOR, blocksMove, chestIsMimic, createEnemy, propAt } from '../systems/dungeon';
+import { blocksMove, chestIsMimic, createEnemy, propAt } from '../systems/dungeon';
 import { enemyDef } from '../data/enemies';
 import { findMaterial } from '../data/materials';
 import { durability } from '../systems/items';
-import { startRun } from '../systems/run';
 import { World } from '../world/world';
 import { spawnLabChest } from '../dev/lab-room';
+import { room } from './harness';
 
-function arena(seed = 71): World {
-  const state = newGame(createRng(seed));
-  startRun(state, seed);
-  const w = new World(state);
-  const f = w.floor;
-  f.enemies = [];
-  f.props = f.props.filter((p) => !p.blocking);
-  const free = (x: number, y: number) =>
-    f.tiles[y * f.width + x] === FLOOR && !f.doors.some((d) => d.x === x && d.y === y) && !f.stairs.some((s) => s.x === x && s.y === y);
-  for (let y = 2; y < f.height - 2; y++) for (let x = 2; x < f.width - 2; x++) for (const d of DIRS) {
-    if (!free(x, y) || !free(x + DX[d], y + DY[d])) continue;
-    Object.assign(w.player, { x, y, facing: d });
-    Object.assign(w.anim, { fromX: x, fromY: y, yaw: d * Math.PI / 2, yawTo: d * Math.PI / 2 });
-    return w;
-  }
-  throw new Error('no mimic arena');
-}
+const arena = (seed = 71): World => room({ seed });
 
 describe('mimics', () => {
   it('rolls on a deterministic stream at roughly the intended rate', () => {

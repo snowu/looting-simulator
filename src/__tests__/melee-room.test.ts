@@ -4,10 +4,8 @@ import { newGame } from '../state/game-state';
 import { startRun } from '../systems/run';
 import { World } from '../world/world';
 import { dropIntoMeleeRoom, prepare } from '../dev/melee-room';
+import { tick } from './harness';
 
-function tick(w: World, seconds: number): void {
-  for (let t = 0; t < seconds; t += 1 / 60) w.update(1 / 60);
-}
 
 /**
  * The dev pile-on: five brutes crowding the player, mid-swing, so one held

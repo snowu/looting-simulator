@@ -1,38 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { createRng } from '../core/rng';
-import { newGame } from '../state/game-state';
-import { startRun } from '../systems/run';
 import { World } from '../world/world';
-import { DIRS, DX, DY } from '../core/dir';
-import { FLOOR } from '../systems/dungeon';
 import { addItem, createContainer, findItem } from '../state/inventory';
 import { equipFrom } from '../systems/equip';
 import { emptyEquipment } from '../systems/player';
 import { identify, itemStats, makeConsumable, makeEquipment } from '../systems/items';
 import { Rarity } from '../types';
+import { room } from './harness';
 
-function arena(seed = 77): World {
-  const state = newGame(createRng(seed));
-  startRun(state, seed);
-  const w = new World(state);
-  const f = w.floor;
-  f.enemies = [];
-  f.traps = [];
-  f.props = f.props.filter((p) => !p.blocking);
-  const free = (x: number, y: number) =>
-    f.tiles[y * f.width + x] === FLOOR && !f.doors.some((d) => d.x === x && d.y === y) && !f.stairs.some((s) => s.x === x && s.y === y);
-  for (let y = 2; y < f.height - 6; y++) for (let x = 2; x < f.width - 6; x++) {
-    for (const d of DIRS) {
-      let ok = free(x, y) && free(x - DX[d], y - DY[d]);
-      for (let k = 1; k <= 5 && ok; k++) ok = free(x + DX[d] * k, y + DY[d] * k);
-      if (ok) {
-        Object.assign(w.player, { x, y, facing: d });
-        return w;
-      }
-    }
-  }
-  throw new Error('no arena');
-}
+const arena = (seed = 77): World => room({ seed });
 
 function unidSword() {
   return makeEquipment({ baseId: 'long_sword', materialId: 'iron', rarity: Rarity.Rare, ilvl: 4, affixes: [{ id: 'sharp', value: 4 }], identified: false });

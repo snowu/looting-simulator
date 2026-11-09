@@ -4,10 +4,8 @@ import { newGame } from '../state/game-state';
 import { startRun } from '../systems/run';
 import { World } from '../world/world';
 import { dropIntoArcherRoom, prepare } from '../dev/archer-room';
+import { tick } from './harness';
 
-function tick(w: World, seconds: number): void {
-  for (let t = 0; t < seconds; t += 1 / 60) w.update(1 / 60);
-}
 
 /** The dev firing squad: five living archers, aware, opening fire promptly. */
 describe('dev archer room', () => {

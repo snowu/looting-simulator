@@ -1,12 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { DIRS, DX, DY, turnAround } from '../core/dir';
-import { createRng } from '../core/rng';
-import { newGame } from '../state/game-state';
-import { FLOOR, EnemyState, createEnemy, enemyAt, generateFloor, lurkerAt } from '../systems/dungeon';
+import { DX, DY, turnAround } from '../core/dir';
+import { EnemyState, createEnemy, enemyAt, generateFloor, lurkerAt } from '../systems/dungeon';
 import { enemyDef } from '../data/enemies';
 import { AMBUSH_BEAT, BURROW_MAX, DROP_SECONDS, EARTH_BIOMES, KNOCKOUT_STUN, SURFACE_SECONDS, droppersFor } from '../data/ambush';
-import { startRun } from '../systems/run';
 import { World } from '../world/world';
+import { room } from './harness';
 
 interface Private {
   resolvePlayerAttack(): void;
@@ -15,26 +13,7 @@ interface Private {
 }
 const priv = (w: World) => w as unknown as Private;
 
-/** A cleared floor-1 world with the player in a straight run of open floor, facing along it. */
-function arena(seed = 131): World {
-  const state = newGame(createRng(seed));
-  startRun(state, seed);
-  const w = new World(state);
-  const f = w.floor;
-  f.enemies = [];
-  f.traps = [];
-  f.props = f.props.filter((p) => !p.blocking);
-  const free = (x: number, y: number) =>
-    f.tiles[y * f.width + x] === FLOOR && !f.doors.some((d) => d.x === x && d.y === y) && !f.stairs.some((s) => s.x === x && s.y === y);
-  for (let y = 3; y < f.height - 3; y++) for (let x = 3; x < f.width - 3; x++) for (const d of DIRS) {
-    const line = [-1, 0, 1, 2, 3].map((k) => [x + DX[d] * k, y + DY[d] * k]);
-    if (!line.every(([a, b]) => free(a, b))) continue;
-    Object.assign(w.player, { x, y, facing: d });
-    Object.assign(w.anim, { fromX: x, fromY: y, yaw: d * Math.PI / 2, yawTo: d * Math.PI / 2 });
-    return w;
-  }
-  throw new Error('no arena');
-}
+const arena = (seed = 131): World => room({ seed });
 
 function run(w: World, seconds: number): void {
   for (let t = 0; t < seconds; t += 1 / 60) w.update(1 / 60);

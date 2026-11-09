@@ -1,18 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { DIRS, DX, DY } from '../core/dir';
+import { DX, DY } from '../core/dir';
 import { createRng } from '../core/rng';
-import { newGame } from '../state/game-state';
 import { addItem } from '../state/inventory';
-import { FLOOR, EnemyState, createEnemy, generateFloor, promoteElite } from '../systems/dungeon';
+import { EnemyState, createEnemy, generateFloor, promoteElite } from '../systems/dungeon';
 import { BOSS_ID, ENEMIES, THIEF_GLOW, enemyDef, enemyView } from '../data/enemies';
 import {
   ELITES, ELITE_GOLD_MULT, ELITE_HP_MULT, FRENZY_AT, HASTED_WINDUP_MULT, IRONHIDE_DEFENSE_MULT, IRONHIDE_HP_MULT,
   THIEF_BOLT, THIEF_CREEP, THIEF_ESCAPE, THIEF_LADEN, THIEF_TRAIL_EVERY, VENGEFUL_FUSE, eliteChance, eliteFor, eligibleTraits,
 } from '../data/elites';
 import { makeMaterial, rollEnemyLoot } from '../systems/items';
-import { startRun } from '../systems/run';
 import { World } from '../world/world';
 import type { DamageType } from '../types';
+import { room } from './harness';
 
 interface Private {
   killEnemy(e: EnemyState): void;
@@ -21,26 +20,7 @@ interface Private {
 }
 const priv = (w: World) => w as unknown as Private;
 
-/** A cleared floor-1 world with the player facing an open tile. */
-function arena(seed = 91): World {
-  const state = newGame(createRng(seed));
-  startRun(state, seed);
-  const w = new World(state);
-  const f = w.floor;
-  f.enemies = [];
-  f.traps = [];
-  f.props = f.props.filter((p) => !p.blocking);
-  const free = (x: number, y: number) =>
-    f.tiles[y * f.width + x] === FLOOR && !f.doors.some((d) => d.x === x && d.y === y) && !f.stairs.some((s) => s.x === x && s.y === y);
-  for (let y = 2; y < f.height - 2; y++) for (let x = 2; x < f.width - 2; x++) for (const d of DIRS) {
-    const bx = x - DX[d], by = y - DY[d];
-    if (!free(x, y) || !free(x + DX[d], y + DY[d]) || !free(bx, by)) continue;
-    Object.assign(w.player, { x, y, facing: d });
-    Object.assign(w.anim, { fromX: x, fromY: y, yaw: d * Math.PI / 2, yawTo: d * Math.PI / 2 });
-    return w;
-  }
-  throw new Error('no arena');
-}
+const arena = (seed = 91): World => room({ seed });
 
 /** An enemy of `id` on the tile the player faces. */
 function facing(w: World, id: string): EnemyState {
