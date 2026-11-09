@@ -23,6 +23,7 @@ import type { World } from './world';
 import { PARRY_VULN_MULT, Projectile, SpellFx } from './world';
 import * as Combat from './combat';
 import * as EnemyAi from './enemy-ai';
+import * as Vitals from './vitals';
 
 /** How long each mark lasts, in seconds. */
 export const SPELL_FX_SECONDS: Record<SpellFx['kind'], number> = { smite: 0.55, poof: 0.7, spores: 0.9, blast: 0.6, meteor: 1.4, frost: 0.8 };
@@ -374,7 +375,7 @@ export function spellLands(w: World, spell: ConduitSpellDef, e: EnemyState, play
   e.lastSeenY = w.player.y;
   recordDamageDealt(w.state.bestiary, def.id, hit.damage);
   w.sfx(hit.crit ? 'crit' : 'hit', e.x, e.y);
-  if (player.stats.leech > 0) w.heal(Math.max(1, Math.round(hit.damage * player.stats.leech / 100)), 'leech');
+  if (player.stats.leech > 0) Vitals.heal(w, Math.max(1, Math.round(hit.damage * player.stats.leech / 100)), 'leech');
   if (spell.id === 'ember_bolt' && hit.damage > 0) {
     const total = Math.max(1, Math.round(hit.damage * BURN_SHARE));
     e.burn = { t: BURN_SECONDS, left: (e.burn?.left ?? 0) + total, acc: e.burn?.acc ?? 0 };

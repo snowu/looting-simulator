@@ -17,6 +17,7 @@ import * as Boss from './boss';
 import type { World } from './world';
 import { Projectile, RETRIEVE_PER_SHAFT } from './world';
 import * as Combat from './combat';
+import * as Vitals from './vitals';
 
 /** Tiles per second a called shaft travels on its way back to your hand. */
 export const RETURN_SPEED = 11;
@@ -158,7 +159,7 @@ export function launchReturn(w: World, base: string, fromX: number, fromY: numbe
 export function collectReturn(w: World, base: string): void {
   w.run.thrown ??= { held: {}, retrieveCd: 0 };
   w.run.thrown.held[base] = (w.run.thrown.held[base] ?? 0) + 1;
-  w.wear('thrown');
+  Vitals.wear(w, 'thrown');
   w.emit({ type: 'float', x: w.player.x, y: w.player.y, text: `+1`, color: '#c8b890' });
 }
 
@@ -195,7 +196,7 @@ export function thrownHit(w: World, pr: Projectile, e: EnemyState): void {
   e.lastSeenY = w.player.y;
   recordDamageDealt(w.state.bestiary, def.id, hit.damage);
   w.sfx(hit.crit ? 'crit' : 'hit', e.x, e.y);
-  if (player.stats.leech > 0) w.heal(Math.max(1, Math.round(hit.damage * player.stats.leech / 100)), 'leech');
+  if (player.stats.leech > 0) Vitals.heal(w, Math.max(1, Math.round(hit.damage * player.stats.leech / 100)), 'leech');
   wearThrown(w, pr.weaponUid);
   if (e.hp <= 0) Combat.killEnemy(w, e);
   else Hazards.slip(w, e);
@@ -213,7 +214,7 @@ export function wearThrown(w: World, uid: string | undefined): void {
   if (!uid) return;
   const equipped = w.state.equipment.thrown;
   if (equipped?.uid === uid) {
-    w.wear('thrown');
+    Vitals.wear(w, 'thrown');
     return;
   }
   const item = w.run.backpack.items.find((it) => it.uid === uid);

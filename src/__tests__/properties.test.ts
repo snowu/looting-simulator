@@ -17,6 +17,7 @@ import { World } from '../world/world';
 import { room } from './harness';
 import * as Thrown from '../world/thrown';
 import * as Combat from '../world/combat';
+import * as Vitals from '../world/vitals';
 
 interface Private {
   refreshDerived(): void;
@@ -160,13 +161,13 @@ describe('the effects', () => {
     wear(w, 'body', gear('plate'), 'last_flask');
     w.player.hp = 10;
     w.run.flask!.charges = 1;
-    const plain = priv(w).heal(20, 'food');
+    const plain = Vitals.heal(w, 20, 'food');
     w.player.hp = 10;
     w.run.flask!.charges = 0;
-    const dry = priv(w).heal(20, 'food');
+    const dry = Vitals.heal(w, 20, 'food');
     expect(dry).toBe(Math.round(plain * LAST_FLASK_MULT));
     w.player.hp = 10;
-    expect(priv(w).heal(20)).toBe(plain);
+    expect(Vitals.heal(w, 20)).toBe(plain);
   });
 
   it('Retrieval: a returning shaft cuts each monster in its path once', () => {

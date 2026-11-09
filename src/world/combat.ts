@@ -39,6 +39,7 @@ import * as EnemyAi from './enemy-ai';
 import * as Features from './features';
 import * as Loot from './loot';
 import * as Shrines from './shrines';
+import * as Vitals from './vitals';
 
 /** How long a mimic takes to rise after being struck awake. */
 export const MIMIC_RISE = 0.9;
@@ -88,7 +89,7 @@ export function resolvePlayerAttack(w: World): void {
     const hidden = d === 1 ? lurkerAt(f, t.x, t.y) : undefined;
     if (hidden && (hidden.lurk === 'buried' || hidden.spotted)) {
       EnemyAi.knockOut(w, hidden);
-      w.wear('weapon', 2);
+      Vitals.wear(w, 'weapon', 2);
       return;
     }
     const e = enemyAt(f, t.x, t.y);
@@ -96,7 +97,7 @@ export function resolvePlayerAttack(w: World): void {
       hitEnemy(w, e);
       // 2 per landed blow, 3 on a cleave (was 1/2): ~55 hits to break a
       // weapon, roughly a floor and a half of fighting, not four floors.
-      w.wear('weapon', cleave(w, t.x, t.y) ? 3 : 2);
+      Vitals.wear(w, 'weapon', cleave(w, t.x, t.y) ? 3 : 2);
       return;
     }
     const p = propAt(f, t.x, t.y);
@@ -119,7 +120,7 @@ export function resolvePlayerAttack(w: World): void {
     // Dark Souls rules: an honest chest shrugs off a blow like a wall does,
     // and a mimic takes it and wakes up. Hitting first is the test.
     if (p && p.kind === 'chest' && !p.used) {
-      w.wear('weapon', 1);
+      Vitals.wear(w, 'weapon', 1);
       Loot.chestClang(w, p);
       // The blow only wakes it: it rises at full health, as in Dark Souls.
       if (p.mimic) {
@@ -137,7 +138,7 @@ export function resolvePlayerAttack(w: World): void {
     }
     if (blocksSight(f, t.x, t.y)) break;
   }
-  w.wearWhiff();
+  Vitals.wearWhiff(w);
   w.sfx('miss');
 }
 
@@ -278,7 +279,7 @@ export function shieldChip(w: World, e: EnemyState, def: EnemyDef, chips = 1, po
   w.sfx('block', e.x, e.y);
   // Leech off a shield is still leech: it heals through heal(), like the
   // other three, so half_healing, Normal's healing and Last Flask apply.
-  if (player.stats.leech > 0 && dmg > 0) w.heal(Math.max(1, Math.round((dmg * player.stats.leech) / 100)), 'leech');
+  if (player.stats.leech > 0 && dmg > 0) Vitals.heal(w, Math.max(1, Math.round((dmg * player.stats.leech) / 100)), 'leech');
   if (e.hp <= 0) {
     killEnemy(w, e);
     return;
@@ -400,7 +401,7 @@ export function hitEnemy(w: World, e: EnemyState, neverBash = false, chips = w.d
   if (hit.effective === 'resist' && w.flavorRng.chance(0.3)) w.msg(`The ${def.name} shrugs off your ${w.derived.damageType} blows.`, '#9a9aa8');
   if (hit.effective === 'weak' && w.flavorRng.chance(0.3)) w.msg(`The ${def.name} reels!`, '#ff9a40');
   if (w.derived.stats.leech > 0) {
-    w.heal(Math.max(1, Math.round((hit.damage * w.derived.stats.leech) / 100)), 'leech');
+    Vitals.heal(w, Math.max(1, Math.round((hit.damage * w.derived.stats.leech) / 100)), 'leech');
   }
   // Lighter foes are staggered out of their wind-up.
   if (w.derived.swing.stagger) e.attackCd += w.derived.swing.stagger;
@@ -544,7 +545,7 @@ w: World,
       // Blocking grinds the shield down (2 per block, was 1); a parry
       // costs it nothing, which is one more reason to meet the swing
       // instead of hiding behind it.
-      if (w.derived.hasShield) w.wear('offhand', 2);
+      if (w.derived.hasShield) Vitals.wear(w, 'offhand', 2);
     } else {
       const frac = p.stamina / cost;
       p.stamina = 0;
@@ -575,7 +576,7 @@ w: World,
     w.anim.stunT = Math.max(w.anim.stunT, PLAYER_SLIP_SECONDS);
     w.msg('You go down on the ice!', '#c8e8ff');
   }
-  if (dmg > 0 && !blocked) w.wearArmour();
+  if (dmg > 0 && !blocked) Vitals.wearArmour(w);
   // An unblocked hit empties whatever the blade had banked. Blocking keeps it:
   // the point of the thing is that you have to keep meeting the swing.
   if (dmg > 0 && !blocked && w.anim.parryStacks > 0) {

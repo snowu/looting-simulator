@@ -11,7 +11,7 @@ import * as Combat from '../world/combat';
 /**
  * Every heal answers to the same rules — half_healing (the Eulogy Plate's
  * "all healing at x0.5"), Normal's healing, Last Flask — because every heal
- * goes through World.heal(). These pin the routes that used to go around it.
+ * goes through heal() in src/world/vitals.ts. These pin the routes that used to go around it.
  */
 
 const arena = (difficulty: DifficultyId, seed = 1): World => room({ seed, difficulty });

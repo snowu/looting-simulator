@@ -19,6 +19,7 @@ import * as Sigils from '../world/sigils';
 import * as Combat from '../world/combat';
 import * as EnemyAi from '../world/enemy-ai';
 import * as Shrines from '../world/shrines';
+import * as Vitals from '../world/vitals';
 
 interface Private {
   changeFloor(dir: 'down' | 'up'): void;
@@ -115,9 +116,9 @@ describe('each oath', () => {
     const sword = makeEquipment({ baseId: 'long_sword', materialId: 'iron', rarity: Rarity.Common, ilvl: 2, identified: true });
     state.equipment.weapon = sword;
     const before = durability(sword).cur;
-    priv(w).wear('weapon', 2);
+    Vitals.wear(w, 'weapon', 2);
     expect(before - durability(sword).cur).toBe(4);
-    priv(w).wear('weapon', 9999);
+    Vitals.wear(w, 'weapon', 9999);
     expect(runOath(state.run!, 'unbroken')!.status).toBe('broken');
 
     const b = sworn(['unbroken'], 304);

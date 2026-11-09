@@ -36,6 +36,7 @@ import type { World } from './world';
 import { GUARD_DOWN } from './world';
 import * as Loot from './loot';
 import * as Traps from './traps';
+import * as Vitals from './vitals';
 
 /**
  * How long a monster held back by Normal's attacker cap waits before it asks
@@ -662,7 +663,7 @@ export function strikeCrack(w: World, c: Crack): void {
   const pick = !!weapon && itemBase(weapon.ref).weaponClass === 'pick' && !durability(weapon).broken;
   c.hits = pick ? CRACK_BLOWS - 1 : c.hits;
   c.hits++;
-  w.wear('weapon', CRACK_WEAR);
+  Vitals.wear(w, 'weapon', CRACK_WEAR);
   w.sfx('break', c.x, c.y);
   w.emit({ type: 'shake', amount: 0.2 });
   w.emit({ type: 'crack', id: c.id, hits: c.hits });

@@ -7,6 +7,7 @@ import { BLESSINGS, CURSES, World } from '../world/world';
 import { FLOOR, Floor, Prop, ShrineKind, generateFloor, shrineKindFor, shrinePityFor, EnemyState } from '../systems/dungeon';
 import { durability } from '../systems/items';
 import * as Combat from '../world/combat';
+import * as Vitals from '../world/vitals';
 
 /** The player facing a shrine of the given flavour, one tile away. */
 function atShrine(kind: ShrineKind, seed = 1): { w: World; shrine: Prop } {
@@ -330,11 +331,11 @@ describe('curses', () => {
 
     w.run.curse = null;
     const clean = durability(weapon).cur;
-    (w as unknown as { wear: (s: string, n?: number) => void }).wear('weapon', 1);
+    Vitals.wear(w, 'weapon', 1);
     const afterClean = durability(weapon).cur;
     weapon.dur = clean;
     w.run.curse = 'brittle';
-    (w as unknown as { wear: (s: string, n?: number) => void }).wear('weapon', 1);
+    Vitals.wear(w, 'weapon', 1);
     const afterBrittle = durability(weapon).cur;
     expect(clean - afterBrittle).toBe((clean - afterClean) + 1);
   });

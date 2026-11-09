@@ -14,6 +14,7 @@ import { addItem } from '../state/inventory';
 import { flaskMax } from '../systems/healing';
 import { parseSave, serializeSave } from '../state/save-format';
 import { room, tick } from './harness';
+import * as Vitals from '../world/vitals';
 
 /**
  * Normal's second pass: the knobs that soften *time* and *punishment*, not
@@ -155,7 +156,7 @@ describe('normal is kinder to the player', () => {
       w.state.equipment.offhand = shield;
       const before = durability(shield).cur;
       // Private, but the rule under test lives there: every wear event runs through it.
-      for (let i = 0; i < 20; i++) (w as unknown as { wear(s: string, n: number): void }).wear('offhand', 1);
+      for (let i = 0; i < 20; i++) Vitals.wear(w, 'offhand', 1);
       return before - durability(shield).cur;
     };
     expect(used('hard')).toBe(20);

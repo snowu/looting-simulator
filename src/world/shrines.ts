@@ -16,6 +16,7 @@ import { runOath } from '../systems/oaths';
 import * as Loot from './loot';
 import type { World } from './world';
 import { BLESSINGS, COFFER_MAX_OFFERINGS, CURSES } from './world';
+import * as Vitals from './vitals';
 
 export const COFFER_FIZZLE = 0.25;
 
@@ -79,7 +80,7 @@ export function portalNear(w: World, kind: 'portal' | 'town_portal'): Prop | und
  * attrition as a mechanic. It is a large, welcome, *partial* mend.
  */
 export function restore(w: World, refillFlask = false): void {
-  w.heal(Math.round(w.derived.maxHp * 0.6));
+  Vitals.heal(w, Math.round(w.derived.maxHp * 0.6));
   w.player.stamina = w.derived.maxStamina;
   if (refillFlask) {
     const flask = w.run.flask;

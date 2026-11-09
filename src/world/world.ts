@@ -124,6 +124,7 @@ import * as Features from './features';
 import * as Loot from './loot';
 import * as Shrines from './shrines';
 import * as Traps from './traps';
+import * as Vitals from './vitals';
 
 // ---------------------------------------------------------------------------
 // Events the world emits for the renderer / UI / audio to react to.
@@ -326,9 +327,6 @@ const MIMIC_GRAB = 1.1;
 const MIMIC_SPAT = 0.45;
 /** Base grace after a parry; Normal extends it through difficulty tuning. */
 export const PARRY_GRACE = 0.75;
-/** Normal's mending: seconds unhurt before it starts, and share of max health per second. */
-const REST_DELAY = 5;
-const REST_RATE = 0.02;
 
 export const PARRY_VULN_MULT = 2;
 
@@ -689,120 +687,17 @@ export class World {
     return true;
   }
 
-  /**
-   * Every drop of healing in the game goes through here, which is what lets one
-   * suit of armour halve all of it at once. Returns what was actually restored.
-   * Difficulty mends faster on Normal; Hard multiplies by exactly 1.
-   */
-  heal(amount: number, source?: 'food' | 'leech'): number {
-    // Last Flask: with the flask dry, food and leech carry you.
-    const lastFlask = source && this.derived.traits.lastFlask && (this.run.flask?.charges ?? 1) <= 0 ? LAST_FLASK_MULT : 1;
-    const scaled = Math.round(amount * lastFlask * this.derived.traits.healing * this.diff.playerHealing);
-    const healed = Math.min(Math.max(0, scaled), this.derived.maxHp - this.player.hp);
-    this.player.hp += healed;
-    const overflow = Math.max(0, scaled - healed);
-    if (overflow > 0) {
-      const flask = (this.run.flask ??= { charges: flaskMax(this.state.flask?.shards ?? 0, this.diff.flaskBonus), dregs: 0 });
-      const max = flaskMax(this.state.flask?.shards ?? 0, this.diff.flaskBonus);
-      const threshold = Math.max(1, this.derived.maxHp * DREGS_FRACTION);
-      flask.dregs = Math.min(threshold, flask.dregs + overflow);
-      if (flask.dregs >= threshold && flask.charges < max) {
-        flask.dregs = 0;
-        flask.charges++;
-        this.msg('The flask draws a charge from its dregs.', '#a0d8c8');
-      }
-    }
-    return healed;
-  }
-
   /** Swings into empty air since the last scuff: every third one wears the edge. */
-  private whiffs = 0;
+  whiffs = 0;
   /** Blows landed on chests this session, so each one rolls its own shatter chance. */
   chestBlows = 0;
   /** Throttles the broken-guard refusal so holding block can't spam it. */
   private guardWarnCd = 0;
 
-  /**
-   * Wear a piece of equipment and say something only when it crosses a line:
-   * once when it is nearly gone, once when it goes. A message per swing would
-   * be noise, and noise is how a player learns to stop reading the log.
-   *
-   * The Brittle curse adds +1 to every wear event, which is what makes
-   * finding a font urgent rather than theoretical.
-   */
-  wear(slot: EquipSlot, amount = 1): void {
-    // Normal: gear does not wear at all.
-    if (!this.diff.gearWears) return;
-    const it = this.state.equipment[slot];
-    if (this.run.curse === 'brittle') amount += 1;
-    const oath = runOath(this.run, 'unbroken');
-    if (oath) amount *= UNBROKEN_WEAR;
-    const crossed = wearItem(it, amount);
-    if (crossed === 'none' || !it) return;
-    const name = itemName(it);
-    if (crossed === 'warn') this.msg(`Your ${name} is close to failing.`, '#e8c060');
-    else {
-      this.msg(`Your ${name} breaks!`, '#ff7070');
-      this.sfx('break');
-      this.emit({ type: 'shake', amount: 0.3 });
-      if (oath && oath.status === 'active') {
-        oath.status = 'broken';
-        this.msg('Your oath breaks with it. Unbroken is lost.', OATHS.unbroken.color);
-      }
-    }
-    this.refreshDerived();
-  }
-
-  /**
-   * Normal's slow mending. After REST_DELAY seconds without losing health,
-   * with nothing on the floor hunting you, health creeps back up to
-   * `restHeal` of the maximum. Any lost health, from any source, restarts
-   * the wait. It never tops you up past the line, and never fights for you.
-   */
-  private restHeal(dt: number): void {
-    const p = this.player;
-    if (p.hp < this.restLastHp) this.restWait = 0;
-    else this.restWait += dt;
-    const cap = Math.round(this.derived.maxHp * this.diff.restHeal);
-    const hunted = this.floor.enemies.some((e) => e.ai !== 'dead' && !e.lurk && e.alert > 0);
-    if (!hunted && this.restWait >= REST_DELAY && p.hp > 0 && p.hp < cap) {
-      // Health stays whole: the mend builds up here and lands a point at a
-      // time. It answers to half_healing like every other heal, but not to
-      // Normal's playerHealing, since this rate is already Normal's own knob.
-      this.restMend += this.derived.maxHp * REST_RATE * dt * this.derived.traits.healing;
-      const whole = Math.floor(this.restMend);
-      if (whole > 0) {
-        this.restMend -= whole;
-        p.hp = Math.min(cap, p.hp + whole);
-      }
-    } else {
-      this.restMend = 0;
-    }
-    this.restLastHp = p.hp;
-  }
-  private restWait = 0;
+  restWait = 0;
   /** Rest mending not yet a whole point of health. */
-  private restMend = 0;
-  private restLastHp = Infinity;
-
-  /** Armour wears where you were actually hit: one worn piece takes the scuff. */
-  wearArmour(): void {
-    const worn = (['body', 'head', 'hands'] as EquipSlot[]).filter((s) => {
-      const it = this.state.equipment[s];
-      return it && !durability(it).broken;
-    });
-    // 2 per unblocked hit (was 1): armour is a consumable now, not furniture.
-    if (worn.length) this.wear(this.rng.pick(worn), 2);
-  }
-
-  /** A swing that hit nothing still dulls the edge, slowly: 1 wear per 3 whiffs. */
-  wearWhiff(): void {
-    this.whiffs += 1;
-    if (this.whiffs >= 3) {
-      this.whiffs = 0;
-      this.wear('weapon', 1);
-    }
-  }
+  restMend = 0;
+  restLastHp = Infinity;
 
   /** Extra tiles of sight the floor has on you, from the Hunted curse. */
   get sightPenalty(): number {
@@ -917,38 +812,6 @@ export class World {
 
   get moving(): boolean {
     return this.anim.moveT < 1 || this.anim.turnT < 1;
-  }
-
-  /**
-   * What the infusion does once the sip has landed. Named every time, so the
-   * player learns what their flask is by drinking it.
-   */
-  private drinkDraught(d: Draught | null): void {
-    if (!d) return;
-    const a = this.anim;
-    switch (d.kind) {
-      case 'breath':
-        this.player.stamina = this.derived.maxStamina;
-        this.msg(`${d.name}: your wind comes back.`, d.color);
-        break;
-      case 'iron':
-        a.draught = { kind: 'iron', t: WARD_SECONDS, total: WARD_SECONDS };
-        this.msg(`${d.name}: iron settles over you. The next blow is blunted.`, d.color);
-        break;
-      case 'marrow':
-        a.draught = { kind: 'marrow', t: MARROW_SECONDS, total: MARROW_SECONDS };
-        this.msg(`${d.name}: your arm fills. Make the next strike count.`, d.color);
-        break;
-      case 'kindled':
-        a.draught = { kind: 'kindled', t: KINDLE_SECONDS, total: KINDLE_SECONDS };
-        this.refreshDerived();
-        this.msg(`${d.name}: your weapon takes it. ${d.kindleLabel}.`, d.color);
-        break;
-      default:
-        // Thick, Quick and Fight Milk are in the heal, the sip time and the
-        // delve itself; there is nothing further to announce.
-        break;
-    }
   }
 
   /** Begin the flask commitment. The charge is spent only when the sip lands. */
@@ -1158,9 +1021,9 @@ export class World {
           flask.charges--;
           const level = clamp(this.state.flask?.potency ?? 0, 0, 4);
           const d = draught(this.state.flask?.infusion);
-          this.heal(this.derived.maxHp * (FLASK_POTENCY[level] + (d?.heal ?? 0) / 100));
+          Vitals.heal(this, this.derived.maxHp * (FLASK_POTENCY[level] + (d?.heal ?? 0) / 100));
           this.sfx('drink');
-          this.drinkDraught(d);
+          Vitals.drinkDraught(this, d);
         }
       }
     }
@@ -1170,7 +1033,7 @@ export class World {
       const target = Math.round(a.chew.total * (1 - a.chew.left / CHEW_SECONDS));
       const portion = Math.max(0, target - a.chew.delivered);
       if (portion) {
-        this.heal(portion, 'food');
+        Vitals.heal(this, portion, 'food');
         a.chew.delivered += portion;
       }
       if (a.chew.left <= 0) {
@@ -1183,7 +1046,7 @@ export class World {
 
     // Stamina recovers; health never does on its own (flask, food, shrines and
     // leech only) — except on Normal, which mends you slowly while nothing hunts you.
-    if (this.diff.restHeal > 0) this.restHeal(dt);
+    if (this.diff.restHeal > 0) Vitals.restHeal(this, dt);
     a.windedCd = Math.max(0, a.windedCd - dt);
     a.sinceStamina += dt;
     if (a.sinceStamina > STAMINA_DELAY && a.attack === 'idle') {
@@ -2225,7 +2088,7 @@ export class World {
           this.msg('You are already at full health.', '#888');
           return;
         }
-        this.heal(Math.round(this.derived.maxHp * e.fraction));
+        Vitals.heal(this, Math.round(this.derived.maxHp * e.fraction));
         this.sfx('drink');
         break;
       case 'stamina':
