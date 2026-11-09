@@ -894,11 +894,23 @@ export class World {
     const cap = Math.round(this.derived.maxHp * this.diff.restHeal);
     const hunted = this.floor.enemies.some((e) => e.ai !== 'dead' && !e.lurk && e.alert > 0);
     if (!hunted && this.restWait >= REST_DELAY && p.hp > 0 && p.hp < cap) {
-      p.hp = Math.min(cap, p.hp + this.derived.maxHp * REST_RATE * dt);
+      // Health stays whole: the mend builds up here and lands a point at a
+      // time. It answers to half_healing like every other heal, but not to
+      // Normal's playerHealing, since this rate is already Normal's own knob.
+      this.restMend += this.derived.maxHp * REST_RATE * dt * this.derived.traits.healing;
+      const whole = Math.floor(this.restMend);
+      if (whole > 0) {
+        this.restMend -= whole;
+        p.hp = Math.min(cap, p.hp + whole);
+      }
+    } else {
+      this.restMend = 0;
     }
     this.restLastHp = p.hp;
   }
   private restWait = 0;
+  /** Rest mending not yet a whole point of health. */
+  private restMend = 0;
   private restLastHp = Infinity;
 
   /** Armour wears where you were actually hit: one worn piece takes the scuff. */
@@ -3364,10 +3376,9 @@ export class World {
     recordDamageDealt(this.state.bestiary, def.id, dmg);
     this.emit({ type: 'float', x: e.x, y: e.y, text: `${dmg}`, color: '#9a9aa8' });
     this.sfx('block', e.x, e.y);
-    if (player.stats.leech > 0 && dmg > 0) {
-      const heal = Math.max(1, Math.round((dmg * player.stats.leech) / 100));
-      this.player.hp = Math.min(this.derived.maxHp, this.player.hp + heal);
-    }
+    // Leech off a shield is still leech: it heals through heal(), like the
+    // other three, so half_healing, Normal's healing and Last Flask apply.
+    if (player.stats.leech > 0 && dmg > 0) this.heal(Math.max(1, Math.round((dmg * player.stats.leech) / 100)), 'leech');
     if (e.hp <= 0) {
       this.killEnemy(e);
       return;
