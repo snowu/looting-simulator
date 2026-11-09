@@ -2172,8 +2172,8 @@ export class World {
     if (!mult) return false;
     // A broken edge spills nothing: the blow still lands single-target at
     // 15%, but there is no splash into its neighbours.
-    const w = this.state.equipment.weapon;
-    if (w && durability(w).broken) return false;
+    const weapon = this.state.equipment.weapon;
+    if (weapon && durability(weapon).broken) return false;
     const caught: EnemyState[] = [];
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
       if (!dx && !dy) continue;
@@ -4513,7 +4513,7 @@ export class World {
     // reduced in place below, so anything that wants to know "were you hit"
     // rather than "how much got through" has to read this.
     const landed = dmg;
-    const facingSource = this.facingSource(fromX, fromY);
+    const facesSource = this.facingSource(fromX, fromY);
     let blocked = false;
     // Mid-sip the guard is down by design: the blow lands unblocked, and the
     // heal still lands when the 0.5s commitment completes. Drinking in melee
@@ -4521,7 +4521,7 @@ export class World {
     // Duelist: the guard is sworn away. A parry (above) still works.
     // An offhand conduit is parry-only: it absorbs nothing, so a mistimed
     // guard meets the blow whole instead of falling back to a block.
-    if (!unavoidable && this.anim.sip === null && this.anim.blockRaise > 0.6 && facingSource && !runOath(this.run, 'duelist') && this.derived.conduitHand !== 'offhand') {
+    if (!unavoidable && this.anim.sip === null && this.anim.blockRaise > 0.6 && facesSource && !runOath(this.run, 'duelist') && this.derived.conduitHand !== 'offhand') {
       const absorbed = dmg * this.derived.block;
       const cost = absorbed * 1.3 * this.diff.blockStamina;
       if (p.stamina >= cost) {
@@ -4736,8 +4736,8 @@ export class World {
     const f = this.floor;
     // A small secret, not a rule: the Mining Pick knows where stone gives, and
     // brings any cracked wall down in one. Every other weapon takes CRACK_BLOWS.
-    const w = this.state.equipment.weapon;
-    const pick = !!w && itemBase(w.ref).weaponClass === 'pick' && !durability(w).broken;
+    const weapon = this.state.equipment.weapon;
+    const pick = !!weapon && itemBase(weapon.ref).weaponClass === 'pick' && !durability(weapon).broken;
     c.hits = pick ? CRACK_BLOWS - 1 : c.hits;
     c.hits++;
     this.wear('weapon', CRACK_WEAR);
