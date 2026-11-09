@@ -17,6 +17,7 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 
 // Commits that must never become patch notes. Short hash -> reason.
 const SKIP = {
+  '8eed0b3': 'MECHANICS only: records Patch 124',
   '68b015e': 'tests and tooling only: the simulation fuzzer (#126)',
   '7652193': 'docs and tests only: MECHANICS.md generated tables and pointer checks (#124)',
   '2df38ff': 'MECHANICS only: records Patch 123 (#123)',
