@@ -31,7 +31,7 @@ Dying ends the day too, but you lose the backpack.
 |---|---|
 | Base health | 70 (+12 per Toughness level, + item Health) |
 | Base stamina | 100 (+15 per Second Wind level, + item Stamina) |
-| Health regeneration | **None.** Flask, morsels, shrines and life leech only |
+| Health regeneration | **None** on Hard: flask, morsels, shrines and life leech only. Normal also mends slowly at rest (§14) |
 | Stamina regeneration | 22/s, starting 0.9s after your last swing; 30% of that while blocking |
 | Unarmed | 3 attack, 0.14s windup, 0.30s recovery, 9 stamina, reach 1 |
 | Step | 0.24s per tile; backwards ×1.25; ×1.2 more if Speed < −12 |
@@ -75,7 +75,7 @@ A volley can lose up to two closely stacked bolts to one timed parry; the follow
 
 *Files: `src/world/world.ts` — `PARRY_WINDOW`, `CONDUIT_PARRY_WINDOW`, `PARRY_COOLDOWN`, `PARRY_GRACE`, `MELEE_PARRY_*`, `PARRY_STUN`, `PARRY_VULN_MULT`; `src/data/difficulty.ts` — `parryGrace`*
 
-**Life leech:** heals `damage × leech%` on every hit that lands.
+**Life leech:** heals `damage × leech%` on every hit that lands, including a blow a raised shield chips. Every leech heal passes through `World.heal`, so Eulogy Plate's half, Last Flask and the difficulty's `playerHealing` apply.
 
 ---
 
@@ -468,7 +468,7 @@ Eligible monsters independently roll a morsel at `0.28 − 0.024 × (depth − 1
 - **Staggering:** hitting a monster with under 40 base HP during its windup interrupts it (0.5s recovery). Bosses never stagger.
 - **Shields** (Shieldbearer, Shieldguard): while you are close the guard runs a rhythm you can read off the sprite — the shield sweeps center (**raise**, 0.25s), holds (**up**, 1.4s), drops (**down**, 1.6s). A frontal blow into the raise is answered with a shield-bash: your guard drops, you are **stunned for 1 second**, and the bearer starts a swing you cannot dodge. A frontal blow into the hold is **absorbed for 75%** with no stagger; three chips running sag the guard and drop it early. Blows from behind, mid-swing, while reeling, or into the dropped guard land full — and break the chip count. Flank them, meet their swing, or time the drop.
 - **Ranged:** only fire along a row or column with clear sight. They back away if you close to melee and sidestep to line up a shot. Bolts travel tile by tile, so strafing out of the line dodges them.
-- **Skittish** (goblins): flee below 35% health.
+- **Skittish** (goblins): flee below 35% health. The chance is **2% per tick at 60 fps** while it stands deciding, compounded per second so every frame rate sees the same rate (`SKITTISH_FLEE_PER_TICK`); mid-step it decides once per step.
 - **Thieves** (the Goblin Cutpurse, and any *Thieving* elite): a melee blow that gets through (not parried, not blocked, and you survive it) takes one thing from your backpack: a piece of gear whole, or half a stack rounded up. Equipped gear is never at risk. The thief then flees at once, glowing gold so you can chase it in the dark, and the target bar says what it is carrying. It is a chase you can win, but have to work for. It runs at its normal pace (`THIEF_LADEN` is 1: you already outpace a goblin). After a step in your sight it has a **5%** chance to fumble its prize and stand still for **0.7s**. It runs in a panic, not cleverly: any step that isn't towards you, preferring to keep going straight, so it will bolt into a dead end. When it loses you it keeps sprinting for **2s** (`THIEF_BOLT`), then goes to ground, creeping one tile every **1s** (`THIEF_CREEP`) and still glowing. Every 4 steps, up to 3 times, 1–3 coins spill from its purse, leaving a short trail. Kill it and it drops what it took. If it spends **25 seconds** (`THIEF_ESCAPE`) out of your sight, it gets away and the item is gone. Cornered, it fights. It steals once; a thief that is already carrying does not steal again.
 - **Boss:** melee when adjacent, otherwise a three-bolt shadow volley when aligned.
 
@@ -1533,7 +1533,7 @@ Normal is for someone who wants the dungeon, the loot and the town without the r
 | **Attackers at once** | 2 (Hard too) | a third monster in reach holds off for a beat instead of winding up. The King never waits. Hard has the same cap: one guard faces one blow, and a third from the flank made a crowd a death sentence |
 | **Block** | +15 points, stamina ×0.7 | added before the 90% shield cap |
 | Your health / healing / stamina regen | ×1.3 / ×1.35 / ×1.25 | |
-| **Resting** | mends to 50% | after 5s unhurt with nothing hunting you, 2% of max health a second, never above half |
+| **Resting** | mends to 50% | after 5s unhurt with nothing hunting you, 2% of max health a second, never above half. Lands whole points of health. Eulogy Plate halves it; `playerHealing` does not apply, since this rate is Normal's own |
 | Flask | +1 charge | every delve |
 | Parry grace | ×5/3 (0.75s → 1.25s) | |
 | Throne | the fog lets you back out; his later phases keep the first phase's wind-up, recovery and moves, never raise a shield and never fling pitch (the dark, the Shadow Step, the sprites and the lines stay) | you still cannot strike or be struck across the threshold |
