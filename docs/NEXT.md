@@ -143,10 +143,9 @@ Someone finishes a run and can name the item they found without looking.
 # 2. Balance pass — **DONE 2026-09-13**
 
 The harness below was built first, as this section asked, and lives at
-`scripts/playtest.ts` and `scripts/tables.ts` behind `npm run playtest`. The
-pass itself is written up in **`patch_notes.md`** at the repo root, and every
-number that moved is in [MECHANICS.md](MECHANICS.md). The reasoning, including
-the two things that were tried and walked back, is in `overnight_feature.txt`.
+`scripts/playtest.ts` and `scripts/tables.ts` behind `npm run playtest`. Every
+number that moved is in [MECHANICS.md](MECHANICS.md); the working log was
+removed once the pass shipped (see git history).
 
 The section below is kept as written, because the suspicions in it were mostly
 right and the ones that were wrong are worth having on the record.
@@ -282,8 +281,7 @@ a telegraph, so its damage taken is an upper bound rather than an estimate.
 
 # 3. Run identity — **DESIGNED 2026-09-19**
 
-Agreed on 2026-09-19, merging two independent reviews (a Claude review and
-`codex_next_steps.md`) and three additions from the user: **ambushers that drop
+Agreed on 2026-09-19, merging two independent reviews (a Claude review and a Codex one, since removed) and three additions from the user: **ambushers that drop
 or burrow, destructible walls, and necromancers**.
 
 ## Progress — pick up here
