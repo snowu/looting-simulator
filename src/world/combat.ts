@@ -36,6 +36,7 @@ import * as Thrown from './thrown';
 import type { World } from './world';
 import { CONDUIT_PARRY_WINDOW, GUARD_DOWN, PARRY_GRACE, PARRY_VULN_MULT, PARRY_WINDOW, tomeChance } from './world';
 import * as EnemyAi from './enemy-ai';
+import * as Features from './features';
 
 /** How long a mimic takes to rise after being struck awake. */
 export const MIMIC_RISE = 0.9;
@@ -652,7 +653,7 @@ export function killEnemy(w: World, e: EnemyState): void {
     w.msg(`${def.name} falls still again.`, '#c8c0b0');
     return;
   }
-  if (e.lieutenant) w.lieutenantFalls(e);
+  if (e.lieutenant) Features.lieutenantFalls(w, e);
   if (e.def === SHADE_ID && w.state.grave) {
     const grave = w.state.grave;
     w.state.grave = null;
@@ -702,7 +703,7 @@ export function killEnemy(w: World, e: EnemyState): void {
     w.msg('The Ashen King crumbles to cinders. A portal tears open.', '#c080ff');
     Boss.unsealBossDoors(w);
     w.floor.props.push({ id: `portal${w.time}`, kind: 'portal', x: e.x, y: e.y, used: false, tier: 'none', blocking: false, mimic: false });
-    w.placeKingCarving(e.x, e.y);
+    Features.placeKingCarving(w, e.x, e.y);
   } else {
     if (def.morsel) {
       const foodRng = createRng(hashString(`morsel:${w.floor.seed}:${e.id}`));

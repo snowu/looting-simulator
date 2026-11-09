@@ -120,6 +120,7 @@ import * as Sigils from './sigils';
 import * as Thrown from './thrown';
 import * as Combat from './combat';
 import * as EnemyAi from './enemy-ai';
+import * as Features from './features';
 
 // ---------------------------------------------------------------------------
 // Events the world emits for the renderer / UI / audio to react to.
@@ -1373,9 +1374,9 @@ export class World {
       // rather than becoming a cow, which is also what you want.
       applyQuirk(run.floors[run.depth - 1]!, run.seed, this.difficultyId);
       placeSurfaces(run.floors[run.depth - 1]!, run.seed);
-      this.placeHunterMark(run.floors[run.depth - 1]!);
-      this.placeRiteCarving(run.floors[run.depth - 1]!);
-      this.placeLieutenant(run.floors[run.depth - 1]!);
+      Features.placeHunterMark(this, run.floors[run.depth - 1]!);
+      Features.placeRiteCarving(this, run.floors[run.depth - 1]!);
+      Features.placeLieutenant(this, run.floors[run.depth - 1]!);
       if (!run.shadePlaced && placeShade(this.state, run.floors[run.depth - 1]!, run.seed, this.difficultyId)) {
         run.shadePlaced = true;
         this.msg('Something that wears your shape waits on this floor, holding what you lost.', '#9ab8ff');
@@ -1987,223 +1988,6 @@ export class World {
   }
 
   /**
-   * A freshly generated floor from depth 2 may get a lieutenant, on its own
-   * stream: a Goblin Quartermaster where there are goblins to command, or the
-   * Hoarder anywhere. Placed far from the arrival stair, and announced by a
-   * clue rather than by name.
-   */
-  private placeLieutenant(f: Floor): void {
-    if (f.rooms.some((r) => r.role === 'throne')) return;
-    const rng = createRng(hashString(`lt:${this.run.seed}:${f.depth}`));
-    if (!rng.chance(lieutenantChance(f.depth) * this.diff.lieutenantChance)) return;
-    const goblins = f.enemies.filter((e) => e.ai !== 'dead' && isGoblin(e.def));
-    const options: LieutenantId[] = goblins.length >= QUARTERMASTER_MIN_GOBLINS ? ['quartermaster', 'hoarder'] : ['hoarder'];
-    const id = rng.pick(options);
-    const up = f.stairs.find((st) => !st.down);
-    const busy = new Set(f.enemies.filter((e) => e.ai !== 'dead').map((e) => `${e.x},${e.y}`));
-    const roomOf = (x: number, y: number) => f.rooms.find((r) => inRoom(r, x, y));
-    const tiles = (r: (typeof f.rooms)[number]) => {
-      const out: [number, number][] = [];
-      for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
-        if (blocksMove(f, x, y) || busy.has(`${x},${y}`) || stairsAt(f, x, y)) continue;
-        if (up && manhattan(x, y, up.x, up.y) < LIEUTENANT_MIN_DISTANCE) continue;
-        out.push([x, y]);
-      }
-      return out;
-    };
-    const rooms = f.rooms.filter((r) => r.role !== 'start' && r.role !== 'secret' && tiles(r).length);
-    if (!rooms.length) return;
-    // A Quartermaster stands with the most goblins; the Hoarder anywhere.
-    const room = id === 'quartermaster'
-      ? [...rooms].sort((a, b) => goblins.filter((g) => roomOf(g.x, g.y) === b).length - goblins.filter((g) => roomOf(g.x, g.y) === a).length)[0]
-      : rng.pick(rooms);
-    const [x, y] = rng.pick(tiles(room));
-    const def = LIEUTENANTS[id];
-    const e = createEnemy(enemyDef(def.enemy), x, y, rng.int(0, 3) as Dir, `lt${f.depth}`, f.depth, this.difficultyId);
-    e.lieutenant = id;
-    f.enemies.push(e);
-    this.msg(def.clue, def.color);
-  }
-
-  /** A lieutenant dies: its floor changes, and it pays in kind. */
-  lieutenantFalls(e: EnemyState): void {
-    if (e.lieutenant === 'quartermaster') {
-      let routed = 0;
-      for (const g of this.floor.enemies) {
-        if (g.ai === 'dead' || !isGoblin(g.def)) continue;
-        g.ai = 'flee';
-        g.alert = Math.max(g.alert, ROUT_SECONDS);
-        routed++;
-      }
-      const rng = createRng(hashString(`strongbox:${this.floor.seed}:${e.id}`));
-      const box = this.containerLoot(rng, 'vault');
-      this.dropLoot(e.x, e.y, box.items, box.gold);
-      this.msg(routed ? 'The banner falls. The goblins break and run! The strongbox key is yours.' : 'The banner falls. The strongbox key is yours.', LIEUTENANTS.quartermaster.color);
-    } else if (e.lieutenant === 'hoarder') {
-      const n = e.hoard?.length ?? 0;
-      this.dropLoot(e.x, e.y, e.hoard ?? [], e.hoardGold ?? 0);
-      delete e.hoard;
-      delete e.hoardGold;
-      this.msg(n ? 'The sack splits. Everything the Hoarder gathered spills across the floor.' : 'The sack splits, heavy with coin.', LIEUTENANTS.hoarder.color);
-    }
-  }
-
-  /**
-   * The rite this delve's next carving would teach, or none: one carving per
-   * delve, never a rite you know. Your first is always Meteor, the one the
-   * tablet was built around; after that the Frozen Road teaches Glacial Tomb
-   * when it is still to come, and otherwise it is drawn from those left.
-   */
-  private nextRite(rng: Rng): RiteId | null {
-    if (this.run.riteCarved) return null;
-    const known = this.state.ritesKnown ?? [];
-    const left = RITES.filter((r) => !known.includes(r.id));
-    if (!left.length) return null;
-    if (!known.length && left.some((r) => r.id === 'meteor')) return 'meteor';
-    const road = this.run.road && ROAD_RITES[this.run.road];
-    if (road && ROAD_DEPTHS.includes(this.run.depth) && left.some((r) => r.id === road)) return road;
-    return rng.pick(left).id;
-  }
-
-  /**
-   * A rite carving, laid after generation like surfaces and quirks, so the
-   * generated floor underneath never moves: no golden hash changes, and the
-   * roll has its own stream. Guaranteed on the first floor that reaches a
-   * milestone you have not yet studied a rite for (depth 3, then depth 5),
-   * else a small chance on every floor from depth 3. It waits in the vault,
-   * else the secret room, else any normal room, so it is still found.
-   */
-  private placeRiteCarving(f: Floor): void {
-    if (f.depth < RITE_CARVING_DEPTH) return;
-    if (f.props.some((p) => p.kind === 'carving')) return;
-    const rng = createRng(hashString(`rite:${this.run.seed}:${f.depth}`));
-    const known = (this.state.ritesKnown ?? []).length;
-    const owed = RITE_MILESTONES.some((m) => f.depth >= m.depth && known < m.known);
-    // Roll even when owed, so the draw below never depends on the milestone.
-    const lucky = rng.chance(riteFloorChance(f.depth));
-    if (!owed && !lucky) return;
-    const id = this.nextRite(rng);
-    if (!id) return;
-    const vault = f.rooms.find((r) => r.role === 'vault');
-    const secret = f.rooms.find((r) => r.role === 'secret');
-    const normals = f.rooms.filter((r) => r.role === 'normal');
-    for (const room of [...(vault ? [vault] : []), ...(secret ? [secret] : []), ...normals]) {
-      if (this.layCarving(f, id, rng.shuffle(this.carvingTiles(f, room)))) return;
-    }
-  }
-
-  /**
-   * Your first King kill promises a rite, as it promises a flask shard: a
-   * carving rises beside the portal, unless this delve already laid one.
-   */
-  placeKingCarving(x: number, y: number): void {
-    const f = this.floor;
-    if ((this.state.ritesKnown ?? []).length >= RITE_KING_KNOWN) return;
-    if (f.props.some((p) => p.kind === 'carving' && !p.used)) return;
-    const rng = createRng(hashString(`rite:king:${this.run.seed}`));
-    const id = this.nextRite(rng);
-    if (!id) return;
-    const near: { x: number; y: number }[] = [];
-    for (let r = 2; r <= 5 && near.length < 12; r++) {
-      for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
-        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
-        const t = { x: x + dx, y: y + dy };
-        if (this.carvingFits(f, t.x, t.y, this.carvingLandings(f)) && !(t.x === this.player.x && t.y === this.player.y)) near.push(t);
-      }
-    }
-    if (this.layCarving(f, id, near)) this.msg('Where the King fell, the stone remembers a mark.', rite(id).color);
-  }
-
-  private carvingLandings(f: Floor): Set<number> {
-    return new Set(f.stairs.map((s) => { const p = stairsFront(s); return p.y * f.width + p.x; }));
-  }
-
-  /**
-   * The slab blocks its tile, so it follows the barrel rules: never in or
-   * beside a doorway, on a stair's landing, a trap or a pool, and never
-   * where it would cut anything off.
-   */
-  private carvingFits(f: Floor, x: number, y: number, landings: Set<number>): boolean {
-    if (tileAt(f, x, y) !== FLOOR || propAt(f, x, y) || stairsAt(f, x, y) || enemyAt(f, x, y)) return false;
-    if (doorAt(f, x, y) || DIRS.some((d) => doorAt(f, x + DX[d], y + DY[d])) || landings.has(y * f.width + x)) return false;
-    if (f.pickups.some((p) => p.x === x && p.y === y)) return false;
-    return !trapAt(f, x, y) && !surfaceAt(f, x, y) && splitsNothing(f, x, y);
-  }
-
-  private carvingTiles(f: Floor, room: { x: number; y: number; w: number; h: number }): { x: number; y: number }[] {
-    const landings = this.carvingLandings(f);
-    const free: { x: number; y: number }[] = [];
-    for (let y = room.y; y < room.y + room.h; y++) {
-      for (let x = room.x; x < room.x + room.w; x++) if (this.carvingFits(f, x, y, landings)) free.push({ x, y });
-    }
-    return free;
-  }
-
-  /** Stand the slab on the first tile that leaves everything reachable. */
-  private layCarving(f: Floor, id: RiteId, tiles: readonly { x: number; y: number }[]): boolean {
-    const before = reachable(f);
-    for (const t of tiles) {
-      const slab: Prop = {
-        id: `carving_${f.depth}_${id}`, kind: 'carving', x: t.x, y: t.y,
-        used: false, tier: 'none', blocking: true, mimic: false, rite: id,
-      };
-      f.props.push(slab);
-      if (reachable(f) >= before - 1) {
-        this.run.riteCarved = id;
-        return true;
-      }
-      f.props.pop();
-    }
-    return false;
-  }
-
-  /** Read where it stands: a studied carving teaches its rite for good. */
-  private studyCarving(p: Prop): void {
-    const def = findRite(p.rite);
-    if (!def) return;
-    this.state.ritesKnown ??= [];
-    if (this.state.ritesKnown.includes(def.id)) {
-      this.msg('The mark is familiar: you already know this rite.', '#888');
-      return;
-    }
-    this.state.ritesKnown.push(def.id);
-    p.used = true;
-    this.sfx('secret', p.x, p.y);
-    this.emit({ type: 'float', x: p.x, y: p.y, text: def.name, color: '#c8a0ff' });
-    const many = this.state.ritesKnown.length > 1;
-    this.msg(many
-      ? `You study the carving: ${def.name}. Hold X and draw its mark — the tablet knows which rite you mean by what you draw.`
-      : `You study the carving: ${def.name}. Hold X and trace its mark to cast it — two charges each time, with no floor limit.`, def.color);
-  }
-
-  /**
-   * Hunter: a freshly generated floor on one of the hunt's depths gets its
-   * mark. One of the three toughest monsters far from the stairs is chosen on
-   * the run's own stream, promoted to an elite if it is not one, and marked. Placed when the
-   * floor is first generated, so a floor is only ever marked once.
-   */
-  private placeHunterMark(f: Floor): void {
-    const oath = runOath(this.run, 'hunter');
-    if (!oath || !HUNTER_DEPTHS.includes(f.depth) || (oath.placed ?? []).includes(f.depth)) return;
-    const up = f.stairs.find((st) => !st.down);
-    const far = (e: EnemyState) => up ? manhattan(e.x, e.y, up.x, up.y) : 0;
-    const pool = f.enemies.filter((e) => e.ai !== 'dead' && !e.lurk && enemyDef(e.def).behavior !== 'boss' && far(e) >= 8);
-    const quarry = pool.length ? pool : f.enemies.filter((e) => e.ai !== 'dead' && !e.lurk && enemyDef(e.def).behavior !== 'boss');
-    if (!quarry.length) return;
-    // Quarry worth the name: one of the three toughest on the floor, never
-    // whatever rat happened to be furthest from the stairs.
-    const rng = createRng(hashString(`hunt:${this.run.seed}:${f.depth}`));
-    const toughest = [...quarry].sort((a, b) => enemyDef(b.def).hp - enemyDef(a.def).hp || a.id.localeCompare(b.id)).slice(0, 3);
-    const e = rng.pick(toughest);
-    if (!e.elite) {
-      const traits = eligibleTraits(enemyDef(e.def));
-      if (traits.length) promoteElite(e, rng.pick(traits));
-    }
-    e.marked = true;
-    (oath.placed ??= []).push(f.depth);
-  }
-
-  /**
    * A walkable tile next to (x, y) — never the tile itself, since something is
    * about to be put there that would cover a loot pile. Falls back to (x, y).
    */
@@ -2698,7 +2482,7 @@ export class World {
         return;
       }
       if (p.kind === 'carving') {
-        this.studyCarving(p);
+        Features.studyCarving(this, p);
         return;
       }
     }

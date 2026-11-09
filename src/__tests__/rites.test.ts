@@ -17,6 +17,7 @@ import { GLACIAL_TOMB_SECONDS, GLACIAL_TOMB_SIGHT_SECONDS, judgementEnds, RITE_B
 import { HEX_SECONDS } from '../data/conduit-spells';
 import { beginLabRite, spawnLabCarving } from '../dev/lab-room';
 import * as Combat from '../world/combat';
+import * as Features from '../world/features';
 
 const TEMPLATE = RITES[0].template;
 
@@ -743,11 +744,11 @@ describe('when carvings appear', () => {
     const w = ritualist();
     w.run.road = 'frostvault';
     w.run.depth = 3;
-    expect((w as any).nextRite(createRng(1))).toBe('glacial_tomb');
+    expect(Features.nextRite(w, createRng(1))).toBe('glacial_tomb');
     w.state.ritesKnown.push('glacial_tomb');
-    expect(['judgement', 'penguining']).toContain((w as any).nextRite(createRng(1)));
+    expect(['judgement', 'penguining']).toContain(Features.nextRite(w, createRng(1)));
     w.run.riteCarved = 'judgement';
-    expect((w as any).nextRite(createRng(1))).toBeNull();
+    expect(Features.nextRite(w, createRng(1))).toBeNull();
   });
 
   it('your first King kill leaves a carving by the portal', () => {
