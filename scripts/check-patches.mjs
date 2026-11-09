@@ -17,6 +17,7 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 
 // Commits that must never become patch notes. Short hash -> reason.
 const SKIP = {
+  'f896de2': 'test speed only: the frame-rate flee test reuses one floor (#133 CI timeout)',
   '1352d12': 'MECHANICS only: records Patch 122 (#120, #122)',
   'f015c35': 'CI workflows only: tests and the patch check now gate PRs and deploy (#119)',
   '80ca5a9': 'docs cleanup only: finished-work docs, logs and PR preview images removed; no player-facing change',
