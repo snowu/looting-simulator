@@ -85,6 +85,14 @@ export interface Policy {
   wary?: number;
   /** Collects a line per decision. Debugging only — it is very noisy. */
   trace?: string[];
+  /**
+   * Fuzzing: the chance each tick of a random input on top of the bot's own
+   * (a move, a swing, the guard, a sip, an item, a rite, ...), drawn from its
+   * own stream so a run without it is the run it always was.
+   */
+  chaos?: number;
+  /** Called after every tick with the world, for invariant checks. Must not change it. */
+  onTick?: (w: World, tick: number) => void;
 }
 
 export const DEFAULT_POLICY: Policy = {
@@ -224,6 +232,36 @@ function dirTo(px: number, py: number, tx: number, ty: number): Dir | null {
 
 // --- the bot -----------------------------------------------------------------
 
+const CHAOS_MOVES = ['forward', 'back', 'left', 'right', 'turnLeft', 'turnRight'] as const;
+
+/** A random input a player could give, through the same API the game's input code uses. */
+function chaosInput(w: World, r: Rng): void {
+  const pack = w.run.backpack.items;
+  switch (r.int(0, 15)) {
+    case 0: w.press(r.pick(CHAOS_MOVES)); break;
+    case 1: w.release(r.pick(CHAOS_MOVES)); break;
+    case 2: w.attack(); break;
+    case 3: w.setBlock(r.chance(0.5)); break;
+    case 4: w.sipFlask(); break;
+    case 5: w.interact(); break;
+    case 6: w.hurl(); break;
+    case 7: w.castSigil(); break;
+    case 8: w.castSpell(); break;
+    case 9: w.nextSpell(); break;
+    case 10: w.retrieve(r.chance(0.5)); break;
+    case 11: if (pack.length) w.use(r.pick(pack).uid); break;
+    case 12: w.quickUse(r.int(0, 3)); break;
+    case 13: { const pk = w.pickupNear(); if (pk) w.take(pk.id); break; }
+    case 14: if (pack.length && r.chance(0.3)) w.drop(r.pick(pack).uid); break;
+    case 15:
+      if (w.riteDraw) {
+        for (let i = 0; i < 4; i++) w.addRitePoint(r.float(0, 1), r.float(0, 1));
+        if (r.chance(0.5)) w.endRiteDraw(); else w.cancelRiteDraw();
+      } else w.beginRiteDraw();
+      break;
+  }
+}
+
 class Bot {
   private floorStart = 0;
   private lastHp: number;
@@ -245,7 +283,19 @@ class Bot {
   private containersAtStart = 0;
   private knownMorsels = new Map<number, Set<string>>();
 
+  private chaosRng: Rng;
+  private ticks = 0;
+
+  /** One tick of the world, with any chaos input first and the onTick hook after. */
+  advance(): void {
+    const w = this.w;
+    if (this.policy.chaos && this.chaosRng.chance(this.policy.chaos)) chaosInput(w, this.chaosRng);
+    w.update(DT);
+    this.policy.onTick?.(w, this.ticks++);
+  }
+
   constructor(private w: World, private policy: Policy, seed: number, private rng: Rng) {
+    this.chaosRng = createRng(seed ^ 0x5eed);
     this.lastHp = w.player.hp;
     this.report = {
       seed, outcome: 'timeout', depth: 1, deepest: 1, bossKilled: false, kills: 0, time: 0, gold: 0, renown: 0,
@@ -754,7 +804,7 @@ class Bot {
       for (let i = 0; i < 240 && w.run.depth === was && w.run.outcome === 'active'; i++) {
         // The stair below depth 2 forks: the bot takes the first road offered.
         if (goDown && w.forkPending()) w.chooseRoad(w.run.roads![0]);
-        w.update(DT);
+        this.advance();
       }
       if (w.run.outcome !== 'active') { this.collect(); return false; }
       if (w.run.depth === was) { this.trace('stairs did not take'); return this.giveUp(); }
@@ -1003,7 +1053,7 @@ export function playDelve(state: GameState, seed: number, policy: Policy): RunRe
   let ticks = 0;
   while (w.run.outcome === 'active' && ticks++ < maxTicks) {
     if (!bot.step()) break;
-    w.update(DT);
+    bot.advance();
     bot.observe(w.drainEvents());
   }
   if (w.run.outcome === 'active') bot.collect('timeout');
@@ -1049,7 +1099,7 @@ export function playThrone(seed: number, policy: Partial<Policy>, prepare: (s: G
   for (let ticks = 0; ticks < limit * 60; ticks++) {
     if (w.run.outcome !== 'active' || w.run.stats.bossKilled) break;
     if (!bot.step()) break;
-    w.update(DT);
+    bot.advance();
     bot.observe(w.drainEvents());
   }
   const k = king();

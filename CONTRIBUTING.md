@@ -95,6 +95,7 @@ Headless, seeded runs driven by a scripted bot (`scripts/playtest.ts`). They're 
 | `npm run tables` | Static balance tables in seconds, cheap enough to run after every tweak (writes `balance-tables.txt`) |
 | `npm run upgrades` | What each Warden upgrade is worth, maxed alone against none |
 | `npm run find` | What loot find is worth, read straight off the loot tables |
+| `npm run fuzz` | The bot plays delves with random inputs mixed in (`Policy.chaos`) while `scripts/invariants.ts` is checked every tick: health and stamina in bounds, no one inside a wall, no two monsters on a tile, no item in two places. Writes `fuzz-report.txt`; a short version runs in `npm test` |
 
 Diff the reports before and after a balance change. Some tests pin generation with golden hashes (`src/__tests__/fixtures/`). If you change a drop table or floor generation on purpose, update the fixture in the same commit and say why.
 
