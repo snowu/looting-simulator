@@ -1112,8 +1112,13 @@ body.touch .modal .btn.small { padding: 4px 12px; font-size: 19px; }
 .title-screen .slot-diff .row { flex-wrap: wrap; }
 .title-controls { margin-top: 8px; padding-top: 6px; border-top: 2px solid #34313a; font: 20px/1.2 var(--font-body); color: #b7aa96; }
 .title-controls summary { cursor: pointer; color: #d5c6ac; }
-.title-screen .title-controls .help { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 10px 20px; margin: 12px 0; font-size: 18px; }
-.title-controls kbd { font-size: 18px; }
+/* Key and label as one cell, cells on a grid (#110). The shared .help rule pads
+   every key to 118px; in a wrapping row that left each label nearer the next
+   key than its own. Here a key is a small cap sitting right beside its label,
+   and the gap between pairs is clearly wider than the gap inside one. */
+.title-screen .title-controls .help { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px 28px; margin: 12px 0; font-size: 18px; }
+.title-controls .help div { display: flex; align-items: center; gap: 10px; }
+.title-controls kbd { font-size: 18px; min-width: 0; padding: 1px 6px; border: 1px solid #4a4436; border-bottom-width: 2px; border-radius: 3px; background: #1b1820; white-space: nowrap; }
 .title-footer { display: flex; flex-wrap: wrap; gap: 20px; align-items: center; color: #b7aa96; font: 18px/1.2 var(--font-body); text-shadow: 2px 2px #07060a; }
 .title-scene-label { color: #d0b879; }
 .title-build { margin-left: auto; font-size: 16px; color: #a79b87; }
