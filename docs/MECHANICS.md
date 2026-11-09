@@ -627,7 +627,7 @@ Some monsters are not standing where you can see them. A **lurker** (`EnemyState
 | The tell | **0.6s** (`DROP_SECONDS`) of falling, with dust and a skitter: "Dust sifts down from above — something skitters!" | **0.4s** of rumble: "The ground heaves!" |
 | Strike it first | A spotted dropper on the tile you face can be hit from below | Any mound on the tile you face can be hit |
 
-**Struck where it hides**, a lurker comes out at once, reeling for **1.5s** (`KNOCKOUT_STUN`) and open to double damage like a parried monster. The one-button tap swings at a visible lurker in front of you.
+**Struck where it hides**, a lurker comes out at once, reeling for **1.5s** (`KNOCKOUT_STUN`) and open to double damage like a parried monster. The one-button tap swings at a visible lurker in front of you. A monster standing on that tile takes the blow instead: you hit what is in front of you, and the lurker above or below stays put until it comes out on its own, onto a free tile.
 
 **The Delver Mole dives.** Once per life, below **35%** health, it goes under instead of fleeing. It travels as a mound one tile per **0.45s** (slower than you walk), heading greedily for the tile at your back, for **2–4s** or until it is beside you. Then it surfaces, preferring your back, under the same no-damage rule.
 
