@@ -2,8 +2,7 @@
 
 A handoff for continuing the sprite rework in any session, local or cloud. It
 covers where every sprite stands, why, what to do next, how the work is done,
-and what the owner likes and rejects. The detailed per-round tables live in
-[`art-review.md`](art-review.md). This file is the one to read first.
+and what the owner likes and rejects. The old per-round review tables were removed (see git history); this file is the one to read.
 
 Last updated 2026-09-25, after four rounds.
 
@@ -80,7 +79,7 @@ Everything not listed here scored 7 or better after a rework.
 | 6 | Big Toe (round 3) | Much better, but still a joke weapon drawn straight. A second pass could add a hair or two and a better stump. |
 | 7 | Skeleton family, goblins, archers, flame wraith, chests, most walls, wood and iron doors, viewmodels, gear, material and consumable icons | Good. Leave them unless something new sets a higher bar. |
 | 7 | Round-1/2 redraws: herd, spiders, shrines, traps, ghouls, bats, props | Good. The owner liked the ghouls and the moss most. |
-| 7 | Round-4 redraws: Bog Seraph, Delver mole, Spore hunter, your Shade, Ossuary floor variants, material icons (ore, nugget, ingot, plank, cloth, bone, scale), consumable icons (one per potion and scroll) | Checked in the 3D lab from three tiles away (`docs/previews/art-rework-4/5-creatures-3d.png`, `6-floors-3d.png`). The mole was only seen in its block pose there. |
+| 7 | Round-4 redraws: Bog Seraph, Delver mole, Spore hunter, your Shade, Ossuary floor variants, material icons (ore, nugget, ingot, plank, cloth, bone, scale), consumable icons (one per potion and scroll) | Checked in the 3D lab from three tiles away. The mole was only seen in its block pose there. |
 | 8 | Emberworks surfaces, wisps, the Ashen King | The reference set. |
 
 ## Open proposals
@@ -93,8 +92,6 @@ None. Round 4's two proposals were decided and shipped:
 - **Mine ceiling: M1 timber sets.** See "Deliberate choices". M2 lagging and
   M3 ore seam were dropped: the ceiling is seen at such a glancing angle
   that flat detail up there barely registers.
-
-The proposal sheets stay in `docs/previews/art-rework-4/` for reference.
 
 ## Suggested next targets
 
@@ -151,7 +148,7 @@ lines, ellipses with a shading callback, an auto-outline pass, tileable
   one requiring each attack frame to change at least 8% of pixels (the tell
   has to read) and one keeping the mine ceiling beam-free.
 - Then run `npm run build` and the full `npx vitest run`.
-- Patch notes: add a `patch_notes.md` entry on top, and a `src/data/patches.ts`
+- Patch notes: add a `src/data/patches.ts`
   entry with the next `n` in a follow-up commit citing the art commits. Add a
   skip reason in `scripts/check-patches.mjs` for the docs/sheets commit.
   `npm run patches` must exit 0; its 8 old warnings are pre-existing.
