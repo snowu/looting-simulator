@@ -61,6 +61,47 @@ function fleeRate(dt: number, trials: number, window = 0.5): number {
   return fled / trials;
 }
 
+/** How many draws took `rng` from state `from` to state `to`. */
+function drawsBetween(from: number, to: number): number {
+  const r = createRng(from);
+  for (let n = 0; n <= 16; n++) {
+    if (r.state === to) return n;
+    r.next();
+  }
+  return -1;
+}
+
+describe('the gameplay stream', () => {
+  /** Strike a dummy of `id` 60 times; the draws each blow took from the gameplay stream, and what it said. */
+  function strike(id: string): { draws: Set<number>; said: string[] } {
+    const w = arena(3);
+    const t = w.frontTile(1);
+    const e = createEnemy(enemyDef(id), t.x, t.y, turnAround(w.player.facing), id, 1);
+    e.hp = e.maxHp = 1_000_000;
+    w.floor.enemies.push(e);
+    const draws = new Set<number>();
+    const said: string[] = [];
+    for (let i = 0; i < 60; i++) {
+      const before = w.rng.state;
+      (w as unknown as { hitEnemy(e: unknown): void }).hitEnemy(e);
+      draws.add(drawsBetween(before, w.rng.state));
+      for (const ev of w.drainEvents()) if (ev.type === 'msg') said.push(ev.text);
+    }
+    return { draws, said };
+  }
+
+  it('a cosmetic message never draws from the stream that decides shrines, coffers and moves', () => {
+    // The starting short sword is slash: Drowned Bones shrug it off, Your Shade takes it plainly.
+    const resisted = strike('drowned_bones');
+    const plain = strike('shade');
+    expect(resisted.said.some((t) => t.includes('shrugs off'))).toBe(true);
+    expect(plain.said.some((t) => t.includes('shrugs off'))).toBe(false);
+    // A blow costs the stream its damage and crit rolls, and nothing for the flavour.
+    expect([...resisted.draws]).toEqual([...plain.draws]);
+    expect(plain.draws.size).toBe(1);
+  });
+});
+
 describe('frame-rate independence', () => {
   it('a wounded skittish monster beside you flees at the same rate at 30 and 144 fps', () => {
     // Tuned at 60 fps: 2% a tick there is 1 - 0.98^30, about 45%, over half a second.

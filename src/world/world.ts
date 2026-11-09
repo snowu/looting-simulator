@@ -3486,8 +3486,8 @@ export class World {
     const color = exposed ? '#ffe8a0' : hit.crit ? '#ffe040' : hit.effective === 'weak' ? '#ff9a40' : hit.effective === 'resist' ? '#9a9aa8' : '#ffffff';
     this.emit({ type: 'float', x: e.x, y: e.y, text: hit.crit || exposed ? `${hit.damage}!` : `${hit.damage}`, color });
     this.sfx(hit.crit ? 'crit' : 'hit', e.x, e.y);
-    if (hit.effective === 'resist' && this.rng.chance(0.3)) this.msg(`The ${def.name} shrugs off your ${this.derived.damageType} blows.`, '#9a9aa8');
-    if (hit.effective === 'weak' && this.rng.chance(0.3)) this.msg(`The ${def.name} reels!`, '#ff9a40');
+    if (hit.effective === 'resist' && this.flavorRng.chance(0.3)) this.msg(`The ${def.name} shrugs off your ${this.derived.damageType} blows.`, '#9a9aa8');
+    if (hit.effective === 'weak' && this.flavorRng.chance(0.3)) this.msg(`The ${def.name} reels!`, '#ff9a40');
     if (this.derived.stats.leech > 0) {
       this.heal(Math.max(1, Math.round((hit.damage * this.derived.stats.leech) / 100)), 'leech');
     }
