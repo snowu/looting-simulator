@@ -17,6 +17,23 @@ const SRC = new URL('../src/data/patches.ts', import.meta.url);
 
 // Commits that must never become patch notes. Short hash -> reason.
 const SKIP = {
+  'bb08da8': 'refactor only: world.ts split tidy-up and noUnusedLocals (#127); no behaviour change',
+  '3aee387': 'refactor only: world.ts split (#127); playtest, bench and table reports byte-identical',
+  'd3b8e76': 'refactor only: world.ts split (#127); playtest, bench and table reports byte-identical',
+  '20505cc': 'refactor only: world.ts split (#127); playtest, bench and table reports byte-identical',
+  '1d35891': 'refactor only: world.ts split (#127); playtest, bench and table reports byte-identical',
+  '4406873': 'refactor only: world.ts split (#127); playtest, bench and table reports byte-identical',
+  '98e5d7a': 'refactor only: world.ts split (#127); playtest, bench and table reports byte-identical',
+  '36d421c': 'refactor only: world.ts split (#127); playtest, bench and table reports byte-identical',
+  'a953e8e': 'refactor only: world.ts split (#127); playtest, bench and table reports byte-identical',
+  '93dee36': 'refactor only: local renames ahead of the world.ts split (#127)',
+  'd9bfb4d': 'refactor only: world.ts split (#127); playtest, bench and table reports byte-identical',
+  '34d8a2b': 'refactor only: world.ts split (#127); playtest, bench and table reports byte-identical',
+  'fba32ef': 'refactor only: world.ts split (#127); playtest, bench and table reports byte-identical',
+  'b5b2676': 'refactor only: world.ts split (#127); playtest, bench and table reports byte-identical',
+  'b345dc1': 'refactor only: world.ts split (#127); playtest, bench and table reports byte-identical',
+  '4b767bb': 'refactor only: world.ts split (#127); playtest, bench and table reports byte-identical',
+  'c756b9f': 'tests only: shared harness and generation-free arenas (#125)',
   'f896de2': 'test speed only: the frame-rate flee test reuses one floor (#133 CI timeout)',
   '1352d12': 'MECHANICS only: records Patch 122 (#120, #122)',
   'f015c35': 'CI workflows only: tests and the patch check now gate PRs and deploy (#119)',
