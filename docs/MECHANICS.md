@@ -1054,7 +1054,7 @@ Three bases are thrown rather than swung: **Throwing Knives**, **Throwing Axes**
 Two consequences follow from that and are worth stating plainly:
 
 - **The belt pays no stats.** Its Attack is what a *throw* is worth and is read separately; it never reaches your Attack, Defense or anything else. If it did, it would be a ninth gear slot and every build would wear three knives it never threw.
-- **A throw is scored on the shafts alone.** Your sword never makes your javelins hit harder and good javelins never make your sword hit harder. Everything else about you — Crit, Life Leech, elemental damage — still rides along, because those are things about *you*. One helper, `thrownView`, does this substitution for both the game and the balance harness, so the throw that is measured is the throw that happens.
+- **A throw is scored on the shafts alone.** Your sword never makes your javelins hit harder and good javelins never make your sword hit harder. Everything else about you — Crit, Life Leech, elemental damage — still rides along, because those are things about *you*. The belt's own elemental damage and Life Leech (its affixes, and its metal's: silver's Holy, moonsilver's Frost) are added on top, for its throws only — a Blazing belt sets javelins alight and leaves your sword as it was. One helper, `thrownView`, does this substitution for both the game and the balance harness, so the throw that is measured is the throw that happens.
 - **A throw has no animation of its own.** The shaft leaves your body and is a projectile from that moment; your hands hold their rest pose. A throw runs through the same wind-up and recovery machinery a swing does, so once thrown weapons stopped having a viewmodel there was a melee weapon left on screen for those states to animate — hurling a javelin swung your greatsword. `anim.attackThrow` holds for the whole of both states and the renderer sits the pose out.
 - **You throw with [T], never with the attack button.** Attack used to throw by itself whenever nothing was adjacent, which meant the weapon decided for you: you could not choose to close and stab, could not swing at a barrel, and stepping back from a fight spent a javelin you were saving. A throw is a decision, so it has a key. Point blank is allowed — you pressed the key, you meant it.
 
@@ -1309,28 +1309,30 @@ Stored as `state.bestiary`, added additively at save revision 12; an older save 
 
 | Affix | Kind | Stat | Roll | Per level | Slots | From ilvl |
 |---|---|---|---|---|---|---|
-| Sharp | prefix | Attack | 1–3 | +0.5 | weapon | 1 |
-| Brutal | prefix | Attack | 4–7 | +0.9 | weapon | 4 |
+| Sharp | prefix | Attack | 1–3 | +0.5 | weapon, belt | 1 |
+| Brutal | prefix | Attack | 4–7 | +0.9 | weapon, belt | 4 |
 | Sturdy | prefix | Defense | 1–2 | +0.4 | armour | 1 |
 | Bastioned | prefix | Defense | 3–5 | +0.7 | armour | 4 |
 | Vital | prefix | Health | 4–8 | +1.5 | all | 1 |
 | Tireless | prefix | Stamina | 6–12 | +1.5 | all | 1 |
 | Lucky | prefix | Crit | 2–4 | +0.4 | all | 1 |
-| Blazing | prefix | Fire | 2–4 | +0.8 | weapon, jewellery | 3 |
-| Rimed | prefix | Frost | 2–4 | +0.8 | weapon, jewellery | 3 |
-| Umbral | prefix | Shadow | 2–4 | +0.8 | weapon, jewellery | 5 |
-| Blessed | prefix | Holy | 2–4 | +0.8 | weapon, jewellery | 2 |
+| Blazing | prefix | Fire | 2–4 | +0.8 | weapon, belt, jewellery | 3 |
+| Rimed | prefix | Frost | 2–4 | +0.8 | weapon, belt, jewellery | 3 |
+| Umbral | prefix | Shadow | 2–4 | +0.8 | weapon, belt, jewellery | 5 |
+| Blessed | prefix | Holy | 2–4 | +0.8 | weapon, belt, jewellery | 2 |
 | Graven | prefix | Spell Focus | 3–6 | +0.5 | head, ring, amulet | 4 |
 | of the Bear | suffix | Health | 6–12 | +2 | all | 2 |
 | of the Fox | suffix | Crit | 2–5 | +0.4 | all | 1 |
 | of Swiftness | suffix | Speed | 4–8 | +0.6 | weapon, hands, jewellery | 1 |
-| of the Leech | suffix | Leech | 2–4 | +0.3 | weapon, jewellery | 3 |
+| of the Leech | suffix | Leech | 2–4 | +0.3 | weapon, belt, jewellery | 3 |
 | of Plunder | suffix | Find | 6–12 | +1.2 | all | 1 |
 | of the Wall | suffix | Block | 5–10 | +0.6 | offhand | 1 |
 | of Endurance | suffix | Stamina | 8–14 | +1.5 | all | 2 |
 | of the Vigil | suffix | Spell Focus | 4–8 | +0.6 | head, ring, amulet | 3 |
 
 At most 2 prefixes and 2 suffixes, never two affixes on the same stat.
+
+**Thrown belts** roll only what a throw can use: Attack, an element and Life Leech. Until 2026-11-09 no affix named the belt slot, so every belt rolled none and an Epic javelin had a green one's stats. Belt affixes are drawn from a fork of the loot stream (`rng.fork('belt-affixes')`), so no other roll moved; save revision 32 fills in the affixes on belts found before then, seeded by each item's uid.
 
 ### Consumables
 
@@ -1408,12 +1410,15 @@ volatility = 0.06 + 0.015 × rarity
 clamped to [0.25 × value, 4 × value]
 ```
 
+While an event is pulling a price towards its level, the day's noise can slow it but never turn it round: under a ×1.5 shortage a price below `fair` does not fall. Once it reaches the event's level it wanders as usual.
+
 - **Spread:** you buy at `price × 1.15`, sell at `price × 0.8`. Silver Tongue moves both by 4% per level.
 - **Slippage:** every unit you sell drops the price by `1.2% × (1 + rarity)`, and buying pushes it up the same way. Dumping 20 silver visibly tanks silver.
-- **Stock:** the merchant holds 40 common / 14 uncommon / 5 rare / 2 epic units once that material's tier and rarity have been reached in the delve, restocking 30–70% per day. Legendary materials are never stocked.
+- **Stock:** the merchant holds 40 common / 14 uncommon / 5 rare / 2 epic units once that material's tier and rarity have been reached in the delve, restocking 30–70% per day. Legendary materials are never stocked. An event scales that target by `1 / mult²`: an Iron Shortage (×1.5) leaves 18 of 40, and the shelf is cut down to it the day the shortage begins; a Silver Glut (×0.55) lets the shelf grow to 46 of 14.
 - **Gear prices** use a separate daily sentiment per category (weapons, armour, jewellery). You sell gear for `value × sentiment × 0.5` (0.6 for other kinds) and buy at `value × sentiment × 1.35`.
 - **Wares:** 6 rolled items (60% Common, 30% Uncommon, 9% Rare, 1% Epic before depth gates) plus 2 depth-appropriate blueprints, refreshed daily.
 - **History:** 30 days, shown as sparklines with Market Insider L1; L2 reveals tomorrow's event.
+- **Trend arrow:** the change over the last 5 days, or, while an event moves that commodity, over the days since the newest such event began (`commodityTrend`), so the arrow beside an Iron Shortage shows what the shortage is doing rather than what iron did the week before.
 
 ### Events
 

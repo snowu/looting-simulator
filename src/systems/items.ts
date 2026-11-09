@@ -657,7 +657,11 @@ export function rollEquipment(rng: Rng, depth: number, find: number, opts: RollE
     materialId: mat.id,
     rarity,
     ilvl,
-    affixes: rollAffixes(rng, base.slot, ilvl, order),
+    // A belt's affixes come off a fork. Belts rolled none until they had an
+    // affix pool of their own, so drawing them from `rng` would shift every
+    // roll after a belt and reshuffle floors that already exist. A fork leaves
+    // the parent stream exactly where it was.
+    affixes: rollAffixes(base.slot === 'thrown' ? rng.fork('belt-affixes') : rng, base.slot, ilvl, order),
     identified: order < autoId,
     lootDepth: depth,
     autoIdentified: order >= RARITY_ORDER[Rarity.Uncommon] && order < autoId,

@@ -61,6 +61,8 @@ export interface CommodityState {
 export interface ActiveEvent {
   id: string;
   daysLeft: number;
+  /** Market day it began. Absent on events started before saves kept it. */
+  started?: number;
 }
 
 export interface MarketState {
@@ -93,6 +95,17 @@ export function materialStockTarget(mat: (typeof MATERIALS)[number], day = 1): n
     return mat.tier <= 2 ? 40 : 14;
   }
   return STOCK_TARGET[mat.rarity];
+}
+
+/**
+ * What the merchant keeps of a material while an event moves it. A shortage
+ * (×1.5) leaves under half the usual shelf, a glut (×0.55) nearly doubles
+ * it: stock scales with the inverse square of the price multiplier, so a
+ * scarce thing is visibly scarce and not just dearer.
+ */
+export function eventStockTarget(target: number, mult: number): number {
+  if (mult === 1 || target <= 0) return target;
+  return Math.max(mult > 1 ? 0 : 1, Math.round(target / (mult * mult)));
 }
 
 function structuralShipmentInterval(mat: (typeof MATERIALS)[number]): number {
@@ -154,7 +167,7 @@ export function advanceDay(m: MarketState, rng: Rng, bestDepth = 1, ranks: Recip
   m.events = m.events.filter((ev) => ev.daysLeft > 0);
   if (m.upcoming) {
     const def = marketEvent(m.upcoming);
-    m.events.push({ id: def.id, daysLeft: rng.int(def.days[0], def.days[1]) });
+    m.events.push({ id: def.id, daysLeft: rng.int(def.days[0], def.days[1]), started: m.day });
     m.news.push(`${def.name}: ${def.description}`);
     m.upcoming = null;
   }
@@ -166,14 +179,24 @@ export function advanceDay(m: MarketState, rng: Rng, bestDepth = 1, ranks: Recip
   for (const mat of MATERIALS) {
     const c = m.commodities[mat.id];
     c.supply *= 0.55;
-    const fair = (mat.value * eventMultiplier(m, { materialId: mat.id })) / (1 + c.supply * 0.05);
+    const ev = eventMultiplier(m, { materialId: mat.id });
+    const fair = (mat.value * ev) / (1 + c.supply * 0.05);
     const vol = 0.06 + RARITY_ORDER[mat.rarity] * 0.015;
     let next = c.price + 0.38 * (fair - c.price) + c.price * vol * gauss(rng);
+    // While an event is still pulling a price towards its level, the day's
+    // noise may slow it but never turn it round: a town crier announcing an
+    // Iron Shortage over a falling iron price reads as a bug, because it is
+    // one. Once the price reaches the event's level it wanders as usual.
+    if (ev > 1 && fair > c.price) next = Math.max(next, c.price);
+    if (ev < 1 && fair < c.price) next = Math.min(next, c.price);
     next = clamp(next, mat.value * 0.25, mat.value * 4);
     c.price = Math.max(1, Math.round(next));
     c.history.push(c.price);
     if (c.history.length > HISTORY_DAYS) c.history.shift();
-    const target = materialAvailableAtDepth(mat, bestDepth) ? materialStockTarget(mat, m.day) : 0;
+    const target = materialAvailableAtDepth(mat, bestDepth) ? eventStockTarget(materialStockTarget(mat, m.day), ev) : 0;
+    // A shortage empties the shelves: what the merchant holds beyond the
+    // scarce target is sold on to the town that is crying out for it.
+    if (ev > 1 && c.stock > target) c.stock = target;
     const interval = structuralShipmentInterval(mat);
     if (c.stock < target && m.day % interval === 0) {
       const shipment = interval > 1 ? 1 : Math.ceil(target * rng.float(0.3, 0.7));
@@ -306,6 +329,26 @@ export function itemBuyPrice(m: MarketState, item: Item, haggle: number): number
 export const SHOP_CONSUMABLES = CONSUMABLES.filter((c) =>
   c.id.startsWith('scroll_') && !tonicUnique(c.id),
 ).map((c) => c.id);
+
+/**
+ * A commodity's trend as the market shows it. Normally the last five days; but
+ * while an event moves the commodity, only the days since the newest such
+ * event began, so the arrow next to an Iron Shortage tells you what the
+ * shortage is doing and not what iron did the week before it.
+ */
+export function commodityTrend(m: MarketState, id: string, days = 5): number {
+  const cat = material(id).category;
+  let since = 0;
+  for (const ev of m.events) {
+    if (ev.started === undefined) continue;
+    const hits = marketEvent(ev.id).effects.some((eff) => eff.mult !== 1 && (eff.target === `mat:${id}` || eff.target === `cat:${cat}`));
+    if (hits) since = Math.max(since, ev.started);
+  }
+  // `started` is the first day priced under the event; the day before it is
+  // the price the event found.
+  const window = since ? clamp(m.day - since + 1, 1, days) : days;
+  return trendPercent(m.commodities[id].history, window);
+}
 
 export function trendPercent(history: number[], days = 5): number {
   if (history.length < 2) return 0;

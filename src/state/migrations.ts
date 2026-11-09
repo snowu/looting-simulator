@@ -6,7 +6,9 @@ import { newId } from '../core/id';
 import { STARTER_RECIPES } from '../data/recipes';
 import { MATERIALS } from '../data/materials';
 import { itemBase } from '../data/items';
-import { itemValue, makeMaterial } from '../systems/items';
+import { itemValue, makeMaterial, rollAffixes } from '../systems/items';
+import { createRng, hashString } from '../core/rng';
+import { Item, RARITY_ORDER } from '../types';
 import { draught } from '../systems/infusion';
 import { flaskMax } from '../systems/healing';
 import { findSigil } from '../data/spells';
@@ -27,7 +29,7 @@ import { STARTER_CONDUIT_SPELLS } from '../data/conduit-spells';
  */
 
 /** Bump this (and push a migration) whenever a field is added to the save. */
-export const SAVE_REVISION = 31;
+export const SAVE_REVISION = 32;
 
 type AnyState = GameState & Record<string, unknown>;
 
@@ -274,7 +276,48 @@ const MIGRATIONS: ((s: AnyState) => void)[] = [
   (s) => {
     s.ritesKnown ??= [];
   },
+  // 31 → 32: thrown belts roll affixes. Until now no affix named the slot, so
+  // every belt ever found has none, whatever its rarity. Each one that is
+  // short gets the affixes its rarity promised, seeded from its uid so the
+  // same save always migrates to the same belt.
+  (s) => {
+    visitItems(s, backfillBeltAffixes);
+  },
 ];
+
+/**
+ * Call `fn` on every equipment item anywhere in the save: worn, stashed,
+ * packed, lying on a floor, sealed in a chest, on the merchant's table or in a
+ * grave. Walked generically rather than container by container, so a place
+ * items live that this list forgot cannot be missed. Saves are plain JSON, so
+ * there are no cycles to guard against.
+ */
+function visitItems(node: unknown, fn: (item: Item) => void): void {
+  if (Array.isArray(node)) {
+    for (const v of node) visitItems(v, fn);
+    return;
+  }
+  if (!node || typeof node !== 'object') return;
+  const o = node as Record<string, unknown>;
+  if (o.kind === 'equipment' && typeof o.ref === 'string' && typeof o.uid === 'string') fn(o as unknown as Item);
+  for (const v of Object.values(o)) visitItems(v, fn);
+}
+
+function backfillBeltAffixes(item: Item): void {
+  let base;
+  try {
+    base = itemBase(item.ref);
+  } catch {
+    return;
+  }
+  if (base.slot !== 'thrown' || item.uniqueId) return;
+  const want = item.rarity ? RARITY_ORDER[item.rarity] ?? 0 : 0;
+  const have = item.affixes ?? [];
+  if (have.length >= want) return;
+  const rng = createRng(hashString(`belt-affixes:${item.uid}`));
+  const ilvl = Number.isFinite(item.ilvl) ? item.ilvl! : 4;
+  item.affixes = [...have, ...rollAffixes(rng, 'thrown', ilvl, want - have.length, have.map((a) => a.id))];
+}
 
 /**
  * Give every material in the data a commodity row. Idempotent by design: a row

@@ -95,8 +95,10 @@ describe('Hard generation, loot and stats have explicit balance baselines', () =
     // And once more for the Stave in the weapon pool (2026-10-12);
     // conduitLootHash stays as the pre-Stave record. And for Dr. Mantis
     // Toboggan's Rod joining the relic pool (2026-10-12); staveLootHash stays
-    // as the pre-relic record.
-    expect(hash(out)).toBe(golden.relicRodLootHash);
+    // as the pre-relic record. And once more when thrown belts got an affix
+    // pool (2026-11-09): they roll on a fork, so blanking belt affixes gives
+    // back relicRodLootHash exactly; it stays as the pre-belt-affix record.
+    expect(hash(out)).toBe(golden.beltAffixLootHash);
   }, 60_000);
 
   it('spawns every monster with the same health at every depth', () => {
