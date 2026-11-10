@@ -1020,7 +1020,7 @@ Bases are arranged into **gear lines** (`GEAR_LINES`), each running from the cru
 | Greatsword | weapon **2H** | 36 atk, −8 speed | +8 atk | 0.40 / 0.64 / 29 / 1 **cleave** | 172 | 5 |
 | Big Toe | weapon (bone/hide) | 17 atk, −4 speed | +4 atk | 0.30 / 0.58 / 19 / 1 **cleave 40%, stagger 0.35s, 2 chips** | 44 | 2 |
 | Horn | weapon (bone) — *not in the drop pool* | 20 atk | +4.5 atk | 0.26 / 0.54 / 18 / **2** | 60 | — |
-| Cane | weapon (wood) — *not in the drop pool* | 8 atk, +4 speed | +2 atk | 0.16 / 0.32 / 9 / 1 | 40 | — |
+| Cane | weapon (wood) — *not in the drop pool* | 8 atk, +4 speed | +3.5 atk | 0.16 / 0.32 / 9 / 1 | 40 | — |
 | Throwing Knives | **thrown** | 5 atk | +1.4 atk | — (thrown only) | 26 | 2 |
 | Throwing Axes | **thrown** | 12 atk | +2.8 atk | — (thrown only) | 58 | 3 |
 | Javelins | **thrown** | 17 atk | +2.9 atk | — (thrown only) | 88 | 4 |
@@ -1126,11 +1126,11 @@ Two consequences follow from that and are worth stating plainly:
 
 | Base | Stock (tier 1) | Per tier | Windup / recovery / stamina | Speed | Range | Power | DPS | A full belt is worth |
 |---|---|---|---|---|---|---|---|---|
-| Throwing Knives | 6 | +0.5 | 0.16 / 0.15 / 9 | 9 tiles/s | 4 | ×1.8 | 39.8 | 86 damage |
-| Throwing Axes | 4 | +0.5 | 0.24 / 0.35 / 15 | 7 tiles/s | 5 | ×1.42 | 40.2 | 118 damage |
-| Javelins | 2 | +0.5 | 0.32 / 0.44 / 19 | 8 tiles/s | 7 | ×1.54 | 39.9 | 91 damage |
+| Throwing Knives | 6 | +0.5 | 0.16 / 0.15 / 9 | 9 tiles/s | 4 | ×1.53 | 33.8 | 73 damage |
+| Throwing Axes | 4 | +0.5 | 0.24 / 0.35 / 15 | 7 tiles/s | 5 | ×1.21 | 34.2 | 101 damage |
+| Javelins | 2 | +0.5 | 0.32 / 0.44 / 19 | 8 tiles/s | 7 | ×1.31 | 34.0 | 77 damage |
 
-DPS and belt value are measured at tier 3, averaged over the whole bestiary, by the weapon roster in `npm run tables`. A javelin thrown is about what a Long Sword swung is, and every belt throws at a Long Sword's rate of damage (40) — but a full belt is three to seven shafts, and then it is nothing until you call them back.
+DPS and belt value are measured at tier 3, averaged over the whole bestiary, by the weapon roster in `npm run tables`. Every belt throws at about **85%** of a Long Sword's rate of damage (34 against 40): the range is what you pay for, from four to seven tiles away. A full belt is three to seven shafts, and then it is nothing until you call them back. Belts used to match the Long Sword exactly, which made range free (#131).
 
 **Recovery is the knob that matters.** The belt's value is fixed by its stock, so the recovery decides how much of it lands while one monster walks in from the belt's range (they close at 0.4–0.7s a tile). The recoveries were cut to 0.10 / 0.14 / 0.18s when throws lost their viewmodel, which put every belt at 47–62 DPS, above every weapon in the game, and let a belt empty itself into a single approaching monster before it arrived. They are 0.15 / 0.35 / 0.44s now: still quicker than the 0.34 / 0.46 / 0.58s they started at, and level with the Long Sword. `npm run playtest:belts` plays the careful bot in the depth-4 kit with and without each belt, throwing at anything coming down a line (`Policy.throw`); on 2026-10-17 it died 42% of the time with no belt against 46–58% with one, both before and after the retune — within the ±10% this sample can resolve. The bot never backs away while it throws, so a person gets more of the belt than it does.
 
@@ -1286,7 +1286,7 @@ A **conduit** is an offhand that casts instead of guarding: the battlemage's tra
 
 | Base | Material | Power (tier 1 / per tier) | Block | Charges | One back every | Spells loaded | From depth |
 |---|---|---|---|---|---|---|---|
-| Wand | wood | 10 / +3 | — (parry only) | 3 | 12s | 2 | 1 (starter recipe) |
+| Wand | wood | ×1.2 of its Attack: 10 / +3 → 12 / +3.6 | — (parry only) | 3 | 12s | 2 | 1 (starter recipe) |
 | Rod | metal | 16 / +3.5, +2 Defense (+1/tier) | — (parry only) | 4 | 10s | 3 | 3 (blueprint, 160g) |
 | Stave (2H weapon) | wood | 80% of its Attack: 26 / +6 Attack → 21 / +4.8 Power | 20% (two-hander) | 5 | 8s | 4 | 4 (blueprint, 220g) |
 
@@ -1301,7 +1301,7 @@ The Rod is the Wand's step up its gear line (`['wand', 'rod']`) and is better on
 | Spell | Element | Power × | Charges | Stamina | Wind-up / recovery | Speed / range | Rider |
 |---|---|---|---|---|---|---|---|
 | Ember Bolt | fire | 1.0 | 1 | 18 | 0.28 / 0.38 | 9 / 5 | **Burn**: 45% of the hit again, spread over 3s (stacks onto a burn already running) |
-| Rime Lance | frost | 0.6 | 1 | 16 | 0.26 / 0.36 | 11 / 5 | **Chill** 4s: every wind-up runs ×1.5. A wind-up begun chilled finishes chilled. The Ashen King does not slow |
+| Rime Lance | frost | 0.8 | 1 | 16 | 0.26 / 0.36 | 11 / 5 | **Chill** 4s: every wind-up runs ×1.5. A wind-up begun chilled finishes chilled. The Ashen King does not slow |
 | Smite | holy | 0.9 | 1 | 18 | 0.32 / 0.38 | hitscan / 5 | A streak of light down onto the target. Not turned by a raised shield (it comes from above). ×2 on the undead through their own holy resistance (×1.5–2), not a second rule. What it kills is **sanctified**: no Gravecaller or Ossuary stir raises it |
 | Hex | shadow | — | **2** | 22 | 0.38 / 0.44 | hitscan / 5 | No damage. **A penguin for 15s** (`HEX_SECONDS`): see below |
 
@@ -1531,7 +1531,7 @@ One or two run at a time, announced the day before as a rumour.
 | Pack Mule | +2 backpack slots | 3, 6, 11 |
 | Toughness | +12 max health | 3, 6, 10, 15, 22 |
 | Second Wind | +15 max stamina | 3, 7, 12 |
-| Soul Pouch | Keep 3 backpack slots and 20% of carried gold on death | 5, 10, 16 |
+| Soul Pouch | Keep your 3 most valuable backpack slots and 20% of carried gold on death | 5, 10, 16 |
 | Silver Tongue | Merchants pay 4% more, charge 4% less | 4, 8, 13, 20 |
 | Market Insider | L1 price history; L2 tomorrow's event | 5, 12 |
 | Master Smith | +6% crafted quality; L3 an extra affix | 4, 9, 15 |
@@ -1570,7 +1570,7 @@ Five upgrades were **not** repriced, because the harness cannot see them and a n
 - Anything packed that no longer fits when you descend goes back to the stash rather than vanishing.
 - **Stash:** unlimited, in town, and materials merge into single stacks.
 - **Extracting** banks the whole backpack and the gold you carried.
-- **Dying** loses the backpack and your carried gold. Soul Pouch saves the first `3 × level` slots and `20% × level` of the gold. **Equipped gear is always kept.** On **Normal** a death keeps the whole backpack and costs only **10%** of the carried gold, and that tenth is what the Shade holds (see [Difficulty](#14a-difficulty)).
+- **Dying** loses the backpack and your carried gold. Soul Pouch saves your `3 × level` **most valuable** backpack stacks (value × quantity; ties go to whichever you picked up first) and `20% × level` of the gold. **Equipped gear is always kept.** On **Normal** a death keeps the whole backpack and costs only **10%** of the carried gold, and that tenth is what the Shade holds (see [Difficulty](#14a-difficulty)).
 - Coins and keys are picked up automatically; everything else goes through the loot window and needs space.
 
 ---

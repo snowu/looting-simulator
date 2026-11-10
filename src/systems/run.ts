@@ -7,7 +7,7 @@ import { roadsForDay } from '../data/routes';
 import { beginOaths, settleOaths } from './oaths';
 import { createRng, randomSeed } from '../core/rng';
 import { EQUIP_SLOTS, Item } from '../types';
-import { repairItem } from './items';
+import { itemValue, repairItem } from './items';
 import { GameState, RunState, RunSummary } from '../state/game-state';
 import { Container, addItem, createContainer } from '../state/inventory';
 import { generateFloor, stairsFront } from './dungeon';
@@ -115,6 +115,16 @@ export function startRun(state: GameState, seed = randomSeed()): RunState {
   return run;
 }
 
+/** The backpack stacks a Soul Pouch of `slots` slots saves: the most valuable, ties in pickup order. */
+export function soulPouchKeeps(items: readonly Item[], slots: number): Item[] {
+  if (slots <= 0) return [];
+  return items
+    .map((it, i) => ({ it, i, value: itemValue(it) * it.qty }))
+    .sort((a, b) => b.value - a.value || a.i - b.i)
+    .slice(0, slots)
+    .map((x) => x.it);
+}
+
 /**
  * Close out the run: bank or lose the backpack, award renown, advance the day
  * (market moves, contracts age). Returns the summary for the results screen.
@@ -135,10 +145,13 @@ export function endRun(state: GameState, outcome: 'dead' | 'extracted'): RunSumm
     gold = run.gold - Math.ceil(run.gold * softDeath.goldLost);
     state.lifetime.deaths += 1;
   } else {
-    // Soul Pouch: the first few slots and some coin survive.
+    // Soul Pouch: the most valuable few slots and some coin survive. It used
+    // to keep the first slots in pickup order, which saved the shallow
+    // rubbish you picked up first and lost the finds from the bottom (#132).
+    // Ties keep pickup order, so it is still predictable.
     const pouch = metaLevel(state.meta, 'soul_pouch');
-    const keepSlots = 3 * pouch;
-    run.backpack.items.forEach((it, i) => (i < keepSlots ? kept : lost).push(it));
+    const keep = new Set(soulPouchKeeps(run.backpack.items, 3 * pouch));
+    for (const it of run.backpack.items) (keep.has(it) ? kept : lost).push(it);
     gold = Math.floor(gold * 0.2 * pouch);
     state.lifetime.deaths += 1;
   }

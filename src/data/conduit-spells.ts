@@ -70,7 +70,7 @@ export const CONDUIT_SPELLS: readonly ConduitSpellDef[] = [
   },
   {
     id: 'rime_lance', name: 'Rime Lance', element: 'frost', sprite: 'proj_icicle', icon: 'ic_spell_rime', light: '#7ab8ff',
-    power: 0.6, charges: 1, stamina: 16, windup: 0.26, recovery: 0.36, speed: 11, range: 5,
+    power: 0.8, charges: 1, stamina: 16, windup: 0.26, recovery: 0.36, speed: 11, range: 5,
     color: '#9ad0ff',
     description: 'A shard of frost. What it hits is chilled: its next wind-up is half as long again, which makes the parry easier to land.',
   },
