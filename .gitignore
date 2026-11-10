@@ -21,6 +21,7 @@ upgrades.txt
 king-report.txt
 trace.txt
 fuzz-report.txt
+renown-report.txt
 test-results/
 playwright-report/
 visual-review/

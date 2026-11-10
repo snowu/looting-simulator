@@ -306,7 +306,7 @@ Depth 6 is the bottom (`FINAL_DEPTH = 6`); there are no stairs down, only the wa
 
 **The fight.** 420 HP, 24 attack, 12 defense. It swings when adjacent and fires a **three-bolt shadow volley** when you line up at range 2+. It is immune to shadow, resists pierce (×0.95), takes ×1.5 from holy, and **can never be staggered** out of its wind-up — step out of the tile it aims at, block, or **parry**, which is the one thing that does stagger it and opens a second of double damage. Its volley can be parried a bolt at a time, and the returned bolt is shadow, which it is immune to, so turning his volley back is a way to stay alive rather than a way to hurt him.
 
-**On its death** it drops a guaranteed **Legendary and an Epic item plus a blueprint**, star iron, shadow essence, a jewelled skull, 50% a dragon scale and 150–300 gold — dropped on a tile *beside* the king, because a **portal** opens on the tile he fell on and would otherwise bury the hoard. Killing it is worth **+25 renown** on top of the usual extraction reward (so 39 for a depth-6 extraction).
+**On its death** it drops a guaranteed **Legendary and an Epic item plus a blueprint**, star iron, shadow essence, a jewelled skull, 50% a dragon scale and 150–300 gold — dropped on a tile *beside* the king, because a **portal** opens on the tile he fell on and would otherwise bury the hoard. Killing it is worth **+25 renown** on top of the usual extraction reward (so 58 for a depth-6 extraction).
 
 There is nothing below. Each new run rolls a fresh seed, so depth 6 can be farmed.
 
@@ -1524,7 +1524,7 @@ One or two run at a time, announced the day before as a rumour.
 
 *File: `src/systems/meta.ts`*
 
-**Renown earned:** coming home gives `2 + 2 × deepest depth`, plus 25 for killing the boss — **unless you never went below depth 1, which pays nothing and does not turn the day either** (see section 1). Dying gives `depth − 1`.
+**Renown earned:** coming home gives **4 / 8 / 13 / 20 / 33** for a deepest floor of 2 / 3 / 4 / 5 / 6 (`EXTRACT_RENOWN`), plus 25 for killing the boss — **unless you never went below depth 1, which pays nothing and does not turn the day either** (see section 1). Dying gives `depth − 1`. Each floor down pays about 1.6× the one above because it takes longer to reach and kills more often; a flat `2 + 2 × depth` paid *less per hour* the deeper you went, so farming floor 2 was the fastest way to buy upgrades. `npm run renown` prices runs aimed at each depth under the shipping table.
 
 | Upgrade | Effect per level | Costs |
 |---|---|---|

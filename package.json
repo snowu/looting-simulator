@@ -23,6 +23,7 @@
     "tables": "vitest run --config vitest.playtest.config.ts scripts/tables.bench.ts",
     "upgrades": "vitest run --config vitest.playtest.config.ts scripts/upgrades.bench.ts",
     "find": "vitest run --config vitest.playtest.config.ts scripts/find.bench.ts",
+    "renown": "vitest run --config vitest.playtest.config.ts scripts/renown.bench.ts",
     "fuzz": "vitest run --config vitest.playtest.config.ts scripts/fuzz.bench.ts",
     "mechanics": "vitest run --config vitest.playtest.config.ts scripts/mechanics.bench.ts",
     "patches": "node scripts/check-patches.mjs",

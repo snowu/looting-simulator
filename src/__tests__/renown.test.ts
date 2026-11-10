@@ -11,10 +11,13 @@ describe('renown', () => {
     expect(renownForRun(1, true, false)).toBe(0);
   });
 
-  it('still pays for going down', () => {
-    expect(renownForRun(2, true, false)).toBe(6);
-    expect(renownForRun(6, true, false)).toBe(14);
-    expect(renownForRun(6, true, true)).toBe(39);
+  it('still pays for going down, more for each floor than the last', () => {
+    expect(renownForRun(2, true, false)).toBe(4);
+    expect(renownForRun(6, true, false)).toBe(33);
+    expect(renownForRun(6, true, true)).toBe(58);
+    // Each floor down pays at least half as much again as the one above it,
+    // because it takes longer to reach and kills more often (#128).
+    for (let d = 3; d <= 6; d++) expect(renownForRun(d, true, false)).toBeGreaterThanOrEqual(renownForRun(d - 1, true, false) * 1.5);
   });
 
   it('pays a little for dying deep and nothing for dying at the door', () => {
