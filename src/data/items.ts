@@ -138,7 +138,7 @@ export const ITEM_BASES: ItemBaseDef[] = [
     // that is the trade — see UNIQUES.
     id: 'cane', name: 'Cane', slot: 'weapon', icon: 'ic_cane', viewmodel: 'vm_cane',
     weaponClass: 'blunt', damageType: 'blunt',
-    base: { attack: 8, speed: 4 }, perTier: { attack: 2 }, primary: ['wood'],
+    base: { attack: 8, speed: 4 }, perTier: { attack: 3.5 }, primary: ['wood'],
     swing: { windup: 0.16, recovery: 0.32, staminaCost: 9, reach: 1 },
     value: 40, minDepth: 2, weight: 0,
   },
@@ -160,7 +160,7 @@ export const ITEM_BASES: ItemBaseDef[] = [
     base: { attack: 5 }, perTier: { attack: 1.4 }, primary: ['metal'],
     thrown: {
       stock: 6, stockPerTier: 0.5, windup: 0.16, recovery: 0.15, staminaCost: 9,
-      speed: 9, range: 4, power: 1.8, sprite: 'proj_knife', groundSprite: 'pickup_knives',
+      speed: 9, range: 4, power: 1.53, sprite: 'proj_knife', groundSprite: 'pickup_knives',
     },
     value: 26, minDepth: 2, weight: 1.6,
   },
@@ -169,7 +169,7 @@ export const ITEM_BASES: ItemBaseDef[] = [
     base: { attack: 12 }, perTier: { attack: 2.8 }, primary: ['metal', 'wood'],
     thrown: {
       stock: 4, stockPerTier: 0.5, windup: 0.24, recovery: 0.35, staminaCost: 15,
-      speed: 7, range: 5, power: 1.42, sprite: 'proj_axe_thrown', groundSprite: 'pickup_axes',
+      speed: 7, range: 5, power: 1.21, sprite: 'proj_axe_thrown', groundSprite: 'pickup_axes',
     },
     value: 58, minDepth: 3, weight: 0.9,
   },
@@ -178,7 +178,7 @@ export const ITEM_BASES: ItemBaseDef[] = [
     base: { attack: 17 }, perTier: { attack: 2.9 }, primary: ['metal'],
     thrown: {
       stock: 2, stockPerTier: 0.5, windup: 0.32, recovery: 0.44, staminaCost: 19,
-      speed: 8, range: 7, power: 1.54, sprite: 'proj_javelin', groundSprite: 'pickup_javelins',
+      speed: 8, range: 7, power: 1.31, sprite: 'proj_javelin', groundSprite: 'pickup_javelins',
     },
     value: 88, minDepth: 4, weight: 0.5,
   },
@@ -212,7 +212,10 @@ export const ITEM_BASES: ItemBaseDef[] = [
   {
     id: 'wand', name: 'Wand', slot: 'offhand', icon: 'ic_wand', viewmodel: 'vm_wand',
     base: { attack: 10 }, perTier: { attack: 3 }, primary: ['wood'],
-    conduit: { slots: 2, charges: 3, regrow: 12, castViewmodel: 'vm_wand_lit' },
+    // x1.2 of its Attack: its Ember Bolt was 0.68x a swing, so a Wand was a
+    // worse sword in the off hand (#131). The most it can take while an iron
+    // Rod still out-casts an ironwood Wand, which the Rod line promises.
+    conduit: { slots: 2, charges: 3, regrow: 12, castViewmodel: 'vm_wand_lit', power: 1.2 },
     value: 30, minDepth: 1, weight: 1.2,
   },
   {
