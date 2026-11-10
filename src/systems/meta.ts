@@ -10,7 +10,7 @@ export const META_UPGRADES: MetaUpgrade[] = [
   { id: 'pack_mule', name: 'Pack Mule', description: '+2 backpack slots per level.', costs: [3, 6, 11] },
   { id: 'toughness', name: 'Toughness', description: '+12 max health per level.', costs: [3, 6, 10, 15, 22] },
   { id: 'endurance', name: 'Second Wind', description: '+15 max stamina per level.', costs: [3, 7, 12] },
-  { id: 'soul_pouch', name: 'Soul Pouch', description: 'On death, keep 3 backpack slots and 20% of carried gold per level.', costs: [5, 10, 16] },
+  { id: 'soul_pouch', name: 'Soul Pouch', description: 'On death, keep your 3 most valuable backpack slots and 20% of carried gold per level.', costs: [5, 10, 16] },
   { id: 'haggler', name: 'Silver Tongue', description: 'Merchants pay 4% more and charge 4% less per level.', costs: [4, 8, 13, 20] },
   { id: 'insider', name: 'Market Insider', description: 'L1: price history and trends. L2: hear rumours of tomorrow\'s market event.', costs: [5, 12] },
   { id: 'master_smith', name: 'Master Smith', description: '+6% crafted quality per level. L3: crafted gear rolls an extra affix.', costs: [4, 9, 15] },

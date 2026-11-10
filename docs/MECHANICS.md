@@ -1531,7 +1531,7 @@ One or two run at a time, announced the day before as a rumour.
 | Pack Mule | +2 backpack slots | 3, 6, 11 |
 | Toughness | +12 max health | 3, 6, 10, 15, 22 |
 | Second Wind | +15 max stamina | 3, 7, 12 |
-| Soul Pouch | Keep 3 backpack slots and 20% of carried gold on death | 5, 10, 16 |
+| Soul Pouch | Keep your 3 most valuable backpack slots and 20% of carried gold on death | 5, 10, 16 |
 | Silver Tongue | Merchants pay 4% more, charge 4% less | 4, 8, 13, 20 |
 | Market Insider | L1 price history; L2 tomorrow's event | 5, 12 |
 | Master Smith | +6% crafted quality; L3 an extra affix | 4, 9, 15 |
@@ -1570,7 +1570,7 @@ Five upgrades were **not** repriced, because the harness cannot see them and a n
 - Anything packed that no longer fits when you descend goes back to the stash rather than vanishing.
 - **Stash:** unlimited, in town, and materials merge into single stacks.
 - **Extracting** banks the whole backpack and the gold you carried.
-- **Dying** loses the backpack and your carried gold. Soul Pouch saves the first `3 × level` slots and `20% × level` of the gold. **Equipped gear is always kept.** On **Normal** a death keeps the whole backpack and costs only **10%** of the carried gold, and that tenth is what the Shade holds (see [Difficulty](#14a-difficulty)).
+- **Dying** loses the backpack and your carried gold. Soul Pouch saves your `3 × level` **most valuable** backpack stacks (value × quantity; ties go to whichever you picked up first) and `20% × level` of the gold. **Equipped gear is always kept.** On **Normal** a death keeps the whole backpack and costs only **10%** of the carried gold, and that tenth is what the Shade holds (see [Difficulty](#14a-difficulty)).
 - Coins and keys are picked up automatically; everything else goes through the loot window and needs space.
 
 ---
