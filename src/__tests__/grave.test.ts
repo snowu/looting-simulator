@@ -11,6 +11,8 @@ import { makeEquipment, makeMaterial } from '../systems/items';
 import { Rarity } from '../types';
 import { World } from '../world/world';
 import * as Combat from '../world/combat';
+import { SHADE_SHALLOW, placeShade } from '../systems/grave';
+import { depthPower, generateFloor } from '../systems/dungeon';
 
 interface Private {
   changeFloor(dir: 'down' | 'up'): void;
@@ -111,5 +113,25 @@ describe('the Shade', () => {
     const pile = w.floor.pickups.find((p) => p.x === shade.x && p.y === shade.y)!;
     expect(pile.items.some((i) => i.ref === 'iron' && i.qty === 7)).toBe(true);
     expect(pile.gold).toBeGreaterThanOrEqual(40);
+  });
+});
+
+describe('the Shade on the first floors (#130)', () => {
+  const at = (depth: number) => {
+    const s = newGame(createRng(5));
+    s.difficulty = 'hard';
+    s.grave = { depth, items: [], gold: 10, damageType: 'slash', day: 1 } as never;
+    const f = generateFloor(5, depth, 'hard');
+    return placeShade(s, f, 5, 'hard')!;
+  };
+
+  it('is gentler on floors 1 and 2 and the full menace below them', () => {
+    const base = enemyDef(SHADE_ID);
+    expect(at(1).maxHp).toBe(Math.round(Math.round(base.hp * depthPower(base, 1)) * SHADE_SHALLOW[1]));
+    expect(at(2).maxHp).toBe(Math.round(Math.round(base.hp * depthPower(base, 2)) * SHADE_SHALLOW[2]));
+    expect(at(4).maxHp).toBe(Math.round(base.hp * depthPower(base, 4)));
+    // On floor 1 it is a hard fight, not the strongest thing there by double.
+    expect(at(1).maxHp).toBeLessThan(45);
+    expect(at(1).power).toBeLessThan(1);
   });
 });

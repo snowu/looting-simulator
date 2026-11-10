@@ -323,8 +323,11 @@ export const ENEMIES: EnemyDef[] = [
     description: 'A warm light. It would like you to be warmer.',
   },
   {
+    // Ice shatters: a blunt blow lands whole (blunt x1, where the Ember Wisp
+    // still slips it at x0.7), so a melee build has an answer to the deep
+    // floors' top killer that isn't 'carry fire' (#130).
     id: 'frost_wisp', name: 'Frost Wisp', sprite: 'wisp', scale: 0.6, floats: true,
-    hp: 36, attack: 13, defense: 2, damageType: 'frost', element: 'frost', resist: { frost: 0, fire: 2, blunt: 0.7, slash: 0.8, pierce: 0.6 },
+    hp: 36, attack: 13, defense: 2, damageType: 'frost', element: 'frost', resist: { frost: 0, fire: 2, blunt: 1, slash: 0.8, pierce: 0.6 },
     behavior: 'ranged', step: 0.45, windup: 0.8, recovery: 1.6, sight: 8, range: 4,
     projectile: { sprite: 'proj_frost', speed: 5, damageType: 'frost', light: '#80c0ff' },
     minDepth: 4, maxDepth: 6, weight: 2, glow: '#6aa8ff',

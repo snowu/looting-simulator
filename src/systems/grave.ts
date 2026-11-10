@@ -29,6 +29,8 @@ export interface Grave {
 }
 
 export const SHADE_ID = 'shade';
+/** How much of its power your Shade keeps on the shallow floors, by depth; 1 below them. */
+export const SHADE_SHALLOW: Record<number, number> = { 1: 0.65, 2: 0.8 };
 /** The Shade keeps at least this many steps from the arrival stair. */
 export const SHADE_MIN_DISTANCE = 10;
 
@@ -66,6 +68,14 @@ export function placeShade(state: GameState, floor: Floor, runSeed: number, diff
   const rng = createRng(hashString(`grave:${runSeed}:${floor.depth}`));
   const [x, y] = rng.pick(spots);
   const shade = createEnemy(enemyDef(SHADE_ID), x, y, rng.int(0, 3), 'shade', floor.depth, difficulty);
+  // On the first floors it is gentler: a new player's Shade stood on floor 1
+  // with twice the health of anything else there and out-traded the hero who
+  // had just died to reach it (#130). Deeper, it is the full menace it was.
+  const soften = SHADE_SHALLOW[floor.depth] ?? 1;
+  if (soften !== 1) {
+    shade.power *= soften;
+    shade.hp = shade.maxHp = Math.max(1, Math.round(shade.maxHp * soften));
+  }
   shade.shadeType = grave.damageType;
   floor.enemies.push(shade);
   return shade;

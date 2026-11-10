@@ -12,6 +12,7 @@ import { startRun } from '../systems/run';
 import { World } from '../world/world';
 import { addItem } from '../state/inventory';
 import { Dir, turnAround } from '../core/dir';
+import { enemyDef as enemyDefFor } from '../data/enemies';
 
 /**
  * Difficulty levels: Hard is the game as it was, Normal is the gentler one.
@@ -280,5 +281,13 @@ describe('difficulty in the world', () => {
       return w.player.hp - before;
     };
     expect(healed(normal)).toBeGreaterThan(healed(hard));
+  });
+});
+
+describe('the Frost Wisp (#130)', () => {
+  it('takes a blunt blow whole, where the Ember Wisp still slips it', () => {
+    expect(enemyDefFor('frost_wisp').resist.blunt).toBe(1);
+    expect(enemyDefFor('ember_wisp').resist.blunt).toBe(0.7);
+    for (const t of ['slash', 'pierce'] as const) expect(enemyDefFor('frost_wisp').resist[t]).toBeLessThan(1);
   });
 });
