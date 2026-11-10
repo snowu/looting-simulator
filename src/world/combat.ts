@@ -83,14 +83,17 @@ export function resolvePlayerAttack(w: World): void {
   for (let d = 1; d <= w.derived.swing.reach; d++) {
     const t = w.frontTile(d);
     // A spotted dropper overhead, or any mound, can be struck where it
-    // hides: it comes out early, reeling and open.
-    const hidden = d === 1 ? lurkerAt(f, t.x, t.y) : undefined;
+    // hides: it comes out early, reeling and open. Not past something
+    // standing on that tile, though: the blow lands on what is in front of
+    // you, and the dropper stays up until it lets go by itself, when it looks
+    // for an empty tile to land on.
+    const e = enemyAt(f, t.x, t.y);
+    const hidden = d === 1 && !e ? lurkerAt(f, t.x, t.y) : undefined;
     if (hidden && (hidden.lurk === 'buried' || hidden.spotted)) {
       EnemyAi.knockOut(w, hidden);
       Vitals.wear(w, 'weapon', 2);
       return;
     }
-    const e = enemyAt(f, t.x, t.y);
     if (e) {
       hitEnemy(w, e);
       // 2 per landed blow, 3 on a cleave (was 1/2): ~55 hits to break a

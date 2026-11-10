@@ -20,6 +20,7 @@ balance-tables.txt
 upgrades.txt
 king-report.txt
 trace.txt
+fuzz-report.txt
 test-results/
 playwright-report/
 visual-review/

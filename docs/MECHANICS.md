@@ -29,7 +29,7 @@ Dying ends the day too, but you lose the backpack.
 
 ## 2. The player
 
-*Files: `src/systems/player.ts`, `src/systems/combat.ts`, `src/world/world.ts`*
+*Files: `src/systems/player.ts`, `src/systems/combat.ts`, `src/world/combat.ts`, `src/world/vitals.ts`*
 
 | Property | Value |
 |---|---|
@@ -77,7 +77,7 @@ Raising the guard opens a **0.22s window**. A hit that lands inside it is not ab
 
 A volley can lose up to two closely stacked bolts to one timed parry; the follow-up is spent after the second reflection.
 
-*Files: `src/world/world.ts` — `PARRY_WINDOW`, `CONDUIT_PARRY_WINDOW`, `PARRY_COOLDOWN`, `PARRY_GRACE`, `MELEE_PARRY_*`, `PARRY_STUN`, `PARRY_VULN_MULT`; `src/data/difficulty.ts` — `parryGrace`*
+*Files: `src/world/world.ts` — `PARRY_WINDOW`, `CONDUIT_PARRY_WINDOW`, `PARRY_COOLDOWN`, `PARRY_GRACE`, `PARRY_VULN_MULT`; `src/world/combat.ts` — `MELEE_PARRY_SPLASH_STUN`, `PARRY_STUN`, `parries`; `src/data/difficulty.ts` — `parryGrace`*
 
 **Life leech:** heals `damage × leech%` on every hit that lands, including a blow a raised shield chips. Every leech heal passes through `heal` (`src/world/vitals.ts`), so Eulogy Plate's half, Last Flask and the difficulty's `playerHealing` apply.
 
@@ -152,7 +152,7 @@ The first time you take the down stair on **depth 2**, it splits. A panel shows 
 
 ### Biome laws
 
-*Files: `src/data/laws.ts`, `ossuaryStir` / `collapse` / `noise` / `breakProp` in `src/world/world.ts`*
+*Files: `src/data/laws.ts`, `ossuaryStir` / `collapse` / `noise` in `src/world/enemy-ai.ts`, `breakProp` in `src/world/loot.ts`*
 
 Seven biomes each have one rule you can turn to your advantage; the four elemental ones are built on surfaces. The first time you arrive on such a floor, the log says so.
 
@@ -201,7 +201,7 @@ stair, unidentified like any other relic.
 
 ### Surfaces: oil, water, ice and fire
 
-*Files: `src/data/surfaces.ts` (rules and numbers), `src/systems/surfaces.ts` (placement and state), `updateSurfaces` / `elementReaches` / `freeze` / `slip` / `escapeFire` / `stepOnto` in `src/world/world.ts`*
+*Files: `src/data/surfaces.ts` (rules and numbers), `src/systems/surfaces.ts` (placement and state), `updateSurfaces` / `elementReaches` / `freeze` / `slip` / `escapeFire` in `src/world/hazards.ts`, `stepOnto` in `src/world/enemy-ai.ts`*
 
 Every fresh floor gets **pools** on the floor (`Floor.surfaces`), laid after generation on its own `surface:<runSeed>:<depth>` stream, so the floor itself and every golden hash are unchanged. Floors from before surfaces have none. A pool is 3–6 connected tiles grown from one tile of an ordinary room (normal, end, treasure, shrine), never on a stair or the tile in front of one, a door, a prop, a trap, or in the throne room.
 
@@ -312,7 +312,7 @@ There is nothing below. Each new run rolls a fresh seed, so depth 6 can be farme
 
 ### The King's three phases
 
-*File: `src/data/enemies.ts` (`KING_PHASES`), `src/world/world.ts` (`checkBossPhase`)*
+*File: `src/data/enemies.ts` (`KING_PHASES`), `src/world/boss.ts` (`checkBossPhase`)*
 
 He was a very large trash mob: one telegraph, one volley, and thirty swings of
 health. Then he was a crowd: two Hollow Knights beside him, so a guard that faces
@@ -406,9 +406,24 @@ reflects a bolt, so these are a floor on what a person manages.
 
 *File: `src/data/enemies.ts`*
 
+<!-- generated: monster-stats -->
+
 | Monster | Depths | HP | Atk | Def | Type | Resists / weaknesses | Behaviour | Windup | Recovery | Step | Sight |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| Drowned Bones | 1–3 | 34 | 8 | 3 | blunt | undead: **blunt ×1.5**, slash ×0.6, pierce ×0.55, **fire ×1.4**, frost ×0.6, **holy ×2**, shadow ×0.5 | melee | 0.7 | 1 | 0.7 | 6 |
+| Gravecaller | 2–5 | 34 | 7 | 3 | shadow | undead: **blunt ×1.5**, slash ×0.6, pierce ×0.55, **holy ×2**, shadow ×0.5 | ranged | 0.6 | 1 | 0.5 | 8 |
+| Your Shade | 1–6 | 60 | 12 | 6 | shadow | **holy ×1.5**, shadow ×0.5 | melee | 0.6 | 0.9 | 0.5 | 7 |
+| Goblin Quartermaster | 2–5 | 70 | 10 | 6 | slash | **slash ×1.4**, pierce ×1.25 | melee | 0.5 | 0.8 | 0.45 | 8 |
+| The Hoarder | 2–5 | 90 | 8 | 4 | pierce | slash ×1.3, pierce ×1.2 | skittish | 0.5 | 0.8 | 0.42 | 7 |
+| Tunnel Stalker | 2–4 | 25 | 9 | 1 | pierce | **slash ×1.35**, **fire ×1.5** | skittish | 0.4 | 0.75 | 0.26 | 5 |
+| Ember Archer | 3–5 | 39 | 12 | 4 | fire | pierce ×1.2, fire ×0.5, **frost ×1.6** | ranged, fire bolt, speed 6, range 4 | 0.8 | 1.5 | 0.4 | 8 |
+| Rime Archer | 3–5 | 39 | 12 | 4 | frost | pierce ×1.2, **fire ×1.6**, frost ×0.5 | ranged, frost bolt, speed 6, range 4 | 0.8 | 1.5 | 0.4 | 8 |
+| Gloom Archer | 4–5 | 43 | 13 | 4 | shadow | pierce ×1.2, **holy ×1.7**, shadow ×0.5 | ranged, shadow bolt, speed 6, range 4 | 0.85 | 1.55 | 0.42 | 8 |
+| Dawn Archer | 4–5 | 43 | 13 | 4 | holy | pierce ×1.2, holy ×0.5, **shadow ×1.5** | ranged, holy bolt, speed 6, range 4 | 0.85 | 1.55 | 0.42 | 8 |
+| Icebound Guard | 3–5 | 66 | 13 | 10 | frost | undead: **blunt ×1.5**, slash ×0.6, pierce ×0.55, **fire ×1.7**, frost ×0.4, **holy ×2**, shadow ×0.5 | melee, shield (blocks 70%) | 0.7 | 1.1 | 0.65 | 7 |
+| Spore Hunter | 3–5 | 63 | 14 | 5 | pierce | slash ×1.2, **fire ×1.7**, shadow ×0.7 | skittish | 0.55 | 0.9 | 0.42 | 6 |
 | Giant Rat | 1–3 | 14 | 5 | 0 | pierce | **slash ×1.4**, pierce ×1.3 | melee | 0.38 | 0.65 | 0.3 | 6 |
+| Bog Seraph | 3–5 | 145 | 21 | 13 | pierce | blunt ×0.85, **slash ×1.5** | melee | 0.7 | 1 | 0.65 | 6 |
 | Goblin Cutpurse | 1–4 | 28 | 8 | 2 | slash | **slash ×1.4**, pierce ×1.25 | skittish | 0.45 | 0.7 | 0.4 | 7 |
 | Goblin Archer | 2–4 | 20 | 8 | 1 | pierce | **slash ×1.4**, pierce ×1.25 | ranged, pierce bolt, speed 6.5, range 4 | 0.7 | 1.3 | 0.35 | 8 |
 | Goblin Shieldbearer | 2–4 | 40 | 8 | 6 | slash | **slash ×1.4**, pierce ×1.25 | melee, shield (blocks 75%) | 0.5 | 0.8 | 0.45 | 6 |
@@ -416,6 +431,7 @@ reflects a bolt, so these are a floor on what a person manages.
 | Skeleton | 1–4 | 30 | 9 | 4 | slash | undead: **blunt ×1.5**, slash ×0.6, pierce ×0.55, **holy ×2**, shadow ×0.5 | melee | 0.55 | 0.9 | 0.55 | 7 |
 | Skeleton Archer | 2–5 | 26 | 9 | 4 | pierce | undead: **blunt ×1.5**, slash ×0.6, pierce ×0.55, **holy ×2**, shadow ×0.5 | ranged, pierce bolt, speed 7, range 5 | 0.75 | 1.4 | 0.5 | 8 |
 | Skeleton Shieldguard | 3–5 | 50 | 11 | 9 | slash | undead: **blunt ×1.5**, slash ×0.6, pierce ×0.55, **holy ×2**, shadow ×0.5 | melee, shield (blocks 75%) | 0.6 | 0.9 | 0.55 | 7 |
+| Ceiling Crawler | 2–5 | 30 | 10 | 2 | pierce | slash ×1.3, **pierce ×1.35**, **fire ×1.5** | melee | 0.42 | 0.8 | 0.28 | 5 |
 | Cave Spider | 3–5 | 36 | 11 | 3 | pierce | slash ×1.3, **pierce ×1.35**, **fire ×1.5** | melee | 0.42 | 0.8 | 0.28 | 5 |
 | Ghoul | 3–6 | 72 | 16 | 8 | slash | undead: **slash ×1.35**, pierce ×1.3, fire ×1.3, **holy ×2**, shadow ×0.5 | melee | 0.65 | 1 | 0.75 | 6 |
 | Ember Wisp | 3–5 | 30 | 11 | 2 | fire | blunt ×0.7, slash ×0.8, pierce ×0.6, fire ×0, **frost ×2** | ranged, fire bolt, speed 5.5, range 4, floats | 0.7 | 1.45 | 0.42 | 8 |
@@ -424,7 +440,22 @@ reflects a bolt, so these are a floor on what a person manages.
 | Barrow Champion | 5–6 | 170 | 24 | 14 | blunt | undead: **blunt ×1.5**, slash ×0.55, pierce ×0.5, **holy ×2**, shadow ×0.5 | melee | 0.85 | 1.2 | 0.8 | 7 |
 | Flame Wraith | 5–6 | 82 | 19 | 6 | fire | blunt ×0.7, slash ×0.8, pierce ×0.6, fire ×0, **frost ×2** | ranged, fire bolt, speed 5.5, range 4, floats | 0.75 | 1.4 | 0.5 | 8 |
 | Mimic | any chest | 46 | 13 | 8 | pierce | blunt ×1.25, pierce ×1.1, **fire ×1.35** | melee | 0.52 | 0.8 | 0.32 | 8 |
+| Calf | 2–5 | 22 | 6 | 2 | blunt | blunt ×1.3, slash ×1.25, pierce ×0.85, holy ×0.9 | skittish | 0.42 | 0.7 | 0.34 | 6 |
+| Wandering Heifer | 2–5 | 44 | 10 | 4 | blunt | blunt ×1.3, slash ×1.25, pierce ×0.85, holy ×0.9 | melee | 0.75 | 1.15 | 0.8 | 5 |
+| Bull | 2–5 | 82 | 15 | 7 | blunt | blunt ×1.3, slash ×1.25, pierce ×0.85, holy ×0.9 | melee | 0.8 | 1.1 | 0.6 | 8 |
+| The Prize Bull | 2–5 | 130 | 18 | 10 | blunt | blunt ×1.3, slash ×1.25, pierce ×0.85, holy ×0.9 | melee | 0.85 | 1.15 | 0.55 | 10 |
 | The Ashen King | 6 (boss) | 330 | 32 | 22 | shadow | undead: pierce ×0.95, **holy ×1.5**, shadow ×0 | boss, shadow bolt, speed 4.5, range 3 | 0.8 | 1 | 0.8 | 12 |
+| Scorched Bones | 1–4 | 30 | 9 | 4 | fire | undead: **blunt ×1.5**, slash ×0.6, pierce ×0.55, fire ×0.45, **frost ×1.6**, **holy ×2**, shadow ×0.5 | melee | 0.55 | 0.9 | 0.55 | 7 |
+| Cinder Guard | 3–5 | 50 | 11 | 9 | fire | undead: **blunt ×1.5**, slash ×0.6, pierce ×0.55, fire ×0.45, **frost ×1.6**, **holy ×2**, shadow ×0.5 | melee, shield (blocks 75%) | 0.6 | 0.9 | 0.55 | 7 |
+| Emberback | 3–5 | 36 | 11 | 3 | fire | slash ×1.3, **pierce ×1.35**, fire ×0.45, **frost ×1.6** | melee | 0.42 | 0.8 | 0.28 | 5 |
+| Slagborn | 3–6 | 72 | 16 | 8 | fire | undead: **slash ×1.35**, pierce ×1.3, fire ×0.45, **frost ×1.6**, **holy ×2**, shadow ×0.5 | melee | 0.65 | 1 | 0.75 | 6 |
+| Rimebound | 1–4 | 30 | 9 | 4 | frost | undead: **blunt ×1.5**, slash ×0.6, pierce ×0.55, **fire ×1.6**, frost ×0.45, **holy ×2**, shadow ×0.5 | melee | 0.55 | 0.9 | 0.55 | 7 |
+| Hoarfrost Bat | 1–3 | 16 | 6 | 0 | frost | blunt ×0.85, **slash ×1.4**, pierce ×1.3, **fire ×1.6**, frost ×0.45 | melee, floats | 0.24 | 0.4 | 0.2 | 5 |
+| Frozen Wretch | 3–6 | 72 | 16 | 8 | frost | undead: **slash ×1.35**, pierce ×1.3, **fire ×1.6**, frost ×0.45, **holy ×2**, shadow ×0.5 | melee | 0.65 | 1 | 0.75 | 6 |
+| Glacier Goblin | 2–4 | 40 | 8 | 6 | frost | **slash ×1.4**, pierce ×1.25, **fire ×1.6**, frost ×0.45 | melee, shield (blocks 75%) | 0.5 | 0.8 | 0.45 | 6 |
+| Delver Mole | 1–3 | 32 | 9 | 3 | blunt | blunt ×0.65, slash ×1.3, **pierce ×1.4** | skittish, shield (blocks 55%) | 0.8 | 1 | 0.65 | 5 |
+
+<!-- /generated: monster-stats -->
 
 Spawn weights: Giant Rat 3, Goblin Cutpurse 1 (3 until it learned to steal: a quarter of every depth-1 floor was pickpockets), Goblin Archer 2, Goblin Shieldbearer 1.5, Cave Bat 2.5, Skeleton 2, Skeleton Archer 2, Skeleton Shieldguard 1.5, Cave Spider 3, Ghoul 2, Ember Wisp 2, Frost Wisp 2, Hollow Knight 1.5, Barrow Champion 1.5, Flame Wraith 1.5. The Ember Wisp is the Frost Wisp's shallow counterpart, sharing its sprite rows under a warm palette — it puts the first elemental enemy on depth 3, which had none. Every floor holds at least five kinds, and each gives blunt, slash and pierce something it is good against — depth 6 without the Barrow Champion had no bone left to break, which left the club line with nothing to do on the final floor. Mimics never enter the ordinary spawn pool.
 
@@ -439,9 +470,24 @@ A monster lighter than **55 health** (`STAGGER_HP`) is knocked out of its wind-u
 
 ### Monster drops
 
+<!-- generated: monster-drops -->
+
 | Monster | Materials | Gold | Gear chance |
 |---|---|---|---|
+| Drowned Bones | bone 50% (1–2) | 0–5 | 2.5% |
+| Gravecaller | bone 50% (1–2), ancient tome 6%, shadow essence 4% | 2–10 | 4% |
+| Your Shade | — | 0–0 | — |
+| Goblin Quartermaster | copper ore 60% (2–3), iron ore 40% (1–2) | 15–40 | 25% |
+| The Hoarder | gold nugget 50% (1–2) | 20–50 | 20% |
+| Tunnel Stalker | spider silk 35% | 0–3 | 1% |
+| Ember Archer | flame shard 22%, iron ore 20% | 4–13 | 4% |
+| Rime Archer | frost shard 22%, iron ore 20% | 4–13 | 4% |
+| Gloom Archer | shadow essence 12%, iron ore 20% | 5–15 | 4.5% |
+| Dawn Archer | sunstone 8%, iron ore 20% | 5–15 | 4.5% |
+| Icebound Guard | frost shard 25%, iron ore 30% (1–2) | 2–9 | 4% |
+| Spore Hunter | leather 30% (1–2), crystal shard 13% | 2–10 | 3.5% |
 | Giant Rat | rat hide 42% (1–2), bone 35% | 0–2 | — |
+| Bog Seraph | leather 50% (1–2), bone 35% (1–2), crystal shard 15% | 8–22 | 8% |
 | Goblin Cutpurse | copper ore 35% (1–2), linen 28% (1–2), timber plank 21%, bone idol 14%, bone 35% | 3–12 | 5% |
 | Goblin Archer | copper ore 28% (1–2), linen 21% (1–2), timber plank 21%, yew stave 14%, bone 35% | 2–8 | 3.5% |
 | Goblin Shieldbearer | copper ore 35% (1–2), timber plank 28% (1–2), iron ore 17%, bone 35% | 3–10 | 4% |
@@ -449,21 +495,37 @@ A monster lighter than **55 health** (`STAGGER_HP`) is knocked out of its wind-u
 | Skeleton | bone 49% (1–3), iron ore 24% (1–2) | 0–6 | 4% |
 | Skeleton Archer | bone 42% (1–2), yew stave 17%, timber plank 21% | 0–8 | 3.5% |
 | Skeleton Shieldguard | bone 49% (1–3), iron ore 28% (1–2) | 2–8 | 4% |
+| Ceiling Crawler | spider silk 50% (1–2), bone 30% | 0–5 | 3% |
 | Cave Spider | spider silk 42% (1–2), crystal shard 6%, bone 35% | 0–4 | 2% |
 | Ghoul | leather 35% (1–2), bone 42% (1–3), silver chalice 14% | 5–20 | 7% |
 | Ember Wisp | flame shard 21%, crystal shard 24% (1–2), sunstone 6% | 0–5 | 3% |
 | Frost Wisp | frost shard 32%, crystal shard 24% (1–2), moonstone 6% | 0–5 | 3% |
-| Hollow Knight | iron ore 56% (2–3), silver ingot 28% (1–2), moonsilver 6%, gilded candelabra 7% | 10–40 | 16% |
-| Barrow Champion | bone 63% (2–4), silver ingot 32% (1–2), moonsilver 8%, ancient tome 7% | 10–34 | 8% |
-| Flame Wraith | flame shard 32%, gold nugget 14%, emerald 6%, shadow essence 4%, ancient tome 6% | 5–25 | 9% |
+| Hollow Knight | iron ore 56% (2–3), silver ingot 28% (1–2), moonsilver 6%, wardstone 6%, gilded candelabra 7% | 10–40 | 16% |
+| Barrow Champion | bone 63% (2–4), silver ingot 32% (1–2), moonsilver 8%, wardstone 6%, ancient tome 7% | 10–34 | 8% |
+| Flame Wraith | flame shard 32%, gold nugget 14%, emerald 6%, shadow essence 4%, wardstone 5%, ancient tome 6% | 5–25 | 9% |
 | Mimic | — | 0–0 | — |
+| Calf | leather 45% (1–2) | 0–4 | 3% |
+| Wandering Heifer | leather 60% (1–3), bone 30% (1–2) | 0–8 | 6% |
+| Bull | leather 70% (2–4), iron ore 30% (1–2) | 4–18 | 12% |
+| The Prize Bull | leather 100% (3–5), star iron 18% | 40–90 | 40% |
 | The Ashen King | star iron 100% (1–2), shadow essence 100% (1–2), dragon scale 50%, jeweled skull 100% | 150–300 | 100% |
+| Scorched Bones | flame shard 49% (1–3), iron ore 24% (1–2) | 0–6 | 4% |
+| Cinder Guard | flame shard 49% (1–3), iron ore 28% (1–2) | 2–8 | 4% |
+| Emberback | flame shard 42% (1–2), crystal shard 6%, bone 35% | 0–4 | 2% |
+| Slagborn | flame shard 35% (1–2), bone 42% (1–3), silver chalice 14% | 5–20 | 7% |
+| Rimebound | frost shard 49% (1–3), iron ore 24% (1–2) | 0–6 | 4% |
+| Hoarfrost Bat | frost shard 35%, leather 15% | 0–3 | 1.5% |
+| Frozen Wretch | frost shard 35% (1–2), bone 42% (1–3), silver chalice 14% | 5–20 | 7% |
+| Glacier Goblin | frost shard 35% (1–2), timber plank 28% (1–2), iron ore 17%, bone 35% | 3–10 | 4% |
+| Delver Mole | rat hide 42% (1–2), bone 35%, copper ore 25% (1–2) | 0–4 | 2% |
+
+<!-- /generated: monster-drops -->
 
 Eligible monsters independently roll a morsel at `0.28 − 0.024 × (depth − 1)`; loot find does not modify it. Blueprint chance remains `0.8% + 0.4% × min(6, depth)`. Loot find multiplies material chances by `1 + find/200` and gear chance by `1 + find/100`.
 
 ### Monster AI
 
-*File: `src/world/world.ts`*
+*File: `src/world/enemy-ai.ts`*
 
 - **Idle / wander:** a step every 1.2–3.2s, staying within 3 tiles of where it spawned.
 - **Noticing you:** needs line of sight within its sight range; walls, pillars and closed doors block it. Alert lasts 6 seconds after losing sight (8 if you hit it), during which it paths to where it last saw you.
@@ -522,7 +584,7 @@ script**.
 
 ### Floor lieutenants
 
-*Files: `src/data/lieutenants.ts`, `placeLieutenant` / `rally` / `updateHoarder` / `lieutenantFalls` in `src/world/world.ts`*
+*Files: `src/data/lieutenants.ts`, `placeLieutenant` / `lieutenantFalls` in `src/world/features.ts`, `rally` / `updateHoarder` in `src/world/enemy-ai.ts`*
 
 When a floor from **depth 2 to 5** is first generated in a delve, it has a **40%** chance of a **lieutenant**, rolled on its own stream (`lt:<runSeed>:<depth>`). Never on the throne floor, placed at least 10 steps from the arrival stair, and announced by a clue in the log rather than by name.
 
@@ -535,7 +597,7 @@ Clues: *"The goblins here move in formation. Somewhere on this floor, someone is
 
 ### The Gravecaller and remains
 
-*Files: `src/data/necromancy.ts`, the Gravecaller pass at the end of generation in `src/systems/dungeon.ts`, `markRemains` / `updateRaiser` / `raiseCorpse` in `src/world/world.ts`*
+*Files: `src/data/necromancy.ts`, the Gravecaller pass at the end of generation in `src/systems/dungeon.ts`, `markRemains` / `updateRaiser` / `raiseCorpse` in `src/world/enemy-ai.ts`*
 
 **The Gravecaller** is a hooded skeleton with a skull-topped staff: 34 health, 7 shadow attack, undead resistances (weak to blunt and holy), sight 8. It is never in the ordinary spawn pool. Its own pass places one on an **Ossuary or Catacombs** floor at depth 2+, with a `50% + 10% × (depth − 2)` chance, in a room that already has undead in it where possible. Those biomes only appear at depths 1–3, so in practice that means depths 2–3. It keeps about 3 tiles away and only swings if cornered.
 
@@ -550,7 +612,7 @@ The log says so ("The bones shatter…", "The remains are sanctified…") when a
 
 ### Ambushers
 
-*Files: `src/data/ambush.ts`, the ambush pass at the end of generation in `src/systems/dungeon.ts`, `updateLurker` / `emerge` / `knockOut` / `dive` in `src/world/world.ts`*
+*Files: `src/data/ambush.ts`, the ambush pass at the end of generation in `src/systems/dungeon.ts`, `updateLurker` / `emerge` / `knockOut` / `dive` in `src/world/enemy-ai.ts`*
 
 Some monsters are not standing where you can see them. A **lurker** (`EnemyState.lurk`) clings to the ceiling or lies under the floor. Until it comes out it is not on its tile for any purpose: you walk under or over it, bolts pass it, it does not block other monsters, it doesn't count as a nearby threat (so it can't give itself away by stopping tap-to-loot), it doesn't show on the map, and it throws no light, not even as an elite.
 
@@ -565,7 +627,7 @@ Some monsters are not standing where you can see them. A **lurker** (`EnemyState
 | The tell | **0.6s** (`DROP_SECONDS`) of falling, with dust and a skitter: "Dust sifts down from above — something skitters!" | **0.4s** of rumble: "The ground heaves!" |
 | Strike it first | A spotted dropper on the tile you face can be hit from below | Any mound on the tile you face can be hit |
 
-**Struck where it hides**, a lurker comes out at once, reeling for **1.5s** (`KNOCKOUT_STUN`) and open to double damage like a parried monster. The one-button tap swings at a visible lurker in front of you.
+**Struck where it hides**, a lurker comes out at once, reeling for **1.5s** (`KNOCKOUT_STUN`) and open to double damage like a parried monster. The one-button tap swings at a visible lurker in front of you. A monster standing on that tile takes the blow instead: you hit what is in front of you, and the lurker above or below stays put until it comes out on its own, onto a free tile.
 
 **The Delver Mole dives.** Once per life, below **35%** health, it goes under instead of fleeing. It travels as a mound one tile per **0.45s** (slower than you walk), heading greedily for the tile at your back, for **2–4s** or until it is beside you. Then it surfaces, preferring your back, under the same no-damage rule.
 
@@ -595,7 +657,7 @@ Every elite has **×1.5 health** on top of the depth curve (Ironhide ×1.875 in 
 
 ## 6. Interacting
 
-*File: `src/world/world.ts`*
+*Files: `interact` in `src/world/world.ts`, `src/world/shrines.ts`, `src/world/loot.ts`*
 
 | Thing | What happens |
 |---|---|
@@ -656,7 +718,7 @@ Diablo's, in short: a two-way door that costs one scroll for the round trip.
 
 ### Cracked walls
 
-*Files: `src/data/walls.ts`, `placeCracks` in `src/systems/dungeon.ts`, `strikeCrack` in `src/world/world.ts`, the cracked-wall box in `src/render/level-mesh.ts`*
+*Files: `src/data/walls.ts`, `placeCracks` in `src/systems/dungeon.ts`, `strikeCrack` in `src/world/enemy-ai.ts`, the cracked-wall box in `src/render/level-mesh.ts`*
 
 Some wall tiles are **cracked**: the biome's own wall with a fissure drawn over it. Any weapon breaks one in **3 blows** (`CRACK_BLOWS`), by decision, to be revisited after play. One quiet exception, kept as an easter egg and left out of the patch notes on purpose: an unbroken **Mining Pick** brings any cracked wall down in **one** blow ("The pick finds the fault line."). Every blow:
 - **wears your weapon** by 2, like a landed hit
@@ -678,7 +740,7 @@ The one-button tap swings at a cracked wall you face.
 
 ## 6a. Traps
 
-*Files: `src/systems/dungeon.ts` (placement), `src/world/world.ts` (`TRAPS`, spotting, springing)*
+*Files: `src/systems/dungeon.ts` (placement), `src/world/world.ts` (`TRAPS`), `src/world/traps.ts` (spotting, springing)*
 
 Every trap starts **hidden and armed**. You spot one by looking at it: the tiles ahead down a clear line (**two**, or **three** with Lantern Wick) and the four tiles beside you are checked on every step and every turn. Spotting is not a dice roll — it is whether you were looking. A held W down a corridor gives you one step of warning, which is the whole point.
 
@@ -1103,7 +1165,7 @@ A landed shaft is a `Pickup`, never a resting `Projectile`: `updateProjectiles` 
 
 ## 9a. Sigils
 
-*Files: `src/data/spells.ts`, `src/systems/spells.ts`, `src/world/world.ts` — `castSigil`, `resolveSigil`, `refundSigil`*
+*Files: `src/data/spells.ts`, `src/systems/spells.ts`, `src/world/world.ts` — `castSigil`; `src/world/sigils.ts` — `resolveSigil`, `refundSigil`*
 
 Five sigils exist and **you carry exactly one**, chosen in Bleakmere before you descend. That single constraint is the whole design: you can never hold both the escape and the control, so a fight is played with the tool you guessed at upstairs.
 
@@ -1160,7 +1222,7 @@ A stone is **inscribed at the forge**, on its *Sigils* bench, which consumes it 
 
 ### Delve Oaths
 
-*Files: `src/data/oaths.ts`, `src/systems/oaths.ts`, the hooks in `src/world/world.ts`, the Oath Stone in the Descend panel (`src/ui/town.ts`)*
+*Files: `src/data/oaths.ts`, `src/systems/oaths.ts`, the hooks in `src/world/`, the Oath Stone in the Descend panel (`src/ui/town.ts`)*
 
 Pressing **Descend** for a new delve opens a *Before you go down* panel. Its **Oath Stone** offers **today's oaths**: **two hard and three medium**, drawn from the pool by the playthrough and the day (`oathsForDay`), so the offer turns with the days. **Swear as many as you dare**, or none; each takes hold when you descend (`run.oaths`) and is kept or broken on its own. **Not yet** (or Esc, or a click outside) closes the panel. Returning through a town portal or resuming an open delve skips it.
 
@@ -1197,7 +1259,7 @@ Once the Ashen King has fallen to this playthrough (read from the bestiary's kil
 
 ### Build properties
 
-*Files: `src/data/properties.ts`, `src/systems/properties.ts`, `applyProperty` in `src/systems/player.ts`, the hooks in `src/world/world.ts`, the Inscribe bench in `src/ui/town.ts`*
+*Files: `src/data/properties.ts`, `src/systems/properties.ts`, `applyProperty` in `src/systems/player.ts`, the hooks in `src/world/`, the Inscribe bench in `src/ui/town.ts`*
 
 A property is an effect that changes how a combat verb plays. Properties are **learned** (Delve Oaths pay them out) and kept for good in `state.properties`. At the forge's **Inscribe** bench you put a learned property onto a piece of gear, worn or stashed, for **150 gold** (`INSCRIBE_COST`). Each item holds one property, and inscribing again replaces it. Relics can't take one, and a property only counts on identified gear worn in a slot it was made for.
 
@@ -1218,7 +1280,7 @@ Riposte, Bulwark, the parry vulnerability and Marrow all multiply together. The 
 
 Added in save revision 30, additively: older saves learn Ember Bolt, load it, and learn the Wand recipe.
 
-*Files: `src/data/conduit-spells.ts`, `src/systems/conduits.ts`, `spellView` in `src/systems/player.ts`, `src/world/world.ts` — `castSpell`, `castHitscan`, `spellLands`, `hexLands`, `updateHexed`, `updateAfflictions`, `updateConduit`, `refundConduit`*
+*Files: `src/data/conduit-spells.ts`, `src/systems/conduits.ts`, `spellView` in `src/systems/player.ts`, `src/world/world.ts` — `castSpell`; `src/world/spells.ts` — `castHitscan`, `spellLands`, `hexLands`, `updateHexed`, `updateConduit`, `refundConduit`; `src/world/hazards.ts` — `updateAfflictions`*
 
 A **conduit** is an offhand that casts instead of guarding: the battlemage's trade. It is not a sigil — sigils stay one utility stone on a long cooldown. The one exception to "offhand" is the **Stave**, a two-handed weapon that is a conduit as well.
 
@@ -1266,7 +1328,7 @@ So the loop is cast, close, strike, cast: standing back and casting runs the poo
 
 Added in save revision 31, additively: older saves know no rites, and no floor has heard one cast.
 
-*Files: `src/data/rites.ts`, `src/systems/rite-draw.ts`, `World.beginRiteDraw/addRitePoint/endRiteDraw` and `castMeteor/castGlacialTomb/castJudgement/castPenguining`, `placeRiteCarving/placeKingCarving/studyCarving` in `src/world/world.ts`*
+*Files: `src/data/rites.ts`, `src/systems/rite-draw.ts`, `beginRiteDraw` / `addRitePoint` / `endRiteDraw` in `src/world/world.ts`, `castMeteor` / `castGlacialTomb` / `castJudgement` / `castPenguining` in `src/world/spells.ts`, `placeRiteCarving` / `placeKingCarving` / `studyCarving` in `src/world/features.ts`*
 
 A **rite** is a sigil you draw: a powerful room spell, cast by a deliberate drawing gesture. There are four, one per element:
 
@@ -1515,7 +1577,7 @@ Five upgrades were **not** repriced, because the harness cannot see them and a n
 
 ### The corpse run
 
-*Files: `src/systems/grave.ts`, `endRun` in `src/systems/run.ts`, the Shade hooks in `src/world/world.ts`*
+*Files: `src/systems/grave.ts`, `endRun` in `src/systems/run.ts`, the Shade hooks in `src/world/`*
 
 When you die, what you lost (the backpack beyond any Soul Pouch slots, and the carried coin beyond its share) goes into a **grave** on the depth where you fell (`state.grave`). The next delve that reaches that depth finds **Your Shade** there, at least **10** steps from the arrival stair and never in the throne room. Its stats: 60 health, 12 attack, 6 defense, holy ×1.5, shadow ×0.5, scaled by depth like any monster. It strikes with the **damage type of the weapon you fell holding**, is drawn as a pale, cold version of the knight's frame, and glows blue. **Kill it and the whole pack drops where it stood**, coin included. Only one grave exists at a time: **die again before reclaiming it and it is replaced**, and the old pack is gone for good. Coming home without reclaiming it leaves it where it is. The Shade is placed once per delve (`run.shadePlaced`), and never on **Hardcore**, where a death ends the save. The town news and the results screen say where it waits.
 

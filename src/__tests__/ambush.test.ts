@@ -164,3 +164,32 @@ describe('burrowers', () => {
     expect(mole.lurk).toBeUndefined();
   });
 });
+
+describe('a monster standing under a dropper', () => {
+  // Found by the fuzzer (#126): a spider walked under a spotted Ceiling
+  // Crawler, the swing at the spider knocked the crawler down instead, and
+  // the two stood on one tile.
+  it('takes the blow aimed at its tile, and the dropper stays up', () => {
+    const w = arena();
+    const crawler = lurker(w, 'ceiling_crawler', 'ceiling', 1);
+    crawler.spotted = true;
+    const t = w.frontTile(1);
+    const spider = createEnemy(enemyDef('spider'), t.x, t.y, turnAround(w.player.facing), 'under', 2);
+    spider.hp = spider.maxHp = 1000;
+    w.floor.enemies.push(spider);
+    Combat.resolvePlayerAttack(w);
+    expect(spider.hp).toBeLessThan(1000);
+    expect(crawler.lurk).toBe('ceiling');
+    expect(enemyAt(w.floor, t.x, t.y)).toBe(spider);
+    expect(w.floor.enemies.filter((e) => !e.lurk && e.ai !== 'dead' && e.x === t.x && e.y === t.y)).toHaveLength(1);
+  });
+
+  it('still knocks a spotted dropper down when nothing stands beneath it', () => {
+    const w = arena();
+    const crawler = lurker(w, 'ceiling_crawler', 'ceiling', 1);
+    crawler.spotted = true;
+    Combat.resolvePlayerAttack(w);
+    expect(crawler.lurk).toBeUndefined();
+    expect(crawler.ai).toBe('recover');
+  });
+});
