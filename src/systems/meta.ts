@@ -91,5 +91,14 @@ export function haggleLevel(levels: MetaLevels): number {
 export function renownForRun(depthReached: number, extracted: boolean, bossKilled: boolean): number {
   if (!extracted) return Math.max(0, depthReached - 1);
   if (depthReached <= 1) return 0;
-  return 2 + depthReached * 2 + (bossKilled ? 25 : 0);
+  return (EXTRACT_RENOWN[Math.min(depthReached, EXTRACT_RENOWN.length - 1)] ?? 0) + (bossKilled ? 25 : 0);
 }
+
+/**
+ * Renown for coming home, by the deepest floor reached. It grows about 1.6x a
+ * floor because each floor down takes longer and kills more often: it used to
+ * be 2 + 2 x depth, which paid less per hour the deeper you went, so the
+ * quickest way to buy upgrades was to farm floor 2 forever (92 an hour in
+ * top gear, against 49 aiming for floor 6). `npm run renown` measures it.
+ */
+export const EXTRACT_RENOWN = [0, 0, 4, 8, 13, 20, 33];

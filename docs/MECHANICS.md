@@ -306,7 +306,7 @@ Depth 6 is the bottom (`FINAL_DEPTH = 6`); there are no stairs down, only the wa
 
 **The fight.** 420 HP, 24 attack, 12 defense. It swings when adjacent and fires a **three-bolt shadow volley** when you line up at range 2+. It is immune to shadow, resists pierce (×0.95), takes ×1.5 from holy, and **can never be staggered** out of its wind-up — step out of the tile it aims at, block, or **parry**, which is the one thing that does stagger it and opens a second of double damage. Its volley can be parried a bolt at a time, and the returned bolt is shadow, which it is immune to, so turning his volley back is a way to stay alive rather than a way to hurt him.
 
-**On its death** it drops a guaranteed **Legendary and an Epic item plus a blueprint**, star iron, shadow essence, a jewelled skull, 50% a dragon scale and 150–300 gold — dropped on a tile *beside* the king, because a **portal** opens on the tile he fell on and would otherwise bury the hoard. Killing it is worth **+25 renown** on top of the usual extraction reward (so 39 for a depth-6 extraction).
+**On its death** it drops a guaranteed **Legendary and an Epic item plus a blueprint**, star iron, shadow essence, a jewelled skull, 50% a dragon scale and 150–300 gold — dropped on a tile *beside* the king, because a **portal** opens on the tile he fell on and would otherwise bury the hoard. Killing it is worth **+25 renown** on top of the usual extraction reward (so 58 for a depth-6 extraction).
 
 There is nothing below. Each new run rolls a fresh seed, so depth 6 can be farmed.
 
@@ -435,7 +435,7 @@ reflects a bolt, so these are a floor on what a person manages.
 | Cave Spider | 3–5 | 36 | 11 | 3 | pierce | slash ×1.3, **pierce ×1.35**, **fire ×1.5** | melee | 0.42 | 0.8 | 0.28 | 5 |
 | Ghoul | 3–6 | 72 | 16 | 8 | slash | undead: **slash ×1.35**, pierce ×1.3, fire ×1.3, **holy ×2**, shadow ×0.5 | melee | 0.65 | 1 | 0.75 | 6 |
 | Ember Wisp | 3–5 | 30 | 11 | 2 | fire | blunt ×0.7, slash ×0.8, pierce ×0.6, fire ×0, **frost ×2** | ranged, fire bolt, speed 5.5, range 4, floats | 0.7 | 1.45 | 0.42 | 8 |
-| Frost Wisp | 4–6 | 36 | 13 | 2 | frost | blunt ×0.7, slash ×0.8, pierce ×0.6, **fire ×2**, frost ×0 | ranged, frost bolt, speed 5, range 4, floats | 0.8 | 1.6 | 0.45 | 8 |
+| Frost Wisp | 4–6 | 36 | 13 | 2 | frost | blunt ×1, slash ×0.8, pierce ×0.6, **fire ×2**, frost ×0 | ranged, frost bolt, speed 5, range 4, floats | 0.8 | 1.6 | 0.45 | 8 |
 | Hollow Knight | 5–6 | 135 | 21 | 20 | slash | undead: blunt ×1.2, slash ×0.7, pierce ×1.25, **holy ×1.6**, shadow ×0.5 | melee, shield (blocks 75%) | 0.7 | 1 | 0.65 | 7 |
 | Barrow Champion | 5–6 | 170 | 24 | 14 | blunt | undead: **blunt ×1.5**, slash ×0.55, pierce ×0.5, **holy ×2**, shadow ×0.5 | melee | 0.85 | 1.2 | 0.8 | 7 |
 | Flame Wraith | 5–6 | 82 | 19 | 6 | fire | blunt ×0.7, slash ×0.8, pierce ×0.6, fire ×0, **frost ×2** | ranged, fire bolt, speed 5.5, range 4, floats | 0.75 | 1.4 | 0.5 | 8 |
@@ -1524,7 +1524,7 @@ One or two run at a time, announced the day before as a rumour.
 
 *File: `src/systems/meta.ts`*
 
-**Renown earned:** coming home gives `2 + 2 × deepest depth`, plus 25 for killing the boss — **unless you never went below depth 1, which pays nothing and does not turn the day either** (see section 1). Dying gives `depth − 1`.
+**Renown earned:** coming home gives **4 / 8 / 13 / 20 / 33** for a deepest floor of 2 / 3 / 4 / 5 / 6 (`EXTRACT_RENOWN`), plus 25 for killing the boss — **unless you never went below depth 1, which pays nothing and does not turn the day either** (see section 1). Dying gives `depth − 1`. Each floor down pays about 1.6× the one above because it takes longer to reach and kills more often; a flat `2 + 2 × depth` paid *less per hour* the deeper you went, so farming floor 2 was the fastest way to buy upgrades. `npm run renown` prices runs aimed at each depth under the shipping table.
 
 | Upgrade | Effect per level | Costs |
 |---|---|---|
@@ -1579,7 +1579,7 @@ Five upgrades were **not** repriced, because the harness cannot see them and a n
 
 *Files: `src/systems/grave.ts`, `endRun` in `src/systems/run.ts`, the Shade hooks in `src/world/`*
 
-When you die, what you lost (the backpack beyond any Soul Pouch slots, and the carried coin beyond its share) goes into a **grave** on the depth where you fell (`state.grave`). The next delve that reaches that depth finds **Your Shade** there, at least **10** steps from the arrival stair and never in the throne room. Its stats: 60 health, 12 attack, 6 defense, holy ×1.5, shadow ×0.5, scaled by depth like any monster. It strikes with the **damage type of the weapon you fell holding**, is drawn as a pale, cold version of the knight's frame, and glows blue. **Kill it and the whole pack drops where it stood**, coin included. Only one grave exists at a time: **die again before reclaiming it and it is replaced**, and the old pack is gone for good. Coming home without reclaiming it leaves it where it is. The Shade is placed once per delve (`run.shadePlaced`), and never on **Hardcore**, where a death ends the save. The town news and the results screen say where it waits.
+When you die, what you lost (the backpack beyond any Soul Pouch slots, and the carried coin beyond its share) goes into a **grave** on the depth where you fell (`state.grave`). The next delve that reaches that depth finds **Your Shade** there, at least **10** steps from the arrival stair and never in the throne room. Its stats: 60 health, 12 attack, 6 defense, holy ×1.5, shadow ×0.5, scaled by depth like any monster, then kept to **65%** of that power on floor 1 and **80%** on floor 2 (`SHADE_SHALLOW`; about 39 health on floor 1). A new player's Shade used to be twice as tough as anything else on floor 1 and out-traded the hero who had just died to reach it; from floor 3 down it is the full menace. It strikes with the **damage type of the weapon you fell holding**, is drawn as a pale, cold version of the knight's frame, and glows blue. **Kill it and the whole pack drops where it stood**, coin included. Only one grave exists at a time: **die again before reclaiming it and it is replaced**, and the old pack is gone for good. Coming home without reclaiming it leaves it where it is. The Shade is placed once per delve (`run.shadePlaced`), and never on **Hardcore**, where a death ends the save. The town news and the results screen say where it waits.
 
 ## 14a. Difficulty
 
